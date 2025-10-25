@@ -10,7 +10,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     // 设置默认配置
     chrome.storage.sync.set({
         petSettings: {
-            size: 80,
+            size: 60,
             color: 0,
             visible: true,
             autoStart: true
@@ -18,7 +18,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         petGlobalState: {
             visible: true,
             color: 0,
-            size: 80,
+            size: 60,
             position: { x: 20, y: 20 },
             timestamp: Date.now()
         }

@@ -10,7 +10,7 @@ class PetManager {
         this.pet = null;
         this.isVisible = true;
         this.colorIndex = 0;
-        this.size = 80;
+        this.size = 60;
         this.position = { x: 20, y: 20 };
         
         this.colors = [
@@ -376,7 +376,7 @@ class PetManager {
                     const state = result.petGlobalState;
                     this.isVisible = state.visible !== undefined ? state.visible : true;
                     this.colorIndex = state.color !== undefined ? state.color : 0;
-                    this.size = state.size !== undefined ? state.size : 80;
+                    this.size = state.size !== undefined ? state.size : 60;
                     // 位置也使用全局状态，但会进行边界检查
                     this.position = this.validatePosition(state.position || { x: 20, y: 20 });
                     console.log('宠物全局状态已恢复:', state);
@@ -421,7 +421,7 @@ class PetManager {
                 const state = JSON.parse(savedState);
                 this.isVisible = state.visible !== undefined ? state.visible : true;
                 this.colorIndex = state.color !== undefined ? state.color : 0;
-                this.size = state.size !== undefined ? state.size : 80;
+                this.size = state.size !== undefined ? state.size : 60;
                 this.position = state.position || { x: 20, y: 20 };
                 console.log('宠物本地状态已恢复:', state);
                 return true;

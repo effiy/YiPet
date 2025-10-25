@@ -8,7 +8,7 @@ class PopupController {
         this.petStatus = {
             visible: true,
             color: 0,
-            size: 80,
+            size: 60,
             position: { x: 0, y: 0 }
         };
         
@@ -124,7 +124,7 @@ class PopupController {
                     this.petStatus = {
                         visible: response.visible !== undefined ? response.visible : true,
                         color: response.color !== undefined ? response.color : 0,
-                        size: response.size !== undefined ? response.size : 80,
+                        size: response.size !== undefined ? response.size : 60,
                         position: response.position || { x: 20, y: 20 }
                     };
                 } else {
@@ -148,7 +148,7 @@ class PopupController {
                     resolve({
                         visible: state.visible !== undefined ? state.visible : true,
                         color: state.color !== undefined ? state.color : 0,
-                        size: state.size !== undefined ? state.size : 80,
+                        size: state.size !== undefined ? state.size : 60,
                         position: state.position || { x: 20, y: 20 }
                     });
                 } else {

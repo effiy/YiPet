@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可拖拽小宠物</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <div class="header">
+            <div class="logo">
+                <span class="pet-emoji">🐾</span>
+                <h1>小宠物</h1>
+            </div>
+            <div class="status-indicator" id="statusIndicator">
+                <span class="status-dot"></span>
+                <span class="status-text">已激活</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="control-section">
+                <h3>基本控制</h3>
+                <div class="control-group">
+                    <button id="toggleBtn" class="control-btn primary">
+                        <span class="btn-icon">👁️</span>
+                        <span class="btn-text">隐藏宠物</span>
+                    </button>
+                    <button id="colorBtn" class="control-btn secondary">
+                        <span class="btn-icon">🎨</span>
+                        <span class="btn-text">换颜色</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>宠物设置</h3>
+                <div class="setting-group">
+                    <label for="sizeSlider" class="setting-label">
+                        <span class="label-icon">📏</span>
+                        大小: <span id="sizeValue">80</span>px
+                    </label>
+                    <input type="range" id="sizeSlider" min="40" max="120" value="80" class="slider">
+                </div>
+                
+                <div class="setting-group">
+                    <label for="colorSelect" class="setting-label">
+                        <span class="label-icon">🌈</span>
+                        颜色主题
+                    </label>
+                    <select id="colorSelect" class="select">
+                        <option value="0">红色系</option>
+                        <option value="1">绿色系</option>
+                        <option value="2">粉色系</option>
+                        <option value="3">蓝色系</option>
+                        <option value="4">黄色系</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>快捷操作</h3>
+                <div class="control-group">
+                    <button id="resetBtn" class="control-btn warning">
+                        <span class="btn-icon">🔄</span>
+                        <span class="btn-text">重置位置</span>
+                    </button>
+                    <button id="centerBtn" class="control-btn info">
+                        <span class="btn-icon">🎯</span>
+                        <span class="btn-text">居中显示</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="info-text">
+                <p>💡 点击并拖拽宠物到任意位置</p>
+                <p>🎮 在网页中与宠物互动</p>
+            </div>
+            <div class="version">
+                <span>v1.0.0</span>
+            </div>
+        </div>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
+

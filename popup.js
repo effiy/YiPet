@@ -104,6 +104,7 @@ class PopupController {
                 this.centerPet();
             });
         }
+        
     }
     
     async loadPetStatus() {
@@ -508,6 +509,7 @@ class PopupController {
         }
     }
     
+
     showNotification(message, type = 'success') {
         // 创建通知元素
         const notification = document.createElement('div');

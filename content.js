@@ -12,6 +12,8 @@ class PetManager {
         this.colorIndex = 0;
         this.size = 60;
         this.position = { x: 20, y: 20 };
+        this.chatWindow = null;
+        this.isChatOpen = false;
         
         this.colors = [
             'linear-gradient(135deg, #ff6b6b, #ff8e8e)', // 红色系
@@ -94,6 +96,13 @@ class PetManager {
                 case 'globalStateUpdated':
                     this.handleGlobalStateUpdate(request.data);
                     sendResponse({ success: true });
+                    break;
+                    
+                case 'chatWithPet':
+                    // 添加聊天动画效果
+                    this.playChatAnimation();
+                    const reply = this.generatePetResponse(request.message);
+                    sendResponse({ success: true, reply: reply });
                     break;
                     
                 default:
@@ -268,6 +277,9 @@ class PetManager {
                     this.pet.style.transform = 'scale(1)';
                 }
             }, 150);
+            
+            // 切换聊天窗口
+            this.toggleChatWindow();
         });
     }
     
@@ -484,6 +496,586 @@ class PetManager {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
         }
+    }
+    
+    // 生成宠物响应
+    generatePetResponse(message) {
+        const lowerMessage = message.toLowerCase();
+        
+        // 问候语响应
+        if (lowerMessage.includes('你好') || lowerMessage.includes('hi') || lowerMessage.includes('hello')) {
+            return this.getRandomResponse([
+                '你好！很高兴见到你！😊',
+                '嗨！今天过得怎么样？✨',
+                '你好呀！有什么想聊的吗？💕'
+            ]);
+        }
+        
+        // 感谢响应
+        if (lowerMessage.includes('谢谢') || lowerMessage.includes('thank')) {
+            return this.getRandomResponse([
+                '不客气！我很乐意帮助你！💕',
+                '不用谢！这是我应该做的！😊',
+                '能帮到你我很开心！✨'
+            ]);
+        }
+        
+        // 告别响应
+        if (lowerMessage.includes('再见') || lowerMessage.includes('bye') || lowerMessage.includes('拜拜')) {
+            return this.getRandomResponse([
+                '再见！期待下次和你聊天！👋',
+                '拜拜！记得想我哦！💖',
+                '再见啦！我会想你的！😊'
+            ]);
+        }
+        
+        // 情感响应
+        if (lowerMessage.includes('爱') || lowerMessage.includes('love')) {
+            return this.getRandomResponse([
+                '我也爱你！💖',
+                '你是我最爱的朋友！💕',
+                '我也很爱你！这让我很开心！😊'
+            ]);
+        }
+        
+        if (lowerMessage.includes('开心') || lowerMessage.includes('happy') || lowerMessage.includes('高兴')) {
+            return this.getRandomResponse([
+                '我也很开心！😄',
+                '看到你开心我也很开心！✨',
+                '太好了！让我们一起开心吧！🎉'
+            ]);
+        }
+        
+        if (lowerMessage.includes('难过') || lowerMessage.includes('sad') || lowerMessage.includes('伤心')) {
+            return this.getRandomResponse([
+                '别难过，我会陪着你的！🤗',
+                '抱抱你！一切都会好起来的！💕',
+                '我在这里陪着你，不要难过！😊'
+            ]);
+        }
+        
+        if (lowerMessage.includes('累') || lowerMessage.includes('tired') || lowerMessage.includes('疲惫')) {
+            return this.getRandomResponse([
+                '好好休息一下吧！我会在这里等你的！😴',
+                '累了就休息，身体最重要！💤',
+                '休息好了再来找我玩吧！😊'
+            ]);
+        }
+        
+        // 夸奖响应
+        if (lowerMessage.includes('棒') || lowerMessage.includes('好') || lowerMessage.includes('厉害')) {
+            return this.getRandomResponse([
+                '谢谢你的夸奖！你也很棒！🌟',
+                '你这么说让我很开心！😊',
+                '你也很厉害呢！💪'
+            ]);
+        }
+        
+        // 问题响应
+        if (lowerMessage.includes('？') || lowerMessage.includes('?') || lowerMessage.includes('什么') || lowerMessage.includes('怎么')) {
+            return this.getRandomResponse([
+                '这是个很有趣的问题！让我想想...🤔',
+                '嗯...我觉得这个问题很有意思！💭',
+                '你问得很好！虽然我不太确定答案...😅'
+            ]);
+        }
+        
+        // 时间相关响应
+        if (lowerMessage.includes('时间') || lowerMessage.includes('几点') || lowerMessage.includes('time')) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            return `现在的时间是 ${timeStr}！⏰`;
+        }
+        
+        // 天气相关响应
+        if (lowerMessage.includes('天气') || lowerMessage.includes('weather')) {
+            return this.getRandomResponse([
+                '今天的天气看起来不错呢！☀️',
+                '希望今天是个好天气！🌤️',
+                '天气好的时候心情也会很好！😊'
+            ]);
+        }
+        
+        // 学习相关响应
+        if (lowerMessage.includes('学习') || lowerMessage.includes('study') || lowerMessage.includes('工作')) {
+            return this.getRandomResponse([
+                '学习加油！我相信你可以的！📚',
+                '工作辛苦了！记得适当休息！💪',
+                '努力的人最棒了！🌟'
+            ]);
+        }
+        
+        // 食物相关响应
+        if (lowerMessage.includes('吃') || lowerMessage.includes('饿') || lowerMessage.includes('food')) {
+            return this.getRandomResponse([
+                '我也想吃好吃的！🍎',
+                '记得按时吃饭哦！🍽️',
+                '美食总是让人心情愉悦！😋'
+            ]);
+        }
+        
+        // 默认响应
+        return this.getRandomResponse([
+            '真的吗？太有趣了！😊',
+            '哇，听起来很棒呢！✨',
+            '我明白了，谢谢你告诉我！💕',
+            '这让我很开心！😄',
+            '你总是这么有趣！🎉',
+            '我很喜欢和你聊天！💖',
+            '这真是太棒了！🌟',
+            '你让我学到了新东西！📚',
+            '和你聊天总是让我很开心！😊',
+            '谢谢你的分享！🙏',
+            '听起来很有意思！🤔',
+            '你真是个有趣的人！😄',
+            '我很喜欢听你说话！💕',
+            '这让我想起了美好的事情！✨',
+            '你总是能让我开心！😊'
+        ]);
+    }
+    
+    // 获取随机响应
+    getRandomResponse(responses) {
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    // 切换聊天窗口
+    toggleChatWindow() {
+        if (this.isChatOpen) {
+            this.closeChatWindow();
+        } else {
+            this.openChatWindow();
+        }
+    }
+    
+    // 打开聊天窗口
+    openChatWindow() {
+        if (this.chatWindow) {
+            this.chatWindow.style.display = 'block';
+            this.isChatOpen = true;
+            return;
+        }
+        
+        this.createChatWindow();
+        this.isChatOpen = true;
+    }
+    
+    // 关闭聊天窗口
+    closeChatWindow() {
+        if (this.chatWindow) {
+            this.chatWindow.style.display = 'none';
+            this.isChatOpen = false;
+        }
+    }
+    
+    // 创建聊天窗口
+    createChatWindow() {
+        // 创建聊天窗口容器
+        this.chatWindow = document.createElement('div');
+        this.chatWindow.id = 'pet-chat-window';
+        this.chatWindow.style.cssText = `
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 350px !important;
+            height: 450px !important;
+            background: white !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
+            z-index: 2147483648 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        `;
+        
+        // 创建聊天头部
+        const chatHeader = document.createElement('div');
+        chatHeader.style.cssText = `
+            background: linear-gradient(135deg, #ff6b6b, #ff8e8e) !important;
+            color: white !important;
+            padding: 15px 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        `;
+        
+        const headerTitle = document.createElement('div');
+        headerTitle.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+        `;
+        headerTitle.innerHTML = `
+            <span style="font-size: 20px;">🐾</span>
+            <span style="font-weight: 600; font-size: 16px;">与宠物聊天</span>
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            color: white !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            padding: 5px !important;
+            border-radius: 50% !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: background 0.3s ease !important;
+        `;
+        closeBtn.addEventListener('click', () => this.closeChatWindow());
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(255,255,255,0.2)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+        });
+        
+        chatHeader.appendChild(headerTitle);
+        chatHeader.appendChild(closeBtn);
+        
+        // 创建消息区域
+        const messagesContainer = document.createElement('div');
+        messagesContainer.id = 'pet-chat-messages';
+        messagesContainer.style.cssText = `
+            flex: 1 !important;
+            padding: 20px !important;
+            overflow-y: auto !important;
+            background: #f8f9fa !important;
+        `;
+        
+        // 添加欢迎消息
+        const welcomeMessage = this.createMessageElement('你好！我是你的小宠物，有什么想对我说的吗？', 'pet');
+        messagesContainer.appendChild(welcomeMessage);
+        
+        // 创建输入区域
+        const inputContainer = document.createElement('div');
+        inputContainer.style.cssText = `
+            padding: 15px 20px !important;
+            background: white !important;
+            border-top: 1px solid #e0e0e0 !important;
+            display: flex !important;
+            gap: 10px !important;
+        `;
+        
+        const messageInput = document.createElement('input');
+        messageInput.type = 'text';
+        messageInput.placeholder = '输入消息...';
+        messageInput.maxLength = 100;
+        messageInput.style.cssText = `
+            flex: 1 !important;
+            padding: 12px 16px !important;
+            border: 1px solid #ddd !important;
+            border-radius: 20px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: border-color 0.3s ease !important;
+        `;
+        messageInput.addEventListener('focus', () => {
+            messageInput.style.borderColor = '#ff6b6b';
+        });
+        messageInput.addEventListener('blur', () => {
+            messageInput.style.borderColor = '#ddd';
+        });
+        
+        const sendButton = document.createElement('button');
+        sendButton.innerHTML = '发送';
+        sendButton.style.cssText = `
+            padding: 12px 20px !important;
+            background: linear-gradient(135deg, #ff6b6b, #ff8e8e) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 20px !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+        `;
+        sendButton.addEventListener('mouseenter', () => {
+            sendButton.style.background = 'linear-gradient(135deg, #ff8e8e, #ff6b6b)';
+            sendButton.style.transform = 'translateY(-1px)';
+        });
+        sendButton.addEventListener('mouseleave', () => {
+            sendButton.style.background = 'linear-gradient(135deg, #ff6b6b, #ff8e8e)';
+            sendButton.style.transform = 'translateY(0)';
+        });
+        
+        // 发送消息功能
+        const sendMessage = async () => {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // 添加用户消息
+            const userMessage = this.createMessageElement(message, 'user');
+            messagesContainer.appendChild(userMessage);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // 清空输入框
+            messageInput.value = '';
+            
+            // 禁用发送按钮
+            sendButton.disabled = true;
+            sendButton.innerHTML = '发送中...';
+            
+            // 播放思考动画
+            this.playChatAnimation();
+            
+            // 生成宠物响应
+            setTimeout(() => {
+                const reply = this.generatePetResponse(message);
+                const petMessage = this.createMessageElement(reply, 'pet');
+                messagesContainer.appendChild(petMessage);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                // 重新启用发送按钮
+                sendButton.disabled = false;
+                sendButton.innerHTML = '发送';
+            }, 1000 + Math.random() * 1000); // 1-2秒的随机延迟
+        };
+        
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        inputContainer.appendChild(messageInput);
+        inputContainer.appendChild(sendButton);
+        
+        // 组装聊天窗口
+        this.chatWindow.appendChild(chatHeader);
+        this.chatWindow.appendChild(messagesContainer);
+        this.chatWindow.appendChild(inputContainer);
+        
+        // 添加到页面
+        document.body.appendChild(this.chatWindow);
+        
+        // 添加滚动条样式
+        this.addChatScrollbarStyles();
+    }
+    
+    // 创建消息元素
+    createMessageElement(text, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.style.cssText = `
+            display: flex !important;
+            margin-bottom: 15px !important;
+            animation: messageSlideIn 0.3s ease-out !important;
+        `;
+        
+        if (sender === 'user') {
+            messageDiv.style.flexDirection = 'row-reverse';
+        }
+        
+        const avatar = document.createElement('div');
+        avatar.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 16px !important;
+            margin-right: 10px !important;
+            flex-shrink: 0 !important;
+            background: ${sender === 'user' ? 'linear-gradient(135deg, #2196F3, #1976D2)' : 'linear-gradient(135deg, #ff6b6b, #ff8e8e)'} !important;
+        `;
+        avatar.textContent = sender === 'user' ? '👤' : '🐾';
+        
+        if (sender === 'user') {
+            avatar.style.marginRight = '0';
+            avatar.style.marginLeft = '10px';
+        }
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1 !important;
+            min-width: 0 !important;
+        `;
+        
+        const messageText = document.createElement('div');
+        messageText.style.cssText = `
+            background: ${sender === 'user' ? 'linear-gradient(135deg, #2196F3, #1976D2)' : 'linear-gradient(135deg, #ff6b6b, #ff8e8e)'} !important;
+            color: white !important;
+            padding: 12px 16px !important;
+            border-radius: 12px !important;
+            font-size: 14px !important;
+            line-height: 1.4 !important;
+            word-wrap: break-word !important;
+            position: relative !important;
+            max-width: 80% !important;
+            margin-left: ${sender === 'user' ? 'auto' : '0'} !important;
+        `;
+        
+        if (sender === 'user') {
+            messageText.style.borderBottomRightRadius = '4px';
+        } else {
+            messageText.style.borderBottomLeftRadius = '4px';
+        }
+        
+        messageText.textContent = text;
+        
+        const messageTime = document.createElement('div');
+        messageTime.style.cssText = `
+            font-size: 11px !important;
+            color: #999 !important;
+            margin-top: 4px !important;
+            text-align: ${sender === 'user' ? 'right' : 'left'} !important;
+        `;
+        messageTime.textContent = this.getCurrentTime();
+        
+        content.appendChild(messageText);
+        content.appendChild(messageTime);
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(content);
+        
+        return messageDiv;
+    }
+    
+    // 获取当前时间
+    getCurrentTime() {
+        const now = new Date();
+        return now.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+    }
+    
+    // 添加聊天滚动条样式
+    addChatScrollbarStyles() {
+        if (document.getElementById('pet-chat-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'pet-chat-styles';
+        style.textContent = `
+            @keyframes messageSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            #pet-chat-messages::-webkit-scrollbar {
+                width: 6px;
+            }
+            
+            #pet-chat-messages::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
+            
+            #pet-chat-messages::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 3px;
+            }
+            
+            #pet-chat-messages::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // 播放聊天动画
+    playChatAnimation() {
+        if (!this.pet) return;
+        
+        // 添加思考动画
+        this.pet.style.animation = 'none';
+        setTimeout(() => {
+            this.pet.style.animation = 'petThinking 1s ease-in-out';
+        }, 10);
+        
+        // 添加聊天气泡效果
+        this.showChatBubble();
+    }
+    
+    // 显示聊天气泡
+    showChatBubble() {
+        if (!this.pet) return;
+        
+        // 创建聊天气泡
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble';
+        bubble.style.cssText = `
+            position: absolute !important;
+            top: -40px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            color: white !important;
+            padding: 8px 12px !important;
+            border-radius: 12px !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            z-index: 2147483648 !important;
+            pointer-events: none !important;
+            animation: bubbleAppear 0.5s ease-out !important;
+        `;
+        
+        // 添加动画样式
+        if (!document.getElementById('chat-bubble-styles')) {
+            const style = document.createElement('style');
+            style.id = 'chat-bubble-styles';
+            style.textContent = `
+                @keyframes petThinking {
+                    0%, 100% { transform: scale(1) rotate(0deg); }
+                    25% { transform: scale(1.1) rotate(-5deg); }
+                    50% { transform: scale(1.05) rotate(5deg); }
+                    75% { transform: scale(1.1) rotate(-3deg); }
+                }
+                
+                @keyframes bubbleAppear {
+                    0% {
+                        opacity: 0;
+                        transform: translateX(-50%) translateY(10px) scale(0.8);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: translateX(-50%) translateY(0) scale(1);
+                    }
+                }
+            `;
+            if (document.head) {
+                document.head.appendChild(style);
+            }
+        }
+        
+        // 随机选择思考文本
+        const thinkingTexts = [
+            '让我想想...',
+            '嗯...',
+            '思考中...',
+            '🤔',
+            '💭',
+            '✨'
+        ];
+        bubble.textContent = thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)];
+        
+        this.pet.appendChild(bubble);
+        
+        // 2秒后移除气泡
+        setTimeout(() => {
+            if (bubble.parentNode) {
+                bubble.style.animation = 'bubbleAppear 0.3s ease-out reverse';
+                setTimeout(() => {
+                    if (bubble.parentNode) {
+                        bubble.parentNode.removeChild(bubble);
+                    }
+                }, 300);
+            }
+        }, 2000);
     }
 }
 

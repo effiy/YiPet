@@ -465,11 +465,14 @@ class PopupController {
             if (namespace === 'sync' && changes.petGlobalState) {
                 const newState = changes.petGlobalState.newValue;
                 if (newState) {
-                    // 更新本地状态（颜色和大小同步，位置保持独立）
+                    // 更新本地状态（所有属性都同步）
                     this.petStatus.visible = newState.visible !== undefined ? newState.visible : this.petStatus.visible;
                     this.petStatus.color = newState.color !== undefined ? newState.color : this.petStatus.color;
                     this.petStatus.size = newState.size !== undefined ? newState.size : this.petStatus.size;
-                    // 位置保持独立，不跨页面同步
+                    // 位置也进行跨页面同步
+                    if (newState.position) {
+                        this.petStatus.position = newState.position;
+                    }
                     
                     console.log('收到全局状态更新:', newState);
                     this.updateUI();

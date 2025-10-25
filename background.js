@@ -232,6 +232,22 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
             
             // 通知所有标签页全局状态已更新
             executeInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            
+            // 立即同步到所有活动标签页
+            chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                    if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+                        chrome.tabs.sendMessage(tab.id, {
+                            action: 'globalStateUpdated',
+                            data: changes.petGlobalState.newValue
+                        }, (response) => {
+                            if (chrome.runtime.lastError) {
+                                console.log('同步状态到标签页失败:', tab.id, chrome.runtime.lastError.message);
+                            }
+                        });
+                    }
+                });
+            });
         }
     }
 });

@@ -29,6 +29,8 @@ class PetManager {
         this.loadState(); // 加载保存的状态
         this.setupMessageListener();
         this.createPet();
+        // 启动定期同步，确保状态一致性
+        this.startPeriodicSync();
     }
     
     setupMessageListener() {
@@ -253,6 +255,8 @@ class PetManager {
             if (this.pet) {
                 this.pet.style.cursor = 'grab';
                 this.saveState(); // 拖拽结束后保存状态
+                // 立即同步到全局状态
+                this.syncToGlobalState();
             }
         });
         
@@ -284,6 +288,7 @@ class PetManager {
             this.colorIndex = colorIndex;
             this.updatePetStyle();
             this.saveState();
+            this.syncToGlobalState();
             console.log('宠物颜色设置为:', this.colorIndex);
         }
     }
@@ -292,6 +297,7 @@ class PetManager {
         this.size = Math.max(40, Math.min(120, size));
         this.updatePetStyle();
         this.saveState();
+        this.syncToGlobalState();
         console.log('宠物大小设置为:', this.size);
     }
     
@@ -299,6 +305,7 @@ class PetManager {
         this.position = { x: 20, y: 20 };
         this.updatePetStyle();
         this.saveState();
+        this.syncToGlobalState();
         console.log('宠物位置已重置');
     }
     
@@ -308,6 +315,7 @@ class PetManager {
         this.position = { x: centerX, y: centerY };
         this.updatePetStyle();
         this.saveState();
+        this.syncToGlobalState();
         console.log('宠物已居中，位置:', this.position);
     }
     
@@ -341,6 +349,25 @@ class PetManager {
         }
     }
     
+    // 同步当前状态到全局状态
+    syncToGlobalState() {
+        try {
+            const state = {
+                visible: this.isVisible,
+                color: this.colorIndex,
+                size: this.size,
+                position: this.position,
+                timestamp: Date.now()
+            };
+            
+            chrome.storage.sync.set({ petGlobalState: state }, () => {
+                console.log('状态已同步到全局:', state);
+            });
+        } catch (error) {
+            console.log('同步到全局状态失败:', error);
+        }
+    }
+    
     loadState() {
         try {
             // 首先尝试从Chrome存储API加载全局状态
@@ -350,7 +377,8 @@ class PetManager {
                     this.isVisible = state.visible !== undefined ? state.visible : true;
                     this.colorIndex = state.color !== undefined ? state.color : 0;
                     this.size = state.size !== undefined ? state.size : 80;
-                    this.position = state.position || { x: 20, y: 20 };
+                    // 位置也使用全局状态，但会进行边界检查
+                    this.position = this.validatePosition(state.position || { x: 20, y: 20 });
                     console.log('宠物全局状态已恢复:', state);
                     
                     // 更新宠物样式
@@ -369,7 +397,10 @@ class PetManager {
                         this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
                         this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
                         this.size = newState.size !== undefined ? newState.size : this.size;
-                        // 位置保持独立，不跨页面同步
+                        // 位置也进行跨页面同步，但会进行边界检查
+                        if (newState.position) {
+                            this.position = this.validatePosition(newState.position);
+                        }
                         console.log('收到全局状态更新:', newState);
                         this.updatePetStyle();
                     }
@@ -403,14 +434,55 @@ class PetManager {
     
     handleGlobalStateUpdate(newState) {
         if (newState) {
-            // 更新全局状态（颜色、大小、可见性）
+            // 更新全局状态（颜色、大小、可见性、位置）
             this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
             this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
             this.size = newState.size !== undefined ? newState.size : this.size;
-            // 位置保持独立，不跨页面同步
+            // 位置也进行跨页面同步，但会进行边界检查
+            if (newState.position) {
+                this.position = this.validatePosition(newState.position);
+            }
             
             console.log('处理全局状态更新:', newState);
             this.updatePetStyle();
+        }
+    }
+    
+    // 验证位置是否在当前窗口范围内
+    validatePosition(position) {
+        if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
+            return { x: 20, y: 20 };
+        }
+        
+        const maxX = Math.max(0, window.innerWidth - this.size);
+        const maxY = Math.max(0, window.innerHeight - this.size);
+        
+        return {
+            x: Math.max(0, Math.min(maxX, position.x)),
+            y: Math.max(0, Math.min(maxY, position.y))
+        };
+    }
+    
+    // 启动定期同步
+    startPeriodicSync() {
+        // 每3秒同步一次状态，确保跨页面一致性
+        this.syncInterval = setInterval(() => {
+            this.syncToGlobalState();
+        }, 3000);
+        
+        // 监听窗口大小变化，重新验证位置
+        window.addEventListener('resize', () => {
+            this.position = this.validatePosition(this.position);
+            this.updatePetStyle();
+            this.syncToGlobalState();
+        });
+    }
+    
+    // 停止定期同步
+    stopPeriodicSync() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
         }
     }
 }

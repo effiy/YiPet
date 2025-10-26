@@ -980,6 +980,25 @@ class PetManager {
             messageInput.style.transform = 'scale(1)';
         });
         
+        // 添加粘贴图片支持
+        messageInput.addEventListener('paste', async (e) => {
+            const items = e.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.type.indexOf('image') !== -1) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const imageDataUrl = event.target.result;
+                        this.sendImageMessage(imageDataUrl);
+                    };
+                    reader.readAsDataURL(file);
+                    break;
+                }
+            }
+        });
+        
         const sendButton = document.createElement('button');
         sendButton.innerHTML = '发送';
         sendButton.className = 'chat-send-button';
@@ -1132,9 +1151,68 @@ class PetManager {
             }
         });
 
+        // 创建图片上传按钮
+        const imageUploadButton = document.createElement('button');
+        imageUploadButton.innerHTML = '📎';
+        imageUploadButton.className = 'chat-image-upload-button';
+        imageUploadButton.title = '上传图片 (支持粘贴)';
+        imageUploadButton.style.cssText = `
+            padding: 16px !important;
+            background: linear-gradient(135deg, #FF9800, #F57C00) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 25px !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3) !important;
+            min-width: 50px !important;
+            position: relative !important;
+            overflow: hidden !important;
+        `;
+        
+        // 添加悬停效果
+        imageUploadButton.addEventListener('mouseenter', () => {
+            imageUploadButton.style.background = 'linear-gradient(135deg, #F57C00, #FF9800)';
+            imageUploadButton.style.transform = 'translateY(-2px) scale(1.05)';
+            imageUploadButton.style.boxShadow = '0 6px 20px rgba(255, 152, 0, 0.4)';
+        });
+        imageUploadButton.addEventListener('mouseleave', () => {
+            imageUploadButton.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
+            imageUploadButton.style.transform = 'translateY(0) scale(1)';
+            imageUploadButton.style.boxShadow = '0 4px 15px rgba(255, 152, 0, 0.3)';
+        });
+        
+        // 创建隐藏的文件输入
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const imageDataUrl = event.target.result;
+                    this.sendImageMessage(imageDataUrl);
+                };
+                reader.readAsDataURL(file);
+            }
+            // 清空input，允许重复选择同一个文件
+            fileInput.value = '';
+        });
+        
+        // 点击按钮触发文件选择
+        imageUploadButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
         inputContainer.appendChild(messageInput);
+        inputContainer.appendChild(imageUploadButton);
         inputContainer.appendChild(screenshotButton);
         inputContainer.appendChild(sendButton);
+        inputContainer.appendChild(fileInput);
         
         // 创建缩放手柄
         const resizeHandle = document.createElement('div');
@@ -1444,7 +1522,7 @@ class PetManager {
     }
     
     // 创建消息元素
-    createMessageElement(text, sender) {
+    createMessageElement(text, sender, imageDataUrl = null) {
         const messageDiv = document.createElement('div');
         messageDiv.style.cssText = `
             display: flex !important;
@@ -1502,7 +1580,48 @@ class PetManager {
             messageText.style.borderBottomLeftRadius = '4px';
         }
         
-        messageText.textContent = text;
+        // 如果包含图片，添加图片元素
+        if (imageDataUrl) {
+            const imageContainer = document.createElement('div');
+            imageContainer.style.cssText = `
+                margin-bottom: ${text ? '8px' : '0'} !important;
+                border-radius: 8px !important;
+                overflow: hidden !important;
+            `;
+            
+            const img = document.createElement('img');
+            img.src = imageDataUrl;
+            img.style.cssText = `
+                max-width: 100% !important;
+                max-height: 300px !important;
+                border-radius: 8px !important;
+                display: block !important;
+                cursor: pointer !important;
+            `;
+            
+            // 点击查看大图
+            img.addEventListener('click', () => {
+                this.showImagePreview(imageDataUrl);
+            });
+            
+            imageContainer.appendChild(img);
+            messageText.appendChild(imageContainer);
+        }
+        
+        // 如果有文本，添加文本
+        if (text) {
+            if (imageDataUrl) {
+                // 如果已经添加了图片，则追加文本
+                const textSpan = document.createElement('span');
+                textSpan.textContent = text;
+                messageText.appendChild(textSpan);
+            } else {
+                messageText.textContent = text;
+            }
+        } else if (imageDataUrl) {
+            // 如果没有文本只有图片，保持容器为空
+            messageText.style.padding = '0';
+        }
         
         const messageTime = document.createElement('div');
         messageTime.style.cssText = `
@@ -1519,6 +1638,96 @@ class PetManager {
         messageDiv.appendChild(content);
         
         return messageDiv;
+    }
+    
+    // 发送图片消息
+    sendImageMessage(imageDataUrl) {
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (!messagesContainer) return;
+        
+        // 添加用户消息（带图片）
+        const userMessage = this.createMessageElement('', 'user', imageDataUrl);
+        messagesContainer.appendChild(userMessage);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // 播放思考动画
+        this.playChatAnimation();
+        
+        // 生成宠物响应
+        setTimeout(() => {
+            const replies = [
+                '哇！这张图片好有趣啊！✨',
+                '看起来很棒呢！😊',
+                '这是我见过的最特别的图片！🌟',
+                '太有意思了！💕',
+                '我真的很喜欢这张图！💖',
+                '这真是太棒了！🎉'
+            ];
+            const reply = replies[Math.floor(Math.random() * replies.length)];
+            const petMessage = this.createMessageElement(reply, 'pet');
+            messagesContainer.appendChild(petMessage);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
+    }
+    
+    // 显示图片预览
+    showImagePreview(imageDataUrl) {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0, 0, 0, 0.9) !important;
+            z-index: 2147483650 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            animation: fadeIn 0.3s ease-out !important;
+        `;
+        
+        const img = document.createElement('img');
+        img.src = imageDataUrl;
+        img.style.cssText = `
+            max-width: 90% !important;
+            max-height: 90% !important;
+            border-radius: 8px !important;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            position: absolute !important;
+            top: 20px !important;
+            right: 20px !important;
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: white !important;
+            border: none !important;
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 50% !important;
+            font-size: 20px !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+        `;
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+        });
+        
+        modal.appendChild(img);
+        modal.appendChild(closeBtn);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+        document.body.appendChild(modal);
     }
     
     // 获取当前时间

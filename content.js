@@ -1619,8 +1619,16 @@ class PetManager {
             }
             
             // 隐藏聊天窗口以获取更清晰的截图
-            const originalDisplay = this.chatWindow.style.display;
-            this.chatWindow.style.display = 'none';
+            const originalDisplay = this.chatWindow ? this.chatWindow.style.display : 'block';
+            if (this.chatWindow) {
+                this.chatWindow.style.display = 'none';
+            }
+            
+            // 隐藏宠物（如果显示的话）
+            const originalPetDisplay = this.pet ? this.pet.style.display : 'block';
+            if (this.pet) {
+                this.pet.style.display = 'none';
+            }
             
             // 等待一小段时间确保窗口完全隐藏
             await new Promise(resolve => setTimeout(resolve, 200));
@@ -1635,16 +1643,17 @@ class PetManager {
                 dataUrl = await this.fallbackScreenshot();
             }
             
-            // 恢复聊天窗口显示
-            this.chatWindow.style.display = originalDisplay;
-            
             if (dataUrl) {
-                // 显示区域选择工具
-                this.showScreenshotNotification('截图成功！请选择要截图的区域', 'success');
-                setTimeout(() => {
-                    this.showAreaSelector(dataUrl);
-                }, 500);
+                // 保持聊天窗口和宠物隐藏，直到区域选择完成
+                this.showAreaSelector(dataUrl, originalDisplay, originalPetDisplay);
             } else {
+                // 如果截图失败，恢复显示
+                if (this.chatWindow) {
+                    this.chatWindow.style.display = originalDisplay;
+                }
+                if (this.pet) {
+                    this.pet.style.display = originalPetDisplay;
+                }
                 this.showScreenshotNotification('截图失败，请检查权限设置或尝试刷新页面', 'error');
                 this.showPermissionHelp();
             }
@@ -1653,15 +1662,18 @@ class PetManager {
             console.error('截图失败:', error);
             this.showScreenshotNotification('截图失败，请重试', 'error');
             
-            // 确保聊天窗口恢复显示
+            // 确保聊天窗口和宠物恢复显示
             if (this.chatWindow) {
                 this.chatWindow.style.display = 'block';
+            }
+            if (this.pet) {
+                this.pet.style.display = 'block';
             }
         }
     }
     
     // 显示区域选择器
-    showAreaSelector(dataUrl) {
+    showAreaSelector(dataUrl, originalChatDisplay = 'block', originalPetDisplay = 'block') {
         // 创建区域选择器覆盖层
         const overlay = document.createElement('div');
         overlay.id = 'area-selector-overlay';
@@ -1773,10 +1785,14 @@ class PetManager {
             
             const rect = selectionBox.getBoundingClientRect();
             
-            // 如果区域太小，关闭选择器
+            // 如果区域太小，关闭选择器并恢复显示
             if (rect.width < 10 || rect.height < 10) {
                 if (tipText) tipText.remove();
-                if (overlay) overlay.remove();
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+                // 恢复聊天窗口和宠物显示
+                this.restoreElements(originalChatDisplay, originalPetDisplay);
                 return;
             }
             
@@ -1795,13 +1811,16 @@ class PetManager {
                 const actualWidth = rect.width * scaleX;
                 const actualHeight = rect.height * scaleY;
                 
-                // 裁剪图片
-                this.cropAndDisplayScreenshot(dataUrl, actualX, actualY, actualWidth, actualHeight);
-                
                 // 移除选择器
                 if (overlay.parentNode) {
                     overlay.parentNode.removeChild(overlay);
                 }
+                
+                // 恢复聊天窗口和宠物显示
+                this.restoreElements(originalChatDisplay, originalPetDisplay);
+                
+                // 裁剪图片
+                this.cropAndDisplayScreenshot(dataUrl, actualX, actualY, actualWidth, actualHeight);
             };
         };
         
@@ -1814,10 +1833,22 @@ class PetManager {
                 if (overlay.parentNode) {
                     overlay.parentNode.removeChild(overlay);
                 }
+                // 恢复聊天窗口和宠物显示
+                this.restoreElements(originalChatDisplay, originalPetDisplay);
                 window.removeEventListener('keydown', cancelHandler);
             }
         };
         window.addEventListener('keydown', cancelHandler);
+    }
+    
+    // 恢复元素显示
+    restoreElements(chatDisplay, petDisplay) {
+        if (this.chatWindow) {
+            this.chatWindow.style.display = chatDisplay;
+        }
+        if (this.pet) {
+            this.pet.style.display = petDisplay;
+        }
     }
     
     // 裁剪并显示截图

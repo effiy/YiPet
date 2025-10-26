@@ -782,11 +782,33 @@ class PetManager {
             return;
         }
         
-        // 尝试加载保存的聊天窗口状态
-        this.loadChatWindowState();
+        // 初始化聊天窗口状态（先设置默认值）
+        const defaultSize = PET_CONFIG.chatWindow.defaultSize;
+        const defaultPosition = getChatWindowDefaultPosition(defaultSize.width, defaultSize.height);
         
-        this.createChatWindow();
-        this.isChatOpen = true;
+        this.chatWindowState = {
+            x: defaultPosition.x,
+            y: defaultPosition.y,
+            width: defaultSize.width,
+            height: defaultSize.height,
+            isDragging: false,
+            isResizing: false,
+            dragStart: { x: 0, y: 0 },
+            resizeStart: { x: 0, y: 0, width: 0, height: 0 }
+        };
+        
+        // 尝试加载保存的聊天窗口状态（会覆盖默认值）
+        // 加载完成后创建窗口
+        this.loadChatWindowState((success) => {
+            if (success) {
+                console.log('聊天窗口状态已加载，创建窗口');
+            } else {
+                console.log('使用默认聊天窗口状态，创建窗口');
+            }
+            
+            this.createChatWindow();
+            this.isChatOpen = true;
+        });
     }
     
     // 关闭聊天窗口
@@ -824,20 +846,7 @@ class PetManager {
     
     // 创建聊天窗口
     createChatWindow() {
-        // 初始化聊天窗口状态
-        const defaultSize = PET_CONFIG.chatWindow.defaultSize;
-        const defaultPosition = getChatWindowDefaultPosition(defaultSize.width, defaultSize.height);
-        
-        this.chatWindowState = {
-            x: defaultPosition.x,
-            y: defaultPosition.y,
-            width: defaultSize.width,
-            height: defaultSize.height,
-            isDragging: false,
-            isResizing: false,
-            dragStart: { x: 0, y: 0 },
-            resizeStart: { x: 0, y: 0, width: 0, height: 0 }
-        };
+        // 注意：chatWindowState 已在 openChatWindow() 中初始化
         
         // 创建聊天窗口容器
         this.chatWindow = document.createElement('div');
@@ -1330,11 +1339,19 @@ class PetManager {
         
         try {
             const state = {
-                ...this.chatWindowState,
+                x: this.chatWindowState.x,
+                y: this.chatWindowState.y,
+                width: this.chatWindowState.width,
+                height: this.chatWindowState.height,
                 timestamp: Date.now()
             };
             
-            // 保存到localStorage
+            // 保存到chrome.storage.sync以实现跨页面同步
+            chrome.storage.sync.set({ [PET_CONFIG.storage.keys.chatWindowState]: state }, () => {
+                console.log('聊天窗口状态已保存到全局存储:', state);
+            });
+            
+            // 同时保存到localStorage作为备用
             localStorage.setItem('petChatWindowState', JSON.stringify(state));
             console.log('聊天窗口状态已保存:', state);
         } catch (error) {
@@ -1343,31 +1360,84 @@ class PetManager {
     }
     
     // 加载聊天窗口状态
-    loadChatWindowState() {
+    loadChatWindowState(callback) {
+        try {
+            // 首先尝试从Chrome存储API加载全局状态
+            chrome.storage.sync.get([PET_CONFIG.storage.keys.chatWindowState], (result) => {
+                if (result[PET_CONFIG.storage.keys.chatWindowState]) {
+                    const state = result[PET_CONFIG.storage.keys.chatWindowState];
+                    this.restoreChatWindowState(state);
+                    
+                    // 更新聊天窗口样式（如果已经创建）
+                    if (this.chatWindow) {
+                        this.updateChatWindowStyle();
+                    }
+                    
+                    if (callback) callback(true);
+                } else {
+                    // 如果全局状态不存在，尝试从localStorage加载
+                    const success = this.loadChatWindowStateFromLocalStorage();
+                    if (callback) callback(success);
+                }
+            });
+            
+            // 监听存储变化，实现跨页面同步
+            chrome.storage.onChanged.addListener((changes, namespace) => {
+                if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.chatWindowState]) {
+                    const newState = changes[PET_CONFIG.storage.keys.chatWindowState].newValue;
+                    if (newState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
+                        this.restoreChatWindowState(newState);
+                        
+                        // 更新聊天窗口样式（如果已经创建）
+                        if (this.chatWindow) {
+                            this.updateChatWindowStyle();
+                            console.log('聊天窗口状态已从全局存储更新:', newState);
+                        }
+                    }
+                }
+            });
+            
+            return true;
+        } catch (error) {
+            console.log('恢复聊天窗口状态失败:', error);
+            const success = this.loadChatWindowStateFromLocalStorage();
+            if (callback) callback(success);
+            return success;
+        }
+    }
+    
+    // 从localStorage加载聊天窗口状态（备用方法）
+    loadChatWindowStateFromLocalStorage() {
         try {
             const savedState = localStorage.getItem('petChatWindowState');
             if (savedState) {
                 const state = JSON.parse(savedState);
-                this.chatWindowState = {
-                    ...this.chatWindowState,
-                    ...state,
-                    isDragging: false,
-                    isResizing: false
-                };
-                
-                // 验证位置和大小
-                this.chatWindowState.width = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.width));
-                this.chatWindowState.height = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.height));
-                this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, this.chatWindowState.x));
-                this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, this.chatWindowState.y));
-                
-                console.log('聊天窗口状态已恢复:', this.chatWindowState);
+                this.restoreChatWindowState(state);
+                console.log('聊天窗口状态已从本地存储恢复:', this.chatWindowState);
                 return true;
             }
         } catch (error) {
-            console.log('恢复聊天窗口状态失败:', error);
+            console.log('恢复本地聊天窗口状态失败:', error);
         }
         return false;
+    }
+    
+    // 恢复聊天窗口状态（应用位置和大小）
+    restoreChatWindowState(state) {
+        this.chatWindowState = {
+            ...this.chatWindowState,
+            ...state,
+            isDragging: false,
+            isResizing: false
+        };
+        
+        // 验证位置和大小
+        this.chatWindowState.width = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.width));
+        this.chatWindowState.height = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.height));
+        this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, this.chatWindowState.x));
+        this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, this.chatWindowState.y));
+        
+        console.log('聊天窗口状态已恢复:', this.chatWindowState);
     }
     
     // 创建消息元素

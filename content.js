@@ -8,20 +8,14 @@ console.log('Content Script 加载');
 class PetManager {
     constructor() {
         this.pet = null;
-        this.isVisible = true;
-        this.colorIndex = 0;
-        this.size = 60;
-        this.position = { x: 20, y: 20 };
+        this.isVisible = PET_CONFIG.pet.defaultVisible;
+        this.colorIndex = PET_CONFIG.pet.defaultColorIndex;
+        this.size = PET_CONFIG.pet.defaultSize;
+        this.position = getPetDefaultPosition();
         this.chatWindow = null;
         this.isChatOpen = false;
         
-        this.colors = [
-            'linear-gradient(135deg, #ff6b6b, #ff8e8e)', // 红色系
-            'linear-gradient(135deg, #4ecdc4, #44a08d)', // 绿色系
-            'linear-gradient(135deg, #ff9a9e, #fecfef)', // 粉色系
-            'linear-gradient(135deg, #a8edea, #fed6e3)', // 蓝色系
-            'linear-gradient(135deg, #ffecd2, #fcb69f)'  // 黄色系
-        ];
+        this.colors = PET_CONFIG.pet.colors;
         
         this.init();
     }
@@ -220,7 +214,7 @@ class PetManager {
             height: ${this.size}px !important;
             background: ${this.colors[this.colorIndex]} !important;
             border-radius: 50% !important;
-            z-index: 2147483647 !important;
+            z-index: ${PET_CONFIG.ui.zIndex.pet} !important;
             cursor: grab !important;
             pointer-events: auto !important;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
@@ -306,7 +300,7 @@ class PetManager {
     }
     
     setSize(size) {
-        this.size = Math.max(40, Math.min(120, size));
+        this.size = Math.max(PET_CONFIG.pet.sizeLimits.min, Math.min(PET_CONFIG.pet.sizeLimits.max, size));
         this.updatePetStyle();
         this.saveState();
         this.syncToGlobalState();
@@ -314,7 +308,7 @@ class PetManager {
     }
     
     resetPosition() {
-        this.position = { x: 20, y: 20 };
+        this.position = getPetDefaultPosition();
         this.updatePetStyle();
         this.saveState();
         this.syncToGlobalState();
@@ -322,8 +316,8 @@ class PetManager {
     }
     
     centerPet() {
-        const centerX = Math.max(0, (window.innerWidth - this.size) / 2);
-        const centerY = Math.max(0, (window.innerHeight - this.size) / 2);
+        const centerX = getCenterPosition(this.size, window.innerWidth);
+        const centerY = getCenterPosition(this.size, window.innerHeight);
         this.position = { x: centerX, y: centerY };
         this.updatePetStyle();
         this.saveState();
@@ -350,7 +344,7 @@ class PetManager {
             };
             
             // 使用Chrome存储API保存全局状态
-            chrome.storage.sync.set({ petGlobalState: state }, () => {
+            chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
                 console.log('宠物全局状态已保存:', state);
             });
             
@@ -372,7 +366,7 @@ class PetManager {
                 timestamp: Date.now()
             };
             
-            chrome.storage.sync.set({ petGlobalState: state }, () => {
+            chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
                 console.log('状态已同步到全局:', state);
             });
         } catch (error) {
@@ -383,14 +377,14 @@ class PetManager {
     loadState() {
         try {
             // 首先尝试从Chrome存储API加载全局状态
-            chrome.storage.sync.get(['petGlobalState'], (result) => {
-                if (result.petGlobalState) {
-                    const state = result.petGlobalState;
-                    this.isVisible = state.visible !== undefined ? state.visible : true;
-                    this.colorIndex = state.color !== undefined ? state.color : 0;
-                    this.size = state.size !== undefined ? state.size : 60;
+            chrome.storage.sync.get([PET_CONFIG.storage.keys.globalState], (result) => {
+                if (result[PET_CONFIG.storage.keys.globalState]) {
+                    const state = result[PET_CONFIG.storage.keys.globalState];
+                    this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
+                    this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
+                    this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
                     // 位置也使用全局状态，但会进行边界检查
-                    this.position = this.validatePosition(state.position || { x: 20, y: 20 });
+                    this.position = this.validatePosition(state.position || getPetDefaultPosition());
                     console.log('宠物全局状态已恢复:', state);
                     
                     // 更新宠物样式
@@ -403,8 +397,8 @@ class PetManager {
             
             // 监听存储变化，实现跨页面同步
             chrome.storage.onChanged.addListener((changes, namespace) => {
-                if (namespace === 'sync' && changes.petGlobalState) {
-                    const newState = changes.petGlobalState.newValue;
+                if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.globalState]) {
+                    const newState = changes[PET_CONFIG.storage.keys.globalState].newValue;
                     if (newState) {
                         this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
                         this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
@@ -431,10 +425,10 @@ class PetManager {
             const savedState = localStorage.getItem('petState');
             if (savedState) {
                 const state = JSON.parse(savedState);
-                this.isVisible = state.visible !== undefined ? state.visible : true;
-                this.colorIndex = state.color !== undefined ? state.color : 0;
-                this.size = state.size !== undefined ? state.size : 60;
-                this.position = state.position || { x: 20, y: 20 };
+                this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
+                this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
+                this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
+                this.position = state.position || getPetDefaultPosition();
                 console.log('宠物本地状态已恢复:', state);
                 return true;
             }
@@ -463,7 +457,7 @@ class PetManager {
     // 验证位置是否在当前窗口范围内
     validatePosition(position) {
         if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-            return { x: 20, y: 20 };
+            return getPetDefaultPosition();
         }
         
         const maxX = Math.max(0, window.innerWidth - this.size);
@@ -477,10 +471,10 @@ class PetManager {
     
     // 启动定期同步
     startPeriodicSync() {
-        // 每3秒同步一次状态，确保跨页面一致性
+        // 定期同步状态，确保跨页面一致性
         this.syncInterval = setInterval(() => {
             this.syncToGlobalState();
-        }, 3000);
+        }, PET_CONFIG.storage.syncInterval);
         
         // 监听窗口大小变化，重新验证位置
         window.addEventListener('resize', () => {
@@ -702,11 +696,14 @@ class PetManager {
     // 创建聊天窗口
     createChatWindow() {
         // 初始化聊天窗口状态
+        const defaultSize = PET_CONFIG.chatWindow.defaultSize;
+        const defaultPosition = getChatWindowDefaultPosition(defaultSize.width, defaultSize.height);
+        
         this.chatWindowState = {
-            x: (window.innerWidth - 900) / 2,
-            y: (window.innerHeight - 700) / 2,
-            width: 900,
-            height: 700,
+            x: defaultPosition.x,
+            y: defaultPosition.y,
+            width: defaultSize.width,
+            height: defaultSize.height,
             isDragging: false,
             isResizing: false,
             dragStart: { x: 0, y: 0 },
@@ -810,13 +807,13 @@ class PetManager {
             border-radius: 0 0 16px 16px !important;
             box-shadow: 0 -4px 20px rgba(0,0,0,0.1) !important;
             backdrop-filter: blur(10px) !important;
-            z-index: 10 !important;
+            z-index: ${PET_CONFIG.ui.zIndex.inputContainer} !important;
         `;
         
         const messageInput = document.createElement('input');
         messageInput.type = 'text';
-        messageInput.placeholder = '输入消息...';
-        messageInput.maxLength = 200;
+        messageInput.placeholder = PET_CONFIG.chatWindow.input.placeholder;
+        messageInput.maxLength = PET_CONFIG.chatWindow.input.maxLength;
         messageInput.className = 'chat-message-input';
         messageInput.style.cssText = `
             flex: 1 !important;
@@ -911,7 +908,7 @@ class PetManager {
                 // 重新启用发送按钮
                 sendButton.disabled = false;
                 sendButton.innerHTML = '发送';
-            }, 1000 + Math.random() * 1000); // 1-2秒的随机延迟
+            }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
         };
         
         sendButton.addEventListener('click', sendMessage);
@@ -936,7 +933,7 @@ class PetManager {
             background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%) !important;
             cursor: nw-resize !important;
             border-radius: 0 0 16px 0 !important;
-            z-index: 20 !important;
+            z-index: ${PET_CONFIG.ui.zIndex.resizeHandle} !important;
             transition: background 0.2s ease !important;
         `;
         
@@ -977,7 +974,7 @@ class PetManager {
             background: white !important;
             border-radius: 16px !important;
             box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-            z-index: 2147483648 !important;
+            z-index: ${PET_CONFIG.ui.zIndex.chatWindow} !important;
             display: flex !important;
             flex-direction: column !important;
             overflow: hidden !important;
@@ -1050,8 +1047,8 @@ class PetManager {
                 const deltaX = e.clientX - this.chatWindowState.resizeStart.x;
                 const deltaY = e.clientY - this.chatWindowState.resizeStart.y;
                 
-                const newWidth = Math.max(600, Math.min(1400, this.chatWindowState.resizeStart.width + deltaX));
-                const newHeight = Math.max(600, Math.min(1600, this.chatWindowState.resizeStart.height + deltaY));
+                const newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width + deltaX));
+                const newHeight = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.resizeStart.height + deltaY));
                 
                 this.chatWindowState.width = newWidth;
                 this.chatWindowState.height = newHeight;
@@ -1156,8 +1153,8 @@ class PetManager {
                 };
                 
                 // 验证位置和大小
-                this.chatWindowState.width = Math.max(600, Math.min(1400, this.chatWindowState.width));
-                this.chatWindowState.height = Math.max(600, Math.min(1600, this.chatWindowState.height));
+                this.chatWindowState.width = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.width));
+                this.chatWindowState.height = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.height));
                 this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, this.chatWindowState.x));
                 this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, this.chatWindowState.y));
                 

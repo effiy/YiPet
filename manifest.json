@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "最小化宠物扩展",
-  "version": "1.0.0",
-  "description": "最小化的可拖拽小宠物扩展",
+  "name": "可爱桌面宠物",
+  "version": "1.0.2",
+  "description": "在浏览器中添加一只可爱的可拖拽小宠物，陪伴您的浏览时光。支持多种互动功能，让网页浏览更加有趣！",
   "permissions": [
     "activeTab",
     "storage",
@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["config.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_end"
     }

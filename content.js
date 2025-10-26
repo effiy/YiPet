@@ -1587,7 +1587,7 @@ class PetManager {
         }, 2000);
     }
     
-    // 截图功能
+    // 截图功能（支持区域选择）
     async takeScreenshot() {
         try {
             console.log('开始截图...');
@@ -1639,9 +1639,11 @@ class PetManager {
             this.chatWindow.style.display = originalDisplay;
             
             if (dataUrl) {
-                // 显示截图预览
-                this.showScreenshotPreview(dataUrl);
-                this.showScreenshotNotification('截图成功！', 'success');
+                // 显示区域选择工具
+                this.showScreenshotNotification('截图成功！请选择要截图的区域', 'success');
+                setTimeout(() => {
+                    this.showAreaSelector(dataUrl);
+                }, 500);
             } else {
                 this.showScreenshotNotification('截图失败，请检查权限设置或尝试刷新页面', 'error');
                 this.showPermissionHelp();
@@ -1656,6 +1658,189 @@ class PetManager {
                 this.chatWindow.style.display = 'block';
             }
         }
+    }
+    
+    // 显示区域选择器
+    showAreaSelector(dataUrl) {
+        // 创建区域选择器覆盖层
+        const overlay = document.createElement('div');
+        overlay.id = 'area-selector-overlay';
+        overlay.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 2147483651 !important;
+            cursor: crosshair !important;
+            user-select: none !important;
+        `;
+        
+        // 创建截图背景
+        const screenshotBg = document.createElement('div');
+        screenshotBg.style.cssText = `
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background-image: url(${dataUrl}) !important;
+            background-size: contain !important;
+            background-repeat: no-repeat !important;
+            background-position: center !important;
+            opacity: 0.7 !important;
+        `;
+        
+        // 创建选择框
+        const selectionBox = document.createElement('div');
+        selectionBox.id = 'selection-box';
+        selectionBox.style.cssText = `
+            position: absolute !important;
+            border: 2px solid #2196F3 !important;
+            background: rgba(33, 150, 243, 0.1) !important;
+            pointer-events: none !important;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3) !important;
+            display: none !important;
+        `;
+        
+        // 创建工具提示
+        const tipText = document.createElement('div');
+        tipText.id = 'selection-tip';
+        tipText.textContent = '拖动鼠标选择截图区域，双击确认';
+        tipText.style.cssText = `
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            color: white !important;
+            padding: 12px 20px !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            pointer-events: none !important;
+            z-index: 2147483652 !important;
+        `;
+        
+        overlay.appendChild(screenshotBg);
+        overlay.appendChild(selectionBox);
+        overlay.appendChild(tipText);
+        document.body.appendChild(overlay);
+        
+        let isSelecting = false;
+        let startX = 0;
+        let startY = 0;
+        
+        // 鼠标按下事件
+        overlay.addEventListener('mousedown', (e) => {
+            isSelecting = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            selectionBox.style.left = startX + 'px';
+            selectionBox.style.top = startY + 'px';
+            selectionBox.style.width = '0px';
+            selectionBox.style.height = '0px';
+            selectionBox.style.display = 'block';
+            
+            // 隐藏提示
+            tipText.style.display = 'none';
+            
+            e.preventDefault();
+        });
+        
+        // 鼠标移动事件
+        overlay.addEventListener('mousemove', (e) => {
+            if (!isSelecting) return;
+            
+            const currentX = e.clientX;
+            const currentY = e.clientY;
+            
+            const left = Math.min(startX, currentX);
+            const top = Math.min(startY, currentY);
+            const width = Math.abs(currentX - startX);
+            const height = Math.abs(currentY - startY);
+            
+            selectionBox.style.left = left + 'px';
+            selectionBox.style.top = top + 'px';
+            selectionBox.style.width = width + 'px';
+            selectionBox.style.height = height + 'px';
+        });
+        
+        // 鼠标释放或双击事件
+        const finishSelection = (e) => {
+            if (!isSelecting) return;
+            isSelecting = false;
+            
+            const rect = selectionBox.getBoundingClientRect();
+            
+            // 如果区域太小，关闭选择器
+            if (rect.width < 10 || rect.height < 10) {
+                if (tipText) tipText.remove();
+                if (overlay) overlay.remove();
+                return;
+            }
+            
+            // 计算截取区域的相对坐标（相对于原始截图尺寸）
+            const img = new Image();
+            img.src = dataUrl;
+            
+            img.onload = () => {
+                // 计算缩放比例
+                const scaleX = img.width / window.innerWidth;
+                const scaleY = img.height / window.innerHeight;
+                
+                // 计算实际截图区域（考虑页面滚动）
+                const actualX = (rect.left + window.scrollX) * scaleX;
+                const actualY = (rect.top + window.scrollY) * scaleY;
+                const actualWidth = rect.width * scaleX;
+                const actualHeight = rect.height * scaleY;
+                
+                // 裁剪图片
+                this.cropAndDisplayScreenshot(dataUrl, actualX, actualY, actualWidth, actualHeight);
+                
+                // 移除选择器
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            };
+        };
+        
+        overlay.addEventListener('mouseup', finishSelection);
+        overlay.addEventListener('dblclick', finishSelection);
+        
+        // ESC键取消
+        const cancelHandler = (e) => {
+            if (e.key === 'Escape') {
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+                window.removeEventListener('keydown', cancelHandler);
+            }
+        };
+        window.addEventListener('keydown', cancelHandler);
+    }
+    
+    // 裁剪并显示截图
+    cropAndDisplayScreenshot(dataUrl, x, y, width, height) {
+        const img = new Image();
+        img.src = dataUrl;
+        
+        img.onload = () => {
+            // 创建canvas进行裁剪
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
+            
+            // 转换为data URL
+            const croppedDataUrl = canvas.toDataURL('image/png');
+            
+            // 显示裁剪后的截图预览
+            this.showScreenshotNotification('区域截图成功！', 'success');
+            this.showScreenshotPreview(croppedDataUrl);
+        };
     }
     
     // 权限诊断

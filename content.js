@@ -941,14 +941,12 @@ class PetManager {
             bottom: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            padding: 16px !important;
-            background: linear-gradient(135deg, #ffffff, #f8f9fa) !important;
-            border-top: 2px solid #e8e8e8 !important;
+            padding: 12px !important;
+            background: #ffffff !important;
+            border-top: 1px solid #e5e7eb !important;
             display: flex !important;
-            gap: 10px !important;
-            border-radius: 0 0 16px 16px !important;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.1) !important;
-            backdrop-filter: blur(10px) !important;
+            gap: 8px !important;
+            border-radius: 0 !important;
             z-index: ${PET_CONFIG.ui.zIndex.inputContainer} !important;
         `;
         
@@ -968,37 +966,89 @@ class PetManager {
         messageInput.rows = 1; // 初始单行，自动扩展
         messageInput.style.cssText = `
             flex: 1 !important;
-            padding: 12px 16px !important;
-            border: 2px solid #e0e0e0 !important;
-            border-radius: 20px !important;
+            padding: 8px 16px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 12px !important;
             font-size: 14px !important;
             font-weight: 400 !important;
+            color: #1f2937 !important;
             outline: none !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            background: rgba(255, 255, 255, 0.95) !important;
-            backdrop-filter: blur(5px) !important;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05) !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            background: #ffffff !important;
             resize: none !important;
-            min-height: 20px !important;
+            min-height: 36px !important;
             max-height: 120px !important;
             overflow-y: auto !important;
             line-height: 1.5 !important;
-            font-family: inherit !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         `;
         
-        // 自动调整高度
+        // 设置placeholder和滚动条样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .chat-message-input::placeholder {
+                color: #9ca3af !important;
+                opacity: 1 !important;
+                font-size: 14px !important;
+                font-weight: 400 !important;
+            }
+            .chat-message-input::-webkit-input-placeholder {
+                color: #9ca3af !important;
+                opacity: 1 !important;
+                font-size: 14px !important;
+            }
+            .chat-message-input::-moz-placeholder {
+                color: #9ca3af !important;
+                opacity: 1 !important;
+                font-size: 14px !important;
+            }
+            .chat-message-input:-ms-input-placeholder {
+                color: #9ca3af !important;
+                opacity: 1 !important;
+                font-size: 14px !important;
+            }
+            .chat-message-input::-webkit-scrollbar {
+                width: 4px !important;
+            }
+            .chat-message-input::-webkit-scrollbar-track {
+                background: transparent !important;
+            }
+            .chat-message-input::-webkit-scrollbar-thumb {
+                background: #d1d5db !important;
+                border-radius: 2px !important;
+            }
+            .chat-message-input::-webkit-scrollbar-thumb:hover {
+                background: #9ca3af !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 自动调整高度和输入时的视觉反馈
+        const updateInputState = () => {
+            const hasContent = messageInput.value.trim().length > 0;
+            if (hasContent) {
+                messageInput.style.borderColor = '#3b82f6';
+            } else {
+                messageInput.style.borderColor = '#d1d5db';
+            }
+        };
+
         messageInput.addEventListener('input', () => {
             messageInput.style.height = 'auto';
             messageInput.style.height = messageInput.scrollHeight + 'px';
+            updateInputState();
         });
         
         messageInput.addEventListener('focus', () => {
-            messageInput.style.borderColor = '#ff6b6b';
-            messageInput.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1), inset 0 2px 4px rgba(0,0,0,0.05)';
+            messageInput.style.borderColor = '#3b82f6';
+            messageInput.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
         });
+        
         messageInput.addEventListener('blur', () => {
-            messageInput.style.borderColor = '#e0e0e0';
-            messageInput.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.05)';
+            if (messageInput.value.length === 0) {
+                messageInput.style.borderColor = '#d1d5db';
+            }
+            messageInput.style.boxShadow = 'none';
         });
         
         // 添加粘贴图片支持
@@ -1032,7 +1082,13 @@ class PetManager {
             
             // 清空输入框并重置高度
             messageInput.value = '';
-            messageInput.style.height = 'auto';
+            messageInput.style.height = '';
+            // 强制重排以确保高度被正确重置
+            void messageInput.offsetHeight;
+            messageInput.style.height = '36px';
+            
+            // 更新输入状态
+            updateInputState();
             
             // 播放思考动画
             this.playChatAnimation();
@@ -1046,11 +1102,18 @@ class PetManager {
             }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
         };
         
-        // 键盘事件处理：Enter发送，Shift+Enter换行
+        // 键盘事件处理：Enter发送，Shift+Enter换行，ESC清除
         messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                messageInput.value = '';
+                messageInput.style.height = '';
+                messageInput.style.height = '36px';
+                updateInputState();
+                messageInput.blur();
             }
         });
         
@@ -1060,17 +1123,17 @@ class PetManager {
         screenshotButton.className = 'chat-screenshot-button';
         screenshotButton.title = '截图';
         screenshotButton.style.cssText = `
-            padding: 12px 14px !important;
-            background: linear-gradient(135deg, #4CAF50, #45a049) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 20px !important;
-            font-size: 18px !important;
+            padding: 8px 12px !important;
+            background: #ffffff !important;
+            color: #6b7280 !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 12px !important;
+            font-size: 16px !important;
             cursor: pointer !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 3px 12px rgba(76, 175, 80, 0.3) !important;
-            min-width: 44px !important;
-            height: 44px !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            min-width: 36px !important;
+            height: 36px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -1081,30 +1144,30 @@ class PetManager {
         
         // 添加截图按钮悬停效果
         screenshotButton.addEventListener('mouseenter', () => {
-            screenshotButton.style.background = 'linear-gradient(135deg, #45a049, #4CAF50)';
-            screenshotButton.style.transform = 'translateY(-2px) scale(1.05)';
-            screenshotButton.style.boxShadow = '0 6px 20px rgba(76, 175, 80, 0.4)';
+            screenshotButton.style.background = '#f9fafb';
+            screenshotButton.style.borderColor = '#9ca3af';
+            screenshotButton.style.color = '#374151';
         });
         screenshotButton.addEventListener('mouseleave', () => {
-            screenshotButton.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
-            screenshotButton.style.transform = 'translateY(0) scale(1)';
-            screenshotButton.style.boxShadow = '0 4px 15px rgba(76, 175, 80, 0.3)';
+            screenshotButton.style.background = '#ffffff';
+            screenshotButton.style.borderColor = '#d1d5db';
+            screenshotButton.style.color = '#6b7280';
         });
         
         // 添加截图按钮点击效果
         screenshotButton.addEventListener('mousedown', () => {
-            screenshotButton.style.transform = 'translateY(0) scale(0.98)';
+            screenshotButton.style.transform = 'scale(0.98)';
         });
         screenshotButton.addEventListener('mouseup', () => {
-            screenshotButton.style.transform = 'translateY(-2px) scale(1.05)';
+            screenshotButton.style.transform = 'scale(1)';
         });
         
         // 截图功能
         screenshotButton.addEventListener('click', () => {
             // 添加点击反馈
-            screenshotButton.style.transform = 'scale(0.95)';
+            screenshotButton.style.transform = 'scale(0.98)';
             setTimeout(() => {
-                screenshotButton.style.transform = 'translateY(-2px) scale(1.05)';
+                screenshotButton.style.transform = 'scale(1)';
             }, 100);
             
             this.takeScreenshot();
@@ -1138,17 +1201,17 @@ class PetManager {
         imageUploadButton.className = 'chat-image-upload-button';
         imageUploadButton.title = '上传图片 (支持粘贴)';
         imageUploadButton.style.cssText = `
-            padding: 12px 14px !important;
-            background: linear-gradient(135deg, #FF9800, #F57C00) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 20px !important;
-            font-size: 18px !important;
+            padding: 8px 12px !important;
+            background: #ffffff !important;
+            color: #6b7280 !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 12px !important;
+            font-size: 16px !important;
             cursor: pointer !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 3px 12px rgba(255, 152, 0, 0.3) !important;
-            min-width: 44px !important;
-            height: 44px !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            min-width: 36px !important;
+            height: 36px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -1159,14 +1222,14 @@ class PetManager {
         
         // 添加悬停效果
         imageUploadButton.addEventListener('mouseenter', () => {
-            imageUploadButton.style.background = 'linear-gradient(135deg, #F57C00, #FF9800)';
-            imageUploadButton.style.transform = 'translateY(-2px) scale(1.05)';
-            imageUploadButton.style.boxShadow = '0 6px 20px rgba(255, 152, 0, 0.4)';
+            imageUploadButton.style.background = '#f9fafb';
+            imageUploadButton.style.borderColor = '#9ca3af';
+            imageUploadButton.style.color = '#374151';
         });
         imageUploadButton.addEventListener('mouseleave', () => {
-            imageUploadButton.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
-            imageUploadButton.style.transform = 'translateY(0) scale(1)';
-            imageUploadButton.style.boxShadow = '0 4px 15px rgba(255, 152, 0, 0.3)';
+            imageUploadButton.style.background = '#ffffff';
+            imageUploadButton.style.borderColor = '#d1d5db';
+            imageUploadButton.style.color = '#6b7280';
         });
         
         // 创建隐藏的文件输入
@@ -1198,12 +1261,13 @@ class PetManager {
         const buttonGroup = document.createElement('div');
         buttonGroup.style.cssText = `
             display: flex !important;
-            gap: 8px !important;
+            gap: 6px !important;
             align-items: flex-end !important;
         `;
         
         buttonGroup.appendChild(imageUploadButton);
-        buttonGroup.appendChild(screenshotButton);
+        // 隐藏截图按钮
+        // buttonGroup.appendChild(screenshotButton);
         
         inputWrapper.appendChild(messageInput);
         inputContainer.appendChild(inputWrapper);

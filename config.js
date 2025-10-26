@@ -53,9 +53,9 @@ const PET_CONFIG = {
         
         // 大小限制
         sizeLimits: {
-            minWidth: 600,
+            minWidth: 400,
             maxWidth: 1400,
-            minHeight: 600,
+            minHeight: 400,
             maxHeight: 1600
         },
         

@@ -796,6 +796,7 @@ class PetManager {
             height: defaultSize.height,
             isDragging: false,
             isResizing: false,
+            resizeType: 'bottom-right', // 默认缩放类型
             dragStart: { x: 0, y: 0 },
             resizeStart: { x: 0, y: 0, width: 0, height: 0 }
         };
@@ -1214,30 +1215,75 @@ class PetManager {
         inputContainer.appendChild(sendButton);
         inputContainer.appendChild(fileInput);
         
-        // 创建缩放手柄
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'resize-handle';
-        resizeHandle.style.cssText = `
-            position: absolute !important;
-            bottom: 0 !important;
-            right: 0 !important;
-            width: 20px !important;
-            height: 20px !important;
-            background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%) !important;
-            cursor: nw-resize !important;
-            border-radius: 0 0 16px 0 !important;
-            z-index: ${PET_CONFIG.ui.zIndex.resizeHandle} !important;
-            transition: background 0.2s ease !important;
-        `;
+        // 创建四个缩放手柄（四个角）
+        const createResizeHandle = (position) => {
+            const handle = document.createElement('div');
+            handle.className = `resize-handle resize-handle-${position}`;
+            
+            let styles = `
+                position: absolute !important;
+                width: 20px !important;
+                height: 20px !important;
+                background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%) !important;
+                z-index: ${PET_CONFIG.ui.zIndex.resizeHandle} !important;
+                transition: background 0.2s ease !important;
+            `;
+            
+            // 根据位置设置样式
+            switch(position) {
+                case 'top-left':
+                    styles += `
+                        top: 0 !important;
+                        left: 0 !important;
+                        cursor: nw-resize !important;
+                        border-radius: 16px 0 0 0 !important;
+                    `;
+                    break;
+                case 'top-right':
+                    styles += `
+                        top: 0 !important;
+                        right: 0 !important;
+                        cursor: ne-resize !important;
+                        border-radius: 0 16px 0 0 !important;
+                    `;
+                    break;
+                case 'bottom-left':
+                    styles += `
+                        bottom: 0 !important;
+                        left: 0 !important;
+                        cursor: sw-resize !important;
+                        border-radius: 0 0 0 16px !important;
+                    `;
+                    break;
+                case 'bottom-right':
+                    styles += `
+                        bottom: 0 !important;
+                        right: 0 !important;
+                        cursor: nw-resize !important;
+                        border-radius: 0 0 16px 0 !important;
+                    `;
+                    break;
+            }
+            
+            handle.style.cssText = styles;
+            handle.title = '拖拽调整大小';
+            return handle;
+        };
         
-        // 添加缩放手柄的视觉提示
-        resizeHandle.title = '拖拽调整大小';
+        // 创建四个角的缩放手柄
+        const resizeHandleTL = createResizeHandle('top-left');
+        const resizeHandleTR = createResizeHandle('top-right');
+        const resizeHandleBL = createResizeHandle('bottom-left');
+        const resizeHandleBR = createResizeHandle('bottom-right');
         
         // 组装聊天窗口
         this.chatWindow.appendChild(chatHeader);
         this.chatWindow.appendChild(messagesContainer);
         this.chatWindow.appendChild(inputContainer);
-        this.chatWindow.appendChild(resizeHandle);
+        this.chatWindow.appendChild(resizeHandleTL);
+        this.chatWindow.appendChild(resizeHandleTR);
+        this.chatWindow.appendChild(resizeHandleBL);
+        this.chatWindow.appendChild(resizeHandleBR);
         
         // 添加到页面
         document.body.appendChild(this.chatWindow);
@@ -1281,7 +1327,7 @@ class PetManager {
         if (!this.chatWindow) return;
         
         const header = this.chatWindow.querySelector('.chat-header');
-        const resizeHandle = this.chatWindow.querySelector('.resize-handle');
+        const resizeHandles = this.chatWindow.querySelectorAll('.resize-handle');
         
         // 拖拽功能
         if (header) {
@@ -1299,15 +1345,29 @@ class PetManager {
             });
         }
         
-        // 缩放功能
-        if (resizeHandle) {
+        // 缩放功能 - 为每个缩放手柄添加事件监听
+        resizeHandles.forEach((resizeHandle) => {
             resizeHandle.addEventListener('mousedown', (e) => {
                 this.chatWindowState.isResizing = true;
+                
+                // 根据手柄位置确定缩放类型
+                if (resizeHandle.classList.contains('resize-handle-top-left')) {
+                    this.chatWindowState.resizeType = 'top-left';
+                } else if (resizeHandle.classList.contains('resize-handle-top-right')) {
+                    this.chatWindowState.resizeType = 'top-right';
+                } else if (resizeHandle.classList.contains('resize-handle-bottom-left')) {
+                    this.chatWindowState.resizeType = 'bottom-left';
+                } else if (resizeHandle.classList.contains('resize-handle-bottom-right')) {
+                    this.chatWindowState.resizeType = 'bottom-right';
+                }
+                
                 this.chatWindowState.resizeStart = {
                     x: e.clientX,
                     y: e.clientY,
                     width: this.chatWindowState.width,
-                    height: this.chatWindowState.height
+                    height: this.chatWindowState.height,
+                    startX: this.chatWindowState.x,
+                    startY: this.chatWindowState.y
                 };
                 
                 // 添加缩放时的视觉反馈
@@ -1317,7 +1377,7 @@ class PetManager {
                 e.preventDefault();
                 e.stopPropagation();
             });
-        }
+        });
         
         // 全局鼠标移动事件
         document.addEventListener('mousemove', (e) => {
@@ -1340,25 +1400,63 @@ class PetManager {
                 const deltaX = e.clientX - this.chatWindowState.resizeStart.x;
                 const deltaY = e.clientY - this.chatWindowState.resizeStart.y;
                 
-                const newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width + deltaX));
-                const newHeight = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.resizeStart.height + deltaY));
+                const resizeType = this.chatWindowState.resizeType;
+                let newWidth, newHeight, newX, newY;
                 
-                this.chatWindowState.width = newWidth;
-                this.chatWindowState.height = newHeight;
+                // 根据不同的缩放类型计算新的宽度、高度和位置
+                switch(resizeType) {
+                    case 'bottom-right':
+                        // 右下角：调整宽度和高度
+                        newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width + deltaX));
+                        newHeight = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.resizeStart.height + deltaY));
+                        newX = this.chatWindowState.resizeStart.startX;
+                        newY = this.chatWindowState.resizeStart.startY;
+                        break;
+                        
+                    case 'bottom-left':
+                        // 左下角：调整宽度（负方向）和高度，同时移动x位置
+                        newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width - deltaX));
+                        newHeight = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.resizeStart.height + deltaY));
+                        newX = Math.max(0, this.chatWindowState.resizeStart.startX + deltaX);
+                        newY = this.chatWindowState.resizeStart.startY;
+                        break;
+                        
+                    case 'top-right':
+                        // 右上角：调整宽度和高度（负方向），同时移动y位置
+                        newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width + deltaX));
+                        newHeight = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.resizeStart.height - deltaY));
+                        newX = this.chatWindowState.resizeStart.startX;
+                        newY = Math.max(0, this.chatWindowState.resizeStart.startY + deltaY);
+                        break;
+                        
+                    case 'top-left':
+                        // 左上角：调整宽度和高度（负方向），同时移动x和y位置
+                        newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width - deltaX));
+                        newHeight = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.resizeStart.height - deltaY));
+                        newX = Math.max(0, this.chatWindowState.resizeStart.startX + deltaX);
+                        newY = Math.max(0, this.chatWindowState.resizeStart.startY + deltaY);
+                        break;
+                        
+                    default:
+                        return;
+                }
                 
-                // 调整位置，确保不超出屏幕边界
+                // 边界检查，确保窗口不超出屏幕
                 const maxX = window.innerWidth - newWidth;
                 const maxY = window.innerHeight - newHeight;
                 
-                // 如果窗口会超出右边界，调整x位置
-                if (this.chatWindowState.x + newWidth > window.innerWidth) {
-                    this.chatWindowState.x = Math.max(0, maxX);
+                if (newX + newWidth > window.innerWidth) {
+                    newX = Math.max(0, maxX);
                 }
                 
-                // 如果窗口会超出下边界，调整y位置
-                if (this.chatWindowState.y + newHeight > window.innerHeight) {
-                    this.chatWindowState.y = Math.max(0, maxY);
+                if (newY + newHeight > window.innerHeight) {
+                    newY = Math.max(0, maxY);
                 }
+                
+                this.chatWindowState.width = newWidth;
+                this.chatWindowState.height = newHeight;
+                this.chatWindowState.x = newX;
+                this.chatWindowState.y = newY;
                 
                 this.updateChatWindowStyle();
             }
@@ -1380,11 +1478,11 @@ class PetManager {
             if (this.chatWindowState.isResizing) {
                 this.chatWindowState.isResizing = false;
                 
-                // 恢复缩放手柄的样式
-                const resizeHandle = this.chatWindow.querySelector('.resize-handle');
-                if (resizeHandle) {
-                    resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
-                }
+                // 恢复所有缩放手柄的样式
+                const allResizeHandles = this.chatWindow.querySelectorAll('.resize-handle');
+                allResizeHandles.forEach(handle => {
+                    handle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
+                });
                 
                 // 恢复窗口阴影
                 this.chatWindow.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
@@ -1396,8 +1494,8 @@ class PetManager {
             }
         });
         
-        // 悬停效果
-        if (resizeHandle) {
+        // 悬停效果 - 为所有缩放手柄添加悬停效果
+        resizeHandles.forEach((resizeHandle) => {
             resizeHandle.addEventListener('mouseenter', () => {
                 if (!this.chatWindowState.isResizing) {
                     resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #999 30%, #999 70%, transparent 70%)';
@@ -1411,7 +1509,7 @@ class PetManager {
                     resizeHandle.style.transform = 'scale(1)';
                 }
             });
-        }
+        });
     }
     
     // 保存聊天窗口状态
@@ -1509,7 +1607,8 @@ class PetManager {
             ...this.chatWindowState,
             ...state,
             isDragging: false,
-            isResizing: false
+            isResizing: false,
+            resizeType: 'bottom-right' // 默认缩放类型
         };
         
         // 验证位置和大小

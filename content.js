@@ -941,44 +941,64 @@ class PetManager {
             bottom: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            padding: 20px !important;
+            padding: 16px !important;
             background: linear-gradient(135deg, #ffffff, #f8f9fa) !important;
             border-top: 2px solid #e8e8e8 !important;
             display: flex !important;
-            gap: 12px !important;
+            gap: 10px !important;
             border-radius: 0 0 16px 16px !important;
             box-shadow: 0 -4px 20px rgba(0,0,0,0.1) !important;
             backdrop-filter: blur(10px) !important;
             z-index: ${PET_CONFIG.ui.zIndex.inputContainer} !important;
         `;
         
-        const messageInput = document.createElement('input');
-        messageInput.type = 'text';
-        messageInput.placeholder = PET_CONFIG.chatWindow.input.placeholder;
+        // 创建输入框容器（包含输入框和按钮）
+        const inputWrapper = document.createElement('div');
+        inputWrapper.style.cssText = `
+            flex: 1 !important;
+            display: flex !important;
+            gap: 8px !important;
+            align-items: flex-end !important;
+        `;
+        
+        const messageInput = document.createElement('textarea');
+        messageInput.placeholder = '输入消息... (Enter发送, Shift+Enter换行)';
         messageInput.maxLength = PET_CONFIG.chatWindow.input.maxLength;
         messageInput.className = 'chat-message-input';
+        messageInput.rows = 1; // 初始单行，自动扩展
         messageInput.style.cssText = `
             flex: 1 !important;
-            padding: 16px 20px !important;
+            padding: 12px 16px !important;
             border: 2px solid #e0e0e0 !important;
-            border-radius: 25px !important;
-            font-size: 15px !important;
+            border-radius: 20px !important;
+            font-size: 14px !important;
             font-weight: 400 !important;
             outline: none !important;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            background: rgba(255, 255, 255, 0.9) !important;
+            background: rgba(255, 255, 255, 0.95) !important;
             backdrop-filter: blur(5px) !important;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.05) !important;
+            resize: none !important;
+            min-height: 20px !important;
+            max-height: 120px !important;
+            overflow-y: auto !important;
+            line-height: 1.5 !important;
+            font-family: inherit !important;
         `;
+        
+        // 自动调整高度
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+        });
+        
         messageInput.addEventListener('focus', () => {
             messageInput.style.borderColor = '#ff6b6b';
             messageInput.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1), inset 0 2px 4px rgba(0,0,0,0.05)';
-            messageInput.style.transform = 'scale(1.02)';
         });
         messageInput.addEventListener('blur', () => {
             messageInput.style.borderColor = '#e0e0e0';
             messageInput.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.05)';
-            messageInput.style.transform = 'scale(1)';
         });
         
         // 添加粘贴图片支持
@@ -1000,45 +1020,6 @@ class PetManager {
             }
         });
         
-        const sendButton = document.createElement('button');
-        sendButton.innerHTML = '发送';
-        sendButton.className = 'chat-send-button';
-        sendButton.style.cssText = `
-            padding: 16px 24px !important;
-            background: linear-gradient(135deg, #ff6b6b, #ff8e8e) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 25px !important;
-            font-size: 15px !important;
-            font-weight: 600 !important;
-            cursor: pointer !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3) !important;
-            min-width: 80px !important;
-            position: relative !important;
-            overflow: hidden !important;
-        `;
-        
-        // 添加按钮悬停效果
-        sendButton.addEventListener('mouseenter', () => {
-            sendButton.style.background = 'linear-gradient(135deg, #ff8e8e, #ff6b6b)';
-            sendButton.style.transform = 'translateY(-2px) scale(1.05)';
-            sendButton.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.4)';
-        });
-        sendButton.addEventListener('mouseleave', () => {
-            sendButton.style.background = 'linear-gradient(135deg, #ff6b6b, #ff8e8e)';
-            sendButton.style.transform = 'translateY(0) scale(1)';
-            sendButton.style.boxShadow = '0 4px 15px rgba(255, 107, 107, 0.3)';
-        });
-        
-        // 添加按钮点击效果
-        sendButton.addEventListener('mousedown', () => {
-            sendButton.style.transform = 'translateY(0) scale(0.98)';
-        });
-        sendButton.addEventListener('mouseup', () => {
-            sendButton.style.transform = 'translateY(-2px) scale(1.05)';
-        });
-        
         // 发送消息功能
         const sendMessage = async () => {
             const message = messageInput.value.trim();
@@ -1049,12 +1030,9 @@ class PetManager {
             messagesContainer.appendChild(userMessage);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
-            // 清空输入框
+            // 清空输入框并重置高度
             messageInput.value = '';
-            
-            // 禁用发送按钮
-            sendButton.disabled = true;
-            sendButton.innerHTML = '发送中...';
+            messageInput.style.height = 'auto';
             
             // 播放思考动画
             this.playChatAnimation();
@@ -1065,16 +1043,13 @@ class PetManager {
                 const petMessage = this.createMessageElement(reply, 'pet');
                 messagesContainer.appendChild(petMessage);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                
-                // 重新启用发送按钮
-                sendButton.disabled = false;
-                sendButton.innerHTML = '发送';
             }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
         };
         
-        sendButton.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        // 键盘事件处理：Enter发送，Shift+Enter换行
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendMessage();
             }
         });
@@ -1085,18 +1060,23 @@ class PetManager {
         screenshotButton.className = 'chat-screenshot-button';
         screenshotButton.title = '截图';
         screenshotButton.style.cssText = `
-            padding: 16px !important;
+            padding: 12px 14px !important;
             background: linear-gradient(135deg, #4CAF50, #45a049) !important;
             color: white !important;
             border: none !important;
-            border-radius: 25px !important;
+            border-radius: 20px !important;
             font-size: 18px !important;
             cursor: pointer !important;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3) !important;
-            min-width: 50px !important;
+            box-shadow: 0 3px 12px rgba(76, 175, 80, 0.3) !important;
+            min-width: 44px !important;
+            height: 44px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             position: relative !important;
             overflow: hidden !important;
+            flex-shrink: 0 !important;
         `;
         
         // 添加截图按钮悬停效果
@@ -1158,18 +1138,23 @@ class PetManager {
         imageUploadButton.className = 'chat-image-upload-button';
         imageUploadButton.title = '上传图片 (支持粘贴)';
         imageUploadButton.style.cssText = `
-            padding: 16px !important;
+            padding: 12px 14px !important;
             background: linear-gradient(135deg, #FF9800, #F57C00) !important;
             color: white !important;
             border: none !important;
-            border-radius: 25px !important;
+            border-radius: 20px !important;
             font-size: 18px !important;
             cursor: pointer !important;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3) !important;
-            min-width: 50px !important;
+            box-shadow: 0 3px 12px rgba(255, 152, 0, 0.3) !important;
+            min-width: 44px !important;
+            height: 44px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             position: relative !important;
             overflow: hidden !important;
+            flex-shrink: 0 !important;
         `;
         
         // 添加悬停效果
@@ -1209,10 +1194,20 @@ class PetManager {
             fileInput.click();
         });
         
-        inputContainer.appendChild(messageInput);
-        inputContainer.appendChild(imageUploadButton);
-        inputContainer.appendChild(screenshotButton);
-        inputContainer.appendChild(sendButton);
+        // 优化按钮布局
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            align-items: flex-end !important;
+        `;
+        
+        buttonGroup.appendChild(imageUploadButton);
+        buttonGroup.appendChild(screenshotButton);
+        
+        inputWrapper.appendChild(messageInput);
+        inputContainer.appendChild(inputWrapper);
+        inputContainer.appendChild(buttonGroup);
         inputContainer.appendChild(fileInput);
         
         // 创建四个缩放手柄（四个角）

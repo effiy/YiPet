@@ -636,7 +636,7 @@ class PetManager {
     async generatePetResponse(message) {
         try {
             // 调用本地 API
-            const response = await fetch('http://localhost:8000/prompt/', {
+            const response = await fetch('https://api.effiy.cn/prompt/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

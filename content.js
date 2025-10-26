@@ -1758,7 +1758,11 @@ class PetManager {
             user-select: none !important;
         `;
         
-        // 创建截图背景
+        // 先加载图片以获取真实尺寸
+        const img = new Image();
+        img.src = dataUrl;
+        
+        // 创建截图背景容器
         const screenshotBg = document.createElement('div');
         screenshotBg.style.cssText = `
             position: absolute !important;
@@ -1766,12 +1770,22 @@ class PetManager {
             left: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            background-image: url(${dataUrl}) !important;
-            background-size: contain !important;
-            background-repeat: no-repeat !important;
-            background-position: center !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             opacity: 0.7 !important;
         `;
+        
+        // 创建实际图片元素
+        const screenshotImg = document.createElement('img');
+        screenshotImg.src = dataUrl;
+        screenshotImg.style.cssText = `
+            max-width: 100% !important;
+            max-height: 100% !important;
+            object-fit: contain !important;
+        `;
+        
+        screenshotBg.appendChild(screenshotImg);
         
         // 创建选择框
         const selectionBox = document.createElement('div');
@@ -1806,80 +1820,104 @@ class PetManager {
         overlay.appendChild(screenshotBg);
         overlay.appendChild(selectionBox);
         overlay.appendChild(tipText);
-        document.body.appendChild(overlay);
+        
+        // 等待图片加载完成后再添加到页面并设置事件监听
+        img.onload = () => {
+            document.body.appendChild(overlay);
+            setupEventListeners();
+        };
+        
+        // 如果图片已经加载完成
+        if (img.complete && img.naturalHeight !== 0) {
+            document.body.appendChild(overlay);
+            setupEventListeners();
+        }
         
         let isSelecting = false;
         let startX = 0;
         let startY = 0;
         
-        // 鼠标按下事件
-        overlay.addEventListener('mousedown', (e) => {
-            isSelecting = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            
-            selectionBox.style.left = startX + 'px';
-            selectionBox.style.top = startY + 'px';
-            selectionBox.style.width = '0px';
-            selectionBox.style.height = '0px';
-            selectionBox.style.display = 'block';
-            
-            // 隐藏提示
-            tipText.style.display = 'none';
-            
-            e.preventDefault();
-        });
-        
-        // 鼠标移动事件
-        overlay.addEventListener('mousemove', (e) => {
-            if (!isSelecting) return;
-            
-            const currentX = e.clientX;
-            const currentY = e.clientY;
-            
-            const left = Math.min(startX, currentX);
-            const top = Math.min(startY, currentY);
-            const width = Math.abs(currentX - startX);
-            const height = Math.abs(currentY - startY);
-            
-            selectionBox.style.left = left + 'px';
-            selectionBox.style.top = top + 'px';
-            selectionBox.style.width = width + 'px';
-            selectionBox.style.height = height + 'px';
-        });
-        
-        // 鼠标释放或双击事件
-        const finishSelection = (e) => {
-            if (!isSelecting) return;
-            isSelecting = false;
-            
-            const rect = selectionBox.getBoundingClientRect();
-            
-            // 如果区域太小，关闭选择器并恢复显示
-            if (rect.width < 10 || rect.height < 10) {
-                if (tipText) tipText.remove();
-                if (overlay.parentNode) {
-                    overlay.parentNode.removeChild(overlay);
-                }
-                // 恢复聊天窗口和宠物显示
-                this.restoreElements(originalChatDisplay, originalPetDisplay);
-                return;
-            }
-            
-            // 计算截取区域的相对坐标（相对于原始截图尺寸）
-            const img = new Image();
-            img.src = dataUrl;
-            
-            img.onload = () => {
-                // 计算缩放比例
-                const scaleX = img.width / window.innerWidth;
-                const scaleY = img.height / window.innerHeight;
+        // 设置事件监听器的函数
+        const setupEventListeners = () => {
+            // 鼠标按下事件
+            overlay.addEventListener('mousedown', (e) => {
+                isSelecting = true;
+                startX = e.clientX;
+                startY = e.clientY;
                 
-                // 计算实际截图区域（考虑页面滚动）
-                const actualX = (rect.left + window.scrollX) * scaleX;
-                const actualY = (rect.top + window.scrollY) * scaleY;
-                const actualWidth = rect.width * scaleX;
-                const actualHeight = rect.height * scaleY;
+                selectionBox.style.left = startX + 'px';
+                selectionBox.style.top = startY + 'px';
+                selectionBox.style.width = '0px';
+                selectionBox.style.height = '0px';
+                selectionBox.style.display = 'block';
+                
+                // 隐藏提示
+                tipText.style.display = 'none';
+                
+                e.preventDefault();
+            });
+            
+            // 鼠标移动事件
+            overlay.addEventListener('mousemove', (e) => {
+                if (!isSelecting) return;
+                
+                const currentX = e.clientX;
+                const currentY = e.clientY;
+                
+                const left = Math.min(startX, currentX);
+                const top = Math.min(startY, currentY);
+                const width = Math.abs(currentX - startX);
+                const height = Math.abs(currentY - startY);
+                
+                selectionBox.style.left = left + 'px';
+                selectionBox.style.top = top + 'px';
+                selectionBox.style.width = width + 'px';
+                selectionBox.style.height = height + 'px';
+            });
+            
+            // 鼠标释放或双击事件
+            const finishSelection = (e) => {
+                if (!isSelecting) return;
+                isSelecting = false;
+                
+                const rect = selectionBox.getBoundingClientRect();
+                
+                // 如果区域太小，关闭选择器并恢复显示
+                if (rect.width < 10 || rect.height < 10) {
+                    if (tipText) tipText.remove();
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                    // 恢复聊天窗口和宠物显示
+                    this.restoreElements(originalChatDisplay, originalPetDisplay);
+                    return;
+                }
+                
+                // 计算截取区域的相对坐标（相对于原始截图尺寸）
+                // 使用已经加载的图片
+                const imgRect = screenshotImg.getBoundingClientRect();
+                
+                // 计算图片在页面中的实际显示尺寸和位置
+                const imgDisplayWidth = imgRect.width;
+                const imgDisplayHeight = imgRect.height;
+                const imgDisplayX = imgRect.left;
+                const imgDisplayY = imgRect.top;
+                
+                // 计算原始图片和显示图片的缩放比例
+                const scaleX = img.width / imgDisplayWidth;
+                const scaleY = img.height / imgDisplayHeight;
+                
+                // 将选择框相对于图片的位置转换为原始图片的坐标
+                const relativeX = rect.left - imgDisplayX;
+                const relativeY = rect.top - imgDisplayY;
+                const relativeWidth = rect.width;
+                const relativeHeight = rect.height;
+                
+                // 转换为原始图片坐标
+                const actualX = relativeX * scaleX;
+                const actualY = relativeY * scaleY;
+                const actualWidth = relativeWidth * scaleX;
+                const actualHeight = relativeHeight * scaleY;
                 
                 // 移除选择器
                 if (overlay.parentNode) {
@@ -1892,23 +1930,23 @@ class PetManager {
                 // 裁剪图片
                 this.cropAndDisplayScreenshot(dataUrl, actualX, actualY, actualWidth, actualHeight);
             };
-        };
-        
-        overlay.addEventListener('mouseup', finishSelection);
-        overlay.addEventListener('dblclick', finishSelection);
-        
-        // ESC键取消
-        const cancelHandler = (e) => {
-            if (e.key === 'Escape') {
-                if (overlay.parentNode) {
-                    overlay.parentNode.removeChild(overlay);
+            
+            overlay.addEventListener('mouseup', finishSelection);
+            overlay.addEventListener('dblclick', finishSelection);
+            
+            // ESC键取消
+            const cancelHandler = (e) => {
+                if (e.key === 'Escape') {
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                    // 恢复聊天窗口和宠物显示
+                    this.restoreElements(originalChatDisplay, originalPetDisplay);
+                    window.removeEventListener('keydown', cancelHandler);
                 }
-                // 恢复聊天窗口和宠物显示
-                this.restoreElements(originalChatDisplay, originalPetDisplay);
-                window.removeEventListener('keydown', cancelHandler);
-            }
+            };
+            window.addEventListener('keydown', cancelHandler);
         };
-        window.addEventListener('keydown', cancelHandler);
     }
     
     // 恢复元素显示

@@ -51,12 +51,12 @@ const PET_CONFIG = {
             y: '12%'     // 使用视口高度的12%
         },
         
-        // 大小限制
+        // 大小限制（设置为宽泛的范围，几乎不限制）
         sizeLimits: {
-            minWidth: 400,
-            maxWidth: 1400,
-            minHeight: 400,
-            maxHeight: 1600
+            minWidth: 300,
+            maxWidth: 10000,
+            minHeight: 200,
+            maxHeight: 10000
         },
         
         // 输入框配置

@@ -26,7 +26,7 @@ if (typeof PET_CONFIG === 'undefined') {
         },
         chatWindow: {
             defaultSize: { width: 700, height: 600 },
-            sizeLimits: { minWidth: 400, maxWidth: 1400, minHeight: 400, maxHeight: 1600 },
+            sizeLimits: { minWidth: 300, maxWidth: 10000, minHeight: 200, maxHeight: 10000 },
             input: { maxLength: 200, placeholder: '输入消息...' },
             message: { maxLength: 1000, thinkingDelay: { min: 1000, max: 2000 } }
         },

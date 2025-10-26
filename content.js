@@ -162,9 +162,17 @@ class PetManager {
                 case 'chatWithPet':
                     // 添加聊天动画效果
                     this.playChatAnimation();
-                    const reply = this.generatePetResponse(request.message);
-                    sendResponse({ success: true, reply: reply });
-                    break;
+                    // 异步处理
+                    (async () => {
+                        try {
+                            const reply = await this.generatePetResponse(request.message);
+                            sendResponse({ success: true, reply: reply });
+                        } catch (error) {
+                            console.error('生成回复失败:', error);
+                            sendResponse({ success: false, error: error.message });
+                        }
+                    })();
+                    return true; // 保持消息通道开放
                     
                 default:
                     sendResponse({ success: false, error: 'Unknown action' });
@@ -625,139 +633,51 @@ class PetManager {
     }
     
     // 生成宠物响应
-    generatePetResponse(message) {
-        const lowerMessage = message.toLowerCase();
-        
-        // 问候语响应
-        if (lowerMessage.includes('你好') || lowerMessage.includes('hi') || lowerMessage.includes('hello')) {
-            return this.getRandomResponse([
-                '你好！很高兴见到你！😊',
-                '嗨！今天过得怎么样？✨',
-                '你好呀！有什么想聊的吗？💕'
-            ]);
+    async generatePetResponse(message) {
+        try {
+            // 调用本地 API
+            const response = await fetch('http://localhost:8000/prompt/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: '你是一个可爱的宠物助手，友善、幽默，喜欢和用户聊天。',
+                    fromUser: message
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            // 适配新的响应格式: {status, msg, data, pagination}
+            if (result.status === 200 && result.data) {
+                // 成功响应，提取 data 字段
+                return result.data;
+            } else if (result.status !== 200) {
+                // API 返回错误，使用 msg 字段
+                return result.msg || '抱歉，服务器返回了错误。';
+            } else if (result.reply) {
+                // 兼容旧格式
+                return result.reply;
+            } else if (result.content) {
+                return result.content;
+            } else if (result.message) {
+                return result.message;
+            } else if (typeof result === 'string') {
+                return result;
+            } else {
+                // 未知格式，尝试提取可能的文本内容
+                return JSON.stringify(result);
+            }
+        } catch (error) {
+            console.error('API 调用失败:', error);
+            // 如果 API 调用失败，返回默认响应
+            return '抱歉，我现在无法连接到服务器。请稍后再试。😔';
         }
-        
-        // 感谢响应
-        if (lowerMessage.includes('谢谢') || lowerMessage.includes('thank')) {
-            return this.getRandomResponse([
-                '不客气！我很乐意帮助你！💕',
-                '不用谢！这是我应该做的！😊',
-                '能帮到你我很开心！✨'
-            ]);
-        }
-        
-        // 告别响应
-        if (lowerMessage.includes('再见') || lowerMessage.includes('bye') || lowerMessage.includes('拜拜')) {
-            return this.getRandomResponse([
-                '再见！期待下次和你聊天！👋',
-                '拜拜！记得想我哦！💖',
-                '再见啦！我会想你的！😊'
-            ]);
-        }
-        
-        // 情感响应
-        if (lowerMessage.includes('爱') || lowerMessage.includes('love')) {
-            return this.getRandomResponse([
-                '我也爱你！💖',
-                '你是我最爱的朋友！💕',
-                '我也很爱你！这让我很开心！😊'
-            ]);
-        }
-        
-        if (lowerMessage.includes('开心') || lowerMessage.includes('happy') || lowerMessage.includes('高兴')) {
-            return this.getRandomResponse([
-                '我也很开心！😄',
-                '看到你开心我也很开心！✨',
-                '太好了！让我们一起开心吧！🎉'
-            ]);
-        }
-        
-        if (lowerMessage.includes('难过') || lowerMessage.includes('sad') || lowerMessage.includes('伤心')) {
-            return this.getRandomResponse([
-                '别难过，我会陪着你的！🤗',
-                '抱抱你！一切都会好起来的！💕',
-                '我在这里陪着你，不要难过！😊'
-            ]);
-        }
-        
-        if (lowerMessage.includes('累') || lowerMessage.includes('tired') || lowerMessage.includes('疲惫')) {
-            return this.getRandomResponse([
-                '好好休息一下吧！我会在这里等你的！😴',
-                '累了就休息，身体最重要！💤',
-                '休息好了再来找我玩吧！😊'
-            ]);
-        }
-        
-        // 夸奖响应
-        if (lowerMessage.includes('棒') || lowerMessage.includes('好') || lowerMessage.includes('厉害')) {
-            return this.getRandomResponse([
-                '谢谢你的夸奖！你也很棒！🌟',
-                '你这么说让我很开心！😊',
-                '你也很厉害呢！💪'
-            ]);
-        }
-        
-        // 问题响应
-        if (lowerMessage.includes('？') || lowerMessage.includes('?') || lowerMessage.includes('什么') || lowerMessage.includes('怎么')) {
-            return this.getRandomResponse([
-                '这是个很有趣的问题！让我想想...🤔',
-                '嗯...我觉得这个问题很有意思！💭',
-                '你问得很好！虽然我不太确定答案...😅'
-            ]);
-        }
-        
-        // 时间相关响应
-        if (lowerMessage.includes('时间') || lowerMessage.includes('几点') || lowerMessage.includes('time')) {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-            return `现在的时间是 ${timeStr}！⏰`;
-        }
-        
-        // 天气相关响应
-        if (lowerMessage.includes('天气') || lowerMessage.includes('weather')) {
-            return this.getRandomResponse([
-                '今天的天气看起来不错呢！☀️',
-                '希望今天是个好天气！🌤️',
-                '天气好的时候心情也会很好！😊'
-            ]);
-        }
-        
-        // 学习相关响应
-        if (lowerMessage.includes('学习') || lowerMessage.includes('study') || lowerMessage.includes('工作')) {
-            return this.getRandomResponse([
-                '学习加油！我相信你可以的！📚',
-                '工作辛苦了！记得适当休息！💪',
-                '努力的人最棒了！🌟'
-            ]);
-        }
-        
-        // 食物相关响应
-        if (lowerMessage.includes('吃') || lowerMessage.includes('饿') || lowerMessage.includes('food')) {
-            return this.getRandomResponse([
-                '我也想吃好吃的！🍎',
-                '记得按时吃饭哦！🍽️',
-                '美食总是让人心情愉悦！😋'
-            ]);
-        }
-        
-        // 默认响应
-        return this.getRandomResponse([
-            '真的吗？太有趣了！😊',
-            '哇，听起来很棒呢！✨',
-            '我明白了，谢谢你告诉我！💕',
-            '这让我很开心！😄',
-            '你总是这么有趣！🎉',
-            '我很喜欢和你聊天！💖',
-            '这真是太棒了！🌟',
-            '你让我学到了新东西！📚',
-            '和你聊天总是让我很开心！😊',
-            '谢谢你的分享！🙏',
-            '听起来很有意思！🤔',
-            '你真是个有趣的人！😄',
-            '我很喜欢听你说话！💕',
-            '这让我想起了美好的事情！✨',
-            '你总是能让我开心！😊'
-        ]);
     }
     
     // 获取随机响应
@@ -1094,12 +1014,17 @@ class PetManager {
             this.playChatAnimation();
             
             // 生成宠物响应
-            setTimeout(() => {
-                const reply = this.generatePetResponse(message);
+            try {
+                const reply = await this.generatePetResponse(message);
                 const petMessage = this.createMessageElement(reply, 'pet');
                 messagesContainer.appendChild(petMessage);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
+            } catch (error) {
+                console.error('生成回复失败:', error);
+                const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
+                messagesContainer.appendChild(errorMessage);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
         };
         
         // 键盘事件处理：Enter发送，Shift+Enter换行，ESC清除

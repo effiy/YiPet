@@ -1,13 +1,16 @@
 {
   "manifest_version": 3,
   "name": "可爱桌面宠物",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "在浏览器中添加一只可爱的可拖拽小宠物，陪伴您的浏览时光。支持多种互动功能，让网页浏览更加有趣！",
   "permissions": [
     "activeTab",
     "storage",
     "tabs",
     "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"

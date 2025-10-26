@@ -570,9 +570,7 @@ class PetManager {
                 
                 // 直接进行截图，不需要打开聊天窗口
                 this.takeScreenshot();
-                
-                // 显示快捷键提示
-                this.showScreenshotNotification('📷 快捷键截图已触发（F7）', 'info');
+
                 return false;
             }
             
@@ -584,10 +582,8 @@ class PetManager {
                 
                 if (this.isChatOpen) {
                     this.closeChatWindow();
-                    this.showScreenshotNotification('💬 聊天窗口已关闭', 'info');
                 } else {
                     this.openChatWindow();
-                    this.showScreenshotNotification('💬 聊天窗口已打开', 'info');
                 }
                 return false;
             }
@@ -597,7 +593,6 @@ class PetManager {
                 e.preventDefault();
                 e.stopPropagation();
                 this.closeChatWindow();
-                this.showScreenshotNotification('💬 聊天窗口已关闭', 'info');
                 return false;
             }
         }, true); // 使用捕获阶段，确保在其他处理之前执行
@@ -1670,9 +1665,6 @@ class PetManager {
         try {
             console.log('开始截图...');
             
-            // 显示截图提示
-            this.showScreenshotNotification('正在截图...', 'info');
-            
             // 检查Chrome API可用性
             if (!this.checkChromeAPIAvailability()) {
                 this.showScreenshotNotification('Chrome API不可用，请刷新页面后重试', 'error');
@@ -1945,9 +1937,7 @@ class PetManager {
             
             // 转换为data URL
             const croppedDataUrl = canvas.toDataURL('image/png');
-            
-            // 显示裁剪后的截图预览
-            this.showScreenshotNotification('区域截图成功！', 'success');
+
             this.showScreenshotPreview(croppedDataUrl);
         };
     }
@@ -2557,8 +2547,6 @@ class PetManager {
                         [blob.type]: blob
                     })
                 ]);
-                
-                this.showScreenshotNotification('图片已复制到剪贴板！', 'success');
             } catch (error) {
                 console.error('复制失败:', error);
                 this.showScreenshotNotification('复制失败，请使用保存功能', 'error');

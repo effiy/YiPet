@@ -656,6 +656,9 @@ class PetManager {
             return;
         }
         
+        // 尝试加载保存的聊天窗口状态
+        this.loadChatWindowState();
+        
         this.createChatWindow();
         this.isChatOpen = true;
     }
@@ -670,28 +673,26 @@ class PetManager {
     
     // 创建聊天窗口
     createChatWindow() {
+        // 初始化聊天窗口状态
+        this.chatWindowState = {
+            x: (window.innerWidth - 900) / 2,
+            y: (window.innerHeight - 700) / 2,
+            width: 900,
+            height: 700,
+            isDragging: false,
+            isResizing: false,
+            dragStart: { x: 0, y: 0 },
+            resizeStart: { x: 0, y: 0, width: 0, height: 0 }
+        };
+        
         // 创建聊天窗口容器
         this.chatWindow = document.createElement('div');
         this.chatWindow.id = 'pet-chat-window';
-        this.chatWindow.style.cssText = `
-            position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 350px !important;
-            height: 450px !important;
-            background: white !important;
-            border-radius: 16px !important;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-            z-index: 2147483648 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-        `;
+        this.updateChatWindowStyle();
         
-        // 创建聊天头部
+        // 创建聊天头部（拖拽区域）
         const chatHeader = document.createElement('div');
+        chatHeader.className = 'chat-header';
         chatHeader.style.cssText = `
             background: linear-gradient(135deg, #ff6b6b, #ff8e8e) !important;
             color: white !important;
@@ -699,7 +700,14 @@ class PetManager {
             display: flex !important;
             align-items: center !important;
             justify-content: space-between !important;
+            cursor: move !important;
+            user-select: none !important;
+            border-radius: 16px 16px 0 0 !important;
+            transition: background 0.2s ease !important;
         `;
+        
+        // 添加拖拽提示
+        chatHeader.title = '拖拽移动窗口';
         
         const headerTitle = document.createElement('div');
         headerTitle.style.cssText = `
@@ -762,6 +770,7 @@ class PetManager {
             border-top: 1px solid #e0e0e0 !important;
             display: flex !important;
             gap: 10px !important;
+            border-radius: 0 0 16px 16px !important;
         `;
         
         const messageInput = document.createElement('input');
@@ -849,16 +858,214 @@ class PetManager {
         inputContainer.appendChild(messageInput);
         inputContainer.appendChild(sendButton);
         
+        // 创建缩放手柄
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'resize-handle';
+        resizeHandle.style.cssText = `
+            position: absolute !important;
+            bottom: 0 !important;
+            right: 0 !important;
+            width: 20px !important;
+            height: 20px !important;
+            background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%) !important;
+            cursor: nw-resize !important;
+            border-radius: 0 0 16px 0 !important;
+            z-index: 1 !important;
+            transition: background 0.2s ease !important;
+        `;
+        
+        // 添加缩放手柄的视觉提示
+        resizeHandle.title = '拖拽调整大小';
+        
         // 组装聊天窗口
         this.chatWindow.appendChild(chatHeader);
         this.chatWindow.appendChild(messagesContainer);
         this.chatWindow.appendChild(inputContainer);
+        this.chatWindow.appendChild(resizeHandle);
         
         // 添加到页面
         document.body.appendChild(this.chatWindow);
         
+        // 添加拖拽和缩放功能
+        this.addChatWindowInteractions();
+        
         // 添加滚动条样式
         this.addChatScrollbarStyles();
+    }
+    
+    // 更新聊天窗口样式
+    updateChatWindowStyle() {
+        if (!this.chatWindow || !this.chatWindowState) return;
+        
+        const { x, y, width, height } = this.chatWindowState;
+        
+        this.chatWindow.style.cssText = `
+            position: fixed !important;
+            left: ${x}px !important;
+            top: ${y}px !important;
+            width: ${width}px !important;
+            height: ${height}px !important;
+            background: white !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
+            z-index: 2147483648 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            resize: none !important;
+        `;
+    }
+    
+    // 添加聊天窗口交互功能
+    addChatWindowInteractions() {
+        if (!this.chatWindow) return;
+        
+        const header = this.chatWindow.querySelector('.chat-header');
+        const resizeHandle = this.chatWindow.querySelector('.resize-handle');
+        
+        // 拖拽功能
+        if (header) {
+            header.addEventListener('mousedown', (e) => {
+                if (e.target.closest('button')) return; // 忽略按钮点击
+                
+                this.chatWindowState.isDragging = true;
+                this.chatWindowState.dragStart = {
+                    x: e.clientX - this.chatWindowState.x,
+                    y: e.clientY - this.chatWindowState.y
+                };
+                
+                header.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+        }
+        
+        // 缩放功能
+        if (resizeHandle) {
+            resizeHandle.addEventListener('mousedown', (e) => {
+                this.chatWindowState.isResizing = true;
+                this.chatWindowState.resizeStart = {
+                    x: e.clientX,
+                    y: e.clientY,
+                    width: this.chatWindowState.width,
+                    height: this.chatWindowState.height
+                };
+                
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        }
+        
+        // 全局鼠标移动事件
+        document.addEventListener('mousemove', (e) => {
+            if (this.chatWindowState.isDragging) {
+                const newX = e.clientX - this.chatWindowState.dragStart.x;
+                const newY = e.clientY - this.chatWindowState.dragStart.y;
+                
+                // 边界检查
+                this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, newX));
+                this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, newY));
+                
+                // 添加拖拽时的视觉反馈
+                this.chatWindow.style.transform = 'scale(1.02)';
+                this.chatWindow.style.boxShadow = '0 25px 50px rgba(0,0,0,0.4)';
+                
+                this.updateChatWindowStyle();
+            }
+            
+            if (this.chatWindowState.isResizing) {
+                const deltaX = e.clientX - this.chatWindowState.resizeStart.x;
+                const deltaY = e.clientY - this.chatWindowState.resizeStart.y;
+                
+                const newWidth = Math.max(600, Math.min(1400, this.chatWindowState.resizeStart.width + deltaX));
+                const newHeight = Math.max(600, Math.min(1600, this.chatWindowState.resizeStart.height + deltaY));
+                
+                this.chatWindowState.width = newWidth;
+                this.chatWindowState.height = newHeight;
+                
+                // 调整位置，确保不超出屏幕边界
+                this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - newWidth, this.chatWindowState.x));
+                this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - newHeight, this.chatWindowState.y));
+                
+                this.updateChatWindowStyle();
+            }
+        });
+        
+        // 全局鼠标释放事件
+        document.addEventListener('mouseup', () => {
+            if (this.chatWindowState.isDragging) {
+                this.chatWindowState.isDragging = false;
+                if (header) {
+                    header.style.cursor = 'move';
+                }
+                // 恢复正常的视觉样式
+                this.chatWindow.style.transform = 'scale(1)';
+                this.chatWindow.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
+                this.saveChatWindowState();
+            }
+            
+            if (this.chatWindowState.isResizing) {
+                this.chatWindowState.isResizing = false;
+                this.saveChatWindowState();
+            }
+        });
+        
+        // 悬停效果
+        if (resizeHandle) {
+            resizeHandle.addEventListener('mouseenter', () => {
+                resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #999 30%, #999 70%, transparent 70%)';
+            });
+            
+            resizeHandle.addEventListener('mouseleave', () => {
+                resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
+            });
+        }
+    }
+    
+    // 保存聊天窗口状态
+    saveChatWindowState() {
+        if (!this.chatWindowState) return;
+        
+        try {
+            const state = {
+                ...this.chatWindowState,
+                timestamp: Date.now()
+            };
+            
+            // 保存到localStorage
+            localStorage.setItem('petChatWindowState', JSON.stringify(state));
+            console.log('聊天窗口状态已保存:', state);
+        } catch (error) {
+            console.log('保存聊天窗口状态失败:', error);
+        }
+    }
+    
+    // 加载聊天窗口状态
+    loadChatWindowState() {
+        try {
+            const savedState = localStorage.getItem('petChatWindowState');
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                this.chatWindowState = {
+                    ...this.chatWindowState,
+                    ...state,
+                    isDragging: false,
+                    isResizing: false
+                };
+                
+                // 验证位置和大小
+                this.chatWindowState.width = Math.max(600, Math.min(1400, this.chatWindowState.width));
+                this.chatWindowState.height = Math.max(600, Math.min(1600, this.chatWindowState.height));
+                this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, this.chatWindowState.x));
+                this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, this.chatWindowState.y));
+                
+                console.log('聊天窗口状态已恢复:', this.chatWindowState);
+                return true;
+            }
+        } catch (error) {
+            console.log('恢复聊天窗口状态失败:', error);
+        }
+        return false;
     }
     
     // 创建消息元素

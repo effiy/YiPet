@@ -562,30 +562,25 @@ class PetManager {
     // 设置键盘快捷键
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // 检查是否按下了 Ctrl/Cmd + Shift + S (截图快捷键)
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+            // 检查是否按下了 F7 (截图快捷键)
+            if (e.key === 'F7') {
                 e.preventDefault();
-                console.log('检测到截图快捷键');
+                e.stopPropagation();
+                console.log('检测到截图快捷键 F7');
                 
-                // 如果聊天窗口打开，直接截图
-                if (this.isChatOpen) {
-                    this.takeScreenshot();
-                } else {
-                    // 如果聊天窗口未打开，先打开再截图
-                    this.openChatWindow();
-                    setTimeout(() => {
-                        this.takeScreenshot();
-                    }, 500);
-                }
+                // 直接进行截图，不需要打开聊天窗口
+                this.takeScreenshot();
                 
                 // 显示快捷键提示
-                this.showScreenshotNotification('📷 快捷键截图已触发', 'info');
+                this.showScreenshotNotification('📷 快捷键截图已触发（F7）', 'info');
+                return false;
             }
             
-            // 检查是否按下了 Ctrl/Cmd + Shift + C (打开聊天窗口快捷键)
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+            // 检查是否按下了 F8 (打开聊天窗口快捷键)
+            if (e.key === 'F8') {
                 e.preventDefault();
-                console.log('检测到聊天快捷键');
+                e.stopPropagation();
+                console.log('检测到聊天快捷键 F8');
                 
                 if (this.isChatOpen) {
                     this.closeChatWindow();
@@ -594,10 +589,23 @@ class PetManager {
                     this.openChatWindow();
                     this.showScreenshotNotification('💬 聊天窗口已打开', 'info');
                 }
+                return false;
             }
-        });
+            
+            // 检查是否按下了 Esc (关闭聊天窗口)
+            if (e.key === 'Escape' && this.isChatOpen) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.closeChatWindow();
+                this.showScreenshotNotification('💬 聊天窗口已关闭', 'info');
+                return false;
+            }
+        }, true); // 使用捕获阶段，确保在其他处理之前执行
         
-        console.log('键盘快捷键已设置：Ctrl+Shift+S 截图，Ctrl+Shift+C 切换聊天窗口');
+        console.log('键盘快捷键已设置：');
+        console.log('  - F7：截图');
+        console.log('  - F8：切换聊天窗口');
+        console.log('  - Esc：关闭聊天窗口');
     }
     
     // 清理资源

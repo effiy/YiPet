@@ -653,6 +653,9 @@ class PetManager {
         if (this.chatWindow) {
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
+            
+            // 重新初始化滚动功能
+            this.initializeChatScroll();
             return;
         }
         
@@ -668,6 +671,31 @@ class PetManager {
         if (this.chatWindow) {
             this.chatWindow.style.display = 'none';
             this.isChatOpen = false;
+        }
+    }
+    
+    // 初始化聊天滚动功能
+    initializeChatScroll() {
+        if (!this.chatWindow) return;
+        
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (messagesContainer) {
+            // 确保滚动功能正常
+            messagesContainer.style.overflowY = 'auto';
+            
+            // 滚动到底部显示最新消息
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 100);
+            
+            // 强制重新计算布局
+            messagesContainer.style.height = 'auto';
+            messagesContainer.offsetHeight; // 触发重排
+            
+            // 添加滚动事件监听器，确保滚动功能正常
+            messagesContainer.addEventListener('scroll', () => {
+                // 可以在这里添加滚动相关的逻辑
+            });
         }
     }
     
@@ -754,8 +782,12 @@ class PetManager {
         messagesContainer.style.cssText = `
             flex: 1 !important;
             padding: 20px !important;
+            padding-bottom: 120px !important;
             overflow-y: auto !important;
-            background: #f8f9fa !important;
+            background: linear-gradient(135deg, #f8f9fa, #ffffff) !important;
+            position: relative !important;
+            max-height: calc(100% - 140px) !important;
+            min-height: 200px !important;
         `;
         
         // 添加欢迎消息
@@ -764,55 +796,89 @@ class PetManager {
         
         // 创建输入区域
         const inputContainer = document.createElement('div');
+        inputContainer.className = 'chat-input-container';
         inputContainer.style.cssText = `
-            padding: 15px 20px !important;
-            background: white !important;
-            border-top: 1px solid #e0e0e0 !important;
+            position: absolute !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            padding: 20px !important;
+            background: linear-gradient(135deg, #ffffff, #f8f9fa) !important;
+            border-top: 2px solid #e8e8e8 !important;
             display: flex !important;
-            gap: 10px !important;
+            gap: 12px !important;
             border-radius: 0 0 16px 16px !important;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1) !important;
+            backdrop-filter: blur(10px) !important;
+            z-index: 10 !important;
         `;
         
         const messageInput = document.createElement('input');
         messageInput.type = 'text';
         messageInput.placeholder = '输入消息...';
-        messageInput.maxLength = 100;
+        messageInput.maxLength = 200;
+        messageInput.className = 'chat-message-input';
         messageInput.style.cssText = `
             flex: 1 !important;
-            padding: 12px 16px !important;
-            border: 1px solid #ddd !important;
-            border-radius: 20px !important;
-            font-size: 14px !important;
+            padding: 16px 20px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 25px !important;
+            font-size: 15px !important;
+            font-weight: 400 !important;
             outline: none !important;
-            transition: border-color 0.3s ease !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(5px) !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05) !important;
         `;
         messageInput.addEventListener('focus', () => {
             messageInput.style.borderColor = '#ff6b6b';
+            messageInput.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1), inset 0 2px 4px rgba(0,0,0,0.05)';
+            messageInput.style.transform = 'scale(1.02)';
         });
         messageInput.addEventListener('blur', () => {
-            messageInput.style.borderColor = '#ddd';
+            messageInput.style.borderColor = '#e0e0e0';
+            messageInput.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.05)';
+            messageInput.style.transform = 'scale(1)';
         });
         
         const sendButton = document.createElement('button');
         sendButton.innerHTML = '发送';
+        sendButton.className = 'chat-send-button';
         sendButton.style.cssText = `
-            padding: 12px 20px !important;
+            padding: 16px 24px !important;
             background: linear-gradient(135deg, #ff6b6b, #ff8e8e) !important;
             color: white !important;
             border: none !important;
-            border-radius: 20px !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
+            border-radius: 25px !important;
+            font-size: 15px !important;
+            font-weight: 600 !important;
             cursor: pointer !important;
-            transition: all 0.3s ease !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3) !important;
+            min-width: 80px !important;
+            position: relative !important;
+            overflow: hidden !important;
         `;
+        
+        // 添加按钮悬停效果
         sendButton.addEventListener('mouseenter', () => {
             sendButton.style.background = 'linear-gradient(135deg, #ff8e8e, #ff6b6b)';
-            sendButton.style.transform = 'translateY(-1px)';
+            sendButton.style.transform = 'translateY(-2px) scale(1.05)';
+            sendButton.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.4)';
         });
         sendButton.addEventListener('mouseleave', () => {
             sendButton.style.background = 'linear-gradient(135deg, #ff6b6b, #ff8e8e)';
-            sendButton.style.transform = 'translateY(0)';
+            sendButton.style.transform = 'translateY(0) scale(1)';
+            sendButton.style.boxShadow = '0 4px 15px rgba(255, 107, 107, 0.3)';
+        });
+        
+        // 添加按钮点击效果
+        sendButton.addEventListener('mousedown', () => {
+            sendButton.style.transform = 'translateY(0) scale(0.98)';
+        });
+        sendButton.addEventListener('mouseup', () => {
+            sendButton.style.transform = 'translateY(-2px) scale(1.05)';
         });
         
         // 发送消息功能
@@ -870,7 +936,7 @@ class PetManager {
             background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%) !important;
             cursor: nw-resize !important;
             border-radius: 0 0 16px 0 !important;
-            z-index: 1 !important;
+            z-index: 20 !important;
             transition: background 0.2s ease !important;
         `;
         
@@ -891,6 +957,9 @@ class PetManager {
         
         // 添加滚动条样式
         this.addChatScrollbarStyles();
+        
+        // 初始化滚动功能
+        this.initializeChatScroll();
     }
     
     // 更新聊天窗口样式
@@ -951,6 +1020,10 @@ class PetManager {
                     height: this.chatWindowState.height
                 };
                 
+                // 添加缩放时的视觉反馈
+                this.chatWindow.style.boxShadow = '0 25px 50px rgba(0,0,0,0.4)';
+                resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ff6b6b 30%, #ff6b6b 70%, transparent 70%)';
+                
                 e.preventDefault();
                 e.stopPropagation();
             });
@@ -984,8 +1057,18 @@ class PetManager {
                 this.chatWindowState.height = newHeight;
                 
                 // 调整位置，确保不超出屏幕边界
-                this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - newWidth, this.chatWindowState.x));
-                this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - newHeight, this.chatWindowState.y));
+                const maxX = window.innerWidth - newWidth;
+                const maxY = window.innerHeight - newHeight;
+                
+                // 如果窗口会超出右边界，调整x位置
+                if (this.chatWindowState.x + newWidth > window.innerWidth) {
+                    this.chatWindowState.x = Math.max(0, maxX);
+                }
+                
+                // 如果窗口会超出下边界，调整y位置
+                if (this.chatWindowState.y + newHeight > window.innerHeight) {
+                    this.chatWindowState.y = Math.max(0, maxY);
+                }
                 
                 this.updateChatWindowStyle();
             }
@@ -1006,6 +1089,19 @@ class PetManager {
             
             if (this.chatWindowState.isResizing) {
                 this.chatWindowState.isResizing = false;
+                
+                // 恢复缩放手柄的样式
+                const resizeHandle = this.chatWindow.querySelector('.resize-handle');
+                if (resizeHandle) {
+                    resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
+                }
+                
+                // 恢复窗口阴影
+                this.chatWindow.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
+                
+                // 重新初始化滚动功能
+                this.initializeChatScroll();
+                
                 this.saveChatWindowState();
             }
         });
@@ -1013,11 +1109,17 @@ class PetManager {
         // 悬停效果
         if (resizeHandle) {
             resizeHandle.addEventListener('mouseenter', () => {
-                resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #999 30%, #999 70%, transparent 70%)';
+                if (!this.chatWindowState.isResizing) {
+                    resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #999 30%, #999 70%, transparent 70%)';
+                    resizeHandle.style.transform = 'scale(1.1)';
+                }
             });
             
             resizeHandle.addEventListener('mouseleave', () => {
-                resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
+                if (!this.chatWindowState.isResizing) {
+                    resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
+                    resizeHandle.style.transform = 'scale(1)';
+                }
             });
         }
     }

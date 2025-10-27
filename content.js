@@ -945,7 +945,7 @@ class PetManager {
             const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
 1. 语气友好、活泼，像一个小宠物
 2. 适当提及网页的主题或内容
-3. 字数控制在1024字以内
+3. 字数控制在600字以内
 4. 使用简单的表情符号增加趣味性`;
 
             const userPrompt = `用户正在浏览：
@@ -1078,7 +1078,7 @@ ${pageContent ? pageContent : '无内容'}
             const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
 1. 语气友好、活泼，像一个小宠物
 2. 适当提及网页的主题或内容
-3. 字数控制在1024字以内
+3. 字数控制在600字以内
 4. 使用简单的表情符号增加趣味性`;
 
             const userPrompt = `用户正在浏览：
@@ -1625,6 +1625,8 @@ ${pageContent ? pageContent : '无内容'}
             if (messageText) {
                 // 流式更新消息内容（使用 Markdown 渲染）
                 messageText.innerHTML = this.renderMarkdown(fullContent);
+                // 初始化 Mermaid 图表
+                this.initMermaidCharts(messageText);
                 // 自动滚动到底部
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
@@ -1648,6 +1650,8 @@ ${pageContent ? pageContent : '无内容'}
                 messageText.innerHTML = this.renderMarkdown(
                     `你好！我看到你在浏览"${pageTitle}"，我是你的小宠物，有什么想聊的吗？🐾`
                 );
+                // 初始化 Mermaid 图表
+                this.initMermaidCharts(messageText);
             }
         });
         
@@ -1974,6 +1978,10 @@ ${pageContent ? pageContent : '无内容'}
                 if (messageBubble) {
                     // 使用 renderMarkdown 渲染完整内容
                     messageBubble.innerHTML = this.renderMarkdown(fullContent);
+                    // 只在内容包含 mermaid 时才初始化（避免重复渲染）
+                    if (fullContent.includes('```mermaid')) {
+                        this.initMermaidCharts(messageBubble);
+                    }
                 }
                 
                 // 自动滚动到底部
@@ -2040,6 +2048,8 @@ ${pageContent ? pageContent : '无内容'}
                     const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
                     if (messageBubble) {
                         messageBubble.innerHTML = this.renderMarkdown(reply);
+                        // 初始化 Mermaid 图表
+                        this.initMermaidCharts(messageBubble);
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
@@ -2751,7 +2761,13 @@ ${pageContent ? pageContent : '无内容'}
                     gfm: true, // GitHub Flavored Markdown
                     sanitize: false // 允许 HTML，但我们会通过 DOMPurify 或其他方式处理
                 });
-                return marked.parse(markdown);
+                
+                let html = marked.parse(markdown);
+                
+                // 处理 Mermaid 图表（将 ```mermaid 代码块转换为特殊的 div）
+                html = this.convertMermaidToHTML(html);
+                
+                return html;
             } else {
                 // 如果 marked 不可用，返回转义的纯文本
                 return this.escapeHtml(markdown);
@@ -2759,6 +2775,80 @@ ${pageContent ? pageContent : '无内容'}
         } catch (error) {
             console.error('渲染 Markdown 失败:', error);
             return this.escapeHtml(markdown);
+        }
+    }
+    
+    // 将 Mermaid 代码块转换为可渲染的 HTML
+    convertMermaidToHTML(html) {
+        // 查找所有 mermaid 代码块
+        const mermaidRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g;
+        
+        return html.replace(mermaidRegex, (match, mermaidCode) => {
+            // 生成唯一的 ID
+            const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+            // 创建一个可以后续初始化的 mermaid div
+            return `<div class="mermaid" id="${id}">${mermaidCode.trim()}</div>`;
+        });
+    }
+    
+    // 初始化 Mermaid 图表
+    async initMermaidCharts(element) {
+        // 动态加载 Mermaid 库（如果还没有加载）
+        if (typeof mermaid === 'undefined') {
+            try {
+                // 从 CDN 加载 Mermaid
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+                script.type = 'text/javascript';
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+                
+                // 初始化 Mermaid
+                if (typeof mermaid !== 'undefined') {
+                    mermaid.initialize({ 
+                        startOnLoad: false,
+                        theme: 'default',
+                        securityLevel: 'loose',
+                        fontSize: 16
+                    });
+                }
+            } catch (error) {
+                console.error('加载 Mermaid 库失败:', error);
+                return;
+            }
+        }
+        
+        // 查找所有 .mermaid 元素并渲染
+        const mermaidElements = element.querySelectorAll('.mermaid:not([data-rendered])');
+        if (mermaidElements.length > 0 && typeof mermaid !== 'undefined') {
+            mermaidElements.forEach((mermaidEl) => {
+                try {
+                    const id = mermaidEl.id || 'mermaid-' + Math.random().toString(36).substr(2, 9);
+                    mermaidEl.id = id;
+                    const code = mermaidEl.textContent.trim();
+                    
+                    if (!code) {
+                        mermaidEl.innerHTML = `<div style="color: #999; padding: 10px;">Mermaid 代码为空</div>`;
+                        mermaidEl.setAttribute('data-rendered', 'true');
+                        return;
+                    }
+                    
+                    // 使用 mermaid 渲染
+                    mermaid.render(id + '-svg', code).then((result) => {
+                        mermaidEl.innerHTML = result.svg;
+                        mermaidEl.setAttribute('data-rendered', 'true');
+                    }).catch((error) => {
+                        console.error('Mermaid 渲染失败:', error);
+                        mermaidEl.innerHTML = `<div style="color: #ff6b6b; padding: 10px; font-size: 14px;">⚠️ 图表渲染失败，语法可能有误</div>`;
+                        mermaidEl.setAttribute('data-rendered', 'true');
+                    });
+                } catch (error) {
+                    console.error('Mermaid 初始化失败:', error);
+                }
+            });
         }
     }
     

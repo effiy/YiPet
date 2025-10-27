@@ -132,7 +132,7 @@ const PET_CONFIG = {
     
     // 聊天模型配置
     chatModels: {
-        default: 'qwen3',
+        default: 'qwq',
         models: [
             {
                 id: 'qwen3',

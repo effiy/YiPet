@@ -945,7 +945,7 @@ class PetManager {
             const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
 1. 语气友好、活泼，像一个小宠物
 2. 适当提及网页的主题或内容
-3. 字数控制在200字以内
+3. 字数控制在1024字以内
 4. 使用简单的表情符号增加趣味性`;
 
             const userPrompt = `用户正在浏览：
@@ -1078,7 +1078,7 @@ ${pageContent ? pageContent : '无内容'}
             const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
 1. 语气友好、活泼，像一个小宠物
 2. 适当提及网页的主题或内容
-3. 字数控制在10240字以内
+3. 字数控制在1024字以内
 4. 使用简单的表情符号增加趣味性`;
 
             const userPrompt = `用户正在浏览：
@@ -1565,9 +1565,63 @@ ${pageContent ? pageContent : '无内容'}
         const welcomeMessage = this.createMessageElement('', 'pet');
         messagesContainer.appendChild(welcomeMessage);
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+        const welcomeAvatar = welcomeMessage.querySelector('[data-message-type="pet-avatar"]');
+        
+        // 显示打字的欢迎指示器
+        let typingWelcomeInterval = null;
+        let welcomeMessageReceived = false;
+        const welcomeThinkingMessages = [
+            '🐾 初次见面，让我想想怎么介绍自己...',
+            '✨ 正在了解你在看什么...',
+            '🌊 思绪万千，准备精彩开场',
+            '🎯 分析页面内容中...',
+            '💡 有个好想法要跟你说',
+            '🌟 整理语言，马上就开始',
+            '🌈 准备一个特别的问候',
+            '🚀 灵感涌现，稍等片刻',
+            '🎨 精心准备回复中...',
+            '💭 思考最有趣的开场白'
+        ];
+        let lastWelcomeIndex = -1;
+        
+        // 先显示等待消息
+        if (messageText) {
+            messageText.textContent = welcomeThinkingMessages[0];
+            
+            typingWelcomeInterval = setInterval(() => {
+                if (messageText && !welcomeMessageReceived) {
+                    let newIndex;
+                    do {
+                        newIndex = Math.floor(Math.random() * welcomeThinkingMessages.length);
+                    } while (newIndex === lastWelcomeIndex && welcomeThinkingMessages.length > 1);
+                    lastWelcomeIndex = newIndex;
+                    messageText.textContent = welcomeThinkingMessages[newIndex];
+                }
+            }, 800);
+        }
+        
+        // 给欢迎消息的头像添加动画效果
+        if (welcomeAvatar) {
+            welcomeAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+        }
+        
+        // 播放宠物欢迎动画
+        this.playChatAnimation();
         
         // 流式生成欢迎消息
         this.generateWelcomeMessageStream((chunk, fullContent) => {
+            // 移除打字指示器
+            if (typingWelcomeInterval) {
+                clearInterval(typingWelcomeInterval);
+                typingWelcomeInterval = null;
+            }
+            welcomeMessageReceived = true;
+            
+            // 停止头像动画
+            if (welcomeAvatar) {
+                welcomeAvatar.style.animation = '';
+            }
+            
             if (messageText) {
                 // 流式更新消息内容（使用 Markdown 渲染）
                 messageText.innerHTML = this.renderMarkdown(fullContent);
@@ -1576,6 +1630,18 @@ ${pageContent ? pageContent : '无内容'}
             }
         }).catch(error => {
             console.error('生成欢迎消息失败:', error);
+            
+            // 清理打字指示器
+            if (typingWelcomeInterval) {
+                clearInterval(typingWelcomeInterval);
+                typingWelcomeInterval = null;
+            }
+            
+            // 停止头像动画
+            if (welcomeAvatar) {
+                welcomeAvatar.style.animation = '';
+            }
+            
             // 出错时显示默认欢迎消息
             if (messageText) {
                 const pageTitle = document.title || '当前页面';

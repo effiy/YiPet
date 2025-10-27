@@ -982,7 +982,16 @@ class PetManager {
         const welcomeMessage = this.createMessageElement('你好！我是你的小宠物，有什么想对我说的吗？', 'pet');
         messagesContainer.appendChild(welcomeMessage);
         
-        // 创建输入区域
+        // 根据宠物颜色获取当前主题色调
+        const currentColor = this.colors[this.colorIndex];
+        // 提取主色调作为边框颜色
+        const getMainColor = (gradient) => {
+            const match = gradient.match(/#[0-9a-fA-F]{6}/);
+            return match ? match[0] : '#3b82f6';
+        };
+        const mainColor = getMainColor(currentColor);
+        
+        // 创建输入区域 - 使用宠物颜色主题
         const inputContainer = document.createElement('div');
         inputContainer.className = 'chat-input-container';
         inputContainer.style.cssText = `
@@ -990,102 +999,156 @@ class PetManager {
             bottom: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            padding: 12px !important;
-            background: #ffffff !important;
+            padding: 16px !important;
+            background: white !important;
             border-top: 1px solid #e5e7eb !important;
             display: flex !important;
+            flex-direction: column !important;
             gap: 8px !important;
             border-radius: 0 !important;
             z-index: ${PET_CONFIG.ui.zIndex.inputContainer} !important;
         `;
         
-        // 创建模型选择器
-        const modelSelector = document.createElement('select');
-        modelSelector.className = 'chat-model-selector';
-        modelSelector.style.cssText = `
-            padding: 6px 10px !important;
-            background: #ffffff !important;
-            color: #1f2937 !important;
-            border: 1px solid #d1d5db !important;
-            border-radius: 8px !important;
-            font-size: 12px !important;
-            font-weight: 500 !important;
-            cursor: pointer !important;
-            outline: none !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            min-width: 100px !important;
-            max-width: 120px !important;
-            flex-shrink: 0 !important;
+        // 创建顶部工具栏（左侧按钮和右侧状态）
+        const topToolbar = document.createElement('div');
+        topToolbar.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 8px !important;
         `;
         
-        // 添加模型选项
-        PET_CONFIG.chatModels.models.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.id;
-            option.textContent = `${model.icon} ${model.name}`;
-            option.selected = model.id === this.currentModel;
-            modelSelector.appendChild(option);
+        // 左侧按钮组
+        const leftButtonGroup = document.createElement('div');
+        leftButtonGroup.style.cssText = `
+            display: flex !important;
+            gap: 6px !important;
+            align-items: center !important;
+        `;
+        
+        // 创建 @ 按钮（使用宠物颜色主题）
+        const mentionButton = document.createElement('button');
+        mentionButton.innerHTML = '@';
+        mentionButton.title = '提及';
+        mentionButton.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        `;
+        mentionButton.addEventListener('mouseenter', () => {
+            mentionButton.style.background = mainColor;
+            mentionButton.style.color = 'white';
+            mentionButton.style.borderColor = mainColor;
+        });
+        mentionButton.addEventListener('mouseleave', () => {
+            mentionButton.style.background = 'white';
+            mentionButton.style.color = mainColor;
+            mentionButton.style.borderColor = mainColor;
         });
         
-        // 模型切换事件
-        modelSelector.addEventListener('change', (e) => {
-            const selectedModel = e.target.value;
-            this.setModel(selectedModel);
-            // 显示切换提示
-            const modelConfig = PET_CONFIG.chatModels.models.find(m => m.id === selectedModel);
-            if (modelConfig) {
-                this.showNotification(`已切换到 ${modelConfig.name}`, 'info');
-            }
+        // 创建 + 按钮（使用宠物颜色主题）
+        const addButton = document.createElement('button');
+        addButton.innerHTML = '+';
+        addButton.title = '添加内容';
+        addButton.style.cssText = `
+            padding: 6px 12px !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px dashed ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+        `;
+        addButton.addEventListener('mouseenter', () => {
+            addButton.style.background = mainColor;
+            addButton.style.color = 'white';
+            addButton.style.borderColor = mainColor;
+        });
+        addButton.addEventListener('mouseleave', () => {
+            addButton.style.background = 'white';
+            addButton.style.color = mainColor;
+            addButton.style.borderColor = mainColor;
         });
         
-        // 添加悬停效果
-        modelSelector.addEventListener('mouseenter', () => {
-            modelSelector.style.borderColor = '#3b82f6';
-            modelSelector.style.background = '#f9fafb';
-        });
-        modelSelector.addEventListener('mouseleave', () => {
-            modelSelector.style.borderColor = '#d1d5db';
-            modelSelector.style.background = '#ffffff';
-        });
-        
-        // 创建输入框容器（包含输入框和按钮）
-        const inputWrapper = document.createElement('div');
-        inputWrapper.style.cssText = `
-            flex: 1 !important;
+        // 右侧状态组
+        const rightStatusGroup = document.createElement('div');
+        rightStatusGroup.style.cssText = `
             display: flex !important;
             gap: 8px !important;
-            align-items: flex-end !important;
+            align-items: center !important;
+        `;
+        
+        // 创建加载指示器占位（可扩展）
+        const loadingSpinner = document.createElement('div');
+        loadingSpinner.innerHTML = '⬜'; // 占位符，实际使用时可以替换为真正的加载动画
+        loadingSpinner.style.cssText = `
+            width: 16px !important;
+            height: 16px !important;
+            opacity: 0.5 !important;
+            color: #ffffff !important;
+        `;
+        
+        leftButtonGroup.appendChild(mentionButton);
+        leftButtonGroup.appendChild(addButton);
+        rightStatusGroup.appendChild(loadingSpinner);
+        topToolbar.appendChild(leftButtonGroup);
+        topToolbar.appendChild(rightStatusGroup);
+        inputContainer.appendChild(topToolbar);
+        
+        // 创建输入框容器（暗色主题）
+        const inputWrapper = document.createElement('div');
+        inputWrapper.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            align-items: flex-start !important;
+            position: relative !important;
         `;
         
         const messageInput = document.createElement('textarea');
         messageInput.placeholder = '输入消息... (Enter发送, Shift+Enter换行)';
         messageInput.maxLength = PET_CONFIG.chatWindow.input.maxLength;
         messageInput.className = 'chat-message-input';
-        messageInput.rows = 1; // 初始单行，自动扩展
+        messageInput.rows = 2; // 初始2行
         messageInput.style.cssText = `
             flex: 1 !important;
-            padding: 8px 16px !important;
-            border: 1px solid #d1d5db !important;
-            border-radius: 12px !important;
+            padding: 12px 16px !important;
+            border: 2px solid ${mainColor} !important;
+            border-radius: 8px !important;
             font-size: 14px !important;
             font-weight: 400 !important;
             color: #1f2937 !important;
+            background: #f9fafb !important;
             outline: none !important;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            background: #ffffff !important;
             resize: none !important;
             min-height: 36px !important;
-            max-height: 120px !important;
+            max-height: 200px !important;
             overflow-y: auto !important;
             line-height: 1.5 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         `;
         
+        
         // 设置placeholder和滚动条样式
         const style = document.createElement('style');
         style.textContent = `
             .chat-message-input::placeholder {
-                color: #9ca3af !important;
+                color: #888888 !important;
                 opacity: 1 !important;
                 font-size: 14px !important;
                 font-weight: 400 !important;
@@ -1109,14 +1172,14 @@ class PetManager {
                 width: 4px !important;
             }
             .chat-message-input::-webkit-scrollbar-track {
-                background: transparent !important;
+                background: #1e1e1e !important;
             }
             .chat-message-input::-webkit-scrollbar-thumb {
-                background: #d1d5db !important;
+                background: #555555 !important;
                 border-radius: 2px !important;
             }
             .chat-message-input::-webkit-scrollbar-thumb:hover {
-                background: #9ca3af !important;
+                background: #666666 !important;
             }
         `;
         document.head.appendChild(style);
@@ -1125,9 +1188,11 @@ class PetManager {
         const updateInputState = () => {
             const hasContent = messageInput.value.trim().length > 0;
             if (hasContent) {
-                messageInput.style.borderColor = '#3b82f6';
+                messageInput.style.borderColor = mainColor;
+                messageInput.style.background = '#ffffff';
             } else {
-                messageInput.style.borderColor = '#d1d5db';
+                messageInput.style.borderColor = mainColor;
+                messageInput.style.background = '#f9fafb';
             }
         };
 
@@ -1137,14 +1202,25 @@ class PetManager {
             updateInputState();
         });
         
+        // 将颜色转换为rgba用于阴影
+        const hexToRgba = (hex, alpha) => {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+        const shadowColor = hexToRgba(mainColor, 0.1);
+        
         messageInput.addEventListener('focus', () => {
-            messageInput.style.borderColor = '#3b82f6';
-            messageInput.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+            messageInput.style.borderColor = mainColor;
+            messageInput.style.background = '#ffffff';
+            messageInput.style.boxShadow = `0 0 0 3px ${shadowColor}`;
         });
         
         messageInput.addEventListener('blur', () => {
             if (messageInput.value.length === 0) {
-                messageInput.style.borderColor = '#d1d5db';
+                messageInput.style.borderColor = mainColor;
+                messageInput.style.background = '#f9fafb';
             }
             messageInput.style.boxShadow = 'none';
         });
@@ -1249,119 +1325,113 @@ class PetManager {
             }
         });
         
-        // 创建截图按钮
-        const screenshotButton = document.createElement('button');
-        screenshotButton.innerHTML = '📷';
-        screenshotButton.className = 'chat-screenshot-button';
-        screenshotButton.title = '截图';
-        screenshotButton.style.cssText = `
-            padding: 8px 12px !important;
-            background: #ffffff !important;
-            color: #6b7280 !important;
-            border: 1px solid #d1d5db !important;
-            border-radius: 12px !important;
-            font-size: 16px !important;
-            cursor: pointer !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-            min-width: 36px !important;
-            height: 36px !important;
+        inputWrapper.appendChild(messageInput);
+        inputContainer.appendChild(inputWrapper);
+        
+        // 创建底部工具栏
+        const bottomToolbar = document.createElement('div');
+        bottomToolbar.style.cssText = `
             display: flex !important;
+            justify-content: space-between !important;
             align-items: center !important;
-            justify-content: center !important;
-            position: relative !important;
-            overflow: hidden !important;
-            flex-shrink: 0 !important;
+            margin-top: 8px !important;
         `;
         
-        // 添加截图按钮悬停效果
-        screenshotButton.addEventListener('mouseenter', () => {
-            screenshotButton.style.background = '#f9fafb';
-            screenshotButton.style.borderColor = '#9ca3af';
-            screenshotButton.style.color = '#374151';
-        });
-        screenshotButton.addEventListener('mouseleave', () => {
-            screenshotButton.style.background = '#ffffff';
-            screenshotButton.style.borderColor = '#d1d5db';
-            screenshotButton.style.color = '#6b7280';
-        });
-        
-        // 添加截图按钮点击效果
-        screenshotButton.addEventListener('mousedown', () => {
-            screenshotButton.style.transform = 'scale(0.98)';
-        });
-        screenshotButton.addEventListener('mouseup', () => {
-            screenshotButton.style.transform = 'scale(1)';
-        });
-        
-        // 截图功能
-        screenshotButton.addEventListener('click', () => {
-            // 添加点击反馈
-            screenshotButton.style.transform = 'scale(0.98)';
-            setTimeout(() => {
-                screenshotButton.style.transform = 'scale(1)';
-            }, 100);
-            
-            this.takeScreenshot();
-        });
-        
-        // 添加截图按钮的长按提示
-        let longPressTimer = null;
-        screenshotButton.addEventListener('mousedown', () => {
-            longPressTimer = setTimeout(() => {
-                this.showScreenshotNotification('💡 提示：截图功能需要浏览器权限，如果失败请尝试刷新页面', 'info');
-            }, 2000);
-        });
-        
-        screenshotButton.addEventListener('mouseup', () => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        });
-        
-        screenshotButton.addEventListener('mouseleave', () => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        });
-
-        // 创建图片上传按钮
-        const imageUploadButton = document.createElement('button');
-        imageUploadButton.innerHTML = '📎';
-        imageUploadButton.className = 'chat-image-upload-button';
-        imageUploadButton.title = '上传图片 (支持粘贴)';
-        imageUploadButton.style.cssText = `
-            padding: 8px 12px !important;
-            background: #ffffff !important;
-            color: #6b7280 !important;
-            border: 1px solid #d1d5db !important;
-            border-radius: 12px !important;
-            font-size: 16px !important;
-            cursor: pointer !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-            min-width: 36px !important;
-            height: 36px !important;
+        // 左侧：模型选择器
+        const leftBottomGroup = document.createElement('div');
+        leftBottomGroup.style.cssText = `
             display: flex !important;
+            gap: 6px !important;
             align-items: center !important;
-            justify-content: center !important;
-            position: relative !important;
-            overflow: hidden !important;
-            flex-shrink: 0 !important;
         `;
+        
+        // 创建模型选择器（使用宠物颜色主题）
+        const modelSelector = document.createElement('select');
+        modelSelector.className = 'chat-model-selector';
+        modelSelector.style.cssText = `
+            padding: 6px 10px !important;
+            background: white !important;
+            color: #1f2937 !important;
+            border: 1px solid ${mainColor} !important;
+            border-radius: 6px !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            outline: none !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            min-width: 100px !important;
+        `;
+        
+        // 添加模型选项
+        PET_CONFIG.chatModels.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = `${model.icon} ${model.name}`;
+            option.selected = model.id === this.currentModel;
+            modelSelector.appendChild(option);
+        });
+        
+        // 模型切换事件
+        modelSelector.addEventListener('change', (e) => {
+            const selectedModel = e.target.value;
+            this.setModel(selectedModel);
+            // 显示切换提示
+            const modelConfig = PET_CONFIG.chatModels.models.find(m => m.id === selectedModel);
+            if (modelConfig) {
+                this.showNotification(`已切换到 ${modelConfig.name}`, 'info');
+            }
+        });
         
         // 添加悬停效果
+        modelSelector.addEventListener('mouseenter', () => {
+            modelSelector.style.borderColor = mainColor;
+            modelSelector.style.background = '#f0f9ff';
+        });
+        modelSelector.addEventListener('mouseleave', () => {
+            modelSelector.style.borderColor = mainColor;
+            modelSelector.style.background = 'white';
+        });
+        
+        leftBottomGroup.appendChild(modelSelector);
+        bottomToolbar.appendChild(leftBottomGroup);
+        
+        // 右侧：上传按钮
+        const rightBottomGroup = document.createElement('div');
+        rightBottomGroup.style.cssText = `
+            display: flex !important;
+            gap: 6px !important;
+            align-items: center !important;
+        `;
+        
+        // 创建图片上传按钮（使用宠物颜色主题）
+        const imageUploadButton = document.createElement('button');
+        imageUploadButton.innerHTML = '📷';
+        imageUploadButton.className = 'chat-image-upload-button';
+        imageUploadButton.title = '上传图片';
+        imageUploadButton.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        `;
+        
         imageUploadButton.addEventListener('mouseenter', () => {
-            imageUploadButton.style.background = '#f9fafb';
-            imageUploadButton.style.borderColor = '#9ca3af';
-            imageUploadButton.style.color = '#374151';
+            imageUploadButton.style.background = mainColor;
+            imageUploadButton.style.color = 'white';
+            imageUploadButton.style.borderColor = mainColor;
         });
         imageUploadButton.addEventListener('mouseleave', () => {
-            imageUploadButton.style.background = '#ffffff';
-            imageUploadButton.style.borderColor = '#d1d5db';
-            imageUploadButton.style.color = '#6b7280';
+            imageUploadButton.style.background = 'white';
+            imageUploadButton.style.color = mainColor;
+            imageUploadButton.style.borderColor = mainColor;
         });
         
         // 创建隐藏的文件输入
@@ -1380,31 +1450,18 @@ class PetManager {
                 };
                 reader.readAsDataURL(file);
             }
-            // 清空input，允许重复选择同一个文件
             fileInput.value = '';
         });
         
-        // 点击按钮触发文件选择
         imageUploadButton.addEventListener('click', () => {
             fileInput.click();
         });
         
-        // 优化按钮布局
-        const buttonGroup = document.createElement('div');
-        buttonGroup.style.cssText = `
-            display: flex !important;
-            gap: 6px !important;
-            align-items: flex-end !important;
-        `;
+        rightBottomGroup.appendChild(imageUploadButton);
+        bottomToolbar.appendChild(rightBottomGroup);
+        inputContainer.appendChild(bottomToolbar);
         
-        buttonGroup.appendChild(imageUploadButton);
-        // 隐藏截图按钮
-        // buttonGroup.appendChild(screenshotButton);
-        
-        inputWrapper.appendChild(messageInput);
-        inputContainer.appendChild(modelSelector);
-        inputContainer.appendChild(inputWrapper);
-        inputContainer.appendChild(buttonGroup);
+        // 将文件输入添加到容器
         inputContainer.appendChild(fileInput);
         
         // 创建四个缩放手柄（四个角）

@@ -1000,15 +1000,24 @@ ${pageContent ? pageContent : '无内容'}
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
-                            const data = JSON.parse(dataStr);
+                            const chunk = JSON.parse(dataStr);
                             
-                            if (data.type === 'content') {
-                                fullContent += data.data;
-                            } else if (data.type === 'done') {
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
                                 console.log('流式响应完成');
-                            } else if (data.type === 'error') {
-                                console.error('流式响应错误:', data.data);
-                                throw new Error(data.data || '未知错误');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
                             }
                         } catch (e) {
                             console.warn('解析 SSE 消息失败:', message, e);
@@ -1097,19 +1106,30 @@ ${pageContent ? pageContent : '无内容'}
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
-                            const data = JSON.parse(dataStr);
+                            const chunk = JSON.parse(dataStr);
                             
-                            if (data.type === 'content') {
-                                // 实时追加内容并调用回调
-                                fullContent += data.data;
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
                                 if (onContent) {
-                                    onContent(data.data, fullContent);
+                                    onContent(chunk.message.content, fullContent);
                                 }
-                            } else if (data.type === 'done') {
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                                if (onContent) {
+                                    onContent(chunk.data, fullContent);
+                                }
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
                                 console.log('流式响应完成');
-                            } else if (data.type === 'error') {
-                                console.error('流式响应错误:', data.data);
-                                throw new Error(data.data || '未知错误');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
                             }
                         } catch (e) {
                             console.warn('解析 SSE 消息失败:', message, e);
@@ -1123,11 +1143,11 @@ ${pageContent ? pageContent : '无内容'}
                 const message = buffer.trim();
                 if (message.startsWith('data: ')) {
                     try {
-                        const data = JSON.parse(message.substring(6));
-                        if (data.type === 'done') {
+                        const chunk = JSON.parse(message.substring(6));
+                        if (chunk.done === true || chunk.type === 'done') {
                             console.log('流式响应完成');
-                        } else if (data.type === 'error') {
-                            throw new Error(data.data || '未知错误');
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            throw new Error(chunk.data || chunk.error || '未知错误');
                         }
                     } catch (e) {
                         console.warn('解析最后的 SSE 消息失败:', message, e);
@@ -1431,7 +1451,8 @@ ${pageContent ? pageContent : '无内容'}
                 console.log('找到的消息元素:', messageText);
                 
                 if (messageText) {
-                    messageText.textContent = welcomeText;
+                    // 使用 Markdown 渲染欢迎消息
+                    messageText.innerHTML = this.renderMarkdown(welcomeText);
                     console.log('欢迎消息已更新');
                     
                     // 添加一个简单的更新动画
@@ -1754,11 +1775,12 @@ ${pageContent ? pageContent : '无内容'}
                     messagesContainer.appendChild(petMessageElement);
                 }
                 
-                // 更新消息内容 - 找到消息气泡元素并更新其文本
+                // 更新消息内容 - 找到消息气泡元素并更新其文本（使用 Markdown 渲染）
                 fullContent = accumulatedContent;
                 const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
                 if (messageBubble) {
-                    messageBubble.textContent = fullContent;
+                    // 使用 renderMarkdown 渲染完整内容
+                    messageBubble.innerHTML = this.renderMarkdown(fullContent);
                 }
                 
                 // 自动滚动到底部
@@ -1769,22 +1791,22 @@ ${pageContent ? pageContent : '无内容'}
             try {
                 const reply = await this.generatePetResponseStream(message, onStreamContent);
                 
-                // 确保最终内容被显示
+                // 确保最终内容被显示（使用 Markdown 渲染）
                 if (petMessageElement && fullContent !== reply) {
                     const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
                     if (messageBubble) {
-                        messageBubble.textContent = reply;
+                        messageBubble.innerHTML = this.renderMarkdown(reply);
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
             } catch (error) {
                 console.error('生成回复失败:', error);
                 
-                // 如果已经创建了消息元素，更新错误信息
+                // 如果已经创建了消息元素，更新错误信息（使用 innerHTML 以支持 Markdown）
                 if (petMessageElement) {
                     const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
                     if (messageBubble) {
-                        messageBubble.textContent = '抱歉，发生了错误，请稍后再试。😔';
+                        messageBubble.innerHTML = '抱歉，发生了错误，请稍后再试。😔';
                     }
                 } else {
                     const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
@@ -2462,6 +2484,37 @@ ${pageContent ? pageContent : '无内容'}
         console.log('聊天窗口状态已恢复:', this.chatWindowState);
     }
     
+    // 渲染 Markdown 为 HTML
+    renderMarkdown(markdown) {
+        if (!markdown) return '';
+        
+        try {
+            // 检查 marked 是否可用
+            if (typeof marked !== 'undefined') {
+                // 配置 marked 以增强安全性
+                marked.setOptions({
+                    breaks: true, // 支持换行
+                    gfm: true, // GitHub Flavored Markdown
+                    sanitize: false // 允许 HTML，但我们会通过 DOMPurify 或其他方式处理
+                });
+                return marked.parse(markdown);
+            } else {
+                // 如果 marked 不可用，返回转义的纯文本
+                return this.escapeHtml(markdown);
+            }
+        } catch (error) {
+            console.error('渲染 Markdown 失败:', error);
+            return this.escapeHtml(markdown);
+        }
+    }
+    
+    // HTML 转义辅助函数
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     // 创建消息元素
     createMessageElement(text, sender, imageDataUrl = null) {
         const messageDiv = document.createElement('div');
@@ -2515,12 +2568,18 @@ ${pageContent ? pageContent : '无内容'}
             padding: 12px 16px !important;
             border-radius: 12px !important;
             font-size: 14px !important;
-            line-height: 1.4 !important;
+            line-height: 1.6 !important;
             word-wrap: break-word !important;
             position: relative !important;
             max-width: 80% !important;
             margin-left: ${sender === 'user' ? 'auto' : '0'} !important;
         `;
+        
+        // 为宠物消息添加 Markdown 样式
+        if (sender === 'pet') {
+            messageText.classList.add('markdown-content');
+        }
+        
         // 添加标识以便后续更新
         if (sender === 'pet') {
             messageText.setAttribute('data-message-type', 'pet-bubble');
@@ -2560,15 +2619,26 @@ ${pageContent ? pageContent : '无内容'}
             messageText.appendChild(imageContainer);
         }
         
-        // 如果有文本，添加文本
+        // 如果有文本，添加文本（支持 Markdown 渲染）
         if (text) {
+            // 对于宠物消息，使用 Markdown 渲染；对于用户消息，使用纯文本
+            const displayText = sender === 'pet' ? this.renderMarkdown(text) : this.escapeHtml(text);
+            
             if (imageDataUrl) {
                 // 如果已经添加了图片，则追加文本
                 const textSpan = document.createElement('span');
-                textSpan.textContent = text;
+                if (sender === 'pet') {
+                    textSpan.innerHTML = displayText;
+                } else {
+                    textSpan.textContent = text;
+                }
                 messageText.appendChild(textSpan);
             } else {
-                messageText.textContent = text;
+                if (sender === 'pet') {
+                    messageText.innerHTML = displayText;
+                } else {
+                    messageText.textContent = text;
+                }
             }
         } else if (imageDataUrl) {
             // 如果没有文本只有图片，保持容器为空

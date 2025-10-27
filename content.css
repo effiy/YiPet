@@ -215,3 +215,105 @@
     transform-origin: left center !important;
 }
 
+/* Markdown 内容样式 */
+.markdown-content {
+    color: white !important;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    margin: 0.5em 0 !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+}
+
+.markdown-content h1 { font-size: 1.5em !important; }
+.markdown-content h2 { font-size: 1.25em !important; }
+.markdown-content h3 { font-size: 1.1em !important; }
+.markdown-content h4 { font-size: 1em !important; }
+.markdown-content h5 { font-size: 0.875em !important; }
+.markdown-content h6 { font-size: 0.85em !important; }
+
+.markdown-content p {
+    margin: 0.5em 0 !important;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin: 0.5em 0 !important;
+    padding-left: 1.5em !important;
+}
+
+.markdown-content li {
+    margin: 0.25em 0 !important;
+}
+
+.markdown-content code {
+    background: rgba(0, 0, 0, 0.2) !important;
+    padding: 0.2em 0.4em !important;
+    border-radius: 3px !important;
+    font-size: 0.9em !important;
+    font-family: 'Courier New', monospace !important;
+}
+
+.markdown-content pre {
+    background: rgba(0, 0, 0, 0.3) !important;
+    padding: 0.5em !important;
+    border-radius: 4px !important;
+    overflow-x: auto !important;
+    margin: 0.5em 0 !important;
+}
+
+.markdown-content pre code {
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+.markdown-content blockquote {
+    border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+    margin: 0.5em 0 !important;
+    padding-left: 1em !important;
+    font-style: italic !important;
+}
+
+.markdown-content a {
+    color: rgba(255, 255, 255, 0.9) !important;
+    text-decoration: underline !important;
+}
+
+.markdown-content strong {
+    font-weight: 600 !important;
+}
+
+.markdown-content em {
+    font-style: italic !important;
+}
+
+.markdown-content hr {
+    border: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+    margin: 0.5em 0 !important;
+}
+
+.markdown-content table {
+    border-collapse: collapse !important;
+    margin: 0.5em 0 !important;
+    width: 100% !important;
+}
+
+.markdown-content th,
+.markdown-content td {
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    padding: 0.4em !important;
+    text-align: left !important;
+}
+
+.markdown-content th {
+    font-weight: 600 !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+}
+

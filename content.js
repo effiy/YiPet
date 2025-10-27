@@ -1389,13 +1389,24 @@ ${pageContent ? pageContent : '无内容'}
         messagesContainer.style.cssText = `
             flex: 1 !important;
             padding: 20px !important;
-            padding-bottom: 120px !important;
+            padding-bottom: 160px !important;
             overflow-y: auto !important;
             background: linear-gradient(135deg, #f8f9fa, #ffffff) !important;
             position: relative !important;
-            max-height: calc(100% - 140px) !important;
             min-height: 200px !important;
         `;
+        
+        // 动态更新底部padding，确保内容不被输入框遮住
+        const updatePaddingBottom = () => {
+            if (!this.chatWindow) return;
+            const inputContainer = this.chatWindow.querySelector('.chat-input-container');
+            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+            if (inputContainer && messagesContainer) {
+                const inputHeight = inputContainer.offsetHeight || 160;
+                // 添加额外20px的缓冲空间
+                messagesContainer.style.paddingBottom = (inputHeight + 20) + 'px';
+            }
+        };
         
         // 先显示一个默认的欢迎消息
         const welcomeMessage = this.createMessageElement('你好！我是你的小宠物，有什么想对我说的吗？', 'pet');
@@ -1650,6 +1661,17 @@ ${pageContent ? pageContent : '无内容'}
             messageInput.style.height = 'auto';
             messageInput.style.height = messageInput.scrollHeight + 'px';
             updateInputState();
+            // 更新消息容器的底部padding
+            setTimeout(() => {
+                const inputContainer = this.chatWindow.querySelector('.chat-input-container');
+                const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+                if (inputContainer && messagesContainer) {
+                    const inputHeight = inputContainer.offsetHeight || 160;
+                    messagesContainer.style.paddingBottom = (inputHeight + 20) + 'px';
+                    // 滚动到底部
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }, 0);
         });
         
         // 将颜色转换为rgba用于阴影
@@ -1732,9 +1754,12 @@ ${pageContent ? pageContent : '无内容'}
                     messagesContainer.appendChild(petMessageElement);
                 }
                 
-                // 更新消息内容
+                // 更新消息内容 - 找到消息气泡元素并更新其文本
                 fullContent = accumulatedContent;
-                petMessageElement.textContent = fullContent;
+                const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                if (messageBubble) {
+                    messageBubble.textContent = fullContent;
+                }
                 
                 // 自动滚动到底部
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1746,7 +1771,10 @@ ${pageContent ? pageContent : '无内容'}
                 
                 // 确保最终内容被显示
                 if (petMessageElement && fullContent !== reply) {
-                    petMessageElement.textContent = reply;
+                    const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                    if (messageBubble) {
+                        messageBubble.textContent = reply;
+                    }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
             } catch (error) {
@@ -1754,7 +1782,10 @@ ${pageContent ? pageContent : '无内容'}
                 
                 // 如果已经创建了消息元素，更新错误信息
                 if (petMessageElement) {
-                    petMessageElement.textContent = '抱歉，发生了错误，请稍后再试。😔';
+                    const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                    if (messageBubble) {
+                        messageBubble.textContent = '抱歉，发生了错误，请稍后再试。😔';
+                    }
                 } else {
                     const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
                     messagesContainer.appendChild(errorMessage);
@@ -2005,6 +2036,28 @@ ${pageContent ? pageContent : '无内容'}
         
         // 初始化模型选择器显示
         this.updateChatModelSelector();
+        
+        // 初始化消息容器的底部padding
+        this.updateMessagesPaddingBottom = updatePaddingBottom;
+        setTimeout(() => this.updateMessagesPaddingBottom(), 50);
+    }
+    
+    // 更新消息容器的底部padding（公共方法）
+    updateMessagesPaddingBottom() {
+        if (!this.chatWindow) return;
+        const inputContainer = this.chatWindow.querySelector('.chat-input-container');
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (inputContainer && messagesContainer) {
+            const inputHeight = inputContainer.offsetHeight || 160;
+            // 添加额外20px的缓冲空间
+            messagesContainer.style.paddingBottom = (inputHeight + 20) + 'px';
+            // 确保内容完全可见，滚动到底部
+            setTimeout(() => {
+                if (messagesContainer) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }, 0);
+        }
     }
     
     // 更新聊天窗口样式
@@ -2275,6 +2328,9 @@ ${pageContent ? pageContent : '无内容'}
                 
                 // 重新初始化滚动功能
                 this.initializeChatScroll();
+                
+                // 更新消息容器的底部padding
+                this.updateMessagesPaddingBottom();
                 
                 this.saveChatWindowState();
             }

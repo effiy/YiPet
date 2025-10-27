@@ -78,6 +78,7 @@ class PetManager {
         this.position = getPetDefaultPosition();
         this.chatWindow = null;
         this.isChatOpen = false;
+        this.currentModel = PET_CONFIG.chatModels.default;
         
         this.colors = PET_CONFIG.pet.colors;
         
@@ -139,13 +140,19 @@ class PetManager {
                     this.centerPet();
                     sendResponse({ success: true });
                     break;
-                    
+                
+                case 'setModel':
+                    this.setModel(request.model);
+                    sendResponse({ success: true, model: this.currentModel });
+                    break;
+                
                 case 'getStatus':
                     sendResponse({
                         visible: this.isVisible,
                         color: this.colorIndex,
                         size: this.size,
-                        position: this.position
+                        position: this.position,
+                        model: this.currentModel
                     });
                     break;
                     
@@ -382,6 +389,18 @@ class PetManager {
         console.log('宠物大小设置为:', this.size);
     }
     
+    setModel(modelId) {
+        if (PET_CONFIG.chatModels.models.some(m => m.id === modelId)) {
+            this.currentModel = modelId;
+            this.saveState();
+            this.syncToGlobalState();
+            this.updateChatModelSelector(); // 更新聊天窗口中的模型选择器
+            console.log('聊天模型设置为:', modelId);
+        } else {
+            console.error('无效的模型ID:', modelId);
+        }
+    }
+    
     resetPosition() {
         this.position = getPetDefaultPosition();
         this.updatePetStyle();
@@ -415,6 +434,7 @@ class PetManager {
                 color: this.colorIndex,
                 size: this.size,
                 position: this.position,
+                model: this.currentModel,
                 timestamp: Date.now()
             };
             
@@ -438,6 +458,7 @@ class PetManager {
                 color: this.colorIndex,
                 size: this.size,
                 position: this.position,
+                model: this.currentModel,
                 timestamp: Date.now()
             };
             
@@ -458,6 +479,7 @@ class PetManager {
                     this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
                     this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
                     this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
+                    this.currentModel = state.model !== undefined ? state.model : PET_CONFIG.chatModels.default;
                     // 位置也使用全局状态，但会进行边界检查
                     this.position = this.validatePosition(state.position || getPetDefaultPosition());
                     console.log('宠物全局状态已恢复:', state);
@@ -478,12 +500,14 @@ class PetManager {
                         this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
                         this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
                         this.size = newState.size !== undefined ? newState.size : this.size;
+                        this.currentModel = newState.model !== undefined ? newState.model : this.currentModel;
                         // 位置也进行跨页面同步，但会进行边界检查
                         if (newState.position) {
                             this.position = this.validatePosition(newState.position);
                         }
                         console.log('收到全局状态更新:', newState);
                         this.updatePetStyle();
+                        this.updateChatModelSelector(); // 更新聊天窗口中的模型选择器
                     }
                 }
             });
@@ -645,7 +669,8 @@ class PetManager {
                 },
                 body: JSON.stringify({
                     fromSystem: '你是一个可爱的宠物助手，友善、幽默，喜欢和用户聊天。',
-                    fromUser: message
+                    fromUser: message,
+                    model: this.currentModel
                 })
             });
             
@@ -793,6 +818,9 @@ class PetManager {
             
             // 重新初始化滚动功能
             this.initializeChatScroll();
+            
+            // 更新模型选择器显示
+            this.updateChatModelSelector();
             return;
         }
         
@@ -856,6 +884,16 @@ class PetManager {
             messagesContainer.addEventListener('scroll', () => {
                 // 可以在这里添加滚动相关的逻辑
             });
+        }
+    }
+    
+    // 更新聊天窗口中的模型选择器显示
+    updateChatModelSelector() {
+        if (!this.chatWindow) return;
+        
+        const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
+        if (modelSelector) {
+            modelSelector.value = this.currentModel;
         }
     }
     
@@ -960,6 +998,55 @@ class PetManager {
             border-radius: 0 !important;
             z-index: ${PET_CONFIG.ui.zIndex.inputContainer} !important;
         `;
+        
+        // 创建模型选择器
+        const modelSelector = document.createElement('select');
+        modelSelector.className = 'chat-model-selector';
+        modelSelector.style.cssText = `
+            padding: 6px 10px !important;
+            background: #ffffff !important;
+            color: #1f2937 !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            outline: none !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            min-width: 100px !important;
+            max-width: 120px !important;
+            flex-shrink: 0 !important;
+        `;
+        
+        // 添加模型选项
+        PET_CONFIG.chatModels.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = `${model.icon} ${model.name}`;
+            option.selected = model.id === this.currentModel;
+            modelSelector.appendChild(option);
+        });
+        
+        // 模型切换事件
+        modelSelector.addEventListener('change', (e) => {
+            const selectedModel = e.target.value;
+            this.setModel(selectedModel);
+            // 显示切换提示
+            const modelConfig = PET_CONFIG.chatModels.models.find(m => m.id === selectedModel);
+            if (modelConfig) {
+                this.showNotification(`已切换到 ${modelConfig.name}`, 'info');
+            }
+        });
+        
+        // 添加悬停效果
+        modelSelector.addEventListener('mouseenter', () => {
+            modelSelector.style.borderColor = '#3b82f6';
+            modelSelector.style.background = '#f9fafb';
+        });
+        modelSelector.addEventListener('mouseleave', () => {
+            modelSelector.style.borderColor = '#d1d5db';
+            modelSelector.style.background = '#ffffff';
+        });
         
         // 创建输入框容器（包含输入框和按钮）
         const inputWrapper = document.createElement('div');
@@ -1315,6 +1402,7 @@ class PetManager {
         // buttonGroup.appendChild(screenshotButton);
         
         inputWrapper.appendChild(messageInput);
+        inputContainer.appendChild(modelSelector);
         inputContainer.appendChild(inputWrapper);
         inputContainer.appendChild(buttonGroup);
         inputContainer.appendChild(fileInput);
@@ -1400,6 +1488,9 @@ class PetManager {
         
         // 初始化滚动功能
         this.initializeChatScroll();
+        
+        // 初始化模型选择器显示
+        this.updateChatModelSelector();
     }
     
     // 更新聊天窗口样式

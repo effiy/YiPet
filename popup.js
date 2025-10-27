@@ -9,7 +9,8 @@ class PopupController {
             visible: true,
             color: 0,
             size: 60,
-            position: { x: 0, y: 0 }
+            position: { x: 0, y: 0 },
+            model: 'qwen3' // 默认模型
         };
         
         this.init();
@@ -105,6 +106,14 @@ class PopupController {
             });
         }
         
+        // 模型选择
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            modelSelect.addEventListener('change', (e) => {
+                this.changeModel(e.target.value);
+            });
+        }
+        
     }
     
     async loadPetStatus() {
@@ -126,7 +135,8 @@ class PopupController {
                         visible: response.visible !== undefined ? response.visible : true,
                         color: response.color !== undefined ? response.color : 0,
                         size: response.size !== undefined ? response.size : 60,
-                        position: response.position || { x: 20, y: 20 }
+                        position: response.position || { x: 20, y: 20 },
+                        model: response.model !== undefined ? response.model : 'qwen3'
                     };
                 } else {
                     console.log('无法获取宠物状态，使用默认值');
@@ -150,7 +160,8 @@ class PopupController {
                         visible: state.visible !== undefined ? state.visible : true,
                         color: state.color !== undefined ? state.color : 0,
                         size: state.size !== undefined ? state.size : 60,
-                        position: state.position || { x: 20, y: 20 }
+                        position: state.position || { x: 20, y: 20 },
+                        model: state.model !== undefined ? state.model : 'qwen3'
                     });
                 } else {
                     resolve(null);
@@ -166,6 +177,7 @@ class PopupController {
                 color: this.petStatus.color,
                 size: this.petStatus.size,
                 position: this.petStatus.position,
+                model: this.petStatus.model,
                 timestamp: Date.now()
             };
             
@@ -255,6 +267,12 @@ class PopupController {
         const colorSelect = document.getElementById('colorSelect');
         if (colorSelect) {
             colorSelect.value = this.petStatus.color;
+        }
+        
+        // 更新模型选择
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            modelSelect.value = this.petStatus.model;
         }
         
         // 更新状态指示器
@@ -447,6 +465,37 @@ class PopupController {
         }
     }
     
+    async changeModel(modelId) {
+        this.petStatus.model = modelId;
+        
+        try {
+            // 更新全局状态
+            await this.updateGlobalState();
+            
+            // 通知content script切换模型
+            const response = await this.sendMessageToContentScript({ 
+                action: 'setModel', 
+                model: modelId 
+            });
+            
+            if (response && response.success) {
+                // 根据模型显示友好的名称
+                const modelNames = {
+                    'qwen3': 'Qwen3',
+                    'qwq': 'QWQ',
+                    'gpt-oss': 'GPT-OSS'
+                };
+                this.showNotification(`已切换到 ${modelNames[modelId] || modelId}`);
+                this.updateUI();
+            } else {
+                this.showNotification('切换模型失败，请重试', 'error');
+            }
+        } catch (error) {
+            console.error('切换模型失败:', error);
+            this.showNotification('切换模型失败，请重试', 'error');
+        }
+    }
+    
     setButtonLoading(buttonId, loading) {
         const button = document.getElementById(buttonId);
         if (button) {
@@ -470,6 +519,7 @@ class PopupController {
                     this.petStatus.visible = newState.visible !== undefined ? newState.visible : this.petStatus.visible;
                     this.petStatus.color = newState.color !== undefined ? newState.color : this.petStatus.color;
                     this.petStatus.size = newState.size !== undefined ? newState.size : this.petStatus.size;
+                    this.petStatus.model = newState.model !== undefined ? newState.model : this.petStatus.model;
                     // 位置也进行跨页面同步
                     if (newState.position) {
                         this.petStatus.position = newState.position;
@@ -490,6 +540,7 @@ class PopupController {
                     this.petStatus.visible = response.visible !== undefined ? response.visible : this.petStatus.visible;
                     this.petStatus.color = response.color !== undefined ? response.color : this.petStatus.color;
                     this.petStatus.size = response.size !== undefined ? response.size : this.petStatus.size;
+                    this.petStatus.model = response.model !== undefined ? response.model : this.petStatus.model;
                     this.petStatus.position = response.position || this.petStatus.position;
                     
                     // 更新UI

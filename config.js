@@ -128,6 +128,28 @@ const PET_CONFIG = {
         streamPromptUrl: 'http://localhost:8000/prompt',
         // 传统 Prompt API 地址
         promptUrl: 'https://api.effiy.cn/prompt/'
+    },
+    
+    // 聊天模型配置
+    chatModels: {
+        default: 'qwen3',
+        models: [
+            {
+                id: 'qwen3',
+                name: 'Qwen3',
+                icon: '🤖'
+            },
+            {
+                id: 'qwq',
+                name: 'QWQ',
+                icon: '💬'
+            },
+            {
+                id: 'gpt-oss',
+                name: 'GPT-OSS',
+                icon: '✨'
+            }
+        ]
     }
 };
 

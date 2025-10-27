@@ -937,8 +937,8 @@ class PetManager {
             // 获取页面内容并转换为 Markdown
             let pageContent = this.getPageContentAsMarkdown();
             // 限制长度以免过长
-            if (pageContent.length > 4090) {
-                pageContent = pageContent.substring(0, 4090);
+            if (pageContent.length > 102400) {
+                pageContent = pageContent.substring(0, 102400);
             }
             
             // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息

@@ -368,6 +368,7 @@ class PetManager {
     changeColor() {
         this.colorIndex = (this.colorIndex + 1) % this.colors.length;
         this.updatePetStyle();
+        this.updateChatWindowColor();
         console.log('宠物颜色切换为:', this.colorIndex);
     }
     
@@ -375,6 +376,7 @@ class PetManager {
         if (colorIndex >= 0 && colorIndex < this.colors.length) {
             this.colorIndex = colorIndex;
             this.updatePetStyle();
+            this.updateChatWindowColor();
             this.saveState();
             this.syncToGlobalState();
             console.log('宠物颜色设置为:', this.colorIndex);
@@ -821,6 +823,9 @@ class PetManager {
             
             // 更新模型选择器显示
             this.updateChatModelSelector();
+            
+            // 更新聊天窗口颜色
+            this.updateChatWindowColor();
             return;
         }
         
@@ -906,11 +911,20 @@ class PetManager {
         this.chatWindow.id = 'pet-chat-window';
         this.updateChatWindowStyle();
         
-        // 创建聊天头部（拖拽区域）
+        // 根据宠物颜色获取当前主题色调
+        const currentColor = this.colors[this.colorIndex];
+        // 提取主色调作为边框颜色
+        const getMainColor = (gradient) => {
+            const match = gradient.match(/#[0-9a-fA-F]{6}/);
+            return match ? match[0] : '#3b82f6';
+        };
+        const mainColor = getMainColor(currentColor);
+        
+        // 创建聊天头部（拖拽区域）- 使用宠物颜色主题
         const chatHeader = document.createElement('div');
         chatHeader.className = 'chat-header';
         chatHeader.style.cssText = `
-            background: linear-gradient(135deg, #ff6b6b, #ff8e8e) !important;
+            background: ${currentColor} !important;
             color: white !important;
             padding: 15px 20px !important;
             display: flex !important;
@@ -982,15 +996,6 @@ class PetManager {
         const welcomeMessage = this.createMessageElement('你好！我是你的小宠物，有什么想对我说的吗？', 'pet');
         messagesContainer.appendChild(welcomeMessage);
         
-        // 根据宠物颜色获取当前主题色调
-        const currentColor = this.colors[this.colorIndex];
-        // 提取主色调作为边框颜色
-        const getMainColor = (gradient) => {
-            const match = gradient.match(/#[0-9a-fA-F]{6}/);
-            return match ? match[0] : '#3b82f6';
-        };
-        const mainColor = getMainColor(currentColor);
-        
         // 创建输入区域 - 使用宠物颜色主题
         const inputContainer = document.createElement('div');
         inputContainer.className = 'chat-input-container';
@@ -1046,14 +1051,16 @@ class PetManager {
             justify-content: center !important;
         `;
         mentionButton.addEventListener('mouseenter', () => {
-            mentionButton.style.background = mainColor;
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            mentionButton.style.background = currentMainColor;
             mentionButton.style.color = 'white';
-            mentionButton.style.borderColor = mainColor;
+            mentionButton.style.borderColor = currentMainColor;
         });
         mentionButton.addEventListener('mouseleave', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             mentionButton.style.background = 'white';
-            mentionButton.style.color = mainColor;
-            mentionButton.style.borderColor = mainColor;
+            mentionButton.style.color = currentMainColor;
+            mentionButton.style.borderColor = currentMainColor;
         });
         
         // 创建 + 按钮（使用宠物颜色主题）
@@ -1075,14 +1082,16 @@ class PetManager {
             gap: 4px !important;
         `;
         addButton.addEventListener('mouseenter', () => {
-            addButton.style.background = mainColor;
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            addButton.style.background = currentMainColor;
             addButton.style.color = 'white';
-            addButton.style.borderColor = mainColor;
+            addButton.style.borderColor = currentMainColor;
         });
         addButton.addEventListener('mouseleave', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             addButton.style.background = 'white';
-            addButton.style.color = mainColor;
-            addButton.style.borderColor = mainColor;
+            addButton.style.color = currentMainColor;
+            addButton.style.borderColor = currentMainColor;
         });
         
         // 右侧状态组
@@ -1186,12 +1195,13 @@ class PetManager {
         
         // 自动调整高度和输入时的视觉反馈
         const updateInputState = () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             const hasContent = messageInput.value.trim().length > 0;
             if (hasContent) {
-                messageInput.style.borderColor = mainColor;
+                messageInput.style.borderColor = currentMainColor;
                 messageInput.style.background = '#ffffff';
             } else {
-                messageInput.style.borderColor = mainColor;
+                messageInput.style.borderColor = currentMainColor;
                 messageInput.style.background = '#f9fafb';
             }
         };
@@ -1212,14 +1222,17 @@ class PetManager {
         const shadowColor = hexToRgba(mainColor, 0.1);
         
         messageInput.addEventListener('focus', () => {
-            messageInput.style.borderColor = mainColor;
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            messageInput.style.borderColor = currentMainColor;
             messageInput.style.background = '#ffffff';
-            messageInput.style.boxShadow = `0 0 0 3px ${shadowColor}`;
+            const currentShadowColor = currentMainColor.replace('#', '').match(/.{2}/g).map(x => parseInt(x, 16)).join(',');
+            messageInput.style.boxShadow = `0 0 0 3px rgba(${currentShadowColor}, 0.1)`;
         });
         
         messageInput.addEventListener('blur', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             if (messageInput.value.length === 0) {
-                messageInput.style.borderColor = mainColor;
+                messageInput.style.borderColor = currentMainColor;
                 messageInput.style.background = '#f9fafb';
             }
             messageInput.style.boxShadow = 'none';
@@ -1384,11 +1397,13 @@ class PetManager {
         
         // 添加悬停效果
         modelSelector.addEventListener('mouseenter', () => {
-            modelSelector.style.borderColor = mainColor;
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            modelSelector.style.borderColor = currentMainColor;
             modelSelector.style.background = '#f0f9ff';
         });
         modelSelector.addEventListener('mouseleave', () => {
-            modelSelector.style.borderColor = mainColor;
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            modelSelector.style.borderColor = currentMainColor;
             modelSelector.style.background = 'white';
         });
         
@@ -1424,14 +1439,16 @@ class PetManager {
         `;
         
         imageUploadButton.addEventListener('mouseenter', () => {
-            imageUploadButton.style.background = mainColor;
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            imageUploadButton.style.background = currentMainColor;
             imageUploadButton.style.color = 'white';
-            imageUploadButton.style.borderColor = mainColor;
+            imageUploadButton.style.borderColor = currentMainColor;
         });
         imageUploadButton.addEventListener('mouseleave', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             imageUploadButton.style.background = 'white';
-            imageUploadButton.style.color = mainColor;
-            imageUploadButton.style.borderColor = mainColor;
+            imageUploadButton.style.color = currentMainColor;
+            imageUploadButton.style.borderColor = currentMainColor;
         });
         
         // 创建隐藏的文件输入
@@ -1574,6 +1591,76 @@ class PetManager {
         `;
     }
     
+    // 从渐变色中提取主色调
+    getMainColorFromGradient(gradient) {
+        const match = gradient.match(/#[0-9a-fA-F]{6}/);
+        return match ? match[0] : '#3b82f6';
+    }
+    
+    // 更新聊天窗口颜色（跟随宠物颜色）
+    updateChatWindowColor() {
+        if (!this.chatWindow) return;
+        
+        // 获取当前宠物颜色
+        const currentColor = this.colors[this.colorIndex];
+        const mainColor = this.getMainColorFromGradient(currentColor);
+        
+        // 更新聊天窗口头部元素
+        const chatHeader = this.chatWindow.querySelector('.chat-header');
+        if (chatHeader) {
+            chatHeader.style.setProperty('background', currentColor, 'important');
+        }
+        
+        // 更新输入框边框颜色
+        const messageInput = this.chatWindow.querySelector('.chat-message-input');
+        if (messageInput) {
+            messageInput.style.setProperty('border-color', mainColor, 'important');
+        }
+        
+        // 更新模型选择器边框颜色
+        const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
+        if (modelSelector) {
+            modelSelector.style.setProperty('border-color', mainColor, 'important');
+        }
+        
+        // 更新所有使用颜色的按钮
+        const allButtons = this.chatWindow.querySelectorAll('button');
+        allButtons.forEach(button => {
+            // 跳过关闭按钮（保持白色）
+            if (button.textContent.includes('✕')) return;
+            
+            // 更新@按钮和+按钮
+            if (button.innerHTML === '@' || button.innerHTML === '+') {
+                button.style.setProperty('color', mainColor, 'important');
+                button.style.setProperty('border-color', mainColor, 'important');
+                button.setAttribute('data-theme-color', mainColor);
+            }
+            
+            // 更新图片上传按钮
+            if (button.className.includes('chat-image-upload-button')) {
+                button.style.setProperty('color', mainColor, 'important');
+                button.style.setProperty('border-color', mainColor, 'important');
+                button.setAttribute('data-theme-color', mainColor);
+            }
+        });
+        
+        // 更新所有已有消息的气泡和头像颜色（仅宠物消息）
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (messagesContainer) {
+            // 更新宠物头像
+            const petAvatars = messagesContainer.querySelectorAll('[data-message-type="pet-avatar"]');
+            petAvatars.forEach(avatar => {
+                avatar.style.setProperty('background', currentColor, 'important');
+            });
+            
+            // 更新宠物消息气泡
+            const petBubbles = messagesContainer.querySelectorAll('[data-message-type="pet-bubble"]');
+            petBubbles.forEach(bubble => {
+                bubble.style.setProperty('background', currentColor, 'important');
+            });
+        }
+    }
+    
     // 添加聊天窗口交互功能
     addChatWindowInteractions() {
         if (!this.chatWindow) return;
@@ -1624,7 +1711,14 @@ class PetManager {
                 
                 // 添加缩放时的视觉反馈
                 this.chatWindow.style.boxShadow = '0 25px 50px rgba(0,0,0,0.4)';
-                resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ff6b6b 30%, #ff6b6b 70%, transparent 70%)';
+                // 使用宠物的主色调
+                const currentColor = this.colors[this.colorIndex];
+                const getMainColor = (gradient) => {
+                    const match = gradient.match(/#[0-9a-fA-F]{6}/);
+                    return match ? match[0] : '#ff6b6b';
+                };
+                const mainColor = getMainColor(currentColor);
+                resizeHandle.style.background = `linear-gradient(-45deg, transparent 30%, ${mainColor} 30%, ${mainColor} 70%, transparent 70%)`;
                 
                 e.preventDefault();
                 e.stopPropagation();
@@ -1885,6 +1979,9 @@ class PetManager {
             messageDiv.style.flexDirection = 'row-reverse';
         }
         
+        // 获取宠物颜色用于宠物消息
+        const currentColor = this.colors[this.colorIndex];
+        
         const avatar = document.createElement('div');
         avatar.style.cssText = `
             width: 32px !important;
@@ -1896,9 +1993,13 @@ class PetManager {
             font-size: 16px !important;
             margin-right: 10px !important;
             flex-shrink: 0 !important;
-            background: ${sender === 'user' ? 'linear-gradient(135deg, #2196F3, #1976D2)' : 'linear-gradient(135deg, #ff6b6b, #ff8e8e)'} !important;
+            background: ${sender === 'user' ? 'linear-gradient(135deg, #2196F3, #1976D2)' : currentColor} !important;
         `;
         avatar.textContent = sender === 'user' ? '👤' : '🐾';
+        // 添加标识以便后续更新
+        if (sender === 'pet') {
+            avatar.setAttribute('data-message-type', 'pet-avatar');
+        }
         
         if (sender === 'user') {
             avatar.style.marginRight = '0';
@@ -1913,7 +2014,7 @@ class PetManager {
         
         const messageText = document.createElement('div');
         messageText.style.cssText = `
-            background: ${sender === 'user' ? 'linear-gradient(135deg, #2196F3, #1976D2)' : 'linear-gradient(135deg, #ff6b6b, #ff8e8e)'} !important;
+            background: ${sender === 'user' ? 'linear-gradient(135deg, #2196F3, #1976D2)' : currentColor} !important;
             color: white !important;
             padding: 12px 16px !important;
             border-radius: 12px !important;
@@ -1924,6 +2025,10 @@ class PetManager {
             max-width: 80% !important;
             margin-left: ${sender === 'user' ? 'auto' : '0'} !important;
         `;
+        // 添加标识以便后续更新
+        if (sender === 'pet') {
+            messageText.setAttribute('data-message-type', 'pet-bubble');
+        }
         
         if (sender === 'user') {
             messageText.style.borderBottomRightRadius = '4px';

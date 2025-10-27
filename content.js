@@ -632,11 +632,102 @@ class PetManager {
         console.log('资源清理完成');
     }
     
-    // 生成宠物响应
+    // 生成宠物响应（流式版本）
+    async generatePetResponseStream(message, onContent) {
+        try {
+            // 调用 API，使用配置中的 URL
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: '你是一个可爱的宠物助手，友善、幽默，喜欢和用户聊天。',
+                    fromUser: message
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                // 解码数据并添加到缓冲区
+                buffer += decoder.decode(value, { stream: true });
+                
+                // 处理完整的 SSE 消息
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const data = JSON.parse(dataStr);
+                            
+                            if (data.type === 'content') {
+                                // 实时追加内容并调用回调
+                                fullContent += data.data;
+                                if (onContent) {
+                                    onContent(data.data, fullContent);
+                                }
+                            } else if (data.type === 'done') {
+                                console.log('流式响应完成');
+                            } else if (data.type === 'error') {
+                                console.error('流式响应错误:', data.data);
+                                throw new Error(data.data || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理最后的缓冲区消息
+            if (buffer.trim()) {
+                const message = buffer.trim();
+                if (message.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(message.substring(6));
+                        if (data.type === 'done') {
+                            console.log('流式响应完成');
+                        } else if (data.type === 'error') {
+                            throw new Error(data.data || '未知错误');
+                        }
+                    } catch (e) {
+                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                    }
+                }
+            }
+            
+            return fullContent;
+        } catch (error) {
+            console.error('API 调用失败:', error);
+            throw error;
+        }
+    }
+    
+    // 生成宠物响应（兼容旧版本）
     async generatePetResponse(message) {
         try {
-            // 调用本地 API
-            const response = await fetch('https://api.effiy.cn/prompt/', {
+            // 调用 API，使用配置中的 URL
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -990,7 +1081,7 @@ class PetManager {
             }
         });
         
-        // 发送消息功能
+        // 发送消息功能（使用流式响应）
         const sendMessage = async () => {
             const message = messageInput.value.trim();
             if (!message) return;
@@ -1013,16 +1104,45 @@ class PetManager {
             // 播放思考动画
             this.playChatAnimation();
             
+            // 创建宠物消息元素（用于流式更新）
+            let petMessageElement = null;
+            let fullContent = '';
+            
+            // 流式响应回调函数
+            const onStreamContent = (chunk, accumulatedContent) => {
+                if (!petMessageElement) {
+                    // 创建消息元素
+                    petMessageElement = this.createMessageElement('', 'pet');
+                    messagesContainer.appendChild(petMessageElement);
+                }
+                
+                // 更新消息内容
+                fullContent = accumulatedContent;
+                petMessageElement.textContent = fullContent;
+                
+                // 自动滚动到底部
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            };
+            
             // 生成宠物响应
             try {
-                const reply = await this.generatePetResponse(message);
-                const petMessage = this.createMessageElement(reply, 'pet');
-                messagesContainer.appendChild(petMessage);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                const reply = await this.generatePetResponseStream(message, onStreamContent);
+                
+                // 确保最终内容被显示
+                if (petMessageElement && fullContent !== reply) {
+                    petMessageElement.textContent = reply;
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
             } catch (error) {
                 console.error('生成回复失败:', error);
-                const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
-                messagesContainer.appendChild(errorMessage);
+                
+                // 如果已经创建了消息元素，更新错误信息
+                if (petMessageElement) {
+                    petMessageElement.textContent = '抱歉，发生了错误，请稍后再试。😔';
+                } else {
+                    const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
+                    messagesContainer.appendChild(errorMessage);
+                }
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         };

@@ -120,6 +120,14 @@ const PET_CONFIG = {
             input: '25px',
             button: '25px'
         }
+    },
+    
+    // API 配置
+    api: {
+        // 流式 Prompt API 地址
+        streamPromptUrl: 'http://localhost:8000/prompt',
+        // 传统 Prompt API 地址
+        promptUrl: 'https://api.effiy.cn/prompt/'
     }
 };
 

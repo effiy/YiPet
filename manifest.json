@@ -11,7 +11,8 @@
   ],
   "host_permissions": [
     "<all_urls>",
-    "https://api.effiy.cn/*"
+    "https://api.effiy.cn/*",
+    "http://localhost:8000/*"
   ],
   "background": {
     "service_worker": "background.js"

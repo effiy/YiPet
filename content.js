@@ -923,7 +923,140 @@ class PetManager {
         }
     }
     
-    // 根据当前网页信息生成欢迎消息
+    // 根据当前网页信息生成欢迎消息（流式版本）
+    async generateWelcomeMessageStream(onContent) {
+        try {
+            // 获取当前网页信息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 尝试获取页面描述
+            const metaDescription = document.querySelector('meta[name="description"]');
+            const pageDescription = metaDescription ? metaDescription.content : '';
+            
+            // 获取页面内容并转换为 Markdown
+            let pageContent = this.getPageContentAsMarkdown();
+            // 限制长度以免过长
+            if (pageContent.length > 4090) {
+                pageContent = pageContent.substring(0, 4090);
+            }
+            
+            // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
+            const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
+1. 语气友好、活泼，像一个小宠物
+2. 适当提及网页的主题或内容
+3. 字数控制在200字以内
+4. 使用简单的表情符号增加趣味性`;
+
+            const userPrompt = `用户正在浏览：
+标题：${pageTitle}
+网址：${pageUrl}
+描述：${pageDescription}
+
+页面内容（Markdown 格式）：
+${pageContent ? pageContent : '无内容'}
+
+请生成一段欢迎消息。`;
+            
+            console.log('调用大模型生成欢迎消息，页面标题:', pageTitle);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: systemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
+                                if (onContent) {
+                                    onContent(chunk.message.content, fullContent);
+                                }
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                                if (onContent) {
+                                    onContent(chunk.data, fullContent);
+                                }
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
+                                console.log('流式响应完成');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理最后的缓冲区消息
+            if (buffer.trim()) {
+                const message = buffer.trim();
+                if (message.startsWith('data: ')) {
+                    try {
+                        const chunk = JSON.parse(message.substring(6));
+                        if (chunk.done === true || chunk.type === 'done') {
+                            console.log('流式响应完成');
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            throw new Error(chunk.data || chunk.error || '未知错误');
+                        }
+                    } catch (e) {
+                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                    }
+                }
+            }
+            
+            return fullContent;
+        } catch (error) {
+            console.error('生成欢迎消息失败:', error);
+            throw error;
+        }
+    }
+    
+    // 根据当前网页信息生成欢迎消息（非流式版本，兼容旧代码）
     async generateWelcomeMessage() {
         try {
             // 获取当前网页信息
@@ -1428,45 +1561,29 @@ ${pageContent ? pageContent : '无内容'}
             }
         };
         
-        // 先显示一个默认的欢迎消息
-        const welcomeMessage = this.createMessageElement('你好！我是你的小宠物，有什么想对我说的吗？', 'pet');
+        // 创建欢迎消息容器（先不添加内容）
+        const welcomeMessage = this.createMessageElement('', 'pet');
         messagesContainer.appendChild(welcomeMessage);
+        const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
         
-        // 然后异步生成个性化的欢迎消息并更新
-        setTimeout(async () => {
-            try {
-                console.log('开始生成个性化欢迎消息...');
-                
-                // 添加超时处理，避免等待太久
-                const welcomeText = await Promise.race([
-                    this.generateWelcomeMessage(),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('超时')), 10000)
-                    )
-                ]);
-                
-                console.log('准备更新欢迎消息为:', welcomeText);
-                
-                const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
-                console.log('找到的消息元素:', messageText);
-                
-                if (messageText) {
-                    // 使用 Markdown 渲染欢迎消息
-                    messageText.innerHTML = this.renderMarkdown(welcomeText);
-                    console.log('欢迎消息已更新');
-                    
-                    // 添加一个简单的更新动画
-                    messageText.style.transition = 'opacity 0.3s';
-                    messageText.style.opacity = '0.5';
-                    setTimeout(() => {
-                        messageText.style.opacity = '1';
-                    }, 100);
-                }
-            } catch (error) {
-                console.log('生成欢迎消息失败:', error);
-                // 即使失败也保持默认消息，不需要更新
+        // 流式生成欢迎消息
+        this.generateWelcomeMessageStream((chunk, fullContent) => {
+            if (messageText) {
+                // 流式更新消息内容（使用 Markdown 渲染）
+                messageText.innerHTML = this.renderMarkdown(fullContent);
+                // 自动滚动到底部
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
-        }, 500);
+        }).catch(error => {
+            console.error('生成欢迎消息失败:', error);
+            // 出错时显示默认欢迎消息
+            if (messageText) {
+                const pageTitle = document.title || '当前页面';
+                messageText.innerHTML = this.renderMarkdown(
+                    `你好！我看到你在浏览"${pageTitle}"，我是你的小宠物，有什么想聊的吗？🐾`
+                );
+            }
+        });
         
         // 创建输入区域 - 使用宠物颜色主题
         const inputContainer = document.createElement('div');

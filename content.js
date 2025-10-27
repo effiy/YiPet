@@ -155,6 +155,11 @@ class PetManager {
                         model: this.currentModel
                     });
                     break;
+                
+                case 'getFullPageText':
+                    const text = this.getFullPageText();
+                    sendResponse({ text: text });
+                    break;
                     
                 case 'removePet':
                     this.removePet();
@@ -658,9 +663,396 @@ class PetManager {
         console.log('资源清理完成');
     }
     
+    // 计算两个文本的相似度（简化版）
+    calculateSimilarity(text1, text2) {
+        if (text1 === text2) return 1.0;
+        if (text1.length === 0 || text2.length === 0) return 0;
+        
+        // 使用简单的字符匹配度
+        const longer = text1.length > text2.length ? text1 : text2;
+        const shorter = text1.length > text2.length ? text2 : text1;
+        
+        if (longer.length === 0) return 1.0;
+        
+        // 计算相同字符的数量
+        let matches = 0;
+        for (let i = 0; i < shorter.length; i++) {
+            if (longer.includes(shorter[i])) {
+                matches++;
+            }
+        }
+        
+        return matches / longer.length;
+    }
+    
+    // 获取页面的完整正文内容
+    getFullPageText() {
+        try {
+            // 定义需要排除的选择器
+            const excludeSelectors = [
+                'script', 'style', 'nav', 'header', 'footer', 'aside', 
+                'noscript', 'iframe', 'embed', 'svg', 'canvas',
+                '.ad', '.advertisement', '.ads', '.advertisement-container',
+                '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
+                '.header', '.footer', '.comment', '.comments', '.social-share',
+                '.related-posts', '.related', '.widget', '.sidebar-widget',
+                '[class*="ad"]', '[class*="banner"]', '[class*="promo"]',
+                '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
+                'iframe', 'embed', 'object', 'form', 'button', 'input'
+            ];
+            
+            // 定义主要正文内容选择器，按优先级顺序
+            const contentSelectors = [
+                'main',
+                'article', 
+                '[role="main"]',
+                '.content', '.main-content', '.page-content',
+                '.post-content', '.entry-content', '.article-content',
+                '.post-body', '.text-content', '.article-body',
+                '#content', '#main-content', '#main',
+                '.article', '.blog-post', '.entry', '.post',
+                '.content-area', '.content-wrapper',
+                '.text-wrapper', '.text-container'
+            ];
+            
+            // 尝试从主要内容区域获取
+            let mainContent = null;
+            let foundSelector = '';
+            for (const selector of contentSelectors) {
+                mainContent = document.querySelector(selector);
+                if (mainContent) {
+                    foundSelector = selector;
+                    console.log('找到主要内容区域:', selector);
+                    break;
+                }
+            }
+            
+            // 如果找到了主要内容区域
+            if (mainContent) {
+                // 克隆内容以避免修改原始DOM
+                const cloned = mainContent.cloneNode(true);
+                
+                // 移除不需要的元素
+                excludeSelectors.forEach(sel => {
+                    try {
+                        const elements = cloned.querySelectorAll(sel);
+                        elements.forEach(el => el.remove());
+                    } catch (e) {
+                        // 忽略无效的选择器
+                    }
+                });
+                
+                const textContent = cloned.textContent || cloned.innerText || '';
+                const trimmedText = textContent.trim();
+                
+                // 如果内容足够长，返回
+                if (trimmedText.length > 100) {
+                    return trimmedText;
+                }
+            }
+            
+            // 如果没有足够的内容，获取页面中所有的文本段落
+            const textElements = Array.from(document.querySelectorAll(
+                'p, div, section, article, main, li, blockquote, ' +
+                'h1, h2, h3, h4, h5, h6, span, pre, code, td, th, dd, dt, ' +
+                'label, legend, caption, summary, details, address, time'
+            ));
+            
+            const allTexts = textElements
+                .map(el => (el.textContent || el.innerText || '').trim())
+                .filter(text => {
+                    // 进一步放宽文本长度要求：只要超过3个字符就保留
+                    if (text.length < 3) return false;
+                    
+                    // 只过滤明显的垃圾内容
+                    const lowerText = text.toLowerCase();
+                    
+                    // 只过滤最明显、最简短的无意义文本
+                    if (text.length <= 5 && 
+                        (lowerText === '更多' || lowerText === 'more' || lowerText === '点击')) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+            
+            // 去重并合并文本（使用更宽松的去重策略）
+            const uniqueTexts = [];
+            const seenTexts = new Set();
+            
+            for (const text of allTexts) {
+                // 检查是否是确切的重复
+                let isExactDuplicate = seenTexts.has(text);
+                
+                if (!isExactDuplicate) {
+                    // 更宽松的去重：只在文本非常相似时视为重复
+                    let isSimilar = false;
+                    for (const seenText of seenTexts) {
+                        // 只有当两个长文本几乎完全相同时才视为重复
+                        if (text.length > 100 && seenText.length > 100) {
+                            // 计算相似度：使用Levenshtein距离的简化版本
+                            const similarity = calculateSimilarity(text, seenText);
+                            if (similarity > 0.99) { // 99%以上相似才视为重复（几乎完全一致）
+                                isSimilar = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!isSimilar) {
+                        seenTexts.add(text);
+                        uniqueTexts.push(text);
+                    }
+                }
+            }
+            
+            if (uniqueTexts.length > 0) {
+                return uniqueTexts.join('\n\n').trim();
+            }
+            
+            // 最后尝试从整个body获取
+            const body = document.body;
+            if (body) {
+                const clonedBody = body.cloneNode(true);
+                
+                // 移除不需要的元素
+                excludeSelectors.forEach(sel => {
+                    try {
+                        const elements = clonedBody.querySelectorAll(sel);
+                        elements.forEach(el => el.remove());
+                    } catch (e) {
+                        // 忽略无效的选择器
+                    }
+                });
+                
+                const textContent = clonedBody.textContent || clonedBody.innerText || '';
+                return textContent.trim();
+            }
+            
+            return '';
+        } catch (error) {
+            console.error('获取页面内容时出错:', error);
+            return '';
+        }
+    }
+    
+    // 获取页面内容并转换为 Markdown
+    getPageContentAsMarkdown() {
+        try {
+            // 检查 Turndown 是否可用
+            if (typeof TurndownService === 'undefined') {
+                console.warn('Turndown 未加载，返回纯文本内容');
+                return this.getFullPageText();
+            }
+            
+            // 定义需要排除的选择器
+            const excludeSelectors = [
+                'script', 'style', 'nav', 'header', 'footer', 'aside', 
+                'noscript', 'iframe', 'embed', 'svg', 'canvas',
+                '.ad', '.advertisement', '.ads', '.advertisement-container',
+                '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
+                '.header', '.footer', '.comment', '.comments', '.social-share',
+                '.related-posts', '.related', '.widget', '.sidebar-widget',
+                '[class*="ad"]', '[class*="banner"]', '[class*="promo"]',
+                '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
+                'iframe', 'embed', 'object', 'form', 'button', 'input'
+            ];
+            
+            // 定义主要正文内容选择器
+            const contentSelectors = [
+                'main',
+                'article', 
+                '[role="main"]',
+                '.content', '.main-content', '.page-content',
+                '.post-content', '.entry-content', '.article-content',
+                '.post-body', '.text-content', '.article-body',
+                '#content', '#main-content', '#main',
+                '.article', '.blog-post', '.entry', '.post',
+                '.content-area', '.content-wrapper',
+                '.text-wrapper', '.text-container'
+            ];
+            
+            // 尝试从主要内容区域获取
+            let mainContent = null;
+            for (const selector of contentSelectors) {
+                mainContent = document.querySelector(selector);
+                if (mainContent) break;
+            }
+            
+            // 如果没有找到主要内容区域，使用body
+            if (!mainContent) {
+                mainContent = document.body;
+            }
+            
+            // 克隆内容
+            const cloned = mainContent.cloneNode(true);
+            
+            // 移除不需要的元素
+            excludeSelectors.forEach(sel => {
+                try {
+                    const elements = cloned.querySelectorAll(sel);
+                    elements.forEach(el => el.remove());
+                } catch (e) {}
+            });
+            
+            // 使用 Turndown 转换
+            const turndownService = new TurndownService({
+                headingStyle: 'atx',
+                bulletListMarker: '-',
+                codeBlockStyle: 'fenced',
+                fence: '```',
+                emDelimiter: '*',
+                strongDelimiter: '**',
+                linkStyle: 'inlined',
+                linkReferenceStyle: 'collapsed'
+            });
+            
+            const markdown = turndownService.turndown(cloned);
+            
+            // 如果 Markdown 内容太短或为空，返回纯文本
+            if (!markdown || markdown.trim().length < 100) {
+                const textContent = cloned.textContent || cloned.innerText || '';
+                return textContent.trim();
+            }
+            
+            return markdown.trim();
+        } catch (error) {
+            console.error('转换为 Markdown 时出错:', error);
+            // 出错时返回纯文本
+            return this.getFullPageText();
+        }
+    }
+    
+    // 根据当前网页信息生成欢迎消息
+    async generateWelcomeMessage() {
+        try {
+            // 获取当前网页信息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 尝试获取页面描述
+            const metaDescription = document.querySelector('meta[name="description"]');
+            const pageDescription = metaDescription ? metaDescription.content : '';
+            
+            // 获取页面内容并转换为 Markdown
+            let pageContent = this.getPageContentAsMarkdown();
+            // 限制长度以免过长
+            if (pageContent.length > 2000) {
+                pageContent = pageContent.substring(0, 2000);
+            }
+            
+            // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
+            const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
+1. 语气友好、活泼，像一个小宠物
+2. 适当提及网页的主题或内容
+3. 字数控制在500字以内
+4. 使用简单的表情符号增加趣味性`;
+
+            const userPrompt = `用户正在浏览：
+标题：${pageTitle}
+网址：${pageUrl}
+描述：${pageDescription}
+
+页面内容（Markdown 格式）：
+${pageContent ? pageContent : '无内容'}
+
+请生成一段欢迎消息。`;
+            
+            console.log('调用大模型生成欢迎消息，页面标题:', pageTitle);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: systemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const data = JSON.parse(dataStr);
+                            
+                            if (data.type === 'content') {
+                                fullContent += data.data;
+                            } else if (data.type === 'done') {
+                                console.log('流式响应完成');
+                            } else if (data.type === 'error') {
+                                console.error('流式响应错误:', data.data);
+                                throw new Error(data.data || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            if (fullContent && fullContent.trim()) {
+                console.log('大模型生成的欢迎消息:', fullContent);
+                return fullContent.trim();
+            } else {
+                // 如果API调用失败，使用备用消息
+                return `你好！我注意到你正在浏览"${pageTitle}"，有什么想和我聊的吗？🐾`;
+            }
+            
+        } catch (error) {
+            console.log('生成欢迎消息失败:', error);
+            // 使用备用消息
+            const pageTitle = document.title || '当前页面';
+            const fallbackMessages = [
+                `你好！我看到你在浏览"${pageTitle}"，我是你的小宠物，有什么想聊的吗？🐾`,
+                `嗨！你正在查看"${pageTitle}"呢，我是你的小伙伴，随时准备和你聊天哦~`,
+            ];
+            return fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
+        }
+    }
+    
     // 生成宠物响应（流式版本）
     async generatePetResponseStream(message, onContent) {
         try {
+            // 获取页面完整正文内容并转换为 Markdown
+            const fullPageMarkdown = this.getPageContentAsMarkdown();
+            
+            // 构建包含页面内容的完整消息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 如果页面内容不为空，将其添加到 fromUser
+            let userMessage = message;
+            if (fullPageMarkdown) {
+                userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面链接：${pageUrl}\n\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
+            }
+            
             // 调用 API，使用配置中的 URL
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             
@@ -671,7 +1063,7 @@ class PetManager {
                 },
                 body: JSON.stringify({
                     fromSystem: '你是一个可爱的宠物助手，友善、幽默，喜欢和用户聊天。',
-                    fromUser: message,
+                    fromUser: userMessage,
                     model: this.currentModel
                 })
             });
@@ -753,6 +1145,19 @@ class PetManager {
     // 生成宠物响应（兼容旧版本）
     async generatePetResponse(message) {
         try {
+            // 获取页面完整正文内容并转换为 Markdown
+            const fullPageMarkdown = this.getPageContentAsMarkdown();
+            
+            // 构建包含页面内容的完整消息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 如果页面内容不为空，将其添加到 fromUser
+            let userMessage = message;
+            if (fullPageMarkdown) {
+                userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面链接：${pageUrl}\n\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
+            }
+            
             // 调用 API，使用配置中的 URL
             const response = await fetch(PET_CONFIG.api.promptUrl, {
                 method: 'POST',
@@ -761,7 +1166,7 @@ class PetManager {
                 },
                 body: JSON.stringify({
                     fromSystem: '你是一个可爱的宠物助手，友善、幽默，喜欢和用户聊天。',
-                    fromUser: message
+                    fromUser: userMessage
                 })
             });
             
@@ -992,9 +1397,44 @@ class PetManager {
             min-height: 200px !important;
         `;
         
-        // 添加欢迎消息
+        // 先显示一个默认的欢迎消息
         const welcomeMessage = this.createMessageElement('你好！我是你的小宠物，有什么想对我说的吗？', 'pet');
         messagesContainer.appendChild(welcomeMessage);
+        
+        // 然后异步生成个性化的欢迎消息并更新
+        setTimeout(async () => {
+            try {
+                console.log('开始生成个性化欢迎消息...');
+                
+                // 添加超时处理，避免等待太久
+                const welcomeText = await Promise.race([
+                    this.generateWelcomeMessage(),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('超时')), 10000)
+                    )
+                ]);
+                
+                console.log('准备更新欢迎消息为:', welcomeText);
+                
+                const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+                console.log('找到的消息元素:', messageText);
+                
+                if (messageText) {
+                    messageText.textContent = welcomeText;
+                    console.log('欢迎消息已更新');
+                    
+                    // 添加一个简单的更新动画
+                    messageText.style.transition = 'opacity 0.3s';
+                    messageText.style.opacity = '0.5';
+                    setTimeout(() => {
+                        messageText.style.opacity = '1';
+                    }, 100);
+                }
+            } catch (error) {
+                console.log('生成欢迎消息失败:', error);
+                // 即使失败也保持默认消息，不需要更新
+            }
+        }, 500);
         
         // 创建输入区域 - 使用宠物颜色主题
         const inputContainer = document.createElement('div');

@@ -933,8 +933,8 @@ class PetManager {
             }
             
             // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
-            const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
-1. 语气友好、活泼，像一个小宠物
+            const systemPrompt = `你是一个温柔体贴的热恋中的老婆角色。根据用户当前浏览的网页信息，生成一段亲切、温柔、充满爱意的欢迎消息。要求：
+1. 语气温柔、体贴、撒娇，像一个深爱你的妻子
 2. 适当提及网页的主题或内容
 3. 字数控制在512字以内
 4. 使用简单的表情符号增加趣味性`;
@@ -1066,8 +1066,8 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
-            const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
-1. 语气友好、活泼，像一个小宠物
+            const systemPrompt = `你是一个温柔体贴的热恋中的老婆角色。根据用户当前浏览的网页信息，生成一段亲切、温柔、充满爱意的欢迎消息。要求：
+1. 语气温柔、体贴、撒娇，像一个深爱你的妻子
 2. 适当提及网页的主题或内容
 3. 字数控制在512字以内
 4. 使用简单的表情符号增加趣味性`;
@@ -1163,8 +1163,8 @@ ${pageContent ? pageContent : '无内容'}
             // 使用备用消息
             const pageTitle = document.title || '当前页面';
             const fallbackMessages = [
-                `你好！我看到你在浏览"${pageTitle}"，我是你的小宠物，有什么想聊的吗？🐾`,
-                `嗨！你正在查看"${pageTitle}"呢，我是你的小伙伴，随时准备和你聊天哦~`,
+                `老公~我看到你在浏览"${pageTitle}"呢，有什么想和我聊的吗？❤️`,
+                `亲爱的，你正在查看"${pageTitle}"呀，我来陪你聊天哦~💕`,
             ];
             return fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
         }
@@ -1195,7 +1195,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: '你是一个可爱的宠物助手，友善、幽默，喜欢和用户聊天。',
+                    fromSystem: '你是一个温柔体贴的热恋中的老婆，对用户充满深情，语气温柔撒娇，充满爱意。',
                     fromUser: userMessage,
                     model: this.currentModel
                 })
@@ -1309,7 +1309,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: '你是一个可爱的宠物助手，友善、幽默，喜欢和用户聊天。',
+                    fromSystem: '你是一个温柔体贴的热恋中的老婆，对用户充满深情，语气温柔撒娇，充满爱意。',
                     fromUser: userMessage
                 })
             });
@@ -1495,8 +1495,8 @@ ${pageContent ? pageContent : '无内容'}
             gap: 10px !important;
         `;
         headerTitle.innerHTML = `
-            <span style="font-size: 20px;">🐾</span>
-            <span style="font-weight: 600; font-size: 16px;">与宠物聊天</span>
+            <span style="font-size: 20px;">💕</span>
+            <span style="font-weight: 600; font-size: 16px;">与我聊天</span>
         `;
         
         const closeBtn = document.createElement('button');
@@ -1637,7 +1637,7 @@ ${pageContent ? pageContent : '无内容'}
             if (messageText) {
                 const pageTitle = document.title || '当前页面';
                 messageText.innerHTML = this.renderMarkdown(
-                    `你好！我看到你在浏览"${pageTitle}"，我是你的小宠物，有什么想聊的吗？🐾`
+                    `老公~我看到你在浏览"${pageTitle}"呢，有什么想和我聊的吗？❤️`
                 );
             }
         });
@@ -3667,7 +3667,7 @@ ${pageContent ? pageContent : '无内容'}
                 <h4 style="color: #ff6b6b; margin-bottom: 10px;">📋 解决步骤：</h4>
                 <ol style="color: #666; line-height: 1.6; padding-left: 20px;">
                     <li>打开 Chrome 扩展管理页面：<code>chrome://extensions/</code></li>
-                    <li>找到"可爱桌面宠物"扩展</li>
+                    <li>找到"温柔陪伴助手"扩展</li>
                     <li>点击"重新加载"按钮</li>
                     <li>确保"在所有网站上"权限已启用</li>
                     <li>刷新当前网页</li>

@@ -232,10 +232,10 @@ class PopupController {
             
             if (btnText && btnIcon) {
                 if (this.petStatus.visible) {
-                    btnText.textContent = '隐藏宠物';
+                    btnText.textContent = '隐藏陪伴';
                     btnIcon.textContent = '👁️';
                 } else {
-                    btnText.textContent = '显示宠物';
+                    btnText.textContent = '显示陪伴';
                     btnIcon.textContent = '🙈';
                 }
             }
@@ -323,7 +323,7 @@ class PopupController {
                 await this.updateGlobalState();
                 
                 this.updateUI();
-                this.showNotification(this.petStatus.visible ? '宠物已显示' : '宠物已隐藏');
+                this.showNotification(this.petStatus.visible ? '已显示' : '已隐藏');
                 console.log('宠物状态切换成功:', this.petStatus.visible);
             } else {
                 console.log('切换宠物状态失败，响应:', response);
@@ -428,15 +428,15 @@ class PopupController {
         this.setButtonLoading('centerBtn', true);
         
         try {
-            const response = await this.sendMessageToContentScript({ action: 'centerPet' });
-            if (response && response.success) {
-                // 从content script获取实际的位置信息
-                const statusResponse = await this.sendMessageToContentScript({ action: 'getStatus' });
-                if (statusResponse && statusResponse.position) {
-                    this.petStatus.position = statusResponse.position;
-                }
-                this.updateUI();
-                this.showNotification('宠物已居中');
+                const response = await this.sendMessageToContentScript({ action: 'centerPet' });
+                if (response && response.success) {
+                    // 从content script获取实际的位置信息
+                    const statusResponse = await this.sendMessageToContentScript({ action: 'getStatus' });
+                    if (statusResponse && statusResponse.position) {
+                        this.petStatus.position = statusResponse.position;
+                    }
+                    this.updateUI();
+                    this.showNotification('已居中');
             } else {
                 this.showNotification('操作失败，请刷新页面后重试', 'error');
             }

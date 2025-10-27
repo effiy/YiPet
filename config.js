@@ -125,7 +125,7 @@ const PET_CONFIG = {
     // API 配置
     api: {
         // 流式 Prompt API 地址
-        streamPromptUrl: 'http://localhost:8000/prompt',
+        streamPromptUrl: 'https://api.effiy.cn/prompt',
         // 传统 Prompt API 地址
         promptUrl: 'https://api.effiy.cn/prompt/'
     },

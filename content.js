@@ -3201,6 +3201,65 @@ class PetManager {
         }
     }
     
+    // 显示通知
+    showNotification(message, type = 'success') {
+        // 创建通知元素
+        const notification = document.createElement('div');
+        notification.className = `pet-notification ${type}`;
+        notification.textContent = message;
+        
+        const backgroundColor = type === 'error' ? '#f44336' : 
+                               type === 'info' ? '#2196F3' : '#4CAF50';
+        
+        notification.style.cssText = `
+            position: fixed !important;
+            top: 20px !important;
+            right: 20px !important;
+            background: ${backgroundColor} !important;
+            color: white !important;
+            padding: 12px 20px !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            z-index: 2147483650 !important;
+            animation: slideInRight 0.3s ease-out !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+        `;
+        
+        // 添加动画样式
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from {
+                        opacity: 0;
+                        transform: translateX(100%);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(notification);
+        
+        // 3秒后移除通知
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideInRight 0.3s ease-out reverse';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 3000);
+    }
+    
     // 显示截图通知
     showScreenshotNotification(message, type = 'success') {
         // 创建通知元素

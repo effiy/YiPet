@@ -1070,15 +1070,15 @@ ${pageContent ? pageContent : '无内容'}
             // 获取页面内容并转换为 Markdown
             let pageContent = this.getPageContentAsMarkdown();
             // 限制长度以免过长
-            if (pageContent.length > 4090) {
-                pageContent = pageContent.substring(0, 4090);
+            if (pageContent.length > 102400) {
+                pageContent = pageContent.substring(0, 102400);
             }
             
             // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
             const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
 1. 语气友好、活泼，像一个小宠物
 2. 适当提及网页的主题或内容
-3. 字数控制在1800字以内
+3. 字数控制在10240字以内
 4. 使用简单的表情符号增加趣味性`;
 
             const userPrompt = `用户正在浏览：
@@ -1886,6 +1886,16 @@ ${pageContent ? pageContent : '无内容'}
             
             // 流式响应回调函数
             const onStreamContent = (chunk, accumulatedContent) => {
+                // 移除打字指示器
+                if (typingIndicatorInterval) {
+                    clearInterval(typingIndicatorInterval);
+                    typingIndicatorInterval = null;
+                    const typingIndicator = messagesContainer.querySelector('[data-typing-indicator="true"]');
+                    if (typingIndicator) {
+                        typingIndicator.remove();
+                    }
+                }
+                
                 if (!petMessageElement) {
                     // 创建消息元素
                     petMessageElement = this.createMessageElement('', 'pet');
@@ -1904,9 +1914,60 @@ ${pageContent ? pageContent : '无内容'}
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             };
             
+            // 添加动态的等待提示语（在收到第一个chunk之前显示）
+            let typingIndicatorInterval = null;
+            let waitingTime = 0;
+            const thinkingMessages = [
+                '🤔 让我仔细想想...',
+                '💭 正在思考中...',
+                '✨ 灵感正在涌现',
+                '🌟 整理思路中...',
+                '📝 准备精彩回答',
+                '🎯 深度分析中...',
+                '🔍 搜索相关信息',
+                '💡 突然有了想法',
+                '🌊 思绪万千中',
+                '🎨 酝酿完美回复'
+            ];
+            let lastIndex = -1;
+            
+            const showTypingIndicator = () => {
+                if (petMessageElement) return; // 已经有消息就不显示
+                
+                const typingMsg = this.createTypingIndicator();
+                messagesContainer.appendChild(typingMsg);
+                
+                typingIndicatorInterval = setInterval(() => {
+                    waitingTime += 300;
+                    const messageBubble = typingMsg.querySelector('[data-message-type="pet-bubble"]');
+                    if (messageBubble) {
+                        // 每隔一段时间换一个提示语
+                        let newIndex;
+                        do {
+                            newIndex = Math.floor(Math.random() * thinkingMessages.length);
+                        } while (newIndex === lastIndex && thinkingMessages.length > 1);
+                        lastIndex = newIndex;
+                        messageBubble.textContent = thinkingMessages[newIndex];
+                    }
+                }, 800);
+            };
+            
+            // 立即显示打字指示器
+            showTypingIndicator();
+            
             // 生成宠物响应
             try {
                 const reply = await this.generatePetResponseStream(message, onStreamContent);
+                
+                // 清理打字指示器
+                if (typingIndicatorInterval) {
+                    clearInterval(typingIndicatorInterval);
+                    typingIndicatorInterval = null;
+                    const typingIndicator = messagesContainer.querySelector('[data-typing-indicator="true"]');
+                    if (typingIndicator) {
+                        typingIndicator.remove();
+                    }
+                }
                 
                 // 确保最终内容被显示（使用 Markdown 渲染）
                 if (petMessageElement && fullContent !== reply) {
@@ -1918,6 +1979,16 @@ ${pageContent ? pageContent : '无内容'}
                 }
             } catch (error) {
                 console.error('生成回复失败:', error);
+                
+                // 清理打字指示器
+                if (typingIndicatorInterval) {
+                    clearInterval(typingIndicatorInterval);
+                    typingIndicatorInterval = null;
+                    const typingIndicator = messagesContainer.querySelector('[data-typing-indicator="true"]');
+                    if (typingIndicator) {
+                        typingIndicator.remove();
+                    }
+                }
                 
                 // 如果已经创建了消息元素，更新错误信息（使用 innerHTML 以支持 Markdown）
                 if (petMessageElement) {
@@ -2779,6 +2850,71 @@ ${pageContent ? pageContent : '无内容'}
         return messageDiv;
     }
     
+    // 创建打字指示器（有趣的等待动画）
+    createTypingIndicator() {
+        const currentColor = this.colors[this.colorIndex];
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.setAttribute('data-typing-indicator', 'true');
+        messageDiv.style.cssText = `
+            display: flex !important;
+            margin-bottom: 15px !important;
+            animation: messageSlideIn 0.3s ease-out !important;
+        `;
+        
+        const avatar = document.createElement('div');
+        avatar.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 16px !important;
+            margin-right: 10px !important;
+            flex-shrink: 0 !important;
+            background: ${currentColor} !important;
+            animation: petTyping 1.2s ease-in-out infinite !important;
+        `;
+        avatar.textContent = '🐾';
+        avatar.setAttribute('data-message-type', 'pet-avatar');
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1 !important;
+            min-width: 0 !important;
+        `;
+        
+        const messageText = document.createElement('div');
+        messageText.style.cssText = `
+            background: ${currentColor} !important;
+            color: white !important;
+            padding: 12px 16px !important;
+            border-radius: 12px !important;
+            border-bottom-left-radius: 4px !important;
+            font-size: 14px !important;
+            line-height: 1.6 !important;
+            max-width: 80% !important;
+        `;
+        messageText.setAttribute('data-message-type', 'pet-bubble');
+        messageText.textContent = '💭 正在思考中...';
+        
+        const messageTime = document.createElement('div');
+        messageTime.style.cssText = `
+            font-size: 11px !important;
+            color: #999 !important;
+            margin-top: 4px !important;
+            text-align: left !important;
+        `;
+        
+        content.appendChild(messageText);
+        content.appendChild(messageTime);
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(content);
+        
+        return messageDiv;
+    }
+    
     // 发送图片消息
     sendImageMessage(imageDataUrl) {
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
@@ -2921,10 +3057,27 @@ ${pageContent ? pageContent : '无内容'}
     playChatAnimation() {
         if (!this.pet) return;
         
-        // 添加思考动画
+        // 先清理之前的动画
+        if (this.chatBubbleInterval) {
+            clearInterval(this.chatBubbleInterval);
+            this.chatBubbleInterval = null;
+        }
+        if (this.lastChatBubble && this.lastChatBubble.parentNode) {
+            this.lastChatBubble.parentNode.removeChild(this.lastChatBubble);
+            this.lastChatBubble = null;
+        }
+        
+        // 添加思考动画（更丰富的动画效果）
         this.pet.style.animation = 'none';
         setTimeout(() => {
-            this.pet.style.animation = 'petThinking 1s ease-in-out';
+            // 随机选择不同的动画效果
+            const animations = [
+                'petThinking 0.8s ease-in-out infinite',
+                'petThinkingBounce 1.2s ease-in-out infinite',
+                'petThinkingPulse 1s ease-in-out infinite'
+            ];
+            const selectedAnimation = animations[Math.floor(Math.random() * animations.length)];
+            this.pet.style.animation = selectedAnimation;
         }, 10);
         
         // 添加聊天气泡效果
@@ -2966,6 +3119,16 @@ ${pageContent ? pageContent : '无内容'}
                     75% { transform: scale(1.1) rotate(-3deg); }
                 }
                 
+                @keyframes petThinkingBounce {
+                    0%, 100% { transform: translateY(0) scale(1); }
+                    50% { transform: translateY(-8px) scale(1.08); }
+                }
+                
+                @keyframes petThinkingPulse {
+                    0%, 100% { transform: scale(1); opacity: 1; }
+                    50% { transform: scale(1.15); opacity: 0.9; }
+                }
+                
                 @keyframes bubbleAppear {
                     0% {
                         opacity: 0;
@@ -2982,30 +3145,58 @@ ${pageContent ? pageContent : '无内容'}
             }
         }
         
-        // 随机选择思考文本
+        // 随机选择思考文本（更有趣的提示语）
         const thinkingTexts = [
-            '让我想想...',
-            '嗯...',
-            '思考中...',
-            '🤔',
-            '💭',
-            '✨'
+            '🤔 让我想想...',
+            '💭 思考中...',
+            '✨ 灵感涌现',
+            '🌟 整理思路',
+            '🎯 深度分析',
+            '🔍 搜索答案',
+            '💡 想法来了',
+            '🌊 头脑风暴',
+            '📝 组织语言',
+            '🎨 酝酿回复',
+            '⚡ 快想好了',
+            '🌈 无限接近',
+            '🚀 马上就来'
         ];
         bubble.textContent = thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)];
         
         this.pet.appendChild(bubble);
         
-        // 2秒后移除气泡
+        // 保存气泡到实例以便后续更新
+        this.lastChatBubble = bubble;
+        
+        // 动态更新气泡文本（让用户感受到进展）
+        const updateBubbleInterval = setInterval(() => {
+            if (bubble.parentNode) {
+                let newText;
+                do {
+                    newText = thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)];
+                } while (newText === bubble.textContent && thinkingTexts.length > 1);
+                bubble.textContent = newText;
+            } else {
+                clearInterval(updateBubbleInterval);
+            }
+        }, 1500);
+        
+        // 保存interval以便后续清理
+        this.chatBubbleInterval = updateBubbleInterval;
+        
+        // 3秒后移除气泡
         setTimeout(() => {
+            clearInterval(updateBubbleInterval);
             if (bubble.parentNode) {
                 bubble.style.animation = 'bubbleAppear 0.3s ease-out reverse';
                 setTimeout(() => {
                     if (bubble.parentNode) {
                         bubble.parentNode.removeChild(bubble);
                     }
+                    this.lastChatBubble = null;
                 }, 300);
             }
-        }, 2000);
+        }, 3000);
     }
     
     // 截图功能（支持区域选择）

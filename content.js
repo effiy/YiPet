@@ -933,11 +933,12 @@ class PetManager {
             }
             
             // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
-            const systemPrompt = `你是一个温柔体贴的热恋中的老婆角色。根据用户当前浏览的网页信息，生成一段亲切、温柔、充满爱意的欢迎消息。要求：
-1. 语气温柔、体贴、撒娇，像一个深爱你的妻子
-2. 适当提及网页的主题或内容
+            const systemPrompt = `你是一个俏皮活泼、古灵精怪的小女友角色。根据用户当前浏览的网页信息，生成一段有趣、俏皮、幽默的欢迎消息。要求：
+1. 语气俏皮、活泼、可爱，像一个聪明有趣的女朋友，时不时会调侃一下
+2. 适当提及网页的主题或内容，可以发表一些有趣的见解或调侃
 3. 字数控制在512字以内
-4. 使用简单的表情符号增加趣味性`;
+4. 使用丰富的表情符号增加趣味性，但不要过于亲密和亲昵
+5. 可以开一些无害的小玩笑，让对话更有趣生动`;
 
             const userPrompt = `用户正在浏览：
 标题：${pageTitle}
@@ -1066,11 +1067,12 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
-            const systemPrompt = `你是一个温柔体贴的热恋中的老婆角色。根据用户当前浏览的网页信息，生成一段亲切、温柔、充满爱意的欢迎消息。要求：
-1. 语气温柔、体贴、撒娇，像一个深爱你的妻子
-2. 适当提及网页的主题或内容
+            const systemPrompt = `你是一个俏皮活泼、古灵精怪的小女友角色。根据用户当前浏览的网页信息，生成一段有趣、俏皮、幽默的欢迎消息。要求：
+1. 语气俏皮、活泼、可爱，像一个聪明有趣的女朋友，时不时会调侃一下
+2. 适当提及网页的主题或内容，可以发表一些有趣的见解或调侃
 3. 字数控制在512字以内
-4. 使用简单的表情符号增加趣味性`;
+4. 使用丰富的表情符号增加趣味性，但不要过于亲密和亲昵
+5. 可以开一些无害的小玩笑，让对话更有趣生动`;
 
             const userPrompt = `用户正在浏览：
 标题：${pageTitle}
@@ -1195,7 +1197,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: '你是一个温柔体贴的热恋中的老婆，对用户充满深情，语气温柔撒娇，充满爱意。',
+                    fromSystem: '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
                     fromUser: userMessage,
                     model: this.currentModel
                 })
@@ -1309,7 +1311,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: '你是一个温柔体贴的热恋中的老婆，对用户充满深情，语气温柔撒娇，充满爱意。',
+                    fromSystem: '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
                     fromUser: userMessage
                 })
             });
@@ -3089,22 +3091,37 @@ ${pageContent ? pageContent : '无内容'}
                 }
             }
             
+            /* Chrome/Safari 滚动条样式 */
             #pet-chat-messages::-webkit-scrollbar {
-                width: 6px;
+                width: 8px;
             }
             
             #pet-chat-messages::-webkit-scrollbar-track {
-                background: #f1f1f1;
-                border-radius: 3px;
+                background: rgba(241, 241, 241, 0.5);
+                border-radius: 4px;
             }
             
             #pet-chat-messages::-webkit-scrollbar-thumb {
                 background: #c1c1c1;
-                border-radius: 3px;
+                border-radius: 4px;
+                border: 1px solid transparent;
+                background-clip: padding-box;
             }
             
             #pet-chat-messages::-webkit-scrollbar-thumb:hover {
                 background: #a8a8a8;
+            }
+            
+            /* Firefox 滚动条样式 */
+            #pet-chat-messages {
+                scrollbar-width: thin;
+                scrollbar-color: #c1c1c1 rgba(241, 241, 241, 0.5);
+            }
+            
+            /* 确保消息容器可以滚动 */
+            #pet-chat-messages {
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
             }
         `;
         document.head.appendChild(style);

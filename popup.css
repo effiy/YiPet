@@ -12,6 +12,7 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #333;
     overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .popup-container {
@@ -19,7 +20,7 @@ body {
     border-radius: 12px;
     margin: 8px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* 头部 */
@@ -94,6 +95,8 @@ body {
 /* 主内容 */
 .main-content {
     padding: 20px;
+    max-height: none;
+    overflow: visible;
 }
 
 .control-section {

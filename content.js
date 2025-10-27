@@ -937,15 +937,15 @@ class PetManager {
             // 获取页面内容并转换为 Markdown
             let pageContent = this.getPageContentAsMarkdown();
             // 限制长度以免过长
-            if (pageContent.length > 2000) {
-                pageContent = pageContent.substring(0, 2000);
+            if (pageContent.length > 4090) {
+                pageContent = pageContent.substring(0, 4090);
             }
             
             // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
             const systemPrompt = `你是一个可爱友好的宠物助手。根据用户当前浏览的网页信息，生成一段亲切、有趣的欢迎消息。要求：
 1. 语气友好、活泼，像一个小宠物
 2. 适当提及网页的主题或内容
-3. 字数控制在1500字以内
+3. 字数控制在1800字以内
 4. 使用简单的表情符号增加趣味性`;
 
             const userPrompt = `用户正在浏览：

@@ -7,7 +7,7 @@ const PET_CONFIG = {
     // 宠物默认配置
     pet: {
         // 默认大小
-        defaultSize: 60,
+        defaultSize: 180,
         
         // 默认位置（响应式）
         defaultPosition: {
@@ -32,8 +32,8 @@ const PET_CONFIG = {
         
         // 大小限制
         sizeLimits: {
-            min: 40,
-            max: 120
+            min: 80,
+            max: 400
         }
     },
     

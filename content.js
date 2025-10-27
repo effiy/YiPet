@@ -12,7 +12,7 @@ if (typeof PET_CONFIG === 'undefined') {
     // 创建默认配置作为备用
     window.PET_CONFIG = {
         pet: {
-            defaultSize: 60,
+            defaultSize: 180,
             defaultColorIndex: 0,
             defaultVisible: true,
             colors: [
@@ -22,7 +22,7 @@ if (typeof PET_CONFIG === 'undefined') {
                 'linear-gradient(135deg, #a8edea, #fed6e3)',
                 'linear-gradient(135deg, #ffecd2, #fcb69f)'
             ],
-            sizeLimits: { min: 40, max: 120 }
+            sizeLimits: { min: 80, max: 400 }
         },
         chatWindow: {
             defaultSize: { width: 700, height: 600 },
@@ -206,55 +206,7 @@ class PetManager {
         this.pet.id = 'minimal-pet';
         this.updatePetStyle();
         
-        // 添加眼睛
-        const eyes = document.createElement('div');
-        eyes.style.cssText = `
-            position: absolute !important;
-            top: 20px !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            width: 40px !important;
-            height: 20px !important;
-        `;
-        
-        const leftEye = document.createElement('div');
-        leftEye.style.cssText = `
-            position: absolute !important;
-            left: 8px !important;
-            width: 8px !important;
-            height: 8px !important;
-            background: #333 !important;
-            border-radius: 50% !important;
-        `;
-        
-        const rightEye = document.createElement('div');
-        rightEye.style.cssText = `
-            position: absolute !important;
-            right: 8px !important;
-            width: 8px !important;
-            height: 8px !important;
-            background: #333 !important;
-            border-radius: 50% !important;
-        `;
-        
-        eyes.appendChild(leftEye);
-        eyes.appendChild(rightEye);
-        this.pet.appendChild(eyes);
-        
-        // 添加嘴巴
-        const mouth = document.createElement('div');
-        mouth.style.cssText = `
-            position: absolute !important;
-            top: 35px !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            width: 12px !important;
-            height: 6px !important;
-            border: 2px solid #333 !important;
-            border-top: none !important;
-            border-radius: 0 0 12px 12px !important;
-        `;
-        this.pet.appendChild(mouth);
+        // 使用 icon.png 作为宠物图标，不需要添加眼睛和嘴巴
         
         // 添加到页面
         this.addPetToPage();
@@ -293,20 +245,24 @@ class PetManager {
     updatePetStyle() {
         if (!this.pet) return;
         
+        // 获取扩展的 URL
+        const iconUrl = chrome.runtime.getURL('icons/icon.png');
+        
         this.pet.style.cssText = `
             position: fixed !important;
             top: ${this.position.y}px !important;
             left: ${this.position.x}px !important;
             width: ${this.size}px !important;
             height: ${this.size}px !important;
-            background: ${this.colors[this.colorIndex]} !important;
-            border-radius: 50% !important;
+            background: url(${iconUrl}) center/contain no-repeat !important;
+            border-radius: 12px !important;
             z-index: ${PET_CONFIG.ui.zIndex.pet} !important;
             cursor: grab !important;
             pointer-events: auto !important;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
             transition: all 0.3s ease !important;
             display: ${this.isVisible ? 'block' : 'none'} !important;
+            background-color: transparent !important;
         `;
     }
     
@@ -485,7 +441,20 @@ class PetManager {
                     const state = result[PET_CONFIG.storage.keys.globalState];
                     this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
                     this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
-                    this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
+                    
+                    // 检查并迁移旧的大小值（从 60 升级到 180）
+                    if (state.size && state.size < 100) {
+                        // 旧版本的大小范围是 40-120，小于 100 的可能是旧版本
+                        this.size = PET_CONFIG.pet.defaultSize;
+                        // 更新存储中的值
+                        const updatedState = { ...state, size: this.size };
+                        chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: updatedState }, () => {
+                            console.log('已更新旧版本大小值到新默认值');
+                        });
+                    } else {
+                        this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
+                    }
+                    
                     this.currentModel = state.model !== undefined ? state.model : PET_CONFIG.chatModels.default;
                     // 位置也使用全局状态，但会进行边界检查
                     this.position = this.validatePosition(state.position || getPetDefaultPosition());
@@ -506,7 +475,15 @@ class PetManager {
                     if (newState) {
                         this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
                         this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
-                        this.size = newState.size !== undefined ? newState.size : this.size;
+                        
+                        // 检查并迁移旧的大小值
+                        if (newState.size && newState.size < 100) {
+                            // 旧版本的大小值，使用新默认值
+                            this.size = PET_CONFIG.pet.defaultSize;
+                        } else {
+                            this.size = newState.size !== undefined ? newState.size : this.size;
+                        }
+                        
                         this.currentModel = newState.model !== undefined ? newState.model : this.currentModel;
                         // 位置也进行跨页面同步，但会进行边界检查
                         if (newState.position) {
@@ -533,7 +510,14 @@ class PetManager {
                 const state = JSON.parse(savedState);
                 this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
                 this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
-                this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
+                
+                // 检查并迁移旧的大小值
+                if (state.size && state.size < 100) {
+                    this.size = PET_CONFIG.pet.defaultSize;
+                } else {
+                    this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
+                }
+                
                 this.position = state.position || getPetDefaultPosition();
                 console.log('宠物本地状态已恢复:', state);
                 return true;
@@ -549,7 +533,14 @@ class PetManager {
             // 更新全局状态（颜色、大小、可见性、位置）
             this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
             this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
-            this.size = newState.size !== undefined ? newState.size : this.size;
+            
+            // 检查并迁移旧的大小值
+            if (newState.size && newState.size < 100) {
+                this.size = PET_CONFIG.pet.defaultSize;
+            } else {
+                this.size = newState.size !== undefined ? newState.size : this.size;
+            }
+            
             // 位置也进行跨页面同步，但会进行边界检查
             if (newState.position) {
                 this.position = this.validatePosition(newState.position);

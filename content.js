@@ -1065,6 +1065,624 @@ ${pageContent ? pageContent : '无内容'}
         }
     }
     
+    // 根据当前网页信息生成思维导图（流式版本）
+    async generateMindmapStream(onContent) {
+        try {
+            // 获取当前网页信息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 尝试获取页面描述
+            const metaDescription = document.querySelector('meta[name="description"]');
+            const pageDescription = metaDescription ? metaDescription.content : '';
+            
+            // 获取页面内容并转换为 Markdown
+            let pageContent = this.getPageContentAsMarkdown();
+            // 限制长度以免过长
+            if (pageContent.length > 102400) {
+                pageContent = pageContent.substring(0, 102400);
+            }
+            
+            // 构建提示词，让大模型根据网页信息生成思维导图
+            const systemPrompt = `你是一个专业的思维导图设计师。根据用户当前浏览的网页信息，生成一个结构化的思维导图。要求：
+1. 使用 HTML 标签来构建思维导图结构：
+   - 中心主题：使用 <h1 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 10px; box-shadow: 0 4px 8px rgba(255,107,107,0.2);">🎯 中心主题</h1>
+   - 主要分支：使用 <h2 style="color: #4ECDC4; font-weight: bold; margin: 15px 0 10px 0; padding: 10px; background: linear-gradient(135deg, #E8F8F5, #F0FDFA); border-left: 4px solid #4ECDC4; border-radius: 5px;">📋 主要分支</h2>
+   - 子分支：使用 <h3 style="color: #FFD93D; font-weight: bold; margin: 10px 0 8px 20px; padding: 8px; background: linear-gradient(135deg, #FFF9E6, #FFFBF0); border-left: 3px solid #FFD93D; border-radius: 3px;">🔸 子分支</h3>
+   - 详细内容：使用 <ul style="margin: 8px 0; padding-left: 20px;"><li style="margin: 5px 0; color: #666; line-height: 1.5;">• 详细内容</li></ul>
+   - 重要信息：使用 <span style="color: #FF9800; font-weight: bold; background: #FFF3E0; padding: 2px 6px; border-radius: 3px;">重要信息 ⚠️</span>
+   - 数据统计：使用 <span style="color: #9C27B0; font-weight: bold; background: #F3E5F5; padding: 2px 6px; border-radius: 3px;">数据内容 📊</span>
+2. 使用丰富的表情符号来增加可视化效果：
+   - 🎯 表示中心主题
+   - 📋 表示主要分类
+   - 🔸 表示子分类
+   - ✨ 表示重要亮点
+   - 📊 表示数据统计
+   - 💡 表示关键观点
+   - 🚀 表示发展趋势
+   - 🔍 表示深度分析
+   - ⚠️ 表示注意事项
+   - 💬 表示观点评论
+3. 思维导图结构包含：
+   - 中心主题（页面核心内容）
+   - 3-5个主要分支（核心要点）
+   - 每个分支下2-4个子分支
+   - 关键信息和数据支撑
+4. 字数控制在1000字以内
+5. 保持逻辑清晰，层次分明`;
+
+            const userPrompt = `用户正在浏览：
+标题：${pageTitle}
+网址：${pageUrl}
+描述：${pageDescription}
+
+页面内容（Markdown 格式）：
+${pageContent ? pageContent : '无内容'}
+
+请生成一个结构化的思维导图，使用醒目的颜色标签和丰富的表情符号，展现页面内容的逻辑关系。`;
+            
+            console.log('调用大模型生成思维导图，页面标题:', pageTitle);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: systemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
+                                if (onContent) {
+                                    onContent(chunk.message.content, fullContent);
+                                }
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                                if (onContent) {
+                                    onContent(chunk.data, fullContent);
+                                }
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
+                                console.log('流式响应完成');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理最后的缓冲区消息
+            if (buffer.trim()) {
+                const message = buffer.trim();
+                if (message.startsWith('data: ')) {
+                    try {
+                        const chunk = JSON.parse(message.substring(6));
+                        if (chunk.done === true || chunk.type === 'done') {
+                            console.log('流式响应完成');
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            throw new Error(chunk.data || chunk.error || '未知错误');
+                        }
+                    } catch (e) {
+                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                    }
+                }
+            }
+            
+            return fullContent;
+        } catch (error) {
+            console.error('生成思维导图失败:', error);
+            throw error;
+        }
+    }
+    
+    // 根据当前网页信息生成闪卡（流式版本）
+    async generateFlashcardStream(onContent) {
+        try {
+            // 获取当前网页信息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 尝试获取页面描述
+            const metaDescription = document.querySelector('meta[name="description"]');
+            const pageDescription = metaDescription ? metaDescription.content : '';
+            
+            // 获取页面内容并转换为 Markdown
+            let pageContent = this.getPageContentAsMarkdown();
+            // 限制长度以免过长
+            if (pageContent.length > 102400) {
+                pageContent = pageContent.substring(0, 102400);
+            }
+            
+            // 构建提示词，让大模型根据网页信息生成闪卡
+            const systemPrompt = `你是一个专业的闪卡制作专家。根据用户当前浏览的网页信息，生成一套适合记忆的闪卡集合。要求：
+1. 使用 HTML 标签来构建闪卡样式：
+   - 闪卡标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 8px;">📚 闪卡 #{序号}</h2>
+   - 问题/概念：使用 <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px; border-radius: 8px; margin: 10px 0; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(102,126,234,0.3);">💭 问题/概念：内容</div>
+   - 答案/解释：使用 <div style="background: linear-gradient(135deg, #4ECDC4, #44a08d); color: white; padding: 15px; border-radius: 8px; margin: 10px 0; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(78,205,196,0.3);">✓ 答案/解释：内容</div>
+   - 关键点：使用 <ul style="margin: 10px 0; padding-left: 20px;"><li style="margin: 8px 0; padding: 8px; background: #FFF3E0; border-left: 4px solid #FF9800; border-radius: 3px; color: #333;">• 关键点</li></ul>
+   - 记忆提示：使用 <div style="background: #E8F5E9; padding: 10px; border-left: 4px solid #4CAF50; border-radius: 5px; margin: 10px 0;"><strong>💡 记忆提示：</strong>内容</div>
+2. 使用丰富的表情符号来增加记忆效果：
+   - 📚 表示闪卡序号
+   - 💭 表示问题/概念
+   - ✓ 表示答案/解释
+   - 📝 表示关键信息
+   - 💡 表示记忆提示
+   - 🔑 表示核心要点
+   - ⭐ 表示重要内容
+   - 🎯 表示记忆目标
+3. 闪卡生成规则：
+   - 生成3-8张闪卡（根据页面内容复杂度）
+   - 每张闪卡包含：问题（正面）和答案（背面）
+   - 从页面提取关键概念、术语、事实、方法等
+   - 问题简洁明了，答案详细准确
+   - 每张闪卡后提供记忆提示
+4. 内容要求：
+   - 问题要有启发性，能引发思考
+   - 答案要准确完整，有逻辑性
+   - 关键点要精炼易记
+   - 记忆提示要实用有效
+5. 字数控制：每张闪卡控制在200字以内`;
+
+            const userPrompt = `用户正在浏览：
+标题：${pageTitle}
+网址：${pageUrl}
+描述：${pageDescription}
+
+页面内容（Markdown 格式）：
+${pageContent ? pageContent : '无内容'}
+
+请生成一套适合记忆的闪卡集合，从页面中提取关键知识点，制作成问答形式的闪卡，使用醒目的样式和丰富的表情符号。`;
+            
+            console.log('调用大模型生成闪卡，页面标题:', pageTitle);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: systemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
+                                if (onContent) {
+                                    onContent(chunk.message.content, fullContent);
+                                }
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                                if (onContent) {
+                                    onContent(chunk.data, fullContent);
+                                }
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
+                                console.log('流式响应完成');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理最后的缓冲区消息
+            if (buffer.trim()) {
+                const message = buffer.trim();
+                if (message.startsWith('data: ')) {
+                    try {
+                        const chunk = JSON.parse(message.substring(6));
+                        if (chunk.done === true || chunk.type === 'done') {
+                            console.log('流式响应完成');
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            throw new Error(chunk.data || chunk.error || '未知错误');
+                        }
+                    } catch (e) {
+                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                    }
+                }
+            }
+            
+            return fullContent;
+        } catch (error) {
+            console.error('生成闪卡失败:', error);
+            throw error;
+        }
+    }
+    
+    // 根据当前网页信息生成专项报告（流式版本）
+    async generateReportStream(onContent) {
+        try {
+            // 获取当前网页信息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 尝试获取页面描述
+            const metaDescription = document.querySelector('meta[name="description"]');
+            const pageDescription = metaDescription ? metaDescription.content : '';
+            
+            // 获取页面内容并转换为 Markdown
+            let pageContent = this.getPageContentAsMarkdown();
+            // 限制长度以免过长
+            if (pageContent.length > 102400) {
+                pageContent = pageContent.substring(0, 102400);
+            }
+            
+            // 构建提示词，让大模型根据网页信息生成专项报告
+            const systemPrompt = `你是一个专业的内容分析专家。根据用户当前浏览的网页信息，生成一份详细的专项分析报告。要求：
+1. 使用 HTML 标签来构建报告结构：
+   - 报告标题：使用 <h1 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 10px; box-shadow: 0 4px 8px rgba(255,107,107,0.2);">📋 专项分析报告</h1>
+   - 章节标题：使用 <h2 style="color: #4ECDC4; font-weight: bold; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #E8F8F5, #F0FDFA); border-left: 4px solid #4ECDC4; border-radius: 5px;">🔍 章节标题</h2>
+   - 子标题：使用 <h3 style="color: #667eea; font-weight: bold; margin: 12px 0; padding: 10px; background: linear-gradient(135deg, #F3F4FE, #F8F9FE); border-left: 3px solid #667eea; border-radius: 3px;">📌 子标题</h3>
+   - 关键发现：使用 <div style="background: #FFF3E0; padding: 15px; border-left: 4px solid #FF9800; border-radius: 5px; margin: 15px 0;"><strong>🔑 关键发现：</strong>内容</div>
+   - 数据统计：使用 <div style="background: #E3F2FD; padding: 15px; border-left: 4px solid #2196F3; border-radius: 5px; margin: 15px 0;"><strong>📊 数据统计：</strong>内容</div>
+   - 结论建议：使用 <div style="background: #E8F5E9; padding: 15px; border-left: 4px solid #4CAF50; border-radius: 5px; margin: 15px 0;"><strong>💡 结论建议：</strong>内容</div>
+2. 使用丰富的表情符号来增加报告可读性：
+   - 📋 表示报告标题
+   - 🔍 表示分析内容
+   - 📌 表示重要节点
+   - 🔑 表示关键发现
+   - 📊 表示数据统计
+   - 💡 表示建议结论
+   - ⚠️ 表示风险警示
+   - ✅ 表示优势特点
+3. 报告结构包含：
+   - 报告概述：页面核心内容总结
+   - 深度分析：核心要点详细剖析
+   - 数据洞察：关键数据和统计信息
+   - 风险评估：潜在问题或需要注意的点
+   - 优势特点：突出的优势或亮点
+   - 结论建议：总结性建议和下一步行动
+4. 字数控制在1500字以内
+5. 保持客观专业的语调，具有洞察力和分析深度`;
+
+            const userPrompt = `用户正在浏览：
+标题：${pageTitle}
+网址：${pageUrl}
+描述：${pageDescription}
+
+页面内容（Markdown 格式）：
+${pageContent ? pageContent : '无内容'}
+
+请生成一份详细的专项分析报告，深入挖掘页面内容的核心价值，使用醒目的样式和丰富的表情符号。`;
+            
+            console.log('调用大模型生成专项报告，页面标题:', pageTitle);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: systemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
+                                if (onContent) {
+                                    onContent(chunk.message.content, fullContent);
+                                }
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                                if (onContent) {
+                                    onContent(chunk.data, fullContent);
+                                }
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
+                                console.log('流式响应完成');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理最后的缓冲区消息
+            if (buffer.trim()) {
+                const message = buffer.trim();
+                if (message.startsWith('data: ')) {
+                    try {
+                        const chunk = JSON.parse(message.substring(6));
+                        if (chunk.done === true || chunk.type === 'done') {
+                            console.log('流式响应完成');
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            throw new Error(chunk.data || chunk.error || '未知错误');
+                        }
+                    } catch (e) {
+                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                    }
+                }
+            }
+            
+            return fullContent;
+        } catch (error) {
+            console.error('生成专项报告失败:', error);
+            throw error;
+        }
+    }
+    
+    // 根据当前网页信息生成最佳实践（流式版本）
+    async generateBestPracticeStream(onContent) {
+        try {
+            // 获取当前网页信息
+            const pageTitle = document.title || '当前页面';
+            const pageUrl = window.location.href;
+            
+            // 尝试获取页面描述
+            const metaDescription = document.querySelector('meta[name="description"]');
+            const pageDescription = metaDescription ? metaDescription.content : '';
+            
+            // 获取页面内容并转换为 Markdown
+            let pageContent = this.getPageContentAsMarkdown();
+            // 限制长度以免过长
+            if (pageContent.length > 102400) {
+                pageContent = pageContent.substring(0, 102400);
+            }
+            
+            // 构建提示词，让大模型根据网页信息生成最佳实践
+            const systemPrompt = `你是一个专业的实践指导专家。根据用户当前浏览的网页信息，生成一套实用的最佳实践指南。要求：
+1. 使用 HTML 标签来构建实践指南结构：
+   - 指南标题：使用 <h1 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 10px; box-shadow: 0 4px 8px rgba(255,107,107,0.2);">⭐ 最佳实践指南</h1>
+   - 实践类别：使用 <h2 style="color: #FF9800; font-weight: bold; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #FFF3E0, #FFF9F0); border-left: 4px solid #FF9800; border-radius: 5px;">🎯 实践类别</h2>
+   - 实践要点：使用 <h3 style="color: #4ECDC4; font-weight: bold; margin: 12px 0; padding: 10px; background: linear-gradient(135deg, #E8F8F5, #F0FDFA); border-left: 3px solid #4ECDC4; border-radius: 3px;">✓ 实践要点</h3>
+   - 具体步骤：使用 <div style="background: #E3F2FD; padding: 15px; border-left: 4px solid #2196F3; border-radius: 5px; margin: 15px 0;"><strong>📝 步骤说明：</strong><ol style="margin: 10px 0; padding-left: 25px;"><li style="margin: 8px 0;">步骤内容</li></ol></div>
+   - 注意事项：使用 <div style="background: #FFF3E0; padding: 15px; border-left: 4px solid #FF9800; border-radius: 5px; margin: 15px 0;"><strong>⚠️ 注意事项：</strong>内容</div>
+   - 成功案例：使用 <div style="background: #E8F5E9; padding: 15px; border-left: 4px solid #4CAF50; border-radius: 5px; margin: 15px 0;"><strong>✅ 成功案例：</strong>内容</div>
+2. 使用丰富的表情符号来增加可操作性：
+   - ⭐ 表示最佳实践
+   - 🎯 表示实践目标
+   - ✓ 表示实践要点
+   - 📝 表示具体步骤
+   - ⚠️ 表示注意事项
+   - ✅ 表示成功案例
+   - 🔧 表示实施方法
+   - 💪 表示实施价值
+3. 最佳实践结构包含：
+   - 实践目标：明确实践要达到的目标
+   - 核心原则：关键原则和方法论
+   - 实施步骤：可执行的具体步骤
+   - 注意事项：需要避免的陷阱
+   - 成功案例：相关成功案例或经验
+   - 预期效果：实践带来的价值和效果
+4. 字数控制在1200字以内
+5. 强调实用性和可操作性，提供具体的行动指南`;
+
+            const userPrompt = `用户正在浏览：
+标题：${pageTitle}
+网址：${pageUrl}
+描述：${pageDescription}
+
+页面内容（Markdown 格式）：
+${pageContent ? pageContent : '无内容'}
+
+请生成一套实用的最佳实践指南，从页面中提取可操作的实践方法，使用醒目的样式和丰富的表情符号。`;
+            
+            console.log('调用大模型生成最佳实践，页面标题:', pageTitle);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: systemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
+                                if (onContent) {
+                                    onContent(chunk.message.content, fullContent);
+                                }
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                                if (onContent) {
+                                    onContent(chunk.data, fullContent);
+                                }
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
+                                console.log('流式响应完成');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理最后的缓冲区消息
+            if (buffer.trim()) {
+                const message = buffer.trim();
+                if (message.startsWith('data: ')) {
+                    try {
+                        const chunk = JSON.parse(message.substring(6));
+                        if (chunk.done === true || chunk.type === 'done') {
+                            console.log('流式响应完成');
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            throw new Error(chunk.data || chunk.error || '未知错误');
+                        }
+                    } catch (e) {
+                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                    }
+                }
+            }
+            
+            return fullContent;
+        } catch (error) {
+            console.error('生成最佳实践失败:', error);
+            throw error;
+        }
+    }
+    
     // 根据当前网页信息生成摘要信息（非流式版本，兼容旧代码）
     async generateWelcomeMessage() {
         try {
@@ -1654,8 +2272,96 @@ ${pageContent ? pageContent : '无内容'}
             width: 24px !important;
             height: 24px !important;
         `;
+
+        // 创建生成思维导图图标
+        const generateMindmapIcon = document.createElement('span');
+        generateMindmapIcon.innerHTML = '⊞';
+        generateMindmapIcon.title = '生成思维导图';
+        generateMindmapIcon.style.cssText = `
+            padding: 4px !important;
+            cursor: pointer !important;
+            font-size: 18px !important;
+            color: #666 !important;
+            font-weight: 300 !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            user-select: none !important;
+            width: 24px !important;
+            height: 24px !important;
+            margin-left: 8px !important;
+        `;
+
+        // 创建生成闪卡图标
+        const generateFlashcardIcon = document.createElement('span');
+        generateFlashcardIcon.innerHTML = '➔';
+        generateFlashcardIcon.title = '生成闪卡';
+        generateFlashcardIcon.style.cssText = `
+            padding: 4px !important;
+            cursor: pointer !important;
+            font-size: 18px !important;
+            color: #666 !important;
+            font-weight: 300 !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            user-select: none !important;
+            width: 24px !important;
+            height: 24px !important;
+            margin-left: 8px !important;
+        `;
+
+        // 创建生成专项报告图标
+        const generateReportIcon = document.createElement('span');
+        generateReportIcon.innerHTML = '📋';
+        generateReportIcon.title = '生成专项报告';
+        generateReportIcon.style.cssText = `
+            padding: 4px !important;
+            cursor: pointer !important;
+            font-size: 18px !important;
+            color: #666 !important;
+            font-weight: 300 !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            user-select: none !important;
+            width: 24px !important;
+            height: 24px !important;
+            margin-left: 8px !important;
+        `;
+
+        // 创建生成最佳实践图标
+        const generateBestPracticeIcon = document.createElement('span');
+        generateBestPracticeIcon.innerHTML = '⭐';
+        generateBestPracticeIcon.title = '生成最佳实践';
+        generateBestPracticeIcon.style.cssText = `
+            padding: 4px !important;
+            cursor: pointer !important;
+            font-size: 18px !important;
+            color: #666 !important;
+            font-weight: 300 !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            user-select: none !important;
+            width: 24px !important;
+            height: 24px !important;
+            margin-left: 8px !important;
+        `;
         
         let isProcessing = false;
+        let isMindmapProcessing = false;
+        let isFlashcardProcessing = false;
+        let isReportProcessing = false;
+        let isBestPracticeProcessing = false;
         
         generateSummaryIcon.addEventListener('mouseenter', function() {
             if (!isProcessing) {
@@ -1667,6 +2373,70 @@ ${pageContent ? pageContent : '无内容'}
         
         generateSummaryIcon.addEventListener('mouseleave', function() {
             if (!isProcessing) {
+                this.style.fontSize = '18px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            }
+        });
+
+        generateMindmapIcon.addEventListener('mouseenter', function() {
+            if (!isMindmapProcessing) {
+                this.style.fontSize = '20px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            }
+        });
+        
+        generateMindmapIcon.addEventListener('mouseleave', function() {
+            if (!isMindmapProcessing) {
+                this.style.fontSize = '18px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            }
+        });
+
+        generateFlashcardIcon.addEventListener('mouseenter', function() {
+            if (!isFlashcardProcessing) {
+                this.style.fontSize = '20px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            }
+        });
+        
+        generateFlashcardIcon.addEventListener('mouseleave', function() {
+            if (!isFlashcardProcessing) {
+                this.style.fontSize = '18px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            }
+        });
+
+        generateReportIcon.addEventListener('mouseenter', function() {
+            if (!isReportProcessing) {
+                this.style.fontSize = '20px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            }
+        });
+        
+        generateReportIcon.addEventListener('mouseleave', function() {
+            if (!isReportProcessing) {
+                this.style.fontSize = '18px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            }
+        });
+
+        generateBestPracticeIcon.addEventListener('mouseenter', function() {
+            if (!isBestPracticeProcessing) {
+                this.style.fontSize = '20px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            }
+        });
+        
+        generateBestPracticeIcon.addEventListener('mouseleave', function() {
+            if (!isBestPracticeProcessing) {
                 this.style.fontSize = '18px';
                 this.style.color = '#666';
                 this.style.transform = 'scale(1)';
@@ -1749,6 +2519,314 @@ ${pageContent ? pageContent : '无内容'}
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         });
+
+        generateMindmapIcon.addEventListener('click', async () => {
+            if (isMindmapProcessing) return;
+            
+            isMindmapProcessing = true;
+            generateMindmapIcon.innerHTML = '◉';
+            generateMindmapIcon.style.opacity = '0.6';
+            generateMindmapIcon.style.cursor = 'not-allowed';
+            
+            // 创建新的思维导图消息
+            const mindmapMessage = this.createMessageElement('', 'pet');
+            messagesContainer.appendChild(mindmapMessage);
+            const mindmapText = mindmapMessage.querySelector('[data-message-type="pet-bubble"]');
+            const mindmapAvatar = mindmapMessage.querySelector('[data-message-type="pet-avatar"]');
+            
+            // 显示加载动画
+            if (mindmapAvatar) {
+                mindmapAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+            }
+            
+            if (mindmapText) {
+                mindmapText.textContent = '⊞ 正在生成思维导图...';
+            }
+            
+            try {
+                // 流式生成思维导图信息
+                await this.generateMindmapStream((chunk, fullContent) => {
+                    if (mindmapText) {
+                        mindmapText.innerHTML = this.renderMarkdown(fullContent);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                });
+                
+                // 停止加载动画
+                if (mindmapAvatar) {
+                    mindmapAvatar.style.animation = '';
+                }
+                
+                generateMindmapIcon.innerHTML = '✓';
+                generateMindmapIcon.style.cursor = 'default';
+                generateMindmapIcon.style.color = '#4caf50';
+                
+                // 2秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateMindmapIcon.innerHTML = '⊞';
+                    generateMindmapIcon.style.color = '#666';
+                    generateMindmapIcon.style.cursor = 'pointer';
+                    generateMindmapIcon.style.opacity = '1';
+                    isMindmapProcessing = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('生成思维导图失败:', error);
+                if (mindmapText) {
+                    mindmapText.innerHTML = this.renderMarkdown(
+                        `抱歉，无法生成"${pageTitle}"的思维导图。您可以尝试刷新页面后重试。⊞`
+                    );
+                }
+                if (mindmapAvatar) {
+                    mindmapAvatar.style.animation = '';
+                }
+                generateMindmapIcon.innerHTML = '✕';
+                generateMindmapIcon.style.cursor = 'default';
+                generateMindmapIcon.style.color = '#f44336';
+                
+                // 1.5秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateMindmapIcon.innerHTML = '⊞';
+                    generateMindmapIcon.style.color = '#666';
+                    generateMindmapIcon.style.cursor = 'pointer';
+                    generateMindmapIcon.style.opacity = '1';
+                    isMindmapProcessing = false;
+                }, 1500);
+            } finally {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        });
+
+        generateFlashcardIcon.addEventListener('click', async () => {
+            if (isFlashcardProcessing) return;
+            
+            isFlashcardProcessing = true;
+            generateFlashcardIcon.innerHTML = '◉';
+            generateFlashcardIcon.style.opacity = '0.6';
+            generateFlashcardIcon.style.cursor = 'not-allowed';
+            
+            // 创建新的闪卡消息
+            const flashcardMessage = this.createMessageElement('', 'pet');
+            messagesContainer.appendChild(flashcardMessage);
+            const flashcardText = flashcardMessage.querySelector('[data-message-type="pet-bubble"]');
+            const flashcardAvatar = flashcardMessage.querySelector('[data-message-type="pet-avatar"]');
+            
+            // 显示加载动画
+            if (flashcardAvatar) {
+                flashcardAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+            }
+            
+            if (flashcardText) {
+                flashcardText.textContent = '➔ 正在生成闪卡...';
+            }
+            
+            try {
+                // 流式生成闪卡信息
+                await this.generateFlashcardStream((chunk, fullContent) => {
+                    if (flashcardText) {
+                        flashcardText.innerHTML = this.renderMarkdown(fullContent);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                });
+                
+                // 停止加载动画
+                if (flashcardAvatar) {
+                    flashcardAvatar.style.animation = '';
+                }
+                
+                generateFlashcardIcon.innerHTML = '✓';
+                generateFlashcardIcon.style.cursor = 'default';
+                generateFlashcardIcon.style.color = '#4caf50';
+                
+                // 2秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateFlashcardIcon.innerHTML = '➔';
+                    generateFlashcardIcon.style.color = '#666';
+                    generateFlashcardIcon.style.cursor = 'pointer';
+                    generateFlashcardIcon.style.opacity = '1';
+                    isFlashcardProcessing = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('生成闪卡失败:', error);
+                if (flashcardText) {
+                    flashcardText.innerHTML = this.renderMarkdown(
+                        `抱歉，无法生成"${pageTitle}"的闪卡。您可以尝试刷新页面后重试。➔`
+                    );
+                }
+                if (flashcardAvatar) {
+                    flashcardAvatar.style.animation = '';
+                }
+                generateFlashcardIcon.innerHTML = '✕';
+                generateFlashcardIcon.style.cursor = 'default';
+                generateFlashcardIcon.style.color = '#f44336';
+                
+                // 1.5秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateFlashcardIcon.innerHTML = '➔';
+                    generateFlashcardIcon.style.color = '#666';
+                    generateFlashcardIcon.style.cursor = 'pointer';
+                    generateFlashcardIcon.style.opacity = '1';
+                    isFlashcardProcessing = false;
+                }, 1500);
+            } finally {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        });
+
+        generateReportIcon.addEventListener('click', async () => {
+            if (isReportProcessing) return;
+            
+            isReportProcessing = true;
+            generateReportIcon.innerHTML = '◉';
+            generateReportIcon.style.opacity = '0.6';
+            generateReportIcon.style.cursor = 'not-allowed';
+            
+            // 创建新的报告消息
+            const reportMessage = this.createMessageElement('', 'pet');
+            messagesContainer.appendChild(reportMessage);
+            const reportText = reportMessage.querySelector('[data-message-type="pet-bubble"]');
+            const reportAvatar = reportMessage.querySelector('[data-message-type="pet-avatar"]');
+            
+            // 显示加载动画
+            if (reportAvatar) {
+                reportAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+            }
+            
+            if (reportText) {
+                reportText.textContent = '📋 正在生成专项报告...';
+            }
+            
+            try {
+                // 流式生成报告信息
+                await this.generateReportStream((chunk, fullContent) => {
+                    if (reportText) {
+                        reportText.innerHTML = this.renderMarkdown(fullContent);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                });
+                
+                // 停止加载动画
+                if (reportAvatar) {
+                    reportAvatar.style.animation = '';
+                }
+                
+                generateReportIcon.innerHTML = '✓';
+                generateReportIcon.style.cursor = 'default';
+                generateReportIcon.style.color = '#4caf50';
+                
+                // 2秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateReportIcon.innerHTML = '📋';
+                    generateReportIcon.style.color = '#666';
+                    generateReportIcon.style.cursor = 'pointer';
+                    generateReportIcon.style.opacity = '1';
+                    isReportProcessing = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('生成专项报告失败:', error);
+                if (reportText) {
+                    reportText.innerHTML = this.renderMarkdown(
+                        `抱歉，无法生成"${pageTitle}"的专项报告。您可以尝试刷新页面后重试。📋`
+                    );
+                }
+                if (reportAvatar) {
+                    reportAvatar.style.animation = '';
+                }
+                generateReportIcon.innerHTML = '✕';
+                generateReportIcon.style.cursor = 'default';
+                generateReportIcon.style.color = '#f44336';
+                
+                // 1.5秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateReportIcon.innerHTML = '📋';
+                    generateReportIcon.style.color = '#666';
+                    generateReportIcon.style.cursor = 'pointer';
+                    generateReportIcon.style.opacity = '1';
+                    isReportProcessing = false;
+                }, 1500);
+            } finally {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        });
+
+        generateBestPracticeIcon.addEventListener('click', async () => {
+            if (isBestPracticeProcessing) return;
+            
+            isBestPracticeProcessing = true;
+            generateBestPracticeIcon.innerHTML = '◉';
+            generateBestPracticeIcon.style.opacity = '0.6';
+            generateBestPracticeIcon.style.cursor = 'not-allowed';
+            
+            // 创建新的最佳实践消息
+            const bestPracticeMessage = this.createMessageElement('', 'pet');
+            messagesContainer.appendChild(bestPracticeMessage);
+            const bestPracticeText = bestPracticeMessage.querySelector('[data-message-type="pet-bubble"]');
+            const bestPracticeAvatar = bestPracticeMessage.querySelector('[data-message-type="pet-avatar"]');
+            
+            // 显示加载动画
+            if (bestPracticeAvatar) {
+                bestPracticeAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+            }
+            
+            if (bestPracticeText) {
+                bestPracticeText.textContent = '⭐ 正在生成最佳实践...';
+            }
+            
+            try {
+                // 流式生成最佳实践信息
+                await this.generateBestPracticeStream((chunk, fullContent) => {
+                    if (bestPracticeText) {
+                        bestPracticeText.innerHTML = this.renderMarkdown(fullContent);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                });
+                
+                // 停止加载动画
+                if (bestPracticeAvatar) {
+                    bestPracticeAvatar.style.animation = '';
+                }
+                
+                generateBestPracticeIcon.innerHTML = '✓';
+                generateBestPracticeIcon.style.cursor = 'default';
+                generateBestPracticeIcon.style.color = '#4caf50';
+                
+                // 2秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateBestPracticeIcon.innerHTML = '⭐';
+                    generateBestPracticeIcon.style.color = '#666';
+                    generateBestPracticeIcon.style.cursor = 'pointer';
+                    generateBestPracticeIcon.style.opacity = '1';
+                    isBestPracticeProcessing = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('生成最佳实践失败:', error);
+                if (bestPracticeText) {
+                    bestPracticeText.innerHTML = this.renderMarkdown(
+                        `抱歉，无法生成"${pageTitle}"的最佳实践。您可以尝试刷新页面后重试。⭐`
+                    );
+                }
+                if (bestPracticeAvatar) {
+                    bestPracticeAvatar.style.animation = '';
+                }
+                generateBestPracticeIcon.innerHTML = '✕';
+                generateBestPracticeIcon.style.cursor = 'default';
+                generateBestPracticeIcon.style.color = '#f44336';
+                
+                // 1.5秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateBestPracticeIcon.innerHTML = '⭐';
+                    generateBestPracticeIcon.style.color = '#666';
+                    generateBestPracticeIcon.style.cursor = 'pointer';
+                    generateBestPracticeIcon.style.opacity = '1';
+                    isBestPracticeProcessing = false;
+                }, 1500);
+            } finally {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        });
         
         // 将按钮添加到消息容器中，和时间戳同一行
         setTimeout(() => {
@@ -1775,6 +2853,10 @@ ${pageContent ? pageContent : '无内容'}
                 messageTime.innerHTML = '';
                 messageTime.appendChild(timeText);
                 messageTime.appendChild(generateSummaryIcon);
+                messageTime.appendChild(generateMindmapIcon);
+                messageTime.appendChild(generateFlashcardIcon);
+                messageTime.appendChild(generateReportIcon);
+                messageTime.appendChild(generateBestPracticeIcon);
             }
         }, 100);
         
@@ -4594,6 +5676,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

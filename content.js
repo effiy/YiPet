@@ -4079,7 +4079,8 @@ ${pageContent ? pageContent : '无内容'}
                 font-size: 11px !important;
                 color: #999 !important;
                 margin-top: 4px !important;
-                max-width: calc(80% + 36px) !important;
+                margin-left: 50px !important;
+                max-width: calc(80% + 86px) !important;
                 width: 100% !important;
                 text-align: right !important;
             `;

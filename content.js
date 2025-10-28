@@ -1081,6 +1081,148 @@ class PetManager {
         }
     }
     
+    // 根据指定内容生成闪卡（流式版本）
+    async generateFlashcardFromContent(content, onContent) {
+        try {
+            // 限制内容长度
+            if (content && content.length > 20480) {
+                content = content.substring(0, 20480);
+            }
+            
+            // 构建提示词，让大模型根据指定内容生成闪卡
+            const flashcardSystemPrompt = `你是一个专业的闪卡制作专家。根据用户提供的内容，生成一套适合记忆的闪卡集合。要求：
+1. 使用 HTML 标签来构建闪卡样式：
+   - 闪卡标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 8px;">📚 闪卡 #{序号}</h2>
+   - 问题/概念：使用 <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px; border-radius: 8px; margin: 10px 0; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(102,126,234,0.3);">💭 问题/概念：内容</div>
+   - 答案/解释：使用 <div style="background: linear-gradient(135deg, #4ECDC4, #44a08d); color: white; padding: 15px; border-radius: 8px; margin: 10px 0; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(78,205,196,0.3);">✓ 答案/解释：内容</div>
+   - 关键点：使用 <ul style="margin: 10px 0; padding-left: 20px;"><li style="margin: 8px 0; padding: 8px; background: #FFF3E0; border-left: 4px solid #FF9800; border-radius: 3px; color: #333;">• 关键点</li></ul>
+   - 记忆提示：使用 <div style="background: #E8F5E9; padding: 10px; border-left: 4px solid #4CAF50; border-radius: 5px; margin: 10px 0;"><strong>💡 记忆提示：</strong>内容</div>
+2. 使用丰富的表情符号来增加记忆效果：
+   - 📚 表示闪卡序号
+   - 💭 表示问题/概念
+   - ✓ 表示答案/解释
+   - 📝 表示关键信息
+   - 💡 表示记忆提示
+   - 🔑 表示核心要点
+   - ⭐ 表示重要内容
+   - 🎯 表示记忆目标
+3. 闪卡生成规则：
+   - 生成3-8张闪卡（根据页面内容复杂度）
+   - 每张闪卡包含：问题（正面）和答案（背面）
+   - 从页面提取关键概念、术语、事实、方法等
+   - 问题简洁明了，答案详细准确
+   - 每张闪卡后提供记忆提示
+4. 内容要求：
+   - 问题要有启发性，能引发思考
+   - 答案要准确完整，有逻辑性
+   - 关键点要精炼易记
+   - 记忆提示要实用有效
+5. 字数控制：每张闪卡控制在200字以内`;
+
+            const userPrompt = `请根据以下内容生成一套适合记忆的闪卡集合：
+
+${content ? content : '无内容'}
+
+请从以上内容中提取关键知识点，制作成问答形式的闪卡，使用醒目的样式和丰富的表情符号。`;
+            
+            console.log('调用大模型生成闪卡，内容长度:', content ? content.length : 0);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: flashcardSystemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                
+                for (const message of messages) {
+                    if (message.startsWith('data: ')) {
+                        try {
+                            const dataStr = message.substring(6);
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 支持 Ollama 格式: chunk.message.content
+                            if (chunk.message && chunk.message.content) {
+                                fullContent += chunk.message.content;
+                                if (onContent) {
+                                    onContent(chunk.message.content, fullContent);
+                                }
+                            }
+                            // 支持旧的自定义格式: data.type === 'content'
+                            else if (chunk.type === 'content') {
+                                fullContent += chunk.data;
+                                if (onContent) {
+                                    onContent(chunk.data, fullContent);
+                                }
+                            }
+                            // 检查是否完成
+                            else if (chunk.done === true) {
+                                console.log('流式响应完成');
+                            }
+                            // 处理错误
+                            else if (chunk.type === 'error' || chunk.error) {
+                                console.error('流式响应错误:', chunk.data || chunk.error);
+                                throw new Error(chunk.data || chunk.error || '未知错误');
+                            }
+                        } catch (e) {
+                            console.warn('解析 SSE 消息失败:', message, e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理最后的缓冲区消息
+            if (buffer.trim()) {
+                const message = buffer.trim();
+                if (message.startsWith('data: ')) {
+                    try {
+                        const chunk = JSON.parse(message.substring(6));
+                        if (chunk.done === true || chunk.type === 'done') {
+                            console.log('流式响应完成');
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            throw new Error(chunk.data || chunk.error || '未知错误');
+                        }
+                    } catch (e) {
+                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                    }
+                }
+            }
+            
+            return fullContent;
+        } catch (error) {
+            console.error('生成闪卡失败:', error);
+            throw error;
+        }
+    }
+    
     // 根据当前网页信息生成闪卡（流式版本）
     async generateFlashcardStream(onContent) {
         try {
@@ -4198,6 +4340,34 @@ ${pageContent ? pageContent : '无内容'}
             }
         });
         
+        // 创建删除按钮
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-button';
+        deleteButton.innerHTML = '🗑️';
+        deleteButton.setAttribute('title', '删除消息');
+        
+        // 点击删除
+        deleteButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // 确认删除
+            if (confirm('确定要删除这条消息吗？')) {
+                // 找到包含复制按钮容器的消息元素
+                let currentMessage = container.parentElement;
+                while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
+                    currentMessage = currentMessage.parentElement;
+                }
+                
+                if (currentMessage) {
+                    currentMessage.style.transition = 'opacity 0.3s ease';
+                    currentMessage.style.opacity = '0';
+                    setTimeout(() => {
+                        currentMessage.remove();
+                    }, 300);
+                }
+            }
+        });
+        
         // 创建生成闪卡按钮
         const flashcardButton = document.createElement('button');
         flashcardButton.className = 'flashcard-button';
@@ -4223,6 +4393,11 @@ ${pageContent ? pageContent : '无内容'}
                 return;
             }
             
+            // 获取当前消息的内容
+            const currentMessage = container.closest('[data-message-type]');
+            const messageBubble = currentMessage ? currentMessage.querySelector('[data-message-type="pet-bubble"]') : null;
+            const messageContent = messageTextElement.getAttribute('data-original-text') || '';
+            
             // 创建新的闪卡消息
             const flashcardMessage = this.createMessageElement('', 'pet');
             messagesContainer.appendChild(flashcardMessage);
@@ -4239,8 +4414,8 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             try {
-                // 流式生成闪卡信息
-                await this.generateFlashcardStream((chunk, fullContent) => {
+                // 流式生成闪卡信息（基于消息内容）
+                await this.generateFlashcardFromContent(messageContent, (chunk, fullContent) => {
                     if (flashcardText) {
                         flashcardText.innerHTML = this.renderMarkdown(fullContent);
                         // 更新原始文本用于复制功能
@@ -4276,10 +4451,9 @@ ${pageContent ? pageContent : '无内容'}
                 
             } catch (error) {
                 console.error('生成闪卡失败:', error);
-                const pageTitle = document.title || '当前页面';
                 if (flashcardText) {
                     flashcardText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageTitle}"的闪卡。您可以尝试刷新页面后重试。📚`
+                        '抱歉，无法生成闪卡。您可以尝试刷新页面后重试。📚'
                     );
                 }
                 if (flashcardAvatar) {
@@ -4303,6 +4477,7 @@ ${pageContent ? pageContent : '无内容'}
         
         container.innerHTML = '';
         container.appendChild(copyButton);
+        container.appendChild(deleteButton);
         container.appendChild(flashcardButton);
         container.style.display = 'flex';
         container.style.gap = '4px';

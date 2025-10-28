@@ -1100,7 +1100,7 @@ class PetManager {
             }
             
             // 构建提示词，让大模型根据网页信息生成闪卡
-            const systemPrompt = `你是一个专业的闪卡制作专家。根据用户当前浏览的网页信息，生成一套适合记忆的闪卡集合。要求：
+            const flashcardSystemPrompt = `你是一个专业的闪卡制作专家。根据用户当前浏览的网页信息，生成一套适合记忆的闪卡集合。要求：
 1. 使用 HTML 标签来构建闪卡样式：
    - 闪卡标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 8px;">📚 闪卡 #{序号}</h2>
    - 问题/概念：使用 <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px; border-radius: 8px; margin: 10px 0; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(102,126,234,0.3);">💭 问题/概念：内容</div>
@@ -1149,7 +1149,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: systemPrompt,
+                    fromSystem: flashcardSystemPrompt,
                     fromUser: userPrompt,
                     model: this.currentModel
                 })
@@ -1256,7 +1256,7 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             // 构建提示词，让大模型根据网页信息生成专项报告
-            const systemPrompt = `你是一个专业的内容分析专家。根据用户当前浏览的网页信息，生成一份详细的专项分析报告。要求：
+            const reportSystemPrompt = `你是一个专业的内容分析专家。根据用户当前浏览的网页信息，生成一份详细的专项分析报告。要求：
 1. 使用 HTML 标签来构建报告结构：
    - 报告标题：使用 <h1 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 10px; box-shadow: 0 4px 8px rgba(255,107,107,0.2);">📋 专项分析报告</h1>
    - 章节标题：使用 <h2 style="color: #4ECDC4; font-weight: bold; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #E8F8F5, #F0FDFA); border-left: 4px solid #4ECDC4; border-radius: 5px;">🔍 章节标题</h2>
@@ -1303,7 +1303,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: systemPrompt,
+                    fromSystem: reportSystemPrompt,
                     fromUser: userPrompt,
                     model: this.currentModel
                 })
@@ -1410,7 +1410,7 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             // 构建提示词，让大模型根据网页信息生成最佳实践
-            const systemPrompt = `你是一个专业的实践指导专家。根据用户当前浏览的网页信息，生成一套实用的最佳实践指南。要求：
+            const bestPracticeSystemPrompt = `你是一个专业的实践指导专家。根据用户当前浏览的网页信息，生成一套实用的最佳实践指南。要求：
 1. 使用 HTML 标签来构建实践指南结构：
    - 指南标题：使用 <h1 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 10px; box-shadow: 0 4px 8px rgba(255,107,107,0.2);">⭐ 最佳实践指南</h1>
    - 实践类别：使用 <h2 style="color: #FF9800; font-weight: bold; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #FFF3E0, #FFF9F0); border-left: 4px solid #FF9800; border-radius: 5px;">🎯 实践类别</h2>
@@ -1457,7 +1457,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: systemPrompt,
+                    fromSystem: bestPracticeSystemPrompt,
                     fromUser: userPrompt,
                     model: this.currentModel
                 })
@@ -1564,7 +1564,7 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             // 构建提示词，让大模型根据网页信息生成摘要信息
-            const systemPrompt = `你是一个专业的内容分析师。根据用户当前浏览的网页信息，生成一篇简洁、结构化的摘要信息。要求：
+            const summarySystemPrompt = `你是一个专业的内容分析师。根据用户当前浏览的网页信息，生成一篇简洁、结构化的摘要信息。要求：
 1. 使用 HTML 标签来突出重点内容：
    - 标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">标题内容 🔖</h2> 
    - 关键信息：使用 <span style="color: #4ECDC4; font-weight: bold;">关键信息 ✨</span>
@@ -1608,7 +1608,7 @@ ${pageContent ? pageContent : '无内容'}
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    fromSystem: systemPrompt,
+                    fromSystem: summarySystemPrompt,
                     fromUser: userPrompt,
                     model: this.currentModel
                 })
@@ -2158,7 +2158,7 @@ ${pageContent ? pageContent : '无内容'}
 
         // 创建生成闪卡图标
         const generateFlashcardIcon = document.createElement('span');
-        generateFlashcardIcon.innerHTML = '➔';
+        generateFlashcardIcon.innerHTML = '📚';
         generateFlashcardIcon.title = '生成闪卡';
         generateFlashcardIcon.style.cssText = `
             padding: 4px !important;
@@ -2497,7 +2497,7 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             if (flashcardText) {
-                flashcardText.textContent = '➔ 正在生成闪卡...';
+                flashcardText.textContent = '📚 正在生成闪卡...';
             }
             
             try {
@@ -2529,7 +2529,7 @@ ${pageContent ? pageContent : '无内容'}
                 
                 // 2秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
-                    generateFlashcardIcon.innerHTML = '➔';
+                    generateFlashcardIcon.innerHTML = '📚';
                     generateFlashcardIcon.style.color = '#666';
                     generateFlashcardIcon.style.cursor = 'pointer';
                     generateFlashcardIcon.style.opacity = '1';
@@ -2540,7 +2540,7 @@ ${pageContent ? pageContent : '无内容'}
                 console.error('生成闪卡失败:', error);
                 if (flashcardText) {
                     flashcardText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageTitle}"的闪卡。您可以尝试刷新页面后重试。➔`
+                        `抱歉，无法生成"${pageTitle}"的闪卡。您可以尝试刷新页面后重试。📚`
                     );
                 }
                 if (flashcardAvatar) {
@@ -2552,7 +2552,7 @@ ${pageContent ? pageContent : '无内容'}
                 
                 // 1.5秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
-                    generateFlashcardIcon.innerHTML = '➔';
+                    generateFlashcardIcon.innerHTML = '📚';
                     generateFlashcardIcon.style.color = '#666';
                     generateFlashcardIcon.style.cursor = 'pointer';
                     generateFlashcardIcon.style.opacity = '1';
@@ -4158,7 +4158,7 @@ ${pageContent ? pageContent : '无内容'}
         return messageDiv;
     }
     
-    // 添加复制按钮的辅助方法
+    // 添加复制按钮和生成闪卡按钮的辅助方法
     addCopyButton(container, messageTextElement) {
         // 如果已经添加过，就不再添加
         if (container.querySelector('.copy-button')) {
@@ -4198,9 +4198,114 @@ ${pageContent ? pageContent : '无内容'}
             }
         });
         
+        // 创建生成闪卡按钮
+        const flashcardButton = document.createElement('button');
+        flashcardButton.className = 'flashcard-button';
+        flashcardButton.innerHTML = '📚';
+        flashcardButton.setAttribute('title', '生成闪卡');
+        
+        let isFlashcardProcessing = false;
+        
+        // 点击生成闪卡
+        flashcardButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            
+            if (isFlashcardProcessing) return;
+            
+            isFlashcardProcessing = true;
+            flashcardButton.innerHTML = '◉';
+            flashcardButton.style.opacity = '0.6';
+            flashcardButton.style.cursor = 'not-allowed';
+            
+            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+            if (!messagesContainer) {
+                isFlashcardProcessing = false;
+                return;
+            }
+            
+            // 创建新的闪卡消息
+            const flashcardMessage = this.createMessageElement('', 'pet');
+            messagesContainer.appendChild(flashcardMessage);
+            const flashcardText = flashcardMessage.querySelector('[data-message-type="pet-bubble"]');
+            const flashcardAvatar = flashcardMessage.querySelector('[data-message-type="pet-avatar"]');
+            
+            // 显示加载动画
+            if (flashcardAvatar) {
+                flashcardAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+            }
+            
+            if (flashcardText) {
+                flashcardText.textContent = '📚 正在生成闪卡...';
+            }
+            
+            try {
+                // 流式生成闪卡信息
+                await this.generateFlashcardStream((chunk, fullContent) => {
+                    if (flashcardText) {
+                        flashcardText.innerHTML = this.renderMarkdown(fullContent);
+                        // 更新原始文本用于复制功能
+                        flashcardText.setAttribute('data-original-text', fullContent);
+                        // 添加复制按钮
+                        if (fullContent && fullContent.trim()) {
+                            const copyButtonContainer = flashcardMessage.querySelector('[data-copy-button-container]');
+                            if (copyButtonContainer) {
+                                this.addCopyButton(copyButtonContainer, flashcardText);
+                            }
+                        }
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                });
+                
+                // 停止加载动画
+                if (flashcardAvatar) {
+                    flashcardAvatar.style.animation = '';
+                }
+                
+                flashcardButton.innerHTML = '✓';
+                flashcardButton.style.cursor = 'default';
+                flashcardButton.style.color = '#4caf50';
+                
+                // 2秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    flashcardButton.innerHTML = '📚';
+                    flashcardButton.style.color = '';
+                    flashcardButton.style.cursor = 'pointer';
+                    flashcardButton.style.opacity = '1';
+                    isFlashcardProcessing = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('生成闪卡失败:', error);
+                const pageTitle = document.title || '当前页面';
+                if (flashcardText) {
+                    flashcardText.innerHTML = this.renderMarkdown(
+                        `抱歉，无法生成"${pageTitle}"的闪卡。您可以尝试刷新页面后重试。📚`
+                    );
+                }
+                if (flashcardAvatar) {
+                    flashcardAvatar.style.animation = '';
+                }
+                flashcardButton.innerHTML = '✕';
+                flashcardButton.style.color = '#f44336';
+                
+                // 1.5秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    flashcardButton.innerHTML = '📚';
+                    flashcardButton.style.color = '';
+                    flashcardButton.style.cursor = 'pointer';
+                    flashcardButton.style.opacity = '1';
+                    isFlashcardProcessing = false;
+                }, 1500);
+            } finally {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        });
+        
         container.innerHTML = '';
         container.appendChild(copyButton);
+        container.appendChild(flashcardButton);
         container.style.display = 'flex';
+        container.style.gap = '4px';
     }
     
     // 发送图片消息

@@ -357,3 +357,31 @@
     background: rgba(0, 0, 0, 0.2) !important;
 }
 
+/* 复制按钮样式 */
+.copy-button {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 20px !important;
+    height: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    transition: all 0.2s ease !important;
+    opacity: 0.8 !important;
+    flex-shrink: 0 !important;
+}
+
+.copy-button:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+    transform: scale(1.1) !important;
+    opacity: 1 !important;
+}
+
+.copy-button:active {
+    transform: scale(0.95) !important;
+}
+
+

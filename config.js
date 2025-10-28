@@ -132,7 +132,7 @@ const PET_CONFIG = {
     
     // 聊天模型配置
     chatModels: {
-        default: 'qwq',
+        default: 'qwen3',
         models: [
             {
                 id: 'qwen3',
@@ -201,3 +201,4 @@ if (typeof module !== 'undefined' && module.exports) {
     window.getPetDefaultPosition = getPetDefaultPosition;
     window.getChatWindowDefaultPosition = getChatWindowDefaultPosition;
 }
+

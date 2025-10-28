@@ -2333,6 +2333,15 @@ ${pageContent ? pageContent : '无内容'}
                 await this.generateWelcomeMessageStream((chunk, fullContent) => {
                     if (summaryText) {
                         summaryText.innerHTML = this.renderMarkdown(fullContent);
+                        // 更新原始文本用于复制功能
+                        summaryText.setAttribute('data-original-text', fullContent);
+                        // 添加复制按钮
+                        if (fullContent && fullContent.trim()) {
+                            const copyButtonContainer = summaryMessage.querySelector('[data-copy-button-container]');
+                            if (copyButtonContainer) {
+                                this.addCopyButton(copyButtonContainer, summaryText);
+                            }
+                        }
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
@@ -2410,6 +2419,15 @@ ${pageContent ? pageContent : '无内容'}
                 await this.generateMindmapStream((chunk, fullContent) => {
                     if (mindmapText) {
                         mindmapText.innerHTML = this.renderMarkdown(fullContent);
+                        // 更新原始文本用于复制功能
+                        mindmapText.setAttribute('data-original-text', fullContent);
+                        // 添加复制按钮
+                        if (fullContent && fullContent.trim()) {
+                            const copyButtonContainer = mindmapMessage.querySelector('[data-copy-button-container]');
+                            if (copyButtonContainer) {
+                                this.addCopyButton(copyButtonContainer, mindmapText);
+                            }
+                        }
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
@@ -2487,6 +2505,15 @@ ${pageContent ? pageContent : '无内容'}
                 await this.generateFlashcardStream((chunk, fullContent) => {
                     if (flashcardText) {
                         flashcardText.innerHTML = this.renderMarkdown(fullContent);
+                        // 更新原始文本用于复制功能
+                        flashcardText.setAttribute('data-original-text', fullContent);
+                        // 添加复制按钮
+                        if (fullContent && fullContent.trim()) {
+                            const copyButtonContainer = flashcardMessage.querySelector('[data-copy-button-container]');
+                            if (copyButtonContainer) {
+                                this.addCopyButton(copyButtonContainer, flashcardText);
+                            }
+                        }
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
@@ -2564,6 +2591,15 @@ ${pageContent ? pageContent : '无内容'}
                 await this.generateReportStream((chunk, fullContent) => {
                     if (reportText) {
                         reportText.innerHTML = this.renderMarkdown(fullContent);
+                        // 更新原始文本用于复制功能
+                        reportText.setAttribute('data-original-text', fullContent);
+                        // 添加复制按钮
+                        if (fullContent && fullContent.trim()) {
+                            const copyButtonContainer = reportMessage.querySelector('[data-copy-button-container]');
+                            if (copyButtonContainer) {
+                                this.addCopyButton(copyButtonContainer, reportText);
+                            }
+                        }
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
@@ -2641,6 +2677,15 @@ ${pageContent ? pageContent : '无内容'}
                 await this.generateBestPracticeStream((chunk, fullContent) => {
                     if (bestPracticeText) {
                         bestPracticeText.innerHTML = this.renderMarkdown(fullContent);
+                        // 更新原始文本用于复制功能
+                        bestPracticeText.setAttribute('data-original-text', fullContent);
+                        // 添加复制按钮
+                        if (fullContent && fullContent.trim()) {
+                            const copyButtonContainer = bestPracticeMessage.querySelector('[data-copy-button-container]');
+                            if (copyButtonContainer) {
+                                this.addCopyButton(copyButtonContainer, bestPracticeText);
+                            }
+                        }
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
@@ -2702,7 +2747,7 @@ ${pageContent ? pageContent : '无内容'}
                     font-size: 11px !important;
                     color: #999 !important;
                     margin-top: 4px !important;
-                    max-width: calc(80% + 36px) !important;
+                    max-width: calc(80% + 108px) !important;
                     width: 100% !important;
                 `;
                 
@@ -3048,6 +3093,16 @@ ${pageContent ? pageContent : '无内容'}
                 if (messageBubble) {
                     // 使用 renderMarkdown 渲染完整内容
                     messageBubble.innerHTML = this.renderMarkdown(fullContent);
+                    // 更新原始文本用于复制功能
+                    messageBubble.setAttribute('data-original-text', fullContent);
+                    
+                    // 如果有内容，添加复制按钮
+                    if (fullContent && fullContent.trim()) {
+                        const copyButtonContainer = petMessageElement.querySelector('[data-copy-button-container]');
+                        if (copyButtonContainer) {
+                            this.addCopyButton(copyButtonContainer, messageBubble);
+                        }
+                    }
                 }
                 
                 // 自动滚动到底部
@@ -3914,6 +3969,11 @@ ${pageContent ? pageContent : '无内容'}
             messageText.setAttribute('data-message-type', 'pet-bubble');
         }
         
+        // 为宠物消息保存原始文本用于复制功能
+        if (sender === 'pet' && text) {
+            messageText.setAttribute('data-original-text', text);
+        }
+        
         if (sender === 'user') {
             messageText.style.borderBottomRightRadius = '4px';
         } else {
@@ -3980,14 +4040,52 @@ ${pageContent ? pageContent : '无内容'}
             font-size: 11px !important;
             color: #999 !important;
             margin-top: 4px !important;
-            max-width: 80% !important;
-            width: 100% !important;
-            text-align: ${sender === 'user' ? 'right' : 'left'} !important;
         `;
         messageTime.textContent = this.getCurrentTime();
         
         content.appendChild(messageText);
-        content.appendChild(messageTime);
+        
+        // 为宠物消息创建时间和复制按钮的容器
+        if (sender === 'pet') {
+            const timeAndCopyContainer = document.createElement('div');
+            timeAndCopyContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                max-width: calc(80% + 36px) !important;
+                width: 100% !important;
+                margin-top: 4px !important;
+            `;
+            
+            const messageTimeWrapper = document.createElement('div');
+            messageTimeWrapper.style.cssText = 'flex: 1;';
+            messageTimeWrapper.appendChild(messageTime);
+            timeAndCopyContainer.appendChild(messageTimeWrapper);
+            
+            const copyButtonContainer = document.createElement('div');
+            copyButtonContainer.setAttribute('data-copy-button-container', 'true');
+            copyButtonContainer.style.cssText = 'display: none; margin-left: 8px;';
+            timeAndCopyContainer.appendChild(copyButtonContainer);
+            
+            content.appendChild(timeAndCopyContainer);
+            
+            // 如果已经有文本，立即添加复制按钮
+            if (text && text.trim()) {
+                this.addCopyButton(copyButtonContainer, messageText);
+            }
+        } else {
+            // 用户消息直接添加时间
+            messageTime.style.cssText = `
+                font-size: 11px !important;
+                color: #999 !important;
+                margin-top: 4px !important;
+                max-width: calc(80% + 36px) !important;
+                width: 100% !important;
+                text-align: right !important;
+            `;
+            content.appendChild(messageTime);
+        }
+        
         messageDiv.appendChild(avatar);
         messageDiv.appendChild(content);
         
@@ -4057,6 +4155,51 @@ ${pageContent ? pageContent : '无内容'}
         messageDiv.appendChild(content);
         
         return messageDiv;
+    }
+    
+    // 添加复制按钮的辅助方法
+    addCopyButton(container, messageTextElement) {
+        // 如果已经添加过，就不再添加
+        if (container.querySelector('.copy-button')) {
+            return;
+        }
+        
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.innerHTML = '📋';
+        copyButton.setAttribute('title', '复制内容');
+        
+        // 点击复制
+        copyButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const originalText = messageTextElement.getAttribute('data-original-text');
+            if (originalText) {
+                // 复制到剪贴板
+                const textArea = document.createElement('textarea');
+                textArea.value = originalText;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    // 显示复制成功反馈
+                    copyButton.innerHTML = '✓';
+                    copyButton.style.background = 'rgba(76, 175, 80, 0.3) !important';
+                    setTimeout(() => {
+                        copyButton.innerHTML = '📋';
+                        copyButton.style.background = '';
+                    }, 1500);
+                } catch (err) {
+                    console.error('复制失败:', err);
+                }
+                document.body.removeChild(textArea);
+            }
+        });
+        
+        container.innerHTML = '';
+        container.appendChild(copyButton);
+        container.style.display = 'flex';
     }
     
     // 发送图片消息
@@ -5538,6 +5681,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

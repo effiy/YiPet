@@ -4216,17 +4216,37 @@ ${pageContent ? pageContent : '无内容'}
                 this.addCopyButton(copyButtonContainer, messageText);
             }
         } else {
-            // 用户消息直接添加时间
+            // 用户消息创建时间和删除按钮的容器
+            const timeAndCopyContainer = document.createElement('div');
+            timeAndCopyContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                max-width: calc(80% + 36px) !important;
+                width: 100% !important;
+                margin-top: 4px !important;
+                margin-left: 64px !important;
+            `;
+            
+            const messageTimeWrapper = document.createElement('div');
+            messageTimeWrapper.style.cssText = 'flex: 1; text-align: right;';
             messageTime.style.cssText = `
                 font-size: 11px !important;
                 color: #999 !important;
                 margin-top: 4px !important;
-                margin-left: 50px !important;
-                max-width: calc(80% + 86px) !important;
-                width: 100% !important;
-                text-align: right !important;
             `;
-            content.appendChild(messageTime);
+            messageTimeWrapper.appendChild(messageTime);
+            timeAndCopyContainer.appendChild(messageTimeWrapper);
+            
+            const copyButtonContainer = document.createElement('div');
+            copyButtonContainer.setAttribute('data-copy-button-container', 'true');
+            copyButtonContainer.style.cssText = 'display: flex; margin-left: 8px;';
+            timeAndCopyContainer.appendChild(copyButtonContainer);
+            
+            content.appendChild(timeAndCopyContainer);
+            
+            // 为用户消息添加删除按钮
+            this.addDeleteButtonForUserMessage(copyButtonContainer);
         }
         
         messageDiv.appendChild(avatar);
@@ -4479,6 +4499,45 @@ ${pageContent ? pageContent : '无内容'}
         container.appendChild(copyButton);
         container.appendChild(deleteButton);
         container.appendChild(flashcardButton);
+        container.style.display = 'flex';
+        container.style.gap = '4px';
+    }
+    
+    // 为用户消息添加删除按钮
+    addDeleteButtonForUserMessage(container) {
+        // 如果已经添加过，就不再添加
+        if (container.querySelector('.delete-button')) {
+            return;
+        }
+        
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-button';
+        deleteButton.innerHTML = '🗑️';
+        deleteButton.setAttribute('title', '删除消息');
+        
+        // 点击删除
+        deleteButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // 确认删除
+            if (confirm('确定要删除这条消息吗？')) {
+                // 找到包含删除按钮容器的消息元素
+                let currentMessage = container.parentElement;
+                while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
+                    currentMessage = currentMessage.parentElement;
+                }
+                
+                if (currentMessage) {
+                    currentMessage.style.transition = 'opacity 0.3s ease';
+                    currentMessage.style.opacity = '0';
+                    setTimeout(() => {
+                        currentMessage.remove();
+                    }, 300);
+                }
+            }
+        });
+        
+        container.appendChild(deleteButton);
         container.style.display = 'flex';
         container.style.gap = '4px';
     }

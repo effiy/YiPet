@@ -1594,9 +1594,28 @@ ${pageContent ? pageContent : '无内容'}
         const metaDescription = document.querySelector('meta[name="description"]');
         const pageDescription = metaDescription ? metaDescription.content : '';
         
+        // 获取页面图标
+        const getPageIcon = () => {
+            let iconUrl = '';
+            const linkTags = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+            if (linkTags.length > 0) {
+                iconUrl = linkTags[0].href;
+                if (!iconUrl.startsWith('http')) {
+                    iconUrl = new URL(iconUrl, window.location.origin).href;
+                }
+            }
+            if (!iconUrl) {
+                iconUrl = '/favicon.ico';
+                if (!iconUrl.startsWith('http')) {
+                    iconUrl = new URL(iconUrl, window.location.origin).href;
+                }
+            }
+            return iconUrl;
+        };
+        const pageIconUrl = getPageIcon();
+        
         // 构建页面信息显示内容
-        let pageInfoHtml = `<h3 style="color: #FF6B6B; font-weight: bold; margin: 0 0 10px 0;">📖 页面标题</h3>`;
-        pageInfoHtml += `<div style="margin-bottom: 15px;">${pageTitle}</div>`;
+        let pageInfoHtml = `<div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;"><img src="${pageIconUrl}" alt="页面图标" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;" onerror="this.style.display='none'">${pageTitle}</div>`;
         
         pageInfoHtml += `<h3 style="color: #4ECDC4; font-weight: bold; margin: 10px 0;">🔗 网址</h3>`;
         pageInfoHtml += `<div style="margin-bottom: 15px; word-break: break-all; color: #2196F3; text-decoration: underline;">${pageUrl}</div>`;
@@ -4575,6 +4594,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

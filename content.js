@@ -914,7 +914,7 @@ class PetManager {
         }
     }
     
-    // 根据当前网页信息生成欢迎消息（流式版本）
+    // 根据当前网页信息生成摘要信息（流式版本）
     async generateWelcomeMessageStream(onContent) {
         try {
             // 获取当前网页信息
@@ -932,13 +932,30 @@ class PetManager {
                 pageContent = pageContent.substring(0, 102400);
             }
             
-            // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
-            const systemPrompt = `你是一个俏皮活泼、古灵精怪的小女友角色。根据用户当前浏览的网页信息，生成一段有趣、俏皮、幽默的欢迎消息。要求：
-1. 语气俏皮、活泼、可爱，像一个聪明有趣的女朋友，时不时会调侃一下
-2. 适当提及网页的主题或内容，可以发表一些有趣的见解或调侃
-3. 字数控制在512字以内
-4. 使用丰富的表情符号增加趣味性，但不要过于亲密和亲昵
-5. 可以开一些无害的小玩笑，让对话更有趣生动`;
+            // 构建提示词，让大模型根据网页信息生成摘要信息
+            const systemPrompt = `你是一个专业的内容分析师。根据用户当前浏览的网页信息，生成一篇简洁、结构化的摘要信息。要求：
+1. 使用 HTML 标签来突出重点内容：
+   - 标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">标题内容 🔖</h2> 
+   - 关键信息：使用 <span style="color: #4ECDC4; font-weight: bold;">关键信息 ✨</span>
+   - 重要数据：使用 <span style="color: #FFD93D; font-weight: bold;">数据内容 📊</span>
+   - 注意事项：使用 <span style="color: #FF9800; font-weight: bold;">注意内容 ⚠️</span>
+   - 总结：使用 <div style="background-color: #E3F2FD; padding: 12px; border-left: 4px solid #2196F3; margin-top: 15px;">总结内容 💡</div>
+2. 使用丰富的表情符号来增加语义性和可视化效果：
+   - 📖 表示主要话题
+   - 💡 表示重要观点
+   - ✨ 表示亮点
+   - 🎯 表示核心内容
+   - 📊 表示数据统计
+   - 🚀 表示发展趋势
+   - 💬 表示观点评论
+   - 🔍 表示深度分析
+3. 摘要包含以下部分：
+   - 网页主题概览
+   - 核心要点总结
+   - 关键信息提取
+   - 值得关注的亮点
+4. 字数控制在800字以内
+5. 保持客观专业的语调`;
 
             const userPrompt = `用户正在浏览：
 标题：${pageTitle}
@@ -948,9 +965,9 @@ class PetManager {
 页面内容（Markdown 格式）：
 ${pageContent ? pageContent : '无内容'}
 
-请生成一段欢迎消息。`;
+请生成一份结构化的摘要信息，使用醒目的颜色标签和丰富的表情符号。`;
             
-            console.log('调用大模型生成欢迎消息，页面标题:', pageTitle);
+            console.log('调用大模型生成摘要信息，页面标题:', pageTitle);
             
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
@@ -1043,12 +1060,12 @@ ${pageContent ? pageContent : '无内容'}
             
             return fullContent;
         } catch (error) {
-            console.error('生成欢迎消息失败:', error);
+            console.error('生成摘要信息失败:', error);
             throw error;
         }
     }
     
-    // 根据当前网页信息生成欢迎消息（非流式版本，兼容旧代码）
+    // 根据当前网页信息生成摘要信息（非流式版本，兼容旧代码）
     async generateWelcomeMessage() {
         try {
             // 获取当前网页信息
@@ -1066,13 +1083,30 @@ ${pageContent ? pageContent : '无内容'}
                 pageContent = pageContent.substring(0, 102400);
             }
             
-            // 构建提示词，让大模型根据网页信息生成个性化的欢迎消息
-            const systemPrompt = `你是一个俏皮活泼、古灵精怪的小女友角色。根据用户当前浏览的网页信息，生成一段有趣、俏皮、幽默的欢迎消息。要求：
-1. 语气俏皮、活泼、可爱，像一个聪明有趣的女朋友，时不时会调侃一下
-2. 适当提及网页的主题或内容，可以发表一些有趣的见解或调侃
-3. 字数控制在512字以内
-4. 使用丰富的表情符号增加趣味性，但不要过于亲密和亲昵
-5. 可以开一些无害的小玩笑，让对话更有趣生动`;
+            // 构建提示词，让大模型根据网页信息生成摘要信息
+            const systemPrompt = `你是一个专业的内容分析师。根据用户当前浏览的网页信息，生成一篇简洁、结构化的摘要信息。要求：
+1. 使用 HTML 标签来突出重点内容：
+   - 标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">标题内容 🔖</h2> 
+   - 关键信息：使用 <span style="color: #4ECDC4; font-weight: bold;">关键信息 ✨</span>
+   - 重要数据：使用 <span style="color: #FFD93D; font-weight: bold;">数据内容 📊</span>
+   - 注意事项：使用 <span style="color: #FF9800; font-weight: bold;">注意内容 ⚠️</span>
+   - 总结：使用 <div style="background-color: #E3F2FD; padding: 12px; border-left: 4px solid #2196F3; margin-top: 15px;">总结内容 💡</div>
+2. 使用丰富的表情符号来增加语义性和可视化效果：
+   - 📖 表示主要话题
+   - 💡 表示重要观点
+   - ✨ 表示亮点
+   - 🎯 表示核心内容
+   - 📊 表示数据统计
+   - 🚀 表示发展趋势
+   - 💬 表示观点评论
+   - 🔍 表示深度分析
+3. 摘要包含以下部分：
+   - 网页主题概览
+   - 核心要点总结
+   - 关键信息提取
+   - 值得关注的亮点
+4. 字数控制在800字以内
+5. 保持客观专业的语调`;
 
             const userPrompt = `用户正在浏览：
 标题：${pageTitle}
@@ -1082,9 +1116,9 @@ ${pageContent ? pageContent : '无内容'}
 页面内容（Markdown 格式）：
 ${pageContent ? pageContent : '无内容'}
 
-请生成一段欢迎消息。`;
+请生成一份结构化的摘要信息，使用醒目的颜色标签和丰富的表情符号。`;
             
-            console.log('调用大模型生成欢迎消息，页面标题:', pageTitle);
+            console.log('调用大模型生成摘要信息，页面标题:', pageTitle);
             
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
@@ -1153,7 +1187,7 @@ ${pageContent ? pageContent : '无内容'}
             }
             
             if (fullContent && fullContent.trim()) {
-                console.log('大模型生成的欢迎消息:', fullContent);
+                console.log('大模型生成的摘要信息:', fullContent);
                 return fullContent.trim();
             } else {
                 // 如果API调用失败，使用备用消息
@@ -1161,12 +1195,12 @@ ${pageContent ? pageContent : '无内容'}
             }
             
         } catch (error) {
-            console.log('生成欢迎消息失败:', error);
+            console.log('生成摘要信息失败:', error);
             // 使用备用消息
             const pageTitle = document.title || '当前页面';
             const fallbackMessages = [
-                `老公~我看到你在浏览"${pageTitle}"呢，有什么想和我聊的吗？❤️`,
-                `亲爱的，你正在查看"${pageTitle}"呀，我来陪你聊天哦~💕`,
+                `我已经为你准备好关于"${pageTitle}"的摘要信息了 📖`,
+                `正在为你整理"${pageTitle}"的内容摘要 🔍`,
             ];
             return fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
         }
@@ -1554,95 +1588,179 @@ ${pageContent ? pageContent : '无内容'}
             }
         };
         
-        // 创建欢迎消息容器（先不添加内容）
+        // 获取页面基本信息
+        const pageTitle = document.title || '当前页面';
+        const pageUrl = window.location.href;
+        const metaDescription = document.querySelector('meta[name="description"]');
+        const pageDescription = metaDescription ? metaDescription.content : '';
+        
+        // 构建页面信息显示内容
+        let pageInfoHtml = `<h3 style="color: #FF6B6B; font-weight: bold; margin: 0 0 10px 0;">📖 页面标题</h3>`;
+        pageInfoHtml += `<div style="margin-bottom: 15px;">${pageTitle}</div>`;
+        
+        pageInfoHtml += `<h3 style="color: #4ECDC4; font-weight: bold; margin: 10px 0;">🔗 网址</h3>`;
+        pageInfoHtml += `<div style="margin-bottom: 15px; word-break: break-all; color: #2196F3; text-decoration: underline;">${pageUrl}</div>`;
+        
+        if (pageDescription) {
+            pageInfoHtml += `<h3 style="color: #FFD93D; font-weight: bold; margin: 10px 0;">📝 页面描述</h3>`;
+            pageInfoHtml += `<div style="margin-bottom: 15px;">${pageDescription}</div>`;
+        }
+        
+        // 创建页面信息容器
         const welcomeMessage = this.createMessageElement('', 'pet');
         messagesContainer.appendChild(welcomeMessage);
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
-        const welcomeAvatar = welcomeMessage.querySelector('[data-message-type="pet-avatar"]');
         
-        // 显示打字的欢迎指示器
-        let typingWelcomeInterval = null;
-        let welcomeMessageReceived = false;
-        const welcomeThinkingMessages = [
-            '🐾 初次见面，让我想想怎么介绍自己...',
-            '✨ 正在了解你在看什么...',
-            '🌊 思绪万千，准备精彩开场',
-            '🎯 分析页面内容中...',
-            '💡 有个好想法要跟你说',
-            '🌟 整理语言，马上就开始',
-            '🌈 准备一个特别的问候',
-            '🚀 灵感涌现，稍等片刻',
-            '🎨 精心准备回复中...',
-            '💭 思考最有趣的开场白'
-        ];
-        let lastWelcomeIndex = -1;
-        
-        // 先显示等待消息
+        // 设置页面基本信息
         if (messageText) {
-            messageText.textContent = welcomeThinkingMessages[0];
-            
-            typingWelcomeInterval = setInterval(() => {
-                if (messageText && !welcomeMessageReceived) {
-                    let newIndex;
-                    do {
-                        newIndex = Math.floor(Math.random() * welcomeThinkingMessages.length);
-                    } while (newIndex === lastWelcomeIndex && welcomeThinkingMessages.length > 1);
-                    lastWelcomeIndex = newIndex;
-                    messageText.textContent = welcomeThinkingMessages[newIndex];
-                }
-            }, 800);
+            messageText.innerHTML = pageInfoHtml;
         }
         
-        // 给欢迎消息的头像添加动画效果
-        if (welcomeAvatar) {
-            welcomeAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-        }
+        // 创建生成摘要图标
+        const generateSummaryIcon = document.createElement('span');
+        generateSummaryIcon.innerHTML = '≈';
+        generateSummaryIcon.title = '生成摘要';
+        generateSummaryIcon.style.cssText = `
+            padding: 4px !important;
+            cursor: pointer !important;
+            font-size: 18px !important;
+            color: #666 !important;
+            font-weight: 300 !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            user-select: none !important;
+            width: 24px !important;
+            height: 24px !important;
+        `;
+        
+        let isProcessing = false;
+        
+        generateSummaryIcon.addEventListener('mouseenter', function() {
+            if (!isProcessing) {
+                this.style.fontSize = '20px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            }
+        });
+        
+        generateSummaryIcon.addEventListener('mouseleave', function() {
+            if (!isProcessing) {
+                this.style.fontSize = '18px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            }
+        });
+        
+        generateSummaryIcon.addEventListener('click', async () => {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            generateSummaryIcon.innerHTML = '◉';
+            generateSummaryIcon.style.opacity = '0.6';
+            generateSummaryIcon.style.cursor = 'not-allowed';
+            
+            // 创建新的摘要消息
+            const summaryMessage = this.createMessageElement('', 'pet');
+            messagesContainer.appendChild(summaryMessage);
+            const summaryText = summaryMessage.querySelector('[data-message-type="pet-bubble"]');
+            const summaryAvatar = summaryMessage.querySelector('[data-message-type="pet-avatar"]');
+            
+            // 显示加载动画
+            if (summaryAvatar) {
+                summaryAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+            }
+            
+            if (summaryText) {
+                summaryText.textContent = '📖 正在分析页面内容...';
+            }
+            
+            try {
+                // 流式生成摘要信息
+                await this.generateWelcomeMessageStream((chunk, fullContent) => {
+                    if (summaryText) {
+                        summaryText.innerHTML = this.renderMarkdown(fullContent);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                });
+                
+                // 停止加载动画
+                if (summaryAvatar) {
+                    summaryAvatar.style.animation = '';
+                }
+                
+                generateSummaryIcon.innerHTML = '✓';
+                generateSummaryIcon.style.cursor = 'default';
+                generateSummaryIcon.style.color = '#4caf50';
+                
+                // 2秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateSummaryIcon.innerHTML = '≈';
+                    generateSummaryIcon.style.color = '#666';
+                    generateSummaryIcon.style.cursor = 'pointer';
+                    generateSummaryIcon.style.opacity = '1';
+                    isProcessing = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('生成摘要信息失败:', error);
+                if (summaryText) {
+                    summaryText.innerHTML = this.renderMarkdown(
+                        `抱歉，无法生成"${pageTitle}"的摘要信息。您可以尝试刷新页面后重试。📖`
+                    );
+                }
+                if (summaryAvatar) {
+                    summaryAvatar.style.animation = '';
+                }
+                generateSummaryIcon.innerHTML = '✕';
+                generateSummaryIcon.style.cursor = 'default';
+                generateSummaryIcon.style.color = '#f44336';
+                
+                // 1.5秒后恢复初始状态，允许再次点击
+                setTimeout(() => {
+                    generateSummaryIcon.innerHTML = '≈';
+                    generateSummaryIcon.style.color = '#666';
+                    generateSummaryIcon.style.cursor = 'pointer';
+                    generateSummaryIcon.style.opacity = '1';
+                    isProcessing = false;
+                }, 1500);
+            } finally {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        });
+        
+        // 将按钮添加到消息容器中，和时间戳同一行
+        setTimeout(() => {
+            const messageTime = welcomeMessage.querySelector('[data-message-time="true"]');
+            if (messageTime) {
+                // 修改时间戳容器为 flex 布局
+                messageTime.style.cssText = `
+                    display: flex !important;
+                    justify-content: space-between !important;
+                    align-items: center !important;
+                    font-size: 11px !important;
+                    color: #999 !important;
+                    margin-top: 4px !important;
+                    max-width: calc(80% + 36px) !important;
+                    width: 100% !important;
+                `;
+                
+                // 创建时间文本容器
+                const timeText = document.createElement('span');
+                timeText.style.cssText = 'flex: 1 !important; min-width: 0 !important;';
+                timeText.textContent = this.getCurrentTime();
+                
+                // 将原有内容替换为 flex 布局的内容
+                messageTime.innerHTML = '';
+                messageTime.appendChild(timeText);
+                messageTime.appendChild(generateSummaryIcon);
+            }
+        }, 100);
         
         // 播放宠物欢迎动画
         this.playChatAnimation();
-        
-        // 流式生成欢迎消息
-        this.generateWelcomeMessageStream((chunk, fullContent) => {
-            // 移除打字指示器
-            if (typingWelcomeInterval) {
-                clearInterval(typingWelcomeInterval);
-                typingWelcomeInterval = null;
-            }
-            welcomeMessageReceived = true;
-            
-            // 停止头像动画
-            if (welcomeAvatar) {
-                welcomeAvatar.style.animation = '';
-            }
-            
-            if (messageText) {
-                // 流式更新消息内容（使用 Markdown 渲染）
-                messageText.innerHTML = this.renderMarkdown(fullContent);
-                // 自动滚动到底部
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }).catch(error => {
-            console.error('生成欢迎消息失败:', error);
-            
-            // 清理打字指示器
-            if (typingWelcomeInterval) {
-                clearInterval(typingWelcomeInterval);
-                typingWelcomeInterval = null;
-            }
-            
-            // 停止头像动画
-            if (welcomeAvatar) {
-                welcomeAvatar.style.animation = '';
-            }
-            
-            // 出错时显示默认欢迎消息
-            if (messageText) {
-                const pageTitle = document.title || '当前页面';
-                messageText.innerHTML = this.renderMarkdown(
-                    `老公~我看到你在浏览"${pageTitle}"呢，有什么想和我聊的吗？❤️`
-                );
-            }
-        });
         
         // 创建输入区域 - 使用宠物颜色主题
         const inputContainer = document.createElement('div');
@@ -2819,6 +2937,7 @@ ${pageContent ? pageContent : '无内容'}
             word-wrap: break-word !important;
             position: relative !important;
             max-width: 80% !important;
+            width: 100% !important;
             margin-left: ${sender === 'user' ? 'auto' : '0'} !important;
         `;
         
@@ -2893,10 +3012,13 @@ ${pageContent ? pageContent : '无内容'}
         }
         
         const messageTime = document.createElement('div');
+        messageTime.setAttribute('data-message-time', 'true');
         messageTime.style.cssText = `
             font-size: 11px !important;
             color: #999 !important;
             margin-top: 4px !important;
+            max-width: 80% !important;
+            width: 100% !important;
             text-align: ${sender === 'user' ? 'right' : 'left'} !important;
         `;
         messageTime.textContent = this.getCurrentTime();
@@ -4453,5 +4575,6 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 

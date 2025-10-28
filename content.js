@@ -259,7 +259,7 @@ class PetManager {
             z-index: ${PET_CONFIG.ui.zIndex.pet} !important;
             cursor: grab !important;
             pointer-events: auto !important;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+            box-shadow: none !important;
             transition: all 0.3s ease !important;
             display: ${this.isVisible ? 'block' : 'none'} !important;
             background-color: transparent !important;
@@ -4453,4 +4453,5 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 

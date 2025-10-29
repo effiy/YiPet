@@ -402,7 +402,8 @@
 }
 
 .mermaid-copy-button,
-.mermaid-download-button {
+.mermaid-download-button,
+.mermaid-edit-button {
     background: rgba(255, 255, 255, 0.2) !important;
     border: none !important;
     border-radius: 4px !important;
@@ -421,14 +422,16 @@
 }
 
 .mermaid-copy-button:hover,
-.mermaid-download-button:hover {
+.mermaid-download-button:hover,
+.mermaid-edit-button:hover {
     background: rgba(255, 255, 255, 0.3) !important;
     transform: scale(1.1) !important;
     opacity: 1 !important;
 }
 
 .mermaid-copy-button:active,
-.mermaid-download-button:active {
+.mermaid-download-button:active,
+.mermaid-edit-button:active {
     transform: scale(0.95) !important;
 }
 

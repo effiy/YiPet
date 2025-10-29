@@ -4397,6 +4397,8 @@ ${pageContent ? pageContent : '无内容'}
                 mermaidDiv.className = 'mermaid';
                 mermaidDiv.id = mermaidId;
                 mermaidDiv.textContent = mermaidContent;
+                // 保存源代码以便后续复制功能使用
+                mermaidDiv.setAttribute('data-mermaid-source', mermaidContent);
                 mermaidDiv.style.cssText = `
                     background: rgba(255, 255, 255, 0.1) !important;
                     padding: 15px !important;
@@ -4604,7 +4606,7 @@ ${pageContent ? pageContent : '无内容'}
         // 创建复制按钮
         const copyButton = document.createElement('button');
         copyButton.className = 'mermaid-copy-button';
-        copyButton.title = '复制 SVG';
+        copyButton.title = '复制 Mermaid 代码';
         copyButton.innerHTML = '📋';
         copyButton.style.cssText = `
             background: rgba(255, 255, 255, 0.2) !important;
@@ -4628,6 +4630,27 @@ ${pageContent ? pageContent : '无内容'}
         downloadButton.title = '下载 SVG';
         downloadButton.innerHTML = '💾';
         downloadButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            border-radius: 4px !important;
+            width: 28px !important;
+            height: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.8 !important;
+            backdrop-filter: blur(4px) !important;
+        `;
+
+        // 创建编辑按钮（在新标签页打开 Mermaid Live Editor）
+        const editButton = document.createElement('button');
+        editButton.className = 'mermaid-edit-button';
+        editButton.title = '在 Mermaid Live Editor 中打开';
+        editButton.innerHTML = '✏️';
+        editButton.style.cssText = `
             background: rgba(255, 255, 255, 0.2) !important;
             border: none !important;
             border-radius: 4px !important;
@@ -4712,16 +4735,17 @@ ${pageContent ? pageContent : '无内容'}
             });
         };
 
-        // 复制按钮点击事件
+        // 复制按钮点击事件 - 复制 Mermaid 源代码
         copyButton.addEventListener('click', async (e) => {
             e.stopPropagation();
             e.preventDefault();
             
             try {
-                const svg = await getSvgContent();
+                // 优先使用传入的参数，其次从 data 属性获取
+                let codeToCopy = mermaidSourceCode || mermaidDiv.getAttribute('data-mermaid-source') || '';
 
-                if (svg) {
-                    await navigator.clipboard.writeText(svg);
+                if (codeToCopy) {
+                    await navigator.clipboard.writeText(codeToCopy);
                     // 显示成功提示
                     copyButton.innerHTML = '✓';
                     copyButton.style.background = 'rgba(76, 175, 80, 0.3) !important';
@@ -4730,10 +4754,10 @@ ${pageContent ? pageContent : '无内容'}
                         copyButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
                     }, 1000);
                 } else {
-                    throw new Error('无法获取 SVG 内容');
+                    throw new Error('无法获取 Mermaid 源代码');
                 }
             } catch (error) {
-                console.error('复制 SVG 失败:', error);
+                console.error('复制 Mermaid 代码失败:', error);
                 copyButton.innerHTML = '✗';
                 copyButton.style.background = 'rgba(244, 67, 54, 0.3) !important';
                 setTimeout(() => {
@@ -4785,6 +4809,47 @@ ${pageContent ? pageContent : '无内容'}
             }
         });
 
+        // 编辑按钮点击事件 - 在新标签页打开 Mermaid Live Editor
+        editButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            try {
+                // 获取 Mermaid 源代码
+                const codeToEdit = mermaidSourceCode || mermaidDiv.getAttribute('data-mermaid-source') || '';
+                
+                if (codeToEdit) {
+                    // 编码源代码并构建 URL
+                    // Mermaid Live Editor 支持通过 URL hash 传递压缩后的代码
+                    // 使用 pako 压缩格式: #pako:压缩后的base64编码
+                    // 如果 pako 不可用，尝试直接编码传递
+                    try {
+                        // 首先尝试使用 encodeURIComponent
+                        const encodedCode = encodeURIComponent(codeToEdit);
+                        const editorUrl = `https://mermaid.live/edit#pako:${encodedCode}`;
+                        window.open(editorUrl, '_blank');
+                    } catch (error) {
+                        // 如果编码失败，直接打开编辑器
+                        console.warn('编码代码失败，直接打开编辑器:', error);
+                        window.open('https://mermaid.live/edit', '_blank');
+                        // 尝试使用剪贴板传递代码
+                        if (navigator.clipboard) {
+                            navigator.clipboard.writeText(codeToEdit).then(() => {
+                                console.log('代码已复制到剪贴板，可在编辑器中粘贴');
+                            });
+                        }
+                    }
+                } else {
+                    // 如果没有源代码，直接打开编辑器
+                    window.open('https://mermaid.live/edit', '_blank');
+                }
+            } catch (error) {
+                console.error('打开 Mermaid Live Editor 失败:', error);
+                // 出错时仍尝试打开编辑器
+                window.open('https://mermaid.live/edit', '_blank');
+            }
+        });
+
         // 悬停显示按钮
         mermaidDiv.addEventListener('mouseenter', () => {
             actionsContainer.style.opacity = '1';
@@ -4795,6 +4860,7 @@ ${pageContent ? pageContent : '无内容'}
 
         actionsContainer.appendChild(copyButton);
         actionsContainer.appendChild(downloadButton);
+        actionsContainer.appendChild(editButton);
         mermaidDiv.appendChild(actionsContainer);
 
         // 按钮悬停效果
@@ -4818,6 +4884,17 @@ ${pageContent ? pageContent : '无内容'}
             downloadButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
             downloadButton.style.transform = 'scale(1)';
             downloadButton.style.opacity = '0.8';
+        });
+
+        editButton.addEventListener('mouseenter', () => {
+            editButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
+            editButton.style.transform = 'scale(1.1)';
+            editButton.style.opacity = '1';
+        });
+        editButton.addEventListener('mouseleave', () => {
+            editButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+            editButton.style.transform = 'scale(1)';
+            editButton.style.opacity = '0.8';
         });
     }
 

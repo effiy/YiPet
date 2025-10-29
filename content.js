@@ -3525,36 +3525,56 @@ ${pageContent ? pageContent : '无内容'}
 
         // 中文输入法状态跟踪
         let isComposing = false;
+        let compositionEndTime = 0;
+        const COMPOSITION_END_DELAY = 100; // 组合输入结束后延迟处理回车键的时间（毫秒）
         
         // 监听输入法组合开始事件（中文输入法开始输入）
         messageInput.addEventListener('compositionstart', () => {
             isComposing = true;
+            compositionEndTime = 0;
         });
         
         // 监听输入法组合更新事件（输入法正在输入）
         messageInput.addEventListener('compositionupdate', () => {
             isComposing = true;
+            compositionEndTime = 0;
         });
         
         // 监听输入法组合结束事件（中文输入法输入完成）
-        messageInput.addEventListener('compositionend', () => {
-            // 延迟重置状态，确保所有相关事件都已处理
-            setTimeout(() => {
-                isComposing = false;
-            }, 10);
+        messageInput.addEventListener('compositionend', (e) => {
+            isComposing = false;
+            // 记录组合输入结束的时间，用于后续判断
+            compositionEndTime = Date.now();
         });
         
         // 键盘事件处理：Enter发送，Shift+Enter换行，ESC清除
         messageInput.addEventListener('keydown', (e) => {
-            // 如果正在使用中文输入法（检查 isComposing 状态和 e.isComposing 属性），不处理回车键
-            if (isComposing || e.isComposing) {
-                // 允许输入法正常处理回车键（用于确认选择）
+            // 检查是否正在使用中文输入法组合输入
+            if (e.isComposing) {
+                // 如果正在组合输入，不处理回车键，让输入法正常处理
                 return;
+            }
+            
+            // 检查自定义的 isComposing 状态
+            if (isComposing) {
+                return;
+            }
+            
+            // 检查是否刚刚结束组合输入（防止组合输入刚结束时误触发）
+            // 如果组合输入结束时间距离现在不到 COMPOSITION_END_DELAY 毫秒，且按的是回车键，则不处理
+            if (e.key === 'Enter' && compositionEndTime > 0) {
+                const timeSinceCompositionEnd = Date.now() - compositionEndTime;
+                if (timeSinceCompositionEnd < COMPOSITION_END_DELAY) {
+                    // 组合输入刚结束，这次回车键可能是用来确认输入法选择，不发送消息
+                    return;
+                }
             }
             
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
+                // 发送消息后重置组合输入结束时间
+                compositionEndTime = 0;
             } else if (e.key === 'Escape') {
                 e.preventDefault();
                 messageInput.value = '';

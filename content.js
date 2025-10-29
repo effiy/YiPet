@@ -1,3 +1,4 @@
+
 /**
  * Chrome扩展Content Script
  * 负责在网页中创建和管理宠物
@@ -8,7 +9,7 @@ console.log('Content Script 加载');
 // 检查PET_CONFIG是否可用
 if (typeof PET_CONFIG === 'undefined') {
     console.error('PET_CONFIG未定义，尝试重新加载config.js');
-    
+
     // 创建默认配置作为备用
     window.PET_CONFIG = {
         pet: {
@@ -43,7 +44,7 @@ if (typeof PET_CONFIG === 'undefined') {
             syncInterval: 3000
         }
     };
-    
+
     console.log('已创建默认PET_CONFIG配置');
 }
 
@@ -79,12 +80,12 @@ class PetManager {
         this.chatWindow = null;
         this.isChatOpen = false;
         this.currentModel = PET_CONFIG.chatModels.default;
-        
+
         this.colors = PET_CONFIG.pet.colors;
-        
+
         this.init();
     }
-    
+
     init() {
         console.log('初始化宠物管理器');
         this.loadState(); // 加载保存的状态
@@ -92,60 +93,60 @@ class PetManager {
         this.createPet();
         // 启动定期同步，确保状态一致性
         this.startPeriodicSync();
-        
+
         // 添加键盘快捷键支持
         this.setupKeyboardShortcuts();
     }
-    
+
     setupMessageListener() {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.log('收到消息:', request);
-            
+
             switch (request.action) {
                 case 'ping':
                     sendResponse({ success: true, message: 'pong' });
                     break;
-                    
+
                 case 'initPet':
                     this.createPet();
                     sendResponse({ success: true });
                     break;
-                    
+
                 case 'toggleVisibility':
                     this.toggleVisibility();
                     sendResponse({ success: true, visible: this.isVisible });
                     break;
-                    
+
                 case 'changeColor':
                     this.changeColor();
                     sendResponse({ success: true, color: this.colorIndex });
                     break;
-                    
+
                 case 'setColor':
                     this.setColor(request.color);
                     sendResponse({ success: true, color: this.colorIndex });
                     break;
-                    
+
                 case 'changeSize':
                     this.setSize(request.size);
                     sendResponse({ success: true, size: this.size });
                     break;
-                    
+
                 case 'resetPosition':
                     this.resetPosition();
                     sendResponse({ success: true });
                     break;
-                    
+
                 case 'centerPet':
                     this.centerPet();
                     sendResponse({ success: true });
                     break;
-                
+
                 case 'setModel':
                     this.setModel(request.model);
                     sendResponse({ success: true, model: this.currentModel });
                     break;
-                
+
                 case 'getStatus':
                     sendResponse({
                         visible: this.isVisible,
@@ -155,22 +156,22 @@ class PetManager {
                         model: this.currentModel
                     });
                     break;
-                
+
                 case 'getFullPageText':
                     const text = this.getFullPageText();
                     sendResponse({ text: text });
                     break;
-                    
+
                 case 'removePet':
                     this.removePet();
                     sendResponse({ success: true });
                     break;
-                    
+
                 case 'globalStateUpdated':
                     this.handleGlobalStateUpdate(request.data);
                     sendResponse({ success: true });
                     break;
-                    
+
                 case 'chatWithPet':
                     // 添加聊天动画效果
                     this.playChatAnimation();
@@ -185,43 +186,43 @@ class PetManager {
                         }
                     })();
                     return true; // 保持消息通道开放
-                    
+
                 default:
                     sendResponse({ success: false, error: 'Unknown action' });
             }
         });
     }
-    
+
     createPet() {
         // 防止重复创建
         if (document.getElementById('minimal-pet')) {
             console.log('宠物已存在，跳过创建');
             return;
         }
-        
+
         console.log('开始创建宠物...');
-        
+
         // 创建宠物容器
         this.pet = document.createElement('div');
         this.pet.id = 'minimal-pet';
         this.updatePetStyle();
-        
+
         // 使用 icon.png 作为宠物图标，不需要添加眼睛和嘴巴
-        
+
         // 添加到页面
         this.addPetToPage();
-        
+
         // 添加交互功能
         this.addInteractions();
-        
+
         console.log('宠物创建成功！');
     }
-    
+
     addPetToPage() {
         console.log('尝试添加宠物到页面...');
         console.log('document.body 存在:', !!document.body);
         console.log('document.readyState:', document.readyState);
-        
+
         if (document.body) {
             console.log('直接添加到 body');
             document.body.appendChild(this.pet);
@@ -241,13 +242,13 @@ class PetManager {
             });
         }
     }
-    
+
     updatePetStyle() {
         if (!this.pet) return;
-        
+
         // 获取扩展的 URL
         const iconUrl = chrome.runtime.getURL('icons/icon.png');
-        
+
         this.pet.style.cssText = `
             position: fixed !important;
             top: ${this.position.y}px !important;
@@ -265,16 +266,16 @@ class PetManager {
             background-color: transparent !important;
         `;
     }
-    
+
     addInteractions() {
         if (!this.pet) return;
-        
+
         let isDragging = false;
         let startX = 0;
         let startY = 0;
         let startLeft = 0;
         let startTop = 0;
-        
+
         this.pet.addEventListener('mousedown', (e) => {
             isDragging = true;
             startX = e.clientX;
@@ -284,7 +285,7 @@ class PetManager {
             this.pet.style.cursor = 'grabbing';
             e.preventDefault();
         });
-        
+
         document.addEventListener('mousemove', (e) => {
             if (isDragging && this.pet) {
                 const deltaX = e.clientX - startX;
@@ -295,7 +296,7 @@ class PetManager {
                 this.pet.style.top = this.position.y + 'px';
             }
         });
-        
+
         document.addEventListener('mouseup', () => {
             isDragging = false;
             if (this.pet) {
@@ -305,8 +306,8 @@ class PetManager {
                 this.syncToGlobalState();
             }
         });
-        
-        this.pet.addEventListener('click', (e) => {
+
+        this.pet.addEventListener('dblclick', (e) => {
             e.stopPropagation();
             this.pet.style.transform = 'scale(1.1)';
             setTimeout(() => {
@@ -314,25 +315,25 @@ class PetManager {
                     this.pet.style.transform = 'scale(1)';
                 }
             }, 150);
-            
+
             // 切换聊天窗口
             this.toggleChatWindow();
         });
     }
-    
+
     toggleVisibility() {
         this.isVisible = !this.isVisible;
         this.updatePetStyle();
         console.log('宠物可见性切换为:', this.isVisible);
     }
-    
+
     changeColor() {
         this.colorIndex = (this.colorIndex + 1) % this.colors.length;
         this.updatePetStyle();
         this.updateChatWindowColor();
         console.log('宠物颜色切换为:', this.colorIndex);
     }
-    
+
     setColor(colorIndex) {
         if (colorIndex >= 0 && colorIndex < this.colors.length) {
             this.colorIndex = colorIndex;
@@ -343,7 +344,7 @@ class PetManager {
             console.log('宠物颜色设置为:', this.colorIndex);
         }
     }
-    
+
     setSize(size) {
         this.size = Math.max(PET_CONFIG.pet.sizeLimits.min, Math.min(PET_CONFIG.pet.sizeLimits.max, size));
         this.updatePetStyle();
@@ -351,7 +352,7 @@ class PetManager {
         this.syncToGlobalState();
         console.log('宠物大小设置为:', this.size);
     }
-    
+
     setModel(modelId) {
         if (PET_CONFIG.chatModels.models.some(m => m.id === modelId)) {
             this.currentModel = modelId;
@@ -363,7 +364,7 @@ class PetManager {
             console.error('无效的模型ID:', modelId);
         }
     }
-    
+
     resetPosition() {
         this.position = getPetDefaultPosition();
         this.updatePetStyle();
@@ -371,7 +372,7 @@ class PetManager {
         this.syncToGlobalState();
         console.log('宠物位置已重置');
     }
-    
+
     centerPet() {
         const centerX = getCenterPosition(this.size, window.innerWidth);
         const centerY = getCenterPosition(this.size, window.innerHeight);
@@ -381,7 +382,7 @@ class PetManager {
         this.syncToGlobalState();
         console.log('宠物已居中，位置:', this.position);
     }
-    
+
     removePet() {
         if (this.pet && this.pet.parentNode) {
             this.pet.parentNode.removeChild(this.pet);
@@ -389,7 +390,7 @@ class PetManager {
             console.log('宠物已移除');
         }
     }
-    
+
     saveState() {
         try {
             const state = {
@@ -400,19 +401,19 @@ class PetManager {
                 model: this.currentModel,
                 timestamp: Date.now()
             };
-            
+
             // 使用Chrome存储API保存全局状态
             chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
                 console.log('宠物全局状态已保存:', state);
             });
-            
+
             // 同时保存到localStorage作为备用
             localStorage.setItem('petState', JSON.stringify(state));
         } catch (error) {
             console.log('保存状态失败:', error);
         }
     }
-    
+
     // 同步当前状态到全局状态
     syncToGlobalState() {
         try {
@@ -424,7 +425,7 @@ class PetManager {
                 model: this.currentModel,
                 timestamp: Date.now()
             };
-            
+
             chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
                 console.log('状态已同步到全局:', state);
             });
@@ -432,7 +433,7 @@ class PetManager {
             console.log('同步到全局状态失败:', error);
         }
     }
-    
+
     loadState() {
         try {
             // 首先尝试从Chrome存储API加载全局状态
@@ -441,7 +442,7 @@ class PetManager {
                     const state = result[PET_CONFIG.storage.keys.globalState];
                     this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
                     this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
-                    
+
                     // 检查并迁移旧的大小值（从 60 升级到 180）
                     if (state.size && state.size < 100) {
                         // 旧版本的大小范围是 40-120，小于 100 的可能是旧版本
@@ -454,12 +455,12 @@ class PetManager {
                     } else {
                         this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
                     }
-                    
+
                     this.currentModel = state.model !== undefined ? state.model : PET_CONFIG.chatModels.default;
                     // 位置也使用全局状态，但会进行边界检查
                     this.position = this.validatePosition(state.position || getPetDefaultPosition());
                     console.log('宠物全局状态已恢复:', state);
-                    
+
                     // 更新宠物样式
                     this.updatePetStyle();
                 } else {
@@ -467,7 +468,7 @@ class PetManager {
                     this.loadStateFromLocalStorage();
                 }
             });
-            
+
             // 监听存储变化，实现跨页面同步
             chrome.storage.onChanged.addListener((changes, namespace) => {
                 if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.globalState]) {
@@ -475,7 +476,7 @@ class PetManager {
                     if (newState) {
                         this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
                         this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
-                        
+
                         // 检查并迁移旧的大小值
                         if (newState.size && newState.size < 100) {
                             // 旧版本的大小值，使用新默认值
@@ -483,7 +484,7 @@ class PetManager {
                         } else {
                             this.size = newState.size !== undefined ? newState.size : this.size;
                         }
-                        
+
                         this.currentModel = newState.model !== undefined ? newState.model : this.currentModel;
                         // 位置也进行跨页面同步，但会进行边界检查
                         if (newState.position) {
@@ -495,14 +496,14 @@ class PetManager {
                     }
                 }
             });
-            
+
             return true;
         } catch (error) {
             console.log('恢复状态失败:', error);
             return this.loadStateFromLocalStorage();
         }
     }
-    
+
     loadStateFromLocalStorage() {
         try {
             const savedState = localStorage.getItem('petState');
@@ -510,14 +511,14 @@ class PetManager {
                 const state = JSON.parse(savedState);
                 this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
                 this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
-                
+
                 // 检查并迁移旧的大小值
                 if (state.size && state.size < 100) {
                     this.size = PET_CONFIG.pet.defaultSize;
                 } else {
                     this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
                 }
-                
+
                 this.position = state.position || getPetDefaultPosition();
                 console.log('宠物本地状态已恢复:', state);
                 return true;
@@ -527,52 +528,52 @@ class PetManager {
         }
         return false;
     }
-    
+
     handleGlobalStateUpdate(newState) {
         if (newState) {
             // 更新全局状态（颜色、大小、可见性、位置）
             this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
             this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
-            
+
             // 检查并迁移旧的大小值
             if (newState.size && newState.size < 100) {
                 this.size = PET_CONFIG.pet.defaultSize;
             } else {
                 this.size = newState.size !== undefined ? newState.size : this.size;
             }
-            
+
             // 位置也进行跨页面同步，但会进行边界检查
             if (newState.position) {
                 this.position = this.validatePosition(newState.position);
             }
-            
+
             console.log('处理全局状态更新:', newState);
             this.updatePetStyle();
         }
     }
-    
+
     // 验证位置是否在当前窗口范围内
     validatePosition(position) {
         if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
             return getPetDefaultPosition();
         }
-        
+
         const maxX = Math.max(0, window.innerWidth - this.size);
         const maxY = Math.max(0, window.innerHeight - this.size);
-        
+
         return {
             x: Math.max(0, Math.min(maxX, position.x)),
             y: Math.max(0, Math.min(maxY, position.y))
         };
     }
-    
+
     // 启动定期同步
     startPeriodicSync() {
         // 定期同步状态，确保跨页面一致性
         this.syncInterval = setInterval(() => {
             this.syncToGlobalState();
         }, PET_CONFIG.storage.syncInterval);
-        
+
         // 监听窗口大小变化，重新验证位置
         window.addEventListener('resize', () => {
             this.position = this.validatePosition(this.position);
@@ -580,7 +581,7 @@ class PetManager {
             this.syncToGlobalState();
         });
     }
-    
+
     // 停止定期同步
     stopPeriodicSync() {
         if (this.syncInterval) {
@@ -588,7 +589,7 @@ class PetManager {
             this.syncInterval = null;
         }
     }
-    
+
     // 设置键盘快捷键
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
@@ -597,19 +598,19 @@ class PetManager {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('检测到截图快捷键 F7');
-                
+
                 // 直接进行截图，不需要打开聊天窗口
                 this.takeScreenshot();
 
                 return false;
             }
-            
+
             // 检查是否按下了 F8 (打开聊天窗口快捷键)
             if (e.key === 'F8') {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('检测到聊天快捷键 F8');
-                
+
                 if (this.isChatOpen) {
                     this.closeChatWindow();
                 } else {
@@ -617,7 +618,7 @@ class PetManager {
                 }
                 return false;
             }
-            
+
             // 检查是否按下了 Esc (关闭聊天窗口)
             if (e.key === 'Escape' && this.isChatOpen) {
                 e.preventDefault();
@@ -626,45 +627,45 @@ class PetManager {
                 return false;
             }
         }, true); // 使用捕获阶段，确保在其他处理之前执行
-        
+
         console.log('键盘快捷键已设置：');
         console.log('  - F7：截图');
         console.log('  - F8：切换聊天窗口');
         console.log('  - Esc：关闭聊天窗口');
     }
-    
+
     // 清理资源
     cleanup() {
         console.log('清理宠物管理器资源...');
-        
+
         // 停止定期同步
         this.stopPeriodicSync();
-        
+
         // 移除宠物
         this.removePet();
-        
+
         // 关闭聊天窗口
         if (this.chatWindow) {
             this.closeChatWindow();
         }
-        
+
         // 清理截图预览
         this.closeScreenshotPreview();
-        
+
         console.log('资源清理完成');
     }
-    
+
     // 计算两个文本的相似度（简化版）
     calculateSimilarity(text1, text2) {
         if (text1 === text2) return 1.0;
         if (text1.length === 0 || text2.length === 0) return 0;
-        
+
         // 使用简单的字符匹配度
         const longer = text1.length > text2.length ? text1 : text2;
         const shorter = text1.length > text2.length ? text2 : text1;
-        
+
         if (longer.length === 0) return 1.0;
-        
+
         // 计算相同字符的数量
         let matches = 0;
         for (let i = 0; i < shorter.length; i++) {
@@ -672,16 +673,16 @@ class PetManager {
                 matches++;
             }
         }
-        
+
         return matches / longer.length;
     }
-    
+
     // 获取页面的完整正文内容
     getFullPageText() {
         try {
             // 定义需要排除的选择器
             const excludeSelectors = [
-                'script', 'style', 'nav', 'header', 'footer', 'aside', 
+                'script', 'style', 'nav', 'header', 'footer', 'aside',
                 'noscript', 'iframe', 'embed', 'svg', 'canvas',
                 '.ad', '.advertisement', '.ads', '.advertisement-container',
                 '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
@@ -691,11 +692,11 @@ class PetManager {
                 '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
                 'iframe', 'embed', 'object', 'form', 'button', 'input'
             ];
-            
+
             // 定义主要正文内容选择器，按优先级顺序
             const contentSelectors = [
                 'main',
-                'article', 
+                'article',
                 '[role="main"]',
                 '.content', '.main-content', '.page-content',
                 '.post-content', '.entry-content', '.article-content',
@@ -705,7 +706,7 @@ class PetManager {
                 '.content-area', '.content-wrapper',
                 '.text-wrapper', '.text-container'
             ];
-            
+
             // 尝试从主要内容区域获取
             let mainContent = null;
             let foundSelector = '';
@@ -717,12 +718,12 @@ class PetManager {
                     break;
                 }
             }
-            
+
             // 如果找到了主要内容区域
             if (mainContent) {
                 // 克隆内容以避免修改原始DOM
                 const cloned = mainContent.cloneNode(true);
-                
+
                 // 移除不需要的元素
                 excludeSelectors.forEach(sel => {
                     try {
@@ -732,49 +733,49 @@ class PetManager {
                         // 忽略无效的选择器
                     }
                 });
-                
+
                 const textContent = cloned.textContent || cloned.innerText || '';
                 const trimmedText = textContent.trim();
-                
+
                 // 如果内容足够长，返回
                 if (trimmedText.length > 100) {
                     return trimmedText;
                 }
             }
-            
+
             // 如果没有足够的内容，获取页面中所有的文本段落
             const textElements = Array.from(document.querySelectorAll(
                 'p, div, section, article, main, li, blockquote, ' +
                 'h1, h2, h3, h4, h5, h6, span, pre, code, td, th, dd, dt, ' +
                 'label, legend, caption, summary, details, address, time'
             ));
-            
+
             const allTexts = textElements
                 .map(el => (el.textContent || el.innerText || '').trim())
                 .filter(text => {
                     // 进一步放宽文本长度要求：只要超过3个字符就保留
                     if (text.length < 3) return false;
-                    
+
                     // 只过滤明显的垃圾内容
                     const lowerText = text.toLowerCase();
-                    
+
                     // 只过滤最明显、最简短的无意义文本
-                    if (text.length <= 5 && 
+                    if (text.length <= 5 &&
                         (lowerText === '更多' || lowerText === 'more' || lowerText === '点击')) {
                         return false;
                     }
-                    
+
                     return true;
                 });
-            
+
             // 去重并合并文本（使用更宽松的去重策略）
             const uniqueTexts = [];
             const seenTexts = new Set();
-            
+
             for (const text of allTexts) {
                 // 检查是否是确切的重复
                 let isExactDuplicate = seenTexts.has(text);
-                
+
                 if (!isExactDuplicate) {
                     // 更宽松的去重：只在文本非常相似时视为重复
                     let isSimilar = false;
@@ -789,23 +790,23 @@ class PetManager {
                             }
                         }
                     }
-                    
+
                     if (!isSimilar) {
                         seenTexts.add(text);
                         uniqueTexts.push(text);
                     }
                 }
             }
-            
+
             if (uniqueTexts.length > 0) {
                 return uniqueTexts.join('\n\n').trim();
             }
-            
+
             // 最后尝试从整个body获取
             const body = document.body;
             if (body) {
                 const clonedBody = body.cloneNode(true);
-                
+
                 // 移除不需要的元素
                 excludeSelectors.forEach(sel => {
                     try {
@@ -815,18 +816,18 @@ class PetManager {
                         // 忽略无效的选择器
                     }
                 });
-                
+
                 const textContent = clonedBody.textContent || clonedBody.innerText || '';
                 return textContent.trim();
             }
-            
+
             return '';
         } catch (error) {
             console.error('获取页面内容时出错:', error);
             return '';
         }
     }
-    
+
     // 获取页面内容并转换为 Markdown
     getPageContentAsMarkdown() {
         try {
@@ -835,10 +836,10 @@ class PetManager {
                 console.warn('Turndown 未加载，返回纯文本内容');
                 return this.getFullPageText();
             }
-            
+
             // 定义需要排除的选择器
             const excludeSelectors = [
-                'script', 'style', 'nav', 'header', 'footer', 'aside', 
+                'script', 'style', 'nav', 'header', 'footer', 'aside',
                 'noscript', 'iframe', 'embed', 'svg', 'canvas',
                 '.ad', '.advertisement', '.ads', '.advertisement-container',
                 '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
@@ -848,11 +849,11 @@ class PetManager {
                 '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
                 'iframe', 'embed', 'object', 'form', 'button', 'input'
             ];
-            
+
             // 定义主要正文内容选择器
             const contentSelectors = [
                 'main',
-                'article', 
+                'article',
                 '[role="main"]',
                 '.content', '.main-content', '.page-content',
                 '.post-content', '.entry-content', '.article-content',
@@ -862,22 +863,22 @@ class PetManager {
                 '.content-area', '.content-wrapper',
                 '.text-wrapper', '.text-container'
             ];
-            
+
             // 尝试从主要内容区域获取
             let mainContent = null;
             for (const selector of contentSelectors) {
                 mainContent = document.querySelector(selector);
                 if (mainContent) break;
             }
-            
+
             // 如果没有找到主要内容区域，使用body
             if (!mainContent) {
                 mainContent = document.body;
             }
-            
+
             // 克隆内容
             const cloned = mainContent.cloneNode(true);
-            
+
             // 移除不需要的元素
             excludeSelectors.forEach(sel => {
                 try {
@@ -885,7 +886,7 @@ class PetManager {
                     elements.forEach(el => el.remove());
                 } catch (e) {}
             });
-            
+
             // 使用 Turndown 转换
             const turndownService = new TurndownService({
                 headingStyle: 'atx',
@@ -897,15 +898,15 @@ class PetManager {
                 linkStyle: 'inlined',
                 linkReferenceStyle: 'collapsed'
             });
-            
+
             const markdown = turndownService.turndown(cloned);
-            
+
             // 如果 Markdown 内容太短或为空，返回纯文本
             if (!markdown || markdown.trim().length < 100) {
                 const textContent = cloned.textContent || cloned.innerText || '';
                 return textContent.trim();
             }
-            
+
             return markdown.trim();
         } catch (error) {
             console.error('转换为 Markdown 时出错:', error);
@@ -913,21 +914,21 @@ class PetManager {
             return this.getFullPageText();
         }
     }
-    
+
     // 获取页面信息的辅助方法
     getPageInfo() {
         const pageTitle = document.title || '当前页面';
         const pageUrl = window.location.href;
         const metaDescription = document.querySelector('meta[name="description"]');
         const pageDescription = metaDescription ? metaDescription.content : '';
-        
+
         // 获取页面内容并转换为 Markdown
         let pageContent = this.getPageContentAsMarkdown();
         // 限制长度以免过长
         if (pageContent.length > 102400) {
             pageContent = pageContent.substring(0, 102400);
         }
-        
+
         return {
             title: pageTitle,
             url: pageUrl,
@@ -935,36 +936,36 @@ class PetManager {
             content: pageContent
         };
     }
-    
+
     // 通用的流式响应处理方法
     async processStreamingResponse(response, onContent) {
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
-        
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
         let fullContent = '';
-        
+
         while (true) {
             const { done, value } = await reader.read();
-            
+
             if (done) {
                 break;
             }
-            
+
             buffer += decoder.decode(value, { stream: true });
-            
+
             const messages = buffer.split('\n\n');
             buffer = messages.pop() || '';
-            
+
             for (const message of messages) {
                 if (message.startsWith('data: ')) {
                     try {
                         const dataStr = message.substring(6);
                         const chunk = JSON.parse(dataStr);
-                        
+
                         // 支持 Ollama 格式: chunk.message.content
                         if (chunk.message && chunk.message.content) {
                             fullContent += chunk.message.content;
@@ -994,7 +995,7 @@ class PetManager {
                 }
             }
         }
-        
+
         // 处理最后的缓冲区消息
         if (buffer.trim()) {
             const message = buffer.trim();
@@ -1011,21 +1012,21 @@ class PetManager {
                 }
             }
         }
-        
+
         return fullContent;
     }
-    
+
     // 根据当前网页信息生成摘要信息（流式版本）
     async generateWelcomeMessageStream(onContent) {
         try {
             // 获取页面信息
             const pageInfo = this.getPageInfo();
-            
+
             // 从角色管理器获取提示词
             const prompts = getPromptForRole('summary', pageInfo);
-            
+
             console.log('调用大模型生成摘要信息，页面标题:', pageInfo.title);
-            
+
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -1039,7 +1040,7 @@ class PetManager {
                     model: this.currentModel
                 })
             });
-            
+
             // 使用通用的流式响应处理
             return await this.processStreamingResponse(response, onContent);
         } catch (error) {
@@ -1047,18 +1048,18 @@ class PetManager {
             throw error;
         }
     }
-    
+
     // 根据当前网页信息生成思维导图（流式版本）
     async generateMindmapStream(onContent) {
         try {
             // 获取页面信息
             const pageInfo = this.getPageInfo();
-            
+
             // 从角色管理器获取提示词
             const prompts = getPromptForRole('mindmap', pageInfo);
-            
+
             console.log('调用大模型生成思维导图，页面标题:', pageInfo.title);
-            
+
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -1072,7 +1073,7 @@ class PetManager {
                     model: this.currentModel
                 })
             });
-            
+
             // 使用通用的流式响应处理
             return await this.processStreamingResponse(response, onContent);
         } catch (error) {
@@ -1080,7 +1081,7 @@ class PetManager {
             throw error;
         }
     }
-    
+
     // 根据指定内容生成闪卡（流式版本）
     async generateFlashcardFromContent(content, onContent) {
         try {
@@ -1088,7 +1089,7 @@ class PetManager {
             if (content && content.length > 20480) {
                 content = content.substring(0, 20480);
             }
-            
+
             // 构建提示词，让大模型根据指定内容生成闪卡
             const flashcardSystemPrompt = `你是一个专业的闪卡制作专家。根据用户提供的内容，生成一套适合记忆的闪卡集合。要求：
 1. 使用 HTML 标签来构建闪卡样式：
@@ -1124,9 +1125,9 @@ class PetManager {
 ${content ? content : '无内容'}
 
 请从以上内容中提取关键知识点，制作成问答形式的闪卡，使用醒目的样式和丰富的表情符号。`;
-            
+
             console.log('调用大模型生成闪卡，内容长度:', content ? content.length : 0);
-            
+
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -1140,35 +1141,35 @@ ${content ? content : '无内容'}
                     model: this.currentModel
                 })
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             // 读取流式响应
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
-            
+
             while (true) {
                 const { done, value } = await reader.read();
-                
+
                 if (done) {
                     break;
                 }
-                
+
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 const messages = buffer.split('\n\n');
                 buffer = messages.pop() || '';
-                
+
                 for (const message of messages) {
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
-                            
+
                             // 支持 Ollama 格式: chunk.message.content
                             if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
@@ -1198,7 +1199,7 @@ ${content ? content : '无内容'}
                     }
                 }
             }
-            
+
             // 处理最后的缓冲区消息
             if (buffer.trim()) {
                 const message = buffer.trim();
@@ -1215,32 +1216,32 @@ ${content ? content : '无内容'}
                     }
                 }
             }
-            
+
             return fullContent;
         } catch (error) {
             console.error('生成闪卡失败:', error);
             throw error;
         }
     }
-    
+
     // 根据当前网页信息生成闪卡（流式版本）
     async generateFlashcardStream(onContent) {
         try {
             // 获取当前网页信息
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
-            
+
             // 尝试获取页面描述
             const metaDescription = document.querySelector('meta[name="description"]');
             const pageDescription = metaDescription ? metaDescription.content : '';
-            
+
             // 获取页面内容并转换为 Markdown
             let pageContent = this.getPageContentAsMarkdown();
             // 限制长度以免过长
             if (pageContent.length > 102400) {
                 pageContent = pageContent.substring(0, 102400);
             }
-            
+
             // 构建提示词，让大模型根据网页信息生成闪卡
             const flashcardSystemPrompt = `你是一个专业的闪卡制作专家。根据用户当前浏览的网页信息，生成一套适合记忆的闪卡集合。要求：
 1. 使用 HTML 标签来构建闪卡样式：
@@ -1280,9 +1281,9 @@ ${content ? content : '无内容'}
 ${pageContent ? pageContent : '无内容'}
 
 请生成一套适合记忆的闪卡集合，从页面中提取关键知识点，制作成问答形式的闪卡，使用醒目的样式和丰富的表情符号。`;
-            
+
             console.log('调用大模型生成闪卡，页面标题:', pageTitle);
-            
+
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -1296,35 +1297,35 @@ ${pageContent ? pageContent : '无内容'}
                     model: this.currentModel
                 })
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             // 读取流式响应
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
-            
+
             while (true) {
                 const { done, value } = await reader.read();
-                
+
                 if (done) {
                     break;
                 }
-                
+
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 const messages = buffer.split('\n\n');
                 buffer = messages.pop() || '';
-                
+
                 for (const message of messages) {
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
-                            
+
                             // 支持 Ollama 格式: chunk.message.content
                             if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
@@ -1354,7 +1355,7 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             // 处理最后的缓冲区消息
             if (buffer.trim()) {
                 const message = buffer.trim();
@@ -1371,32 +1372,32 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             return fullContent;
         } catch (error) {
             console.error('生成闪卡失败:', error);
             throw error;
         }
     }
-    
+
     // 根据当前网页信息生成专项报告（流式版本）
     async generateReportStream(onContent) {
         try {
             // 获取当前网页信息
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
-            
+
             // 尝试获取页面描述
             const metaDescription = document.querySelector('meta[name="description"]');
             const pageDescription = metaDescription ? metaDescription.content : '';
-            
+
             // 获取页面内容并转换为 Markdown
             let pageContent = this.getPageContentAsMarkdown();
             // 限制长度以免过长
             if (pageContent.length > 102400) {
                 pageContent = pageContent.substring(0, 102400);
             }
-            
+
             // 构建提示词，让大模型根据网页信息生成专项报告
             const reportSystemPrompt = `你是一个专业的内容分析专家。根据用户当前浏览的网页信息，生成一份详细的专项分析报告。要求：
 1. 使用 HTML 标签来构建报告结构：
@@ -1434,9 +1435,9 @@ ${pageContent ? pageContent : '无内容'}
 ${pageContent ? pageContent : '无内容'}
 
 请生成一份详细的专项分析报告，深入挖掘页面内容的核心价值，使用醒目的样式和丰富的表情符号。`;
-            
+
             console.log('调用大模型生成专项报告，页面标题:', pageTitle);
-            
+
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -1450,35 +1451,35 @@ ${pageContent ? pageContent : '无内容'}
                     model: this.currentModel
                 })
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             // 读取流式响应
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
-            
+
             while (true) {
                 const { done, value } = await reader.read();
-                
+
                 if (done) {
                     break;
                 }
-                
+
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 const messages = buffer.split('\n\n');
                 buffer = messages.pop() || '';
-                
+
                 for (const message of messages) {
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
-                            
+
                             // 支持 Ollama 格式: chunk.message.content
                             if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
@@ -1508,7 +1509,7 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             // 处理最后的缓冲区消息
             if (buffer.trim()) {
                 const message = buffer.trim();
@@ -1525,32 +1526,32 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             return fullContent;
         } catch (error) {
             console.error('生成专项报告失败:', error);
             throw error;
         }
     }
-    
+
     // 根据当前网页信息生成最佳实践（流式版本）
     async generateBestPracticeStream(onContent) {
         try {
             // 获取当前网页信息
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
-            
+
             // 尝试获取页面描述
             const metaDescription = document.querySelector('meta[name="description"]');
             const pageDescription = metaDescription ? metaDescription.content : '';
-            
+
             // 获取页面内容并转换为 Markdown
             let pageContent = this.getPageContentAsMarkdown();
             // 限制长度以免过长
             if (pageContent.length > 102400) {
                 pageContent = pageContent.substring(0, 102400);
             }
-            
+
             // 构建提示词，让大模型根据网页信息生成最佳实践
             const bestPracticeSystemPrompt = `你是一个专业的实践指导专家。根据用户当前浏览的网页信息，生成一套实用的最佳实践指南。要求：
 1. 使用 HTML 标签来构建实践指南结构：
@@ -1588,9 +1589,9 @@ ${pageContent ? pageContent : '无内容'}
 ${pageContent ? pageContent : '无内容'}
 
 请生成一套实用的最佳实践指南，从页面中提取可操作的实践方法，使用醒目的样式和丰富的表情符号。`;
-            
+
             console.log('调用大模型生成最佳实践，页面标题:', pageTitle);
-            
+
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -1604,35 +1605,35 @@ ${pageContent ? pageContent : '无内容'}
                     model: this.currentModel
                 })
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             // 读取流式响应
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
-            
+
             while (true) {
                 const { done, value } = await reader.read();
-                
+
                 if (done) {
                     break;
                 }
-                
+
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 const messages = buffer.split('\n\n');
                 buffer = messages.pop() || '';
-                
+
                 for (const message of messages) {
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
-                            
+
                             // 支持 Ollama 格式: chunk.message.content
                             if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
@@ -1662,7 +1663,7 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             // 处理最后的缓冲区消息
             if (buffer.trim()) {
                 const message = buffer.trim();
@@ -1679,36 +1680,36 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             return fullContent;
         } catch (error) {
             console.error('生成最佳实践失败:', error);
             throw error;
         }
     }
-    
+
     // 根据当前网页信息生成摘要信息（非流式版本，兼容旧代码）
     async generateWelcomeMessage() {
         try {
             // 获取当前网页信息
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
-            
+
             // 尝试获取页面描述
             const metaDescription = document.querySelector('meta[name="description"]');
             const pageDescription = metaDescription ? metaDescription.content : '';
-            
+
             // 获取页面内容并转换为 Markdown
             let pageContent = this.getPageContentAsMarkdown();
             // 限制长度以免过长
             if (pageContent.length > 102400) {
                 pageContent = pageContent.substring(0, 102400);
             }
-            
+
             // 构建提示词，让大模型根据网页信息生成摘要信息
             const summarySystemPrompt = `你是一个专业的内容分析师。根据用户当前浏览的网页信息，生成一篇简洁、结构化的摘要信息。要求：
 1. 使用 HTML 标签来突出重点内容：
-   - 标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">标题内容 🔖</h2> 
+   - 标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">标题内容 🔖</h2>
    - 关键信息：使用 <span style="color: #4ECDC4; font-weight: bold;">关键信息 ✨</span>
    - 重要数据：使用 <span style="color: #FFD93D; font-weight: bold;">数据内容 📊</span>
    - 注意事项：使用 <span style="color: #FF9800; font-weight: bold;">注意内容 ⚠️</span>
@@ -1739,9 +1740,9 @@ ${pageContent ? pageContent : '无内容'}
 ${pageContent ? pageContent : '无内容'}
 
 请生成一份结构化的摘要信息，使用醒目的颜色标签和丰富的表情符号。`;
-            
+
             console.log('调用大模型生成摘要信息，页面标题:', pageTitle);
-            
+
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -1755,35 +1756,35 @@ ${pageContent ? pageContent : '无内容'}
                     model: this.currentModel
                 })
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             // 读取流式响应
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
-            
+
             while (true) {
                 const { done, value } = await reader.read();
-                
+
                 if (done) {
                     break;
                 }
-                
+
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 const messages = buffer.split('\n\n');
                 buffer = messages.pop() || '';
-                
+
                 for (const message of messages) {
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
-                            
+
                             // 支持 Ollama 格式: chunk.message.content
                             if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
@@ -1807,7 +1808,7 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             if (fullContent && fullContent.trim()) {
                 console.log('大模型生成的摘要信息:', fullContent);
                 return fullContent.trim();
@@ -1815,7 +1816,7 @@ ${pageContent ? pageContent : '无内容'}
                 // 如果API调用失败，使用备用消息
                 return `你好！我注意到你正在浏览"${pageTitle}"，有什么想和我聊的吗？🐾`;
             }
-            
+
         } catch (error) {
             console.log('生成摘要信息失败:', error);
             // 使用备用消息
@@ -1827,26 +1828,26 @@ ${pageContent ? pageContent : '无内容'}
             return fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
         }
     }
-    
+
     // 生成宠物响应（流式版本）
     async generatePetResponseStream(message, onContent) {
         try {
             // 获取页面完整正文内容并转换为 Markdown
             const fullPageMarkdown = this.getPageContentAsMarkdown();
-            
+
             // 构建包含页面内容的完整消息
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
-            
+
             // 如果页面内容不为空，将其添加到 fromUser
             let userMessage = message;
             if (fullPageMarkdown) {
                 userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面链接：${pageUrl}\n\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
             }
-            
+
             // 调用 API，使用配置中的 URL
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
-            
+
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -1858,38 +1859,38 @@ ${pageContent ? pageContent : '无内容'}
                     model: this.currentModel
                 })
             });
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
-            
+
             // 读取流式响应
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
-            
+
             while (true) {
                 const { done, value } = await reader.read();
-                
+
                 if (done) {
                     break;
                 }
-                
+
                 // 解码数据并添加到缓冲区
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 // 处理完整的 SSE 消息
                 const messages = buffer.split('\n\n');
                 buffer = messages.pop() || '';
-                
+
                 for (const message of messages) {
                     if (message.startsWith('data: ')) {
                         try {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
-                            
+
                             // 支持 Ollama 格式: chunk.message.content
                             if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
@@ -1919,7 +1920,7 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             // 处理最后的缓冲区消息
             if (buffer.trim()) {
                 const message = buffer.trim();
@@ -1936,30 +1937,30 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             return fullContent;
         } catch (error) {
             console.error('API 调用失败:', error);
             throw error;
         }
     }
-    
+
     // 生成宠物响应（兼容旧版本）
     async generatePetResponse(message) {
         try {
             // 获取页面完整正文内容并转换为 Markdown
             const fullPageMarkdown = this.getPageContentAsMarkdown();
-            
+
             // 构建包含页面内容的完整消息
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
-            
+
             // 如果页面内容不为空，将其添加到 fromUser
             let userMessage = message;
             if (fullPageMarkdown) {
                 userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面链接：${pageUrl}\n\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
             }
-            
+
             // 调用 API，使用配置中的 URL
             const response = await fetch(PET_CONFIG.api.promptUrl, {
                 method: 'POST',
@@ -1971,13 +1972,13 @@ ${pageContent ? pageContent : '无内容'}
                     fromUser: userMessage
                 })
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const result = await response.json();
-            
+
             // 适配新的响应格式: {status, msg, data, pagination}
             if (result.status === 200 && result.data) {
                 // 成功响应，提取 data 字段
@@ -2004,12 +2005,12 @@ ${pageContent ? pageContent : '无内容'}
             return '抱歉，我现在无法连接到服务器。请稍后再试。😔';
         }
     }
-    
+
     // 获取随机响应
     getRandomResponse(responses) {
         return responses[Math.floor(Math.random() * responses.length)];
     }
-    
+
     // 切换聊天窗口
     toggleChatWindow() {
         if (this.isChatOpen) {
@@ -2018,28 +2019,28 @@ ${pageContent ? pageContent : '无内容'}
             this.openChatWindow();
         }
     }
-    
+
     // 打开聊天窗口
     openChatWindow() {
         if (this.chatWindow) {
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
-            
+
             // 重新初始化滚动功能
             this.initializeChatScroll();
-            
+
             // 更新模型选择器显示
             this.updateChatModelSelector();
-            
+
             // 更新聊天窗口颜色
             this.updateChatWindowColor();
             return;
         }
-        
+
         // 初始化聊天窗口状态（先设置默认值）
         const defaultSize = PET_CONFIG.chatWindow.defaultSize;
         const defaultPosition = getChatWindowDefaultPosition(defaultSize.width, defaultSize.height);
-        
+
         this.chatWindowState = {
             x: defaultPosition.x,
             y: defaultPosition.y,
@@ -2051,7 +2052,7 @@ ${pageContent ? pageContent : '无内容'}
             dragStart: { x: 0, y: 0 },
             resizeStart: { x: 0, y: 0, width: 0, height: 0 }
         };
-        
+
         // 尝试加载保存的聊天窗口状态（会覆盖默认值）
         // 加载完成后创建窗口
         this.loadChatWindowState((success) => {
@@ -2060,12 +2061,12 @@ ${pageContent ? pageContent : '无内容'}
             } else {
                 console.log('使用默认聊天窗口状态，创建窗口');
             }
-            
+
             this.createChatWindow();
             this.isChatOpen = true;
         });
     }
-    
+
     // 关闭聊天窗口
     closeChatWindow() {
         if (this.chatWindow) {
@@ -2073,51 +2074,51 @@ ${pageContent ? pageContent : '无内容'}
             this.isChatOpen = false;
         }
     }
-    
+
     // 初始化聊天滚动功能
     initializeChatScroll() {
         if (!this.chatWindow) return;
-        
+
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
         if (messagesContainer) {
             // 确保滚动功能正常
             messagesContainer.style.overflowY = 'auto';
-            
+
             // 滚动到底部显示最新消息
             setTimeout(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }, 100);
-            
+
             // 强制重新计算布局
             messagesContainer.style.height = 'auto';
             messagesContainer.offsetHeight; // 触发重排
-            
+
             // 添加滚动事件监听器，确保滚动功能正常
             messagesContainer.addEventListener('scroll', () => {
                 // 可以在这里添加滚动相关的逻辑
             });
         }
     }
-    
+
     // 更新聊天窗口中的模型选择器显示
     updateChatModelSelector() {
         if (!this.chatWindow) return;
-        
+
         const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
         if (modelSelector) {
             modelSelector.value = this.currentModel;
         }
     }
-    
+
     // 创建聊天窗口
     createChatWindow() {
         // 注意：chatWindowState 已在 openChatWindow() 中初始化
-        
+
         // 创建聊天窗口容器
         this.chatWindow = document.createElement('div');
         this.chatWindow.id = 'pet-chat-window';
         this.updateChatWindowStyle();
-        
+
         // 根据宠物颜色获取当前主题色调
         const currentColor = this.colors[this.colorIndex];
         // 提取主色调作为边框颜色
@@ -2126,7 +2127,7 @@ ${pageContent ? pageContent : '无内容'}
             return match ? match[0] : '#3b82f6';
         };
         const mainColor = getMainColor(currentColor);
-        
+
         // 创建聊天头部（拖拽区域）- 使用宠物颜色主题
         const chatHeader = document.createElement('div');
         chatHeader.className = 'chat-header';
@@ -2142,10 +2143,10 @@ ${pageContent ? pageContent : '无内容'}
             border-radius: 16px 16px 0 0 !important;
             transition: background 0.2s ease !important;
         `;
-        
+
         // 添加拖拽提示
         chatHeader.title = '拖拽移动窗口';
-        
+
         const headerTitle = document.createElement('div');
         headerTitle.style.cssText = `
             display: flex !important;
@@ -2156,7 +2157,7 @@ ${pageContent ? pageContent : '无内容'}
             <span style="font-size: 20px;">💕</span>
             <span style="font-weight: 600; font-size: 16px;">与我聊天</span>
         `;
-        
+
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = '✕';
         closeBtn.style.cssText = `
@@ -2181,10 +2182,10 @@ ${pageContent ? pageContent : '无内容'}
         closeBtn.addEventListener('mouseleave', () => {
             closeBtn.style.background = 'none';
         });
-        
+
         chatHeader.appendChild(headerTitle);
         chatHeader.appendChild(closeBtn);
-        
+
         // 创建消息区域
         const messagesContainer = document.createElement('div');
         messagesContainer.id = 'pet-chat-messages';
@@ -2197,7 +2198,7 @@ ${pageContent ? pageContent : '无内容'}
             position: relative !important;
             min-height: 200px !important;
         `;
-        
+
         // 动态更新底部padding，确保内容不被输入框遮住
         const updatePaddingBottom = () => {
             if (!this.chatWindow) return;
@@ -2209,13 +2210,13 @@ ${pageContent ? pageContent : '无内容'}
                 messagesContainer.style.paddingBottom = (inputHeight + 20) + 'px';
             }
         };
-        
+
         // 获取页面基本信息
         const pageTitle = document.title || '当前页面';
         const pageUrl = window.location.href;
         const metaDescription = document.querySelector('meta[name="description"]');
         const pageDescription = metaDescription ? metaDescription.content : '';
-        
+
         // 获取页面图标
         const getPageIcon = () => {
             let iconUrl = '';
@@ -2235,28 +2236,28 @@ ${pageContent ? pageContent : '无内容'}
             return iconUrl;
         };
         const pageIconUrl = getPageIcon();
-        
+
         // 构建页面信息显示内容
         let pageInfoHtml = `<div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;"><img src="${pageIconUrl}" alt="页面图标" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;" onerror="this.style.display='none'">${pageTitle}</div>`;
-        
+
         pageInfoHtml += `<h3 style="color: #4ECDC4; font-weight: bold; margin: 10px 0;">🔗 网址</h3>`;
         pageInfoHtml += `<div style="margin-bottom: 15px; word-break: break-all; color: #2196F3; text-decoration: underline;">${pageUrl}</div>`;
-        
+
         if (pageDescription) {
             pageInfoHtml += `<h3 style="color: #FFD93D; font-weight: bold; margin: 10px 0;">📝 页面描述</h3>`;
             pageInfoHtml += `<div style="margin-bottom: 15px;">${pageDescription}</div>`;
         }
-        
+
         // 创建页面信息容器
         const welcomeMessage = this.createMessageElement('', 'pet');
         messagesContainer.appendChild(welcomeMessage);
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
-        
+
         // 设置页面基本信息
         if (messageText) {
             messageText.innerHTML = pageInfoHtml;
         }
-        
+
         // 创建生成摘要图标
         const generateSummaryIcon = document.createElement('span');
         generateSummaryIcon.innerHTML = '≈';
@@ -2360,13 +2361,13 @@ ${pageContent ? pageContent : '无内容'}
             height: 24px !important;
             margin-left: 8px !important;
         `;
-        
+
         let isProcessing = false;
         let isMindmapProcessing = false;
         let isFlashcardProcessing = false;
         let isReportProcessing = false;
         let isBestPracticeProcessing = false;
-        
+
         generateSummaryIcon.addEventListener('mouseenter', function() {
             if (!isProcessing) {
                 this.style.fontSize = '20px';
@@ -2374,7 +2375,7 @@ ${pageContent ? pageContent : '无内容'}
                 this.style.transform = 'scale(1.1)';
             }
         });
-        
+
         generateSummaryIcon.addEventListener('mouseleave', function() {
             if (!isProcessing) {
                 this.style.fontSize = '18px';
@@ -2390,7 +2391,7 @@ ${pageContent ? pageContent : '无内容'}
                 this.style.transform = 'scale(1.1)';
             }
         });
-        
+
         generateMindmapIcon.addEventListener('mouseleave', function() {
             if (!isMindmapProcessing) {
                 this.style.fontSize = '18px';
@@ -2406,7 +2407,7 @@ ${pageContent ? pageContent : '无内容'}
                 this.style.transform = 'scale(1.1)';
             }
         });
-        
+
         generateFlashcardIcon.addEventListener('mouseleave', function() {
             if (!isFlashcardProcessing) {
                 this.style.fontSize = '18px';
@@ -2422,7 +2423,7 @@ ${pageContent ? pageContent : '无内容'}
                 this.style.transform = 'scale(1.1)';
             }
         });
-        
+
         generateReportIcon.addEventListener('mouseleave', function() {
             if (!isReportProcessing) {
                 this.style.fontSize = '18px';
@@ -2438,7 +2439,7 @@ ${pageContent ? pageContent : '无内容'}
                 this.style.transform = 'scale(1.1)';
             }
         });
-        
+
         generateBestPracticeIcon.addEventListener('mouseleave', function() {
             if (!isBestPracticeProcessing) {
                 this.style.fontSize = '18px';
@@ -2446,30 +2447,30 @@ ${pageContent ? pageContent : '无内容'}
                 this.style.transform = 'scale(1)';
             }
         });
-        
+
         generateSummaryIcon.addEventListener('click', async () => {
             if (isProcessing) return;
-            
+
             isProcessing = true;
             generateSummaryIcon.innerHTML = '◉';
             generateSummaryIcon.style.opacity = '0.6';
             generateSummaryIcon.style.cursor = 'not-allowed';
-            
+
             // 创建新的摘要消息
             const summaryMessage = this.createMessageElement('', 'pet');
             messagesContainer.appendChild(summaryMessage);
             const summaryText = summaryMessage.querySelector('[data-message-type="pet-bubble"]');
             const summaryAvatar = summaryMessage.querySelector('[data-message-type="pet-avatar"]');
-            
+
             // 显示加载动画
             if (summaryAvatar) {
                 summaryAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
             }
-            
+
             if (summaryText) {
                 summaryText.textContent = '📖 正在分析页面内容...';
             }
-            
+
             try {
                 // 流式生成摘要信息
                 await this.generateWelcomeMessageStream((chunk, fullContent) => {
@@ -2487,16 +2488,16 @@ ${pageContent ? pageContent : '无内容'}
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
-                
+
                 // 停止加载动画
                 if (summaryAvatar) {
                     summaryAvatar.style.animation = '';
                 }
-                
+
                 generateSummaryIcon.innerHTML = '✓';
                 generateSummaryIcon.style.cursor = 'default';
                 generateSummaryIcon.style.color = '#4caf50';
-                
+
                 // 2秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateSummaryIcon.innerHTML = '≈';
@@ -2505,7 +2506,7 @@ ${pageContent ? pageContent : '无内容'}
                     generateSummaryIcon.style.opacity = '1';
                     isProcessing = false;
                 }, 2000);
-                
+
             } catch (error) {
                 console.error('生成摘要信息失败:', error);
                 if (summaryText) {
@@ -2519,7 +2520,7 @@ ${pageContent ? pageContent : '无内容'}
                 generateSummaryIcon.innerHTML = '✕';
                 generateSummaryIcon.style.cursor = 'default';
                 generateSummaryIcon.style.color = '#f44336';
-                
+
                 // 1.5秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateSummaryIcon.innerHTML = '≈';
@@ -2535,27 +2536,27 @@ ${pageContent ? pageContent : '无内容'}
 
         generateMindmapIcon.addEventListener('click', async () => {
             if (isMindmapProcessing) return;
-            
+
             isMindmapProcessing = true;
             generateMindmapIcon.innerHTML = '◉';
             generateMindmapIcon.style.opacity = '0.6';
             generateMindmapIcon.style.cursor = 'not-allowed';
-            
+
             // 创建新的思维导图消息
             const mindmapMessage = this.createMessageElement('', 'pet');
             messagesContainer.appendChild(mindmapMessage);
             const mindmapText = mindmapMessage.querySelector('[data-message-type="pet-bubble"]');
             const mindmapAvatar = mindmapMessage.querySelector('[data-message-type="pet-avatar"]');
-            
+
             // 显示加载动画
             if (mindmapAvatar) {
                 mindmapAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
             }
-            
+
             if (mindmapText) {
                 mindmapText.textContent = '⊞ 正在生成思维导图...';
             }
-            
+
             try {
                 // 流式生成思维导图信息
                 await this.generateMindmapStream((chunk, fullContent) => {
@@ -2573,16 +2574,16 @@ ${pageContent ? pageContent : '无内容'}
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
-                
+
                 // 停止加载动画
                 if (mindmapAvatar) {
                     mindmapAvatar.style.animation = '';
                 }
-                
+
                 generateMindmapIcon.innerHTML = '✓';
                 generateMindmapIcon.style.cursor = 'default';
                 generateMindmapIcon.style.color = '#4caf50';
-                
+
                 // 2秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateMindmapIcon.innerHTML = '⊞';
@@ -2591,7 +2592,7 @@ ${pageContent ? pageContent : '无内容'}
                     generateMindmapIcon.style.opacity = '1';
                     isMindmapProcessing = false;
                 }, 2000);
-                
+
             } catch (error) {
                 console.error('生成思维导图失败:', error);
                 if (mindmapText) {
@@ -2605,7 +2606,7 @@ ${pageContent ? pageContent : '无内容'}
                 generateMindmapIcon.innerHTML = '✕';
                 generateMindmapIcon.style.cursor = 'default';
                 generateMindmapIcon.style.color = '#f44336';
-                
+
                 // 1.5秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateMindmapIcon.innerHTML = '⊞';
@@ -2621,27 +2622,27 @@ ${pageContent ? pageContent : '无内容'}
 
         generateFlashcardIcon.addEventListener('click', async () => {
             if (isFlashcardProcessing) return;
-            
+
             isFlashcardProcessing = true;
             generateFlashcardIcon.innerHTML = '◉';
             generateFlashcardIcon.style.opacity = '0.6';
             generateFlashcardIcon.style.cursor = 'not-allowed';
-            
+
             // 创建新的闪卡消息
             const flashcardMessage = this.createMessageElement('', 'pet');
             messagesContainer.appendChild(flashcardMessage);
             const flashcardText = flashcardMessage.querySelector('[data-message-type="pet-bubble"]');
             const flashcardAvatar = flashcardMessage.querySelector('[data-message-type="pet-avatar"]');
-            
+
             // 显示加载动画
             if (flashcardAvatar) {
                 flashcardAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
             }
-            
+
             if (flashcardText) {
                 flashcardText.textContent = '📚 正在生成闪卡...';
             }
-            
+
             try {
                 // 流式生成闪卡信息
                 await this.generateFlashcardStream((chunk, fullContent) => {
@@ -2659,16 +2660,16 @@ ${pageContent ? pageContent : '无内容'}
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
-                
+
                 // 停止加载动画
                 if (flashcardAvatar) {
                     flashcardAvatar.style.animation = '';
                 }
-                
+
                 generateFlashcardIcon.innerHTML = '✓';
                 generateFlashcardIcon.style.cursor = 'default';
                 generateFlashcardIcon.style.color = '#4caf50';
-                
+
                 // 2秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateFlashcardIcon.innerHTML = '📚';
@@ -2677,7 +2678,7 @@ ${pageContent ? pageContent : '无内容'}
                     generateFlashcardIcon.style.opacity = '1';
                     isFlashcardProcessing = false;
                 }, 2000);
-                
+
             } catch (error) {
                 console.error('生成闪卡失败:', error);
                 if (flashcardText) {
@@ -2691,7 +2692,7 @@ ${pageContent ? pageContent : '无内容'}
                 generateFlashcardIcon.innerHTML = '✕';
                 generateFlashcardIcon.style.cursor = 'default';
                 generateFlashcardIcon.style.color = '#f44336';
-                
+
                 // 1.5秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateFlashcardIcon.innerHTML = '📚';
@@ -2707,27 +2708,27 @@ ${pageContent ? pageContent : '无内容'}
 
         generateReportIcon.addEventListener('click', async () => {
             if (isReportProcessing) return;
-            
+
             isReportProcessing = true;
             generateReportIcon.innerHTML = '◉';
             generateReportIcon.style.opacity = '0.6';
             generateReportIcon.style.cursor = 'not-allowed';
-            
+
             // 创建新的报告消息
             const reportMessage = this.createMessageElement('', 'pet');
             messagesContainer.appendChild(reportMessage);
             const reportText = reportMessage.querySelector('[data-message-type="pet-bubble"]');
             const reportAvatar = reportMessage.querySelector('[data-message-type="pet-avatar"]');
-            
+
             // 显示加载动画
             if (reportAvatar) {
                 reportAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
             }
-            
+
             if (reportText) {
                 reportText.textContent = '📋 正在生成专项报告...';
             }
-            
+
             try {
                 // 流式生成报告信息
                 await this.generateReportStream((chunk, fullContent) => {
@@ -2745,16 +2746,16 @@ ${pageContent ? pageContent : '无内容'}
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
-                
+
                 // 停止加载动画
                 if (reportAvatar) {
                     reportAvatar.style.animation = '';
                 }
-                
+
                 generateReportIcon.innerHTML = '✓';
                 generateReportIcon.style.cursor = 'default';
                 generateReportIcon.style.color = '#4caf50';
-                
+
                 // 2秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateReportIcon.innerHTML = '📋';
@@ -2763,7 +2764,7 @@ ${pageContent ? pageContent : '无内容'}
                     generateReportIcon.style.opacity = '1';
                     isReportProcessing = false;
                 }, 2000);
-                
+
             } catch (error) {
                 console.error('生成专项报告失败:', error);
                 if (reportText) {
@@ -2777,7 +2778,7 @@ ${pageContent ? pageContent : '无内容'}
                 generateReportIcon.innerHTML = '✕';
                 generateReportIcon.style.cursor = 'default';
                 generateReportIcon.style.color = '#f44336';
-                
+
                 // 1.5秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateReportIcon.innerHTML = '📋';
@@ -2793,27 +2794,27 @@ ${pageContent ? pageContent : '无内容'}
 
         generateBestPracticeIcon.addEventListener('click', async () => {
             if (isBestPracticeProcessing) return;
-            
+
             isBestPracticeProcessing = true;
             generateBestPracticeIcon.innerHTML = '◉';
             generateBestPracticeIcon.style.opacity = '0.6';
             generateBestPracticeIcon.style.cursor = 'not-allowed';
-            
+
             // 创建新的最佳实践消息
             const bestPracticeMessage = this.createMessageElement('', 'pet');
             messagesContainer.appendChild(bestPracticeMessage);
             const bestPracticeText = bestPracticeMessage.querySelector('[data-message-type="pet-bubble"]');
             const bestPracticeAvatar = bestPracticeMessage.querySelector('[data-message-type="pet-avatar"]');
-            
+
             // 显示加载动画
             if (bestPracticeAvatar) {
                 bestPracticeAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
             }
-            
+
             if (bestPracticeText) {
                 bestPracticeText.textContent = '⭐ 正在生成最佳实践...';
             }
-            
+
             try {
                 // 流式生成最佳实践信息
                 await this.generateBestPracticeStream((chunk, fullContent) => {
@@ -2831,16 +2832,16 @@ ${pageContent ? pageContent : '无内容'}
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
-                
+
                 // 停止加载动画
                 if (bestPracticeAvatar) {
                     bestPracticeAvatar.style.animation = '';
                 }
-                
+
                 generateBestPracticeIcon.innerHTML = '✓';
                 generateBestPracticeIcon.style.cursor = 'default';
                 generateBestPracticeIcon.style.color = '#4caf50';
-                
+
                 // 2秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateBestPracticeIcon.innerHTML = '⭐';
@@ -2849,7 +2850,7 @@ ${pageContent ? pageContent : '无内容'}
                     generateBestPracticeIcon.style.opacity = '1';
                     isBestPracticeProcessing = false;
                 }, 2000);
-                
+
             } catch (error) {
                 console.error('生成最佳实践失败:', error);
                 if (bestPracticeText) {
@@ -2863,7 +2864,7 @@ ${pageContent ? pageContent : '无内容'}
                 generateBestPracticeIcon.innerHTML = '✕';
                 generateBestPracticeIcon.style.cursor = 'default';
                 generateBestPracticeIcon.style.color = '#f44336';
-                
+
                 // 1.5秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     generateBestPracticeIcon.innerHTML = '⭐';
@@ -2876,7 +2877,7 @@ ${pageContent ? pageContent : '无内容'}
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         });
-        
+
         // 将按钮添加到消息容器中，和时间戳同一行
         setTimeout(() => {
             const messageTime = welcomeMessage.querySelector('[data-message-time="true"]');
@@ -2892,12 +2893,12 @@ ${pageContent ? pageContent : '无内容'}
                     max-width: calc(80% + 108px) !important;
                     width: 100% !important;
                 `;
-                
+
                 // 创建时间文本容器
                 const timeText = document.createElement('span');
                 timeText.style.cssText = 'flex: 1 !important; min-width: 0 !important;';
                 timeText.textContent = this.getCurrentTime();
-                
+
                 // 将原有内容替换为 flex 布局的内容
                 messageTime.innerHTML = '';
                 messageTime.appendChild(timeText);
@@ -2908,10 +2909,10 @@ ${pageContent ? pageContent : '无内容'}
                 messageTime.appendChild(generateBestPracticeIcon);
             }
         }, 100);
-        
+
         // 播放宠物欢迎动画
         this.playChatAnimation();
-        
+
         // 创建输入区域 - 使用宠物颜色主题
         const inputContainer = document.createElement('div');
         inputContainer.className = 'chat-input-container';
@@ -2929,7 +2930,7 @@ ${pageContent ? pageContent : '无内容'}
             border-radius: 0 !important;
             z-index: ${PET_CONFIG.ui.zIndex.inputContainer} !important;
         `;
-        
+
         // 创建顶部工具栏（左侧按钮和右侧状态）
         const topToolbar = document.createElement('div');
         topToolbar.style.cssText = `
@@ -2938,7 +2939,7 @@ ${pageContent ? pageContent : '无内容'}
             align-items: center !important;
             margin-bottom: 8px !important;
         `;
-        
+
         // 左侧按钮组
         const leftButtonGroup = document.createElement('div');
         leftButtonGroup.style.cssText = `
@@ -2946,7 +2947,7 @@ ${pageContent ? pageContent : '无内容'}
             gap: 6px !important;
             align-items: center !important;
         `;
-        
+
         // 创建 @ 按钮（使用宠物颜色主题）
         const mentionButton = document.createElement('button');
         mentionButton.innerHTML = '@';
@@ -2978,7 +2979,7 @@ ${pageContent ? pageContent : '无内容'}
             mentionButton.style.color = currentMainColor;
             mentionButton.style.borderColor = currentMainColor;
         });
-        
+
         // 创建 + 按钮（使用宠物颜色主题）
         const addButton = document.createElement('button');
         addButton.innerHTML = '+';
@@ -3009,7 +3010,7 @@ ${pageContent ? pageContent : '无内容'}
             addButton.style.color = currentMainColor;
             addButton.style.borderColor = currentMainColor;
         });
-        
+
         // 右侧状态组
         const rightStatusGroup = document.createElement('div');
         rightStatusGroup.style.cssText = `
@@ -3017,7 +3018,7 @@ ${pageContent ? pageContent : '无内容'}
             gap: 8px !important;
             align-items: center !important;
         `;
-        
+
         // 创建加载指示器占位（可扩展）
         const loadingSpinner = document.createElement('div');
         loadingSpinner.innerHTML = '⬜'; // 占位符，实际使用时可以替换为真正的加载动画
@@ -3027,14 +3028,14 @@ ${pageContent ? pageContent : '无内容'}
             opacity: 0.5 !important;
             color: #ffffff !important;
         `;
-        
+
         leftButtonGroup.appendChild(mentionButton);
         leftButtonGroup.appendChild(addButton);
         rightStatusGroup.appendChild(loadingSpinner);
         topToolbar.appendChild(leftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);
         inputContainer.appendChild(topToolbar);
-        
+
         // 创建输入框容器（暗色主题）
         const inputWrapper = document.createElement('div');
         inputWrapper.style.cssText = `
@@ -3043,7 +3044,7 @@ ${pageContent ? pageContent : '无内容'}
             align-items: flex-start !important;
             position: relative !important;
         `;
-        
+
         const messageInput = document.createElement('textarea');
         messageInput.placeholder = '输入消息... (Enter发送, Shift+Enter换行)';
         messageInput.maxLength = PET_CONFIG.chatWindow.input.maxLength;
@@ -3067,8 +3068,8 @@ ${pageContent ? pageContent : '无内容'}
             line-height: 1.5 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         `;
-        
-        
+
+
         // 设置placeholder和滚动条样式
         const style = document.createElement('style');
         style.textContent = `
@@ -3108,7 +3109,7 @@ ${pageContent ? pageContent : '无内容'}
             }
         `;
         document.head.appendChild(style);
-        
+
         // 自动调整高度和输入时的视觉反馈
         const updateInputState = () => {
             const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
@@ -3138,7 +3139,7 @@ ${pageContent ? pageContent : '无内容'}
                 }
             }, 0);
         });
-        
+
         // 将颜色转换为rgba用于阴影
         const hexToRgba = (hex, alpha) => {
             const r = parseInt(hex.slice(1, 3), 16);
@@ -3147,7 +3148,7 @@ ${pageContent ? pageContent : '无内容'}
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         };
         const shadowColor = hexToRgba(mainColor, 0.1);
-        
+
         messageInput.addEventListener('focus', () => {
             const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             messageInput.style.borderColor = currentMainColor;
@@ -3155,7 +3156,7 @@ ${pageContent ? pageContent : '无内容'}
             const currentShadowColor = currentMainColor.replace('#', '').match(/.{2}/g).map(x => parseInt(x, 16)).join(',');
             messageInput.style.boxShadow = `0 0 0 3px rgba(${currentShadowColor}, 0.1)`;
         });
-        
+
         messageInput.addEventListener('blur', () => {
             const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             if (messageInput.value.length === 0) {
@@ -3164,7 +3165,7 @@ ${pageContent ? pageContent : '无内容'}
             }
             messageInput.style.boxShadow = 'none';
         });
-        
+
         // 添加粘贴图片支持
         messageInput.addEventListener('paste', async (e) => {
             const items = e.clipboardData.items;
@@ -3183,34 +3184,34 @@ ${pageContent ? pageContent : '无内容'}
                 }
             }
         });
-        
+
         // 发送消息功能（使用流式响应）
         const sendMessage = async () => {
             const message = messageInput.value.trim();
             if (!message) return;
-            
+
             // 添加用户消息
             const userMessage = this.createMessageElement(message, 'user');
             messagesContainer.appendChild(userMessage);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
+
             // 清空输入框并重置高度
             messageInput.value = '';
             messageInput.style.height = '';
             // 强制重排以确保高度被正确重置
             void messageInput.offsetHeight;
             messageInput.style.height = '36px';
-            
+
             // 更新输入状态
             updateInputState();
-            
+
             // 播放思考动画
             this.playChatAnimation();
-            
+
             // 创建宠物消息元素（用于流式更新）
             let petMessageElement = null;
             let fullContent = '';
-            
+
             // 流式响应回调函数
             const onStreamContent = (chunk, accumulatedContent) => {
                 // 移除打字指示器
@@ -3222,13 +3223,13 @@ ${pageContent ? pageContent : '无内容'}
                         typingIndicator.remove();
                     }
                 }
-                
+
                 if (!petMessageElement) {
                     // 创建消息元素
                     petMessageElement = this.createMessageElement('', 'pet');
                     messagesContainer.appendChild(petMessageElement);
                 }
-                
+
                 // 更新消息内容 - 找到消息气泡元素并更新其文本（使用 Markdown 渲染）
                 fullContent = accumulatedContent;
                 const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
@@ -3237,7 +3238,7 @@ ${pageContent ? pageContent : '无内容'}
                     messageBubble.innerHTML = this.renderMarkdown(fullContent);
                     // 更新原始文本用于复制功能
                     messageBubble.setAttribute('data-original-text', fullContent);
-                    
+
                     // 如果有内容，添加复制按钮
                     if (fullContent && fullContent.trim()) {
                         const copyButtonContainer = petMessageElement.querySelector('[data-copy-button-container]');
@@ -3246,11 +3247,11 @@ ${pageContent ? pageContent : '无内容'}
                         }
                     }
                 }
-                
+
                 // 自动滚动到底部
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             };
-            
+
             // 添加动态的等待提示语（在收到第一个chunk之前显示）
             let typingIndicatorInterval = null;
             let waitingTime = 0;
@@ -3267,13 +3268,13 @@ ${pageContent ? pageContent : '无内容'}
                 '🎨 酝酿完美回复'
             ];
             let lastIndex = -1;
-            
+
             const showTypingIndicator = () => {
                 if (petMessageElement) return; // 已经有消息就不显示
-                
+
                 const typingMsg = this.createTypingIndicator();
                 messagesContainer.appendChild(typingMsg);
-                
+
                 typingIndicatorInterval = setInterval(() => {
                     waitingTime += 300;
                     const messageBubble = typingMsg.querySelector('[data-message-type="pet-bubble"]');
@@ -3288,14 +3289,14 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }, 800);
             };
-            
+
             // 立即显示打字指示器
             showTypingIndicator();
-            
+
             // 生成宠物响应
             try {
                 const reply = await this.generatePetResponseStream(message, onStreamContent);
-                
+
                 // 清理打字指示器
                 if (typingIndicatorInterval) {
                     clearInterval(typingIndicatorInterval);
@@ -3305,7 +3306,7 @@ ${pageContent ? pageContent : '无内容'}
                         typingIndicator.remove();
                     }
                 }
-                
+
                 // 确保最终内容被显示（使用 Markdown 渲染）
                 if (petMessageElement && fullContent !== reply) {
                     const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
@@ -3316,7 +3317,7 @@ ${pageContent ? pageContent : '无内容'}
                 }
             } catch (error) {
                 console.error('生成回复失败:', error);
-                
+
                 // 清理打字指示器
                 if (typingIndicatorInterval) {
                     clearInterval(typingIndicatorInterval);
@@ -3326,7 +3327,7 @@ ${pageContent ? pageContent : '无内容'}
                         typingIndicator.remove();
                     }
                 }
-                
+
                 // 如果已经创建了消息元素，更新错误信息（使用 innerHTML 以支持 Markdown）
                 if (petMessageElement) {
                     const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
@@ -3340,7 +3341,7 @@ ${pageContent ? pageContent : '无内容'}
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         };
-        
+
         // 键盘事件处理：Enter发送，Shift+Enter换行，ESC清除
         messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -3355,10 +3356,10 @@ ${pageContent ? pageContent : '无内容'}
                 messageInput.blur();
             }
         });
-        
+
         inputWrapper.appendChild(messageInput);
         inputContainer.appendChild(inputWrapper);
-        
+
         // 创建底部工具栏
         const bottomToolbar = document.createElement('div');
         bottomToolbar.style.cssText = `
@@ -3367,7 +3368,7 @@ ${pageContent ? pageContent : '无内容'}
             align-items: center !important;
             margin-top: 8px !important;
         `;
-        
+
         // 左侧：模型选择器
         const leftBottomGroup = document.createElement('div');
         leftBottomGroup.style.cssText = `
@@ -3375,7 +3376,7 @@ ${pageContent ? pageContent : '无内容'}
             gap: 6px !important;
             align-items: center !important;
         `;
-        
+
         // 创建模型选择器（使用宠物颜色主题）
         const modelSelector = document.createElement('select');
         modelSelector.className = 'chat-model-selector';
@@ -3392,7 +3393,7 @@ ${pageContent ? pageContent : '无内容'}
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
             min-width: 100px !important;
         `;
-        
+
         // 添加模型选项
         PET_CONFIG.chatModels.models.forEach(model => {
             const option = document.createElement('option');
@@ -3401,7 +3402,7 @@ ${pageContent ? pageContent : '无内容'}
             option.selected = model.id === this.currentModel;
             modelSelector.appendChild(option);
         });
-        
+
         // 模型切换事件
         modelSelector.addEventListener('change', (e) => {
             const selectedModel = e.target.value;
@@ -3412,7 +3413,7 @@ ${pageContent ? pageContent : '无内容'}
                 this.showNotification(`已切换到 ${modelConfig.name}`, 'info');
             }
         });
-        
+
         // 添加悬停效果
         modelSelector.addEventListener('mouseenter', () => {
             const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
@@ -3424,10 +3425,10 @@ ${pageContent ? pageContent : '无内容'}
             modelSelector.style.borderColor = currentMainColor;
             modelSelector.style.background = 'white';
         });
-        
+
         leftBottomGroup.appendChild(modelSelector);
         bottomToolbar.appendChild(leftBottomGroup);
-        
+
         // 右侧：上传按钮
         const rightBottomGroup = document.createElement('div');
         rightBottomGroup.style.cssText = `
@@ -3435,7 +3436,7 @@ ${pageContent ? pageContent : '无内容'}
             gap: 6px !important;
             align-items: center !important;
         `;
-        
+
         // 创建图片上传按钮（使用宠物颜色主题）
         const imageUploadButton = document.createElement('button');
         imageUploadButton.innerHTML = '📷';
@@ -3455,7 +3456,7 @@ ${pageContent ? pageContent : '无内容'}
             align-items: center !important;
             justify-content: center !important;
         `;
-        
+
         imageUploadButton.addEventListener('mouseenter', () => {
             const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
             imageUploadButton.style.background = currentMainColor;
@@ -3468,13 +3469,13 @@ ${pageContent ? pageContent : '无内容'}
             imageUploadButton.style.color = currentMainColor;
             imageUploadButton.style.borderColor = currentMainColor;
         });
-        
+
         // 创建隐藏的文件输入
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
         fileInput.style.display = 'none';
-        
+
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file && file.type.startsWith('image/')) {
@@ -3487,23 +3488,23 @@ ${pageContent ? pageContent : '无内容'}
             }
             fileInput.value = '';
         });
-        
+
         imageUploadButton.addEventListener('click', () => {
             fileInput.click();
         });
-        
+
         rightBottomGroup.appendChild(imageUploadButton);
         bottomToolbar.appendChild(rightBottomGroup);
         inputContainer.appendChild(bottomToolbar);
-        
+
         // 将文件输入添加到容器
         inputContainer.appendChild(fileInput);
-        
+
         // 创建四个缩放手柄（四个角）
         const createResizeHandle = (position) => {
             const handle = document.createElement('div');
             handle.className = `resize-handle resize-handle-${position}`;
-            
+
             let styles = `
                 position: absolute !important;
                 width: 20px !important;
@@ -3512,7 +3513,7 @@ ${pageContent ? pageContent : '无内容'}
                 z-index: ${PET_CONFIG.ui.zIndex.resizeHandle} !important;
                 transition: background 0.2s ease !important;
             `;
-            
+
             // 根据位置设置样式
             switch(position) {
                 case 'top-left':
@@ -3548,18 +3549,18 @@ ${pageContent ? pageContent : '无内容'}
                     `;
                     break;
             }
-            
+
             handle.style.cssText = styles;
             handle.title = '拖拽调整大小';
             return handle;
         };
-        
+
         // 创建四个角的缩放手柄
         const resizeHandleTL = createResizeHandle('top-left');
         const resizeHandleTR = createResizeHandle('top-right');
         const resizeHandleBL = createResizeHandle('bottom-left');
         const resizeHandleBR = createResizeHandle('bottom-right');
-        
+
         // 组装聊天窗口
         this.chatWindow.appendChild(chatHeader);
         this.chatWindow.appendChild(messagesContainer);
@@ -3568,27 +3569,27 @@ ${pageContent ? pageContent : '无内容'}
         this.chatWindow.appendChild(resizeHandleTR);
         this.chatWindow.appendChild(resizeHandleBL);
         this.chatWindow.appendChild(resizeHandleBR);
-        
+
         // 添加到页面
         document.body.appendChild(this.chatWindow);
-        
+
         // 添加拖拽和缩放功能
         this.addChatWindowInteractions();
-        
+
         // 添加滚动条样式
         this.addChatScrollbarStyles();
-        
+
         // 初始化滚动功能
         this.initializeChatScroll();
-        
+
         // 初始化模型选择器显示
         this.updateChatModelSelector();
-        
+
         // 初始化消息容器的底部padding
         this.updateMessagesPaddingBottom = updatePaddingBottom;
         setTimeout(() => this.updateMessagesPaddingBottom(), 50);
     }
-    
+
     // 更新消息容器的底部padding（公共方法）
     updateMessagesPaddingBottom() {
         if (!this.chatWindow) return;
@@ -3606,13 +3607,13 @@ ${pageContent ? pageContent : '无内容'}
             }, 0);
         }
     }
-    
+
     // 更新聊天窗口样式
     updateChatWindowStyle() {
         if (!this.chatWindow || !this.chatWindowState) return;
-        
+
         const { x, y, width, height } = this.chatWindowState;
-        
+
         this.chatWindow.style.cssText = `
             position: fixed !important;
             left: ${x}px !important;
@@ -3630,52 +3631,52 @@ ${pageContent ? pageContent : '无内容'}
             resize: none !important;
         `;
     }
-    
+
     // 从渐变色中提取主色调
     getMainColorFromGradient(gradient) {
         const match = gradient.match(/#[0-9a-fA-F]{6}/);
         return match ? match[0] : '#3b82f6';
     }
-    
+
     // 更新聊天窗口颜色（跟随宠物颜色）
     updateChatWindowColor() {
         if (!this.chatWindow) return;
-        
+
         // 获取当前宠物颜色
         const currentColor = this.colors[this.colorIndex];
         const mainColor = this.getMainColorFromGradient(currentColor);
-        
+
         // 更新聊天窗口头部元素
         const chatHeader = this.chatWindow.querySelector('.chat-header');
         if (chatHeader) {
             chatHeader.style.setProperty('background', currentColor, 'important');
         }
-        
+
         // 更新输入框边框颜色
         const messageInput = this.chatWindow.querySelector('.chat-message-input');
         if (messageInput) {
             messageInput.style.setProperty('border-color', mainColor, 'important');
         }
-        
+
         // 更新模型选择器边框颜色
         const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
         if (modelSelector) {
             modelSelector.style.setProperty('border-color', mainColor, 'important');
         }
-        
+
         // 更新所有使用颜色的按钮
         const allButtons = this.chatWindow.querySelectorAll('button');
         allButtons.forEach(button => {
             // 跳过关闭按钮（保持白色）
             if (button.textContent.includes('✕')) return;
-            
+
             // 更新@按钮和+按钮
             if (button.innerHTML === '@' || button.innerHTML === '+') {
                 button.style.setProperty('color', mainColor, 'important');
                 button.style.setProperty('border-color', mainColor, 'important');
                 button.setAttribute('data-theme-color', mainColor);
             }
-            
+
             // 更新图片上传按钮
             if (button.className.includes('chat-image-upload-button')) {
                 button.style.setProperty('color', mainColor, 'important');
@@ -3683,7 +3684,7 @@ ${pageContent ? pageContent : '无内容'}
                 button.setAttribute('data-theme-color', mainColor);
             }
         });
-        
+
         // 更新所有已有消息的气泡和头像颜色（仅宠物消息）
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
         if (messagesContainer) {
@@ -3692,7 +3693,7 @@ ${pageContent ? pageContent : '无内容'}
             petAvatars.forEach(avatar => {
                 avatar.style.setProperty('background', currentColor, 'important');
             });
-            
+
             // 更新宠物消息气泡
             const petBubbles = messagesContainer.querySelectorAll('[data-message-type="pet-bubble"]');
             petBubbles.forEach(bubble => {
@@ -3700,35 +3701,35 @@ ${pageContent ? pageContent : '无内容'}
             });
         }
     }
-    
+
     // 添加聊天窗口交互功能
     addChatWindowInteractions() {
         if (!this.chatWindow) return;
-        
+
         const header = this.chatWindow.querySelector('.chat-header');
         const resizeHandles = this.chatWindow.querySelectorAll('.resize-handle');
-        
+
         // 拖拽功能
         if (header) {
             header.addEventListener('mousedown', (e) => {
                 if (e.target.closest('button')) return; // 忽略按钮点击
-                
+
                 this.chatWindowState.isDragging = true;
                 this.chatWindowState.dragStart = {
                     x: e.clientX - this.chatWindowState.x,
                     y: e.clientY - this.chatWindowState.y
                 };
-                
+
                 header.style.cursor = 'grabbing';
                 e.preventDefault();
             });
         }
-        
+
         // 缩放功能 - 为每个缩放手柄添加事件监听
         resizeHandles.forEach((resizeHandle) => {
             resizeHandle.addEventListener('mousedown', (e) => {
                 this.chatWindowState.isResizing = true;
-                
+
                 // 根据手柄位置确定缩放类型
                 if (resizeHandle.classList.contains('resize-handle-top-left')) {
                     this.chatWindowState.resizeType = 'top-left';
@@ -3739,7 +3740,7 @@ ${pageContent ? pageContent : '无内容'}
                 } else if (resizeHandle.classList.contains('resize-handle-bottom-right')) {
                     this.chatWindowState.resizeType = 'bottom-right';
                 }
-                
+
                 this.chatWindowState.resizeStart = {
                     x: e.clientX,
                     y: e.clientY,
@@ -3748,7 +3749,7 @@ ${pageContent ? pageContent : '无内容'}
                     startX: this.chatWindowState.x,
                     startY: this.chatWindowState.y
                 };
-                
+
                 // 添加缩放时的视觉反馈
                 this.chatWindow.style.boxShadow = '0 25px 50px rgba(0,0,0,0.4)';
                 // 使用宠物的主色调
@@ -3759,36 +3760,36 @@ ${pageContent ? pageContent : '无内容'}
                 };
                 const mainColor = getMainColor(currentColor);
                 resizeHandle.style.background = `linear-gradient(-45deg, transparent 30%, ${mainColor} 30%, ${mainColor} 70%, transparent 70%)`;
-                
+
                 e.preventDefault();
                 e.stopPropagation();
             });
         });
-        
+
         // 全局鼠标移动事件
         document.addEventListener('mousemove', (e) => {
             if (this.chatWindowState.isDragging) {
                 const newX = e.clientX - this.chatWindowState.dragStart.x;
                 const newY = e.clientY - this.chatWindowState.dragStart.y;
-                
+
                 // 边界检查
                 this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, newX));
                 this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, newY));
-                
+
                 // 添加拖拽时的视觉反馈
                 this.chatWindow.style.transform = 'scale(1.02)';
                 this.chatWindow.style.boxShadow = '0 25px 50px rgba(0,0,0,0.4)';
-                
+
                 this.updateChatWindowStyle();
             }
-            
+
             if (this.chatWindowState.isResizing) {
                 const deltaX = e.clientX - this.chatWindowState.resizeStart.x;
                 const deltaY = e.clientY - this.chatWindowState.resizeStart.y;
-                
+
                 const resizeType = this.chatWindowState.resizeType;
                 let newWidth, newHeight, newX, newY;
-                
+
                 // 根据不同的缩放类型计算新的宽度、高度和位置
                 switch(resizeType) {
                     case 'bottom-right':
@@ -3798,7 +3799,7 @@ ${pageContent ? pageContent : '无内容'}
                         newX = this.chatWindowState.resizeStart.startX;
                         newY = this.chatWindowState.resizeStart.startY;
                         break;
-                        
+
                     case 'bottom-left':
                         // 左下角：调整宽度（负方向）和高度，同时移动x位置
                         newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width - deltaX));
@@ -3806,7 +3807,7 @@ ${pageContent ? pageContent : '无内容'}
                         newX = Math.max(0, this.chatWindowState.resizeStart.startX + deltaX);
                         newY = this.chatWindowState.resizeStart.startY;
                         break;
-                        
+
                     case 'top-right':
                         // 右上角：调整宽度和高度（负方向），同时移动y位置
                         newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width + deltaX));
@@ -3814,7 +3815,7 @@ ${pageContent ? pageContent : '无内容'}
                         newX = this.chatWindowState.resizeStart.startX;
                         newY = Math.max(0, this.chatWindowState.resizeStart.startY + deltaY);
                         break;
-                        
+
                     case 'top-left':
                         // 左上角：调整宽度和高度（负方向），同时移动x和y位置
                         newWidth = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.resizeStart.width - deltaX));
@@ -3822,32 +3823,32 @@ ${pageContent ? pageContent : '无内容'}
                         newX = Math.max(0, this.chatWindowState.resizeStart.startX + deltaX);
                         newY = Math.max(0, this.chatWindowState.resizeStart.startY + deltaY);
                         break;
-                        
+
                     default:
                         return;
                 }
-                
+
                 // 边界检查，确保窗口不超出屏幕
                 const maxX = window.innerWidth - newWidth;
                 const maxY = window.innerHeight - newHeight;
-                
+
                 if (newX + newWidth > window.innerWidth) {
                     newX = Math.max(0, maxX);
                 }
-                
+
                 if (newY + newHeight > window.innerHeight) {
                     newY = Math.max(0, maxY);
                 }
-                
+
                 this.chatWindowState.width = newWidth;
                 this.chatWindowState.height = newHeight;
                 this.chatWindowState.x = newX;
                 this.chatWindowState.y = newY;
-                
+
                 this.updateChatWindowStyle();
             }
         });
-        
+
         // 全局鼠标释放事件
         document.addEventListener('mouseup', () => {
             if (this.chatWindowState.isDragging) {
@@ -3860,29 +3861,29 @@ ${pageContent ? pageContent : '无内容'}
                 this.chatWindow.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
                 this.saveChatWindowState();
             }
-            
+
             if (this.chatWindowState.isResizing) {
                 this.chatWindowState.isResizing = false;
-                
+
                 // 恢复所有缩放手柄的样式
                 const allResizeHandles = this.chatWindow.querySelectorAll('.resize-handle');
                 allResizeHandles.forEach(handle => {
                     handle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
                 });
-                
+
                 // 恢复窗口阴影
                 this.chatWindow.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
-                
+
                 // 重新初始化滚动功能
                 this.initializeChatScroll();
-                
+
                 // 更新消息容器的底部padding
                 this.updateMessagesPaddingBottom();
-                
+
                 this.saveChatWindowState();
             }
         });
-        
+
         // 悬停效果 - 为所有缩放手柄添加悬停效果
         resizeHandles.forEach((resizeHandle) => {
             resizeHandle.addEventListener('mouseenter', () => {
@@ -3891,7 +3892,7 @@ ${pageContent ? pageContent : '无内容'}
                     resizeHandle.style.transform = 'scale(1.1)';
                 }
             });
-            
+
             resizeHandle.addEventListener('mouseleave', () => {
                 if (!this.chatWindowState.isResizing) {
                     resizeHandle.style.background = 'linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%)';
@@ -3900,11 +3901,11 @@ ${pageContent ? pageContent : '无内容'}
             });
         });
     }
-    
+
     // 保存聊天窗口状态
     saveChatWindowState() {
         if (!this.chatWindowState) return;
-        
+
         try {
             const state = {
                 x: this.chatWindowState.x,
@@ -3913,12 +3914,12 @@ ${pageContent ? pageContent : '无内容'}
                 height: this.chatWindowState.height,
                 timestamp: Date.now()
             };
-            
+
             // 保存到chrome.storage.sync以实现跨页面同步
             chrome.storage.sync.set({ [PET_CONFIG.storage.keys.chatWindowState]: state }, () => {
                 console.log('聊天窗口状态已保存到全局存储:', state);
             });
-            
+
             // 同时保存到localStorage作为备用
             localStorage.setItem('petChatWindowState', JSON.stringify(state));
             console.log('聊天窗口状态已保存:', state);
@@ -3926,7 +3927,7 @@ ${pageContent ? pageContent : '无内容'}
             console.log('保存聊天窗口状态失败:', error);
         }
     }
-    
+
     // 加载聊天窗口状态
     loadChatWindowState(callback) {
         try {
@@ -3935,12 +3936,12 @@ ${pageContent ? pageContent : '无内容'}
                 if (result[PET_CONFIG.storage.keys.chatWindowState]) {
                     const state = result[PET_CONFIG.storage.keys.chatWindowState];
                     this.restoreChatWindowState(state);
-                    
+
                     // 更新聊天窗口样式（如果已经创建）
                     if (this.chatWindow) {
                         this.updateChatWindowStyle();
                     }
-                    
+
                     if (callback) callback(true);
                 } else {
                     // 如果全局状态不存在，尝试从localStorage加载
@@ -3948,14 +3949,14 @@ ${pageContent ? pageContent : '无内容'}
                     if (callback) callback(success);
                 }
             });
-            
+
             // 监听存储变化，实现跨页面同步
             chrome.storage.onChanged.addListener((changes, namespace) => {
                 if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.chatWindowState]) {
                     const newState = changes[PET_CONFIG.storage.keys.chatWindowState].newValue;
                     if (newState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
                         this.restoreChatWindowState(newState);
-                        
+
                         // 更新聊天窗口样式（如果已经创建）
                         if (this.chatWindow) {
                             this.updateChatWindowStyle();
@@ -3964,7 +3965,7 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             });
-            
+
             return true;
         } catch (error) {
             console.log('恢复聊天窗口状态失败:', error);
@@ -3973,7 +3974,7 @@ ${pageContent ? pageContent : '无内容'}
             return success;
         }
     }
-    
+
     // 从localStorage加载聊天窗口状态（备用方法）
     loadChatWindowStateFromLocalStorage() {
         try {
@@ -3989,7 +3990,7 @@ ${pageContent ? pageContent : '无内容'}
         }
         return false;
     }
-    
+
     // 恢复聊天窗口状态（应用位置和大小）
     restoreChatWindowState(state) {
         this.chatWindowState = {
@@ -3999,20 +4000,20 @@ ${pageContent ? pageContent : '无内容'}
             isResizing: false,
             resizeType: 'bottom-right' // 默认缩放类型
         };
-        
+
         // 验证位置和大小
         this.chatWindowState.width = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.width));
         this.chatWindowState.height = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.height));
         this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, this.chatWindowState.x));
         this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, this.chatWindowState.y));
-        
+
         console.log('聊天窗口状态已恢复:', this.chatWindowState);
     }
-    
+
     // 渲染 Markdown 为 HTML
     renderMarkdown(markdown) {
         if (!markdown) return '';
-        
+
         try {
             // 检查 marked 是否可用
             if (typeof marked !== 'undefined') {
@@ -4032,14 +4033,14 @@ ${pageContent ? pageContent : '无内容'}
             return this.escapeHtml(markdown);
         }
     }
-    
+
     // HTML 转义辅助函数
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
-    
+
     // 创建消息元素
     createMessageElement(text, sender, imageDataUrl = null) {
         const messageDiv = document.createElement('div');
@@ -4048,14 +4049,14 @@ ${pageContent ? pageContent : '无内容'}
             margin-bottom: 15px !important;
             animation: messageSlideIn 0.3s ease-out !important;
         `;
-        
+
         if (sender === 'user') {
             messageDiv.style.flexDirection = 'row-reverse';
         }
-        
+
         // 获取宠物颜色用于宠物消息
         const currentColor = this.colors[this.colorIndex];
-        
+
         const avatar = document.createElement('div');
         avatar.style.cssText = `
             width: 32px !important;
@@ -4074,18 +4075,18 @@ ${pageContent ? pageContent : '无内容'}
         if (sender === 'pet') {
             avatar.setAttribute('data-message-type', 'pet-avatar');
         }
-        
+
         if (sender === 'user') {
             avatar.style.marginRight = '0';
             avatar.style.marginLeft = '10px';
         }
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             flex: 1 !important;
             min-width: 0 !important;
         `;
-        
+
         const messageText = document.createElement('div');
         messageText.style.cssText = `
             background: ${sender === 'user' ? 'linear-gradient(135deg, #2196F3, #1976D2)' : currentColor} !important;
@@ -4100,28 +4101,28 @@ ${pageContent ? pageContent : '无内容'}
             width: 100% !important;
             margin-left: ${sender === 'user' ? 'auto' : '0'} !important;
         `;
-        
+
         // 为宠物消息添加 Markdown 样式
         if (sender === 'pet') {
             messageText.classList.add('markdown-content');
         }
-        
+
         // 添加标识以便后续更新
         if (sender === 'pet') {
             messageText.setAttribute('data-message-type', 'pet-bubble');
         }
-        
+
         // 为宠物消息保存原始文本用于复制功能
         if (sender === 'pet' && text) {
             messageText.setAttribute('data-original-text', text);
         }
-        
+
         if (sender === 'user') {
             messageText.style.borderBottomRightRadius = '4px';
         } else {
             messageText.style.borderBottomLeftRadius = '4px';
         }
-        
+
         // 如果包含图片，添加图片元素
         if (imageDataUrl) {
             const imageContainer = document.createElement('div');
@@ -4130,7 +4131,7 @@ ${pageContent ? pageContent : '无内容'}
                 border-radius: 8px !important;
                 overflow: hidden !important;
             `;
-            
+
             const img = document.createElement('img');
             img.src = imageDataUrl;
             img.style.cssText = `
@@ -4140,21 +4141,21 @@ ${pageContent ? pageContent : '无内容'}
                 display: block !important;
                 cursor: pointer !important;
             `;
-            
+
             // 点击查看大图
             img.addEventListener('click', () => {
                 this.showImagePreview(imageDataUrl);
             });
-            
+
             imageContainer.appendChild(img);
             messageText.appendChild(imageContainer);
         }
-        
+
         // 如果有文本，添加文本（支持 Markdown 渲染）
         if (text) {
             // 对于宠物消息，使用 Markdown 渲染；对于用户消息，使用纯文本
             const displayText = sender === 'pet' ? this.renderMarkdown(text) : this.escapeHtml(text);
-            
+
             if (imageDataUrl) {
                 // 如果已经添加了图片，则追加文本
                 const textSpan = document.createElement('span');
@@ -4175,7 +4176,7 @@ ${pageContent ? pageContent : '无内容'}
             // 如果没有文本只有图片，保持容器为空
             messageText.style.padding = '0';
         }
-        
+
         const messageTime = document.createElement('div');
         messageTime.setAttribute('data-message-time', 'true');
         messageTime.style.cssText = `
@@ -4184,9 +4185,9 @@ ${pageContent ? pageContent : '无内容'}
             margin-top: 4px !important;
         `;
         messageTime.textContent = this.getCurrentTime();
-        
+
         content.appendChild(messageText);
-        
+
         // 为宠物消息创建时间和复制按钮的容器
         if (sender === 'pet') {
             const timeAndCopyContainer = document.createElement('div');
@@ -4198,19 +4199,19 @@ ${pageContent ? pageContent : '无内容'}
                 width: 100% !important;
                 margin-top: 4px !important;
             `;
-            
+
             const messageTimeWrapper = document.createElement('div');
             messageTimeWrapper.style.cssText = 'flex: 1;';
             messageTimeWrapper.appendChild(messageTime);
             timeAndCopyContainer.appendChild(messageTimeWrapper);
-            
+
             const copyButtonContainer = document.createElement('div');
             copyButtonContainer.setAttribute('data-copy-button-container', 'true');
             copyButtonContainer.style.cssText = 'display: none; margin-left: 8px;';
             timeAndCopyContainer.appendChild(copyButtonContainer);
-            
+
             content.appendChild(timeAndCopyContainer);
-            
+
             // 如果已经有文本，立即添加复制按钮
             if (text && text.trim()) {
                 this.addCopyButton(copyButtonContainer, messageText);
@@ -4227,7 +4228,7 @@ ${pageContent ? pageContent : '无内容'}
                 margin-top: 4px !important;
                 margin-left: 64px !important;
             `;
-            
+
             const messageTimeWrapper = document.createElement('div');
             messageTimeWrapper.style.cssText = 'flex: 1; text-align: right;';
             messageTime.style.cssText = `
@@ -4237,28 +4238,28 @@ ${pageContent ? pageContent : '无内容'}
             `;
             messageTimeWrapper.appendChild(messageTime);
             timeAndCopyContainer.appendChild(messageTimeWrapper);
-            
+
             const copyButtonContainer = document.createElement('div');
             copyButtonContainer.setAttribute('data-copy-button-container', 'true');
             copyButtonContainer.style.cssText = 'display: flex; margin-left: 8px;';
             timeAndCopyContainer.appendChild(copyButtonContainer);
-            
+
             content.appendChild(timeAndCopyContainer);
-            
+
             // 为用户消息添加删除按钮
             this.addDeleteButtonForUserMessage(copyButtonContainer);
         }
-        
+
         messageDiv.appendChild(avatar);
         messageDiv.appendChild(content);
-        
+
         return messageDiv;
     }
-    
+
     // 创建打字指示器（有趣的等待动画）
     createTypingIndicator() {
         const currentColor = this.colors[this.colorIndex];
-        
+
         const messageDiv = document.createElement('div');
         messageDiv.setAttribute('data-typing-indicator', 'true');
         messageDiv.style.cssText = `
@@ -4266,7 +4267,7 @@ ${pageContent ? pageContent : '无内容'}
             margin-bottom: 15px !important;
             animation: messageSlideIn 0.3s ease-out !important;
         `;
-        
+
         const avatar = document.createElement('div');
         avatar.style.cssText = `
             width: 32px !important;
@@ -4283,13 +4284,13 @@ ${pageContent ? pageContent : '无内容'}
         `;
         avatar.textContent = '🐾';
         avatar.setAttribute('data-message-type', 'pet-avatar');
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             flex: 1 !important;
             min-width: 0 !important;
         `;
-        
+
         const messageText = document.createElement('div');
         messageText.style.cssText = `
             background: ${currentColor} !important;
@@ -4303,7 +4304,7 @@ ${pageContent ? pageContent : '无内容'}
         `;
         messageText.setAttribute('data-message-type', 'pet-bubble');
         messageText.textContent = '💭 正在思考中...';
-        
+
         const messageTime = document.createElement('div');
         messageTime.style.cssText = `
             font-size: 11px !important;
@@ -4311,27 +4312,27 @@ ${pageContent ? pageContent : '无内容'}
             margin-top: 4px !important;
             text-align: left !important;
         `;
-        
+
         content.appendChild(messageText);
         content.appendChild(messageTime);
         messageDiv.appendChild(avatar);
         messageDiv.appendChild(content);
-        
+
         return messageDiv;
     }
-    
+
     // 添加复制按钮和生成闪卡按钮的辅助方法
     addCopyButton(container, messageTextElement) {
         // 如果已经添加过，就不再添加
         if (container.querySelector('.copy-button')) {
             return;
         }
-        
+
         const copyButton = document.createElement('button');
         copyButton.className = 'copy-button';
         copyButton.innerHTML = '📋';
         copyButton.setAttribute('title', '复制内容');
-        
+
         // 点击复制
         copyButton.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4359,17 +4360,17 @@ ${pageContent ? pageContent : '无内容'}
                 document.body.removeChild(textArea);
             }
         });
-        
+
         // 创建删除按钮
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button';
         deleteButton.innerHTML = '🗑️';
         deleteButton.setAttribute('title', '删除消息');
-        
+
         // 点击删除
         deleteButton.addEventListener('click', (e) => {
             e.stopPropagation();
-            
+
             // 确认删除
             if (confirm('确定要删除这条消息吗？')) {
                 // 找到包含复制按钮容器的消息元素
@@ -4377,7 +4378,7 @@ ${pageContent ? pageContent : '无内容'}
                 while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
                     currentMessage = currentMessage.parentElement;
                 }
-                
+
                 if (currentMessage) {
                     currentMessage.style.transition = 'opacity 0.3s ease';
                     currentMessage.style.opacity = '0';
@@ -4387,52 +4388,52 @@ ${pageContent ? pageContent : '无内容'}
                 }
             }
         });
-        
+
         // 创建生成闪卡按钮
         const flashcardButton = document.createElement('button');
         flashcardButton.className = 'flashcard-button';
         flashcardButton.innerHTML = '📚';
         flashcardButton.setAttribute('title', '生成闪卡');
-        
+
         let isFlashcardProcessing = false;
-        
+
         // 点击生成闪卡
         flashcardButton.addEventListener('click', async (e) => {
             e.stopPropagation();
-            
+
             if (isFlashcardProcessing) return;
-            
+
             isFlashcardProcessing = true;
             flashcardButton.innerHTML = '◉';
             flashcardButton.style.opacity = '0.6';
             flashcardButton.style.cursor = 'not-allowed';
-            
+
             const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
             if (!messagesContainer) {
                 isFlashcardProcessing = false;
                 return;
             }
-            
+
             // 获取当前消息的内容
             const currentMessage = container.closest('[data-message-type]');
             const messageBubble = currentMessage ? currentMessage.querySelector('[data-message-type="pet-bubble"]') : null;
             const messageContent = messageTextElement.getAttribute('data-original-text') || '';
-            
+
             // 创建新的闪卡消息
             const flashcardMessage = this.createMessageElement('', 'pet');
             messagesContainer.appendChild(flashcardMessage);
             const flashcardText = flashcardMessage.querySelector('[data-message-type="pet-bubble"]');
             const flashcardAvatar = flashcardMessage.querySelector('[data-message-type="pet-avatar"]');
-            
+
             // 显示加载动画
             if (flashcardAvatar) {
                 flashcardAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
             }
-            
+
             if (flashcardText) {
                 flashcardText.textContent = '📚 正在生成闪卡...';
             }
-            
+
             try {
                 // 流式生成闪卡信息（基于消息内容）
                 await this.generateFlashcardFromContent(messageContent, (chunk, fullContent) => {
@@ -4450,16 +4451,16 @@ ${pageContent ? pageContent : '无内容'}
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
                 });
-                
+
                 // 停止加载动画
                 if (flashcardAvatar) {
                     flashcardAvatar.style.animation = '';
                 }
-                
+
                 flashcardButton.innerHTML = '✓';
                 flashcardButton.style.cursor = 'default';
                 flashcardButton.style.color = '#4caf50';
-                
+
                 // 2秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     flashcardButton.innerHTML = '📚';
@@ -4468,7 +4469,7 @@ ${pageContent ? pageContent : '无内容'}
                     flashcardButton.style.opacity = '1';
                     isFlashcardProcessing = false;
                 }, 2000);
-                
+
             } catch (error) {
                 console.error('生成闪卡失败:', error);
                 if (flashcardText) {
@@ -4481,7 +4482,7 @@ ${pageContent ? pageContent : '无内容'}
                 }
                 flashcardButton.innerHTML = '✕';
                 flashcardButton.style.color = '#f44336';
-                
+
                 // 1.5秒后恢复初始状态，允许再次点击
                 setTimeout(() => {
                     flashcardButton.innerHTML = '📚';
@@ -4494,7 +4495,7 @@ ${pageContent ? pageContent : '无内容'}
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         });
-        
+
         container.innerHTML = '';
         container.appendChild(copyButton);
         container.appendChild(deleteButton);
@@ -4502,23 +4503,23 @@ ${pageContent ? pageContent : '无内容'}
         container.style.display = 'flex';
         container.style.gap = '4px';
     }
-    
+
     // 为用户消息添加删除按钮
     addDeleteButtonForUserMessage(container) {
         // 如果已经添加过，就不再添加
         if (container.querySelector('.delete-button')) {
             return;
         }
-        
+
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button';
         deleteButton.innerHTML = '🗑️';
         deleteButton.setAttribute('title', '删除消息');
-        
+
         // 点击删除
         deleteButton.addEventListener('click', (e) => {
             e.stopPropagation();
-            
+
             // 确认删除
             if (confirm('确定要删除这条消息吗？')) {
                 // 找到包含删除按钮容器的消息元素
@@ -4526,7 +4527,7 @@ ${pageContent ? pageContent : '无内容'}
                 while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
                     currentMessage = currentMessage.parentElement;
                 }
-                
+
                 if (currentMessage) {
                     currentMessage.style.transition = 'opacity 0.3s ease';
                     currentMessage.style.opacity = '0';
@@ -4536,25 +4537,25 @@ ${pageContent ? pageContent : '无内容'}
                 }
             }
         });
-        
+
         container.appendChild(deleteButton);
         container.style.display = 'flex';
         container.style.gap = '4px';
     }
-    
+
     // 发送图片消息
     sendImageMessage(imageDataUrl) {
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
         if (!messagesContainer) return;
-        
+
         // 添加用户消息（带图片）
         const userMessage = this.createMessageElement('', 'user', imageDataUrl);
         messagesContainer.appendChild(userMessage);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
+
         // 播放思考动画
         this.playChatAnimation();
-        
+
         // 生成宠物响应
         setTimeout(() => {
             const replies = [
@@ -4571,7 +4572,7 @@ ${pageContent ? pageContent : '无内容'}
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
     }
-    
+
     // 显示图片预览
     showImagePreview(imageDataUrl) {
         const modal = document.createElement('div');
@@ -4588,7 +4589,7 @@ ${pageContent ? pageContent : '无内容'}
             justify-content: center !important;
             animation: fadeIn 0.3s ease-out !important;
         `;
-        
+
         const img = document.createElement('img');
         img.src = imageDataUrl;
         img.style.cssText = `
@@ -4596,7 +4597,7 @@ ${pageContent ? pageContent : '无内容'}
             max-height: 90% !important;
             border-radius: 8px !important;
         `;
-        
+
         const closeBtn = document.createElement('button');
         closeBtn.textContent = '✕';
         closeBtn.style.cssText = `
@@ -4616,11 +4617,11 @@ ${pageContent ? pageContent : '无内容'}
         closeBtn.addEventListener('click', () => {
             modal.remove();
         });
-        
+
         closeBtn.addEventListener('mouseenter', () => {
             closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
         });
-        
+
         modal.appendChild(img);
         modal.appendChild(closeBtn);
         modal.addEventListener('click', (e) => {
@@ -4628,23 +4629,23 @@ ${pageContent ? pageContent : '无内容'}
                 modal.remove();
             }
         });
-        
+
         document.body.appendChild(modal);
     }
-    
+
     // 获取当前时间
     getCurrentTime() {
         const now = new Date();
-        return now.toLocaleTimeString('zh-CN', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+        return now.toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit'
         });
     }
-    
+
     // 添加聊天滚动条样式
     addChatScrollbarStyles() {
         if (document.getElementById('pet-chat-styles')) return;
-        
+
         const style = document.createElement('style');
         style.id = 'pet-chat-styles';
         style.textContent = `
@@ -4658,34 +4659,34 @@ ${pageContent ? pageContent : '无内容'}
                     transform: translateY(0);
                 }
             }
-            
+
             /* Chrome/Safari 滚动条样式 */
             #pet-chat-messages::-webkit-scrollbar {
                 width: 8px;
             }
-            
+
             #pet-chat-messages::-webkit-scrollbar-track {
                 background: rgba(241, 241, 241, 0.5);
                 border-radius: 4px;
             }
-            
+
             #pet-chat-messages::-webkit-scrollbar-thumb {
                 background: #c1c1c1;
                 border-radius: 4px;
                 border: 1px solid transparent;
                 background-clip: padding-box;
             }
-            
+
             #pet-chat-messages::-webkit-scrollbar-thumb:hover {
                 background: #a8a8a8;
             }
-            
+
             /* Firefox 滚动条样式 */
             #pet-chat-messages {
                 scrollbar-width: thin;
                 scrollbar-color: #c1c1c1 rgba(241, 241, 241, 0.5);
             }
-            
+
             /* 确保消息容器可以滚动 */
             #pet-chat-messages {
                 overflow-y: auto !important;
@@ -4694,11 +4695,11 @@ ${pageContent ? pageContent : '无内容'}
         `;
         document.head.appendChild(style);
     }
-    
+
     // 播放聊天动画
     playChatAnimation() {
         if (!this.pet) return;
-        
+
         // 先清理之前的动画
         if (this.chatBubbleInterval) {
             clearInterval(this.chatBubbleInterval);
@@ -4708,7 +4709,7 @@ ${pageContent ? pageContent : '无内容'}
             this.lastChatBubble.parentNode.removeChild(this.lastChatBubble);
             this.lastChatBubble = null;
         }
-        
+
         // 添加思考动画（更丰富的动画效果）
         this.pet.style.animation = 'none';
         setTimeout(() => {
@@ -4721,15 +4722,15 @@ ${pageContent ? pageContent : '无内容'}
             const selectedAnimation = animations[Math.floor(Math.random() * animations.length)];
             this.pet.style.animation = selectedAnimation;
         }, 10);
-        
+
         // 添加聊天气泡效果
         this.showChatBubble();
     }
-    
+
     // 显示聊天气泡
     showChatBubble() {
         if (!this.pet) return;
-        
+
         // 创建聊天气泡
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble';
@@ -4748,7 +4749,7 @@ ${pageContent ? pageContent : '无内容'}
             pointer-events: none !important;
             animation: bubbleAppear 0.5s ease-out !important;
         `;
-        
+
         // 添加动画样式
         if (!document.getElementById('chat-bubble-styles')) {
             const style = document.createElement('style');
@@ -4760,17 +4761,17 @@ ${pageContent ? pageContent : '无内容'}
                     50% { transform: scale(1.05) rotate(5deg); }
                     75% { transform: scale(1.1) rotate(-3deg); }
                 }
-                
+
                 @keyframes petThinkingBounce {
                     0%, 100% { transform: translateY(0) scale(1); }
                     50% { transform: translateY(-8px) scale(1.08); }
                 }
-                
+
                 @keyframes petThinkingPulse {
                     0%, 100% { transform: scale(1); opacity: 1; }
                     50% { transform: scale(1.15); opacity: 0.9; }
                 }
-                
+
                 @keyframes bubbleAppear {
                     0% {
                         opacity: 0;
@@ -4786,7 +4787,7 @@ ${pageContent ? pageContent : '无内容'}
                 document.head.appendChild(style);
             }
         }
-        
+
         // 随机选择思考文本（更有趣的提示语）
         const thinkingTexts = [
             '🤔 让我想想...',
@@ -4804,12 +4805,12 @@ ${pageContent ? pageContent : '无内容'}
             '🚀 马上就来'
         ];
         bubble.textContent = thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)];
-        
+
         this.pet.appendChild(bubble);
-        
+
         // 保存气泡到实例以便后续更新
         this.lastChatBubble = bubble;
-        
+
         // 动态更新气泡文本（让用户感受到进展）
         const updateBubbleInterval = setInterval(() => {
             if (bubble.parentNode) {
@@ -4822,10 +4823,10 @@ ${pageContent ? pageContent : '无内容'}
                 clearInterval(updateBubbleInterval);
             }
         }, 1500);
-        
+
         // 保存interval以便后续清理
         this.chatBubbleInterval = updateBubbleInterval;
-        
+
         // 3秒后移除气泡
         setTimeout(() => {
             clearInterval(updateBubbleInterval);
@@ -4840,21 +4841,21 @@ ${pageContent ? pageContent : '无内容'}
             }
         }, 3000);
     }
-    
+
     // 截图功能（支持区域选择）
     async takeScreenshot() {
         try {
             console.log('开始截图...');
-            
+
             // 检查Chrome API可用性
             if (!this.checkChromeAPIAvailability()) {
                 this.showScreenshotNotification('Chrome API不可用，请刷新页面后重试', 'error');
                 return;
             }
-            
+
             // 添加详细的权限诊断
             await this.diagnosePermissions();
-            
+
             // 检查权限
             const hasPermission = await this.checkScreenshotPermission();
             if (!hasPermission) {
@@ -4862,38 +4863,38 @@ ${pageContent ? pageContent : '无内容'}
                 this.showPermissionHelp();
                 return;
             }
-            
+
             // 检查当前页面是否允许截图
             if (this.isSystemPage()) {
                 this.showScreenshotNotification('无法截取系统页面，请在其他网页中使用截图功能', 'error');
                 return;
             }
-            
+
             // 隐藏聊天窗口以获取更清晰的截图
             const originalDisplay = this.chatWindow ? this.chatWindow.style.display : 'block';
             if (this.chatWindow) {
                 this.chatWindow.style.display = 'none';
             }
-            
+
             // 隐藏宠物（如果显示的话）
             const originalPetDisplay = this.pet ? this.pet.style.display : 'block';
             if (this.pet) {
                 this.pet.style.display = 'none';
             }
-            
+
             // 等待一小段时间确保窗口完全隐藏
             await new Promise(resolve => setTimeout(resolve, 200));
-            
+
             // 尝试使用Chrome的captureVisibleTab API截图
             let dataUrl = await this.captureVisibleTab();
-            
+
             // 如果主要方法失败，尝试备用方法
             if (!dataUrl) {
                 console.log('主要截图方法失败，尝试备用方法...');
                 this.showScreenshotNotification('主要方法失败，尝试备用方法...', 'info');
                 dataUrl = await this.fallbackScreenshot();
             }
-            
+
             if (dataUrl) {
                 // 保持聊天窗口和宠物隐藏，直到区域选择完成
                 this.showAreaSelector(dataUrl, originalDisplay, originalPetDisplay);
@@ -4908,11 +4909,11 @@ ${pageContent ? pageContent : '无内容'}
                 this.showScreenshotNotification('截图失败，请检查权限设置或尝试刷新页面', 'error');
                 this.showPermissionHelp();
             }
-            
+
         } catch (error) {
             console.error('截图失败:', error);
             this.showScreenshotNotification('截图失败，请重试', 'error');
-            
+
             // 确保聊天窗口和宠物恢复显示
             if (this.chatWindow) {
                 this.chatWindow.style.display = 'block';
@@ -4922,7 +4923,7 @@ ${pageContent ? pageContent : '无内容'}
             }
         }
     }
-    
+
     // 显示区域选择器
     showAreaSelector(dataUrl, originalChatDisplay = 'block', originalPetDisplay = 'block') {
         // 创建区域选择器覆盖层
@@ -4938,11 +4939,11 @@ ${pageContent ? pageContent : '无内容'}
             cursor: crosshair !important;
             user-select: none !important;
         `;
-        
+
         // 先加载图片以获取真实尺寸
         const img = new Image();
         img.src = dataUrl;
-        
+
         // 创建截图背景容器
         const screenshotBg = document.createElement('div');
         screenshotBg.style.cssText = `
@@ -4956,7 +4957,7 @@ ${pageContent ? pageContent : '无内容'}
             justify-content: center !important;
             opacity: 0.7 !important;
         `;
-        
+
         // 创建实际图片元素
         const screenshotImg = document.createElement('img');
         screenshotImg.src = dataUrl;
@@ -4965,9 +4966,9 @@ ${pageContent ? pageContent : '无内容'}
             max-height: 100% !important;
             object-fit: contain !important;
         `;
-        
+
         screenshotBg.appendChild(screenshotImg);
-        
+
         // 创建选择框
         const selectionBox = document.createElement('div');
         selectionBox.id = 'selection-box';
@@ -4979,7 +4980,7 @@ ${pageContent ? pageContent : '无内容'}
             box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3) !important;
             display: none !important;
         `;
-        
+
         // 创建工具提示
         const tipText = document.createElement('div');
         tipText.id = 'selection-tip';
@@ -4997,27 +4998,27 @@ ${pageContent ? pageContent : '无内容'}
             pointer-events: none !important;
             z-index: 2147483652 !important;
         `;
-        
+
         overlay.appendChild(screenshotBg);
         overlay.appendChild(selectionBox);
         overlay.appendChild(tipText);
-        
+
         // 等待图片加载完成后再添加到页面并设置事件监听
         img.onload = () => {
             document.body.appendChild(overlay);
             setupEventListeners();
         };
-        
+
         // 如果图片已经加载完成
         if (img.complete && img.naturalHeight !== 0) {
             document.body.appendChild(overlay);
             setupEventListeners();
         }
-        
+
         let isSelecting = false;
         let startX = 0;
         let startY = 0;
-        
+
         // 设置事件监听器的函数
         const setupEventListeners = () => {
             // 鼠标按下事件
@@ -5025,44 +5026,44 @@ ${pageContent ? pageContent : '无内容'}
                 isSelecting = true;
                 startX = e.clientX;
                 startY = e.clientY;
-                
+
                 selectionBox.style.left = startX + 'px';
                 selectionBox.style.top = startY + 'px';
                 selectionBox.style.width = '0px';
                 selectionBox.style.height = '0px';
                 selectionBox.style.display = 'block';
-                
+
                 // 隐藏提示
                 tipText.style.display = 'none';
-                
+
                 e.preventDefault();
             });
-            
+
             // 鼠标移动事件
             overlay.addEventListener('mousemove', (e) => {
                 if (!isSelecting) return;
-                
+
                 const currentX = e.clientX;
                 const currentY = e.clientY;
-                
+
                 const left = Math.min(startX, currentX);
                 const top = Math.min(startY, currentY);
                 const width = Math.abs(currentX - startX);
                 const height = Math.abs(currentY - startY);
-                
+
                 selectionBox.style.left = left + 'px';
                 selectionBox.style.top = top + 'px';
                 selectionBox.style.width = width + 'px';
                 selectionBox.style.height = height + 'px';
             });
-            
+
             // 鼠标释放或双击事件
             const finishSelection = (e) => {
                 if (!isSelecting) return;
                 isSelecting = false;
-                
+
                 const rect = selectionBox.getBoundingClientRect();
-                
+
                 // 如果区域太小，关闭选择器并恢复显示
                 if (rect.width < 10 || rect.height < 10) {
                     if (tipText) tipText.remove();
@@ -5073,48 +5074,48 @@ ${pageContent ? pageContent : '无内容'}
                     this.restoreElements(originalChatDisplay, originalPetDisplay);
                     return;
                 }
-                
+
                 // 计算截取区域的相对坐标（相对于原始截图尺寸）
                 // 使用已经加载的图片
                 const imgRect = screenshotImg.getBoundingClientRect();
-                
+
                 // 计算图片在页面中的实际显示尺寸和位置
                 const imgDisplayWidth = imgRect.width;
                 const imgDisplayHeight = imgRect.height;
                 const imgDisplayX = imgRect.left;
                 const imgDisplayY = imgRect.top;
-                
+
                 // 计算原始图片和显示图片的缩放比例
                 const scaleX = img.width / imgDisplayWidth;
                 const scaleY = img.height / imgDisplayHeight;
-                
+
                 // 将选择框相对于图片的位置转换为原始图片的坐标
                 const relativeX = rect.left - imgDisplayX;
                 const relativeY = rect.top - imgDisplayY;
                 const relativeWidth = rect.width;
                 const relativeHeight = rect.height;
-                
+
                 // 转换为原始图片坐标
                 const actualX = relativeX * scaleX;
                 const actualY = relativeY * scaleY;
                 const actualWidth = relativeWidth * scaleX;
                 const actualHeight = relativeHeight * scaleY;
-                
+
                 // 移除选择器
                 if (overlay.parentNode) {
                     overlay.parentNode.removeChild(overlay);
                 }
-                
+
                 // 恢复聊天窗口和宠物显示
                 this.restoreElements(originalChatDisplay, originalPetDisplay);
-                
+
                 // 裁剪图片
                 this.cropAndDisplayScreenshot(dataUrl, actualX, actualY, actualWidth, actualHeight);
             };
-            
+
             overlay.addEventListener('mouseup', finishSelection);
             overlay.addEventListener('dblclick', finishSelection);
-            
+
             // ESC键取消
             const cancelHandler = (e) => {
                 if (e.key === 'Escape') {
@@ -5129,7 +5130,7 @@ ${pageContent ? pageContent : '无内容'}
             window.addEventListener('keydown', cancelHandler);
         };
     }
-    
+
     // 恢复元素显示
     restoreElements(chatDisplay, petDisplay) {
         if (this.chatWindow) {
@@ -5139,32 +5140,32 @@ ${pageContent ? pageContent : '无内容'}
             this.pet.style.display = petDisplay;
         }
     }
-    
+
     // 裁剪并显示截图
     cropAndDisplayScreenshot(dataUrl, x, y, width, height) {
         const img = new Image();
         img.src = dataUrl;
-        
+
         img.onload = () => {
             // 创建canvas进行裁剪
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
-            
+
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
-            
+
             // 转换为data URL
             const croppedDataUrl = canvas.toDataURL('image/png');
 
             this.showScreenshotPreview(croppedDataUrl);
         };
     }
-    
+
     // 权限诊断
     async diagnosePermissions() {
         console.log('=== 权限诊断开始 ===');
-        
+
         // 检查Chrome API可用性
         console.log('Chrome API可用性:', {
             chrome: typeof chrome !== 'undefined',
@@ -5172,7 +5173,7 @@ ${pageContent ? pageContent : '无内容'}
             tabs: typeof chrome !== 'undefined' && !!chrome.tabs,
             permissions: '通过background script检查'
         });
-        
+
         // 检查当前页面信息
         console.log('当前页面信息:', {
             url: window.location.href,
@@ -5180,7 +5181,7 @@ ${pageContent ? pageContent : '无内容'}
             hostname: window.location.hostname,
             isSystemPage: this.isSystemPage()
         });
-        
+
         // 检查扩展信息
         if (typeof chrome !== 'undefined' && chrome.runtime) {
             try {
@@ -5195,7 +5196,7 @@ ${pageContent ? pageContent : '无内容'}
                 console.error('获取扩展信息失败:', error);
             }
         }
-        
+
         // 通过background script获取权限信息
         if (typeof chrome !== 'undefined' && chrome.runtime) {
             chrome.runtime.sendMessage({
@@ -5208,10 +5209,10 @@ ${pageContent ? pageContent : '无内容'}
                 }
             });
         }
-        
+
         console.log('=== 权限诊断结束 ===');
     }
-    
+
     // 显示权限帮助
     showPermissionHelp() {
         const helpModal = document.createElement('div');
@@ -5229,7 +5230,7 @@ ${pageContent ? pageContent : '无内容'}
             justify-content: center !important;
             animation: fadeIn 0.3s ease-out !important;
         `;
-        
+
         const helpContainer = document.createElement('div');
         helpContainer.style.cssText = `
             background: white !important;
@@ -5242,12 +5243,12 @@ ${pageContent ? pageContent : '无内容'}
             animation: scaleIn 0.3s ease-out !important;
             overflow-y: auto !important;
         `;
-        
+
         helpContainer.innerHTML = `
             <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px; font-weight: 600; text-align: center;">
                 🔧 权限问题解决方案
             </h3>
-            
+
             <div style="margin-bottom: 20px;">
                 <h4 style="color: #ff6b6b; margin-bottom: 10px;">📋 解决步骤：</h4>
                 <ol style="color: #666; line-height: 1.6; padding-left: 20px;">
@@ -5259,7 +5260,7 @@ ${pageContent ? pageContent : '无内容'}
                     <li>重新尝试截图功能</li>
                 </ol>
             </div>
-            
+
             <div style="margin-bottom: 20px;">
                 <h4 style="color: #FF9800; margin-bottom: 10px;">⚠️ Chrome API问题：</h4>
                 <ul style="color: #666; line-height: 1.6; padding-left: 20px;">
@@ -5269,7 +5270,7 @@ ${pageContent ? pageContent : '无内容'}
                     <li>尝试重启浏览器</li>
                 </ul>
             </div>
-            
+
             <div style="margin-bottom: 20px;">
                 <h4 style="color: #4CAF50; margin-bottom: 10px;">💡 其他解决方案：</h4>
                 <ul style="color: #666; line-height: 1.6; padding-left: 20px;">
@@ -5279,7 +5280,7 @@ ${pageContent ? pageContent : '无内容'}
                     <li>重启浏览器后重试</li>
                 </ul>
             </div>
-            
+
             <div style="text-align: center;">
                 <button id="open-extensions-page" style="
                     padding: 12px 24px;
@@ -5293,7 +5294,7 @@ ${pageContent ? pageContent : '无内容'}
                     margin-right: 10px;
                     transition: all 0.3s ease;
                 ">🚀 打开扩展管理页面</button>
-                
+
                 <button id="close-help-modal" style="
                     padding: 12px 24px;
                     background: linear-gradient(135deg, #f44336, #d32f2f);
@@ -5307,26 +5308,26 @@ ${pageContent ? pageContent : '无内容'}
                 ">关闭</button>
             </div>
         `;
-        
+
         helpModal.appendChild(helpContainer);
         document.body.appendChild(helpModal);
-        
+
         // 添加事件监听器
         document.getElementById('open-extensions-page').addEventListener('click', () => {
             window.open('chrome://extensions/', '_blank');
         });
-        
+
         document.getElementById('close-help-modal').addEventListener('click', () => {
             this.closePermissionHelp();
         });
-        
+
         // 点击背景关闭
         helpModal.addEventListener('click', (e) => {
             if (e.target === helpModal) {
                 this.closePermissionHelp();
             }
         });
-        
+
         // 添加动画样式
         if (!document.getElementById('help-modal-styles')) {
             const style = document.createElement('style');
@@ -5336,13 +5337,13 @@ ${pageContent ? pageContent : '无内容'}
                     from { opacity: 0; }
                     to { opacity: 1; }
                 }
-                
+
                 @keyframes scaleIn {
-                    from { 
+                    from {
                         opacity: 0;
                         transform: scale(0.8);
                     }
-                    to { 
+                    to {
                         opacity: 1;
                         transform: scale(1);
                     }
@@ -5351,7 +5352,7 @@ ${pageContent ? pageContent : '无内容'}
             document.head.appendChild(style);
         }
     }
-    
+
     // 关闭权限帮助
     closePermissionHelp() {
         const modal = document.getElementById('permission-help-modal');
@@ -5364,40 +5365,40 @@ ${pageContent ? pageContent : '无内容'}
             }, 300);
         }
     }
-    
+
     // 检查是否为系统页面
     isSystemPage() {
         const url = window.location.href;
-        return url.startsWith('chrome://') || 
+        return url.startsWith('chrome://') ||
                url.startsWith('chrome-extension://') ||
                url.startsWith('moz-extension://') ||
                url.startsWith('about:') ||
                url.startsWith('edge://') ||
                url.startsWith('browser://');
     }
-    
+
     // 检查Chrome API可用性
     checkChromeAPIAvailability() {
         console.log('检查Chrome API可用性...');
-        
+
         const apiStatus = {
             chrome: typeof chrome !== 'undefined',
             runtime: typeof chrome !== 'undefined' && !!chrome.runtime,
             tabs: typeof chrome !== 'undefined' && !!chrome.tabs
         };
-        
+
         console.log('API状态:', apiStatus);
-        
+
         if (!apiStatus.chrome) {
             console.error('Chrome对象不存在');
             return false;
         }
-        
+
         if (!apiStatus.runtime) {
             console.error('Chrome runtime API不可用');
             return false;
         }
-        
+
         // 测试runtime API是否正常工作
         try {
             const manifest = chrome.runtime.getManifest();
@@ -5412,39 +5413,39 @@ ${pageContent ? pageContent : '无内容'}
             return false;
         }
     }
-    
+
     // 检查截图权限
     async checkScreenshotPermission() {
         return new Promise((resolve) => {
             console.log('开始检查截图权限...');
-            
+
             // 检查chrome runtime API是否可用
             if (typeof chrome === 'undefined' || !chrome.runtime) {
                 console.error('Chrome runtime API不可用');
                 resolve(false);
                 return;
             }
-            
+
             // 通过background script检查权限
             chrome.runtime.sendMessage({
                 action: 'checkPermissions'
             }, (response) => {
                 console.log('权限检查响应:', response);
-                
+
                 if (chrome.runtime.lastError) {
                     console.error('权限检查失败:', chrome.runtime.lastError.message);
                     resolve(false);
                     return;
                 }
-                
+
                 if (response && response.success && response.permissions) {
                     const permissions = response.permissions;
                     console.log('当前权限列表:', permissions);
-                    
+
                     // 检查是否有activeTab权限
                     const hasActiveTab = permissions.permissions && permissions.permissions.includes('activeTab');
                     console.log('activeTab权限状态:', hasActiveTab);
-                    
+
                     if (hasActiveTab) {
                         console.log('✅ activeTab权限已存在');
                         resolve(true);
@@ -5459,12 +5460,12 @@ ${pageContent ? pageContent : '无内容'}
             });
         });
     }
-    
+
     // 备用截图方法
     async fallbackScreenshot() {
         try {
             console.log('尝试备用截图方法...');
-            
+
             // 方法1: 使用html2canvas库（如果可用）
             if (typeof html2canvas !== 'undefined') {
                 console.log('使用html2canvas库截图...');
@@ -5482,19 +5483,19 @@ ${pageContent ? pageContent : '无内容'}
                     console.error('html2canvas截图失败:', error);
                 }
             }
-            
+
             // 方法2: 使用getDisplayMedia API
             if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
                 console.log('尝试使用getDisplayMedia API...');
                 try {
                     const stream = await navigator.mediaDevices.getDisplayMedia({
-                        video: { 
+                        video: {
                             mediaSource: 'screen',
                             width: { ideal: 1920 },
                             height: { ideal: 1080 }
                         }
                     });
-                    
+
                     const video = document.createElement('video');
                     video.srcObject = stream;
                     video.style.position = 'fixed';
@@ -5503,7 +5504,7 @@ ${pageContent ? pageContent : '无内容'}
                     video.style.opacity = '0';
                     video.style.pointerEvents = 'none';
                     document.body.appendChild(video);
-                    
+
                     return new Promise((resolve) => {
                         const timeout = setTimeout(() => {
                             console.error('getDisplayMedia超时');
@@ -5514,23 +5515,23 @@ ${pageContent ? pageContent : '无内容'}
                             }
                             resolve(null);
                         }, 10000); // 10秒超时
-                        
+
                         video.addEventListener('loadedmetadata', () => {
                             clearTimeout(timeout);
                             try {
                                 const canvas = document.createElement('canvas');
                                 canvas.width = video.videoWidth;
                                 canvas.height = video.videoHeight;
-                                
+
                                 const ctx = canvas.getContext('2d');
                                 ctx.drawImage(video, 0, 0);
-                                
+
                                 // 清理资源
                                 stream.getTracks().forEach(track => track.stop());
                                 if (video.parentNode) {
                                     document.body.removeChild(video);
                                 }
-                                
+
                                 resolve(canvas.toDataURL('image/png'));
                             } catch (error) {
                                 console.error('处理getDisplayMedia视频时出错:', error);
@@ -5542,7 +5543,7 @@ ${pageContent ? pageContent : '无内容'}
                                 resolve(null);
                             }
                         });
-                        
+
                         video.addEventListener('error', (error) => {
                             clearTimeout(timeout);
                             console.error('视频加载错误:', error);
@@ -5553,7 +5554,7 @@ ${pageContent ? pageContent : '无内容'}
                             }
                             resolve(null);
                         });
-                        
+
                         video.play().catch(error => {
                             clearTimeout(timeout);
                             console.error('视频播放失败:', error);
@@ -5573,75 +5574,75 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
             }
-            
+
             // 方法3: 简单的页面截图（仅可见区域）
             console.log('尝试简单页面截图...');
             try {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                
+
                 // 设置画布大小为视口大小
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                
+
                 // 填充背景色
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
+
                 // 添加文本说明
                 ctx.fillStyle = '#333333';
                 ctx.font = '20px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('截图功能暂时不可用', canvas.width / 2, canvas.height / 2);
                 ctx.fillText('请尝试刷新页面或重新加载扩展', canvas.width / 2, canvas.height / 2 + 30);
-                
+
                 return canvas.toDataURL('image/png');
             } catch (error) {
                 console.error('简单截图失败:', error);
             }
-            
+
             return null;
         } catch (error) {
             console.error('备用截图方法失败:', error);
             return null;
         }
     }
-    
+
     // 使用Chrome API截图
     async captureVisibleTab() {
         return new Promise((resolve) => {
             console.log('发送截图请求到background script...');
-            
+
             // 检查chrome API是否可用
             if (typeof chrome === 'undefined' || !chrome.runtime) {
                 console.error('Chrome API不可用');
                 resolve(null);
                 return;
             }
-            
+
             // 设置超时处理
             const timeout = setTimeout(() => {
                 console.error('截图请求超时');
                 resolve(null);
             }, 10000); // 10秒超时
-            
+
             chrome.runtime.sendMessage({
                 action: 'captureVisibleTab'
             }, (response) => {
                 clearTimeout(timeout);
                 console.log('收到background script响应:', response);
-                
+
                 if (chrome.runtime.lastError) {
                     console.error('Chrome runtime错误:', chrome.runtime.lastError.message);
                     console.error('错误详情:', chrome.runtime.lastError);
-                    
+
                     // 检查是否是权限相关错误
-                    if (chrome.runtime.lastError.message.includes('permission') || 
+                    if (chrome.runtime.lastError.message.includes('permission') ||
                         chrome.runtime.lastError.message.includes('denied') ||
                         chrome.runtime.lastError.message.includes('not allowed')) {
                         console.error('权限被拒绝，需要重新授权');
                     }
-                    
+
                     resolve(null);
                 } else if (response && response.success) {
                     console.log('截图成功，数据URL长度:', response.dataUrl ? response.dataUrl.length : 0);
@@ -5654,7 +5655,7 @@ ${pageContent ? pageContent : '无内容'}
             });
         });
     }
-    
+
     // 显示截图预览
     showScreenshotPreview(dataUrl) {
         // 创建截图预览模态框
@@ -5673,7 +5674,7 @@ ${pageContent ? pageContent : '无内容'}
             justify-content: center !important;
             animation: fadeIn 0.3s ease-out !important;
         `;
-        
+
         // 创建预览容器
         const previewContainer = document.createElement('div');
         previewContainer.style.cssText = `
@@ -5686,7 +5687,7 @@ ${pageContent ? pageContent : '无内容'}
             position: relative !important;
             animation: scaleIn 0.3s ease-out !important;
         `;
-        
+
         // 创建标题
         const title = document.createElement('h3');
         title.innerHTML = '📷 截图预览';
@@ -5701,7 +5702,7 @@ ${pageContent ? pageContent : '无内容'}
             justify-content: center !important;
             gap: 8px !important;
         `;
-        
+
         // 创建图片预览
         const img = document.createElement('img');
         img.src = dataUrl;
@@ -5711,7 +5712,7 @@ ${pageContent ? pageContent : '无内容'}
             border-radius: 8px !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
         `;
-        
+
         // 创建按钮容器
         const buttonContainer = document.createElement('div');
         buttonContainer.style.cssText = `
@@ -5720,7 +5721,7 @@ ${pageContent ? pageContent : '无内容'}
             margin-top: 20px !important;
             justify-content: center !important;
         `;
-        
+
         // 保存按钮
         const saveButton = document.createElement('button');
         saveButton.innerHTML = '💾 保存图片';
@@ -5739,7 +5740,7 @@ ${pageContent ? pageContent : '无内容'}
             this.downloadScreenshot(dataUrl);
             this.closeScreenshotPreview();
         });
-        
+
         // 复制按钮
         const copyButton = document.createElement('button');
         copyButton.innerHTML = '📋 复制';
@@ -5759,7 +5760,7 @@ ${pageContent ? pageContent : '无内容'}
                 // 将图片转换为blob
                 const response = await fetch(dataUrl);
                 const blob = await response.blob();
-                
+
                 // 复制到剪贴板
                 await navigator.clipboard.write([
                     new ClipboardItem({
@@ -5771,7 +5772,7 @@ ${pageContent ? pageContent : '无内容'}
                 this.showScreenshotNotification('复制失败，请使用保存功能', 'error');
             }
         });
-        
+
         // 关闭按钮
         const closeButton = document.createElement('button');
         closeButton.textContent = '关闭';
@@ -5789,7 +5790,7 @@ ${pageContent ? pageContent : '无内容'}
         closeButton.addEventListener('click', () => {
             this.closeScreenshotPreview();
         });
-        
+
         // 添加悬停效果
         [saveButton, copyButton, closeButton].forEach(button => {
             button.addEventListener('mouseenter', () => {
@@ -5801,7 +5802,7 @@ ${pageContent ? pageContent : '无内容'}
                 button.style.boxShadow = 'none';
             });
         });
-        
+
         // 组装预览框
         buttonContainer.appendChild(saveButton);
         buttonContainer.appendChild(copyButton);
@@ -5810,17 +5811,17 @@ ${pageContent ? pageContent : '无内容'}
         previewContainer.appendChild(img);
         previewContainer.appendChild(buttonContainer);
         modal.appendChild(previewContainer);
-        
+
         // 添加到页面
         document.body.appendChild(modal);
-        
+
         // 点击背景关闭
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeScreenshotPreview();
             }
         });
-        
+
         // 添加动画样式
         if (!document.getElementById('screenshot-modal-styles')) {
             const style = document.createElement('style');
@@ -5830,13 +5831,13 @@ ${pageContent ? pageContent : '无内容'}
                     from { opacity: 0; }
                     to { opacity: 1; }
                 }
-                
+
                 @keyframes scaleIn {
-                    from { 
+                    from {
                         opacity: 0;
                         transform: scale(0.8);
                     }
-                    to { 
+                    to {
                         opacity: 1;
                         transform: scale(1);
                     }
@@ -5845,7 +5846,7 @@ ${pageContent ? pageContent : '无内容'}
             document.head.appendChild(style);
         }
     }
-    
+
     // 关闭截图预览
     closeScreenshotPreview() {
         const modal = document.getElementById('screenshot-preview-modal');
@@ -5858,7 +5859,7 @@ ${pageContent ? pageContent : '无内容'}
             }, 300);
         }
     }
-    
+
     // 下载截图
     downloadScreenshot(dataUrl) {
         try {
@@ -5866,29 +5867,29 @@ ${pageContent ? pageContent : '无内容'}
             const link = document.createElement('a');
             link.href = dataUrl;
             link.download = `screenshot_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
-            
+
             // 触发下载
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
+
             this.showScreenshotNotification('图片已保存到下载文件夹', 'success');
         } catch (error) {
             console.error('下载失败:', error);
             this.showScreenshotNotification('下载失败，请重试', 'error');
         }
     }
-    
+
     // 显示通知
     showNotification(message, type = 'success') {
         // 创建通知元素
         const notification = document.createElement('div');
         notification.className = `pet-notification ${type}`;
         notification.textContent = message;
-        
-        const backgroundColor = type === 'error' ? '#f44336' : 
+
+        const backgroundColor = type === 'error' ? '#f44336' :
                                type === 'info' ? '#2196F3' : '#4CAF50';
-        
+
         notification.style.cssText = `
             position: fixed !important;
             top: 20px !important;
@@ -5903,7 +5904,7 @@ ${pageContent ? pageContent : '无内容'}
             animation: slideInRight 0.3s ease-out !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
         `;
-        
+
         // 添加动画样式
         if (!document.getElementById('notification-styles')) {
             const style = document.createElement('style');
@@ -5922,9 +5923,9 @@ ${pageContent ? pageContent : '无内容'}
             `;
             document.head.appendChild(style);
         }
-        
+
         document.body.appendChild(notification);
-        
+
         // 3秒后移除通知
         setTimeout(() => {
             if (notification.parentNode) {
@@ -5937,17 +5938,17 @@ ${pageContent ? pageContent : '无内容'}
             }
         }, 3000);
     }
-    
+
     // 显示截图通知
     showScreenshotNotification(message, type = 'success') {
         // 创建通知元素
         const notification = document.createElement('div');
         notification.className = `screenshot-notification ${type}`;
         notification.textContent = message;
-        
-        const backgroundColor = type === 'error' ? '#f44336' : 
+
+        const backgroundColor = type === 'error' ? '#f44336' :
                                type === 'info' ? '#2196F3' : '#4CAF50';
-        
+
         notification.style.cssText = `
             position: fixed !important;
             top: 20px !important;
@@ -5962,7 +5963,7 @@ ${pageContent ? pageContent : '无内容'}
             animation: slideInRight 0.3s ease-out !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
         `;
-        
+
         // 添加动画样式
         if (!document.getElementById('screenshot-notification-styles')) {
             const style = document.createElement('style');
@@ -5981,9 +5982,9 @@ ${pageContent ? pageContent : '无内容'}
             `;
             document.head.appendChild(style);
         }
-        
+
         document.body.appendChild(notification);
-        
+
         // 3秒后移除通知
         setTimeout(() => {
             if (notification.parentNode) {
@@ -5996,7 +5997,7 @@ ${pageContent ? pageContent : '无内容'}
             }
         }, 3000);
     }
-    
+
 }
 
 // 初始化宠物管理器
@@ -6021,6 +6022,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

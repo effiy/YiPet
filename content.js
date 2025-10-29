@@ -82,6 +82,8 @@ class PetManager {
         this.currentModel = PET_CONFIG.chatModels.default;
 
         this.colors = PET_CONFIG.pet.colors;
+        this.mermaidLoaded = false;
+        this.mermaidLoading = false;
 
         this.init();
     }
@@ -3374,6 +3376,17 @@ ${pageContent ? pageContent : '无内容'}
                     // 更新原始文本用于复制功能
                     messageBubble.setAttribute('data-original-text', fullContent);
 
+                    // 处理可能的 Mermaid 图表（使用防抖，避免在流式更新时频繁触发）
+                    // 清除之前的定时器
+                    if (messageBubble._mermaidTimeout) {
+                        clearTimeout(messageBubble._mermaidTimeout);
+                    }
+                    // 设置新的延迟处理
+                    messageBubble._mermaidTimeout = setTimeout(async () => {
+                        await this.processMermaidBlocks(messageBubble);
+                        messageBubble._mermaidTimeout = null;
+                    }, 500);
+
                     // 如果有内容，添加复制按钮
                     if (fullContent && fullContent.trim()) {
                         const copyButtonContainer = petMessageElement.querySelector('[data-copy-button-container]');
@@ -3446,9 +3459,42 @@ ${pageContent ? pageContent : '无内容'}
                 if (petMessageElement && fullContent !== reply) {
                     const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
                     if (messageBubble) {
+                        // 清除流式更新中的防抖定时器
+                        if (messageBubble._mermaidTimeout) {
+                            clearTimeout(messageBubble._mermaidTimeout);
+                            messageBubble._mermaidTimeout = null;
+                        }
+                        
                         messageBubble.innerHTML = this.renderMarkdown(reply);
+                        // 更新原始文本
+                        messageBubble.setAttribute('data-original-text', reply);
+                        // 处理 Mermaid 图表（流式完成后立即处理）
+                        setTimeout(async () => {
+                            await this.processMermaidBlocks(messageBubble);
+                        }, 100);
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                } else if (petMessageElement) {
+                    // 即使内容相同，也确保处理 mermaid（可能流式更新时已经设置了内容）
+                    const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                    if (messageBubble && messageBubble._mermaidTimeout) {
+                        // 如果还在等待防抖定时器，等待它完成；否则立即处理
+                        const waitForTimeout = () => {
+                            if (messageBubble._mermaidTimeout) {
+                                setTimeout(waitForTimeout, 50);
+                            } else {
+                                setTimeout(async () => {
+                                    await this.processMermaidBlocks(messageBubble);
+                                }, 100);
+                            }
+                        };
+                        waitForTimeout();
+                    } else if (messageBubble && !messageBubble._mermaidTimeout) {
+                        // 如果定时器已经完成，再次检查是否有遗漏的 mermaid
+                        setTimeout(async () => {
+                            await this.processMermaidBlocks(messageBubble);
+                        }, 100);
+                    }
                 }
             } catch (error) {
                 console.error('生成回复失败:', error);
@@ -4151,7 +4197,166 @@ ${pageContent ? pageContent : '无内容'}
         console.log('聊天窗口状态已恢复:', this.chatWindowState);
     }
 
-    // 渲染 Markdown 为 HTML
+    // 加载 Mermaid.js (CDN)
+    async loadMermaid() {
+        if (this.mermaidLoaded || this.mermaidLoading) {
+            return this.mermaidLoaded;
+        }
+
+        this.mermaidLoading = true;
+
+        return new Promise((resolve, reject) => {
+            // 检查是否已经加载
+            if (typeof mermaid !== 'undefined') {
+                this.mermaidLoaded = true;
+                this.mermaidLoading = false;
+                resolve(true);
+                return;
+            }
+
+            // 创建 script 标签加载 mermaid
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+            script.async = true;
+            
+            script.onload = () => {
+                try {
+                    // 初始化 mermaid
+                    if (typeof mermaid !== 'undefined') {
+                        mermaid.initialize({
+                            startOnLoad: false,
+                            theme: 'default',
+                            securityLevel: 'loose',
+                            flowchart: {
+                                useMaxWidth: true,
+                                htmlLabels: true
+                            }
+                        });
+                        this.mermaidLoaded = true;
+                        this.mermaidLoading = false;
+                        console.log('Mermaid.js 加载成功');
+                        resolve(true);
+                    } else {
+                        throw new Error('Mermaid 未正确加载');
+                    }
+                } catch (error) {
+                    console.error('初始化 Mermaid 失败:', error);
+                    this.mermaidLoading = false;
+                    reject(error);
+                }
+            };
+
+            script.onerror = () => {
+                console.error('加载 Mermaid.js 失败');
+                this.mermaidLoading = false;
+                reject(new Error('无法加载 Mermaid.js'));
+            };
+
+            document.head.appendChild(script);
+        });
+    }
+
+    // 处理 Markdown 中的 Mermaid 代码块
+    async processMermaidBlocks(container) {
+        if (!container) return;
+
+        // 检查是否需要加载 mermaid - 更全面的选择器
+        const mermaidBlocks = container.querySelectorAll('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+        
+        if (mermaidBlocks.length === 0) return;
+
+        // 过滤掉已经处理过的块
+        const unprocessedBlocks = Array.from(mermaidBlocks).filter(block => {
+            // 检查是否已经是mermaid div或被标记为已处理
+            const preElement = block.parentElement;
+            if (preElement && preElement.tagName === 'PRE') {
+                // 如果父元素的下一个兄弟元素是mermaid div，说明已经处理过
+                const nextSibling = preElement.nextElementSibling;
+                if (nextSibling && nextSibling.classList.contains('mermaid')) {
+                    return false;
+                }
+                // 检查是否有处理标记
+                if (block.classList.contains('mermaid-processed')) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        if (unprocessedBlocks.length === 0) return;
+
+        // 加载 mermaid（如果需要）
+        const mermaidAvailable = await this.loadMermaid().catch(() => false);
+        if (!mermaidAvailable) {
+            console.warn('Mermaid.js 未加载，无法渲染图表');
+            return;
+        }
+
+        // 处理每个未处理的 mermaid 代码块
+        unprocessedBlocks.forEach((codeBlock, index) => {
+            const preElement = codeBlock.parentElement;
+            if (preElement && preElement.tagName === 'PRE') {
+                const mermaidId = `mermaid-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
+                const mermaidContent = codeBlock.textContent || codeBlock.innerText || '';
+
+                if (!mermaidContent.trim()) {
+                    return; // 跳过空内容
+                }
+
+                // 创建 mermaid 容器
+                const mermaidDiv = document.createElement('div');
+                mermaidDiv.className = 'mermaid';
+                mermaidDiv.id = mermaidId;
+                mermaidDiv.textContent = mermaidContent;
+                mermaidDiv.style.cssText = `
+                    background: rgba(255, 255, 255, 0.1) !important;
+                    padding: 15px !important;
+                    border-radius: 8px !important;
+                    margin: 15px 0 !important;
+                    overflow-x: auto !important;
+                    min-height: 100px !important;
+                `;
+
+                // 标记为已处理
+                codeBlock.classList.add('mermaid-processed');
+                
+                // 替换代码块
+                try {
+                    preElement.parentNode.replaceChild(mermaidDiv, preElement);
+
+                    // 渲染 mermaid 图表
+                    mermaid.run({
+                        nodes: [mermaidDiv],
+                        suppressErrors: true
+                    }).then(() => {
+                        console.log(`Mermaid 图表 ${mermaidId} 渲染成功`);
+                    }).catch((error) => {
+                        console.error(`渲染 Mermaid 图表 ${mermaidId} 失败:`, error);
+                        // 出错时显示错误信息，但保留原始代码
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'mermaid-error';
+                        errorDiv.style.cssText = `
+                            background: rgba(255, 0, 0, 0.1) !important;
+                            padding: 10px !important;
+                            border-radius: 5px !important;
+                            color: #ff6b6b !important;
+                            font-size: 12px !important;
+                            margin: 10px 0 !important;
+                        `;
+                        errorDiv.innerHTML = `
+                            <div>❌ Mermaid 图表渲染失败</div>
+                            <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
+                        `;
+                        mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
+                    });
+                } catch (error) {
+                    console.error('替换 Mermaid 代码块时出错:', error);
+                }
+            }
+        });
+    }
+
+    // 渲染 Markdown 为 HTML（保持同步以兼容现有代码）
     renderMarkdown(markdown) {
         if (!markdown) return '';
 
@@ -4173,6 +4378,22 @@ ${pageContent ? pageContent : '无内容'}
             console.error('渲染 Markdown 失败:', error);
             return this.escapeHtml(markdown);
         }
+    }
+
+    // 渲染 Markdown 并处理 Mermaid（完整流程）
+    async renderMarkdownWithMermaid(markdown, container) {
+        // 先渲染 Markdown
+        const html = this.renderMarkdown(markdown);
+        
+        // 如果提供了容器，处理其中的 Mermaid 代码块
+        if (container) {
+            // 需要等待 DOM 更新后再处理
+            setTimeout(async () => {
+                await this.processMermaidBlocks(container);
+            }, 100);
+        }
+        
+        return html;
     }
 
     // HTML 转义辅助函数
@@ -4251,11 +4472,18 @@ ${pageContent ? pageContent : '无内容'}
         // 添加标识以便后续更新
         if (sender === 'pet') {
             messageText.setAttribute('data-message-type', 'pet-bubble');
+        } else {
+            messageText.setAttribute('data-message-type', 'user-bubble');
         }
 
-        // 为宠物消息保存原始文本用于复制功能
-        if (sender === 'pet' && text) {
-            messageText.setAttribute('data-original-text', text);
+        // 为消息保存原始文本用于复制和编辑功能
+        if (text) {
+            if (sender === 'pet') {
+                messageText.setAttribute('data-original-text', text);
+            } else {
+                // 用户消息也保存原始文本，用于编辑功能
+                messageText.setAttribute('data-original-text', text);
+            }
         }
 
         if (sender === 'user') {
@@ -4309,6 +4537,14 @@ ${pageContent ? pageContent : '无内容'}
             } else {
                 if (sender === 'pet') {
                     messageText.innerHTML = displayText;
+                    // 对于宠物消息，处理可能的 Mermaid 图表
+                    if (!messageText.hasAttribute('data-mermaid-processing')) {
+                        messageText.setAttribute('data-mermaid-processing', 'true');
+                        setTimeout(async () => {
+                            await this.processMermaidBlocks(messageText);
+                            messageText.removeAttribute('data-mermaid-processing');
+                        }, 100);
+                    }
                 } else {
                     messageText.textContent = text;
                 }
@@ -4637,8 +4873,31 @@ ${pageContent ? pageContent : '无内容'}
             }
         });
 
+        // 创建编辑按钮
+        const editButton = document.createElement('button');
+        editButton.className = 'edit-button';
+        editButton.innerHTML = '✏️';
+        editButton.setAttribute('title', '编辑消息');
+        editButton.setAttribute('data-editing', 'false');
+
+        // 点击编辑
+        editButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            const isEditing = editButton.getAttribute('data-editing') === 'true';
+
+            if (!isEditing) {
+                // 进入编辑模式
+                this.enableMessageEdit(messageTextElement, editButton, 'pet');
+            } else {
+                // 保存编辑
+                this.saveMessageEdit(messageTextElement, editButton, 'pet');
+            }
+        });
+
         container.innerHTML = '';
         container.appendChild(copyButton);
+        container.appendChild(editButton);
         container.appendChild(deleteButton);
         container.appendChild(flashcardButton);
         container.style.display = 'flex';
@@ -4679,9 +4938,201 @@ ${pageContent ? pageContent : '无内容'}
             }
         });
 
+        // 创建编辑按钮
+        const editButton = document.createElement('button');
+        editButton.className = 'edit-button';
+        editButton.innerHTML = '✏️';
+        editButton.setAttribute('title', '编辑消息');
+        editButton.setAttribute('data-editing', 'false');
+
+        // 获取用户消息的文本元素
+        const messageBubble = container.closest('.chat-message-container')?.querySelector('div[style*="background"]') || 
+                             container.parentElement?.previousElementSibling?.querySelector('div[style*="background"]') ||
+                             null;
+
+        // 点击编辑
+        editButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            const isEditing = editButton.getAttribute('data-editing') === 'true';
+
+            // 查找用户消息气泡
+            const messageContainer = container.closest('[style*="margin-bottom: 15px"]');
+            const messageText = messageContainer ? messageContainer.querySelector('[data-message-type="user-bubble"]') : null;
+
+            if (messageText) {
+                if (!isEditing) {
+                    // 进入编辑模式
+                    this.enableMessageEdit(messageText, editButton, 'user');
+                } else {
+                    // 保存编辑
+                    this.saveMessageEdit(messageText, editButton, 'user');
+                }
+            }
+        });
+
+        container.appendChild(editButton);
         container.appendChild(deleteButton);
         container.style.display = 'flex';
         container.style.gap = '4px';
+    }
+
+    // 启用消息编辑功能
+    enableMessageEdit(messageElement, editButton, sender) {
+        // 保存原始内容 - 优先从data-original-text获取（保留原始格式），如果没有则从元素内容获取
+        let originalText = messageElement.getAttribute('data-original-text') || '';
+        
+        // 如果data-original-text为空，则从元素内容中提取
+        if (!originalText) {
+            if (sender === 'pet') {
+                // 对于宠物消息，从innerText获取（去掉Markdown格式）
+                originalText = messageElement.innerText || messageElement.textContent || '';
+            } else {
+                // 对于用户消息，直接获取文本内容
+                originalText = messageElement.innerText || messageElement.textContent || '';
+            }
+        }
+
+        // 保存原始HTML（如果存在）
+        const originalHTML = messageElement.innerHTML;
+
+        // 保存到data属性
+        messageElement.setAttribute('data-original-content', originalHTML);
+        messageElement.setAttribute('data-editing', 'true');
+
+        // 创建文本输入框
+        const textarea = document.createElement('textarea');
+        textarea.value = originalText;
+        textarea.style.cssText = `
+            width: 100% !important;
+            min-height: 80px !important;
+            max-height: 400px !important;
+            padding: 12px 16px !important;
+            border: 2px solid rgba(255, 255, 255, 0.5) !important;
+            border-radius: 8px !important;
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: white !important;
+            font-size: 14px !important;
+            font-family: inherit !important;
+            line-height: 1.6 !important;
+            resize: vertical !important;
+            outline: none !important;
+            box-sizing: border-box !important;
+            overflow-y: auto !important;
+        `;
+        textarea.setAttribute('placeholder', '编辑消息内容...');
+
+        // 替换消息内容为输入框
+        messageElement.innerHTML = '';
+        messageElement.appendChild(textarea);
+
+        // 自动调整高度以适应内容
+        const adjustHeight = () => {
+            textarea.style.height = 'auto';
+            const scrollHeight = textarea.scrollHeight;
+            const minHeight = 80;
+            const maxHeight = 400;
+            const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+            textarea.style.height = newHeight + 'px';
+        };
+
+        // 初始调整高度
+        setTimeout(() => {
+            adjustHeight();
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        }, 10);
+
+        // 更新编辑按钮状态
+        editButton.setAttribute('data-editing', 'true');
+        editButton.innerHTML = '💾';
+        editButton.setAttribute('title', '保存编辑');
+
+        // 添加回车保存功能（Ctrl+Enter或Cmd+Enter）
+        textarea.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                this.saveMessageEdit(messageElement, editButton, sender);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                this.cancelMessageEdit(messageElement, editButton, sender);
+            }
+        });
+
+        // 自动调整高度（输入时实时调整）
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            const scrollHeight = textarea.scrollHeight;
+            const minHeight = 80;
+            const maxHeight = 400;
+            const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+            textarea.style.height = newHeight + 'px';
+            
+            // 如果内容超过最大高度，显示滚动条
+            if (scrollHeight > maxHeight) {
+                textarea.style.overflowY = 'auto';
+            } else {
+                textarea.style.overflowY = 'hidden';
+            }
+        });
+    }
+
+    // 保存消息编辑
+    saveMessageEdit(messageElement, editButton, sender) {
+        const textarea = messageElement.querySelector('textarea');
+        if (!textarea) return;
+
+        const newText = textarea.value.trim();
+        
+        if (!newText) {
+            // 如果内容为空，取消编辑
+            this.cancelMessageEdit(messageElement, editButton, sender);
+            return;
+        }
+
+        // 更新消息内容
+        if (sender === 'pet') {
+            // 对于宠物消息，使用Markdown渲染
+            messageElement.innerHTML = this.renderMarkdown(newText);
+            messageElement.classList.add('markdown-content');
+            // 更新原始文本
+            messageElement.setAttribute('data-original-text', newText);
+            // 处理可能的 Mermaid 图表
+            setTimeout(async () => {
+                await this.processMermaidBlocks(messageElement);
+            }, 100);
+        } else {
+            // 对于用户消息，使用纯文本
+            messageElement.textContent = newText;
+            // 更新原始文本，以便再次编辑时可以获取
+            messageElement.setAttribute('data-original-text', newText);
+        }
+
+        // 恢复编辑状态
+        messageElement.removeAttribute('data-editing');
+        messageElement.setAttribute('data-edited', 'true');
+
+        // 更新编辑按钮状态
+        editButton.setAttribute('data-editing', 'false');
+        editButton.innerHTML = '✏️';
+        editButton.setAttribute('title', '编辑消息');
+    }
+
+    // 取消消息编辑
+    cancelMessageEdit(messageElement, editButton, sender) {
+        const originalHTML = messageElement.getAttribute('data-original-content');
+        
+        if (originalHTML) {
+            messageElement.innerHTML = originalHTML;
+        }
+
+        // 恢复编辑状态
+        messageElement.removeAttribute('data-editing');
+
+        // 更新编辑按钮状态
+        editButton.setAttribute('data-editing', 'false');
+        editButton.innerHTML = '✏️';
+        editButton.setAttribute('title', '编辑消息');
     }
 
     // 发送图片消息
@@ -6163,6 +6614,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

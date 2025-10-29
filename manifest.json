@@ -12,7 +12,8 @@
   "host_permissions": [
     "<all_urls>",
     "https://api.effiy.cn/*",
-    "http://localhost:8000/*"
+    "http://localhost:8000/*",
+    "https://cdn.jsdelivr.net/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -53,5 +54,6 @@
     }
   ]
 }
+
 
 

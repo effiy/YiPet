@@ -357,6 +357,34 @@
     background: rgba(0, 0, 0, 0.2) !important;
 }
 
+/* Mermaid 图表样式 */
+.markdown-content .mermaid,
+.mermaid {
+    background: rgba(255, 255, 255, 0.1) !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+    margin: 15px 0 !important;
+    overflow-x: auto !important;
+    text-align: center !important;
+    min-height: 100px !important;
+}
+
+.markdown-content .mermaid svg,
+.mermaid svg {
+    max-width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+}
+
+.markdown-content .mermaid-error {
+    background: rgba(255, 0, 0, 0.1) !important;
+    padding: 10px !important;
+    border-radius: 5px !important;
+    color: #ff6b6b !important;
+    font-size: 12px !important;
+    margin: 10px 0 !important;
+}
+
 /* 复制按钮样式 */
 .copy-button {
     background: rgba(255, 255, 255, 0.2) !important;
@@ -437,5 +465,37 @@
 .delete-button:active {
     transform: scale(0.95) !important;
 }
+
+/* 编辑按钮样式 */
+.edit-button {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 20px !important;
+    height: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    transition: all 0.2s ease !important;
+    opacity: 0.8 !important;
+    flex-shrink: 0 !important;
+}
+
+.edit-button:hover {
+    background: rgba(33, 150, 243, 0.3) !important;
+    transform: scale(1.1) !important;
+    opacity: 1 !important;
+}
+
+.edit-button:active {
+    transform: scale(0.95) !important;
+}
+
+.edit-button[data-editing="true"] {
+    background: rgba(76, 175, 80, 0.3) !important;
+}
+
 
 

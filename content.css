@@ -255,9 +255,29 @@
     transform-origin: left center !important;
 }
 
+/* 允许聊天内容被选中 */
+#pet-chat-messages {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+}
+
+[data-message-type="pet-bubble"],
+[data-message-type="user-bubble"] {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+}
+
 /* Markdown 内容样式 */
 .markdown-content {
     color: white !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
 }
 
 .markdown-content h1,
@@ -280,16 +300,28 @@
 
 .markdown-content p {
     margin: 0.5em 0 !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
 }
 
 .markdown-content ul,
 .markdown-content ol {
     margin: 0.5em 0 !important;
     padding-left: 1.5em !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
 }
 
 .markdown-content li {
     margin: 0.25em 0 !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
 }
 
 .markdown-content code {

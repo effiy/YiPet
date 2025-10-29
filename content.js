@@ -2213,6 +2213,7 @@ ${pageContent ? pageContent : '无内容'}
             background: linear-gradient(135deg, #f8f9fa, #ffffff) !important;
             position: relative !important;
             min-height: 200px !important;
+            user-select: text !important;
         `;
 
         // 动态更新底部padding，确保内容不被输入框遮住
@@ -4957,6 +4958,10 @@ ${pageContent ? pageContent : '无内容'}
             max-width: 80% !important;
             width: 100% !important;
             margin-left: ${sender === 'user' ? 'auto' : '0'} !important;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
         `;
 
         // 为宠物消息添加 Markdown 样式

@@ -128,8 +128,20 @@
                 suppressErrors: true
             }).then(() => {
                 console.log('[RenderMermaid] Mermaid 图表渲染成功:', mermaidId);
+                // 获取渲染后的 SVG 内容
+                const svgElement = mermaidDiv.querySelector('svg');
+                let svgContent = '';
+                if (svgElement) {
+                    // 克隆 SVG 以获取完整的 XML 字符串
+                    const clone = svgElement.cloneNode(true);
+                    // 确保 SVG 有正确的命名空间
+                    if (!clone.getAttribute('xmlns')) {
+                        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                    }
+                    svgContent = new XMLSerializer().serializeToString(clone);
+                }
                 window.dispatchEvent(new CustomEvent('mermaid-rendered', { 
-                    detail: { id: mermaidId, success: true } 
+                    detail: { id: mermaidId, success: true, svgContent: svgContent } 
                 }));
             }).catch((error) => {
                 console.error('[RenderMermaid] 渲染 Mermaid 图表失败:', error);

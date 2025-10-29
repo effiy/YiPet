@@ -4446,6 +4446,11 @@ ${pageContent ? pageContent : '无内容'}
                                 if (mermaidDiv.parentNode) {
                                     mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
                                 }
+                            } else {
+                                // 渲染成功，添加复制和下载按钮
+                                setTimeout(() => {
+                                    this.addMermaidActions(mermaidDiv, event.detail.svgContent || '', mermaidContent);
+                                }, 100);
                             }
                             // 清理 ID 容器
                             if (renderIdContainer.parentNode) {
@@ -4565,6 +4570,255 @@ ${pageContent ? pageContent : '无内容'}
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // 为 Mermaid 图表添加复制和下载按钮
+    addMermaidActions(mermaidDiv, svgContent, mermaidSourceCode) {
+        if (!mermaidDiv) return;
+
+        // 检查是否已经添加了按钮
+        if (mermaidDiv.querySelector('.mermaid-actions')) {
+            return;
+        }
+
+        // 创建按钮容器
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'mermaid-actions';
+        actionsContainer.style.cssText = `
+            position: absolute !important;
+            top: 10px !important;
+            right: 10px !important;
+            display: flex !important;
+            gap: 8px !important;
+            z-index: 10 !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+
+        // 确保 mermaid div 有相对定位
+        const currentPosition = window.getComputedStyle(mermaidDiv).position;
+        if (currentPosition === 'static') {
+            mermaidDiv.style.position = 'relative';
+        }
+
+        // 创建复制按钮
+        const copyButton = document.createElement('button');
+        copyButton.className = 'mermaid-copy-button';
+        copyButton.title = '复制 SVG';
+        copyButton.innerHTML = '📋';
+        copyButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            border-radius: 4px !important;
+            width: 28px !important;
+            height: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.8 !important;
+            backdrop-filter: blur(4px) !important;
+        `;
+
+        // 创建下载按钮
+        const downloadButton = document.createElement('button');
+        downloadButton.className = 'mermaid-download-button';
+        downloadButton.title = '下载 SVG';
+        downloadButton.innerHTML = '💾';
+        downloadButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            border-radius: 4px !important;
+            width: 28px !important;
+            height: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.8 !important;
+            backdrop-filter: blur(4px) !important;
+        `;
+
+        // 获取 SVG 内容的辅助函数
+        const getSvgContent = () => {
+            return new Promise((resolve) => {
+                // 首先尝试使用事件传递的内容
+                if (svgContent) {
+                    resolve(svgContent);
+                    return;
+                }
+
+                // 尝试从 DOM 获取（content script 可以直接访问 DOM）
+                const svgElement = mermaidDiv.querySelector('svg');
+                if (svgElement) {
+                    try {
+                        const clone = svgElement.cloneNode(true);
+                        if (!clone.getAttribute('xmlns')) {
+                            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                        }
+                        const svgString = new XMLSerializer().serializeToString(clone);
+                        resolve(svgString);
+                        return;
+                    } catch (error) {
+                        console.warn('通过 DOM 获取 SVG 失败，尝试注入脚本:', error);
+                    }
+                }
+
+                // 如果都失败，通过注入脚本从页面上下文获取
+                const script = document.createElement('script');
+                script.textContent = `
+                    (function() {
+                        const mermaidDiv = document.getElementById('${mermaidDiv.id}');
+                        if (mermaidDiv) {
+                            const svgElement = mermaidDiv.querySelector('svg');
+                            if (svgElement) {
+                                const clone = svgElement.cloneNode(true);
+                                if (!clone.getAttribute('xmlns')) {
+                                    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                                }
+                                const svgString = new XMLSerializer().serializeToString(clone);
+                                window.postMessage({
+                                    type: 'mermaid-svg-content',
+                                    id: '${mermaidDiv.id}',
+                                    svgContent: svgString
+                                }, '*');
+                            }
+                        }
+                    })();
+                `;
+                document.documentElement.appendChild(script);
+                
+                const messageHandler = (event) => {
+                    if (event.data && event.data.type === 'mermaid-svg-content' && event.data.id === mermaidDiv.id) {
+                        window.removeEventListener('message', messageHandler);
+                        document.documentElement.removeChild(script);
+                        resolve(event.data.svgContent || '');
+                    }
+                };
+                window.addEventListener('message', messageHandler);
+                
+                // 超时处理
+                setTimeout(() => {
+                    window.removeEventListener('message', messageHandler);
+                    if (script.parentNode) {
+                        document.documentElement.removeChild(script);
+                    }
+                    resolve('');
+                }, 1000);
+            });
+        };
+
+        // 复制按钮点击事件
+        copyButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            try {
+                const svg = await getSvgContent();
+
+                if (svg) {
+                    await navigator.clipboard.writeText(svg);
+                    // 显示成功提示
+                    copyButton.innerHTML = '✓';
+                    copyButton.style.background = 'rgba(76, 175, 80, 0.3) !important';
+                    setTimeout(() => {
+                        copyButton.innerHTML = '📋';
+                        copyButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                    }, 1000);
+                } else {
+                    throw new Error('无法获取 SVG 内容');
+                }
+            } catch (error) {
+                console.error('复制 SVG 失败:', error);
+                copyButton.innerHTML = '✗';
+                copyButton.style.background = 'rgba(244, 67, 54, 0.3) !important';
+                setTimeout(() => {
+                    copyButton.innerHTML = '📋';
+                    copyButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                }, 1000);
+            }
+        });
+
+        // 下载按钮点击事件
+        downloadButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            try {
+                const svg = await getSvgContent();
+
+                if (svg) {
+                    // 创建 Blob 并下载
+                    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `mermaid-diagram-${Date.now()}.svg`;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    // 显示成功提示
+                    downloadButton.innerHTML = '✓';
+                    downloadButton.style.background = 'rgba(76, 175, 80, 0.3) !important';
+                    setTimeout(() => {
+                        downloadButton.innerHTML = '💾';
+                        downloadButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                    }, 1000);
+                } else {
+                    throw new Error('无法获取 SVG 内容');
+                }
+            } catch (error) {
+                console.error('下载 SVG 失败:', error);
+                downloadButton.innerHTML = '✗';
+                downloadButton.style.background = 'rgba(244, 67, 54, 0.3) !important';
+                setTimeout(() => {
+                    downloadButton.innerHTML = '💾';
+                    downloadButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                }, 1000);
+            }
+        });
+
+        // 悬停显示按钮
+        mermaidDiv.addEventListener('mouseenter', () => {
+            actionsContainer.style.opacity = '1';
+        });
+        mermaidDiv.addEventListener('mouseleave', () => {
+            actionsContainer.style.opacity = '0';
+        });
+
+        actionsContainer.appendChild(copyButton);
+        actionsContainer.appendChild(downloadButton);
+        mermaidDiv.appendChild(actionsContainer);
+
+        // 按钮悬停效果
+        copyButton.addEventListener('mouseenter', () => {
+            copyButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
+            copyButton.style.transform = 'scale(1.1)';
+            copyButton.style.opacity = '1';
+        });
+        copyButton.addEventListener('mouseleave', () => {
+            copyButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+            copyButton.style.transform = 'scale(1)';
+            copyButton.style.opacity = '0.8';
+        });
+
+        downloadButton.addEventListener('mouseenter', () => {
+            downloadButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
+            downloadButton.style.transform = 'scale(1.1)';
+            downloadButton.style.opacity = '1';
+        });
+        downloadButton.addEventListener('mouseleave', () => {
+            downloadButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+            downloadButton.style.transform = 'scale(1)';
+            downloadButton.style.opacity = '0.8';
+        });
     }
 
     // 创建消息元素

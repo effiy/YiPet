@@ -385,6 +385,53 @@
     margin: 10px 0 !important;
 }
 
+/* Mermaid 操作按钮样式 */
+.mermaid-actions {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    display: flex !important;
+    gap: 8px !important;
+    z-index: 10 !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+}
+
+.mermaid:hover .mermaid-actions {
+    opacity: 1 !important;
+}
+
+.mermaid-copy-button,
+.mermaid-download-button {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    width: 28px !important;
+    height: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease !important;
+    opacity: 0.8 !important;
+    backdrop-filter: blur(4px) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.mermaid-copy-button:hover,
+.mermaid-download-button:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+    transform: scale(1.1) !important;
+    opacity: 1 !important;
+}
+
+.mermaid-copy-button:active,
+.mermaid-download-button:active {
+    transform: scale(0.95) !important;
+}
+
 /* 复制按钮样式 */
 .copy-button {
     background: rgba(255, 255, 255, 0.2) !important;

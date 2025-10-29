@@ -12,8 +12,7 @@
   "host_permissions": [
     "<all_urls>",
     "https://api.effiy.cn/*",
-    "http://localhost:8000/*",
-    "https://cdn.jsdelivr.net/*"
+    "http://localhost:8000/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -30,7 +29,7 @@
         "roles/bestPractice.js",
         "roles/index.js",
         "turndown.js", 
-        "marked.min.js", 
+        "marked.min.js",
         "content.js"
       ],
       "css": ["content.css"],
@@ -49,7 +48,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/icon.png"],
+      "resources": ["icons/icon.png", "mermaid.min.js", "load-mermaid.js", "render-mermaid.js", "preview-mermaid.js"],
       "matches": ["<all_urls>"]
     }
   ]

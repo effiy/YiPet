@@ -3027,6 +3027,40 @@ ${pageContent ? pageContent : '无内容'}
             addButton.style.borderColor = currentMainColor;
         });
 
+        // 创建 Mermaid 按钮（使用宠物颜色主题）
+        const mermaidButton = document.createElement('button');
+        mermaidButton.innerHTML = '📊';
+        mermaidButton.title = '编辑 Mermaid 图表';
+        mermaidButton.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        `;
+        mermaidButton.addEventListener('mouseenter', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            mermaidButton.style.background = currentMainColor;
+            mermaidButton.style.color = 'white';
+            mermaidButton.style.borderColor = currentMainColor;
+        });
+        mermaidButton.addEventListener('mouseleave', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            mermaidButton.style.background = 'white';
+            mermaidButton.style.color = currentMainColor;
+            mermaidButton.style.borderColor = currentMainColor;
+        });
+        mermaidButton.addEventListener('click', () => {
+            this.openMermaidEditor();
+        });
+
         // 右侧状态组
         const rightStatusGroup = document.createElement('div');
         rightStatusGroup.style.cssText = `
@@ -3167,6 +3201,7 @@ ${pageContent ? pageContent : '无内容'}
 
         leftButtonGroup.appendChild(mentionButton);
         leftButtonGroup.appendChild(addButton);
+        leftButtonGroup.appendChild(mermaidButton);
         rightStatusGroup.appendChild(contextSwitchContainer);
         topToolbar.appendChild(leftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);
@@ -3523,8 +3558,35 @@ ${pageContent ? pageContent : '无内容'}
             }
         };
 
+        // 中文输入法状态跟踪
+        let isComposing = false;
+        
+        // 监听输入法组合开始事件（中文输入法开始输入）
+        messageInput.addEventListener('compositionstart', () => {
+            isComposing = true;
+        });
+        
+        // 监听输入法组合更新事件（输入法正在输入）
+        messageInput.addEventListener('compositionupdate', () => {
+            isComposing = true;
+        });
+        
+        // 监听输入法组合结束事件（中文输入法输入完成）
+        messageInput.addEventListener('compositionend', () => {
+            // 延迟重置状态，确保所有相关事件都已处理
+            setTimeout(() => {
+                isComposing = false;
+            }, 10);
+        });
+        
         // 键盘事件处理：Enter发送，Shift+Enter换行，ESC清除
         messageInput.addEventListener('keydown', (e) => {
+            // 如果正在使用中文输入法（检查 isComposing 状态和 e.isComposing 属性），不处理回车键
+            if (isComposing || e.isComposing) {
+                // 允许输入法正常处理回车键（用于确认选择）
+                return;
+            }
+            
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
@@ -4206,53 +4268,95 @@ ${pageContent ? pageContent : '无内容'}
         this.mermaidLoading = true;
 
         return new Promise((resolve, reject) => {
-            // 检查是否已经加载
-            if (typeof mermaid !== 'undefined') {
-                this.mermaidLoaded = true;
-                this.mermaidLoading = false;
-                resolve(true);
-                return;
-            }
-
-            // 创建 script 标签加载 mermaid
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-            script.async = true;
+            // 检查是否已经加载（从 content_scripts 自动加载或之前动态加载）
+            const mermaidLib = (typeof mermaid !== 'undefined') ? mermaid : 
+                              (typeof window !== 'undefined' && window.mermaid) ? window.mermaid : null;
             
-            script.onload = () => {
+            if (mermaidLib && typeof mermaidLib.initialize === 'function') {
                 try {
                     // 初始化 mermaid
-                    if (typeof mermaid !== 'undefined') {
-                        mermaid.initialize({
-                            startOnLoad: false,
-                            theme: 'default',
-                            securityLevel: 'loose',
-                            flowchart: {
-                                useMaxWidth: true,
-                                htmlLabels: true
-                            }
-                        });
-                        this.mermaidLoaded = true;
-                        this.mermaidLoading = false;
-                        console.log('Mermaid.js 加载成功');
-                        resolve(true);
-                    } else {
-                        throw new Error('Mermaid 未正确加载');
-                    }
+                    mermaidLib.initialize({
+                        startOnLoad: false,
+                        theme: 'default',
+                        securityLevel: 'loose',
+                        flowchart: {
+                            useMaxWidth: true,
+                            htmlLabels: true
+                        }
+                    });
+                    this.mermaidLoaded = true;
+                    this.mermaidLoading = false;
+                    console.log('Mermaid.js 已加载并初始化');
+                    resolve(true);
+                    return;
                 } catch (error) {
                     console.error('初始化 Mermaid 失败:', error);
                     this.mermaidLoading = false;
                     reject(error);
+                    return;
                 }
-            };
+            }
 
-            script.onerror = () => {
-                console.error('加载 Mermaid.js 失败');
+            // 使用注入脚本在页面上下文中加载 mermaid
+            // 这样可以确保 mermaid 在页面的 window 对象中可用
+            const scriptUrl = chrome.runtime.getURL('mermaid.min.js');
+            const loadScriptUrl = chrome.runtime.getURL('load-mermaid.js');
+            console.log('尝试在页面上下文中加载 Mermaid.js，URL:', scriptUrl);
+            
+            // 通过 data 属性传递 URL（避免内联脚本）
+            // 注：我们仍然需要通过页面上下文传递 URL，使用隐藏的 data 属性
+            const urlContainer = document.createElement('div');
+            urlContainer.id = '__mermaid_url_container__';
+            urlContainer.style.display = 'none';
+            urlContainer.setAttribute('data-mermaid-url', scriptUrl);
+            (document.head || document.documentElement).appendChild(urlContainer);
+            
+            // 修改 load-mermaid.js 以从 data 属性读取 URL
+            // 但更简单的方法是在 load-mermaid.js 中直接使用 chrome.runtime.getURL
+            // 因为 load-mermaid.js 在页面上下文中执行，无法直接访问 chrome API
+            // 所以我们需要通过 data 属性传递
+            
+            // 加载外部脚本文件（避免 CSP 限制）
+            const injectedScript = document.createElement('script');
+            injectedScript.src = loadScriptUrl;
+            injectedScript.charset = 'UTF-8';
+            injectedScript.async = false;
+            
+            // 监听页面中的 mermaid 加载事件（在脚本加载前设置）
+            const handleMermaidLoaded = () => {
+                console.log('[Content] 收到 Mermaid 加载完成事件');
+                // Mermaid 已经在页面上下文中加载（通过 load-mermaid.js）
+                // 由于 content script 的隔离环境，我们无法直接访问页面的 window.mermaid
+                // 但我们知道它已经加载，可以通过外部脚本执行渲染
+                this.mermaidLoaded = true;
                 this.mermaidLoading = false;
-                reject(new Error('无法加载 Mermaid.js'));
+                console.log('[Content] Mermaid.js 在页面上下文中已加载');
+                window.removeEventListener('mermaid-loaded', handleMermaidLoaded);
+                window.removeEventListener('mermaid-error', handleMermaidError);
+                resolve(true);
             };
-
-            document.head.appendChild(script);
+            
+            const handleMermaidError = () => {
+                console.error('[Content] 收到 Mermaid 加载失败事件');
+                this.mermaidLoading = false;
+                window.removeEventListener('mermaid-loaded', handleMermaidLoaded);
+                window.removeEventListener('mermaid-error', handleMermaidError);
+                reject(new Error('页面上下文中的 Mermaid.js 加载失败'));
+            };
+            
+            // 监听页面事件（通过注入的事件监听器）
+            window.addEventListener('mermaid-loaded', handleMermaidLoaded);
+            window.addEventListener('mermaid-error', handleMermaidError);
+            
+            // 注入脚本到页面上下文
+            (document.head || document.documentElement).appendChild(injectedScript);
+            
+            // 清理注入的脚本
+            setTimeout(() => {
+                if (injectedScript.parentNode) {
+                    injectedScript.parentNode.removeChild(injectedScript);
+                }
+            }, 1000);
         });
     }
 
@@ -4324,33 +4428,85 @@ ${pageContent ? pageContent : '无内容'}
                 try {
                     preElement.parentNode.replaceChild(mermaidDiv, preElement);
 
-                    // 渲染 mermaid 图表
-                    mermaid.run({
-                        nodes: [mermaidDiv],
-                        suppressErrors: true
-                    }).then(() => {
-                        console.log(`Mermaid 图表 ${mermaidId} 渲染成功`);
-                    }).catch((error) => {
-                        console.error(`渲染 Mermaid 图表 ${mermaidId} 失败:`, error);
-                        // 出错时显示错误信息，但保留原始代码
-                        const errorDiv = document.createElement('div');
-                        errorDiv.className = 'mermaid-error';
-                        errorDiv.style.cssText = `
-                            background: rgba(255, 0, 0, 0.1) !important;
-                            padding: 10px !important;
-                            border-radius: 5px !important;
-                            color: #ff6b6b !important;
-                            font-size: 12px !important;
-                            margin: 10px 0 !important;
-                        `;
-                        errorDiv.innerHTML = `
-                            <div>❌ Mermaid 图表渲染失败</div>
-                            <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
-                        `;
-                        mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
-                    });
+                    // 渲染 mermaid 图表 - 使用页面上下文中的 mermaid
+                    // 因为 mermaid 在页面上下文中，我们需要通过注入脚本执行渲染
+                    // 通过 data 属性传递渲染 ID（避免内联脚本）
+                    const renderIdContainer = document.createElement('div');
+                    renderIdContainer.id = '__mermaid_render_id_container__';
+                    renderIdContainer.style.display = 'none';
+                    renderIdContainer.setAttribute('data-mermaid-id', mermaidId);
+                    // 确保容器在页面上下文中（不是在 content script 的隔离 DOM）
+                    (document.head || document.documentElement).appendChild(renderIdContainer);
+                    
+                    // 监听渲染结果（在加载脚本之前设置）
+                    const handleRender = (event) => {
+                        if (event.detail.id === mermaidId) {
+                            window.removeEventListener('mermaid-rendered', handleRender);
+                            if (!event.detail.success) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'mermaid-error';
+                                errorDiv.style.cssText = `
+                                    background: rgba(255, 0, 0, 0.1) !important;
+                                    padding: 10px !important;
+                                    border-radius: 5px !important;
+                                    color: #ff6b6b !important;
+                                    font-size: 12px !important;
+                                    margin: 10px 0 !important;
+                                `;
+                                errorDiv.innerHTML = `
+                                    <div>❌ Mermaid 图表渲染失败</div>
+                                    <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
+                                `;
+                                if (mermaidDiv.parentNode) {
+                                    mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
+                                }
+                            }
+                            // 清理 ID 容器
+                            if (renderIdContainer.parentNode) {
+                                renderIdContainer.parentNode.removeChild(renderIdContainer);
+                            }
+                        }
+                    };
+                    window.addEventListener('mermaid-rendered', handleRender);
+                    
+                    // 延迟加载渲染脚本，确保 mermaid div 已经添加到 DOM 且事件监听器已设置
+                    setTimeout(() => {
+                        // 加载外部渲染脚本（避免 CSP 限制）
+                        const renderScript = document.createElement('script');
+                        renderScript.src = chrome.runtime.getURL('render-mermaid.js');
+                        renderScript.charset = 'UTF-8';
+                        renderScript.async = false;
+                        
+                        // 注入渲染脚本到页面上下文
+                        document.documentElement.appendChild(renderScript);
+                        
+                        // 清理脚本（渲染完成后）
+                        setTimeout(() => {
+                            if (renderScript.parentNode) {
+                                renderScript.parentNode.removeChild(renderScript);
+                            }
+                        }, 2000);
+                    }, 100);
                 } catch (error) {
                     console.error('替换 Mermaid 代码块时出错:', error);
+                    // 出错时显示错误信息，但保留原始代码
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'mermaid-error';
+                    errorDiv.style.cssText = `
+                        background: rgba(255, 0, 0, 0.1) !important;
+                        padding: 10px !important;
+                        border-radius: 5px !important;
+                        color: #ff6b6b !important;
+                        font-size: 12px !important;
+                        margin: 10px 0 !important;
+                    `;
+                    errorDiv.innerHTML = `
+                        <div>❌ Mermaid 图表渲染失败</div>
+                        <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
+                    `;
+                    if (mermaidDiv.parentNode) {
+                        mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
+                    }
                 }
             }
         });
@@ -4401,6 +4557,450 @@ ${pageContent ? pageContent : '无内容'}
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // 打开 Mermaid 编辑器
+    async openMermaidEditor() {
+        // 确保 mermaid 已加载
+        await this.loadMermaid();
+
+        // 创建模态窗口
+        const modal = document.createElement('div');
+        modal.id = 'mermaid-editor-modal';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            z-index: 99999 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        `;
+
+        // 获取当前宠物颜色
+        const currentColor = this.colors[this.colorIndex];
+        const mainColor = this.getMainColorFromGradient(currentColor);
+
+        // 创建编辑器容器
+        const editorContainer = document.createElement('div');
+        editorContainer.style.cssText = `
+            width: 90% !important;
+            max-width: 1200px !important;
+            height: 85% !important;
+            background: white !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+        `;
+
+        // 创建头部
+        const header = document.createElement('div');
+        header.style.cssText = `
+            background: ${currentColor} !important;
+            color: white !important;
+            padding: 20px 24px !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            flex-shrink: 0 !important;
+        `;
+        header.innerHTML = `
+            <h2 style="margin: 0 !important; font-size: 20px !important; font-weight: 600 !important;">📊 Mermaid 图表编辑器</h2>
+            <button id="mermaid-editor-close" style="
+                background: rgba(255,255,255,0.2) !important;
+                border: none !important;
+                color: white !important;
+                width: 32px !important;
+                height: 32px !important;
+                border-radius: 50% !important;
+                cursor: pointer !important;
+                font-size: 18px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: background 0.2s ease !important;
+            ">✕</button>
+        `;
+
+        // 创建主体内容（左侧编辑，右侧预览）
+        const body = document.createElement('div');
+        body.style.cssText = `
+            flex: 1 !important;
+            display: flex !important;
+            overflow: hidden !important;
+        `;
+
+        // 左侧编辑器
+        const editorPanel = document.createElement('div');
+        editorPanel.style.cssText = `
+            width: 50% !important;
+            border-right: 2px solid #e5e7eb !important;
+            display: flex !important;
+            flex-direction: column !important;
+            background: #f9fafb !important;
+        `;
+
+        const editorLabel = document.createElement('div');
+        editorLabel.style.cssText = `
+            padding: 12px 16px !important;
+            background: white !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+        `;
+        editorLabel.textContent = '编辑代码';
+
+        const textarea = document.createElement('textarea');
+        textarea.id = 'mermaid-editor-textarea';
+        textarea.placeholder = '在此输入 Mermaid 代码...\n\n示例:\ngraph TD\n    A[开始] --> B{判断}\n    B -->|是| C[执行A]\n    B -->|否| D[执行B]\n    C --> E[结束]\n    D --> E';
+        textarea.style.cssText = `
+            flex: 1 !important;
+            padding: 16px !important;
+            border: none !important;
+            outline: none !important;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+            font-size: 14px !important;
+            line-height: 1.6 !important;
+            resize: none !important;
+            background: white !important;
+            color: #1f2937 !important;
+        `;
+        textarea.value = `graph TD
+    A[开始] --> B{判断}
+    B -->|是| C[执行A]
+    B -->|否| D[执行B]
+    C --> E[结束]
+    D --> E`;
+
+        // 右侧预览
+        const previewPanel = document.createElement('div');
+        previewPanel.style.cssText = `
+            width: 50% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            background: white !important;
+        `;
+
+        const previewLabel = document.createElement('div');
+        previewLabel.style.cssText = `
+            padding: 12px 16px !important;
+            background: #f9fafb !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+        `;
+        previewLabel.textContent = '实时预览';
+
+        const previewContainer = document.createElement('div');
+        previewContainer.id = 'mermaid-editor-preview';
+        previewContainer.style.cssText = `
+            flex: 1 !important;
+            padding: 24px !important;
+            overflow: auto !important;
+            background: white !important;
+        `;
+
+        // 创建底部按钮栏
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            padding: 16px 24px !important;
+            border-top: 1px solid #e5e7eb !important;
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 12px !important;
+            flex-shrink: 0 !important;
+            background: white !important;
+        `;
+
+        const insertButton = document.createElement('button');
+        insertButton.textContent = '插入到输入框';
+        insertButton.style.cssText = `
+            padding: 10px 20px !important;
+            background: ${mainColor} !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+        insertButton.addEventListener('mouseenter', () => {
+            insertButton.style.opacity = '0.9';
+        });
+        insertButton.addEventListener('mouseleave', () => {
+            insertButton.style.opacity = '1';
+        });
+
+        const sendButton = document.createElement('button');
+        sendButton.textContent = '直接发送';
+        sendButton.style.cssText = `
+            padding: 10px 20px !important;
+            background: ${mainColor} !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+        sendButton.addEventListener('mouseenter', () => {
+            sendButton.style.opacity = '0.9';
+        });
+        sendButton.addEventListener('mouseleave', () => {
+            sendButton.style.opacity = '1';
+        });
+
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = '取消';
+        cancelButton.style.cssText = `
+            padding: 10px 20px !important;
+            background: #f3f4f6 !important;
+            color: #374151 !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        cancelButton.addEventListener('mouseenter', () => {
+            cancelButton.style.background = '#e5e7eb';
+        });
+        cancelButton.addEventListener('mouseleave', () => {
+            cancelButton.style.background = '#f3f4f6';
+        });
+
+        // 组装结构
+        editorPanel.appendChild(editorLabel);
+        editorPanel.appendChild(textarea);
+        previewPanel.appendChild(previewLabel);
+        previewPanel.appendChild(previewContainer);
+        body.appendChild(editorPanel);
+        body.appendChild(previewPanel);
+        footer.appendChild(insertButton);
+        footer.appendChild(sendButton);
+        footer.appendChild(cancelButton);
+
+        editorContainer.appendChild(header);
+        editorContainer.appendChild(body);
+        editorContainer.appendChild(footer);
+        modal.appendChild(editorContainer);
+        document.body.appendChild(modal);
+
+        // 实时预览函数（使用防抖）
+        let previewTimeout;
+        const updatePreview = async () => {
+            clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(async () => {
+                const code = textarea.value.trim();
+                previewContainer.innerHTML = '';
+
+                if (!code) {
+                    previewContainer.innerHTML = `
+                        <div style="
+                            display: flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            height: 100% !important;
+                            color: #9ca3af !important;
+                            font-size: 14px !important;
+                        ">等待输入 Mermaid 代码...</div>
+                    `;
+                    return;
+                }
+
+                try {
+                    // 创建临时容器用于渲染
+                    const tempDiv = document.createElement('div');
+                    tempDiv.className = 'mermaid';
+                    tempDiv.id = `mermaid-preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    tempDiv.textContent = code;
+                    tempDiv.style.cssText = `
+                        background: rgba(255, 255, 255, 0.1) !important;
+                        padding: 20px !important;
+                        border-radius: 8px !important;
+                        margin: 0 !important;
+                        overflow-x: auto !important;
+                        min-height: 200px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                    `;
+                    previewContainer.appendChild(tempDiv);
+
+                    // 渲染 mermaid - 使用页面上下文中的 mermaid
+                    const previewId = tempDiv.id;
+                    await new Promise((resolve, reject) => {
+                        // 通过 data 属性传递预览 ID（避免内联脚本）
+                        const previewIdContainer = document.createElement('div');
+                        previewIdContainer.id = '__mermaid_preview_id_container__';
+                        previewIdContainer.style.display = 'none';
+                        previewIdContainer.setAttribute('data-mermaid-id', previewId);
+                        (document.head || document.documentElement).appendChild(previewIdContainer);
+                        
+                        // 加载外部预览脚本（避免 CSP 限制）
+                        const renderScript = document.createElement('script');
+                        renderScript.src = chrome.runtime.getURL('preview-mermaid.js');
+                        renderScript.charset = 'UTF-8';
+                        renderScript.async = false;
+                        
+                        const handleSuccess = (event) => {
+                            if (event.detail.id === previewId) {
+                                window.removeEventListener('mermaid-preview-success', handleSuccess);
+                                window.removeEventListener('mermaid-preview-error', handleError);
+                                resolve();
+                            }
+                        };
+                        
+                        const handleError = (event) => {
+                            if (event.detail.id === previewId) {
+                                window.removeEventListener('mermaid-preview-success', handleSuccess);
+                                window.removeEventListener('mermaid-preview-error', handleError);
+                                reject(new Error(event.detail.error || '渲染失败'));
+                            }
+                        };
+                        
+                        window.addEventListener('mermaid-preview-success', handleSuccess);
+                        window.addEventListener('mermaid-preview-error', handleError);
+                        
+                        document.documentElement.appendChild(renderScript);
+                        
+                        // 渲染脚本会在加载完成后自动清理
+                        renderScript.onload = () => {
+                            setTimeout(() => {
+                                if (renderScript.parentNode) {
+                                    renderScript.parentNode.removeChild(renderScript);
+                                }
+                            }, 100);
+                        };
+                        
+                        renderScript.onerror = () => {
+                            reject(new Error('加载预览脚本失败'));
+                            if (renderScript.parentNode) {
+                                renderScript.parentNode.removeChild(renderScript);
+                            }
+                        };
+                    });
+                } catch (error) {
+                    console.error('预览渲染失败:', error);
+                    previewContainer.innerHTML = `
+                        <div style="
+                            padding: 20px !important;
+                            background: #fef2f2 !important;
+                            border: 1px solid #fecaca !important;
+                            border-radius: 8px !important;
+                            color: #991b1b !important;
+                        ">
+                            <div style="font-weight: 600; margin-bottom: 8px;">❌ 渲染失败</div>
+                            <div style="font-size: 12px; margin-bottom: 12px;">请检查 Mermaid 语法是否正确</div>
+                            <pre style="font-size: 12px; overflow-x: auto; background: white; padding: 8px; border-radius: 4px; color: #1f2937;">${this.escapeHtml(code)}</pre>
+                        </div>
+                    `;
+                }
+            }, 300); // 300ms 防抖
+        };
+
+        // 监听输入变化
+        textarea.addEventListener('input', updatePreview);
+
+        // 初始化预览
+        updatePreview();
+
+        // 关闭按钮事件
+        const closeBtn = header.querySelector('#mermaid-editor-close');
+        closeBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        });
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(modal);
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
+        // 插入到输入框
+        insertButton.addEventListener('click', () => {
+            const code = textarea.value.trim();
+            if (!code) return;
+
+            const messageInput = this.chatWindow?.querySelector('.chat-message-input');
+            if (messageInput) {
+                const mermaidCode = `\`\`\`mermaid\n${code}\n\`\`\``;
+                const currentValue = messageInput.value;
+                messageInput.value = currentValue ? `${currentValue}\n\n${mermaidCode}` : mermaidCode;
+                
+                // 触发输入事件以更新高度
+                messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // 关闭编辑器
+                document.body.removeChild(modal);
+                document.removeEventListener('keydown', escHandler);
+                
+                // 聚焦输入框
+                messageInput.focus();
+            }
+        });
+
+        // 直接发送
+        sendButton.addEventListener('click', async () => {
+            const code = textarea.value.trim();
+            if (!code) return;
+
+            const messageInput = this.chatWindow?.querySelector('.chat-message-input');
+            if (messageInput) {
+                const mermaidCode = `\`\`\`mermaid\n${code}\n\`\`\``;
+                messageInput.value = mermaidCode;
+                
+                // 触发发送 - 模拟 Enter 键按下（不带 Shift）
+                const sendEvent = new KeyboardEvent('keydown', {
+                    key: 'Enter',
+                    code: 'Enter',
+                    which: 13,
+                    keyCode: 13,
+                    shiftKey: false,
+                    bubbles: true,
+                    cancelable: true
+                });
+                
+                // 先关闭编辑器，再触发发送
+                document.body.removeChild(modal);
+                document.removeEventListener('keydown', escHandler);
+                
+                // 延迟触发以确保输入框已经更新
+                setTimeout(() => {
+                    messageInput.dispatchEvent(sendEvent);
+                }, 50);
+            }
+        });
+
+        // 取消按钮
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(modal);
+            document.removeEventListener('keydown', escHandler);
+        });
+
+        // 聚焦文本区域
+        setTimeout(() => textarea.focus(), 100);
     }
 
     // 创建消息元素

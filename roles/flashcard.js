@@ -2,6 +2,7 @@
  * 闪卡生成角色
  */
 
+(function() {
 const systemPrompt = `你是一个专业的闪卡制作专家。根据用户当前浏览的网页信息，生成一套适合记忆的闪卡集合。要求：
 1. 使用 HTML 标签来构建闪卡样式：
    - 闪卡标题：使用 <h2 style="color: #000; font-weight: bold; text-align: center; margin: 15px 0; padding: 12px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 8px;">📚 闪卡 #{序号}</h2>
@@ -50,5 +51,7 @@ if (typeof module !== 'undefined' && module.exports) {
     window.PROMPT_ROLES = window.PROMPT_ROLES || {};
     window.PROMPT_ROLES.flashcard = { systemPrompt, getUserPrompt };
 }
+})();
+
 
 

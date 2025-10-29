@@ -2,6 +2,7 @@
  * 专项报告生成角色
  */
 
+(function() {
 const systemPrompt = `你是一个专业的内容分析专家。根据用户当前浏览的网页信息，生成一份详细的专项分析报告。要求：
 1. 使用 HTML 标签来构建报告结构：
    - 报告标题：使用 <h1 style="color: #FF6B6B; font-weight: bold; text-align: center; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #FFE5E5, #FFF0F0); border-radius: 10px; box-shadow: 0 4px 8px rgba(255,107,107,0.2);">📋 专项分析报告</h1>
@@ -48,5 +49,7 @@ if (typeof module !== 'undefined' && module.exports) {
     window.PROMPT_ROLES = window.PROMPT_ROLES || {};
     window.PROMPT_ROLES.report = { systemPrompt, getUserPrompt };
 }
+})();
+
 
 

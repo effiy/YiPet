@@ -1832,6 +1832,13 @@ ${pageContent ? pageContent : '无内容'}
     // 生成宠物响应（流式版本）
     async generatePetResponseStream(message, onContent) {
         try {
+            // 检查开关状态
+            let includeContext = true; // 默认包含上下文
+            const contextSwitch = document.getElementById('context-switch');
+            if (contextSwitch) {
+                includeContext = contextSwitch.checked;
+            }
+
             // 获取页面完整正文内容并转换为 Markdown
             const fullPageMarkdown = this.getPageContentAsMarkdown();
 
@@ -1839,9 +1846,9 @@ ${pageContent ? pageContent : '无内容'}
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
 
-            // 如果页面内容不为空，将其添加到 fromUser
+            // 根据开关状态决定是否包含页面内容
             let userMessage = message;
-            if (fullPageMarkdown) {
+            if (includeContext && fullPageMarkdown) {
                 userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面链接：${pageUrl}\n\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
             }
 
@@ -1948,6 +1955,13 @@ ${pageContent ? pageContent : '无内容'}
     // 生成宠物响应（兼容旧版本）
     async generatePetResponse(message) {
         try {
+            // 检查开关状态
+            let includeContext = true; // 默认包含上下文
+            const contextSwitch = document.getElementById('context-switch');
+            if (contextSwitch) {
+                includeContext = contextSwitch.checked;
+            }
+
             // 获取页面完整正文内容并转换为 Markdown
             const fullPageMarkdown = this.getPageContentAsMarkdown();
 
@@ -1955,9 +1969,9 @@ ${pageContent ? pageContent : '无内容'}
             const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
 
-            // 如果页面内容不为空，将其添加到 fromUser
+            // 根据开关状态决定是否包含页面内容
             let userMessage = message;
-            if (fullPageMarkdown) {
+            if (includeContext && fullPageMarkdown) {
                 userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面链接：${pageUrl}\n\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
             }
 
@@ -3019,19 +3033,78 @@ ${pageContent ? pageContent : '无内容'}
             align-items: center !important;
         `;
 
-        // 创建加载指示器占位（可扩展）
-        const loadingSpinner = document.createElement('div');
-        loadingSpinner.innerHTML = '⬜'; // 占位符，实际使用时可以替换为真正的加载动画
-        loadingSpinner.style.cssText = `
+        // 创建页面上下文开关
+        const contextSwitchContainer = document.createElement('div');
+        contextSwitchContainer.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            font-size: 12px !important;
+            color: #666 !important;
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
+            transition: all 0.2s ease !important;
+            cursor: pointer !important;
+        `;
+
+        const contextSwitchLabel = document.createElement('span');
+        contextSwitchLabel.textContent = '页面上下文';
+        contextSwitchLabel.style.cssText = `
+            font-size: 12px !important;
+            color: #666 !important;
+            white-space: nowrap !important;
+            transition: color 0.2s ease !important;
+        `;
+
+        const contextSwitch = document.createElement('input');
+        contextSwitch.type = 'checkbox';
+        contextSwitch.id = 'context-switch';
+        contextSwitch.checked = true; // 默认开启
+        contextSwitch.style.cssText = `
             width: 16px !important;
             height: 16px !important;
-            opacity: 0.5 !important;
-            color: #ffffff !important;
+            accent-color: ${mainColor} !important;
+            cursor: pointer !important;
+            margin: 0 !important;
         `;
+
+        // 添加悬停效果
+        contextSwitchContainer.addEventListener('mouseenter', () => {
+            contextSwitchContainer.style.backgroundColor = 'rgba(0,0,0,0.05)';
+            contextSwitchLabel.style.color = '#333';
+        });
+
+        contextSwitchContainer.addEventListener('mouseleave', () => {
+            contextSwitchContainer.style.backgroundColor = 'transparent';
+            contextSwitchLabel.style.color = '#666';
+        });
+
+        // 点击整个容器也可以切换开关
+        contextSwitchContainer.addEventListener('click', (e) => {
+            if (e.target !== contextSwitch) {
+                contextSwitch.checked = !contextSwitch.checked;
+                contextSwitch.dispatchEvent(new Event('change'));
+            }
+        });
+
+        // 从存储中读取开关状态
+        chrome.storage.local.get(['contextSwitchEnabled'], (result) => {
+            if (result.contextSwitchEnabled !== undefined) {
+                contextSwitch.checked = result.contextSwitchEnabled;
+            }
+        });
+
+        // 监听开关状态变化并保存
+        contextSwitch.addEventListener('change', () => {
+            chrome.storage.local.set({ contextSwitchEnabled: contextSwitch.checked });
+        });
+
+        contextSwitchContainer.appendChild(contextSwitchLabel);
+        contextSwitchContainer.appendChild(contextSwitch);
 
         leftButtonGroup.appendChild(mentionButton);
         leftButtonGroup.appendChild(addButton);
-        rightStatusGroup.appendChild(loadingSpinner);
+        rightStatusGroup.appendChild(contextSwitchContainer);
         topToolbar.appendChild(leftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);
         inputContainer.appendChild(topToolbar);
@@ -6022,6 +6095,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

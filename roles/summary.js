@@ -2,6 +2,7 @@
  * 摘要信息生成角色
  */
 
+(function() {
 const systemPrompt = `你是一个专业的内容分析师。根据用户当前浏览的网页信息，生成一篇简洁、结构化的摘要信息。要求：
 1. 使用 HTML 标签来突出重点内容：
    - 标题：使用 <h2 style="color: #FF6B6B; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">标题内容 🔖</h2> 
@@ -45,5 +46,7 @@ if (typeof module !== 'undefined' && module.exports) {
     window.PROMPT_ROLES = window.PROMPT_ROLES || {};
     window.PROMPT_ROLES.summary = { systemPrompt, getUserPrompt };
 }
+})();
+
 
 

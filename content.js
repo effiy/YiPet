@@ -2425,6 +2425,73 @@ ${pageContent ? pageContent : '无内容'}
         if (mode === 'preview') activateBtn(btnPreview);
     }
 
+    // 统一获取角色图标（优先自定义，其次按 actionKey 映射，最后兜底）
+    getRoleIcon(roleConfig) {
+        const iconMap = {
+            summary: '📝',
+            mindmap: '🧠',
+            flashcard: '📚',
+            report: '📄',
+            bestPractice: '⭐'
+        };
+        const actionKey = roleConfig && roleConfig.actionKey;
+        const icon = roleConfig && roleConfig.icon;
+        const custom = icon && typeof icon === 'string' ? icon.trim() : '';
+        if (custom) return custom;
+        if (actionKey && iconMap[actionKey]) return iconMap[actionKey];
+        return '🙂';
+    }
+
+    // 刷新聊天窗口顶部自定义角色快捷入口
+    async refreshRoleShortcuts() {
+        if (!this.chatWindow) return;
+        const container = this.chatWindow.querySelector('#custom-role-shortcuts');
+        if (!container) return;
+        const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+        container.innerHTML = '';
+        const configs = await this.getRoleConfigs();
+        configs.forEach(cfg => {
+            const btn = document.createElement('button');
+            btn.className = 'role-shortcut-btn';
+            btn.setAttribute('data-role-id', cfg.id);
+            const displayIcon = this.getRoleIcon(cfg);
+            btn.title = (displayIcon ? (displayIcon + ' ') : '') + (cfg.label || '自定义角色');
+            btn.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${cfg.label || '自定义角色'}`;
+            btn.style.cssText = `
+                padding: 6px 10px !important;
+                border-radius: 6px !important;
+                background: white !important;
+                color: ${currentMainColor} !important;
+                border: 1px solid ${currentMainColor} !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                font-weight: 500 !important;
+            `;
+            btn.addEventListener('mouseenter', () => {
+                const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+                btn.style.background = mc;
+                btn.style.color = 'white';
+                btn.style.borderColor = mc;
+            });
+            btn.addEventListener('mouseleave', () => {
+                const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+                btn.style.background = 'white';
+                btn.style.color = mc;
+                btn.style.borderColor = mc;
+            });
+            btn.addEventListener('click', () => {
+                const input = this.chatWindow.querySelector('.chat-message-input');
+                if (!input) return;
+                const prompt = cfg.prompt ? `【${cfg.label}】\n${cfg.prompt}\n\n` : `【${cfg.label}】\n`;
+                input.value = (input.value || '');
+                // 将提示语插入到输入框开头以提示用户
+                input.value = `${prompt}${input.value}`;
+                input.focus();
+            });
+            container.appendChild(btn);
+        });
+    }
+
     // -------- 角色设置弹框（新增/编辑/删除） --------
     openRoleSettingsModal(editId = null) {
         if (!this.chatWindow) return;
@@ -2624,6 +2691,13 @@ ${pageContent ? pageContent : '无内容'}
             report: '生成专项报告',
             bestPractice: '生成最佳实践'
         };
+        const iconMap = {
+            summary: '📝',
+            mindmap: '🧠',
+            flashcard: '📚',
+            report: '📄',
+            bestPractice: '⭐'
+        };
         const includeChartsMap = {
             summary: false,
             mindmap: true,
@@ -2638,6 +2712,7 @@ ${pageContent ? pageContent : '无内容'}
                 id: 'builtin_' + k,
                 label: nameMap[k] || k,
                 actionKey: k,
+                icon: iconMap[k] || '',
                 includeCharts: includeChartsMap[k] || false,
                 prompt: role && role.systemPrompt ? role.systemPrompt : ''
             });
@@ -2662,12 +2737,20 @@ ${pageContent ? pageContent : '无内容'}
                     id: d.id,
                     label: d.label,
                     actionKey: d.actionKey,
+                    icon: d.icon,
                     includeCharts: d.includeCharts,
                     prompt: d.prompt
                 });
                 updated = true;
             }
         });
+        // 回填缺失图标（老数据兼容）
+        for (const c of existing) {
+            if ((!c.icon || !String(c.icon).trim()) && c.actionKey) {
+                c.icon = this.getRoleIcon(c);
+                updated = true;
+            }
+        }
         if (updated) {
             await this.setRoleConfigs(existing);
         }
@@ -2703,13 +2786,13 @@ ${pageContent ? pageContent : '无内容'}
             const info = document.createElement('div');
             info.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
             const name = document.createElement('div');
-            name.textContent = c.label || '(未命名)';
+            const displayIcon = this.getRoleIcon(c);
+            name.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${c.label || '(未命名)'}`;
             name.style.cssText = 'font-weight:600; font-size:12px;';
             const sub = document.createElement('div');
-            sub.textContent = `含图表: ${c.includeCharts ? '是' : '否'}`;
+            sub.textContent = '';
             sub.style.cssText = 'color:#64748b; font-size:12px;';
             info.appendChild(name);
-            info.appendChild(sub);
 
             const btns = document.createElement('div');
             btns.style.cssText = 'display:flex; gap:6px;';
@@ -2730,6 +2813,8 @@ ${pageContent ? pageContent : '无内容'}
                 await this.setRoleConfigs(next);
                 this.renderRoleSettingsList();
                 this.renderRoleSettingsForm();
+                // 同步刷新聊天窗口顶部自定义角色快捷入口
+                this.refreshRoleShortcuts();
             });
             btns.appendChild(edit);
             btns.appendChild(del);
@@ -2771,17 +2856,50 @@ ${pageContent ? pageContent : '无内容'}
         nameInput.placeholder = '角色名称，如：会议纪要摘要';
         nameInput.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none;`;
 
+        // 角色图标（可用 Emoji 或短文本）
+        const iconInput = document.createElement('input');
+        iconInput.type = 'text';
+        iconInput.value = current?.icon || '';
+        iconInput.placeholder = '图标（Emoji 或短文本，如：📝 / AI）';
+        // 取消 maxLength，避免多码点 Emoji 被截断
+        iconInput.style.cssText = `padding:8px; width:72px; text-align:center; font-size:16px; border:1px solid ${mainColor}66; border-radius:6px; outline:none; background:#0e0e0e; color:#e5e7eb;`;
+
+        // 图标预览与快捷选择
+        const iconRow = document.createElement('div');
+        iconRow.style.cssText = 'display:flex; align-items:center; gap:8px;';
+        const iconPreview = document.createElement('div');
+        iconPreview.textContent = iconInput.value || '🙂';
+        iconPreview.style.cssText = `
+            width: 36px; height: 36px; display:flex; align-items:center; justify-content:center;
+            border:1px solid ${mainColor}66; border-radius:8px; background:#121212; color:#e5e7eb;
+            font-size:18px;
+        `;
+        const emojiQuick = document.createElement('div');
+        emojiQuick.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap;';
+        const commonEmojis = ['📝','🧠','📚','📌','✅','💡','🔍','📄','🗂️','⭐'];
+        commonEmojis.forEach(e => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = e;
+            b.style.cssText = `
+                padding:4px 6px; border:1px solid ${mainColor}66; background:#0e0e0e; color:#e5e7eb;
+                border-radius:6px; cursor:pointer; font-size:14px;
+            `;
+            b.addEventListener('mouseenter', () => { b.style.background = '#121212'; });
+            b.addEventListener('mouseleave', () => { b.style.background = '#0e0e0e'; });
+            b.addEventListener('click', () => {
+                iconInput.value = e;
+                iconPreview.textContent = e || '🙂';
+            });
+            emojiQuick.appendChild(b);
+        });
+        iconInput.addEventListener('input', () => {
+            iconPreview.textContent = iconInput.value || '🙂';
+        });
+
         // 去除“对应功能”下拉框
 
-        const includeCharts = document.createElement('label');
-        includeCharts.style.cssText = 'display:flex; align-items:center; gap:8px; font-size:12px; color:#475569;';
-        const includeChk = document.createElement('input');
-        includeChk.type = 'checkbox';
-        includeChk.checked = !!current?.includeCharts;
-        const includeText = document.createElement('span');
-        includeText.textContent = '生成内容包含图表（如 Mermaid）';
-        includeCharts.appendChild(includeChk);
-        includeCharts.appendChild(includeText);
+        // 已移除“生成内容包含图表（如 Mermaid）”选项
 
         const promptArea = document.createElement('textarea');
         promptArea.rows = 24;
@@ -2798,16 +2916,44 @@ ${pageContent ? pageContent : '无内容'}
         saveBtn.addEventListener('mouseleave', () => { saveBtn.style.background = '#fff'; saveBtn.style.color = mainColor; });
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = '取消';
-        cancelBtn.style.cssText = `padding:6px 10px; border:1px solid ${mainColor}66; background:#fff; color:#111827; border-radius:8px; cursor:pointer; font-size:12px;`;
-        cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = `${mainColor}0f`; cancelBtn.style.color = '#111827'; });
-        cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = '#fff'; cancelBtn.style.color = '#111827'; });
+        cancelBtn.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = 'rgba(255,255,255,0.12)';
+            cancelBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'rgba(255,255,255,0.04)';
+            cancelBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+        });
+
+        // 提取首个“可见字符”的简易函数（优先保留完整 Emoji）
+        const getSafeIcon = (raw) => {
+            try {
+                if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+                    const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+                    const it = seg.segment(raw);
+                    const first = it[Symbol.iterator]().next();
+                    return first && first.value ? first.value.segment : raw.trim();
+                }
+            } catch (_) {}
+            return raw.trim();
+        };
 
         saveBtn.addEventListener('click', async () => {
             const next = {
                 id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
                 label: nameInput.value.trim() || '未命名角色',
                 actionKey: current?.actionKey || '',
-                includeCharts: includeChk.checked,
+                includeCharts: current?.includeCharts ?? false,
+                icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),
                 prompt: promptArea.value.trim(),
             };
             const arr = await this.getRoleConfigs();
@@ -2816,6 +2962,8 @@ ${pageContent ? pageContent : '无内容'}
             await this.setRoleConfigs(arr);
             this.renderRoleSettingsList();
             this.renderRoleSettingsForm(next.id);
+            // 同步刷新聊天窗口顶部自定义角色快捷入口
+            this.refreshRoleShortcuts();
         });
 
         cancelBtn.addEventListener('click', () => {
@@ -2824,7 +2972,20 @@ ${pageContent ? pageContent : '无内容'}
 
         form.appendChild(title);
         form.appendChild(row('角色名称', nameInput));
-        form.appendChild(includeCharts);
+        // 图标设置区：预览 + 输入 + 快选
+        const iconWrap = document.createElement('div');
+        iconWrap.style.cssText = 'display:flex; flex-direction:column; gap:6px; margin-bottom:10px;';
+        const iconLabel = document.createElement('label');
+        iconLabel.textContent = '图标';
+        iconLabel.style.cssText = 'font-size:12px; color:#475569;';
+        const iconRowOuter = document.createElement('div');
+        iconRowOuter.style.cssText = 'display:flex; align-items:center; gap:10px;';
+        iconRowOuter.appendChild(iconPreview);
+        iconRowOuter.appendChild(iconInput);
+        iconWrap.appendChild(iconLabel);
+        iconWrap.appendChild(iconRowOuter);
+        iconWrap.appendChild(emojiQuick);
+        form.appendChild(iconWrap);
         form.appendChild(row('提示语', promptArea));
         form.appendChild(btns);
         btns.appendChild(saveBtn);
@@ -4069,6 +4230,18 @@ ${pageContent ? pageContent : '无内容'}
         });
         contextBtn.addEventListener('click', () => this.openContextEditor());
         leftButtonGroup.appendChild(contextBtn);
+        // 自定义角色快捷入口容器
+        const roleShortcuts = document.createElement('div');
+        roleShortcuts.id = 'custom-role-shortcuts';
+        roleShortcuts.style.cssText = `
+            display: inline-flex !important;
+            gap: 6px !important;
+            align-items: center !important;
+            margin-left: 6px !important;
+        `;
+        leftButtonGroup.appendChild(roleShortcuts);
+        // 初始渲染自定义角色快捷入口
+        this.refreshRoleShortcuts();
         
         topToolbar.appendChild(leftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);

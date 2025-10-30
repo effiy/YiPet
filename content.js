@@ -3329,12 +3329,147 @@ ${pageContent ? pageContent : '无内容'}
                     gap: 8px !important;
                     flex-shrink: 0 !important;
                 `;
-                actionsGroup.appendChild(generateSummaryIcon);
-                actionsGroup.appendChild(generateMindmapIcon);
-                actionsGroup.appendChild(generateFlashcardIcon);
-                actionsGroup.appendChild(generateReportIcon);
-                actionsGroup.appendChild(generateBestPracticeIcon);
-                messageTime.appendChild(actionsGroup);
+                // 默认开关配置
+                const defaultActionToggles = {
+                    summary: true,
+                    mindmap: true,
+                    flashcard: true,
+                    report: true,
+                    bestPractice: true,
+                };
+
+                // 设置按钮（放在最后）
+                const settingsButton = document.createElement('span');
+                settingsButton.innerHTML = '⚙️';
+                settingsButton.title = '设置功能显示';
+                settingsButton.style.cssText = `
+                    padding: 4px !important;
+                    cursor: pointer !important;
+                    font-size: 18px !important;
+                    color: #666 !important;
+                    font-weight: 300 !important;
+                    transition: all 0.2s ease !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    user-select: none !important;
+                    width: 24px !important;
+                    height: 24px !important;
+                    line-height: 24px !important;
+                `;
+
+                // 弹出菜单容器
+                const settingsMenu = document.createElement('div');
+                settingsMenu.style.cssText = `
+                    position: absolute !important;
+                    right: 0 !important;
+                    top: 24px !important;
+                    background: #ffffff !important;
+                    border: 1px solid #e5e7eb !important;
+                    border-radius: 8px !important;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+                    padding: 8px !important;
+                    display: none !important;
+                    flex-direction: column !important;
+                    gap: 6px !important;
+                    z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 2} !important;
+                    min-width: 180px !important;
+                `;
+
+                // 菜单条目构造
+                const makeMenuItem = (key, label, iconEl) => {
+                    const row = document.createElement('label');
+                    row.style.cssText = `
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: space-between !important;
+                        gap: 10px !important;
+                        font-size: 12px !important;
+                        color: #334155 !important;
+                        cursor: pointer !important;
+                        padding: 4px 6px !important;
+                        border-radius: 6px !important;
+                        transition: background .15s ease !important;
+                    `;
+                    row.addEventListener('mouseenter', () => { row.style.background = '#f8fafc'; });
+                    row.addEventListener('mouseleave', () => { row.style.background = 'transparent'; });
+
+                    const text = document.createElement('span');
+                    text.textContent = label;
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.style.cssText = 'cursor: pointer !important;';
+                    input.addEventListener('change', () => {
+                        chrome.storage.local.get(['actionToggles'], (result) => {
+                            const merged = { ...defaultActionToggles, ...(result.actionToggles || {}) };
+                            merged[key] = input.checked;
+                            chrome.storage.local.set({ actionToggles: merged }, () => {
+                                // 应用到 UI
+                                iconEl.style.display = input.checked ? 'inline-flex' : 'none';
+                            });
+                        });
+                    });
+                    row.appendChild(text);
+                    row.appendChild(input);
+                    row._checkbox = input;
+                    return row;
+                };
+
+                // 把 actionsGroup 放到一个相对定位容器里，以便菜单定位
+                const actionsWrapper = document.createElement('div');
+                actionsWrapper.style.cssText = `
+                    position: relative !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                `;
+
+                // 初始化显示状态并组装
+                chrome.storage.local.get(['actionToggles'], (result) => {
+                    const toggles = { ...defaultActionToggles, ...(result.actionToggles || {}) };
+                    generateSummaryIcon.style.display = toggles.summary ? 'inline-flex' : 'none';
+                    generateMindmapIcon.style.display = toggles.mindmap ? 'inline-flex' : 'none';
+                    generateFlashcardIcon.style.display = toggles.flashcard ? 'inline-flex' : 'none';
+                    generateReportIcon.style.display = toggles.report ? 'inline-flex' : 'none';
+                    generateBestPracticeIcon.style.display = toggles.bestPractice ? 'inline-flex' : 'none';
+
+                    actionsGroup.appendChild(generateSummaryIcon);
+                    actionsGroup.appendChild(generateMindmapIcon);
+                    actionsGroup.appendChild(generateFlashcardIcon);
+                    actionsGroup.appendChild(generateReportIcon);
+                    actionsGroup.appendChild(generateBestPracticeIcon);
+                    actionsGroup.appendChild(settingsButton);
+
+                    // 组装菜单项
+                    const itemSummary = makeMenuItem('summary', '显示 生成摘要', generateSummaryIcon);
+                    const itemMindmap = makeMenuItem('mindmap', '显示 生成思维导图', generateMindmapIcon);
+                    const itemFlash = makeMenuItem('flashcard', '显示 生成闪卡', generateFlashcardIcon);
+                    const itemReport = makeMenuItem('report', '显示 生成专项报告', generateReportIcon);
+                    const itemBest = makeMenuItem('bestPractice', '显示 生成最佳实践', generateBestPracticeIcon);
+                    itemSummary._checkbox.checked = toggles.summary;
+                    itemMindmap._checkbox.checked = toggles.mindmap;
+                    itemFlash._checkbox.checked = toggles.flashcard;
+                    itemReport._checkbox.checked = toggles.report;
+                    itemBest._checkbox.checked = toggles.bestPractice;
+                    settingsMenu.appendChild(itemSummary);
+                    settingsMenu.appendChild(itemMindmap);
+                    settingsMenu.appendChild(itemFlash);
+                    settingsMenu.appendChild(itemReport);
+                    settingsMenu.appendChild(itemBest);
+
+                    actionsWrapper.appendChild(actionsGroup);
+                    actionsWrapper.appendChild(settingsMenu);
+                    messageTime.appendChild(actionsWrapper);
+                });
+
+                // 菜单开关与外部点击关闭
+                settingsButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    settingsMenu.style.display = settingsMenu.style.display === 'none' || !settingsMenu.style.display ? 'flex' : 'none';
+                });
+                document.addEventListener('click', () => {
+                    settingsMenu.style.display = 'none';
+                });
             }
         }, 100);
 

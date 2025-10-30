@@ -2141,9 +2141,15 @@ ${pageContent ? pageContent : '无内容'}
 
         const overlay = document.createElement('div');
         overlay.id = 'pet-context-editor';
+        // 初始使用顶部不遮住 chat-header 的定位（根据当前 header 高度）
+        const chatHeaderEl = this.chatWindow.querySelector('.chat-header');
+        const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60;
         overlay.style.cssText = `
             position: absolute !important;
-            inset: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            top: ${headerH}px !important;
             background: transparent !important;
             display: none !important;
             align-items: center !important;
@@ -2155,8 +2161,8 @@ ${pageContent ? pageContent : '无内容'}
         const panel = document.createElement('div');
         panel.style.cssText = `
             width: calc(100% - 24px) !important;
-            height: calc(100% - 24px) !important;
-            margin: 12px !important;
+            height: calc(100% - 12px) !important;
+            margin: 0 12px 12px 12px !important;
             background: #1f1f1f !important;
             color: #fff !important;
             border-radius: 12px !important;
@@ -2357,6 +2363,8 @@ ${pageContent ? pageContent : '无内容'}
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
         if (!overlay) return;
         overlay.style.display = 'flex';
+        // 打开时根据当前 header 高度校正位置
+        this.updateContextEditorPosition();
         this.loadContextIntoEditor();
         this.updateContextPreview();
         // 默认并排模式
@@ -2369,6 +2377,9 @@ ${pageContent ? pageContent : '无内容'}
             }
         };
         document.addEventListener('keydown', this._contextKeydownHandler, { capture: true });
+        // 监听窗口尺寸变化，动态更新覆盖层位置
+        this._contextResizeHandler = () => this.updateContextEditorPosition();
+        window.addEventListener('resize', this._contextResizeHandler, { passive: true });
     }
 
     closeContextEditor() {
@@ -2377,6 +2388,10 @@ ${pageContent ? pageContent : '无内容'}
         if (this._contextKeydownHandler) {
             document.removeEventListener('keydown', this._contextKeydownHandler, { capture: true });
             this._contextKeydownHandler = null;
+        }
+        if (this._contextResizeHandler) {
+            window.removeEventListener('resize', this._contextResizeHandler);
+            this._contextResizeHandler = null;
         }
     }
 
@@ -2408,6 +2423,19 @@ ${pageContent ? pageContent : '无内容'}
         if (mode === 'split') activateBtn(btnSplit);
         if (mode === 'edit') activateBtn(btnEdit);
         if (mode === 'preview') activateBtn(btnPreview);
+    }
+
+    // 动态更新上下文覆盖层的位置与尺寸，避免遮挡 chat-header
+    updateContextEditorPosition() {
+        if (!this.chatWindow) return;
+        const overlay = this.chatWindow.querySelector('#pet-context-editor');
+        if (!overlay) return;
+        const chatHeaderEl = this.chatWindow.querySelector('.chat-header');
+        const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60;
+        overlay.style.top = headerH + 'px';
+        overlay.style.left = '0px';
+        overlay.style.right = '0px';
+        overlay.style.bottom = '0px';
     }
 
     downloadContextMarkdown() {
@@ -2688,7 +2716,7 @@ ${pageContent ? pageContent : '无内容'}
             user-select: none !important;
             width: 24px !important;
             height: 24px !important;
-            margin-left: 8px !important;
+            line-height: 24px !important;
         `;
 
         // 创建生成闪卡图标
@@ -2709,7 +2737,7 @@ ${pageContent ? pageContent : '无内容'}
             user-select: none !important;
             width: 24px !important;
             height: 24px !important;
-            margin-left: 8px !important;
+            line-height: 24px !important;
         `;
 
         // 创建生成专项报告图标
@@ -2730,7 +2758,7 @@ ${pageContent ? pageContent : '无内容'}
             user-select: none !important;
             width: 24px !important;
             height: 24px !important;
-            margin-left: 8px !important;
+            line-height: 24px !important;
         `;
 
         // 创建生成最佳实践图标
@@ -2751,7 +2779,7 @@ ${pageContent ? pageContent : '无内容'}
             user-select: none !important;
             width: 24px !important;
             height: 24px !important;
-            margin-left: 8px !important;
+            line-height: 24px !important;
         `;
 
         let isProcessing = false;
@@ -3282,7 +3310,7 @@ ${pageContent ? pageContent : '无内容'}
                     font-size: 11px !important;
                     color: #999 !important;
                     margin-top: 4px !important;
-                    max-width: calc(80% + 108px) !important;
+                    max-width: 100% !important;
                     width: 100% !important;
                 `;
 
@@ -3294,11 +3322,19 @@ ${pageContent ? pageContent : '无内容'}
                 // 将原有内容替换为 flex 布局的内容
                 messageTime.innerHTML = '';
                 messageTime.appendChild(timeText);
-                messageTime.appendChild(generateSummaryIcon);
-                messageTime.appendChild(generateMindmapIcon);
-                messageTime.appendChild(generateFlashcardIcon);
-                messageTime.appendChild(generateReportIcon);
-                messageTime.appendChild(generateBestPracticeIcon);
+                const actionsGroup = document.createElement('div');
+                actionsGroup.style.cssText = `
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                    flex-shrink: 0 !important;
+                `;
+                actionsGroup.appendChild(generateSummaryIcon);
+                actionsGroup.appendChild(generateMindmapIcon);
+                actionsGroup.appendChild(generateFlashcardIcon);
+                actionsGroup.appendChild(generateReportIcon);
+                actionsGroup.appendChild(generateBestPracticeIcon);
+                messageTime.appendChild(actionsGroup);
             }
         }, 100);
 

@@ -2442,55 +2442,37 @@ ${pageContent ? pageContent : '无内容'}
         return '🙂';
     }
 
-    // 刷新聊天窗口顶部自定义角色快捷入口
-    async refreshRoleShortcuts() {
+    // 将角色设置应用到欢迎消息下方的动作按钮（根据 actionKey 动态更新图标与标题）
+    async applyRoleConfigToActionIcon(iconEl, actionKey) {
+        try {
+            if (!iconEl || !actionKey) return;
+            const configs = await this.getRoleConfigs();
+            const cfg = Array.isArray(configs) ? configs.find(c => c && c.actionKey === actionKey) : null;
+            const displayIcon = this.getRoleIcon(cfg || { actionKey });
+            const label = (cfg && cfg.label) ? cfg.label : (
+                actionKey === 'summary' ? '生成摘要' :
+                actionKey === 'mindmap' ? '生成思维导图' :
+                actionKey === 'flashcard' ? '生成闪卡' :
+                actionKey === 'report' ? '生成专项报告' :
+                actionKey === 'bestPractice' ? '生成最佳实践' : '自定义角色'
+            );
+            // 仅更新展示，不改变 click 行为
+            iconEl.innerHTML = displayIcon || iconEl.innerHTML;
+            iconEl.title = label;
+        } catch (_) { /* 忽略展示更新错误 */ }
+    }
+
+    // 刷新欢迎消息操作按钮（根据当前 roleConfigs 更新五个内置按钮的图标与标题）
+    async refreshWelcomeActionButtons() {
         if (!this.chatWindow) return;
-        const container = this.chatWindow.querySelector('#custom-role-shortcuts');
-        if (!container) return;
-        const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-        container.innerHTML = '';
-        const configs = await this.getRoleConfigs();
-        configs.forEach(cfg => {
-            const btn = document.createElement('button');
-            btn.className = 'role-shortcut-btn';
-            btn.setAttribute('data-role-id', cfg.id);
-            const displayIcon = this.getRoleIcon(cfg);
-            btn.title = (displayIcon ? (displayIcon + ' ') : '') + (cfg.label || '自定义角色');
-            btn.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${cfg.label || '自定义角色'}`;
-            btn.style.cssText = `
-                padding: 6px 10px !important;
-                border-radius: 6px !important;
-                background: white !important;
-                color: ${currentMainColor} !important;
-                border: 1px solid ${currentMainColor} !important;
-                cursor: pointer !important;
-                font-size: 12px !important;
-                font-weight: 500 !important;
-            `;
-            btn.addEventListener('mouseenter', () => {
-                const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-                btn.style.background = mc;
-                btn.style.color = 'white';
-                btn.style.borderColor = mc;
-            });
-            btn.addEventListener('mouseleave', () => {
-                const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-                btn.style.background = 'white';
-                btn.style.color = mc;
-                btn.style.borderColor = mc;
-            });
-            btn.addEventListener('click', () => {
-                const input = this.chatWindow.querySelector('.chat-message-input');
-                if (!input) return;
-                const prompt = cfg.prompt ? `【${cfg.label}】\n${cfg.prompt}\n\n` : `【${cfg.label}】\n`;
-                input.value = (input.value || '');
-                // 将提示语插入到输入框开头以提示用户
-                input.value = `${prompt}${input.value}`;
-                input.focus();
-            });
-            container.appendChild(btn);
+        const keys = ['summary', 'mindmap', 'flashcard', 'report', 'bestPractice'];
+        keys.forEach(async (k) => {
+            const el = this.chatWindow.querySelector(`[data-action-key="${k}"]`);
+            if (el) await this.applyRoleConfigToActionIcon(el, k);
         });
     }
+
+    // 已移除 custom-role-shortcuts 功能
 
     // -------- 角色设置弹框（新增/编辑/删除） --------
     openRoleSettingsModal(editId = null) {
@@ -2549,26 +2531,6 @@ ${pageContent ? pageContent : '无内容'}
 
             const headerBtns = document.createElement('div');
             headerBtns.style.cssText = 'display:flex; gap:8px; align-items:center;';
-            const addBtn = document.createElement('button');
-            addBtn.textContent = '新增角色';
-            addBtn.style.cssText = `
-                padding: 4px 8px !important;
-                font-size: 12px !important;
-                border-radius: 6px !important;
-                border: 1px solid rgba(255,255,255,0.15) !important;
-                background: rgba(255,255,255,0.04) !important;
-                color: #e5e7eb !important;
-                cursor: pointer !important;
-            `;
-            addBtn.addEventListener('mouseenter', () => {
-                addBtn.style.background = 'rgba(255,255,255,0.12)';
-                addBtn.style.borderColor = 'rgba(255,255,255,0.25)';
-            });
-            addBtn.addEventListener('mouseleave', () => {
-                addBtn.style.background = 'rgba(255,255,255,0.04)';
-                addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-            });
-            addBtn.addEventListener('click', () => this.renderRoleSettingsForm());
             const closeBtn = document.createElement('button');
             closeBtn.id = 'pet-role-settings-close-btn';
             closeBtn.setAttribute('aria-label', '关闭角色设置 (Esc)');
@@ -2603,7 +2565,6 @@ ${pageContent ? pageContent : '无内容'}
                 closeBtn.style.transform = 'scale(1)';
             });
             closeBtn.addEventListener('click', () => this.closeRoleSettingsModal());
-            headerBtns.appendChild(addBtn);
             headerBtns.appendChild(closeBtn);
             header.appendChild(title);
             header.appendChild(headerBtns);
@@ -2761,11 +2722,15 @@ ${pageContent ? pageContent : '无内容'}
         if (!this.chatWindow) return;
         const list = this.chatWindow.querySelector('#pet-role-list');
         if (!list) return;
-        const configs = await this.getRoleConfigs();
+        const configsRaw = await this.getRoleConfigs();
+        const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
+        // 仅保留对应五个内置角色，并按固定顺序渲染
+        const pickByKey = (arr, key) => (arr || []).find(x => x && x.actionKey === key);
+        const configs = allowedKeys.map(k => pickByKey(configsRaw, k)).filter(Boolean);
         list.innerHTML = '';
 
         const empty = document.createElement('div');
-        empty.textContent = configs.length ? '' : '暂无角色，点击右上角“新增角色”。';
+        empty.textContent = configs.length ? '' : '暂无可编辑角色。';
         if (!configs.length) {
             empty.style.cssText = 'color:#94a3b8; font-size:12px; padding:8px;';
             list.appendChild(empty);
@@ -2803,21 +2768,7 @@ ${pageContent ? pageContent : '无内容'}
             edit.addEventListener('mouseenter', () => { edit.style.background = mc; edit.style.color = '#fff'; });
             edit.addEventListener('mouseleave', () => { edit.style.background = '#fff'; edit.style.color = mc; });
             edit.addEventListener('click', () => this.renderRoleSettingsForm(c.id));
-            const del = document.createElement('button');
-            del.textContent = '删除';
-            del.style.cssText = 'padding:4px 8px; border:1px solid #ef4444; color:#ef4444; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;';
-            del.addEventListener('mouseenter', () => { del.style.background = '#fee2e2'; });
-            del.addEventListener('mouseleave', () => { del.style.background = '#fff'; });
-            del.addEventListener('click', async () => {
-                const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
-                await this.setRoleConfigs(next);
-                this.renderRoleSettingsList();
-                this.renderRoleSettingsForm();
-                // 同步刷新聊天窗口顶部自定义角色快捷入口
-                this.refreshRoleShortcuts();
-            });
             btns.appendChild(edit);
-            btns.appendChild(del);
 
             row.appendChild(info);
             row.appendChild(btns);
@@ -2829,8 +2780,10 @@ ${pageContent ? pageContent : '无内容'}
         if (!this.chatWindow) return;
         const form = this.chatWindow.querySelector('#pet-role-form');
         if (!form) return;
-        const configs = await this.getRoleConfigs();
-        const current = editId ? configs.find(c => c.id === editId) : null;
+        const configsAll = await this.getRoleConfigs();
+        const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
+        const configs = (configsAll || []).filter(c => c && allowedKeys.includes(c.actionKey));
+        const current = editId ? configs.find(c => c.id === editId) : (configs[0] || null);
         form.innerHTML = '';
 
         const title = document.createElement('div');
@@ -2951,6 +2904,7 @@ ${pageContent ? pageContent : '无内容'}
             const next = {
                 id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
                 label: nameInput.value.trim() || '未命名角色',
+                // 固定与按钮绑定，仅保留内置 actionKey
                 actionKey: current?.actionKey || '',
                 includeCharts: current?.includeCharts ?? false,
                 icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),
@@ -2962,8 +2916,8 @@ ${pageContent ? pageContent : '无内容'}
             await this.setRoleConfigs(arr);
             this.renderRoleSettingsList();
             this.renderRoleSettingsForm(next.id);
-            // 同步刷新聊天窗口顶部自定义角色快捷入口
-            this.refreshRoleShortcuts();
+            // 同步刷新欢迎消息下的动作按钮
+            this.refreshWelcomeActionButtons();
         });
 
         cancelBtn.addEventListener('click', () => {
@@ -3247,6 +3201,7 @@ ${pageContent ? pageContent : '无内容'}
 
         // 创建生成摘要图标
         const generateSummaryIcon = document.createElement('span');
+        generateSummaryIcon.setAttribute('data-action-key', 'summary');
         generateSummaryIcon.innerHTML = '≈';
         generateSummaryIcon.title = '生成摘要';
         generateSummaryIcon.style.cssText = `
@@ -3267,6 +3222,7 @@ ${pageContent ? pageContent : '无内容'}
 
         // 创建生成思维导图图标
         const generateMindmapIcon = document.createElement('span');
+        generateMindmapIcon.setAttribute('data-action-key', 'mindmap');
         generateMindmapIcon.innerHTML = '⊞';
         generateMindmapIcon.title = '生成思维导图';
         generateMindmapIcon.style.cssText = `
@@ -3288,6 +3244,7 @@ ${pageContent ? pageContent : '无内容'}
 
         // 创建生成闪卡图标
         const generateFlashcardIcon = document.createElement('span');
+        generateFlashcardIcon.setAttribute('data-action-key', 'flashcard');
         generateFlashcardIcon.innerHTML = '📚';
         generateFlashcardIcon.title = '生成闪卡';
         generateFlashcardIcon.style.cssText = `
@@ -3309,6 +3266,7 @@ ${pageContent ? pageContent : '无内容'}
 
         // 创建生成专项报告图标
         const generateReportIcon = document.createElement('span');
+        generateReportIcon.setAttribute('data-action-key', 'report');
         generateReportIcon.innerHTML = '📋';
         generateReportIcon.title = '生成专项报告';
         generateReportIcon.style.cssText = `
@@ -3330,8 +3288,16 @@ ${pageContent ? pageContent : '无内容'}
 
         // 创建生成最佳实践图标
         const generateBestPracticeIcon = document.createElement('span');
+        generateBestPracticeIcon.setAttribute('data-action-key', 'bestPractice');
         generateBestPracticeIcon.innerHTML = '⭐';
         generateBestPracticeIcon.title = '生成最佳实践';
+
+        // 初次应用角色设置中的图标与标题
+        this.applyRoleConfigToActionIcon(generateSummaryIcon, 'summary');
+        this.applyRoleConfigToActionIcon(generateMindmapIcon, 'mindmap');
+        this.applyRoleConfigToActionIcon(generateFlashcardIcon, 'flashcard');
+        this.applyRoleConfigToActionIcon(generateReportIcon, 'report');
+        this.applyRoleConfigToActionIcon(generateBestPracticeIcon, 'bestPractice');
         generateBestPracticeIcon.style.cssText = `
             padding: 4px !important;
             cursor: pointer !important;
@@ -3955,6 +3921,8 @@ ${pageContent ? pageContent : '无内容'}
 
                     actionsWrapper.appendChild(actionsGroup);
                     messageTime.appendChild(actionsWrapper);
+                    // 同步应用角色设置到欢迎消息动作按钮
+                    this.refreshWelcomeActionButtons();
                 });
             }
         }, 100);
@@ -4230,19 +4198,8 @@ ${pageContent ? pageContent : '无内容'}
         });
         contextBtn.addEventListener('click', () => this.openContextEditor());
         leftButtonGroup.appendChild(contextBtn);
-        // 自定义角色快捷入口容器
-        const roleShortcuts = document.createElement('div');
-        roleShortcuts.id = 'custom-role-shortcuts';
-        roleShortcuts.style.cssText = `
-            display: inline-flex !important;
-            gap: 6px !important;
-            align-items: center !important;
-            margin-left: 6px !important;
-        `;
-        leftButtonGroup.appendChild(roleShortcuts);
-        // 初始渲染自定义角色快捷入口
-        this.refreshRoleShortcuts();
-        
+        // 已移除自定义角色快捷入口
+
         topToolbar.appendChild(leftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);
         inputContainer.appendChild(topToolbar);

@@ -2134,6 +2134,338 @@ ${pageContent ? pageContent : '无内容'}
         }
     }
 
+    // 确保上下文编辑器 UI 存在
+    ensureContextEditorUi() {
+        if (!this.chatWindow) return;
+        if (document.getElementById('pet-context-editor')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'pet-context-editor';
+        overlay.style.cssText = `
+            position: absolute !important;
+            inset: 0 !important;
+            background: transparent !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 1} !important;
+            pointer-events: none !important;
+        `;
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            width: calc(100% - 24px) !important;
+            height: calc(100% - 24px) !important;
+            margin: 12px !important;
+            background: #1f1f1f !important;
+            color: #fff !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            min-height: 0 !important;
+            pointer-events: auto !important;
+        `;
+
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 10px 14px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+            background: rgba(255,255,255,0.04) !important;
+        `;
+        const title = document.createElement('div');
+        title.textContent = '页面上下文（Markdown）';
+        title.style.cssText = 'font-weight: 600;';
+        const headerBtns = document.createElement('div');
+        headerBtns.style.cssText = 'display:flex; gap:8px; align-items:center;';
+        // 简洁模式切换：并排 / 仅编辑 / 仅预览
+        const modeGroup = document.createElement('div');
+        modeGroup.style.cssText = `
+            display: inline-flex !important;
+            gap: 6px !important;
+            background: rgba(255,255,255,0.04) !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            border-radius: 8px !important;
+            padding: 4px !important;
+        `;
+        const makeModeBtn = (id, label, mode) => {
+            const btn = document.createElement('button');
+            btn.id = id;
+            btn.textContent = label;
+            btn.style.cssText = `
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 6px !important;
+                border: none !important;
+                background: transparent !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
+            `;
+            btn.addEventListener('click', () => this.setContextMode(mode));
+            return btn;
+        };
+        const btnSplit = makeModeBtn('pet-context-mode-split', '并排', 'split');
+        const btnEdit = makeModeBtn('pet-context-mode-edit', '仅编辑', 'edit');
+        const btnPreview = makeModeBtn('pet-context-mode-preview', '仅预览', 'preview');
+        modeGroup.appendChild(btnSplit);
+        modeGroup.appendChild(btnEdit);
+        modeGroup.appendChild(btnPreview);
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'pet-context-close-btn';
+        closeBtn.className = 'chat-toolbar-btn';
+        closeBtn.setAttribute('aria-label', '关闭上下文面板 (Esc)');
+        closeBtn.setAttribute('title', '关闭 (Esc)');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            width: 28px !important;
+            height: 28px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+            transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
+            outline: none !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(255,255,255,0.12)';
+            closeBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(255,255,255,0.04)';
+            closeBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+        });
+        closeBtn.addEventListener('mousedown', () => {
+            closeBtn.style.transform = 'scale(0.96)';
+        });
+        closeBtn.addEventListener('mouseup', () => {
+            closeBtn.style.transform = 'scale(1)';
+        });
+        closeBtn.addEventListener('click', () => this.closeContextEditor());
+        headerBtns.appendChild(modeGroup);
+        // 下载按钮（导出 Markdown）
+        const downloadBtn = document.createElement('button');
+        downloadBtn.id = 'pet-context-download-btn';
+        downloadBtn.className = 'chat-toolbar-btn';
+        downloadBtn.setAttribute('title', '下载当前上下文为 Markdown (.md)');
+        downloadBtn.textContent = '下载';
+        downloadBtn.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+        `;
+        downloadBtn.addEventListener('click', () => this.downloadContextMarkdown());
+        headerBtns.appendChild(downloadBtn);
+        headerBtns.appendChild(closeBtn);
+        header.appendChild(title);
+        header.appendChild(headerBtns);
+
+        const body = document.createElement('div');
+        body.style.cssText = `
+            flex: 1 !important;
+            display: flex !important;
+            padding: 10px !important;
+            gap: 10px !important;
+            min-height: 0 !important;
+        `;
+        const textarea = document.createElement('textarea');
+        textarea.id = 'pet-context-editor-textarea';
+        textarea.style.cssText = `
+            flex: 1 !important;
+            width: 50% !important;
+            height: 100% !important;
+            background: #121212 !important;
+            color: #fff !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace !important;
+            font-size: 12px !important;
+            line-height: 1.6 !important;
+            outline: none !important;
+            resize: none !important;
+            white-space: pre-wrap !important;
+            min-height: 0 !important;
+            overflow: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        `;
+        const preview = document.createElement('div');
+        preview.id = 'pet-context-preview';
+        preview.style.cssText = `
+            flex: 1 !important;
+            width: 50% !important;
+            height: 100% !important;
+            background: #0e0e0e !important;
+            color: #e5e7eb !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch !important;
+            pointer-events: auto !important;
+        `;
+        // 防止滚动事件冒泡到父级，保证自身滚动有效
+        preview.addEventListener('wheel', (e) => { e.stopPropagation(); }, { passive: true });
+        preview.addEventListener('touchmove', (e) => { e.stopPropagation(); }, { passive: true });
+        // 编辑时实时更新预览（防抖）
+        textarea.addEventListener('input', () => {
+            if (this._contextPreviewTimer) clearTimeout(this._contextPreviewTimer);
+            this._contextPreviewTimer = setTimeout(() => {
+                this.updateContextPreview();
+            }, 150);
+        });
+        // 同步滚动（比例映射）
+        textarea.addEventListener('scroll', () => {
+            const previewEl = this.chatWindow ? this.chatWindow.querySelector('#pet-context-preview') : null;
+            if (!previewEl) return;
+            const tMax = textarea.scrollHeight - textarea.clientHeight;
+            const pMax = previewEl.scrollHeight - previewEl.clientHeight;
+            if (tMax > 0 && pMax >= 0) {
+                const ratio = textarea.scrollTop / tMax;
+                previewEl.scrollTop = ratio * pMax;
+            }
+        });
+        body.appendChild(textarea);
+        body.appendChild(preview);
+
+        panel.appendChild(header);
+        panel.appendChild(body);
+        overlay.appendChild(panel);
+        // 确保聊天窗口容器为定位上下文
+        const currentPosition = window.getComputedStyle(this.chatWindow).position;
+        if (currentPosition === 'static') {
+            this.chatWindow.style.position = 'relative';
+        }
+        this.chatWindow.appendChild(overlay);
+    }
+
+    openContextEditor() {
+        this.ensureContextEditorUi();
+        const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        this.loadContextIntoEditor();
+        this.updateContextPreview();
+        // 默认并排模式
+        this._contextPreviewMode = this._contextPreviewMode || 'split';
+        this.applyContextPreviewMode();
+        // Esc 关闭
+        this._contextKeydownHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeContextEditor();
+            }
+        };
+        document.addEventListener('keydown', this._contextKeydownHandler, { capture: true });
+    }
+
+    closeContextEditor() {
+        const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
+        if (overlay) overlay.style.display = 'none';
+        if (this._contextKeydownHandler) {
+            document.removeEventListener('keydown', this._contextKeydownHandler, { capture: true });
+            this._contextKeydownHandler = null;
+        }
+    }
+
+    setContextMode(mode) {
+        this._contextPreviewMode = mode; // 'split' | 'edit' | 'preview'
+        this.applyContextPreviewMode();
+    }
+
+    applyContextPreviewMode() {
+        if (!this.chatWindow) return;
+        const textarea = this.chatWindow.querySelector('#pet-context-editor-textarea');
+        const preview = this.chatWindow.querySelector('#pet-context-preview');
+        const btnSplit = this.chatWindow.querySelector('#pet-context-mode-split');
+        const btnEdit = this.chatWindow.querySelector('#pet-context-mode-edit');
+        const btnPreview = this.chatWindow.querySelector('#pet-context-mode-preview');
+        if (!textarea || !preview) return;
+        const mode = this._contextPreviewMode;
+        const isPreviewOnly = mode === 'preview';
+        const isEditOnly = mode === 'edit';
+        textarea.style.display = isPreviewOnly ? 'none' : 'block';
+        preview.style.display = isEditOnly ? 'none' : 'block';
+        textarea.style.width = isEditOnly ? '100%' : (isPreviewOnly ? '0%' : '50%');
+        preview.style.width = isPreviewOnly ? '100%' : (isEditOnly ? '0%' : '50%');
+        // 激活态样式更简单：当前模式高亮底色
+        const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+        const resetBtn = (b) => { if (!b) return; b.style.background = 'transparent'; b.style.color = '#e5e7eb'; b.style.border = 'none'; };
+        const activateBtn = (b) => { if (!b) return; b.style.background = currentMainColor; b.style.color = '#fff'; b.style.border = 'none'; };
+        resetBtn(btnSplit); resetBtn(btnEdit); resetBtn(btnPreview);
+        if (mode === 'split') activateBtn(btnSplit);
+        if (mode === 'edit') activateBtn(btnEdit);
+        if (mode === 'preview') activateBtn(btnPreview);
+    }
+
+    downloadContextMarkdown() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (!textarea) return;
+        const content = textarea.value || '';
+        const title = (document.title || 'page').replace(/\s+/g, '_').replace(/[^\w\-_.]/g, '');
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const filename = `${title}_${stamp}.md`;
+        try {
+            const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                if (a.parentNode) a.parentNode.removeChild(a);
+            }, 0);
+        } catch (e) {
+            // 忽略下载错误
+        }
+    }
+
+
+    loadContextIntoEditor() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (!textarea) return;
+        try {
+            const md = this.getPageContentAsMarkdown();
+            textarea.value = md || '';
+        } catch (e) {
+            textarea.value = '获取页面上下文失败。';
+        }
+    }
+
+    updateContextPreview() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        const preview = this.chatWindow ? this.chatWindow.querySelector('#pet-context-preview') : null;
+        if (!textarea || !preview) return;
+        const markdown = textarea.value || '';
+        // 使用已存在的 Markdown 渲染
+        preview.innerHTML = this.renderMarkdown(markdown);
+        // 渲染 mermaid（若有）- 防抖，避免频繁触发
+        if (preview._mermaidTimer) {
+            clearTimeout(preview._mermaidTimer);
+            preview._mermaidTimer = null;
+        }
+        preview._mermaidTimer = setTimeout(async () => {
+            await this.processMermaidBlocks(preview);
+            preview._mermaidTimer = null;
+        }, 200);
+    }
+
     // 初始化聊天滚动功能
     initializeChatScroll() {
         if (!this.chatWindow) return;
@@ -3212,6 +3544,36 @@ ${pageContent ? pageContent : '无内容'}
         leftButtonGroup.appendChild(mentionButton);
         leftButtonGroup.appendChild(addButton);
         rightStatusGroup.appendChild(contextSwitchContainer);
+        // 添加：页面上下文预览/编辑按钮
+        const contextBtn = document.createElement('button');
+        contextBtn.className = 'chat-toolbar-btn';
+        contextBtn.setAttribute('title', '预览/编辑页面上下文');
+        contextBtn.textContent = '📝 上下文';
+        contextBtn.style.cssText = `
+            padding: 6px 10px !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+        `;
+        contextBtn.addEventListener('mouseenter', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            contextBtn.style.background = currentMainColor;
+            contextBtn.style.color = 'white';
+            contextBtn.style.borderColor = currentMainColor;
+        });
+        contextBtn.addEventListener('mouseleave', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            contextBtn.style.background = 'white';
+            contextBtn.style.color = currentMainColor;
+            contextBtn.style.borderColor = currentMainColor;
+        });
+        contextBtn.addEventListener('click', () => this.openContextEditor());
+        leftButtonGroup.appendChild(contextBtn);
+        
         topToolbar.appendChild(leftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);
         inputContainer.appendChild(topToolbar);
@@ -3771,6 +4133,9 @@ ${pageContent ? pageContent : '无内容'}
 
         // 将文件输入添加到容器
         inputContainer.appendChild(fileInput);
+
+        // 确保上下文编辑器 UI 预创建（隐藏）
+        this.ensureContextEditorUi();
 
         // 创建四个缩放手柄（四个角）
         const createResizeHandle = (position) => {
@@ -7196,6 +7561,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

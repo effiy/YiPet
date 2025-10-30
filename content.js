@@ -4140,12 +4140,12 @@ ${pageContent ? pageContent : '无内容'}
         // 创建四个缩放手柄（四个角）
         const createResizeHandle = (position) => {
             const handle = document.createElement('div');
-            handle.className = `resize-handle resize-handle-${position}`;
+			handle.className = `resize-handle resize-handle-${position}`;
 
             let styles = `
                 position: absolute !important;
-                width: 20px !important;
-                height: 20px !important;
+				width: 20px !important;
+				height: 20px !important;
                 background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 70%, transparent 70%) !important;
                 z-index: ${PET_CONFIG.ui.zIndex.resizeHandle} !important;
                 transition: background 0.2s ease !important;
@@ -4185,6 +4185,39 @@ ${pageContent ? pageContent : '无内容'}
                         border-radius: 0 0 16px 0 !important;
                     `;
                     break;
+				case 'left':
+					styles += `
+						top: 20px !important;
+						bottom: 20px !important;
+						left: 0 !important;
+						width: 8px !important;
+						height: auto !important;
+						cursor: ew-resize !important;
+						background: transparent !important;
+					`;
+					break;
+				case 'right':
+					styles += `
+						top: 20px !important;
+						bottom: 20px !important;
+						right: 0 !important;
+						width: 8px !important;
+						height: auto !important;
+						cursor: ew-resize !important;
+						background: transparent !important;
+					`;
+					break;
+				case 'bottom':
+					styles += `
+						left: 20px !important;
+						right: 20px !important;
+						bottom: 0 !important;
+						height: 8px !important;
+						width: auto !important;
+						cursor: ns-resize !important;
+						background: transparent !important;
+					`;
+					break;
             }
 
             handle.style.cssText = styles;
@@ -4192,20 +4225,27 @@ ${pageContent ? pageContent : '无内容'}
             return handle;
         };
 
-        // 创建四个角的缩放手柄
+		// 创建四个角的缩放手柄
         const resizeHandleTL = createResizeHandle('top-left');
         const resizeHandleTR = createResizeHandle('top-right');
         const resizeHandleBL = createResizeHandle('bottom-left');
         const resizeHandleBR = createResizeHandle('bottom-right');
+		// 创建边缘缩放手柄（左、右、下）
+		const resizeHandleL = createResizeHandle('left');
+		const resizeHandleR = createResizeHandle('right');
+		const resizeHandleB = createResizeHandle('bottom');
 
         // 组装聊天窗口
         this.chatWindow.appendChild(chatHeader);
         this.chatWindow.appendChild(messagesContainer);
         this.chatWindow.appendChild(inputContainer);
-        this.chatWindow.appendChild(resizeHandleTL);
-        this.chatWindow.appendChild(resizeHandleTR);
-        this.chatWindow.appendChild(resizeHandleBL);
-        this.chatWindow.appendChild(resizeHandleBR);
+		this.chatWindow.appendChild(resizeHandleTL);
+		this.chatWindow.appendChild(resizeHandleTR);
+		this.chatWindow.appendChild(resizeHandleBL);
+		this.chatWindow.appendChild(resizeHandleBR);
+		this.chatWindow.appendChild(resizeHandleL);
+		this.chatWindow.appendChild(resizeHandleR);
+		this.chatWindow.appendChild(resizeHandleB);
 
         // 添加到页面
         document.body.appendChild(this.chatWindow);
@@ -4382,6 +4422,12 @@ ${pageContent ? pageContent : '无内容'}
                     this.chatWindowState.resizeType = 'bottom-left';
                 } else if (resizeHandle.classList.contains('resize-handle-bottom-right')) {
                     this.chatWindowState.resizeType = 'bottom-right';
+				} else if (resizeHandle.classList.contains('resize-handle-left')) {
+					this.chatWindowState.resizeType = 'left';
+				} else if (resizeHandle.classList.contains('resize-handle-right')) {
+					this.chatWindowState.resizeType = 'right';
+				} else if (resizeHandle.classList.contains('resize-handle-bottom')) {
+					this.chatWindowState.resizeType = 'bottom';
                 }
 
                 this.chatWindowState.resizeStart = {
@@ -4433,7 +4479,7 @@ ${pageContent ? pageContent : '无内容'}
                 const resizeType = this.chatWindowState.resizeType;
                 let newWidth, newHeight, newX, newY;
 
-                // 根据不同的缩放类型计算新的宽度、高度和位置
+				// 根据不同的缩放类型计算新的宽度、高度和位置
                 switch(resizeType) {
                     case 'bottom-right':
                         // 右下角：调整宽度和高度
@@ -4466,6 +4512,48 @@ ${pageContent ? pageContent : '无内容'}
                         newX = Math.max(0, this.chatWindowState.resizeStart.startX + deltaX);
                         newY = Math.max(0, this.chatWindowState.resizeStart.startY + deltaY);
                         break;
+
+					case 'left':
+						// 左边：调整宽度（负方向），同时移动x位置
+						newWidth = Math.max(
+							PET_CONFIG.chatWindow.sizeLimits.minWidth,
+							Math.min(
+								PET_CONFIG.chatWindow.sizeLimits.maxWidth,
+								this.chatWindowState.resizeStart.width - deltaX
+							)
+						);
+						newHeight = this.chatWindowState.resizeStart.height;
+						newX = Math.max(0, this.chatWindowState.resizeStart.startX + deltaX);
+						newY = this.chatWindowState.resizeStart.startY;
+						break;
+
+					case 'right':
+						// 右边：调整宽度（正方向）
+						newWidth = Math.max(
+							PET_CONFIG.chatWindow.sizeLimits.minWidth,
+							Math.min(
+								PET_CONFIG.chatWindow.sizeLimits.maxWidth,
+								this.chatWindowState.resizeStart.width + deltaX
+							)
+						);
+						newHeight = this.chatWindowState.resizeStart.height;
+						newX = this.chatWindowState.resizeStart.startX;
+						newY = this.chatWindowState.resizeStart.startY;
+						break;
+
+					case 'bottom':
+						// 下边：仅调整高度（正方向）
+						newWidth = this.chatWindowState.resizeStart.width;
+						newHeight = Math.max(
+							PET_CONFIG.chatWindow.sizeLimits.minHeight,
+							Math.min(
+								PET_CONFIG.chatWindow.sizeLimits.maxHeight,
+								this.chatWindowState.resizeStart.height + deltaY
+							)
+						);
+						newX = this.chatWindowState.resizeStart.startX;
+						newY = this.chatWindowState.resizeStart.startY;
+						break;
 
                     default:
                         return;

@@ -2,6 +2,49 @@
  * Chrome扩展弹窗控制脚本
  */
 
+(function() {
+    try {
+        const keyName = 'petDevMode';
+        const defaultEnabled = false;
+        const original = {
+            log: console.log,
+            info: console.info,
+            debug: console.debug,
+            warn: console.warn
+        };
+        const muteIfNeeded = (enabled) => {
+            if (enabled) return;
+            const noop = () => {};
+            console.log = noop;
+            console.info = noop;
+            console.debug = noop;
+            console.warn = noop;
+        };
+        chrome.storage.sync.get([keyName], (res) => {
+            const enabled = res[keyName];
+            muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
+        });
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace !== 'sync') return;
+            if (changes[keyName]) {
+                const enabled = changes[keyName].newValue;
+                if (enabled) {
+                    console.log = original.log;
+                    console.info = original.info;
+                    console.debug = original.debug;
+                    console.warn = original.warn;
+                } else {
+                    const noop = () => {};
+                    console.log = noop;
+                    console.info = noop;
+                    console.debug = noop;
+                    console.warn = noop;
+                }
+            }
+        });
+    } catch (e) {}
+})();
+
 class PopupController {
     constructor() {
         this.currentTab = null;
@@ -126,7 +169,7 @@ class PopupController {
                         visible: response.visible !== undefined ? response.visible : true,
                         color: response.color !== undefined ? response.color : 0,
                         size: response.size !== undefined ? response.size : 180,
-                        position: response.position || { x: 20, y: 20 }
+                        position: response.position || getPetDefaultPosition()
                     };
                 } else {
                     console.log('无法获取宠物状态，使用默认值');
@@ -150,7 +193,7 @@ class PopupController {
                         visible: state.visible !== undefined ? state.visible : true,
                         color: state.color !== undefined ? state.color : 0,
                         size: state.size !== undefined ? state.size : 180,
-                        position: state.position || { x: 20, y: 20 }
+                        position: state.position || getPetDefaultPosition()
                     });
                 } else {
                     resolve(null);
@@ -411,7 +454,7 @@ class PopupController {
         try {
             const response = await this.sendMessageToContentScript({ action: 'resetPosition' });
             if (response && response.success) {
-                this.petStatus.position = { x: 20, y: 20 };
+                this.petStatus.position = getPetDefaultPosition();
                 this.updateUI();
                 this.showNotification('位置已重置');
             } else {
@@ -578,4 +621,5 @@ window.addEventListener('beforeunload', () => {
         popupController.stopStatusSync();
     }
 });
+
 

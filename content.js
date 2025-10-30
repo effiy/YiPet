@@ -4,6 +4,49 @@
  * 负责在网页中创建和管理宠物
  */
 
+(function() {
+    try {
+        const keyName = 'petDevMode';
+        const defaultEnabled = false;
+        const original = {
+            log: console.log,
+            info: console.info,
+            debug: console.debug,
+            warn: console.warn
+        };
+        const muteIfNeeded = (enabled) => {
+            if (enabled) return;
+            const noop = () => {};
+            console.log = noop;
+            console.info = noop;
+            console.debug = noop;
+            console.warn = noop;
+        };
+        chrome.storage.sync.get([keyName], (res) => {
+            const enabled = res[keyName];
+            muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
+        });
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace !== 'sync') return;
+            if (changes[keyName]) {
+                const enabled = changes[keyName].newValue;
+                if (enabled) {
+                    console.log = original.log;
+                    console.info = original.info;
+                    console.debug = original.debug;
+                    console.warn = original.warn;
+                } else {
+                    const noop = () => {};
+                    console.log = noop;
+                    console.info = noop;
+                    console.debug = noop;
+                    console.warn = noop;
+                }
+            }
+        });
+    } catch (e) {}
+})();
+
 console.log('Content Script 加载');
 
 // 检查PET_CONFIG是否可用
@@ -7153,6 +7196,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

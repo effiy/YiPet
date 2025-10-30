@@ -19,7 +19,6 @@ chrome.runtime.onInstalled.addListener((details) => {
             visible: true,
             color: 0,
             size: 60,
-            position: { x: 20, y: 20 },
             timestamp: Date.now()
         }
     });
@@ -427,4 +426,5 @@ if (typeof module !== 'undefined' && module.exports) {
         executeInAllTabs
     };
 }
+
 

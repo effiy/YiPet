@@ -2503,15 +2503,23 @@ ${pageContent ? pageContent : '无内容'}
             });
             addBtn.addEventListener('click', () => this.renderRoleSettingsForm());
             const closeBtn = document.createElement('button');
-            closeBtn.textContent = '关闭';
+            closeBtn.id = 'pet-role-settings-close-btn';
+            closeBtn.setAttribute('aria-label', '关闭角色设置 (Esc)');
+            closeBtn.setAttribute('title', '关闭 (Esc)');
+            closeBtn.textContent = '✕';
             closeBtn.style.cssText = `
-                padding: 4px 8px !important;
-                font-size: 12px !important;
+                width: 28px !important;
+                height: 28px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
                 border-radius: 6px !important;
                 border: 1px solid rgba(255,255,255,0.15) !important;
                 background: rgba(255,255,255,0.04) !important;
                 color: #e5e7eb !important;
                 cursor: pointer !important;
+                transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
+                outline: none !important;
             `;
             closeBtn.addEventListener('mouseenter', () => {
                 closeBtn.style.background = 'rgba(255,255,255,0.12)';
@@ -2520,6 +2528,12 @@ ${pageContent ? pageContent : '无内容'}
             closeBtn.addEventListener('mouseleave', () => {
                 closeBtn.style.background = 'rgba(255,255,255,0.04)';
                 closeBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            });
+            closeBtn.addEventListener('mousedown', () => {
+                closeBtn.style.transform = 'scale(0.96)';
+            });
+            closeBtn.addEventListener('mouseup', () => {
+                closeBtn.style.transform = 'scale(1)';
             });
             closeBtn.addEventListener('click', () => this.closeRoleSettingsModal());
             headerBtns.appendChild(addBtn);
@@ -2692,7 +2706,7 @@ ${pageContent ? pageContent : '无内容'}
             name.textContent = c.label || '(未命名)';
             name.style.cssText = 'font-weight:600; font-size:12px;';
             const sub = document.createElement('div');
-            sub.textContent = `功能: ${c.actionKey || '-'}  · 含图表: ${c.includeCharts ? '是' : '否'}`;
+            sub.textContent = `含图表: ${c.includeCharts ? '是' : '否'}`;
             sub.style.cssText = 'color:#64748b; font-size:12px;';
             info.appendChild(name);
             info.appendChild(sub);
@@ -2757,22 +2771,7 @@ ${pageContent ? pageContent : '无内容'}
         nameInput.placeholder = '角色名称，如：会议纪要摘要';
         nameInput.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none;`;
 
-        const actionSelect = document.createElement('select');
-        actionSelect.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none;`;
-        const actions = [
-            { key: 'summary', name: '生成摘要' },
-            { key: 'mindmap', name: '生成思维导图' },
-            { key: 'flashcard', name: '生成闪卡' },
-            { key: 'report', name: '生成专项报告' },
-            { key: 'bestPractice', name: '生成最佳实践' },
-        ];
-        actions.forEach(a => {
-            const opt = document.createElement('option');
-            opt.value = a.key;
-            opt.textContent = a.name;
-            actionSelect.appendChild(opt);
-        });
-        actionSelect.value = current?.actionKey || 'summary';
+        // 去除“对应功能”下拉框
 
         const includeCharts = document.createElement('label');
         includeCharts.style.cssText = 'display:flex; align-items:center; gap:8px; font-size:12px; color:#475569;';
@@ -2785,7 +2784,7 @@ ${pageContent ? pageContent : '无内容'}
         includeCharts.appendChild(includeText);
 
         const promptArea = document.createElement('textarea');
-        promptArea.rows = 12;
+        promptArea.rows = 24;
         promptArea.placeholder = '提示语（可选）：为该角色的生成提供风格/结构指导';
         promptArea.value = current?.prompt || '';
         promptArea.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; resize:vertical; outline:none;`;
@@ -2807,7 +2806,7 @@ ${pageContent ? pageContent : '无内容'}
             const next = {
                 id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
                 label: nameInput.value.trim() || '未命名角色',
-                actionKey: actionSelect.value,
+                actionKey: current?.actionKey || '',
                 includeCharts: includeChk.checked,
                 prompt: promptArea.value.trim(),
             };
@@ -2825,7 +2824,6 @@ ${pageContent ? pageContent : '无内容'}
 
         form.appendChild(title);
         form.appendChild(row('角色名称', nameInput));
-        form.appendChild(row('对应功能', actionSelect));
         form.appendChild(includeCharts);
         form.appendChild(row('提示语', promptArea));
         form.appendChild(btns);

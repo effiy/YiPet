@@ -2531,6 +2531,26 @@ ${pageContent ? pageContent : '无内容'}
 
             const headerBtns = document.createElement('div');
             headerBtns.style.cssText = 'display:flex; gap:8px; align-items:center;';
+            const addBtn = document.createElement('button');
+            addBtn.textContent = '新增角色';
+            addBtn.style.cssText = `
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 6px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.04) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
+            `;
+            addBtn.addEventListener('mouseenter', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.12)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+            });
+            addBtn.addEventListener('mouseleave', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.04)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            });
+            addBtn.addEventListener('click', () => this.renderRoleSettingsForm(null));
             const closeBtn = document.createElement('button');
             closeBtn.id = 'pet-role-settings-close-btn';
             closeBtn.setAttribute('aria-label', '关闭角色设置 (Esc)');
@@ -2565,6 +2585,7 @@ ${pageContent ? pageContent : '无内容'}
                 closeBtn.style.transform = 'scale(1)';
             });
             closeBtn.addEventListener('click', () => this.closeRoleSettingsModal());
+            headerBtns.appendChild(addBtn);
             headerBtns.appendChild(closeBtn);
             header.appendChild(title);
             header.appendChild(headerBtns);
@@ -2614,11 +2635,9 @@ ${pageContent ? pageContent : '无内容'}
         }
 
         overlay.style.display = 'flex';
-        // 首次打开时，若没有配置则导入现有内置角色
-        this.ensureDefaultRoleConfigs().then(() => {
-            this.renderRoleSettingsList();
-            if (editId) this.renderRoleSettingsForm(editId);
-        });
+        // 直接渲染当前配置（不再强制补齐默认项，便于“删除”生效）
+        this.renderRoleSettingsList();
+        if (editId) this.renderRoleSettingsForm(editId);
     }
 
     closeRoleSettingsModal() {
@@ -2724,7 +2743,7 @@ ${pageContent ? pageContent : '无内容'}
         if (!list) return;
         const configsRaw = await this.getRoleConfigs();
         const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
-        // 仅保留对应五个内置角色，并按固定顺序渲染
+        // 仅展示五个内置槽位中已存在的配置，并按固定顺序渲染
         const pickByKey = (arr, key) => (arr || []).find(x => x && x.actionKey === key);
         const configs = allowedKeys.map(k => pickByKey(configsRaw, k)).filter(Boolean);
         list.innerHTML = '';
@@ -2768,7 +2787,21 @@ ${pageContent ? pageContent : '无内容'}
             edit.addEventListener('mouseenter', () => { edit.style.background = mc; edit.style.color = '#fff'; });
             edit.addEventListener('mouseleave', () => { edit.style.background = '#fff'; edit.style.color = mc; });
             edit.addEventListener('click', () => this.renderRoleSettingsForm(c.id));
+            const del = document.createElement('button');
+            del.textContent = '删除';
+            del.style.cssText = 'padding:4px 8px; border:1px solid #ef4444; color:#ef4444; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;';
+            del.addEventListener('mouseenter', () => { del.style.background = '#fee2e2'; });
+            del.addEventListener('mouseleave', () => { del.style.background = '#fff'; });
+            del.addEventListener('click', async () => {
+                const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
+                await this.setRoleConfigs(next);
+                this.renderRoleSettingsList();
+                this.renderRoleSettingsForm();
+                // 同步刷新欢迎消息下的动作按钮
+                this.refreshWelcomeActionButtons();
+            });
             btns.appendChild(edit);
+            btns.appendChild(del);
 
             row.appendChild(info);
             row.appendChild(btns);
@@ -2783,7 +2816,7 @@ ${pageContent ? pageContent : '无内容'}
         const configsAll = await this.getRoleConfigs();
         const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
         const configs = (configsAll || []).filter(c => c && allowedKeys.includes(c.actionKey));
-        const current = editId ? configs.find(c => c.id === editId) : (configs[0] || null);
+        const current = editId ? configs.find(c => c.id === editId) : null;
         form.innerHTML = '';
 
         const title = document.createElement('div');
@@ -2803,6 +2836,30 @@ ${pageContent ? pageContent : '无内容'}
 
         const currentColor = this.colors[this.colorIndex];
         const mainColor = this.getMainColorFromGradient(currentColor);
+        // 可选：创建模式下提供“绑定按钮”选择（五个槽位中尚未被占用的）
+        let actionKeySelect = null;
+        if (!current) {
+            const used = new Set(configs.map(c => c.actionKey));
+            const available = allowedKeys.filter(k => !used.has(k));
+            actionKeySelect = document.createElement('select');
+            actionKeySelect.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none; background:#0e0e0e; color:#e5e7eb;`;
+            available.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = (
+                    k === 'summary' ? '绑定：生成摘要' :
+                    k === 'mindmap' ? '绑定：生成思维导图' :
+                    k === 'flashcard' ? '绑定：生成闪卡' :
+                    k === 'report' ? '绑定：生成专项报告' :
+                    k === 'bestPractice' ? '绑定：生成最佳实践' : k
+                );
+                actionKeySelect.appendChild(opt);
+            });
+            if (available.length === 0) {
+                actionKeySelect.disabled = true;
+            }
+        }
+
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.value = current?.label || '';
@@ -2901,17 +2958,22 @@ ${pageContent ? pageContent : '无内容'}
         };
 
         saveBtn.addEventListener('click', async () => {
+            if (!current && actionKeySelect && actionKeySelect.disabled) {
+                return;
+            }
             const next = {
                 id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
                 label: nameInput.value.trim() || '未命名角色',
-                // 固定与按钮绑定，仅保留内置 actionKey
-                actionKey: current?.actionKey || '',
+                // 绑定到五个固定按钮之一
+                actionKey: current ? (current.actionKey || '') : (actionKeySelect ? actionKeySelect.value : ''),
                 includeCharts: current?.includeCharts ?? false,
                 icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),
                 prompt: promptArea.value.trim(),
             };
+            if (!next.actionKey) return;
             const arr = await this.getRoleConfigs();
-            const idx = arr.findIndex(x => x.id === next.id);
+            // 若该 actionKey 已有配置，覆盖；否则插入
+            const idx = arr.findIndex(x => x.id === next.id || (x && x.actionKey === next.actionKey));
             if (idx >= 0) arr[idx] = next; else arr.push(next);
             await this.setRoleConfigs(arr);
             this.renderRoleSettingsList();
@@ -2925,6 +2987,9 @@ ${pageContent ? pageContent : '无内容'}
         });
 
         form.appendChild(title);
+        if (!current && actionKeySelect) {
+            form.appendChild(row('绑定按钮（必选）', actionKeySelect));
+        }
         form.appendChild(row('角色名称', nameInput));
         // 图标设置区：预览 + 输入 + 快选
         const iconWrap = document.createElement('div');

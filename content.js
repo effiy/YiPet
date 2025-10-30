@@ -4218,6 +4218,17 @@ ${pageContent ? pageContent : '无内容'}
 						background: transparent !important;
 					`;
 					break;
+                case 'top':
+                    styles += `
+                        left: 20px !important;
+                        right: 20px !important;
+                        top: 0 !important;
+                        height: 8px !important;
+                        width: auto !important;
+                        cursor: ns-resize !important;
+                        background: transparent !important;
+                    `;
+                    break;
             }
 
             handle.style.cssText = styles;
@@ -4234,6 +4245,7 @@ ${pageContent ? pageContent : '无内容'}
 		const resizeHandleL = createResizeHandle('left');
 		const resizeHandleR = createResizeHandle('right');
 		const resizeHandleB = createResizeHandle('bottom');
+		const resizeHandleT = createResizeHandle('top');
 
         // 组装聊天窗口
         this.chatWindow.appendChild(chatHeader);
@@ -4246,6 +4258,7 @@ ${pageContent ? pageContent : '无内容'}
 		this.chatWindow.appendChild(resizeHandleL);
 		this.chatWindow.appendChild(resizeHandleR);
 		this.chatWindow.appendChild(resizeHandleB);
+		this.chatWindow.appendChild(resizeHandleT);
 
         // 添加到页面
         document.body.appendChild(this.chatWindow);
@@ -4428,6 +4441,8 @@ ${pageContent ? pageContent : '无内容'}
 					this.chatWindowState.resizeType = 'right';
 				} else if (resizeHandle.classList.contains('resize-handle-bottom')) {
 					this.chatWindowState.resizeType = 'bottom';
+                } else if (resizeHandle.classList.contains('resize-handle-top')) {
+                    this.chatWindowState.resizeType = 'top';
                 }
 
                 this.chatWindowState.resizeStart = {
@@ -4554,6 +4569,20 @@ ${pageContent ? pageContent : '无内容'}
 						newX = this.chatWindowState.resizeStart.startX;
 						newY = this.chatWindowState.resizeStart.startY;
 						break;
+
+                    case 'top':
+                        // 上边：仅调整高度（负方向），同时移动y位置
+                        newWidth = this.chatWindowState.resizeStart.width;
+                        newHeight = Math.max(
+                            PET_CONFIG.chatWindow.sizeLimits.minHeight,
+                            Math.min(
+                                PET_CONFIG.chatWindow.sizeLimits.maxHeight,
+                                this.chatWindowState.resizeStart.height - deltaY
+                            )
+                        );
+                        newX = this.chatWindowState.resizeStart.startX;
+                        newY = Math.max(0, this.chatWindowState.resizeStart.startY + deltaY);
+                        break;
 
                     default:
                         return;

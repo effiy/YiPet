@@ -2442,26 +2442,29 @@ ${pageContent ? pageContent : '无内容'}
                 right: 0 !important;
                 bottom: 0 !important;
                 top: ${headerH}px !important;
-                background: rgba(0,0,0,0.25) !important;
+                background: transparent !important;
                 display: none !important;
                 align-items: center !important;
                 justify-content: center !important;
-                z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 2} !important;
+                z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 1} !important;
+                pointer-events: none !important;
             `;
 
             const panel = document.createElement('div');
             panel.id = 'pet-role-settings-panel';
             panel.style.cssText = `
-                width: 92% !important;
-                height: 82% !important;
-                background: #ffffff !important;
-                color: #111827 !important;
+                width: calc(100% - 24px) !important;
+                height: calc(100% - 12px) !important;
+                margin: 0 12px 12px 12px !important;
+                background: #1f1f1f !important;
+                color: #fff !important;
                 border-radius: 12px !important;
-                border: 1px solid ${mainColor}1f !important;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.2) !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.35) !important;
                 display: flex !important;
                 flex-direction: column !important;
                 overflow: hidden !important;
+                pointer-events: auto !important;
             `;
 
             const header = document.createElement('div');
@@ -2469,43 +2472,55 @@ ${pageContent ? pageContent : '无内容'}
                 display: flex !important;
                 align-items: center !important;
                 justify-content: space-between !important;
-                padding: 12px 14px !important;
-                border-bottom: 1px solid ${mainColor}33 !important;
-                background: linear-gradient(180deg, ${mainColor}14, #ffffff) !important;
+                padding: 10px 14px !important;
+                border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+                background: rgba(255,255,255,0.04) !important;
             `;
             const title = document.createElement('div');
             title.textContent = '角色设置';
-            title.style.cssText = `font-weight:600; color:${mainColor};`;
+            title.style.cssText = 'font-weight:600;';
 
             const headerBtns = document.createElement('div');
             headerBtns.style.cssText = 'display:flex; gap:8px; align-items:center;';
             const addBtn = document.createElement('button');
             addBtn.textContent = '新增角色';
             addBtn.style.cssText = `
-                padding: 6px 10px !important;
-                border-radius: 8px !important;
-                border: 1px solid ${mainColor} !important;
-                color: ${mainColor} !important;
-                background: #fff !important;
-                cursor: pointer !important;
+                padding: 4px 8px !important;
                 font-size: 12px !important;
+                border-radius: 6px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.04) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
             `;
-            addBtn.addEventListener('mouseenter', () => { addBtn.style.background = mainColor; addBtn.style.color = '#fff'; });
-            addBtn.addEventListener('mouseleave', () => { addBtn.style.background = '#fff'; addBtn.style.color = mainColor; });
+            addBtn.addEventListener('mouseenter', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.12)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+            });
+            addBtn.addEventListener('mouseleave', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.04)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            });
             addBtn.addEventListener('click', () => this.renderRoleSettingsForm());
             const closeBtn = document.createElement('button');
             closeBtn.textContent = '关闭';
             closeBtn.style.cssText = `
-                padding: 6px 10px !important;
-                border-radius: 8px !important;
-                border: 1px solid ${mainColor}66 !important;
-                color: #334155 !important;
-                background: #fff !important;
-                cursor: pointer !important;
+                padding: 4px 8px !important;
                 font-size: 12px !important;
+                border-radius: 6px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.04) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
             `;
-            closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = `${mainColor}0f`; });
-            closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = '#fff'; });
+            closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.background = 'rgba(255,255,255,0.12)';
+                closeBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+            });
+            closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.background = 'rgba(255,255,255,0.04)';
+                closeBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            });
             closeBtn.addEventListener('click', () => this.closeRoleSettingsModal());
             headerBtns.appendChild(addBtn);
             headerBtns.appendChild(closeBtn);
@@ -2516,8 +2531,8 @@ ${pageContent ? pageContent : '无内容'}
             body.id = 'pet-role-settings-body';
             body.style.cssText = `
                 display: flex !important;
-                gap: 12px !important;
-                padding: 12px !important;
+                gap: 10px !important;
+                padding: 10px !important;
                 height: 100% !important;
                 min-height: 0 !important;
             `;
@@ -2527,7 +2542,9 @@ ${pageContent ? pageContent : '无内容'}
             list.id = 'pet-role-list';
             list.style.cssText = `
                 width: 40% !important;
-                border: 1px solid ${mainColor}1f !important;
+                background: #121212 !important;
+                color: #e5e7eb !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
                 border-radius: 8px !important;
                 overflow: auto !important;
                 padding: 8px !important;
@@ -2538,7 +2555,9 @@ ${pageContent ? pageContent : '无内容'}
             form.id = 'pet-role-form';
             form.style.cssText = `
                 flex: 1 !important;
-                border: 1px solid ${mainColor}1f !important;
+                background: #0e0e0e !important;
+                color: #e5e7eb !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
                 border-radius: 8px !important;
                 padding: 12px !important;
                 overflow: auto !important;
@@ -2553,8 +2572,11 @@ ${pageContent ? pageContent : '无内容'}
         }
 
         overlay.style.display = 'flex';
-        this.renderRoleSettingsList();
-        if (editId) this.renderRoleSettingsForm(editId);
+        // 首次打开时，若没有配置则导入现有内置角色
+        this.ensureDefaultRoleConfigs().then(() => {
+            this.renderRoleSettingsList();
+            if (editId) this.renderRoleSettingsForm(editId);
+        });
     }
 
     closeRoleSettingsModal() {
@@ -2575,6 +2597,67 @@ ${pageContent ? pageContent : '无内容'}
         return new Promise((resolve) => {
             chrome.storage.local.set({ roleConfigs: configs }, () => resolve(true));
         });
+    }
+
+    // 读取内置角色定义并转为默认配置
+    buildDefaultRoleConfigsFromBuiltins() {
+        const roles = (typeof window !== 'undefined' && window.PROMPT_ROLES) ? window.PROMPT_ROLES : {};
+        const keys = ['summary', 'mindmap', 'flashcard', 'report', 'bestPractice'];
+        const nameMap = {
+            summary: '生成摘要',
+            mindmap: '生成思维导图',
+            flashcard: '生成闪卡',
+            report: '生成专项报告',
+            bestPractice: '生成最佳实践'
+        };
+        const includeChartsMap = {
+            summary: false,
+            mindmap: true,
+            flashcard: false,
+            report: true,
+            bestPractice: true
+        };
+        const arr = [];
+        keys.forEach(k => {
+            const role = roles[k];
+            arr.push({
+                id: 'builtin_' + k,
+                label: nameMap[k] || k,
+                actionKey: k,
+                includeCharts: includeChartsMap[k] || false,
+                prompt: role && role.systemPrompt ? role.systemPrompt : ''
+            });
+        });
+        return arr;
+    }
+
+    // 确保默认角色已存在（仅在为空或缺少时补齐）
+    async ensureDefaultRoleConfigs() {
+        const existing = await this.getRoleConfigs();
+        const defaults = this.buildDefaultRoleConfigsFromBuiltins();
+        if (!existing || existing.length === 0) {
+            await this.setRoleConfigs(defaults);
+            return true;
+        }
+        // 补齐缺失的内置项
+        const haveKeys = new Set(existing.map(c => c.actionKey));
+        let updated = false;
+        defaults.forEach(d => {
+            if (!haveKeys.has(d.actionKey)) {
+                existing.push({
+                    id: d.id,
+                    label: d.label,
+                    actionKey: d.actionKey,
+                    includeCharts: d.includeCharts,
+                    prompt: d.prompt
+                });
+                updated = true;
+            }
+        });
+        if (updated) {
+            await this.setRoleConfigs(existing);
+        }
+        return true;
     }
 
     async renderRoleSettingsList() {
@@ -2702,7 +2785,7 @@ ${pageContent ? pageContent : '无内容'}
         includeCharts.appendChild(includeText);
 
         const promptArea = document.createElement('textarea');
-        promptArea.rows = 8;
+        promptArea.rows = 12;
         promptArea.placeholder = '提示语（可选）：为该角色的生成提供风格/结构指导';
         promptArea.value = current?.prompt || '';
         promptArea.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; resize:vertical; outline:none;`;
@@ -2716,9 +2799,9 @@ ${pageContent ? pageContent : '无内容'}
         saveBtn.addEventListener('mouseleave', () => { saveBtn.style.background = '#fff'; saveBtn.style.color = mainColor; });
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = '取消';
-        cancelBtn.style.cssText = `padding:6px 10px; border:1px solid ${mainColor}66; background:#fff; border-radius:8px; cursor:pointer; font-size:12px;`;
-        cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = `${mainColor}0f`; });
-        cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = '#fff'; });
+        cancelBtn.style.cssText = `padding:6px 10px; border:1px solid ${mainColor}66; background:#fff; color:#111827; border-radius:8px; cursor:pointer; font-size:12px;`;
+        cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = `${mainColor}0f`; cancelBtn.style.color = '#111827'; });
+        cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = '#fff'; cancelBtn.style.color = '#111827'; });
 
         saveBtn.addEventListener('click', async () => {
             const next = {

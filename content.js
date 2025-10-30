@@ -2425,6 +2425,331 @@ ${pageContent ? pageContent : '无内容'}
         if (mode === 'preview') activateBtn(btnPreview);
     }
 
+    // -------- 角色设置弹框（新增/编辑/删除） --------
+    openRoleSettingsModal(editId = null) {
+        if (!this.chatWindow) return;
+        let overlay = this.chatWindow.querySelector('#pet-role-settings');
+        const currentColor = this.colors[this.colorIndex];
+        const mainColor = this.getMainColorFromGradient(currentColor);
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'pet-role-settings';
+            const chatHeaderEl = this.chatWindow.querySelector('.chat-header');
+            const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60;
+            overlay.style.cssText = `
+                position: absolute !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                top: ${headerH}px !important;
+                background: rgba(0,0,0,0.25) !important;
+                display: none !important;
+                align-items: center !important;
+                justify-content: center !important;
+                z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 2} !important;
+            `;
+
+            const panel = document.createElement('div');
+            panel.id = 'pet-role-settings-panel';
+            panel.style.cssText = `
+                width: 92% !important;
+                height: 82% !important;
+                background: #ffffff !important;
+                color: #111827 !important;
+                border-radius: 12px !important;
+                border: 1px solid ${mainColor}1f !important;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.2) !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+            `;
+
+            const header = document.createElement('div');
+            header.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                padding: 12px 14px !important;
+                border-bottom: 1px solid ${mainColor}33 !important;
+                background: linear-gradient(180deg, ${mainColor}14, #ffffff) !important;
+            `;
+            const title = document.createElement('div');
+            title.textContent = '角色设置';
+            title.style.cssText = `font-weight:600; color:${mainColor};`;
+
+            const headerBtns = document.createElement('div');
+            headerBtns.style.cssText = 'display:flex; gap:8px; align-items:center;';
+            const addBtn = document.createElement('button');
+            addBtn.textContent = '新增角色';
+            addBtn.style.cssText = `
+                padding: 6px 10px !important;
+                border-radius: 8px !important;
+                border: 1px solid ${mainColor} !important;
+                color: ${mainColor} !important;
+                background: #fff !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+            `;
+            addBtn.addEventListener('mouseenter', () => { addBtn.style.background = mainColor; addBtn.style.color = '#fff'; });
+            addBtn.addEventListener('mouseleave', () => { addBtn.style.background = '#fff'; addBtn.style.color = mainColor; });
+            addBtn.addEventListener('click', () => this.renderRoleSettingsForm());
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = '关闭';
+            closeBtn.style.cssText = `
+                padding: 6px 10px !important;
+                border-radius: 8px !important;
+                border: 1px solid ${mainColor}66 !important;
+                color: #334155 !important;
+                background: #fff !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+            `;
+            closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = `${mainColor}0f`; });
+            closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = '#fff'; });
+            closeBtn.addEventListener('click', () => this.closeRoleSettingsModal());
+            headerBtns.appendChild(addBtn);
+            headerBtns.appendChild(closeBtn);
+            header.appendChild(title);
+            header.appendChild(headerBtns);
+
+            const body = document.createElement('div');
+            body.id = 'pet-role-settings-body';
+            body.style.cssText = `
+                display: flex !important;
+                gap: 12px !important;
+                padding: 12px !important;
+                height: 100% !important;
+                min-height: 0 !important;
+            `;
+
+            // 左侧：角色列表
+            const list = document.createElement('div');
+            list.id = 'pet-role-list';
+            list.style.cssText = `
+                width: 40% !important;
+                border: 1px solid ${mainColor}1f !important;
+                border-radius: 8px !important;
+                overflow: auto !important;
+                padding: 8px !important;
+            `;
+
+            // 右侧：表单区
+            const form = document.createElement('div');
+            form.id = 'pet-role-form';
+            form.style.cssText = `
+                flex: 1 !important;
+                border: 1px solid ${mainColor}1f !important;
+                border-radius: 8px !important;
+                padding: 12px !important;
+                overflow: auto !important;
+            `;
+
+            body.appendChild(list);
+            body.appendChild(form);
+            panel.appendChild(header);
+            panel.appendChild(body);
+            overlay.appendChild(panel);
+            this.chatWindow.appendChild(overlay);
+        }
+
+        overlay.style.display = 'flex';
+        this.renderRoleSettingsList();
+        if (editId) this.renderRoleSettingsForm(editId);
+    }
+
+    closeRoleSettingsModal() {
+        if (!this.chatWindow) return;
+        const overlay = this.chatWindow.querySelector('#pet-role-settings');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    async getRoleConfigs() {
+        return new Promise((resolve) => {
+            chrome.storage.local.get(['roleConfigs'], (result) => {
+                resolve(Array.isArray(result.roleConfigs) ? result.roleConfigs : []);
+            });
+        });
+    }
+
+    async setRoleConfigs(configs) {
+        return new Promise((resolve) => {
+            chrome.storage.local.set({ roleConfigs: configs }, () => resolve(true));
+        });
+    }
+
+    async renderRoleSettingsList() {
+        if (!this.chatWindow) return;
+        const list = this.chatWindow.querySelector('#pet-role-list');
+        if (!list) return;
+        const configs = await this.getRoleConfigs();
+        list.innerHTML = '';
+
+        const empty = document.createElement('div');
+        empty.textContent = configs.length ? '' : '暂无角色，点击右上角“新增角色”。';
+        if (!configs.length) {
+            empty.style.cssText = 'color:#94a3b8; font-size:12px; padding:8px;';
+            list.appendChild(empty);
+        }
+
+        configs.forEach((c) => {
+            const row = document.createElement('div');
+            row.style.cssText = `
+                display:flex !important;
+                align-items:center !important;
+                justify-content: space-between !important;
+                gap: 8px !important;
+                padding: 8px !important;
+                border: 1px solid ${this.getMainColorFromGradient(this.colors[this.colorIndex])}1f !important;
+                border-radius: 8px !important;
+                margin-bottom: 8px !important;
+            `;
+            const info = document.createElement('div');
+            info.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
+            const name = document.createElement('div');
+            name.textContent = c.label || '(未命名)';
+            name.style.cssText = 'font-weight:600; font-size:12px;';
+            const sub = document.createElement('div');
+            sub.textContent = `功能: ${c.actionKey || '-'}  · 含图表: ${c.includeCharts ? '是' : '否'}`;
+            sub.style.cssText = 'color:#64748b; font-size:12px;';
+            info.appendChild(name);
+            info.appendChild(sub);
+
+            const btns = document.createElement('div');
+            btns.style.cssText = 'display:flex; gap:6px;';
+            const edit = document.createElement('button');
+            edit.textContent = '编辑';
+            const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            edit.style.cssText = `padding:4px 8px; border:1px solid ${mc}; color:${mc}; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;`;
+            edit.addEventListener('mouseenter', () => { edit.style.background = mc; edit.style.color = '#fff'; });
+            edit.addEventListener('mouseleave', () => { edit.style.background = '#fff'; edit.style.color = mc; });
+            edit.addEventListener('click', () => this.renderRoleSettingsForm(c.id));
+            const del = document.createElement('button');
+            del.textContent = '删除';
+            del.style.cssText = 'padding:4px 8px; border:1px solid #ef4444; color:#ef4444; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;';
+            del.addEventListener('mouseenter', () => { del.style.background = '#fee2e2'; });
+            del.addEventListener('mouseleave', () => { del.style.background = '#fff'; });
+            del.addEventListener('click', async () => {
+                const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
+                await this.setRoleConfigs(next);
+                this.renderRoleSettingsList();
+                this.renderRoleSettingsForm();
+            });
+            btns.appendChild(edit);
+            btns.appendChild(del);
+
+            row.appendChild(info);
+            row.appendChild(btns);
+            list.appendChild(row);
+        });
+    }
+
+    async renderRoleSettingsForm(editId = null) {
+        if (!this.chatWindow) return;
+        const form = this.chatWindow.querySelector('#pet-role-form');
+        if (!form) return;
+        const configs = await this.getRoleConfigs();
+        const current = editId ? configs.find(c => c.id === editId) : null;
+        form.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.textContent = current ? '编辑角色' : '新增角色';
+        title.style.cssText = 'font-weight:600; margin-bottom:8px;';
+
+        const row = (labelText, inputEl) => {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; flex-direction:column; gap:6px; margin-bottom:10px;';
+            const lab = document.createElement('label');
+            lab.textContent = labelText;
+            lab.style.cssText = 'font-size:12px; color:#475569;';
+            wrap.appendChild(lab);
+            wrap.appendChild(inputEl);
+            return wrap;
+        };
+
+        const currentColor = this.colors[this.colorIndex];
+        const mainColor = this.getMainColorFromGradient(currentColor);
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = current?.label || '';
+        nameInput.placeholder = '角色名称，如：会议纪要摘要';
+        nameInput.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none;`;
+
+        const actionSelect = document.createElement('select');
+        actionSelect.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none;`;
+        const actions = [
+            { key: 'summary', name: '生成摘要' },
+            { key: 'mindmap', name: '生成思维导图' },
+            { key: 'flashcard', name: '生成闪卡' },
+            { key: 'report', name: '生成专项报告' },
+            { key: 'bestPractice', name: '生成最佳实践' },
+        ];
+        actions.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.key;
+            opt.textContent = a.name;
+            actionSelect.appendChild(opt);
+        });
+        actionSelect.value = current?.actionKey || 'summary';
+
+        const includeCharts = document.createElement('label');
+        includeCharts.style.cssText = 'display:flex; align-items:center; gap:8px; font-size:12px; color:#475569;';
+        const includeChk = document.createElement('input');
+        includeChk.type = 'checkbox';
+        includeChk.checked = !!current?.includeCharts;
+        const includeText = document.createElement('span');
+        includeText.textContent = '生成内容包含图表（如 Mermaid）';
+        includeCharts.appendChild(includeChk);
+        includeCharts.appendChild(includeText);
+
+        const promptArea = document.createElement('textarea');
+        promptArea.rows = 8;
+        promptArea.placeholder = '提示语（可选）：为该角色的生成提供风格/结构指导';
+        promptArea.value = current?.prompt || '';
+        promptArea.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; resize:vertical; outline:none;`;
+
+        const btns = document.createElement('div');
+        btns.style.cssText = 'display:flex; gap:8px; margin-top:4px;';
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `padding:6px 10px; border:1px solid ${mainColor}; color:${mainColor}; background:#fff; border-radius:8px; cursor:pointer; font-size:12px;`;
+        saveBtn.addEventListener('mouseenter', () => { saveBtn.style.background = mainColor; saveBtn.style.color = '#fff'; });
+        saveBtn.addEventListener('mouseleave', () => { saveBtn.style.background = '#fff'; saveBtn.style.color = mainColor; });
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `padding:6px 10px; border:1px solid ${mainColor}66; background:#fff; border-radius:8px; cursor:pointer; font-size:12px;`;
+        cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = `${mainColor}0f`; });
+        cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = '#fff'; });
+
+        saveBtn.addEventListener('click', async () => {
+            const next = {
+                id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
+                label: nameInput.value.trim() || '未命名角色',
+                actionKey: actionSelect.value,
+                includeCharts: includeChk.checked,
+                prompt: promptArea.value.trim(),
+            };
+            const arr = await this.getRoleConfigs();
+            const idx = arr.findIndex(x => x.id === next.id);
+            if (idx >= 0) arr[idx] = next; else arr.push(next);
+            await this.setRoleConfigs(arr);
+            this.renderRoleSettingsList();
+            this.renderRoleSettingsForm(next.id);
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            this.renderRoleSettingsForm();
+        });
+
+        form.appendChild(title);
+        form.appendChild(row('角色名称', nameInput));
+        form.appendChild(row('对应功能', actionSelect));
+        form.appendChild(includeCharts);
+        form.appendChild(row('提示语', promptArea));
+        form.appendChild(btns);
+        btns.appendChild(saveBtn);
+        btns.appendChild(cancelBtn);
+    }
+
     // 动态更新上下文覆盖层的位置与尺寸，避免遮挡 chat-header
     updateContextEditorPosition() {
         if (!this.chatWindow) return;
@@ -3338,83 +3663,6 @@ ${pageContent ? pageContent : '无内容'}
                     bestPractice: true,
                 };
 
-                // 设置按钮（放在最后）
-                const settingsButton = document.createElement('span');
-                settingsButton.innerHTML = '⚙️';
-                settingsButton.title = '设置功能显示';
-                settingsButton.style.cssText = `
-                    padding: 4px !important;
-                    cursor: pointer !important;
-                    font-size: 18px !important;
-                    color: #666 !important;
-                    font-weight: 300 !important;
-                    transition: all 0.2s ease !important;
-                    display: inline-flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    user-select: none !important;
-                    width: 24px !important;
-                    height: 24px !important;
-                    line-height: 24px !important;
-                `;
-
-                // 弹出菜单容器
-                const settingsMenu = document.createElement('div');
-                settingsMenu.style.cssText = `
-                    position: absolute !important;
-                    right: 0 !important;
-                    top: 24px !important;
-                    background: #ffffff !important;
-                    border: 1px solid #e5e7eb !important;
-                    border-radius: 8px !important;
-                    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
-                    padding: 8px !important;
-                    display: none !important;
-                    flex-direction: column !important;
-                    gap: 6px !important;
-                    z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 2} !important;
-                    min-width: 180px !important;
-                `;
-
-                // 菜单条目构造
-                const makeMenuItem = (key, label, iconEl) => {
-                    const row = document.createElement('label');
-                    row.style.cssText = `
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: space-between !important;
-                        gap: 10px !important;
-                        font-size: 12px !important;
-                        color: #334155 !important;
-                        cursor: pointer !important;
-                        padding: 4px 6px !important;
-                        border-radius: 6px !important;
-                        transition: background .15s ease !important;
-                    `;
-                    row.addEventListener('mouseenter', () => { row.style.background = '#f8fafc'; });
-                    row.addEventListener('mouseleave', () => { row.style.background = 'transparent'; });
-
-                    const text = document.createElement('span');
-                    text.textContent = label;
-                    const input = document.createElement('input');
-                    input.type = 'checkbox';
-                    input.style.cssText = 'cursor: pointer !important;';
-                    input.addEventListener('change', () => {
-                        chrome.storage.local.get(['actionToggles'], (result) => {
-                            const merged = { ...defaultActionToggles, ...(result.actionToggles || {}) };
-                            merged[key] = input.checked;
-                            chrome.storage.local.set({ actionToggles: merged }, () => {
-                                // 应用到 UI
-                                iconEl.style.display = input.checked ? 'inline-flex' : 'none';
-                            });
-                        });
-                    });
-                    row.appendChild(text);
-                    row.appendChild(input);
-                    row._checkbox = input;
-                    return row;
-                };
-
                 // 把 actionsGroup 放到一个相对定位容器里，以便菜单定位
                 const actionsWrapper = document.createElement('div');
                 actionsWrapper.style.cssText = `
@@ -3438,37 +3686,33 @@ ${pageContent ? pageContent : '无内容'}
                     actionsGroup.appendChild(generateFlashcardIcon);
                     actionsGroup.appendChild(generateReportIcon);
                     actionsGroup.appendChild(generateBestPracticeIcon);
+                    // 设置按钮（放在最后）
+                    const settingsButton = document.createElement('span');
+                    settingsButton.innerHTML = '⚙️';
+                    settingsButton.title = '角色设置';
+                    settingsButton.style.cssText = `
+                        padding: 4px !important;
+                        cursor: pointer !important;
+                        font-size: 18px !important;
+                        color: #666 !important;
+                        font-weight: 300 !important;
+                        transition: all 0.2s ease !important;
+                        display: inline-flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        user-select: none !important;
+                        width: 24px !important;
+                        height: 24px !important;
+                        line-height: 24px !important;
+                    `;
+                    settingsButton.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.openRoleSettingsModal();
+                    });
                     actionsGroup.appendChild(settingsButton);
 
-                    // 组装菜单项
-                    const itemSummary = makeMenuItem('summary', '显示 生成摘要', generateSummaryIcon);
-                    const itemMindmap = makeMenuItem('mindmap', '显示 生成思维导图', generateMindmapIcon);
-                    const itemFlash = makeMenuItem('flashcard', '显示 生成闪卡', generateFlashcardIcon);
-                    const itemReport = makeMenuItem('report', '显示 生成专项报告', generateReportIcon);
-                    const itemBest = makeMenuItem('bestPractice', '显示 生成最佳实践', generateBestPracticeIcon);
-                    itemSummary._checkbox.checked = toggles.summary;
-                    itemMindmap._checkbox.checked = toggles.mindmap;
-                    itemFlash._checkbox.checked = toggles.flashcard;
-                    itemReport._checkbox.checked = toggles.report;
-                    itemBest._checkbox.checked = toggles.bestPractice;
-                    settingsMenu.appendChild(itemSummary);
-                    settingsMenu.appendChild(itemMindmap);
-                    settingsMenu.appendChild(itemFlash);
-                    settingsMenu.appendChild(itemReport);
-                    settingsMenu.appendChild(itemBest);
-
                     actionsWrapper.appendChild(actionsGroup);
-                    actionsWrapper.appendChild(settingsMenu);
                     messageTime.appendChild(actionsWrapper);
-                });
-
-                // 菜单开关与外部点击关闭
-                settingsButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    settingsMenu.style.display = settingsMenu.style.display === 'none' || !settingsMenu.style.display ? 'flex' : 'none';
-                });
-                document.addEventListener('click', () => {
-                    settingsMenu.style.display = 'none';
                 });
             }
         }, 100);

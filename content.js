@@ -2462,14 +2462,50 @@ ${pageContent ? pageContent : '无内容'}
         } catch (_) { /* 忽略展示更新错误 */ }
     }
 
-    // 刷新欢迎消息操作按钮（根据当前 roleConfigs 更新五个内置按钮的图标与标题）
+    // 刷新欢迎消息操作按钮：以“角色设置”列表为准重建顺序与数量
     async refreshWelcomeActionButtons() {
         if (!this.chatWindow) return;
-        const keys = ['summary', 'mindmap', 'flashcard', 'report', 'bestPractice'];
-        keys.forEach(async (k) => {
-            const el = this.chatWindow.querySelector(`[data-action-key="${k}"]`);
-            if (el) await this.applyRoleConfigToActionIcon(el, k);
+        const container = this.chatWindow.querySelector('#pet-welcome-actions');
+        if (!container) return;
+        const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
+        const configs = await this.getRoleConfigs();
+        const list = Array.isArray(configs) ? configs.filter(c => c && allowedKeys.includes(c.actionKey)) : [];
+        const order = list.map(c => c.actionKey);
+        // 重建
+        container.innerHTML = '';
+        if (this.actionIcons) {
+            order.forEach((k) => {
+                const el = this.actionIcons[k];
+                if (!el) return;
+                el.style.display = 'inline-flex';
+                this.applyRoleConfigToActionIcon(el, k);
+                container.appendChild(el);
+            });
+        }
+        // 追加设置按钮
+        const settingsButton = document.createElement('span');
+        settingsButton.innerHTML = '⚙️';
+        settingsButton.title = '角色设置';
+        settingsButton.style.cssText = `
+            padding: 4px !important;
+            cursor: pointer !important;
+            font-size: 18px !important;
+            color: #666 !important;
+            font-weight: 300 !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            user-select: none !important;
+            width: 24px !important;
+            height: 24px !important;
+            line-height: 24px !important;
+        `;
+        settingsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openRoleSettingsModal();
         });
+        container.appendChild(settingsButton);
     }
 
     // 已移除 custom-role-shortcuts 功能
@@ -3357,6 +3393,15 @@ ${pageContent ? pageContent : '无内容'}
         generateBestPracticeIcon.innerHTML = '⭐';
         generateBestPracticeIcon.title = '生成最佳实践';
 
+        // 存储动作按钮引用，便于根据角色设置动态重建
+        this.actionIcons = {
+            summary: generateSummaryIcon,
+            mindmap: generateMindmapIcon,
+            flashcard: generateFlashcardIcon,
+            report: generateReportIcon,
+            bestPractice: generateBestPracticeIcon,
+        };
+
         // 初次应用角色设置中的图标与标题
         this.applyRoleConfigToActionIcon(generateSummaryIcon, 'summary');
         this.applyRoleConfigToActionIcon(generateMindmapIcon, 'mindmap');
@@ -3516,9 +3561,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateSummaryIcon.style.cursor = 'default';
                 generateSummaryIcon.style.color = '#4caf50';
 
-                // 2秒后恢复初始状态，允许再次点击
+                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateSummaryIcon.innerHTML = '≈';
+                    this.applyRoleConfigToActionIcon(generateSummaryIcon, 'summary');
                     generateSummaryIcon.style.color = '#666';
                     generateSummaryIcon.style.cursor = 'pointer';
                     generateSummaryIcon.style.opacity = '1';
@@ -3539,9 +3584,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateSummaryIcon.style.cursor = 'default';
                 generateSummaryIcon.style.color = '#f44336';
 
-                // 1.5秒后恢复初始状态，允许再次点击
+                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateSummaryIcon.innerHTML = '≈';
+                    this.applyRoleConfigToActionIcon(generateSummaryIcon, 'summary');
                     generateSummaryIcon.style.color = '#666';
                     generateSummaryIcon.style.cursor = 'pointer';
                     generateSummaryIcon.style.opacity = '1';
@@ -3602,9 +3647,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateMindmapIcon.style.cursor = 'default';
                 generateMindmapIcon.style.color = '#4caf50';
 
-                // 2秒后恢复初始状态，允许再次点击
+                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateMindmapIcon.innerHTML = '⊞';
+                    this.applyRoleConfigToActionIcon(generateMindmapIcon, 'mindmap');
                     generateMindmapIcon.style.color = '#666';
                     generateMindmapIcon.style.cursor = 'pointer';
                     generateMindmapIcon.style.opacity = '1';
@@ -3625,9 +3670,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateMindmapIcon.style.cursor = 'default';
                 generateMindmapIcon.style.color = '#f44336';
 
-                // 1.5秒后恢复初始状态，允许再次点击
+                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateMindmapIcon.innerHTML = '⊞';
+                    this.applyRoleConfigToActionIcon(generateMindmapIcon, 'mindmap');
                     generateMindmapIcon.style.color = '#666';
                     generateMindmapIcon.style.cursor = 'pointer';
                     generateMindmapIcon.style.opacity = '1';
@@ -3688,9 +3733,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateFlashcardIcon.style.cursor = 'default';
                 generateFlashcardIcon.style.color = '#4caf50';
 
-                // 2秒后恢复初始状态，允许再次点击
+                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateFlashcardIcon.innerHTML = '📚';
+                    this.applyRoleConfigToActionIcon(generateFlashcardIcon, 'flashcard');
                     generateFlashcardIcon.style.color = '#666';
                     generateFlashcardIcon.style.cursor = 'pointer';
                     generateFlashcardIcon.style.opacity = '1';
@@ -3711,9 +3756,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateFlashcardIcon.style.cursor = 'default';
                 generateFlashcardIcon.style.color = '#f44336';
 
-                // 1.5秒后恢复初始状态，允许再次点击
+                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateFlashcardIcon.innerHTML = '📚';
+                    this.applyRoleConfigToActionIcon(generateFlashcardIcon, 'flashcard');
                     generateFlashcardIcon.style.color = '#666';
                     generateFlashcardIcon.style.cursor = 'pointer';
                     generateFlashcardIcon.style.opacity = '1';
@@ -3774,9 +3819,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateReportIcon.style.cursor = 'default';
                 generateReportIcon.style.color = '#4caf50';
 
-                // 2秒后恢复初始状态，允许再次点击
+                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateReportIcon.innerHTML = '📋';
+                    this.applyRoleConfigToActionIcon(generateReportIcon, 'report');
                     generateReportIcon.style.color = '#666';
                     generateReportIcon.style.cursor = 'pointer';
                     generateReportIcon.style.opacity = '1';
@@ -3797,9 +3842,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateReportIcon.style.cursor = 'default';
                 generateReportIcon.style.color = '#f44336';
 
-                // 1.5秒后恢复初始状态，允许再次点击
+                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateReportIcon.innerHTML = '📋';
+                    this.applyRoleConfigToActionIcon(generateReportIcon, 'report');
                     generateReportIcon.style.color = '#666';
                     generateReportIcon.style.cursor = 'pointer';
                     generateReportIcon.style.opacity = '1';
@@ -3860,9 +3905,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateBestPracticeIcon.style.cursor = 'default';
                 generateBestPracticeIcon.style.color = '#4caf50';
 
-                // 2秒后恢复初始状态，允许再次点击
+                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateBestPracticeIcon.innerHTML = '⭐';
+                    this.applyRoleConfigToActionIcon(generateBestPracticeIcon, 'bestPractice');
                     generateBestPracticeIcon.style.color = '#666';
                     generateBestPracticeIcon.style.cursor = 'pointer';
                     generateBestPracticeIcon.style.opacity = '1';
@@ -3883,9 +3928,9 @@ ${pageContent ? pageContent : '无内容'}
                 generateBestPracticeIcon.style.cursor = 'default';
                 generateBestPracticeIcon.style.color = '#f44336';
 
-                // 1.5秒后恢复初始状态，允许再次点击
+                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
-                    generateBestPracticeIcon.innerHTML = '⭐';
+                    this.applyRoleConfigToActionIcon(generateBestPracticeIcon, 'bestPractice');
                     generateBestPracticeIcon.style.color = '#666';
                     generateBestPracticeIcon.style.cursor = 'pointer';
                     generateBestPracticeIcon.style.opacity = '1';
@@ -3921,6 +3966,7 @@ ${pageContent ? pageContent : '无内容'}
                 messageTime.innerHTML = '';
                 messageTime.appendChild(timeText);
                 const actionsGroup = document.createElement('div');
+                actionsGroup.id = 'pet-welcome-actions';
                 actionsGroup.style.cssText = `
                     display: inline-flex !important;
                     align-items: center !important;

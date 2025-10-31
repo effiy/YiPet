@@ -3188,14 +3188,11 @@ ${pageContent || '无内容'}
                                 processingFlag.value = false;
                             }, 2000);
                             
-                            if (this.chatWindow && this.chatWindow._setAbortController) {
-                                this.chatWindow._setAbortController(null);
-                            }
-                            if (this.chatWindow && this.chatWindow._updateRequestStatus) {
-                                this.chatWindow._updateRequestStatus('idle');
-                            }
                         } catch (error) {
-                            if (error.name !== 'AbortError') {
+                            // 检查是否是取消错误
+                            const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+                            
+                            if (!isAbortError) {
                                 if (messageText) {
                                     messageText.innerHTML = `抱歉，发生错误：${error.message}`;
                                 }
@@ -3210,13 +3207,28 @@ ${pageContent || '无内容'}
                                     processingFlag.value = false;
                                 }, 1500);
                             } else {
-                                message.remove();
+                                // 请求被取消，移除消息
+                                if (message) {
+                                    message.remove();
+                                }
                                 newButton.innerHTML = originalIcon;
                                 newButton.title = originalTitle;
                                 newButton.style.color = '#666';
                                 newButton.style.opacity = '1';
                                 newButton.style.cursor = 'pointer';
                                 processingFlag.value = false;
+                            }
+                        } finally {
+                            // 确保请求状态总是被更新为空闲状态
+                            if (this.chatWindow && this.chatWindow._setAbortController) {
+                                this.chatWindow._setAbortController(null);
+                            }
+                            if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                                this.chatWindow._updateRequestStatus('idle');
+                            }
+                            // 确保停止加载动画
+                            if (messageAvatar) {
+                                messageAvatar.style.animation = '';
                             }
                         }
                     });

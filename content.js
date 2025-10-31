@@ -2957,22 +2957,27 @@ ${pageContent || '无内容'}
         // 如果是第一条消息，不添加按钮
         if (petMessages.length <= 1) return;
         
+        // 获取时间容器（需要在早期获取，因为后续逻辑需要使用）
+        const timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
+        if (!timeAndCopyContainer) return;
+        
         // 如果强制刷新，先移除现有按钮容器
         const existingContainer = messageDiv.querySelector('[data-message-actions]');
         if (forceRefresh && existingContainer) {
             existingContainer.remove();
         } else if (existingContainer) {
-            // 如果已经有按钮容器且不强制刷新，则不重复添加
+            // 如果已经有按钮容器且不强制刷新，则需要确保它在编辑按钮之前
+            const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+            if (copyButtonContainer && existingContainer.nextSibling !== copyButtonContainer) {
+                // 如果顺序不对，重新插入到正确位置
+                timeAndCopyContainer.insertBefore(existingContainer, copyButtonContainer);
+            }
             return;
         }
         
         // 获取欢迎消息的按钮容器
         const welcomeActions = this.chatWindow.querySelector('#pet-welcome-actions');
         if (!welcomeActions) return;
-        
-        // 获取时间容器
-        const timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
-        if (!timeAndCopyContainer) return;
         
         // 创建按钮容器
         const actionsContainer = document.createElement('div');
@@ -3336,8 +3341,15 @@ ${pageContent || '无内容'}
             actionsContainer.appendChild(newButton);
         }
         
-        // 将按钮容器添加到时间容器中
-        timeAndCopyContainer.appendChild(actionsContainer);
+        // 将按钮容器添加到时间容器中（在编辑按钮容器之前）
+        const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+        if (copyButtonContainer) {
+            // 如果存在编辑按钮容器，将角色按钮插入到它之前
+            timeAndCopyContainer.insertBefore(actionsContainer, copyButtonContainer);
+        } else {
+            // 如果不存在编辑按钮容器，则添加到末尾
+            timeAndCopyContainer.appendChild(actionsContainer);
+        }
     }
     
     // 刷新所有消息的动作按钮（在角色设置更新后调用）
@@ -5821,7 +5833,10 @@ ${pageContent || '无内容'}
         // 点击按钮终止请求
         requestStatusButton.addEventListener('click', abortRequest);
 
-        // 先添加角色设置按钮到 rightBottomGroup（在 requestStatusButton 之前）
+        // 先添加请求状态按钮
+        rightBottomGroup.appendChild(requestStatusButton);
+        
+        // 然后添加角色设置按钮到 rightBottomGroup（在 requestStatusButton 之后）
         let settingsButton = this.settingsButton;
         if (!settingsButton) {
             settingsButton = document.createElement('span');
@@ -5854,13 +5869,10 @@ ${pageContent || '无内容'}
             settingsButton.parentNode.removeChild(settingsButton);
         }
         
-        // 如果设置按钮不在 rightBottomGroup 中，先添加它（在 requestStatusButton 之前）
+        // 如果设置按钮不在 rightBottomGroup 中，添加它（在 requestStatusButton 之后）
         if (settingsButton.parentNode !== rightBottomGroup) {
             rightBottomGroup.appendChild(settingsButton);
         }
-        
-        // 然后添加请求状态按钮
-        rightBottomGroup.appendChild(requestStatusButton);
         
         bottomToolbar.appendChild(rightBottomGroup);
         inputContainer.appendChild(bottomToolbar);

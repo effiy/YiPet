@@ -1875,7 +1875,7 @@ ${pageContent ? pageContent : '无内容'}
     }
 
     // 生成宠物响应（流式版本）
-    async generatePetResponseStream(message, onContent) {
+    async generatePetResponseStream(message, onContent, abortController = null) {
         try {
             // 检查开关状态
             let includeContext = true; // 默认包含上下文
@@ -1900,7 +1900,7 @@ ${pageContent ? pageContent : '无内容'}
             // 调用 API，使用配置中的 URL
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
 
-            const response = await fetch(apiUrl, {
+            const fetchOptions = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1910,7 +1910,14 @@ ${pageContent ? pageContent : '无内容'}
                     fromUser: userMessage,
                     model: this.currentModel
                 })
-            });
+            };
+
+            // 如果提供了 AbortController，添加 signal
+            if (abortController) {
+                fetchOptions.signal = abortController.signal;
+            }
+
+            const response = await fetch(apiUrl, fetchOptions);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -1924,6 +1931,12 @@ ${pageContent ? pageContent : '无内容'}
             let fullContent = '';
 
             while (true) {
+                // 检查是否已中止
+                if (abortController && abortController.signal.aborted) {
+                    reader.cancel();
+                    throw new Error('请求已取消');
+                }
+
                 const { done, value } = await reader.read();
 
                 if (done) {
@@ -1992,6 +2005,11 @@ ${pageContent ? pageContent : '无内容'}
 
             return fullContent;
         } catch (error) {
+            // 如果是中止错误，不记录为错误
+            if (error.name === 'AbortError' || error.message === '请求已取消') {
+                console.log('请求已取消');
+                throw error;
+            }
             console.error('API 调用失败:', error);
             throw error;
         }
@@ -2779,70 +2797,109 @@ ${pageContent ? pageContent : '无内容'}
         if (!list) return;
         const configsRaw = await this.getRoleConfigs();
         const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
-        // 仅展示五个内置槽位中已存在的配置，并按固定顺序渲染
-        const pickByKey = (arr, key) => (arr || []).find(x => x && x.actionKey === key);
-        const configs = allowedKeys.map(k => pickByKey(configsRaw, k)).filter(Boolean);
         list.innerHTML = '';
 
-        const empty = document.createElement('div');
-        empty.textContent = configs.length ? '' : '暂无可编辑角色。';
-        if (!configs.length) {
+        // 按按钮顺序组织角色：先显示已绑定的角色（按按钮顺序），再显示未绑定的角色
+        const buttonLabels = {
+            'summary': '生成摘要',
+            'mindmap': '生成思维导图',
+            'flashcard': '生成闪卡',
+            'report': '生成专项报告',
+            'bestPractice': '生成最佳实践'
+        };
+
+        // 按按钮顺序显示已绑定的角色
+        allowedKeys.forEach((key) => {
+            const config = (configsRaw || []).find(c => c && c.actionKey === key);
+            if (config) {
+                const row = this.createRoleListItem(config, buttonLabels[key]);
+                list.appendChild(row);
+            }
+        });
+
+        // 显示未绑定的角色
+        const unboundConfigs = (configsRaw || []).filter(c => c && (!c.actionKey || c.actionKey === '' || !allowedKeys.includes(c.actionKey)));
+        if (unboundConfigs.length > 0) {
+            // 添加分隔线（如果有已绑定的角色）
+            const boundCount = allowedKeys.filter(k => (configsRaw || []).find(c => c && c.actionKey === k)).length;
+            if (boundCount > 0) {
+                const separator = document.createElement('div');
+                separator.style.cssText = 'height:1px; background:rgba(255,255,255,0.1); margin:12px 0;';
+                list.appendChild(separator);
+                const unboundLabel = document.createElement('div');
+                unboundLabel.textContent = '未绑定按钮的角色';
+                unboundLabel.style.cssText = 'color:#94a3b8; font-size:11px; padding:4px 8px; margin-bottom:8px;';
+                list.appendChild(unboundLabel);
+            }
+
+            unboundConfigs.forEach((config) => {
+                const row = this.createRoleListItem(config, '未绑定');
+                list.appendChild(row);
+            });
+        }
+
+        // 如果没有任何角色
+        if (list.children.length === 0) {
+            const empty = document.createElement('div');
+            empty.textContent = '暂无可编辑角色。';
             empty.style.cssText = 'color:#94a3b8; font-size:12px; padding:8px;';
             list.appendChild(empty);
         }
+    }
 
-        configs.forEach((c) => {
-            const row = document.createElement('div');
-            row.style.cssText = `
-                display:flex !important;
-                align-items:center !important;
-                justify-content: space-between !important;
-                gap: 8px !important;
-                padding: 8px !important;
-                border: 1px solid ${this.getMainColorFromGradient(this.colors[this.colorIndex])}1f !important;
-                border-radius: 8px !important;
-                margin-bottom: 8px !important;
-            `;
-            const info = document.createElement('div');
-            info.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
-            const name = document.createElement('div');
-            const displayIcon = this.getRoleIcon(c);
-            name.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${c.label || '(未命名)'}`;
-            name.style.cssText = 'font-weight:600; font-size:12px;';
-            const sub = document.createElement('div');
-            sub.textContent = '';
-            sub.style.cssText = 'color:#64748b; font-size:12px;';
-            info.appendChild(name);
+    // 创建角色列表项
+    createRoleListItem(c, buttonLabel) {
+        const row = document.createElement('div');
+        row.style.cssText = `
+            display:flex !important;
+            align-items:center !important;
+            justify-content: space-between !important;
+            gap: 8px !important;
+            padding: 8px !important;
+            border: 1px solid ${this.getMainColorFromGradient(this.colors[this.colorIndex])}1f !important;
+            border-radius: 8px !important;
+            margin-bottom: 8px !important;
+        `;
+        const info = document.createElement('div');
+        info.style.cssText = 'display:flex; flex-direction:column; gap:4px; flex:1;';
+        const name = document.createElement('div');
+        const displayIcon = this.getRoleIcon(c);
+        name.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${c.label || '(未命名)'}`;
+        name.style.cssText = 'font-weight:600; font-size:12px;';
+        const sub = document.createElement('div');
+        sub.textContent = buttonLabel;
+        sub.style.cssText = 'color:#64748b; font-size:11px;';
+        info.appendChild(name);
+        info.appendChild(sub);
 
-            const btns = document.createElement('div');
-            btns.style.cssText = 'display:flex; gap:6px;';
-            const edit = document.createElement('button');
-            edit.textContent = '编辑';
-            const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            edit.style.cssText = `padding:4px 8px; border:1px solid ${mc}; color:${mc}; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;`;
-            edit.addEventListener('mouseenter', () => { edit.style.background = mc; edit.style.color = '#fff'; });
-            edit.addEventListener('mouseleave', () => { edit.style.background = '#fff'; edit.style.color = mc; });
-            edit.addEventListener('click', () => this.renderRoleSettingsForm(c.id));
-            const del = document.createElement('button');
-            del.textContent = '删除';
-            del.style.cssText = 'padding:4px 8px; border:1px solid #ef4444; color:#ef4444; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;';
-            del.addEventListener('mouseenter', () => { del.style.background = '#fee2e2'; });
-            del.addEventListener('mouseleave', () => { del.style.background = '#fff'; });
-            del.addEventListener('click', async () => {
-                const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
-                await this.setRoleConfigs(next);
-                this.renderRoleSettingsList();
-                this.renderRoleSettingsForm();
-                // 同步刷新欢迎消息下的动作按钮
-                this.refreshWelcomeActionButtons();
-            });
-            btns.appendChild(edit);
-            btns.appendChild(del);
-
-            row.appendChild(info);
-            row.appendChild(btns);
-            list.appendChild(row);
+        const btns = document.createElement('div');
+        btns.style.cssText = 'display:flex; gap:6px;';
+        const edit = document.createElement('button');
+        edit.textContent = '编辑';
+        const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+        edit.style.cssText = `padding:4px 8px; border:1px solid ${mc}; color:${mc}; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;`;
+        edit.addEventListener('mouseenter', () => { edit.style.background = mc; edit.style.color = '#fff'; });
+        edit.addEventListener('mouseleave', () => { edit.style.background = '#fff'; edit.style.color = mc; });
+        edit.addEventListener('click', () => this.renderRoleSettingsForm(c.id));
+        const del = document.createElement('button');
+        del.textContent = '删除';
+        del.style.cssText = 'padding:4px 8px; border:1px solid #ef4444; color:#ef4444; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;';
+        del.addEventListener('mouseenter', () => { del.style.background = '#fee2e2'; });
+        del.addEventListener('mouseleave', () => { del.style.background = '#fff'; });
+        del.addEventListener('click', async () => {
+            const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
+            await this.setRoleConfigs(next);
+            this.renderRoleSettingsList();
+            this.renderRoleSettingsForm();
+            // 同步刷新欢迎消息下的动作按钮
+            this.refreshWelcomeActionButtons();
         });
+        btns.appendChild(edit);
+        btns.appendChild(del);
+
+        row.appendChild(info);
+        row.appendChild(btns);
+        return row;
     }
 
     async renderRoleSettingsForm(editId = null) {
@@ -2851,8 +2908,10 @@ ${pageContent ? pageContent : '无内容'}
         if (!form) return;
         const configsAll = await this.getRoleConfigs();
         const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
+        // 用于查找已绑定角色的列表（用于检查占用情况）
         const configs = (configsAll || []).filter(c => c && allowedKeys.includes(c.actionKey));
-        const current = editId ? configs.find(c => c.id === editId) : null;
+        // 当前编辑的角色（从所有角色中查找，包括未绑定的）
+        const current = editId ? (configsAll || []).find(c => c && c.id === editId) : null;
         form.innerHTML = '';
 
         const title = document.createElement('div');
@@ -2872,28 +2931,44 @@ ${pageContent ? pageContent : '无内容'}
 
         const currentColor = this.colors[this.colorIndex];
         const mainColor = this.getMainColorFromGradient(currentColor);
-        // 可选：创建模式下提供“绑定按钮”选择（五个槽位中尚未被占用的）
+        // 绑定按钮选择（仅在编辑模式下显示）
         let actionKeySelect = null;
-        if (!current) {
-            const used = new Set(configs.map(c => c.actionKey));
-            const available = allowedKeys.filter(k => !used.has(k));
+        // 只在编辑模式下创建绑定按钮选择器
+        if (current) {
+            // 获取已被其他角色占用的按钮（排除当前编辑的角色）
+            const used = new Set(configs.filter(c => !current || c.id !== current.id).map(c => c.actionKey));
+            const available = allowedKeys.filter(k => !used.has(k) || (current && current.actionKey === k));
             actionKeySelect = document.createElement('select');
             actionKeySelect.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none; background:#0e0e0e; color:#e5e7eb;`;
-            available.forEach(k => {
-                const opt = document.createElement('option');
-                opt.value = k;
-                opt.textContent = (
-                    k === 'summary' ? '绑定：生成摘要' :
-                    k === 'mindmap' ? '绑定：生成思维导图' :
-                    k === 'flashcard' ? '绑定：生成闪卡' :
-                    k === 'report' ? '绑定：生成专项报告' :
-                    k === 'bestPractice' ? '绑定：生成最佳实践' : k
-                );
-                actionKeySelect.appendChild(opt);
-            });
-            if (available.length === 0) {
-                actionKeySelect.disabled = true;
+            
+            // 添加"不绑定"选项
+            const noneOpt = document.createElement('option');
+            noneOpt.value = '';
+            noneOpt.textContent = '不绑定（可选）';
+            if (!current || !current.actionKey) {
+                noneOpt.selected = true;
             }
+            actionKeySelect.appendChild(noneOpt);
+            
+            // 添加可用的绑定选项（包括当前角色已绑定的按钮）
+            allowedKeys.forEach(k => {
+                if (available.includes(k)) {
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.textContent = (
+                        k === 'summary' ? '绑定：生成摘要' :
+                        k === 'mindmap' ? '绑定：生成思维导图' :
+                        k === 'flashcard' ? '绑定：生成闪卡' :
+                        k === 'report' ? '绑定：生成专项报告' :
+                        k === 'bestPractice' ? '绑定：生成最佳实践' : k
+                    );
+                    if (current && current.actionKey === k) {
+                        opt.selected = true;
+                        noneOpt.selected = false; // 如果有绑定，取消"不绑定"的选中
+                    }
+                    actionKeySelect.appendChild(opt);
+                }
+            });
         }
 
         const nameInput = document.createElement('input');
@@ -2994,26 +3069,50 @@ ${pageContent ? pageContent : '无内容'}
         };
 
         saveBtn.addEventListener('click', async () => {
-            if (!current && actionKeySelect && actionKeySelect.disabled) {
-                return;
-            }
+            const selectedActionKey = actionKeySelect ? actionKeySelect.value : '';
             const next = {
                 id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
                 label: nameInput.value.trim() || '未命名角色',
-                // 绑定到五个固定按钮之一
-                actionKey: current ? (current.actionKey || '') : (actionKeySelect ? actionKeySelect.value : ''),
+                // 绑定到五个固定按钮之一（可选）
+                actionKey: selectedActionKey || '',
                 includeCharts: current?.includeCharts ?? false,
                 icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),
                 prompt: promptArea.value.trim(),
             };
-            if (!next.actionKey) return;
+            
             const arr = await this.getRoleConfigs();
-            // 若该 actionKey 已有配置，覆盖；否则插入
-            const idx = arr.findIndex(x => x.id === next.id || (x && x.actionKey === next.actionKey));
-            if (idx >= 0) arr[idx] = next; else arr.push(next);
+            
+            // 如果选择了绑定，检查是否已被其他角色占用
+            if (next.actionKey) {
+                const existing = arr.find(x => x.actionKey === next.actionKey && x.id !== next.id);
+                if (existing) {
+                    // 已有其他角色绑定，先解除绑定
+                    existing.actionKey = '';
+                }
+            }
+            // 如果之前有绑定，先清除旧绑定
+            if (current && current.actionKey && current.actionKey !== next.actionKey) {
+                const oldIdx = arr.findIndex(x => x.id === current.id);
+                if (oldIdx >= 0 && arr[oldIdx].actionKey === current.actionKey) {
+                    // 只清除当前角色自己的绑定，不影响其他
+                }
+            }
+            
+            // 更新或添加角色
+            const idx = arr.findIndex(x => x.id === next.id);
+            if (idx >= 0) {
+                arr[idx] = next;
+            } else {
+                arr.push(next);
+            }
+            
             await this.setRoleConfigs(arr);
             this.renderRoleSettingsList();
-            this.renderRoleSettingsForm(next.id);
+            if (next.actionKey) {
+                this.renderRoleSettingsForm(next.id);
+            } else {
+                this.renderRoleSettingsForm(); // 不绑定则清空表单
+            }
             // 同步刷新欢迎消息下的动作按钮
             this.refreshWelcomeActionButtons();
         });
@@ -3023,8 +3122,8 @@ ${pageContent ? pageContent : '无内容'}
         });
 
         form.appendChild(title);
-        if (!current && actionKeySelect) {
-            form.appendChild(row('绑定按钮（必选）', actionKeySelect));
+        if (actionKeySelect) {
+            form.appendChild(row('绑定按钮（可选）', actionKeySelect));
         }
         form.appendChild(row('角色名称', nameInput));
         // 图标设置区：预览 + 输入 + 快选
@@ -4164,37 +4263,6 @@ ${pageContent ? pageContent : '无内容'}
             fileInput.click();
         });
 
-        // 创建 + 按钮（使用宠物颜色主题）
-        const addButton = document.createElement('button');
-        addButton.innerHTML = '+';
-        addButton.title = '添加内容';
-        addButton.style.cssText = `
-            padding: 6px 12px !important;
-            border-radius: 6px !important;
-            background: white !important;
-            color: ${mainColor} !important;
-            border: 1px dashed ${mainColor} !important;
-            cursor: pointer !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 4px !important;
-        `;
-        addButton.addEventListener('mouseenter', () => {
-            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            addButton.style.background = currentMainColor;
-            addButton.style.color = 'white';
-            addButton.style.borderColor = currentMainColor;
-        });
-        addButton.addEventListener('mouseleave', () => {
-            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            addButton.style.background = 'white';
-            addButton.style.color = currentMainColor;
-            addButton.style.borderColor = currentMainColor;
-        });
-
         // 右侧状态组
         const rightStatusGroup = document.createElement('div');
         rightStatusGroup.style.cssText = `
@@ -4335,7 +4403,6 @@ ${pageContent ? pageContent : '无内容'}
 
         leftButtonGroup.appendChild(mentionButton);
         leftButtonGroup.appendChild(imageUploadButton);
-        leftButtonGroup.appendChild(addButton);
         rightStatusGroup.appendChild(contextSwitchContainer);
         // 添加：页面上下文预览/编辑按钮
         const contextBtn = document.createElement('button');
@@ -4641,9 +4708,13 @@ ${pageContent ? pageContent : '无内容'}
             // 立即显示打字指示器
             showTypingIndicator();
 
+            // 创建 AbortController 用于终止请求
+            currentAbortController = new AbortController();
+            updateRequestStatus('loading');
+
             // 生成宠物响应
             try {
-                const reply = await this.generatePetResponseStream(message, onStreamContent);
+                const reply = await this.generatePetResponseStream(message, onStreamContent, currentAbortController);
 
                 // 清理打字指示器
                 if (typingIndicatorInterval) {
@@ -4696,8 +4767,17 @@ ${pageContent ? pageContent : '无内容'}
                         }, 100);
                     }
                 }
+
+                // 请求成功完成，更新状态为空闲
+                currentAbortController = null;
+                updateRequestStatus('idle');
             } catch (error) {
-                console.error('生成回复失败:', error);
+                // 检查是否是取消错误
+                const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+                
+                if (!isAbortError) {
+                    console.error('生成回复失败:', error);
+                }
 
                 // 清理打字指示器
                 if (typingIndicatorInterval) {
@@ -4709,17 +4789,26 @@ ${pageContent ? pageContent : '无内容'}
                     }
                 }
 
-                // 如果已经创建了消息元素，更新错误信息（使用 innerHTML 以支持 Markdown）
-                if (petMessageElement) {
-                    const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
-                    if (messageBubble) {
-                        messageBubble.innerHTML = '抱歉，发生了错误，请稍后再试。😔';
+                // 如果不是取消错误，显示错误信息
+                if (!isAbortError) {
+                    // 如果已经创建了消息元素，更新错误信息（使用 innerHTML 以支持 Markdown）
+                    if (petMessageElement) {
+                        const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                        if (messageBubble) {
+                            messageBubble.innerHTML = '抱歉，发生了错误，请稍后再试。😔';
+                        }
+                    } else {
+                        const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
+                        messagesContainer.appendChild(errorMessage);
                     }
-                } else {
-                    const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
-                    messagesContainer.appendChild(errorMessage);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                // 更新状态为空闲（无论成功还是失败，除非是取消操作）
+                if (!isAbortError) {
+                    currentAbortController = null;
+                    updateRequestStatus('idle');
+                }
             }
         };
 
@@ -4856,6 +4945,115 @@ ${pageContent ? pageContent : '无内容'}
 
         leftBottomGroup.appendChild(modelSelector);
         bottomToolbar.appendChild(leftBottomGroup);
+
+        // 右侧：请求状态按钮
+        const rightBottomGroup = document.createElement('div');
+        rightBottomGroup.style.cssText = `
+            display: flex !important;
+            gap: 6px !important;
+            align-items: center !important;
+        `;
+
+        // 创建请求状态按钮（使用宠物颜色主题）
+        const requestStatusButton = document.createElement('button');
+        requestStatusButton.className = 'chat-request-status-button';
+        requestStatusButton.innerHTML = '⏹️';
+        requestStatusButton.title = '请求状态：空闲';
+        requestStatusButton.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            opacity: 0.5 !important;
+            pointer-events: none !important;
+        `;
+
+        // 存储当前的 AbortController
+        let currentAbortController = null;
+
+        // 更新请求状态按钮的函数
+        const updateRequestStatus = (status) => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            if (status === 'idle') {
+                // 空闲状态
+                requestStatusButton.innerHTML = '⏹️';
+                requestStatusButton.title = '请求状态：空闲';
+                requestStatusButton.style.opacity = '0.5';
+                requestStatusButton.style.pointerEvents = 'none';
+                requestStatusButton.disabled = true;
+                requestStatusButton.style.background = 'white';
+                requestStatusButton.style.color = currentMainColor;
+            } else if (status === 'loading') {
+                // 请求进行中
+                requestStatusButton.innerHTML = '⏸️';
+                requestStatusButton.title = '点击终止请求';
+                requestStatusButton.style.opacity = '1';
+                requestStatusButton.style.pointerEvents = 'auto';
+                requestStatusButton.disabled = false;
+                requestStatusButton.style.background = '#fee2e2';
+                requestStatusButton.style.color = '#dc2626';
+                requestStatusButton.style.borderColor = '#dc2626';
+            } else if (status === 'stopping') {
+                // 正在终止
+                requestStatusButton.innerHTML = '⏹️';
+                requestStatusButton.title = '正在终止请求...';
+                requestStatusButton.style.opacity = '0.7';
+                requestStatusButton.style.pointerEvents = 'none';
+                requestStatusButton.disabled = true;
+            }
+        };
+
+        // 终止请求的处理函数
+        const abortRequest = () => {
+            if (currentAbortController) {
+                updateRequestStatus('stopping');
+                currentAbortController.abort();
+                currentAbortController = null;
+                
+                // 清理打字指示器
+                const typingIndicator = messagesContainer.querySelector('[data-typing-indicator="true"]');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+                
+                // 显示取消提示
+                this.showNotification('请求已取消', 'info');
+                
+                // 延迟恢复空闲状态
+                setTimeout(() => {
+                    updateRequestStatus('idle');
+                }, 500);
+            }
+        };
+
+        requestStatusButton.addEventListener('mouseenter', () => {
+            if (!requestStatusButton.disabled && requestStatusButton.title.includes('终止')) {
+                requestStatusButton.style.background = '#dc2626';
+                requestStatusButton.style.color = 'white';
+                requestStatusButton.style.borderColor = '#dc2626';
+            }
+        });
+        requestStatusButton.addEventListener('mouseleave', () => {
+            if (!requestStatusButton.disabled && requestStatusButton.title.includes('终止')) {
+                requestStatusButton.style.background = '#fee2e2';
+                requestStatusButton.style.color = '#dc2626';
+                requestStatusButton.style.borderColor = '#dc2626';
+            }
+        });
+
+        // 点击按钮终止请求
+        requestStatusButton.addEventListener('click', abortRequest);
+
+        rightBottomGroup.appendChild(requestStatusButton);
+        bottomToolbar.appendChild(rightBottomGroup);
         inputContainer.appendChild(bottomToolbar);
 
         // 将文件输入添加到容器

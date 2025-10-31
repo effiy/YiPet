@@ -3449,8 +3449,9 @@ ${pageContent || '无内容'}
 
 请根据以上信息进行分析和处理。`;
                     
-                    // 创建新的消息
+                    // 创建新的消息（按钮操作生成的消息）
                     const message = this.createMessageElement('', 'pet');
+                    message.setAttribute('data-button-action', 'true'); // 标记为按钮操作生成
                     messagesContainer.appendChild(message);
                     const messageText = message.querySelector('[data-message-type="pet-bubble"]');
                     const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
@@ -3644,6 +3645,16 @@ ${pageContent || '无内容'}
                                 if (copyButtonContainer) {
                                     this.addCopyButton(copyButtonContainer, messageText);
                                 }
+                                // 添加 try again 按钮（仅当不是第一条消息时）
+                                const petMessages = Array.from(messagesContainer.children).filter(
+                                    child => child.querySelector('[data-message-type="pet-bubble"]')
+                                );
+                                if (petMessages.length > 1) {
+                                    const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                                    if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                        this.addTryAgainButton(tryAgainContainer, message);
+                                    }
+                                }
                             }
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         }
@@ -3689,6 +3700,16 @@ ${pageContent || '无内容'}
                                 ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${roleIcon}`
                                 : `抱歉，无法生成"${pageTitle}"的${roleLabel}。${error.message ? `错误信息：${error.message}` : '您可以尝试刷新页面后重试。'}${roleIcon}`;
                             messageText.innerHTML = this.renderMarkdown(errorMessage);
+                            // 添加 try again 按钮（仅当不是第一条消息时）
+                            const petMessages = Array.from(messagesContainer.children).filter(
+                                child => child.querySelector('[data-message-type="pet-bubble"]')
+                            );
+                            if (petMessages.length > 1) {
+                                const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                                if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                    this.addTryAgainButton(tryAgainContainer, message);
+                                }
+                            }
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         } else if (isAbortError && message) {
                             // 请求被取消，移除消息
@@ -3811,8 +3832,9 @@ ${pageContent || '无内容'}
                 };
             }
 
-            // 创建新的消息
+            // 创建新的消息（按钮操作生成的消息）
             const message = this.createMessageElement('', 'pet');
+            message.setAttribute('data-button-action', 'true'); // 标记为按钮操作生成
             messagesContainer.appendChild(message);
             const messageText = message.querySelector('[data-message-type="pet-bubble"]');
             const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
@@ -3904,6 +3926,16 @@ ${pageContent || '无内容'}
                         if (copyButtonContainer) {
                             this.addCopyButton(copyButtonContainer, messageText);
                         }
+                        // 添加 try again 按钮（仅当不是第一条消息时）
+                        const petMessages = Array.from(messagesContainer.children).filter(
+                            child => child.querySelector('[data-message-type="pet-bubble"]')
+                        );
+                        if (petMessages.length > 1) {
+                            const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                            if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                this.addTryAgainButton(tryAgainContainer, message);
+                            }
+                        }
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
@@ -3948,6 +3980,16 @@ ${pageContent || '无内容'}
                         ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${loadingIcon}`
                         : `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。${error.message ? `错误信息：${error.message}` : '您可以尝试刷新页面后重试。'}${loadingIcon}`;
                     messageText.innerHTML = this.renderMarkdown(errorMessage);
+                    // 添加 try again 按钮（仅当不是第一条消息时）
+                    const petMessages = Array.from(messagesContainer.children).filter(
+                        child => child.querySelector('[data-message-type="pet-bubble"]')
+                    );
+                    if (petMessages.length > 1) {
+                        const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                        if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                            this.addTryAgainButton(tryAgainContainer, message);
+                        }
+                    }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 } else if (isAbortError && messageText) {
                     // 请求被取消，移除消息
@@ -5716,10 +5758,16 @@ ${pageContent || '无内容'}
                     petMessageElement = this.createMessageElement('', 'pet');
                     messagesContainer.appendChild(petMessageElement);
                     
-                    // 添加 try again 按钮
-                    const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
-                    if (tryAgainContainer) {
-                        this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                    // 检查是否是第一条消息（欢迎消息），如果不是第一条，添加 try again 按钮
+                    const petMessages = Array.from(messagesContainer.children).filter(
+                        child => child.querySelector('[data-message-type="pet-bubble"]')
+                    );
+                    // 如果不是第一条宠物消息（第一条是欢迎消息），添加 try again 按钮
+                    if (petMessages.length > 1) {
+                        const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
+                        if (tryAgainContainer) {
+                            this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                        }
                     }
                 }
 
@@ -5750,10 +5798,15 @@ ${pageContent || '无内容'}
                             this.addCopyButton(copyButtonContainer, messageBubble);
                         }
                         
-                        // 确保 try again 按钮已添加
-                        const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
-                        if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
-                            this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                        // 确保 try again 按钮已添加（仅当不是第一条消息时）
+                        const petMessages = Array.from(messagesContainer.children).filter(
+                            child => child.querySelector('[data-message-type="pet-bubble"]')
+                        );
+                        if (petMessages.length > 1) {
+                            const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
+                            if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                            }
                         }
                     }
                 }
@@ -5846,10 +5899,15 @@ ${pageContent || '无内容'}
                             await this.processMermaidBlocks(messageBubble);
                         }, 100);
                         
-                        // 确保 try again 按钮已添加
-                        const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
-                        if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
-                            this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                        // 确保 try again 按钮已添加（仅当不是第一条消息时）
+                        const petMessages = Array.from(messagesContainer.children).filter(
+                            child => child.querySelector('[data-message-type="pet-bubble"]')
+                        );
+                        if (petMessages.length > 1) {
+                            const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
+                            if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                            }
                         }
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -5875,10 +5933,15 @@ ${pageContent || '无内容'}
                         }, 100);
                     }
                     
-                    // 确保 try again 按钮已添加
-                    const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
-                    if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
-                        this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                    // 确保 try again 按钮已添加（仅当不是第一条消息时）
+                    const petMessages = Array.from(messagesContainer.children).filter(
+                        child => child.querySelector('[data-message-type="pet-bubble"]')
+                    );
+                    if (petMessages.length > 1) {
+                        const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
+                        if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                            this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                        }
                     }
                 }
 
@@ -5918,18 +5981,28 @@ ${pageContent || '无内容'}
                         if (messageBubble) {
                             messageBubble.innerHTML = '抱歉，发生了错误，请稍后再试。😔';
                         }
-                        // 确保 try again 按钮已添加
-                        const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
-                        if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
-                            this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                        // 确保 try again 按钮已添加（仅当不是第一条消息时）
+                        const petMessages = Array.from(messagesContainer.children).filter(
+                            child => child.querySelector('[data-message-type="pet-bubble"]')
+                        );
+                        if (petMessages.length > 1) {
+                            const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
+                            if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                            }
                         }
                     } else {
                         const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
                         messagesContainer.appendChild(errorMessage);
-                        // 为错误消息添加 try again 按钮
-                        const tryAgainContainer = errorMessage.querySelector('[data-try-again-button-container]');
-                        if (tryAgainContainer) {
-                            this.addTryAgainButton(tryAgainContainer, errorMessage);
+                        // 为错误消息添加 try again 按钮（仅当不是第一条消息时）
+                        const petMessages = Array.from(messagesContainer.children).filter(
+                            child => child.querySelector('[data-message-type="pet-bubble"]')
+                        );
+                        if (petMessages.length > 1) {
+                            const tryAgainContainer = errorMessage.querySelector('[data-try-again-button-container]');
+                            if (tryAgainContainer) {
+                                this.addTryAgainButton(tryAgainContainer, errorMessage);
+                            }
                         }
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -7955,6 +8028,11 @@ ${pageContent || '无内容'}
         if (container.querySelector('.try-again-button')) {
             return;
         }
+        
+        // 如果是按钮操作生成的消息，不添加 try again 按钮
+        if (messageDiv.hasAttribute('data-button-action')) {
+            return;
+        }
 
         const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
         if (!messagesContainer) {
@@ -8014,19 +8092,51 @@ ${pageContent || '无内容'}
             try {
                 // 找到对应的用户消息（当前宠物消息之前的上一条用户消息）
                 let userMessageText = '';
-                let currentElement = messageDiv.previousElementSibling;
                 
-                while (currentElement) {
-                    const userBubble = currentElement.querySelector('[data-message-type="user-bubble"]');
+                // 获取消息容器中所有的消息元素
+                const allMessages = Array.from(messagesContainer.children);
+                
+                // 找到当前宠物消息的索引
+                const currentIndex = allMessages.indexOf(messageDiv);
+                
+                if (currentIndex === -1) {
+                    throw new Error('当前消息不在消息容器中');
+                }
+                
+                // 向前遍历所有消息，找到最近的用户消息
+                for (let i = currentIndex - 1; i >= 0; i--) {
+                    const messageElement = allMessages[i];
+                    const userBubble = messageElement.querySelector('[data-message-type="user-bubble"]');
                     if (userBubble) {
-                        userMessageText = userBubble.getAttribute('data-original-text') || userBubble.textContent;
+                        // 优先使用 data-original-text，如果没有则使用文本内容
+                        userMessageText = userBubble.getAttribute('data-original-text');
+                        if (!userMessageText) {
+                            // 如果没有保存原始文本，尝试从文本内容获取
+                            userMessageText = userBubble.textContent || userBubble.innerText;
+                        }
                         break;
                     }
-                    currentElement = currentElement.previousElementSibling;
                 }
 
-                if (!userMessageText) {
-                    throw new Error('未找到对应的用户消息');
+                if (!userMessageText || !userMessageText.trim()) {
+                    // 如果找不到用户消息，可能是通过按钮触发的操作
+                    // 尝试从消息本身获取信息，或者显示友好的错误提示
+                    console.warn('未找到对应的用户消息，无法重新生成回复');
+                    
+                    // 恢复按钮状态
+                    tryAgainButton.innerHTML = '🔄';
+                    tryAgainButton.style.opacity = '0.7';
+                    tryAgainButton.style.cursor = 'pointer';
+                    isRetrying = false;
+                    
+                    // 显示提示信息
+                    const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                    if (messageBubble) {
+                        const originalText = messageBubble.getAttribute('data-original-text') || messageBubble.textContent;
+                        messageBubble.innerHTML = this.renderMarkdown(`${originalText}\n\n💡 提示：此消息可能是通过按钮操作生成的，无法重新生成。`);
+                    }
+                    
+                    return;
                 }
 
                 // 获取消息气泡元素
@@ -8441,6 +8551,16 @@ ${pageContent || '无内容'}
             const reply = replies[Math.floor(Math.random() * replies.length)];
             const petMessage = this.createMessageElement(reply, 'pet');
             messagesContainer.appendChild(petMessage);
+            // 添加 try again 按钮（仅当不是第一条消息时）
+            const petMessages = Array.from(messagesContainer.children).filter(
+                child => child.querySelector('[data-message-type="pet-bubble"]')
+            );
+            if (petMessages.length > 1) {
+                const tryAgainContainer = petMessage.querySelector('[data-try-again-button-container]');
+                if (tryAgainContainer) {
+                    this.addTryAgainButton(tryAgainContainer, petMessage);
+                }
+            }
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
     }

@@ -7355,7 +7355,7 @@ ${pageContent || '无内容'}
         });
 
         // 编辑按钮点击事件 - 在新标签页打开 Mermaid Live Editor
-        editButton.addEventListener('click', (e) => {
+        editButton.addEventListener('click', async (e) => {
             e.stopPropagation();
             e.preventDefault();
             
@@ -7363,35 +7363,195 @@ ${pageContent || '无内容'}
                 // 获取 Mermaid 源代码
                 const codeToEdit = mermaidSourceCode || mermaidDiv.getAttribute('data-mermaid-source') || '';
                 
-                if (codeToEdit) {
-                    // 编码源代码并构建 URL
-                    // Mermaid Live Editor 支持通过 URL hash 传递压缩后的代码
-                    // 使用 pako 压缩格式: #pako:压缩后的base64编码
-                    // 如果 pako 不可用，尝试直接编码传递
-                    try {
-                        // 首先尝试使用 encodeURIComponent
-                        const encodedCode = encodeURIComponent(codeToEdit);
-                        const editorUrl = `https://mermaid.live/edit#pako:${encodedCode}`;
-                        window.open(editorUrl, '_blank');
-                    } catch (error) {
-                        // 如果编码失败，直接打开编辑器
-                        console.warn('编码代码失败，直接打开编辑器:', error);
-                        window.open('https://mermaid.live/edit', '_blank');
-                        // 尝试使用剪贴板传递代码
-                        if (navigator.clipboard) {
-                            navigator.clipboard.writeText(codeToEdit).then(() => {
-                                console.log('代码已复制到剪贴板，可在编辑器中粘贴');
-                            });
-                        }
-                    }
-                } else {
+                if (!codeToEdit || !codeToEdit.trim()) {
                     // 如果没有源代码，直接打开编辑器
                     window.open('https://mermaid.live/edit', '_blank');
+                    return;
                 }
+
+                // 显示加载状态
+                const originalHTML = editButton.innerHTML;
+                editButton.innerHTML = '⏳';
+                editButton.style.cursor = 'wait';
+
+                // 同时使用多种方式传递代码，提高成功率
+                let urlOpened = false;
+                let clipboardSuccess = false;
+
+                // 方式1: 优先将代码复制到剪贴板（最可靠的方式）
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(codeToEdit);
+                        clipboardSuccess = true;
+                        console.log('代码已复制到剪贴板');
+                    }
+                } catch (clipboardError) {
+                    console.warn('复制到剪贴板失败，尝试 fallback 方法:', clipboardError);
+                    // 如果 Clipboard API 失败，尝试使用 fallback 方法
+                    try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = codeToEdit;
+                        textArea.style.position = 'fixed';
+                        textArea.style.opacity = '0';
+                        textArea.style.left = '-9999px';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        if (successful) {
+                            clipboardSuccess = true;
+                            console.log('代码已通过 fallback 方法复制到剪贴板');
+                        }
+                    } catch (fallbackError) {
+                        console.error('Fallback 复制方法也失败:', fallbackError);
+                    }
+                }
+
+                // 方式2: 尝试通过 URL 传递代码（多种格式尝试）
+                const urlFormats = [];
+                
+                // 格式1: state 参数（JSON 对象 base64 编码）
+                try {
+                    const stateObj = {
+                        code: codeToEdit,
+                        mermaid: { theme: 'default' }
+                    };
+                    const stateJson = JSON.stringify(stateObj);
+                    const stateBase64 = btoa(unescape(encodeURIComponent(stateJson)));
+                    urlFormats.push(`https://mermaid.live/edit#state/${stateBase64}`);
+                } catch (e) {
+                    console.warn('生成 state 格式 URL 失败:', e);
+                }
+                
+                // 格式2: code 参数（代码直接 base64 编码）
+                try {
+                    const codeBase64 = btoa(unescape(encodeURIComponent(codeToEdit)));
+                    urlFormats.push(`https://mermaid.live/edit#code/${codeBase64}`);
+                } catch (e) {
+                    console.warn('生成 code 格式 URL 失败:', e);
+                }
+                
+                // 格式3: 查询参数方式
+                try {
+                    const encodedCode = encodeURIComponent(codeToEdit);
+                    urlFormats.push(`https://mermaid.live/edit?code=${encodedCode}`);
+                } catch (e) {
+                    console.warn('生成查询参数 URL 失败:', e);
+                }
+
+                // 尝试打开编辑器（使用多种 URL 格式）
+                for (const editorUrl of urlFormats) {
+                    try {
+                        const newWindow = window.open(editorUrl, '_blank');
+                        if (newWindow) {
+                            urlOpened = true;
+                            console.log('Mermaid Live Editor 已打开，尝试通过 URL 传递代码');
+                            break; // 成功打开后就停止尝试
+                        }
+                    } catch (error) {
+                        console.warn('打开编辑器失败，尝试下一个 URL 格式:', error);
+                    }
+                }
+
+                // 如果所有 URL 格式都失败，尝试使用基础 URL
+                if (!urlOpened) {
+                    try {
+                        const newWindow = window.open('https://mermaid.live/edit', '_blank');
+                        urlOpened = !!newWindow;
+                        if (urlOpened) {
+                            console.log('Mermaid Live Editor 已打开（代码已在剪贴板中）');
+                        }
+                    } catch (error) {
+                        console.error('打开编辑器窗口失败:', error);
+                    }
+                }
+
+
+                // 显示成功提示
+                setTimeout(() => {
+                    // 根据结果显示不同的提示
+                    let tipMessage = '';
+                    if (clipboardSuccess && urlOpened) {
+                        tipMessage = '✓ 编辑器已打开，代码已复制到剪贴板';
+                    } else if (clipboardSuccess) {
+                        tipMessage = '✓ 代码已复制到剪贴板，请在新打开的编辑器中粘贴';
+                    } else if (urlOpened) {
+                        tipMessage = '✓ 编辑器已打开';
+                    } else {
+                        tipMessage = '⚠️ 编辑器已打开，请手动复制代码';
+                    }
+
+                    // 更新按钮状态
+                    if (clipboardSuccess || urlOpened) {
+                        editButton.innerHTML = '✓';
+                        editButton.style.background = clipboardSuccess ? 'rgba(76, 175, 80, 0.3) !important' : 'rgba(255, 193, 7, 0.3) !important';
+                    }
+                    
+                    // 创建临时提示（仅在成功复制或打开时显示）
+                    if (clipboardSuccess || urlOpened) {
+                        const tip = document.createElement('div');
+                        tip.textContent = tipMessage;
+                        tip.style.cssText = `
+                            position: fixed !important;
+                            top: 50% !important;
+                            left: 50% !important;
+                            transform: translate(-50%, -50%) !important;
+                            background: rgba(0, 0, 0, 0.85) !important;
+                            color: white !important;
+                            padding: 14px 28px !important;
+                            border-radius: 8px !important;
+                            font-size: 14px !important;
+                            z-index: 10000 !important;
+                            pointer-events: none !important;
+                            animation: fadeInOut 2.5s ease-in-out !important;
+                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+                            max-width: 90% !important;
+                            text-align: center !important;
+                            word-wrap: break-word !important;
+                        `;
+                        
+                        // 添加动画样式（如果还没有）
+                        if (!document.getElementById('mermaid-tip-styles')) {
+                            const style = document.createElement('style');
+                            style.id = 'mermaid-tip-styles';
+                            style.textContent = `
+                                @keyframes fadeInOut {
+                                    0%, 100% { opacity: 0; transform: translate(-50%, -50%) translateY(-10px); }
+                                    10%, 90% { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
+                                }
+                            `;
+                            document.head.appendChild(style);
+                        }
+                        
+                        document.body.appendChild(tip);
+                        setTimeout(() => {
+                            if (tip.parentNode) {
+                                tip.parentNode.removeChild(tip);
+                            }
+                        }, 2500);
+                    }
+                    
+                    // 恢复按钮状态
+                    setTimeout(() => {
+                        editButton.innerHTML = originalHTML;
+                        editButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                        editButton.style.cursor = 'pointer';
+                    }, 2000);
+                }, 100);
+
             } catch (error) {
                 console.error('打开 Mermaid Live Editor 失败:', error);
                 // 出错时仍尝试打开编辑器
-                window.open('https://mermaid.live/edit', '_blank');
+                try {
+                    window.open('https://mermaid.live/edit', '_blank');
+                } catch (openError) {
+                    console.error('无法打开编辑器窗口:', openError);
+                }
+                // 恢复按钮状态
+                setTimeout(() => {
+                    editButton.innerHTML = '✏️';
+                    editButton.style.cursor = 'pointer';
+                }, 1000);
             }
         });
 

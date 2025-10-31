@@ -2933,7 +2933,7 @@ ${pageContent ? pageContent : '无内容'}
         nameInput.type = 'text';
         nameInput.value = current?.label || '';
         nameInput.placeholder = '角色名称，如：会议纪要摘要';
-        nameInput.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none;`;
+        nameInput.style.cssText = `padding:8px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; outline:none; background:#121212; color:#fff;`;
 
         // 角色图标（可用 Emoji 或短文本）
         const iconInput = document.createElement('input');
@@ -2941,7 +2941,7 @@ ${pageContent ? pageContent : '无内容'}
         iconInput.value = current?.icon || '';
         iconInput.placeholder = '图标（Emoji 或短文本，如：📝 / AI）';
         // 取消 maxLength，避免多码点 Emoji 被截断
-        iconInput.style.cssText = `padding:8px; width:72px; text-align:center; font-size:16px; border:1px solid ${mainColor}66; border-radius:6px; outline:none; background:#0e0e0e; color:#e5e7eb;`;
+        iconInput.style.cssText = `padding:8px; width:72px; text-align:center; font-size:16px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; outline:none; background:#121212; color:#fff;`;
 
         // 图标预览与快捷选择
         const iconRow = document.createElement('div');
@@ -2984,7 +2984,7 @@ ${pageContent ? pageContent : '无内容'}
         promptArea.rows = 24;
         promptArea.placeholder = '提示语（可选）：为该角色的生成提供风格/结构指导';
         promptArea.value = current?.prompt || '';
-        promptArea.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; resize:vertical; outline:none;`;
+        promptArea.style.cssText = `padding:8px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; resize:vertical; outline:none; background:#121212; color:#fff;`;
 
         const btns = document.createElement('div');
         btns.style.cssText = 'display:flex; gap:8px; margin-top:4px;';

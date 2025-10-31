@@ -2799,7 +2799,7 @@ ${pageContent ? pageContent : '无内容'}
         const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
         list.innerHTML = '';
 
-        // 按按钮顺序组织角色：先显示已绑定的角色（按按钮顺序），再显示未绑定的角色
+        // 显示所有角色
         const buttonLabels = {
             'summary': '生成摘要',
             'mindmap': '生成思维导图',
@@ -2808,7 +2808,7 @@ ${pageContent ? pageContent : '无内容'}
             'bestPractice': '生成最佳实践'
         };
 
-        // 按按钮顺序显示已绑定的角色
+        // 先显示已绑定按钮的角色（按按钮顺序）
         allowedKeys.forEach((key) => {
             const config = (configsRaw || []).find(c => c && c.actionKey === key);
             if (config) {
@@ -2817,23 +2817,19 @@ ${pageContent ? pageContent : '无内容'}
             }
         });
 
-        // 显示未绑定的角色
-        const unboundConfigs = (configsRaw || []).filter(c => c && (!c.actionKey || c.actionKey === '' || !allowedKeys.includes(c.actionKey)));
-        if (unboundConfigs.length > 0) {
-            // 添加分隔线（如果有已绑定的角色）
+        // 再显示未绑定按钮的角色
+        const unboundRoles = (configsRaw || []).filter(c => c && c.id && (!c.actionKey || !allowedKeys.includes(c.actionKey)));
+        if (unboundRoles.length > 0) {
+            // 如果有已绑定的角色，添加分隔线
             const boundCount = allowedKeys.filter(k => (configsRaw || []).find(c => c && c.actionKey === k)).length;
             if (boundCount > 0) {
                 const separator = document.createElement('div');
                 separator.style.cssText = 'height:1px; background:rgba(255,255,255,0.1); margin:12px 0;';
                 list.appendChild(separator);
-                const unboundLabel = document.createElement('div');
-                unboundLabel.textContent = '未绑定按钮的角色';
-                unboundLabel.style.cssText = 'color:#94a3b8; font-size:11px; padding:4px 8px; margin-bottom:8px;';
-                list.appendChild(unboundLabel);
             }
-
-            unboundConfigs.forEach((config) => {
-                const row = this.createRoleListItem(config, '未绑定');
+            
+            unboundRoles.forEach((config) => {
+                const row = this.createRoleListItem(config, '未绑定按钮');
                 list.appendChild(row);
             });
         }
@@ -2908,10 +2904,11 @@ ${pageContent ? pageContent : '无内容'}
         if (!form) return;
         const configsAll = await this.getRoleConfigs();
         const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
-        // 用于查找已绑定角色的列表（用于检查占用情况）
+        // 用于查找已绑定按钮的角色列表（用于检查占用情况）
         const configs = (configsAll || []).filter(c => c && allowedKeys.includes(c.actionKey));
-        // 当前编辑的角色（从所有角色中查找，包括未绑定的）
+        // 当前编辑的角色（从所有角色中查找）
         const current = editId ? (configsAll || []).find(c => c && c.id === editId) : null;
+        
         form.innerHTML = '';
 
         const title = document.createElement('div');
@@ -2931,45 +2928,6 @@ ${pageContent ? pageContent : '无内容'}
 
         const currentColor = this.colors[this.colorIndex];
         const mainColor = this.getMainColorFromGradient(currentColor);
-        // 绑定按钮选择（仅在编辑模式下显示）
-        let actionKeySelect = null;
-        // 只在编辑模式下创建绑定按钮选择器
-        if (current) {
-            // 获取已被其他角色占用的按钮（排除当前编辑的角色）
-            const used = new Set(configs.filter(c => !current || c.id !== current.id).map(c => c.actionKey));
-            const available = allowedKeys.filter(k => !used.has(k) || (current && current.actionKey === k));
-            actionKeySelect = document.createElement('select');
-            actionKeySelect.style.cssText = `padding:8px; border:1px solid ${mainColor}66; border-radius:6px; outline:none; background:#0e0e0e; color:#e5e7eb;`;
-            
-            // 添加"不绑定"选项
-            const noneOpt = document.createElement('option');
-            noneOpt.value = '';
-            noneOpt.textContent = '不绑定（可选）';
-            if (!current || !current.actionKey) {
-                noneOpt.selected = true;
-            }
-            actionKeySelect.appendChild(noneOpt);
-            
-            // 添加可用的绑定选项（包括当前角色已绑定的按钮）
-            allowedKeys.forEach(k => {
-                if (available.includes(k)) {
-                    const opt = document.createElement('option');
-                    opt.value = k;
-                    opt.textContent = (
-                        k === 'summary' ? '绑定：生成摘要' :
-                        k === 'mindmap' ? '绑定：生成思维导图' :
-                        k === 'flashcard' ? '绑定：生成闪卡' :
-                        k === 'report' ? '绑定：生成专项报告' :
-                        k === 'bestPractice' ? '绑定：生成最佳实践' : k
-                    );
-                    if (current && current.actionKey === k) {
-                        opt.selected = true;
-                        noneOpt.selected = false; // 如果有绑定，取消"不绑定"的选中
-                    }
-                    actionKeySelect.appendChild(opt);
-                }
-            });
-        }
 
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
@@ -3069,34 +3027,17 @@ ${pageContent ? pageContent : '无内容'}
         };
 
         saveBtn.addEventListener('click', async () => {
-            const selectedActionKey = actionKeySelect ? actionKeySelect.value : '';
             const next = {
                 id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
                 label: nameInput.value.trim() || '未命名角色',
-                // 绑定到五个固定按钮之一（可选）
-                actionKey: selectedActionKey || '',
+                // 保留原有的 actionKey 字段以兼容旧代码（但不通过UI设置）
+                actionKey: current?.actionKey || '',
                 includeCharts: current?.includeCharts ?? false,
                 icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),
                 prompt: promptArea.value.trim(),
             };
             
             const arr = await this.getRoleConfigs();
-            
-            // 如果选择了绑定，检查是否已被其他角色占用
-            if (next.actionKey) {
-                const existing = arr.find(x => x.actionKey === next.actionKey && x.id !== next.id);
-                if (existing) {
-                    // 已有其他角色绑定，先解除绑定
-                    existing.actionKey = '';
-                }
-            }
-            // 如果之前有绑定，先清除旧绑定
-            if (current && current.actionKey && current.actionKey !== next.actionKey) {
-                const oldIdx = arr.findIndex(x => x.id === current.id);
-                if (oldIdx >= 0 && arr[oldIdx].actionKey === current.actionKey) {
-                    // 只清除当前角色自己的绑定，不影响其他
-                }
-            }
             
             // 更新或添加角色
             const idx = arr.findIndex(x => x.id === next.id);
@@ -3108,11 +3049,7 @@ ${pageContent ? pageContent : '无内容'}
             
             await this.setRoleConfigs(arr);
             this.renderRoleSettingsList();
-            if (next.actionKey) {
-                this.renderRoleSettingsForm(next.id);
-            } else {
-                this.renderRoleSettingsForm(); // 不绑定则清空表单
-            }
+            this.renderRoleSettingsForm(); // 清空表单
             // 同步刷新欢迎消息下的动作按钮
             this.refreshWelcomeActionButtons();
         });
@@ -3122,9 +3059,6 @@ ${pageContent ? pageContent : '无内容'}
         });
 
         form.appendChild(title);
-        if (actionKeySelect) {
-            form.appendChild(row('绑定按钮（可选）', actionKeySelect));
-        }
         form.appendChild(row('角色名称', nameInput));
         // 图标设置区：预览 + 输入 + 快选
         const iconWrap = document.createElement('div');

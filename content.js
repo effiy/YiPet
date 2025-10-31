@@ -3655,6 +3655,9 @@ ${pageContent || '无内容'}
                                         this.addTryAgainButton(tryAgainContainer, message);
                                     }
                                 }
+                                
+                                // 添加动作按钮（包括设置按钮）
+                                await this.addActionButtonsToMessage(message);
                             }
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         }
@@ -3710,6 +3713,9 @@ ${pageContent || '无内容'}
                                     this.addTryAgainButton(tryAgainContainer, message);
                                 }
                             }
+                            
+                            // 添加动作按钮（包括设置按钮）
+                            await this.addActionButtonsToMessage(message);
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         } else if (isAbortError && message) {
                             // 请求被取消，移除消息
@@ -3797,6 +3803,267 @@ ${pageContent || '无内容'}
         }
     }
     
+    // 为消息添加动作按钮（复制欢迎消息的按钮，包括设置按钮）
+    async addActionButtonsToMessage(messageDiv, forceRefresh = false) {
+        // 检查是否是第一条消息（欢迎消息），如果是则不添加（因为它已经有按钮了）
+        const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+        if (!messagesContainer) return;
+        
+        const petMessages = Array.from(messagesContainer.children).filter(
+            child => child.querySelector('[data-message-type="pet-bubble"]')
+        );
+        // 如果是第一条消息，不添加按钮
+        if (petMessages.length <= 1) return;
+        
+        // 如果强制刷新，先移除现有按钮容器
+        const existingContainer = messageDiv.querySelector('[data-message-actions]');
+        if (forceRefresh && existingContainer) {
+            existingContainer.remove();
+        } else if (existingContainer) {
+            // 如果已经有按钮容器且不强制刷新，则不重复添加
+            return;
+        }
+        
+        // 获取欢迎消息的按钮容器
+        const welcomeActions = this.chatWindow.querySelector('#pet-welcome-actions');
+        if (!welcomeActions) return;
+        
+        // 获取时间容器
+        const timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
+        if (!timeAndCopyContainer) return;
+        
+        // 创建按钮容器
+        const actionsContainer = document.createElement('div');
+        actionsContainer.setAttribute('data-message-actions', 'true');
+        actionsContainer.style.cssText = `
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-shrink: 0 !important;
+            margin-left: 8px !important;
+        `;
+        
+        // 获取所有角色配置（用于没有 actionKey 的按钮）
+        const configsRaw = await this.getRoleConfigs();
+        
+        // 复制欢迎消息中的所有按钮（包括设置按钮）
+        const buttonsToCopy = Array.from(welcomeActions.children);
+        for (const originalButton of buttonsToCopy) {
+            // 创建新按钮（通过克隆并重新绑定事件）
+            const newButton = originalButton.cloneNode(true);
+            
+            // 如果是设置按钮，绑定点击事件
+            if (newButton.innerHTML.trim() === '⚙️' || newButton.title === '角色设置') {
+                newButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openRoleSettingsModal();
+                });
+            } else if (newButton.hasAttribute('data-action-key')) {
+                // 如果是角色按钮（有 actionKey），绑定对应的处理函数
+                const actionKey = newButton.getAttribute('data-action-key');
+                if (this.buttonHandlers && this.buttonHandlers[actionKey]) {
+                    const handler = this.buttonHandlers[actionKey];
+                    if (handler.clickHandler) {
+                        // 创建新的处理函数包装器，但使用原始的 clickHandler
+                        newButton.addEventListener('click', handler.clickHandler);
+                    }
+                }
+            } else if (newButton.hasAttribute('data-role-id')) {
+                // 如果是没有 actionKey 的角色按钮，需要重新创建点击处理函数
+                const roleId = newButton.getAttribute('data-role-id');
+                const config = (configsRaw || []).find(c => c && c.id === roleId);
+                if (config) {
+                    // 创建 processing flag
+                    if (!this.roleButtonsProcessingFlags) {
+                        this.roleButtonsProcessingFlags = {};
+                    }
+                    if (!this.roleButtonsProcessingFlags[roleId]) {
+                        this.roleButtonsProcessingFlags[roleId] = { value: false };
+                    }
+                    const processingFlag = this.roleButtonsProcessingFlags[roleId];
+                    
+                    // 重新绑定点击事件（使用与 refreshWelcomeActionButtons 中相同的逻辑）
+                    newButton.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        
+                        if (processingFlag.value) return;
+                        processingFlag.value = true;
+                        const originalIcon = newButton.innerHTML;
+                        const originalTitle = newButton.title;
+                        newButton.innerHTML = '◉';
+                        newButton.style.opacity = '0.6';
+                        newButton.style.cursor = 'not-allowed';
+                        
+                        // 获取页面信息
+                        const pageInfo = this.getPageInfo();
+                        const roleLabel = config.label || '自定义角色';
+                        const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
+                        const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
+                        
+                        // 构建 userPrompt
+                        const pageTitle = pageInfo.title || document.title || '当前页面';
+                        const pageUrl = pageInfo.url || window.location.href;
+                        const pageDescription = pageInfo.description || '';
+                        const pageContent = pageInfo.content || '';
+                        const userPrompt = `页面标题：${pageTitle}
+页面URL：${pageUrl}
+${pageDescription ? `页面描述：${pageDescription}` : ''}
+
+页面内容（Markdown 格式）：
+${pageContent || '无内容'}
+
+请根据以上信息进行分析和处理。`;
+                        
+                        // 创建新的消息
+                        const message = this.createMessageElement('', 'pet');
+                        message.setAttribute('data-button-action', 'true');
+                        messagesContainer.appendChild(message);
+                        const messageText = message.querySelector('[data-message-type="pet-bubble"]');
+                        const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
+                        
+                        if (messageAvatar) {
+                            messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+                        }
+                        if (messageText) {
+                            messageText.textContent = `${roleIcon} 正在${roleLabel}...`;
+                        }
+                        
+                        try {
+                            const abortController = new AbortController();
+                            if (this.chatWindow && this.chatWindow._setAbortController) {
+                                this.chatWindow._setAbortController(abortController);
+                            }
+                            if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                                this.chatWindow._updateRequestStatus('loading');
+                            }
+                            
+                            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    fromSystem: systemPrompt,
+                                    fromUser: userPrompt,
+                                    model: this.currentModel || PET_CONFIG.chatModels.default
+                                }),
+                                signal: abortController.signal
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            
+                            const responseText = await response.text();
+                            let content = '';
+                            
+                            // 处理响应（简化版，完整逻辑可以参考 refreshWelcomeActionButtons 中的实现）
+                            if (responseText.includes('data: ')) {
+                                const lines = responseText.split('\n');
+                                for (const line of lines) {
+                                    const trimmed = line.trim();
+                                    if (trimmed.startsWith('data: ')) {
+                                        try {
+                                            const data = JSON.parse(trimmed.substring(6).trim());
+                                            if (data.done) break;
+                                            content += data.data || data.content || '';
+                                        } catch (e) {
+                                            const dataStr = trimmed.substring(6).trim();
+                                            if (dataStr && dataStr !== '[DONE]') {
+                                                content += dataStr;
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                const result = JSON.parse(responseText);
+                                content = result.data || result.content || result.reply || '';
+                            }
+                            
+                            if (messageAvatar) {
+                                messageAvatar.style.animation = '';
+                            }
+                            if (messageText && content) {
+                                messageText.innerHTML = this.renderMarkdown(content);
+                                messageText.setAttribute('data-original-text', content);
+                                const copyButtonContainer = message.querySelector('[data-copy-button-container]');
+                                if (copyButtonContainer) {
+                                    this.addCopyButton(copyButtonContainer, messageText);
+                                }
+                                await this.addActionButtonsToMessage(message);
+                            }
+                            
+                            newButton.innerHTML = '✓';
+                            newButton.style.color = '#4caf50';
+                            setTimeout(() => {
+                                newButton.innerHTML = originalIcon;
+                                newButton.title = originalTitle;
+                                newButton.style.color = '#666';
+                                newButton.style.opacity = '1';
+                                newButton.style.cursor = 'pointer';
+                                processingFlag.value = false;
+                            }, 2000);
+                            
+                            if (this.chatWindow && this.chatWindow._setAbortController) {
+                                this.chatWindow._setAbortController(null);
+                            }
+                            if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                                this.chatWindow._updateRequestStatus('idle');
+                            }
+                        } catch (error) {
+                            if (error.name !== 'AbortError') {
+                                if (messageText) {
+                                    messageText.innerHTML = `抱歉，发生错误：${error.message}`;
+                                }
+                                newButton.innerHTML = '✕';
+                                newButton.style.color = '#f44336';
+                                setTimeout(() => {
+                                    newButton.innerHTML = originalIcon;
+                                    newButton.title = originalTitle;
+                                    newButton.style.color = '#666';
+                                    newButton.style.opacity = '1';
+                                    newButton.style.cursor = 'pointer';
+                                    processingFlag.value = false;
+                                }, 1500);
+                            } else {
+                                message.remove();
+                                newButton.innerHTML = originalIcon;
+                                newButton.title = originalTitle;
+                                newButton.style.color = '#666';
+                                newButton.style.opacity = '1';
+                                newButton.style.cursor = 'pointer';
+                                processingFlag.value = false;
+                            }
+                        }
+                    });
+                }
+            }
+            
+            actionsContainer.appendChild(newButton);
+        }
+        
+        // 将按钮容器添加到时间容器中
+        timeAndCopyContainer.appendChild(actionsContainer);
+    }
+    
+    // 刷新所有消息的动作按钮（在角色设置更新后调用）
+    async refreshAllMessageActionButtons() {
+        if (!this.chatWindow) return;
+        
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (!messagesContainer) return;
+        
+        // 查找所有有按钮容器的消息（不包括第一条欢迎消息）
+        const allMessages = Array.from(messagesContainer.children).filter(
+            child => child.querySelector('[data-message-type="pet-bubble"]')
+        );
+        
+        // 跳过第一条消息，从第二条开始刷新
+        for (let i = 1; i < allMessages.length; i++) {
+            const messageDiv = allMessages[i];
+            // 强制刷新按钮
+            await this.addActionButtonsToMessage(messageDiv, true);
+        }
+    }
+
     // 创建角色按钮点击处理函数（用于有 actionKey 的角色）
     createRoleButtonHandler(actionKey, iconEl, processingFlag) {
         return async () => {
@@ -4489,7 +4756,9 @@ ${pageContent || '无内容'}
             this.renderRoleSettingsList();
             this.renderRoleSettingsForm(null, true); // 显示空白状态
             // 同步刷新欢迎消息下的动作按钮
-            this.refreshWelcomeActionButtons();
+            await this.refreshWelcomeActionButtons();
+            // 刷新所有消息下的按钮
+            await this.refreshAllMessageActionButtons();
         });
         btns.appendChild(edit);
         btns.appendChild(del);
@@ -4868,7 +5137,9 @@ ${pageContent || '无内容'}
                 this.renderRoleSettingsList();
                 this.renderRoleSettingsForm(null, true); // 显示空白状态
                 // 同步刷新欢迎消息下的动作按钮
-                this.refreshWelcomeActionButtons();
+                await this.refreshWelcomeActionButtons();
+                // 刷新所有消息下的按钮
+                await this.refreshAllMessageActionButtons();
                 
                 // 显示成功提示
                 const successMessage = isEdit ? `✅ 角色 "${next.label}" 已更新` : `✅ 角色 "${next.label}" 已创建`;
@@ -5909,6 +6180,9 @@ ${pageContent || '无内容'}
                                 this.addTryAgainButton(tryAgainContainer, petMessageElement);
                             }
                         }
+                        
+                        // 添加动作按钮（包括设置按钮）
+                        await this.addActionButtonsToMessage(petMessageElement);
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 } else if (petMessageElement) {
@@ -5943,6 +6217,9 @@ ${pageContent || '无内容'}
                             this.addTryAgainButton(tryAgainContainer, petMessageElement);
                         }
                     }
+                    
+                    // 添加动作按钮（包括设置按钮）
+                    await this.addActionButtonsToMessage(petMessageElement);
                 }
 
                 // 请求成功完成，更新状态为空闲
@@ -5990,6 +6267,9 @@ ${pageContent || '无内容'}
                             if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
                                 this.addTryAgainButton(tryAgainContainer, petMessageElement);
                             }
+                            
+                            // 添加动作按钮（包括设置按钮）
+                            await this.addActionButtonsToMessage(petMessageElement);
                         }
                     } else {
                         const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
@@ -6003,6 +6283,9 @@ ${pageContent || '无内容'}
                             if (tryAgainContainer) {
                                 this.addTryAgainButton(tryAgainContainer, errorMessage);
                             }
+                            
+                            // 添加动作按钮（包括设置按钮）
+                            await this.addActionButtonsToMessage(errorMessage);
                         }
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -6430,10 +6713,12 @@ ${pageContent || '无内容'}
 
         // 监听角色配置变化，自动刷新按钮列表
         if (!this.roleConfigChangeListener) {
-            this.roleConfigChangeListener = (changes, namespace) => {
+            this.roleConfigChangeListener = async (changes, namespace) => {
                 if (namespace === 'local' && changes.roleConfigs) {
                     // 角色配置发生变化，自动刷新欢迎消息下的按钮列表
-                    this.refreshWelcomeActionButtons();
+                    await this.refreshWelcomeActionButtons();
+                    // 刷新所有消息下的按钮
+                    await this.refreshAllMessageActionButtons();
                 }
             };
             chrome.storage.onChanged.addListener(this.roleConfigChangeListener);

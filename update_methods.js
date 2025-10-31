@@ -15,8 +15,8 @@ function replaceMethod(methodName, roleName, description) {
             // 获取页面信息
             const pageInfo = this.getPageInfo();
             
-            // 从角色管理器获取提示词
-            const prompts = getPromptForRole('${roleName}', pageInfo);
+            // 从角色配置获取提示词
+            const prompts = await this.getRolePromptForAction('${roleName}', pageInfo);
             
             console.log('调用大模型生成${description}，页面标题:', pageInfo.title);
             

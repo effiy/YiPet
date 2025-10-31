@@ -1067,8 +1067,8 @@ class PetManager {
             // 获取页面信息
             const pageInfo = this.getPageInfo();
 
-            // 从角色管理器获取提示词
-            const prompts = getPromptForRole('summary', pageInfo);
+            // 从角色配置获取提示词
+            const prompts = await this.getRolePromptForAction('summary', pageInfo);
 
             console.log('调用大模型生成摘要信息，页面标题:', pageInfo.title);
 
@@ -1100,8 +1100,8 @@ class PetManager {
             // 获取页面信息
             const pageInfo = this.getPageInfo();
 
-            // 从角色管理器获取提示词
-            const prompts = getPromptForRole('mindmap', pageInfo);
+            // 从角色配置获取提示词
+            const prompts = await this.getRolePromptForAction('mindmap', pageInfo);
 
             console.log('调用大模型生成思维导图，页面标题:', pageInfo.title);
 
@@ -2132,14 +2132,14 @@ ${pageContent ? pageContent : '无内容'}
 
         // 尝试加载保存的聊天窗口状态（会覆盖默认值）
         // 加载完成后创建窗口
-        this.loadChatWindowState((success) => {
+        this.loadChatWindowState(async (success) => {
             if (success) {
                 console.log('聊天窗口状态已加载，创建窗口');
             } else {
                 console.log('使用默认聊天窗口状态，创建窗口');
             }
 
-            this.createChatWindow();
+            await this.createChatWindow();
             this.isChatOpen = true;
         });
     }
@@ -2444,37 +2444,111 @@ ${pageContent ? pageContent : '无内容'}
     }
 
     // 统一获取角色图标（优先自定义，其次按 actionKey 映射，最后兜底）
-    getRoleIcon(roleConfig) {
-        const iconMap = {
-            summary: '📝',
-            mindmap: '🧠',
-            flashcard: '📚',
-            report: '📄',
-            bestPractice: '⭐'
-        };
-        const actionKey = roleConfig && roleConfig.actionKey;
-        const icon = roleConfig && roleConfig.icon;
+    getRoleIcon(roleConfig, allConfigs = null) {
+        if (!roleConfig) return '🙂';
+        
+        // 优先使用配置中的自定义图标
+        const icon = roleConfig.icon;
         const custom = icon && typeof icon === 'string' ? icon.trim() : '';
         if (custom) return custom;
-        if (actionKey && iconMap[actionKey]) return iconMap[actionKey];
+        
+        // 如果没有自定义图标，从角色配置列表中查找
+        const actionKey = roleConfig.actionKey;
+        if (actionKey && allConfigs && Array.isArray(allConfigs)) {
+            const foundConfig = allConfigs.find(c => c && c.actionKey === actionKey);
+            if (foundConfig && foundConfig.icon && typeof foundConfig.icon === 'string') {
+                const foundIcon = foundConfig.icon.trim();
+                if (foundIcon) return foundIcon;
+            }
+        }
+        
+        // 如果还是找不到，返回默认图标
         return '🙂';
     }
 
-    // 根据 actionKey 从角色配置中获取提示语（优先使用自定义 prompt，否则从 roles 模块获取）
-    async getRolePromptForAction(actionKey, pageInfo) {
+    // 统一获取角色标签/名称（优先自定义，其次从角色配置列表中查找）
+    getRoleLabel(roleConfig, allConfigs = null) {
+        if (!roleConfig) return '自定义角色';
+        
+        // 优先使用配置中的自定义标签
+        if (roleConfig.label && typeof roleConfig.label === 'string') {
+            const label = roleConfig.label.trim();
+            if (label) return label;
+        }
+        
+        // 如果没有自定义标签，从角色配置列表中查找
+        const actionKey = roleConfig.actionKey;
+        if (actionKey && allConfigs && Array.isArray(allConfigs)) {
+            const foundConfig = allConfigs.find(c => c && c.actionKey === actionKey);
+            if (foundConfig && foundConfig.label && typeof foundConfig.label === 'string') {
+                const label = foundConfig.label.trim();
+                if (label) return label;
+            }
+        }
+        
+        // 如果还是找不到，使用actionKey作为默认标签
+        if (actionKey) {
+            return actionKey;
+        }
+        
+        return '自定义角色';
+    }
+
+    // 统一获取角色提示语（用于按钮的 title 属性，支持自定义）
+    getRoleTooltip(roleConfig) {
+        // 优先使用配置中的自定义提示语
+        if (roleConfig && roleConfig.tooltip && typeof roleConfig.tooltip === 'string') {
+            const tooltip = roleConfig.tooltip.trim();
+            if (tooltip) return tooltip;
+        }
+        
+        // 如果没有自定义提示语，使用标签作为提示语
+        return this.getRoleLabel(roleConfig);
+    }
+
+    // 统一获取角色完整信息（图标、标签、提示语等）
+    async getRoleInfoForAction(actionKey) {
         try {
             const configs = await this.getRoleConfigs();
             const cfg = Array.isArray(configs) ? configs.find(c => c && c.actionKey === actionKey) : null;
             
-            // 如果角色配置中有自定义的 prompt，优先使用
-            if (cfg && cfg.prompt && cfg.prompt.trim()) {
-                const pageTitle = pageInfo.title || document.title || '当前页面';
-                const pageUrl = pageInfo.url || window.location.href;
-                const pageDescription = pageInfo.description || '';
-                const pageContent = pageInfo.content || '';
-                
-                // 构建 userPrompt（根据原有 roles 模块的模式）
-                const userPrompt = `页面标题：${pageTitle}
+            return {
+                icon: this.getRoleIcon(cfg || { actionKey }, configs),
+                label: this.getRoleLabel(cfg || { actionKey }, configs),
+                tooltip: this.getRoleTooltip(cfg || { actionKey }),
+                config: cfg
+            };
+        } catch (error) {
+            console.error('获取角色信息失败:', error);
+            // 降级处理
+            const fallbackConfig = { actionKey };
+            return {
+                icon: this.getRoleIcon(fallbackConfig, null),
+                label: this.getRoleLabel(fallbackConfig, null),
+                tooltip: this.getRoleTooltip(fallbackConfig),
+                config: null
+            };
+        }
+    }
+
+    // 根据 actionKey 从角色配置中获取提示语（必须从角色配置中获取 prompt）
+    async getRolePromptForAction(actionKey, pageInfo) {
+        // 获取角色信息（图标、标签等）
+        const roleInfo = await this.getRoleInfoForAction(actionKey);
+        const cfg = roleInfo.config;
+        
+        // 检查角色配置中是否有 prompt
+        if (!cfg || !cfg.prompt || !cfg.prompt.trim()) {
+            throw new Error(`角色 ${actionKey} 未配置 prompt，请在角色设置中配置提示词`);
+        }
+        
+        const pageTitle = pageInfo.title || document.title || '当前页面';
+        const pageUrl = pageInfo.url || window.location.href;
+        const pageDescription = pageInfo.description || '';
+        const pageContent = pageInfo.content || '';
+        
+        // 构建 userPrompt
+        const userPrompt = `页面标题：${pageTitle}
 页面URL：${pageUrl}
 ${pageDescription ? `页面描述：${pageDescription}` : ''}
 
@@ -2482,42 +2556,13 @@ ${pageDescription ? `页面描述：${pageDescription}` : ''}
 ${pageContent || '无内容'}
 
 请根据以上信息进行分析和处理。`;
-                
-                return {
-                    systemPrompt: cfg.prompt.trim(),
-                    userPrompt: userPrompt,
-                    label: cfg.label || '自定义角色',
-                    icon: this.getRoleIcon(cfg)
-                };
-            }
-            
-            // 如果没有自定义 prompt，则从原有的 roles 模块获取
-            const prompts = getPromptForRole(actionKey, pageInfo);
-            const defaultLabels = {
-                summary: '生成摘要',
-                mindmap: '生成思维导图',
-                flashcard: '生成闪卡',
-                report: '生成专项报告',
-                bestPractice: '生成最佳实践'
-            };
-            
-            return {
-                systemPrompt: prompts.systemPrompt,
-                userPrompt: prompts.userPrompt,
-                label: (cfg && cfg.label) ? cfg.label : (defaultLabels[actionKey] || '自定义角色'),
-                icon: this.getRoleIcon(cfg || { actionKey })
-            };
-        } catch (error) {
-            console.error('获取角色提示语失败:', error);
-            // 降级到原有的 roles 模块
-            const prompts = getPromptForRole(actionKey, pageInfo);
-            return {
-                systemPrompt: prompts.systemPrompt,
-                userPrompt: prompts.userPrompt,
-                label: '自定义角色',
-                icon: '🙂'
-            };
-        }
+        
+        return {
+            systemPrompt: cfg.prompt.trim(),
+            userPrompt: userPrompt,
+            label: roleInfo.label,
+            icon: roleInfo.icon
+        };
     }
 
     // 通用的流式生成函数，支持动态 systemPrompt 和 userPrompt
@@ -2547,47 +2592,211 @@ ${pageContent || '无内容'}
         }
     }
 
-    // 将角色设置应用到欢迎消息下方的动作按钮（根据 actionKey 动态更新图标与标题）
+    // 将角色设置应用到欢迎消息下方的动作按钮（根据 actionKey 动态更新图标、标题和提示语）
     async applyRoleConfigToActionIcon(iconEl, actionKey) {
         try {
             if (!iconEl || !actionKey) return;
-            const configs = await this.getRoleConfigs();
-            const cfg = Array.isArray(configs) ? configs.find(c => c && c.actionKey === actionKey) : null;
-            const displayIcon = this.getRoleIcon(cfg || { actionKey });
-            const label = (cfg && cfg.label) ? cfg.label : (
-                actionKey === 'summary' ? '生成摘要' :
-                actionKey === 'mindmap' ? '生成思维导图' :
-                actionKey === 'flashcard' ? '生成闪卡' :
-                actionKey === 'report' ? '生成专项报告' :
-                actionKey === 'bestPractice' ? '生成最佳实践' : '自定义角色'
-            );
-            // 仅更新展示，不改变 click 行为
-            iconEl.innerHTML = displayIcon || iconEl.innerHTML;
-            iconEl.title = label;
+            
+            // 使用统一的角色信息获取函数
+            const roleInfo = await this.getRoleInfoForAction(actionKey);
+            
+            // 更新按钮的图标、标题和提示语
+            iconEl.innerHTML = roleInfo.icon || iconEl.innerHTML;
+            iconEl.title = roleInfo.tooltip;
         } catch (_) { /* 忽略展示更新错误 */ }
     }
 
-    // 刷新欢迎消息操作按钮：以“角色设置”列表为准重建顺序与数量
+    // 创建动作按钮（根据角色配置动态创建）
+    async createActionButton(actionKey) {
+        const button = document.createElement('span');
+        button.setAttribute('data-action-key', actionKey);
+        
+        // 从角色配置中动态获取图标、标签和提示语
+        try {
+            const roleInfo = await this.getRoleInfoForAction(actionKey);
+            button.innerHTML = roleInfo.icon || '🙂';
+            button.title = roleInfo.tooltip;
+        } catch (error) {
+            // 降级到默认值
+            const fallbackInfo = await this.getRoleInfoForAction(actionKey);
+            button.innerHTML = fallbackInfo.icon || '🙂';
+            button.title = fallbackInfo.tooltip;
+        }
+        
+        // 统一的按钮样式
+        button.style.cssText = `
+            padding: 4px !important;
+            cursor: pointer !important;
+            font-size: 18px !important;
+            color: #666 !important;
+            font-weight: 300 !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            user-select: none !important;
+            width: 24px !important;
+            height: 24px !important;
+            line-height: 24px !important;
+        `;
+        
+        return button;
+    }
+
+    // 获取按角色设置列表顺序排列的已绑定角色的 actionKey 列表
+    // 此方法与 renderRoleSettingsList() 共享相同的顺序逻辑
+    async getOrderedBoundRoleKeys() {
+        const configsRaw = await this.getRoleConfigs();
+        const configs = Array.isArray(configsRaw) ? configsRaw : [];
+        
+        // 返回所有有 actionKey 的角色的 actionKey（保持配置中的顺序）
+        const orderedKeys = [];
+        const seenKeys = new Set();
+        for (const config of configs) {
+            if (config && config.actionKey && !seenKeys.has(config.actionKey)) {
+                orderedKeys.push(config.actionKey);
+                seenKeys.add(config.actionKey);
+            }
+        }
+        
+        return orderedKeys;
+    }
+
+    // 刷新欢迎消息操作按钮：显示角色列表作为按钮，设置按钮始终在最后
     async refreshWelcomeActionButtons() {
         if (!this.chatWindow) return;
         const container = this.chatWindow.querySelector('#pet-welcome-actions');
         if (!container) return;
-        const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
-        const configs = await this.getRoleConfigs();
-        const list = Array.isArray(configs) ? configs.filter(c => c && allowedKeys.includes(c.actionKey)) : [];
-        const order = list.map(c => c.actionKey);
-        // 重建
+        
+        // 重建容器
         container.innerHTML = '';
-        if (this.actionIcons) {
-            order.forEach((k) => {
-                const el = this.actionIcons[k];
-                if (!el) return;
-                el.style.display = 'inline-flex';
-                this.applyRoleConfigToActionIcon(el, k);
-                container.appendChild(el);
-            });
+        
+        // 确保按钮样式容器正确（横向排列）
+        container.style.cssText = `
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-shrink: 0 !important;
+        `;
+        
+        // 获取所有角色配置
+        const configsRaw = await this.getRoleConfigs();
+        
+        // 确保 actionIcons 和 buttonHandlers 已初始化
+        if (!this.actionIcons) {
+            this.actionIcons = {};
         }
-        // 追加设置按钮
+        if (!this.buttonHandlers) {
+            this.buttonHandlers = {};
+        }
+        
+        // 先显示已绑定按钮的角色（按按钮顺序）
+        const orderedKeys = await this.getOrderedBoundRoleKeys();
+        const boundRoleIds = new Set();
+        
+        for (const key of orderedKeys) {
+            const config = (configsRaw || []).find(c => c && c.actionKey === key);
+            if (config) {
+                boundRoleIds.add(config.id);
+                
+                // 创建角色按钮
+                let button = this.actionIcons[key];
+                if (!button) {
+                    button = await this.createActionButton(key);
+                    this.actionIcons[key] = button;
+                    
+                    // 创建 processing flag 和 hover 处理
+                    const processingFlag = { value: false };
+                    this.buttonHandlers[key] = {
+                        button,
+                        processingFlag,
+                        hover: {
+                            mouseenter: function() {
+                                if (!processingFlag.value) {
+                                    this.style.fontSize = '20px';
+                                    this.style.color = '#333';
+                                    this.style.transform = 'scale(1.1)';
+                                }
+                            },
+                            mouseleave: function() {
+                                if (!processingFlag.value) {
+                                    this.style.fontSize = '18px';
+                                    this.style.color = '#666';
+                                    this.style.transform = 'scale(1)';
+                                }
+                            }
+                        }
+                    };
+                    
+                    // 绑定 hover 事件
+                    button.addEventListener('mouseenter', this.buttonHandlers[key].hover.mouseenter);
+                    button.addEventListener('mouseleave', this.buttonHandlers[key].hover.mouseleave);
+                    
+                    // 绑定点击事件
+                    if (!this.buttonHandlers[key].clickHandler) {
+                        const clickHandler = this.createRoleButtonHandler(key, button, this.buttonHandlers[key].processingFlag);
+                        button.addEventListener('click', clickHandler);
+                        this.buttonHandlers[key].clickHandler = clickHandler;
+                    }
+                }
+                
+                // 更新按钮显示和配置
+                button.style.display = 'inline-flex';
+                await this.applyRoleConfigToActionIcon(button, key);
+                
+                container.appendChild(button);
+            }
+        }
+        
+        // 再显示其他角色（没有绑定按钮的角色）作为可点击按钮
+        const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id));
+        for (const config of otherRoles) {
+            // 创建角色按钮（没有 actionKey，点击时打开编辑）
+            const button = document.createElement('span');
+            const displayIcon = this.getRoleIcon(config, configsRaw);
+            button.innerHTML = displayIcon || '🙂';
+            button.title = config.label || '(未命名)';
+            button.setAttribute('data-role-id', config.id);
+            button.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 18px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                flex-shrink: 0 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 24px !important;
+                height: 24px !important;
+                line-height: 24px !important;
+            `;
+            
+            // 添加 hover 效果
+            button.addEventListener('mouseenter', function() {
+                this.style.fontSize = '20px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            });
+            button.addEventListener('mouseleave', function() {
+                this.style.fontSize = '18px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            
+            // 点击时打开编辑表单
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openRoleSettingsModal(config.id);
+            });
+            
+            container.appendChild(button);
+        }
+        
+        // 设置按钮始终在最后
         const settingsButton = document.createElement('span');
         settingsButton.innerHTML = '⚙️';
         settingsButton.title = '角色设置';
@@ -2611,6 +2820,127 @@ ${pageContent || '无内容'}
             this.openRoleSettingsModal();
         });
         container.appendChild(settingsButton);
+    }
+    
+    // 创建角色按钮点击处理函数（用于有 actionKey 的角色）
+    createRoleButtonHandler(actionKey, iconEl, processingFlag) {
+        return async () => {
+            if (processingFlag.value) return;
+
+            processingFlag.value = true;
+            iconEl.innerHTML = '◉';
+            iconEl.style.opacity = '0.6';
+            iconEl.style.cursor = 'not-allowed';
+
+            // 获取消息容器
+            const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+            if (!messagesContainer) {
+                console.error('无法找到消息容器');
+                processingFlag.value = false;
+                return;
+            }
+
+            // 获取页面信息
+            const pageInfo = this.getPageInfo();
+            
+            // 从角色配置中获取提示语、名称、图标
+            let roleInfo;
+            try {
+                roleInfo = await this.getRolePromptForAction(actionKey, pageInfo);
+            } catch (error) {
+                console.error('获取角色信息失败:', error);
+                roleInfo = {
+                    systemPrompt: '',
+                    userPrompt: '',
+                    label: '自定义角色',
+                    icon: '🙂'
+                };
+            }
+
+            // 创建新的消息
+            const message = this.createMessageElement('', 'pet');
+            messagesContainer.appendChild(message);
+            const messageText = message.querySelector('[data-message-type="pet-bubble"]');
+            const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
+
+            // 显示加载动画
+            if (messageAvatar) {
+                messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+            }
+
+            // 使用角色配置中的图标显示加载文本
+            const loadingIcon = roleInfo.icon || '📖';
+            if (messageText) {
+                messageText.textContent = `${loadingIcon} 正在${roleInfo.label || '处理'}...`;
+            }
+
+            try {
+                // 使用动态提示语流式生成内容
+                await this.generateContentStream(
+                    roleInfo.systemPrompt,
+                    roleInfo.userPrompt,
+                    (chunk, fullContent) => {
+                        if (messageText) {
+                            messageText.innerHTML = this.renderMarkdown(fullContent);
+                            // 更新原始文本用于复制功能
+                            messageText.setAttribute('data-original-text', fullContent);
+                            // 添加复制按钮
+                            if (fullContent && fullContent.trim()) {
+                                const copyButtonContainer = message.querySelector('[data-copy-button-container]');
+                                if (copyButtonContainer) {
+                                    this.addCopyButton(copyButtonContainer, messageText);
+                                }
+                            }
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
+                    },
+                    `${loadingIcon} 正在${roleInfo.label || '处理'}...`
+                );
+
+                // 停止加载动画
+                if (messageAvatar) {
+                    messageAvatar.style.animation = '';
+                }
+
+                iconEl.innerHTML = '✓';
+                iconEl.style.cursor = 'default';
+                iconEl.style.color = '#4caf50';
+
+                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
+                setTimeout(() => {
+                    this.applyRoleConfigToActionIcon(iconEl, actionKey);
+                    iconEl.style.color = '#666';
+                    iconEl.style.cursor = 'pointer';
+                    iconEl.style.opacity = '1';
+                    processingFlag.value = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error(`生成${roleInfo.label}失败:`, error);
+                if (messageText) {
+                    messageText.innerHTML = this.renderMarkdown(
+                        `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。您可以尝试刷新页面后重试。${loadingIcon}`
+                    );
+                }
+                if (messageAvatar) {
+                    messageAvatar.style.animation = '';
+                }
+                iconEl.innerHTML = '✕';
+                iconEl.style.cursor = 'default';
+                iconEl.style.color = '#f44336';
+
+                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
+                setTimeout(() => {
+                    this.applyRoleConfigToActionIcon(iconEl, actionKey);
+                    iconEl.style.color = '#666';
+                    iconEl.style.cursor = 'pointer';
+                    iconEl.style.opacity = '1';
+                    processingFlag.value = false;
+                }, 1500);
+            } finally {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        };
     }
 
     // 已移除 custom-role-shortcuts 功能
@@ -2801,24 +3131,9 @@ ${pageContent || '无内容'}
         });
     }
 
-    // 读取内置角色定义并转为默认配置
-    buildDefaultRoleConfigsFromBuiltins() {
-        const roles = (typeof window !== 'undefined' && window.PROMPT_ROLES) ? window.PROMPT_ROLES : {};
+    // 读取内置角色定义并转为默认配置（从已有配置中获取label、icon和prompt，如果没有则使用默认值）
+    buildDefaultRoleConfigsFromBuiltins(existingConfigs = null) {
         const keys = ['summary', 'mindmap', 'flashcard', 'report', 'bestPractice'];
-        const nameMap = {
-            summary: '生成摘要',
-            mindmap: '生成思维导图',
-            flashcard: '生成闪卡',
-            report: '生成专项报告',
-            bestPractice: '生成最佳实践'
-        };
-        const iconMap = {
-            summary: '📝',
-            mindmap: '🧠',
-            flashcard: '📚',
-            report: '📄',
-            bestPractice: '⭐'
-        };
         const includeChartsMap = {
             summary: false,
             mindmap: true,
@@ -2828,14 +3143,40 @@ ${pageContent || '无内容'}
         };
         const arr = [];
         keys.forEach(k => {
-            const role = roles[k];
+            // 从已有配置中查找对应的label、icon和prompt
+            let label = k; // 默认使用actionKey
+            let icon = ''; // 默认icon为空，由用户配置
+            let prompt = ''; // 默认prompt为空，由用户配置
+            if (existingConfigs && Array.isArray(existingConfigs)) {
+                const existing = existingConfigs.find(c => c && c.actionKey === k);
+                if (existing) {
+                    if (existing.label && typeof existing.label === 'string') {
+                        const trimmedLabel = existing.label.trim();
+                        if (trimmedLabel) {
+                            label = trimmedLabel;
+                        }
+                    }
+                    if (existing.icon && typeof existing.icon === 'string') {
+                        const trimmedIcon = existing.icon.trim();
+                        if (trimmedIcon) {
+                            icon = trimmedIcon;
+                        }
+                    }
+                    if (existing.prompt && typeof existing.prompt === 'string') {
+                        const trimmedPrompt = existing.prompt.trim();
+                        if (trimmedPrompt) {
+                            prompt = trimmedPrompt;
+                        }
+                    }
+                }
+            }
             arr.push({
                 id: 'builtin_' + k,
-                label: nameMap[k] || k,
+                label: label,
                 actionKey: k,
-                icon: iconMap[k] || '',
+                icon: icon,
                 includeCharts: includeChartsMap[k] || false,
-                prompt: role && role.systemPrompt ? role.systemPrompt : ''
+                prompt: prompt
             });
         });
         return arr;
@@ -2844,7 +3185,7 @@ ${pageContent || '无内容'}
     // 确保默认角色已存在（仅在为空或缺少时补齐）
     async ensureDefaultRoleConfigs() {
         const existing = await this.getRoleConfigs();
-        const defaults = this.buildDefaultRoleConfigsFromBuiltins();
+        const defaults = this.buildDefaultRoleConfigsFromBuiltins(existing);
         if (!existing || existing.length === 0) {
             await this.setRoleConfigs(defaults);
             return true;
@@ -2868,7 +3209,7 @@ ${pageContent || '无内容'}
         // 回填缺失图标（老数据兼容）
         for (const c of existing) {
             if ((!c.icon || !String(c.icon).trim()) && c.actionKey) {
-                c.icon = this.getRoleIcon(c);
+                c.icon = this.getRoleIcon(c, existing);
                 updated = true;
             }
         }
@@ -2883,40 +3224,35 @@ ${pageContent || '无内容'}
         const list = this.chatWindow.querySelector('#pet-role-list');
         if (!list) return;
         const configsRaw = await this.getRoleConfigs();
-        const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
         list.innerHTML = '';
 
-        // 显示所有角色
-        const buttonLabels = {
-            'summary': '生成摘要',
-            'mindmap': '生成思维导图',
-            'flashcard': '生成闪卡',
-            'report': '生成专项报告',
-            'bestPractice': '生成最佳实践'
-        };
-
         // 先显示已绑定按钮的角色（按按钮顺序）
-        allowedKeys.forEach((key) => {
+        // 使用 getOrderedBoundRoleKeys() 确保与 refreshWelcomeActionButtons() 顺序一致
+        const orderedKeys = await this.getOrderedBoundRoleKeys();
+        const boundRoleIds = new Set();
+        for (const key of orderedKeys) {
             const config = (configsRaw || []).find(c => c && c.actionKey === key);
             if (config) {
-                const row = this.createRoleListItem(config, buttonLabels[key]);
+                boundRoleIds.add(config.id);
+                // 使用统一的角色信息获取函数获取标签
+                const roleInfo = await this.getRoleInfoForAction(key);
+                const row = this.createRoleListItem(config, roleInfo.label, configsRaw);
                 list.appendChild(row);
             }
-        });
+        }
 
-        // 再显示未绑定按钮的角色
-        const unboundRoles = (configsRaw || []).filter(c => c && c.id && (!c.actionKey || !allowedKeys.includes(c.actionKey)));
-        if (unboundRoles.length > 0) {
+        // 再显示其他角色（没有绑定按钮的角色）
+        const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id));
+        if (otherRoles.length > 0) {
             // 如果有已绑定的角色，添加分隔线
-            const boundCount = allowedKeys.filter(k => (configsRaw || []).find(c => c && c.actionKey === k)).length;
-            if (boundCount > 0) {
+            if (orderedKeys.length > 0) {
                 const separator = document.createElement('div');
                 separator.style.cssText = 'height:1px; background:rgba(255,255,255,0.1); margin:12px 0;';
                 list.appendChild(separator);
             }
             
-            unboundRoles.forEach((config) => {
-                const row = this.createRoleListItem(config, '未绑定按钮');
+            otherRoles.forEach((config) => {
+                const row = this.createRoleListItem(config, '', configsRaw);
                 list.appendChild(row);
             });
         }
@@ -2931,7 +3267,7 @@ ${pageContent || '无内容'}
     }
 
     // 创建角色列表项
-    createRoleListItem(c, buttonLabel) {
+    createRoleListItem(c, buttonLabel, allConfigs = null) {
         const row = document.createElement('div');
         row.style.cssText = `
             display:flex !important;
@@ -2946,14 +3282,16 @@ ${pageContent || '无内容'}
         const info = document.createElement('div');
         info.style.cssText = 'display:flex; flex-direction:column; gap:4px; flex:1;';
         const name = document.createElement('div');
-        const displayIcon = this.getRoleIcon(c);
+        const displayIcon = this.getRoleIcon(c, allConfigs);
         name.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${c.label || '(未命名)'}`;
         name.style.cssText = 'font-weight:600; font-size:12px;';
-        const sub = document.createElement('div');
-        sub.textContent = buttonLabel;
-        sub.style.cssText = 'color:#64748b; font-size:11px;';
         info.appendChild(name);
-        info.appendChild(sub);
+        if (buttonLabel && buttonLabel.trim()) {
+            const sub = document.createElement('div');
+            sub.textContent = buttonLabel;
+            sub.style.cssText = 'color:#64748b; font-size:11px;';
+            info.appendChild(sub);
+        }
 
         const btns = document.createElement('div');
         btns.style.cssText = 'display:flex; gap:6px;';
@@ -3017,9 +3355,8 @@ ${pageContent || '无内容'}
         const form = this.chatWindow.querySelector('#pet-role-form');
         if (!form) return;
         const configsAll = await this.getRoleConfigs();
-        const allowedKeys = ['summary','mindmap','flashcard','report','bestPractice'];
         // 用于查找已绑定按钮的角色列表（用于检查占用情况）
-        const configs = (configsAll || []).filter(c => c && allowedKeys.includes(c.actionKey));
+        const configs = (configsAll || []).filter(c => c && c.actionKey);
         // 当前编辑的角色（从所有角色中查找）
         const current = editId ? (configsAll || []).find(c => c && c.id === editId) : null;
         
@@ -3324,7 +3661,7 @@ ${pageContent || '无内容'}
     }
 
     // 创建聊天窗口
-    createChatWindow() {
+    async createChatWindow() {
         // 注意：chatWindowState 已在 openChatWindow() 中初始化
 
         // 创建聊天窗口容器
@@ -3472,293 +3809,9 @@ ${pageContent || '无内容'}
             messageText.innerHTML = pageInfoHtml;
         }
 
-        // 创建生成摘要图标
-        const generateSummaryIcon = document.createElement('span');
-        generateSummaryIcon.setAttribute('data-action-key', 'summary');
-        generateSummaryIcon.innerHTML = '≈';
-        generateSummaryIcon.title = '生成摘要';
-        generateSummaryIcon.style.cssText = `
-            padding: 4px !important;
-            cursor: pointer !important;
-            font-size: 18px !important;
-            color: #666 !important;
-            font-weight: 300 !important;
-            transition: all 0.2s ease !important;
-            flex-shrink: 0 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            user-select: none !important;
-            width: 24px !important;
-            height: 24px !important;
-        `;
-
-        // 创建生成思维导图图标
-        const generateMindmapIcon = document.createElement('span');
-        generateMindmapIcon.setAttribute('data-action-key', 'mindmap');
-        generateMindmapIcon.innerHTML = '⊞';
-        generateMindmapIcon.title = '生成思维导图';
-        generateMindmapIcon.style.cssText = `
-            padding: 4px !important;
-            cursor: pointer !important;
-            font-size: 18px !important;
-            color: #666 !important;
-            font-weight: 300 !important;
-            transition: all 0.2s ease !important;
-            flex-shrink: 0 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            user-select: none !important;
-            width: 24px !important;
-            height: 24px !important;
-            line-height: 24px !important;
-        `;
-
-        // 创建生成闪卡图标
-        const generateFlashcardIcon = document.createElement('span');
-        generateFlashcardIcon.setAttribute('data-action-key', 'flashcard');
-        generateFlashcardIcon.innerHTML = '📚';
-        generateFlashcardIcon.title = '生成闪卡';
-        generateFlashcardIcon.style.cssText = `
-            padding: 4px !important;
-            cursor: pointer !important;
-            font-size: 18px !important;
-            color: #666 !important;
-            font-weight: 300 !important;
-            transition: all 0.2s ease !important;
-            flex-shrink: 0 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            user-select: none !important;
-            width: 24px !important;
-            height: 24px !important;
-            line-height: 24px !important;
-        `;
-
-        // 创建生成专项报告图标
-        const generateReportIcon = document.createElement('span');
-        generateReportIcon.setAttribute('data-action-key', 'report');
-        generateReportIcon.innerHTML = '📋';
-        generateReportIcon.title = '生成专项报告';
-        generateReportIcon.style.cssText = `
-            padding: 4px !important;
-            cursor: pointer !important;
-            font-size: 18px !important;
-            color: #666 !important;
-            font-weight: 300 !important;
-            transition: all 0.2s ease !important;
-            flex-shrink: 0 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            user-select: none !important;
-            width: 24px !important;
-            height: 24px !important;
-            line-height: 24px !important;
-        `;
-
-        // 创建生成最佳实践图标
-        const generateBestPracticeIcon = document.createElement('span');
-        generateBestPracticeIcon.setAttribute('data-action-key', 'bestPractice');
-        generateBestPracticeIcon.innerHTML = '⭐';
-        generateBestPracticeIcon.title = '生成最佳实践';
-
-        // 存储动作按钮引用，便于根据角色设置动态重建
-        this.actionIcons = {
-            summary: generateSummaryIcon,
-            mindmap: generateMindmapIcon,
-            flashcard: generateFlashcardIcon,
-            report: generateReportIcon,
-            bestPractice: generateBestPracticeIcon,
-        };
-
-        // 初次应用角色设置中的图标与标题
-        this.applyRoleConfigToActionIcon(generateSummaryIcon, 'summary');
-        this.applyRoleConfigToActionIcon(generateMindmapIcon, 'mindmap');
-        this.applyRoleConfigToActionIcon(generateFlashcardIcon, 'flashcard');
-        this.applyRoleConfigToActionIcon(generateReportIcon, 'report');
-        this.applyRoleConfigToActionIcon(generateBestPracticeIcon, 'bestPractice');
-        generateBestPracticeIcon.style.cssText = `
-            padding: 4px !important;
-            cursor: pointer !important;
-            font-size: 18px !important;
-            color: #666 !important;
-            font-weight: 300 !important;
-            transition: all 0.2s ease !important;
-            flex-shrink: 0 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            user-select: none !important;
-            width: 24px !important;
-            height: 24px !important;
-            line-height: 24px !important;
-        `;
-
-        // 统一的 hover 效果处理函数
-        const createHoverHandler = (iconEl, processingFlag) => {
-            return {
-                mouseenter: function() {
-                    if (!processingFlag.value) {
-                        this.style.fontSize = '20px';
-                        this.style.color = '#333';
-                        this.style.transform = 'scale(1.1)';
-                    }
-                },
-                mouseleave: function() {
-                    if (!processingFlag.value) {
-                        this.style.fontSize = '18px';
-                        this.style.color = '#666';
-                        this.style.transform = 'scale(1)';
-                    }
-                }
-            };
-        };
-
-        // 为每个按钮创建独立的 processing flag
-        const summaryProcessing = { value: false };
-        const mindmapProcessing = { value: false };
-        const flashcardProcessing = { value: false };
-        const reportProcessing = { value: false };
-        const bestPracticeProcessing = { value: false };
-
-        const summaryHover = createHoverHandler(generateSummaryIcon, summaryProcessing);
-        const mindmapHover = createHoverHandler(generateMindmapIcon, mindmapProcessing);
-        const flashcardHover = createHoverHandler(generateFlashcardIcon, flashcardProcessing);
-        const reportHover = createHoverHandler(generateReportIcon, reportProcessing);
-        const bestPracticeHover = createHoverHandler(generateBestPracticeIcon, bestPracticeProcessing);
-
-        generateSummaryIcon.addEventListener('mouseenter', summaryHover.mouseenter);
-        generateSummaryIcon.addEventListener('mouseleave', summaryHover.mouseleave);
-        generateMindmapIcon.addEventListener('mouseenter', mindmapHover.mouseenter);
-        generateMindmapIcon.addEventListener('mouseleave', mindmapHover.mouseleave);
-        generateFlashcardIcon.addEventListener('mouseenter', flashcardHover.mouseenter);
-        generateFlashcardIcon.addEventListener('mouseleave', flashcardHover.mouseleave);
-        generateReportIcon.addEventListener('mouseenter', reportHover.mouseenter);
-        generateReportIcon.addEventListener('mouseleave', reportHover.mouseleave);
-        generateBestPracticeIcon.addEventListener('mouseenter', bestPracticeHover.mouseenter);
-        generateBestPracticeIcon.addEventListener('mouseleave', bestPracticeHover.mouseleave);
-
-        // 统一的按钮点击处理函数（动态绑定角色）
-        const createActionHandler = (actionKey, iconEl, processingFlag) => {
-            return async () => {
-                if (processingFlag.value) return;
-
-                processingFlag.value = true;
-                iconEl.innerHTML = '◉';
-                iconEl.style.opacity = '0.6';
-                iconEl.style.cursor = 'not-allowed';
-
-                // 获取页面信息
-                const pageInfo = this.getPageInfo();
-                
-                // 从角色配置中获取提示语、名称、图标
-                let roleInfo;
-                try {
-                    roleInfo = await this.getRolePromptForAction(actionKey, pageInfo);
-                } catch (error) {
-                    console.error('获取角色信息失败:', error);
-                    roleInfo = {
-                        systemPrompt: '',
-                        userPrompt: '',
-                        label: '自定义角色',
-                        icon: '🙂'
-                    };
-                }
-
-                // 创建新的消息
-                const message = this.createMessageElement('', 'pet');
-                messagesContainer.appendChild(message);
-                const messageText = message.querySelector('[data-message-type="pet-bubble"]');
-                const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
-
-                // 显示加载动画
-                if (messageAvatar) {
-                    messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-                }
-
-                // 使用角色配置中的图标显示加载文本
-                const loadingIcon = roleInfo.icon || '📖';
-                if (messageText) {
-                    messageText.textContent = `${loadingIcon} 正在${roleInfo.label || '处理'}...`;
-                }
-
-                try {
-                    // 使用动态提示语流式生成内容
-                    await this.generateContentStream(
-                        roleInfo.systemPrompt,
-                        roleInfo.userPrompt,
-                        (chunk, fullContent) => {
-                            if (messageText) {
-                                messageText.innerHTML = this.renderMarkdown(fullContent);
-                                // 更新原始文本用于复制功能
-                                messageText.setAttribute('data-original-text', fullContent);
-                                // 添加复制按钮
-                                if (fullContent && fullContent.trim()) {
-                                    const copyButtonContainer = message.querySelector('[data-copy-button-container]');
-                                    if (copyButtonContainer) {
-                                        this.addCopyButton(copyButtonContainer, messageText);
-                                    }
-                                }
-                                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                            }
-                        },
-                        `${loadingIcon} 正在${roleInfo.label || '处理'}...`
-                    );
-
-                    // 停止加载动画
-                    if (messageAvatar) {
-                        messageAvatar.style.animation = '';
-                    }
-
-                    iconEl.innerHTML = '✓';
-                    iconEl.style.cursor = 'default';
-                    iconEl.style.color = '#4caf50';
-
-                    // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                    setTimeout(() => {
-                        this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                        iconEl.style.color = '#666';
-                        iconEl.style.cursor = 'pointer';
-                        iconEl.style.opacity = '1';
-                        processingFlag.value = false;
-                    }, 2000);
-
-                } catch (error) {
-                    console.error(`生成${roleInfo.label}失败:`, error);
-                    if (messageText) {
-                        messageText.innerHTML = this.renderMarkdown(
-                            `抱歉，无法生成"${pageInfo.title || pageTitle}"的${roleInfo.label || '内容'}。您可以尝试刷新页面后重试。${loadingIcon}`
-                        );
-                    }
-                    if (messageAvatar) {
-                        messageAvatar.style.animation = '';
-                    }
-                    iconEl.innerHTML = '✕';
-                    iconEl.style.cursor = 'default';
-                    iconEl.style.color = '#f44336';
-
-                    // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                    setTimeout(() => {
-                        this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                        iconEl.style.color = '#666';
-                        iconEl.style.cursor = 'pointer';
-                        iconEl.style.opacity = '1';
-                        processingFlag.value = false;
-                    }, 1500);
-                } finally {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }
-            };
-        };
-
-        generateSummaryIcon.addEventListener('click', createActionHandler('summary', generateSummaryIcon, summaryProcessing));
-        generateMindmapIcon.addEventListener('click', createActionHandler('mindmap', generateMindmapIcon, mindmapProcessing));
-        generateFlashcardIcon.addEventListener('click', createActionHandler('flashcard', generateFlashcardIcon, flashcardProcessing));
-        generateReportIcon.addEventListener('click', createActionHandler('report', generateReportIcon, reportProcessing));
-        generateBestPracticeIcon.addEventListener('click', createActionHandler('bestPractice', generateBestPracticeIcon, bestPracticeProcessing));
+        // 初始化按钮相关的对象（保留以避免其他地方出错）
+        this.actionIcons = {};
+        this.buttonHandlers = {};
 
         // 将按钮添加到消息容器中，和时间戳同一行
         setTimeout(() => {
@@ -3792,14 +3845,6 @@ ${pageContent || '无内容'}
                     gap: 8px !important;
                     flex-shrink: 0 !important;
                 `;
-                // 默认开关配置
-                const defaultActionToggles = {
-                    summary: true,
-                    mindmap: true,
-                    flashcard: true,
-                    report: true,
-                    bestPractice: true,
-                };
 
                 // 把 actionsGroup 放到一个相对定位容器里，以便菜单定位
                 const actionsWrapper = document.createElement('div');
@@ -3810,50 +3855,12 @@ ${pageContent || '无内容'}
                     gap: 8px !important;
                 `;
 
-                // 初始化显示状态并组装
-                chrome.storage.local.get(['actionToggles'], (result) => {
-                    const toggles = { ...defaultActionToggles, ...(result.actionToggles || {}) };
-                    generateSummaryIcon.style.display = toggles.summary ? 'inline-flex' : 'none';
-                    generateMindmapIcon.style.display = toggles.mindmap ? 'inline-flex' : 'none';
-                    generateFlashcardIcon.style.display = toggles.flashcard ? 'inline-flex' : 'none';
-                    generateReportIcon.style.display = toggles.report ? 'inline-flex' : 'none';
-                    generateBestPracticeIcon.style.display = toggles.bestPractice ? 'inline-flex' : 'none';
-
-                    actionsGroup.appendChild(generateSummaryIcon);
-                    actionsGroup.appendChild(generateMindmapIcon);
-                    actionsGroup.appendChild(generateFlashcardIcon);
-                    actionsGroup.appendChild(generateReportIcon);
-                    actionsGroup.appendChild(generateBestPracticeIcon);
-                    // 设置按钮（放在最后）
-                    const settingsButton = document.createElement('span');
-                    settingsButton.innerHTML = '⚙️';
-                    settingsButton.title = '角色设置';
-                    settingsButton.style.cssText = `
-                        padding: 4px !important;
-                        cursor: pointer !important;
-                        font-size: 18px !important;
-                        color: #666 !important;
-                        font-weight: 300 !important;
-                        transition: all 0.2s ease !important;
-                        display: inline-flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        user-select: none !important;
-                        width: 24px !important;
-                        height: 24px !important;
-                        line-height: 24px !important;
-                    `;
-                    settingsButton.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.openRoleSettingsModal();
-                    });
-                    actionsGroup.appendChild(settingsButton);
-
-                    actionsWrapper.appendChild(actionsGroup);
-                    messageTime.appendChild(actionsWrapper);
-                    // 同步应用角色设置到欢迎消息动作按钮
-                    this.refreshWelcomeActionButtons();
-                });
+                actionsWrapper.appendChild(actionsGroup);
+                messageTime.appendChild(actionsWrapper);
+                
+                // 根据角色设置动态创建按钮（与角色设置列表保持一致）
+                // refreshWelcomeActionButtons() 会从角色配置中获取列表，并确保设置按钮始终在最后
+                this.refreshWelcomeActionButtons();
             }
         }, 100);
 
@@ -4923,6 +4930,17 @@ ${pageContent || '无内容'}
         // 初始化消息容器的底部padding
         this.updateMessagesPaddingBottom = updatePaddingBottom;
         setTimeout(() => this.updateMessagesPaddingBottom(), 50);
+
+        // 监听角色配置变化，自动刷新按钮列表
+        if (!this.roleConfigChangeListener) {
+            this.roleConfigChangeListener = (changes, namespace) => {
+                if (namespace === 'local' && changes.roleConfigs) {
+                    // 角色配置发生变化，自动刷新欢迎消息下的按钮列表
+                    this.refreshWelcomeActionButtons();
+                }
+            };
+            chrome.storage.onChanged.addListener(this.roleConfigChangeListener);
+        }
     }
 
     // 更新消息容器的底部padding（公共方法）

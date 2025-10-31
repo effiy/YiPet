@@ -22,12 +22,6 @@
       "matches": ["<all_urls>"],
       "js": [
         "config.js", 
-        "roles/summary.js",
-        "roles/mindmap.js",
-        "roles/flashcard.js",
-        "roles/report.js",
-        "roles/bestPractice.js",
-        "roles/index.js",
         "turndown.js", 
         "marked.min.js",
         "content.js"

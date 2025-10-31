@@ -2422,7 +2422,7 @@ ${pageContent || '无内容'}
         return orderedKeys;
     }
 
-    // 刷新欢迎消息操作按钮：显示角色列表作为按钮，设置按钮始终在最后
+    // 刷新欢迎消息操作按钮：显示角色列表作为按钮（设置按钮已移动到 chat-request-status-button 后面）
     async refreshWelcomeActionButtons() {
         if (!this.chatWindow) return;
         const container = this.chatWindow.querySelector('#pet-welcome-actions');
@@ -2942,41 +2942,10 @@ ${pageContent || '无内容'}
             }
         }
         
-        // 设置按钮始终在最后（复用或创建）
-        let settingsButton = this.settingsButton;
-        if (!settingsButton) {
-            settingsButton = document.createElement('span');
-            settingsButton.innerHTML = '⚙️';
-            settingsButton.title = '角色设置';
-            settingsButton.style.cssText = `
-                padding: 4px !important;
-                cursor: pointer !important;
-                font-size: 18px !important;
-                color: #666 !important;
-                font-weight: 300 !important;
-                transition: all 0.2s ease !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                user-select: none !important;
-                width: 24px !important;
-                height: 24px !important;
-                line-height: 24px !important;
-            `;
-            settingsButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openRoleSettingsModal();
-            });
-            this.settingsButton = settingsButton;
-        }
-        
-        // 如果设置按钮已经在容器中，不要重复添加
-        if (settingsButton.parentNode !== container) {
-            container.appendChild(settingsButton);
-        }
+        // 角色设置按钮已移动到 chat-request-status-button 后面，不再添加到欢迎消息容器中
     }
     
-    // 为消息添加动作按钮（复制欢迎消息的按钮，包括设置按钮）
+    // 为消息添加动作按钮（复制欢迎消息的按钮，设置按钮已移动到 chat-request-status-button 后面）
     async addActionButtonsToMessage(messageDiv, forceRefresh = false) {
         // 检查是否是第一条消息（欢迎消息），如果是则不添加（因为它已经有按钮了）
         const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
@@ -5852,7 +5821,47 @@ ${pageContent || '无内容'}
         // 点击按钮终止请求
         requestStatusButton.addEventListener('click', abortRequest);
 
+        // 先添加角色设置按钮到 rightBottomGroup（在 requestStatusButton 之前）
+        let settingsButton = this.settingsButton;
+        if (!settingsButton) {
+            settingsButton = document.createElement('span');
+            settingsButton.innerHTML = '⚙️';
+            settingsButton.title = '角色设置';
+            settingsButton.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 18px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 24px !important;
+                height: 24px !important;
+                line-height: 24px !important;
+            `;
+            settingsButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openRoleSettingsModal();
+            });
+            this.settingsButton = settingsButton;
+        }
+        
+        // 如果设置按钮已经在其他容器中，先移除它
+        if (settingsButton.parentNode && settingsButton.parentNode !== rightBottomGroup) {
+            settingsButton.parentNode.removeChild(settingsButton);
+        }
+        
+        // 如果设置按钮不在 rightBottomGroup 中，先添加它（在 requestStatusButton 之前）
+        if (settingsButton.parentNode !== rightBottomGroup) {
+            rightBottomGroup.appendChild(settingsButton);
+        }
+        
+        // 然后添加请求状态按钮
         rightBottomGroup.appendChild(requestStatusButton);
+        
         bottomToolbar.appendChild(rightBottomGroup);
         inputContainer.appendChild(bottomToolbar);
 

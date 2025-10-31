@@ -1217,7 +1217,6 @@ class PetManager {
 
             // 构建包含页面内容的完整消息
             const pageTitle = document.title || '当前页面';
-            const pageUrl = window.location.href;
 
             // 根据开关状态决定是否包含页面内容
             let userMessage = message;

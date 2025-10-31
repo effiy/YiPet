@@ -2460,6 +2460,93 @@ ${pageContent ? pageContent : '无内容'}
         return '🙂';
     }
 
+    // 根据 actionKey 从角色配置中获取提示语（优先使用自定义 prompt，否则从 roles 模块获取）
+    async getRolePromptForAction(actionKey, pageInfo) {
+        try {
+            const configs = await this.getRoleConfigs();
+            const cfg = Array.isArray(configs) ? configs.find(c => c && c.actionKey === actionKey) : null;
+            
+            // 如果角色配置中有自定义的 prompt，优先使用
+            if (cfg && cfg.prompt && cfg.prompt.trim()) {
+                const pageTitle = pageInfo.title || document.title || '当前页面';
+                const pageUrl = pageInfo.url || window.location.href;
+                const pageDescription = pageInfo.description || '';
+                const pageContent = pageInfo.content || '';
+                
+                // 构建 userPrompt（根据原有 roles 模块的模式）
+                const userPrompt = `页面标题：${pageTitle}
+页面URL：${pageUrl}
+${pageDescription ? `页面描述：${pageDescription}` : ''}
+
+页面内容（Markdown 格式）：
+${pageContent || '无内容'}
+
+请根据以上信息进行分析和处理。`;
+                
+                return {
+                    systemPrompt: cfg.prompt.trim(),
+                    userPrompt: userPrompt,
+                    label: cfg.label || '自定义角色',
+                    icon: this.getRoleIcon(cfg)
+                };
+            }
+            
+            // 如果没有自定义 prompt，则从原有的 roles 模块获取
+            const prompts = getPromptForRole(actionKey, pageInfo);
+            const defaultLabels = {
+                summary: '生成摘要',
+                mindmap: '生成思维导图',
+                flashcard: '生成闪卡',
+                report: '生成专项报告',
+                bestPractice: '生成最佳实践'
+            };
+            
+            return {
+                systemPrompt: prompts.systemPrompt,
+                userPrompt: prompts.userPrompt,
+                label: (cfg && cfg.label) ? cfg.label : (defaultLabels[actionKey] || '自定义角色'),
+                icon: this.getRoleIcon(cfg || { actionKey })
+            };
+        } catch (error) {
+            console.error('获取角色提示语失败:', error);
+            // 降级到原有的 roles 模块
+            const prompts = getPromptForRole(actionKey, pageInfo);
+            return {
+                systemPrompt: prompts.systemPrompt,
+                userPrompt: prompts.userPrompt,
+                label: '自定义角色',
+                icon: '🙂'
+            };
+        }
+    }
+
+    // 通用的流式生成函数，支持动态 systemPrompt 和 userPrompt
+    async generateContentStream(systemPrompt, userPrompt, onContent, loadingText = '正在处理...') {
+        try {
+            console.log('调用大模型生成内容，systemPrompt长度:', systemPrompt ? systemPrompt.length : 0);
+            
+            // 调用大模型 API（使用流式接口）
+            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromSystem: systemPrompt,
+                    fromUser: userPrompt,
+                    model: this.currentModel
+                })
+            });
+
+            // 使用通用的流式响应处理
+            return await this.processStreamingResponse(response, onContent);
+        } catch (error) {
+            console.error('生成内容失败:', error);
+            throw error;
+        }
+    }
+
     // 将角色设置应用到欢迎消息下方的动作按钮（根据 actionKey 动态更新图标与标题）
     async applyRoleConfigToActionIcon(iconEl, actionKey) {
         try {
@@ -3510,521 +3597,168 @@ ${pageContent ? pageContent : '无内容'}
             line-height: 24px !important;
         `;
 
-        let isProcessing = false;
-        let isMindmapProcessing = false;
-        let isFlashcardProcessing = false;
-        let isReportProcessing = false;
-        let isBestPracticeProcessing = false;
-
-        generateSummaryIcon.addEventListener('mouseenter', function() {
-            if (!isProcessing) {
-                this.style.fontSize = '20px';
-                this.style.color = '#333';
-                this.style.transform = 'scale(1.1)';
-            }
-        });
-
-        generateSummaryIcon.addEventListener('mouseleave', function() {
-            if (!isProcessing) {
-                this.style.fontSize = '18px';
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            }
-        });
-
-        generateMindmapIcon.addEventListener('mouseenter', function() {
-            if (!isMindmapProcessing) {
-                this.style.fontSize = '20px';
-                this.style.color = '#333';
-                this.style.transform = 'scale(1.1)';
-            }
-        });
-
-        generateMindmapIcon.addEventListener('mouseleave', function() {
-            if (!isMindmapProcessing) {
-                this.style.fontSize = '18px';
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            }
-        });
-
-        generateFlashcardIcon.addEventListener('mouseenter', function() {
-            if (!isFlashcardProcessing) {
-                this.style.fontSize = '20px';
-                this.style.color = '#333';
-                this.style.transform = 'scale(1.1)';
-            }
-        });
-
-        generateFlashcardIcon.addEventListener('mouseleave', function() {
-            if (!isFlashcardProcessing) {
-                this.style.fontSize = '18px';
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            }
-        });
-
-        generateReportIcon.addEventListener('mouseenter', function() {
-            if (!isReportProcessing) {
-                this.style.fontSize = '20px';
-                this.style.color = '#333';
-                this.style.transform = 'scale(1.1)';
-            }
-        });
-
-        generateReportIcon.addEventListener('mouseleave', function() {
-            if (!isReportProcessing) {
-                this.style.fontSize = '18px';
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            }
-        });
-
-        generateBestPracticeIcon.addEventListener('mouseenter', function() {
-            if (!isBestPracticeProcessing) {
-                this.style.fontSize = '20px';
-                this.style.color = '#333';
-                this.style.transform = 'scale(1.1)';
-            }
-        });
-
-        generateBestPracticeIcon.addEventListener('mouseleave', function() {
-            if (!isBestPracticeProcessing) {
-                this.style.fontSize = '18px';
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            }
-        });
-
-        generateSummaryIcon.addEventListener('click', async () => {
-            if (isProcessing) return;
-
-            isProcessing = true;
-            generateSummaryIcon.innerHTML = '◉';
-            generateSummaryIcon.style.opacity = '0.6';
-            generateSummaryIcon.style.cursor = 'not-allowed';
-
-            // 创建新的摘要消息
-            const summaryMessage = this.createMessageElement('', 'pet');
-            messagesContainer.appendChild(summaryMessage);
-            const summaryText = summaryMessage.querySelector('[data-message-type="pet-bubble"]');
-            const summaryAvatar = summaryMessage.querySelector('[data-message-type="pet-avatar"]');
-
-            // 显示加载动画
-            if (summaryAvatar) {
-                summaryAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-            }
-
-            if (summaryText) {
-                summaryText.textContent = '📖 正在分析页面内容...';
-            }
-
-            try {
-                // 流式生成摘要信息
-                await this.generateWelcomeMessageStream((chunk, fullContent) => {
-                    if (summaryText) {
-                        summaryText.innerHTML = this.renderMarkdown(fullContent);
-                        // 更新原始文本用于复制功能
-                        summaryText.setAttribute('data-original-text', fullContent);
-                        // 添加复制按钮
-                        if (fullContent && fullContent.trim()) {
-                            const copyButtonContainer = summaryMessage.querySelector('[data-copy-button-container]');
-                            if (copyButtonContainer) {
-                                this.addCopyButton(copyButtonContainer, summaryText);
-                            }
-                        }
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        // 统一的 hover 效果处理函数
+        const createHoverHandler = (iconEl, processingFlag) => {
+            return {
+                mouseenter: function() {
+                    if (!processingFlag.value) {
+                        this.style.fontSize = '20px';
+                        this.style.color = '#333';
+                        this.style.transform = 'scale(1.1)';
                     }
-                });
-
-                // 停止加载动画
-                if (summaryAvatar) {
-                    summaryAvatar.style.animation = '';
-                }
-
-                generateSummaryIcon.innerHTML = '✓';
-                generateSummaryIcon.style.cursor = 'default';
-                generateSummaryIcon.style.color = '#4caf50';
-
-                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateSummaryIcon, 'summary');
-                    generateSummaryIcon.style.color = '#666';
-                    generateSummaryIcon.style.cursor = 'pointer';
-                    generateSummaryIcon.style.opacity = '1';
-                    isProcessing = false;
-                }, 2000);
-
-            } catch (error) {
-                console.error('生成摘要信息失败:', error);
-                if (summaryText) {
-                    summaryText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageTitle}"的摘要信息。您可以尝试刷新页面后重试。📖`
-                    );
-                }
-                if (summaryAvatar) {
-                    summaryAvatar.style.animation = '';
-                }
-                generateSummaryIcon.innerHTML = '✕';
-                generateSummaryIcon.style.cursor = 'default';
-                generateSummaryIcon.style.color = '#f44336';
-
-                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateSummaryIcon, 'summary');
-                    generateSummaryIcon.style.color = '#666';
-                    generateSummaryIcon.style.cursor = 'pointer';
-                    generateSummaryIcon.style.opacity = '1';
-                    isProcessing = false;
-                }, 1500);
-            } finally {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        });
-
-        generateMindmapIcon.addEventListener('click', async () => {
-            if (isMindmapProcessing) return;
-
-            isMindmapProcessing = true;
-            generateMindmapIcon.innerHTML = '◉';
-            generateMindmapIcon.style.opacity = '0.6';
-            generateMindmapIcon.style.cursor = 'not-allowed';
-
-            // 创建新的思维导图消息
-            const mindmapMessage = this.createMessageElement('', 'pet');
-            messagesContainer.appendChild(mindmapMessage);
-            const mindmapText = mindmapMessage.querySelector('[data-message-type="pet-bubble"]');
-            const mindmapAvatar = mindmapMessage.querySelector('[data-message-type="pet-avatar"]');
-
-            // 显示加载动画
-            if (mindmapAvatar) {
-                mindmapAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-            }
-
-            if (mindmapText) {
-                mindmapText.textContent = '⊞ 正在生成思维导图...';
-            }
-
-            try {
-                // 流式生成思维导图信息
-                await this.generateMindmapStream((chunk, fullContent) => {
-                    if (mindmapText) {
-                        mindmapText.innerHTML = this.renderMarkdown(fullContent);
-                        // 更新原始文本用于复制功能
-                        mindmapText.setAttribute('data-original-text', fullContent);
-                        // 添加复制按钮
-                        if (fullContent && fullContent.trim()) {
-                            const copyButtonContainer = mindmapMessage.querySelector('[data-copy-button-container]');
-                            if (copyButtonContainer) {
-                                this.addCopyButton(copyButtonContainer, mindmapText);
-                            }
-                        }
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                },
+                mouseleave: function() {
+                    if (!processingFlag.value) {
+                        this.style.fontSize = '18px';
+                        this.style.color = '#666';
+                        this.style.transform = 'scale(1)';
                     }
-                });
+                }
+            };
+        };
 
-                // 停止加载动画
-                if (mindmapAvatar) {
-                    mindmapAvatar.style.animation = '';
+        // 为每个按钮创建独立的 processing flag
+        const summaryProcessing = { value: false };
+        const mindmapProcessing = { value: false };
+        const flashcardProcessing = { value: false };
+        const reportProcessing = { value: false };
+        const bestPracticeProcessing = { value: false };
+
+        const summaryHover = createHoverHandler(generateSummaryIcon, summaryProcessing);
+        const mindmapHover = createHoverHandler(generateMindmapIcon, mindmapProcessing);
+        const flashcardHover = createHoverHandler(generateFlashcardIcon, flashcardProcessing);
+        const reportHover = createHoverHandler(generateReportIcon, reportProcessing);
+        const bestPracticeHover = createHoverHandler(generateBestPracticeIcon, bestPracticeProcessing);
+
+        generateSummaryIcon.addEventListener('mouseenter', summaryHover.mouseenter);
+        generateSummaryIcon.addEventListener('mouseleave', summaryHover.mouseleave);
+        generateMindmapIcon.addEventListener('mouseenter', mindmapHover.mouseenter);
+        generateMindmapIcon.addEventListener('mouseleave', mindmapHover.mouseleave);
+        generateFlashcardIcon.addEventListener('mouseenter', flashcardHover.mouseenter);
+        generateFlashcardIcon.addEventListener('mouseleave', flashcardHover.mouseleave);
+        generateReportIcon.addEventListener('mouseenter', reportHover.mouseenter);
+        generateReportIcon.addEventListener('mouseleave', reportHover.mouseleave);
+        generateBestPracticeIcon.addEventListener('mouseenter', bestPracticeHover.mouseenter);
+        generateBestPracticeIcon.addEventListener('mouseleave', bestPracticeHover.mouseleave);
+
+        // 统一的按钮点击处理函数（动态绑定角色）
+        const createActionHandler = (actionKey, iconEl, processingFlag) => {
+            return async () => {
+                if (processingFlag.value) return;
+
+                processingFlag.value = true;
+                iconEl.innerHTML = '◉';
+                iconEl.style.opacity = '0.6';
+                iconEl.style.cursor = 'not-allowed';
+
+                // 获取页面信息
+                const pageInfo = this.getPageInfo();
+                
+                // 从角色配置中获取提示语、名称、图标
+                let roleInfo;
+                try {
+                    roleInfo = await this.getRolePromptForAction(actionKey, pageInfo);
+                } catch (error) {
+                    console.error('获取角色信息失败:', error);
+                    roleInfo = {
+                        systemPrompt: '',
+                        userPrompt: '',
+                        label: '自定义角色',
+                        icon: '🙂'
+                    };
                 }
 
-                generateMindmapIcon.innerHTML = '✓';
-                generateMindmapIcon.style.cursor = 'default';
-                generateMindmapIcon.style.color = '#4caf50';
+                // 创建新的消息
+                const message = this.createMessageElement('', 'pet');
+                messagesContainer.appendChild(message);
+                const messageText = message.querySelector('[data-message-type="pet-bubble"]');
+                const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
 
-                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateMindmapIcon, 'mindmap');
-                    generateMindmapIcon.style.color = '#666';
-                    generateMindmapIcon.style.cursor = 'pointer';
-                    generateMindmapIcon.style.opacity = '1';
-                    isMindmapProcessing = false;
-                }, 2000);
-
-            } catch (error) {
-                console.error('生成思维导图失败:', error);
-                if (mindmapText) {
-                    mindmapText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageTitle}"的思维导图。您可以尝试刷新页面后重试。⊞`
-                    );
+                // 显示加载动画
+                if (messageAvatar) {
+                    messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
                 }
-                if (mindmapAvatar) {
-                    mindmapAvatar.style.animation = '';
+
+                // 使用角色配置中的图标显示加载文本
+                const loadingIcon = roleInfo.icon || '📖';
+                if (messageText) {
+                    messageText.textContent = `${loadingIcon} 正在${roleInfo.label || '处理'}...`;
                 }
-                generateMindmapIcon.innerHTML = '✕';
-                generateMindmapIcon.style.cursor = 'default';
-                generateMindmapIcon.style.color = '#f44336';
 
-                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateMindmapIcon, 'mindmap');
-                    generateMindmapIcon.style.color = '#666';
-                    generateMindmapIcon.style.cursor = 'pointer';
-                    generateMindmapIcon.style.opacity = '1';
-                    isMindmapProcessing = false;
-                }, 1500);
-            } finally {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        });
-
-        generateFlashcardIcon.addEventListener('click', async () => {
-            if (isFlashcardProcessing) return;
-
-            isFlashcardProcessing = true;
-            generateFlashcardIcon.innerHTML = '◉';
-            generateFlashcardIcon.style.opacity = '0.6';
-            generateFlashcardIcon.style.cursor = 'not-allowed';
-
-            // 创建新的闪卡消息
-            const flashcardMessage = this.createMessageElement('', 'pet');
-            messagesContainer.appendChild(flashcardMessage);
-            const flashcardText = flashcardMessage.querySelector('[data-message-type="pet-bubble"]');
-            const flashcardAvatar = flashcardMessage.querySelector('[data-message-type="pet-avatar"]');
-
-            // 显示加载动画
-            if (flashcardAvatar) {
-                flashcardAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-            }
-
-            if (flashcardText) {
-                flashcardText.textContent = '📚 正在生成闪卡...';
-            }
-
-            try {
-                // 流式生成闪卡信息
-                await this.generateFlashcardStream((chunk, fullContent) => {
-                    if (flashcardText) {
-                        flashcardText.innerHTML = this.renderMarkdown(fullContent);
-                        // 更新原始文本用于复制功能
-                        flashcardText.setAttribute('data-original-text', fullContent);
-                        // 添加复制按钮
-                        if (fullContent && fullContent.trim()) {
-                            const copyButtonContainer = flashcardMessage.querySelector('[data-copy-button-container]');
-                            if (copyButtonContainer) {
-                                this.addCopyButton(copyButtonContainer, flashcardText);
+                try {
+                    // 使用动态提示语流式生成内容
+                    await this.generateContentStream(
+                        roleInfo.systemPrompt,
+                        roleInfo.userPrompt,
+                        (chunk, fullContent) => {
+                            if (messageText) {
+                                messageText.innerHTML = this.renderMarkdown(fullContent);
+                                // 更新原始文本用于复制功能
+                                messageText.setAttribute('data-original-text', fullContent);
+                                // 添加复制按钮
+                                if (fullContent && fullContent.trim()) {
+                                    const copyButtonContainer = message.querySelector('[data-copy-button-container]');
+                                    if (copyButtonContainer) {
+                                        this.addCopyButton(copyButtonContainer, messageText);
+                                    }
+                                }
+                                messagesContainer.scrollTop = messagesContainer.scrollHeight;
                             }
-                        }
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-                });
-
-                // 停止加载动画
-                if (flashcardAvatar) {
-                    flashcardAvatar.style.animation = '';
-                }
-
-                generateFlashcardIcon.innerHTML = '✓';
-                generateFlashcardIcon.style.cursor = 'default';
-                generateFlashcardIcon.style.color = '#4caf50';
-
-                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateFlashcardIcon, 'flashcard');
-                    generateFlashcardIcon.style.color = '#666';
-                    generateFlashcardIcon.style.cursor = 'pointer';
-                    generateFlashcardIcon.style.opacity = '1';
-                    isFlashcardProcessing = false;
-                }, 2000);
-
-            } catch (error) {
-                console.error('生成闪卡失败:', error);
-                if (flashcardText) {
-                    flashcardText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageTitle}"的闪卡。您可以尝试刷新页面后重试。📚`
+                        },
+                        `${loadingIcon} 正在${roleInfo.label || '处理'}...`
                     );
-                }
-                if (flashcardAvatar) {
-                    flashcardAvatar.style.animation = '';
-                }
-                generateFlashcardIcon.innerHTML = '✕';
-                generateFlashcardIcon.style.cursor = 'default';
-                generateFlashcardIcon.style.color = '#f44336';
 
-                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateFlashcardIcon, 'flashcard');
-                    generateFlashcardIcon.style.color = '#666';
-                    generateFlashcardIcon.style.cursor = 'pointer';
-                    generateFlashcardIcon.style.opacity = '1';
-                    isFlashcardProcessing = false;
-                }, 1500);
-            } finally {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        });
-
-        generateReportIcon.addEventListener('click', async () => {
-            if (isReportProcessing) return;
-
-            isReportProcessing = true;
-            generateReportIcon.innerHTML = '◉';
-            generateReportIcon.style.opacity = '0.6';
-            generateReportIcon.style.cursor = 'not-allowed';
-
-            // 创建新的报告消息
-            const reportMessage = this.createMessageElement('', 'pet');
-            messagesContainer.appendChild(reportMessage);
-            const reportText = reportMessage.querySelector('[data-message-type="pet-bubble"]');
-            const reportAvatar = reportMessage.querySelector('[data-message-type="pet-avatar"]');
-
-            // 显示加载动画
-            if (reportAvatar) {
-                reportAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-            }
-
-            if (reportText) {
-                reportText.textContent = '📋 正在生成专项报告...';
-            }
-
-            try {
-                // 流式生成报告信息
-                await this.generateReportStream((chunk, fullContent) => {
-                    if (reportText) {
-                        reportText.innerHTML = this.renderMarkdown(fullContent);
-                        // 更新原始文本用于复制功能
-                        reportText.setAttribute('data-original-text', fullContent);
-                        // 添加复制按钮
-                        if (fullContent && fullContent.trim()) {
-                            const copyButtonContainer = reportMessage.querySelector('[data-copy-button-container]');
-                            if (copyButtonContainer) {
-                                this.addCopyButton(copyButtonContainer, reportText);
-                            }
-                        }
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    // 停止加载动画
+                    if (messageAvatar) {
+                        messageAvatar.style.animation = '';
                     }
-                });
 
-                // 停止加载动画
-                if (reportAvatar) {
-                    reportAvatar.style.animation = '';
-                }
+                    iconEl.innerHTML = '✓';
+                    iconEl.style.cursor = 'default';
+                    iconEl.style.color = '#4caf50';
 
-                generateReportIcon.innerHTML = '✓';
-                generateReportIcon.style.cursor = 'default';
-                generateReportIcon.style.color = '#4caf50';
+                    // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
+                    setTimeout(() => {
+                        this.applyRoleConfigToActionIcon(iconEl, actionKey);
+                        iconEl.style.color = '#666';
+                        iconEl.style.cursor = 'pointer';
+                        iconEl.style.opacity = '1';
+                        processingFlag.value = false;
+                    }, 2000);
 
-                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateReportIcon, 'report');
-                    generateReportIcon.style.color = '#666';
-                    generateReportIcon.style.cursor = 'pointer';
-                    generateReportIcon.style.opacity = '1';
-                    isReportProcessing = false;
-                }, 2000);
-
-            } catch (error) {
-                console.error('生成专项报告失败:', error);
-                if (reportText) {
-                    reportText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageTitle}"的专项报告。您可以尝试刷新页面后重试。📋`
-                    );
-                }
-                if (reportAvatar) {
-                    reportAvatar.style.animation = '';
-                }
-                generateReportIcon.innerHTML = '✕';
-                generateReportIcon.style.cursor = 'default';
-                generateReportIcon.style.color = '#f44336';
-
-                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateReportIcon, 'report');
-                    generateReportIcon.style.color = '#666';
-                    generateReportIcon.style.cursor = 'pointer';
-                    generateReportIcon.style.opacity = '1';
-                    isReportProcessing = false;
-                }, 1500);
-            } finally {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        });
-
-        generateBestPracticeIcon.addEventListener('click', async () => {
-            if (isBestPracticeProcessing) return;
-
-            isBestPracticeProcessing = true;
-            generateBestPracticeIcon.innerHTML = '◉';
-            generateBestPracticeIcon.style.opacity = '0.6';
-            generateBestPracticeIcon.style.cursor = 'not-allowed';
-
-            // 创建新的最佳实践消息
-            const bestPracticeMessage = this.createMessageElement('', 'pet');
-            messagesContainer.appendChild(bestPracticeMessage);
-            const bestPracticeText = bestPracticeMessage.querySelector('[data-message-type="pet-bubble"]');
-            const bestPracticeAvatar = bestPracticeMessage.querySelector('[data-message-type="pet-avatar"]');
-
-            // 显示加载动画
-            if (bestPracticeAvatar) {
-                bestPracticeAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-            }
-
-            if (bestPracticeText) {
-                bestPracticeText.textContent = '⭐ 正在生成最佳实践...';
-            }
-
-            try {
-                // 流式生成最佳实践信息
-                await this.generateBestPracticeStream((chunk, fullContent) => {
-                    if (bestPracticeText) {
-                        bestPracticeText.innerHTML = this.renderMarkdown(fullContent);
-                        // 更新原始文本用于复制功能
-                        bestPracticeText.setAttribute('data-original-text', fullContent);
-                        // 添加复制按钮
-                        if (fullContent && fullContent.trim()) {
-                            const copyButtonContainer = bestPracticeMessage.querySelector('[data-copy-button-container]');
-                            if (copyButtonContainer) {
-                                this.addCopyButton(copyButtonContainer, bestPracticeText);
-                            }
-                        }
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                } catch (error) {
+                    console.error(`生成${roleInfo.label}失败:`, error);
+                    if (messageText) {
+                        messageText.innerHTML = this.renderMarkdown(
+                            `抱歉，无法生成"${pageInfo.title || pageTitle}"的${roleInfo.label || '内容'}。您可以尝试刷新页面后重试。${loadingIcon}`
+                        );
                     }
-                });
+                    if (messageAvatar) {
+                        messageAvatar.style.animation = '';
+                    }
+                    iconEl.innerHTML = '✕';
+                    iconEl.style.cursor = 'default';
+                    iconEl.style.color = '#f44336';
 
-                // 停止加载动画
-                if (bestPracticeAvatar) {
-                    bestPracticeAvatar.style.animation = '';
+                    // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
+                    setTimeout(() => {
+                        this.applyRoleConfigToActionIcon(iconEl, actionKey);
+                        iconEl.style.color = '#666';
+                        iconEl.style.cursor = 'pointer';
+                        iconEl.style.opacity = '1';
+                        processingFlag.value = false;
+                    }, 1500);
+                } finally {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
+            };
+        };
 
-                generateBestPracticeIcon.innerHTML = '✓';
-                generateBestPracticeIcon.style.cursor = 'default';
-                generateBestPracticeIcon.style.color = '#4caf50';
-
-                // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateBestPracticeIcon, 'bestPractice');
-                    generateBestPracticeIcon.style.color = '#666';
-                    generateBestPracticeIcon.style.cursor = 'pointer';
-                    generateBestPracticeIcon.style.opacity = '1';
-                    isBestPracticeProcessing = false;
-                }, 2000);
-
-            } catch (error) {
-                console.error('生成最佳实践失败:', error);
-                if (bestPracticeText) {
-                    bestPracticeText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageTitle}"的最佳实践。您可以尝试刷新页面后重试。⭐`
-                    );
-                }
-                if (bestPracticeAvatar) {
-                    bestPracticeAvatar.style.animation = '';
-                }
-                generateBestPracticeIcon.innerHTML = '✕';
-                generateBestPracticeIcon.style.cursor = 'default';
-                generateBestPracticeIcon.style.color = '#f44336';
-
-                // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
-                setTimeout(() => {
-                    this.applyRoleConfigToActionIcon(generateBestPracticeIcon, 'bestPractice');
-                    generateBestPracticeIcon.style.color = '#666';
-                    generateBestPracticeIcon.style.cursor = 'pointer';
-                    generateBestPracticeIcon.style.opacity = '1';
-                    isBestPracticeProcessing = false;
-                }, 1500);
-            } finally {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        });
+        generateSummaryIcon.addEventListener('click', createActionHandler('summary', generateSummaryIcon, summaryProcessing));
+        generateMindmapIcon.addEventListener('click', createActionHandler('mindmap', generateMindmapIcon, mindmapProcessing));
+        generateFlashcardIcon.addEventListener('click', createActionHandler('flashcard', generateFlashcardIcon, flashcardProcessing));
+        generateReportIcon.addEventListener('click', createActionHandler('report', generateReportIcon, reportProcessing));
+        generateBestPracticeIcon.addEventListener('click', createActionHandler('bestPractice', generateBestPracticeIcon, bestPracticeProcessing));
 
         // 将按钮添加到消息容器中，和时间戳同一行
         setTimeout(() => {

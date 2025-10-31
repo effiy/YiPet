@@ -1879,7 +1879,7 @@ ${pageContent ? pageContent : '无内容'}
         try {
             // 检查开关状态
             let includeContext = true; // 默认包含上下文
-            const contextSwitch = document.getElementById('context-switch');
+            const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
             if (contextSwitch) {
                 includeContext = contextSwitch.checked;
             }
@@ -2020,7 +2020,7 @@ ${pageContent ? pageContent : '无内容'}
         try {
             // 检查开关状态
             let includeContext = true; // 默认包含上下文
-            const contextSwitch = document.getElementById('context-switch');
+            const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
             if (contextSwitch) {
                 includeContext = contextSwitch.checked;
             }

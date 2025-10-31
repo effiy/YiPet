@@ -7815,12 +7815,12 @@ ${pageContent || '无内容'}
                 padding: 0 !important;
             `;
             messageTimeWrapper.appendChild(messageTime);
-            timeAndCopyContainer.appendChild(messageTimeWrapper);
 
             const copyButtonContainer = document.createElement('div');
             copyButtonContainer.setAttribute('data-copy-button-container', 'true');
             copyButtonContainer.style.cssText = 'display: flex;';
             timeAndCopyContainer.appendChild(copyButtonContainer);
+            timeAndCopyContainer.appendChild(messageTimeWrapper);
 
             content.appendChild(timeAndCopyContainer);
 

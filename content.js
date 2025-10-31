@@ -4108,6 +4108,62 @@ ${pageContent ? pageContent : '无内容'}
             mentionButton.style.borderColor = currentMainColor;
         });
 
+        // 创建图片上传按钮（使用宠物颜色主题）
+        const imageUploadButton = document.createElement('button');
+        imageUploadButton.innerHTML = '📷';
+        imageUploadButton.className = 'chat-image-upload-button';
+        imageUploadButton.title = '上传图片';
+        imageUploadButton.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        `;
+
+        imageUploadButton.addEventListener('mouseenter', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            imageUploadButton.style.background = currentMainColor;
+            imageUploadButton.style.color = 'white';
+            imageUploadButton.style.borderColor = currentMainColor;
+        });
+        imageUploadButton.addEventListener('mouseleave', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            imageUploadButton.style.background = 'white';
+            imageUploadButton.style.color = currentMainColor;
+            imageUploadButton.style.borderColor = currentMainColor;
+        });
+
+        // 创建隐藏的文件输入
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const imageDataUrl = event.target.result;
+                    this.sendImageMessage(imageDataUrl);
+                };
+                reader.readAsDataURL(file);
+            }
+            fileInput.value = '';
+        });
+
+        imageUploadButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
         // 创建 + 按钮（使用宠物颜色主题）
         const addButton = document.createElement('button');
         addButton.innerHTML = '+';
@@ -4278,6 +4334,7 @@ ${pageContent ? pageContent : '无内容'}
         contextSwitchContainer.updateColor = updateSwitchColor;
 
         leftButtonGroup.appendChild(mentionButton);
+        leftButtonGroup.appendChild(imageUploadButton);
         leftButtonGroup.appendChild(addButton);
         rightStatusGroup.appendChild(contextSwitchContainer);
         // 添加：页面上下文预览/编辑按钮
@@ -4799,73 +4856,6 @@ ${pageContent ? pageContent : '无内容'}
 
         leftBottomGroup.appendChild(modelSelector);
         bottomToolbar.appendChild(leftBottomGroup);
-
-        // 右侧：上传按钮
-        const rightBottomGroup = document.createElement('div');
-        rightBottomGroup.style.cssText = `
-            display: flex !important;
-            gap: 6px !important;
-            align-items: center !important;
-        `;
-
-        // 创建图片上传按钮（使用宠物颜色主题）
-        const imageUploadButton = document.createElement('button');
-        imageUploadButton.innerHTML = '📷';
-        imageUploadButton.className = 'chat-image-upload-button';
-        imageUploadButton.title = '上传图片';
-        imageUploadButton.style.cssText = `
-            width: 32px !important;
-            height: 32px !important;
-            border-radius: 6px !important;
-            background: white !important;
-            color: ${mainColor} !important;
-            border: 1px solid ${mainColor} !important;
-            cursor: pointer !important;
-            font-size: 16px !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        `;
-
-        imageUploadButton.addEventListener('mouseenter', () => {
-            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            imageUploadButton.style.background = currentMainColor;
-            imageUploadButton.style.color = 'white';
-            imageUploadButton.style.borderColor = currentMainColor;
-        });
-        imageUploadButton.addEventListener('mouseleave', () => {
-            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            imageUploadButton.style.background = 'white';
-            imageUploadButton.style.color = currentMainColor;
-            imageUploadButton.style.borderColor = currentMainColor;
-        });
-
-        // 创建隐藏的文件输入
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.accept = 'image/*';
-        fileInput.style.display = 'none';
-
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const imageDataUrl = event.target.result;
-                    this.sendImageMessage(imageDataUrl);
-                };
-                reader.readAsDataURL(file);
-            }
-            fileInput.value = '';
-        });
-
-        imageUploadButton.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        rightBottomGroup.appendChild(imageUploadButton);
-        bottomToolbar.appendChild(rightBottomGroup);
         inputContainer.appendChild(bottomToolbar);
 
         // 将文件输入添加到容器

@@ -3478,7 +3478,7 @@ ${pageContent || '无内容'}
                 addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
                 addBtn.style.transform = 'translateY(0)';
             });
-            addBtn.addEventListener('click', () => this.renderRoleSettingsForm(null));
+            addBtn.addEventListener('click', () => this.renderRoleSettingsForm(null, false));
             listContainer.appendChild(addBtn);
             
             const list = document.createElement('div');
@@ -3525,9 +3525,13 @@ ${pageContent || '无内容'}
         }
 
         overlay.style.display = 'flex';
-        // 直接渲染当前配置（不再强制补齐默认项，便于“删除”生效）
+        // 直接渲染当前配置（不再强制补齐默认项，便于"删除"生效）
         this.renderRoleSettingsList();
-        if (editId) this.renderRoleSettingsForm(editId);
+        if (editId) {
+            this.renderRoleSettingsForm(editId);
+        } else {
+            this.renderRoleSettingsForm(null, true); // 第二个参数表示显示空白状态
+        }
     }
 
     closeRoleSettingsModal() {
@@ -3781,7 +3785,7 @@ ${pageContent || '无内容'}
             const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
             await this.setRoleConfigs(next);
             this.renderRoleSettingsList();
-            this.renderRoleSettingsForm();
+            this.renderRoleSettingsForm(null, true); // 显示空白状态
             // 同步刷新欢迎消息下的动作按钮
             this.refreshWelcomeActionButtons();
         });
@@ -3793,7 +3797,7 @@ ${pageContent || '无内容'}
         return row;
     }
 
-    async renderRoleSettingsForm(editId = null) {
+    async renderRoleSettingsForm(editId = null, showEmptyState = false) {
         if (!this.chatWindow) return;
         const form = this.chatWindow.querySelector('#pet-role-form');
         if (!form) return;
@@ -3804,6 +3808,81 @@ ${pageContent || '无内容'}
         const current = editId ? (configsAll || []).find(c => c && c.id === editId) : null;
         
         form.innerHTML = '';
+
+        // 如果显示空白状态（没有选中角色且不是主动新增）
+        if (showEmptyState && !editId && !current) {
+            const emptyState = document.createElement('div');
+            emptyState.style.cssText = `
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                height: 100% !important;
+                padding: 40px 20px !important;
+                text-align: center !important;
+            `;
+            
+            const icon = document.createElement('div');
+            icon.textContent = '👤';
+            icon.style.cssText = `
+                font-size: 64px !important;
+                margin-bottom: 20px !important;
+                opacity: 0.6 !important;
+            `;
+            
+            const title = document.createElement('div');
+            title.textContent = '选择一个角色开始编辑';
+            title.style.cssText = `
+                font-weight: 600 !important;
+                font-size: 16px !important;
+                color: #e5e7eb !important;
+                margin-bottom: 8px !important;
+            `;
+            
+            const desc = document.createElement('div');
+            desc.textContent = '从左侧列表选择角色进行编辑，或点击"新增角色"创建新角色';
+            desc.style.cssText = `
+                font-size: 13px !important;
+                color: #94a3b8 !important;
+                line-height: 1.6 !important;
+                max-width: 320px !important;
+            `;
+            
+            const actionBtn = document.createElement('button');
+            actionBtn.textContent = '新增角色';
+            actionBtn.style.cssText = `
+                margin-top: 24px !important;
+                padding: 10px 24px !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                border-radius: 8px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.06) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+            `;
+            actionBtn.addEventListener('mouseenter', () => {
+                actionBtn.style.background = 'rgba(255,255,255,0.12)';
+                actionBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+                actionBtn.style.transform = 'translateY(-2px)';
+            });
+            actionBtn.addEventListener('mouseleave', () => {
+                actionBtn.style.background = 'rgba(255,255,255,0.06)';
+                actionBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+                actionBtn.style.transform = 'translateY(0)';
+            });
+            actionBtn.addEventListener('click', () => {
+                this.renderRoleSettingsForm(null, false); // 显示新增表单
+            });
+            
+            emptyState.appendChild(icon);
+            emptyState.appendChild(title);
+            emptyState.appendChild(desc);
+            emptyState.appendChild(actionBtn);
+            form.appendChild(emptyState);
+            return;
+        }
 
         const title = document.createElement('div');
         title.textContent = current ? '编辑角色' : '新增角色';
@@ -4028,35 +4107,86 @@ ${pageContent || '无内容'}
         };
 
         saveBtn.addEventListener('click', async () => {
-            const next = {
-                id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
-                label: nameInput.value.trim() || '未命名角色',
-                // 保留原有的 actionKey 字段以兼容旧代码（但不通过UI设置）
-                actionKey: current?.actionKey || '',
-                includeCharts: current?.includeCharts ?? false,
-                icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),
-                prompt: promptArea.value.trim(),
-            };
+            // 保存按钮加载状态
+            const originalText = saveBtn.textContent;
+            const isLoading = saveBtn.dataset.loading === 'true';
+            if (isLoading) return; // 防止重复点击
             
-            const arr = await this.getRoleConfigs();
+            // 设置加载状态
+            saveBtn.dataset.loading = 'true';
+            saveBtn.textContent = '保存中...';
+            saveBtn.disabled = true;
+            saveBtn.style.opacity = '0.7';
+            saveBtn.style.cursor = 'not-allowed';
             
-            // 更新或添加角色
-            const idx = arr.findIndex(x => x.id === next.id);
-            if (idx >= 0) {
-                arr[idx] = next;
-            } else {
-                arr.push(next);
+            // 保存加载状态样式（如果还没有）
+            if (!document.getElementById('role-save-loading-styles')) {
+                const loadingStyle = document.createElement('style');
+                loadingStyle.id = 'role-save-loading-styles';
+                loadingStyle.textContent = `
+                    @keyframes roleSavePulse {
+                        0%, 100% { opacity: 0.7; }
+                        50% { opacity: 1; }
+                    }
+                    button[data-loading="true"] {
+                        animation: roleSavePulse 1.5s ease-in-out infinite !important;
+                    }
+                `;
+                document.head.appendChild(loadingStyle);
             }
             
-            await this.setRoleConfigs(arr);
-            this.renderRoleSettingsList();
-            this.renderRoleSettingsForm(); // 清空表单
-            // 同步刷新欢迎消息下的动作按钮
-            this.refreshWelcomeActionButtons();
+            try {
+                const next = {
+                    id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
+                    label: nameInput.value.trim() || '未命名角色',
+                    // 保留原有的 actionKey 字段以兼容旧代码（但不通过UI设置）
+                    actionKey: current?.actionKey || '',
+                    includeCharts: current?.includeCharts ?? false,
+                    icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),
+                    prompt: promptArea.value.trim(),
+                };
+                
+                const arr = await this.getRoleConfigs();
+                
+                // 更新或添加角色
+                const idx = arr.findIndex(x => x.id === next.id);
+                const isEdit = idx >= 0;
+                if (isEdit) {
+                    arr[idx] = next;
+                } else {
+                    arr.push(next);
+                }
+                
+                await this.setRoleConfigs(arr);
+                
+                // 短暂延迟以提供更好的视觉反馈
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // 刷新界面
+                this.renderRoleSettingsList();
+                this.renderRoleSettingsForm(null, true); // 显示空白状态
+                // 同步刷新欢迎消息下的动作按钮
+                this.refreshWelcomeActionButtons();
+                
+                // 显示成功提示
+                const successMessage = isEdit ? `✅ 角色 "${next.label}" 已更新` : `✅ 角色 "${next.label}" 已创建`;
+                this.showNotification(successMessage, 'success');
+                
+            } catch (error) {
+                console.error('保存角色设置失败:', error);
+                this.showNotification(`❌ 保存失败：${error.message || '未知错误'}`, 'error');
+            } finally {
+                // 恢复按钮状态
+                saveBtn.dataset.loading = 'false';
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+            }
         });
 
         cancelBtn.addEventListener('click', () => {
-            this.renderRoleSettingsForm();
+            this.renderRoleSettingsForm(null, true); // 显示空白状态
         });
 
         form.appendChild(title);

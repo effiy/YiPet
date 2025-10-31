@@ -2690,6 +2690,10 @@ ${pageContent || '无内容'}
         if (!this.buttonHandlers) {
             this.buttonHandlers = {};
         }
+        // 用于存储没有 actionKey 的角色按钮
+        if (!this.roleButtonsById) {
+            this.roleButtonsById = {};
+        }
         
         // 先显示已绑定按钮的角色（按按钮顺序）
         const orderedKeys = await this.getOrderedBoundRoleKeys();
@@ -2745,27 +2749,83 @@ ${pageContent || '无内容'}
                 button.style.display = 'inline-flex';
                 await this.applyRoleConfigToActionIcon(button, key);
                 
-                container.appendChild(button);
+                // 如果按钮已经在容器中，不要重复添加
+                if (button.parentNode !== container) {
+                    container.appendChild(button);
+                }
             }
         }
         
         // 再显示其他角色（没有绑定按钮的角色）作为可点击按钮
         const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id));
         for (const config of otherRoles) {
-            // 创建角色按钮（没有 actionKey，点击时打开编辑）
-            const button = document.createElement('span');
+            // 创建或复用角色按钮（没有 actionKey，点击时打开编辑）
+            let button = this.roleButtonsById[config.id];
+            if (!button) {
+                button = document.createElement('span');
+                button.setAttribute('data-role-id', config.id);
+                button.style.cssText = `
+                    padding: 4px !important;
+                    cursor: pointer !important;
+                    font-size: 18px !important;
+                    color: #666 !important;
+                    font-weight: 300 !important;
+                    transition: all 0.2s ease !important;
+                    flex-shrink: 0 !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    user-select: none !important;
+                    width: 24px !important;
+                    height: 24px !important;
+                    line-height: 24px !important;
+                `;
+                
+                // 添加 hover 效果
+                button.addEventListener('mouseenter', function() {
+                    this.style.fontSize = '20px';
+                    this.style.color = '#333';
+                    this.style.transform = 'scale(1.1)';
+                });
+                button.addEventListener('mouseleave', function() {
+                    this.style.fontSize = '18px';
+                    this.style.color = '#666';
+                    this.style.transform = 'scale(1)';
+                });
+                
+                // 点击时打开编辑表单
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openRoleSettingsModal(config.id);
+                });
+                
+                this.roleButtonsById[config.id] = button;
+            }
+            
+            // 更新按钮内容
             const displayIcon = this.getRoleIcon(config, configsRaw);
             button.innerHTML = displayIcon || '🙂';
             button.title = config.label || '(未命名)';
-            button.setAttribute('data-role-id', config.id);
-            button.style.cssText = `
+            
+            // 如果按钮已经在容器中，不要重复添加
+            if (button.parentNode !== container) {
+                container.appendChild(button);
+            }
+        }
+        
+        // 设置按钮始终在最后（复用或创建）
+        let settingsButton = this.settingsButton;
+        if (!settingsButton) {
+            settingsButton = document.createElement('span');
+            settingsButton.innerHTML = '⚙️';
+            settingsButton.title = '角色设置';
+            settingsButton.style.cssText = `
                 padding: 4px !important;
                 cursor: pointer !important;
                 font-size: 18px !important;
                 color: #666 !important;
                 font-weight: 300 !important;
                 transition: all 0.2s ease !important;
-                flex-shrink: 0 !important;
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
@@ -2774,52 +2834,17 @@ ${pageContent || '无内容'}
                 height: 24px !important;
                 line-height: 24px !important;
             `;
-            
-            // 添加 hover 效果
-            button.addEventListener('mouseenter', function() {
-                this.style.fontSize = '20px';
-                this.style.color = '#333';
-                this.style.transform = 'scale(1.1)';
-            });
-            button.addEventListener('mouseleave', function() {
-                this.style.fontSize = '18px';
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            });
-            
-            // 点击时打开编辑表单
-            button.addEventListener('click', (e) => {
+            settingsButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.openRoleSettingsModal(config.id);
+                this.openRoleSettingsModal();
             });
-            
-            container.appendChild(button);
+            this.settingsButton = settingsButton;
         }
         
-        // 设置按钮始终在最后
-        const settingsButton = document.createElement('span');
-        settingsButton.innerHTML = '⚙️';
-        settingsButton.title = '角色设置';
-        settingsButton.style.cssText = `
-            padding: 4px !important;
-            cursor: pointer !important;
-            font-size: 18px !important;
-            color: #666 !important;
-            font-weight: 300 !important;
-            transition: all 0.2s ease !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            user-select: none !important;
-            width: 24px !important;
-            height: 24px !important;
-            line-height: 24px !important;
-        `;
-        settingsButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.openRoleSettingsModal();
-        });
-        container.appendChild(settingsButton);
+        // 如果设置按钮已经在容器中，不要重复添加
+        if (settingsButton.parentNode !== container) {
+            container.appendChild(settingsButton);
+        }
     }
     
     // 创建角色按钮点击处理函数（用于有 actionKey 的角色）

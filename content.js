@@ -1202,7 +1202,7 @@ class PetManager {
         }
     }
 
-    // 生成宠物响应（兼容旧版本）
+    // 生成宠物响应
     async generatePetResponse(message) {
         try {
             // 检查开关状态
@@ -1249,9 +1249,6 @@ class PetManager {
             } else if (result.status !== 200) {
                 // API 返回错误，使用 msg 字段
                 return result.msg || '抱歉，服务器返回了错误。';
-            } else if (result.reply) {
-                // 兼容旧格式
-                return result.reply;
             } else if (result.content) {
                 return result.content;
             } else if (result.message) {
@@ -2780,9 +2777,6 @@ ${pageContent || '无内容'}
                             content = result.data;
                         } else if (result.content) {
                             content = result.content;
-                        } else if (result.reply) {
-                            // 兼容旧格式
-                            content = result.reply;
                         } else if (result.message && result.message.content) {
                             // Ollama格式
                             content = result.message.content;
@@ -3193,9 +3187,6 @@ ${pageContent || '无内容'}
                                 content = result.data;
                             } else if (result.content) {
                                 content = result.content;
-                            } else if (result.reply) {
-                                // 兼容旧格式
-                                content = result.reply;
                             } else if (result.message && result.message.content) {
                                 // Ollama格式
                                 content = result.message.content;
@@ -3458,9 +3449,6 @@ ${pageContent || '无内容'}
                     // API 返回错误，使用 msg 字段
                     content = result.msg || '抱歉，服务器返回了错误。';
                     throw new Error(content);
-                } else if (result.reply) {
-                    // 兼容旧格式
-                    content = result.reply;
                 } else if (result.content) {
                     content = result.content;
                 } else if (result.message) {
@@ -4392,7 +4380,6 @@ ${pageContent || '无内容'}
                 const next = {
                     id: current?.id || ('r_' + Math.random().toString(36).slice(2, 10)),
                     label: nameInput.value.trim() || '未命名角色',
-                    // 保留原有的 actionKey 字段以兼容旧代码（但不通过UI设置）
                     actionKey: current?.actionKey || '',
                     includeCharts: current?.includeCharts ?? false,
                     icon: (iconInput.value.trim() === '' ? (current?.icon || '') : getSafeIcon(iconInput.value)),

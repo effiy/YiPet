@@ -6937,37 +6937,100 @@ ${pageContent || '无内容'}
                 this.addCopyButton(copyButtonContainer, messageText);
             }
         } else {
-            // 用户消息创建时间和删除按钮的容器
+            // 用户消息创建时间和删除按钮的容器（与气泡宽度对齐）
             const timeAndCopyContainer = document.createElement('div');
             timeAndCopyContainer.style.cssText = `
                 display: flex !important;
                 align-items: center !important;
-                justify-content: flex-end !important;
-                max-width: calc(80% + 36px) !important;
+                justify-content: space-between !important;
+                max-width: 80% !important;
                 width: 100% !important;
                 margin-top: 4px !important;
-                margin-left: 64px !important;
+                margin-left: auto !important;
+                box-sizing: border-box !important;
             `;
 
             const messageTimeWrapper = document.createElement('div');
-            messageTimeWrapper.style.cssText = 'flex: 1; text-align: right;';
+            messageTimeWrapper.style.cssText = `
+                margin: 0 !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: flex-start !important;
+            `;
             messageTime.style.cssText = `
                 font-size: 11px !important;
                 color: #999 !important;
-                margin-top: 4px !important;
+                margin: 0 !important;
+                padding: 0 !important;
             `;
             messageTimeWrapper.appendChild(messageTime);
             timeAndCopyContainer.appendChild(messageTimeWrapper);
 
             const copyButtonContainer = document.createElement('div');
             copyButtonContainer.setAttribute('data-copy-button-container', 'true');
-            copyButtonContainer.style.cssText = 'display: flex; margin-left: 8px;';
+            copyButtonContainer.style.cssText = 'display: flex;';
             timeAndCopyContainer.appendChild(copyButtonContainer);
 
             content.appendChild(timeAndCopyContainer);
 
             // 为用户消息添加删除按钮
             this.addDeleteButtonForUserMessage(copyButtonContainer);
+            
+            // 同步时间容器与气泡的宽度和位置，确保精确对齐
+            const syncTimeContainerAlignment = () => {
+                // 使用双重 requestAnimationFrame 确保 DOM 完全渲染
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const bubbleRect = messageText.getBoundingClientRect();
+                        const containerRect = timeAndCopyContainer.getBoundingClientRect();
+                        
+                        // 同步宽度：直接使用气泡的实际宽度
+                        if (bubbleRect.width > 0) {
+                            timeAndCopyContainer.style.width = `${bubbleRect.width}px`;
+                            timeAndCopyContainer.style.maxWidth = `${bubbleRect.width}px`;
+                        }
+                        
+                        // 重新获取容器位置以检查对齐
+                        const updatedContainerRect = timeAndCopyContainer.getBoundingClientRect();
+                        
+                        // 检查并修正左边缘对齐（允许1px的误差）
+                        if (Math.abs(bubbleRect.left - updatedContainerRect.left) > 1) {
+                            // 计算相对于父容器的偏移
+                            const contentRect = content.getBoundingClientRect();
+                            const bubbleOffset = bubbleRect.left - contentRect.left;
+                            const containerOffset = updatedContainerRect.left - contentRect.left;
+                            
+                            // 计算需要的 margin-left 调整
+                            const marginDiff = bubbleOffset - containerOffset;
+                            
+                            // 获取当前计算后的 margin-left 值（即使 CSS 是 auto，计算值也是像素）
+                            const computedStyle = window.getComputedStyle(timeAndCopyContainer);
+                            const computedMarginLeft = computedStyle.marginLeft;
+                            const numericMargin = parseFloat(computedMarginLeft) || 0;
+                            
+                            // 应用修正后的 margin-left
+                            timeAndCopyContainer.style.marginLeft = `${numericMargin + marginDiff}px`;
+                        }
+                    });
+                });
+            };
+            
+            // 立即同步一次
+            syncTimeContainerAlignment();
+            
+            // 监听气泡大小变化，自动重新同步
+            if (typeof ResizeObserver !== 'undefined') {
+                const resizeObserver = new ResizeObserver(() => {
+                    syncTimeContainerAlignment();
+                });
+                resizeObserver.observe(messageText);
+                
+                // 将 observer 保存到元素上，以便后续清理（如果需要）
+                messageText._timeContainerObserver = resizeObserver;
+            }
+            
+            // 延迟再次同步，确保所有内容都已渲染
+            setTimeout(syncTimeContainerAlignment, 100);
         }
 
         messageDiv.appendChild(avatar);

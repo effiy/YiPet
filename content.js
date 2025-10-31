@@ -3389,30 +3389,6 @@ ${pageContent || '无内容'}
 
             const headerBtns = document.createElement('div');
             headerBtns.style.cssText = 'display:flex; gap:10px; align-items:center;';
-            const addBtn = document.createElement('button');
-            addBtn.textContent = '新增角色';
-            addBtn.style.cssText = `
-                padding: 6px 12px !important;
-                font-size: 13px !important;
-                font-weight: 500 !important;
-                border-radius: 6px !important;
-                border: 1px solid rgba(255,255,255,0.15) !important;
-                background: rgba(255,255,255,0.06) !important;
-                color: #e5e7eb !important;
-                cursor: pointer !important;
-                transition: all 0.2s ease !important;
-            `;
-            addBtn.addEventListener('mouseenter', () => {
-                addBtn.style.background = 'rgba(255,255,255,0.12)';
-                addBtn.style.borderColor = 'rgba(255,255,255,0.25)';
-                addBtn.style.transform = 'translateY(-1px)';
-            });
-            addBtn.addEventListener('mouseleave', () => {
-                addBtn.style.background = 'rgba(255,255,255,0.06)';
-                addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-                addBtn.style.transform = 'translateY(0)';
-            });
-            addBtn.addEventListener('click', () => this.renderRoleSettingsForm(null));
             const closeBtn = document.createElement('button');
             closeBtn.id = 'pet-role-settings-close-btn';
             closeBtn.setAttribute('aria-label', '关闭角色设置 (Esc)');
@@ -3452,7 +3428,6 @@ ${pageContent || '无内容'}
                 closeBtn.style.transform = 'scale(1)';
             });
             closeBtn.addEventListener('click', () => this.closeRoleSettingsModal());
-            headerBtns.appendChild(addBtn);
             headerBtns.appendChild(closeBtn);
             header.appendChild(title);
             header.appendChild(headerBtns);
@@ -3469,11 +3444,48 @@ ${pageContent || '无内容'}
             `;
 
             // 左侧：角色列表
+            const listContainer = document.createElement('div');
+            listContainer.style.cssText = `
+                width: 38% !important;
+                min-width: 280px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+            `;
+            
+            // 新增角色按钮（放在列表顶部）
+            const addBtn = document.createElement('button');
+            addBtn.textContent = '新增角色';
+            addBtn.style.cssText = `
+                padding: 8px 16px !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                border-radius: 6px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.06) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                flex-shrink: 0 !important;
+            `;
+            addBtn.addEventListener('mouseenter', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.12)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+                addBtn.style.transform = 'translateY(-1px)';
+            });
+            addBtn.addEventListener('mouseleave', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.06)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+                addBtn.style.transform = 'translateY(0)';
+            });
+            addBtn.addEventListener('click', () => this.renderRoleSettingsForm(null));
+            listContainer.appendChild(addBtn);
+            
             const list = document.createElement('div');
             list.id = 'pet-role-list';
             list.style.cssText = `
-                width: 38% !important;
-                min-width: 280px !important;
+                flex: 1 !important;
+                min-height: 0 !important;
                 background: #181818 !important;
                 color: #e5e7eb !important;
                 border: 1px solid rgba(255,255,255,0.12) !important;
@@ -3485,6 +3497,7 @@ ${pageContent || '无内容'}
                 flex-direction: column !important;
                 gap: 10px !important;
             `;
+            listContainer.appendChild(list);
 
             // 右侧：表单区
             const form = document.createElement('div');
@@ -3503,7 +3516,7 @@ ${pageContent || '无内容'}
                 gap: 16px !important;
             `;
 
-            body.appendChild(list);
+            body.appendChild(listContainer);
             body.appendChild(form);
             panel.appendChild(header);
             panel.appendChild(body);

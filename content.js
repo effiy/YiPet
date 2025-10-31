@@ -2627,7 +2627,7 @@ ${pageContent || '无内容'}
         button.style.cssText = `
             padding: 4px !important;
             cursor: pointer !important;
-            font-size: 18px !important;
+            font-size: 16px !important;
             color: #666 !important;
             font-weight: 300 !important;
             transition: all 0.2s ease !important;
@@ -2636,9 +2636,9 @@ ${pageContent || '无内容'}
             align-items: center !important;
             justify-content: center !important;
             user-select: none !important;
-            width: 24px !important;
-            height: 24px !important;
-            line-height: 24px !important;
+            width: 22px !important;
+            height: 22px !important;
+            line-height: 22px !important;
         `;
         
         return button;
@@ -2718,14 +2718,14 @@ ${pageContent || '无内容'}
                         hover: {
                             mouseenter: function() {
                                 if (!processingFlag.value) {
-                                    this.style.fontSize = '20px';
+                                    this.style.fontSize = '18px';
                                     this.style.color = '#333';
                                     this.style.transform = 'scale(1.1)';
                                 }
                             },
                             mouseleave: function() {
                                 if (!processingFlag.value) {
-                                    this.style.fontSize = '18px';
+                                    this.style.fontSize = '16px';
                                     this.style.color = '#666';
                                     this.style.transform = 'scale(1)';
                                 }
@@ -2767,7 +2767,7 @@ ${pageContent || '无内容'}
                 button.style.cssText = `
                     padding: 4px !important;
                     cursor: pointer !important;
-                    font-size: 18px !important;
+                    font-size: 16px !important;
                     color: #666 !important;
                     font-weight: 300 !important;
                     transition: all 0.2s ease !important;
@@ -2776,19 +2776,19 @@ ${pageContent || '无内容'}
                     align-items: center !important;
                     justify-content: center !important;
                     user-select: none !important;
-                    width: 24px !important;
-                    height: 24px !important;
-                    line-height: 24px !important;
+                    width: 22px !important;
+                    height: 22px !important;
+                    line-height: 22px !important;
                 `;
                 
                 // 添加 hover 效果
                 button.addEventListener('mouseenter', function() {
-                    this.style.fontSize = '20px';
+                    this.style.fontSize = '18px';
                     this.style.color = '#333';
                     this.style.transform = 'scale(1.1)';
                 });
                 button.addEventListener('mouseleave', function() {
-                    this.style.fontSize = '18px';
+                    this.style.fontSize = '16px';
                     this.style.color = '#666';
                     this.style.transform = 'scale(1)';
                 });
@@ -2816,12 +2816,12 @@ ${pageContent || '无内容'}
                 
                 // 重新绑定 hover 效果（因为克隆后事件监听器丢失了）
                 button.addEventListener('mouseenter', function() {
-                    this.style.fontSize = '20px';
+                    this.style.fontSize = '18px';
                     this.style.color = '#333';
                     this.style.transform = 'scale(1.1)';
                 });
                 button.addEventListener('mouseleave', function() {
-                    this.style.fontSize = '18px';
+                    this.style.fontSize = '16px';
                     this.style.color = '#666';
                     this.style.transform = 'scale(1)';
                 });
@@ -7307,7 +7307,7 @@ ${pageContent || '无内容'}
         container.appendChild(deleteButton);
         container.appendChild(flashcardButton);
         container.style.display = 'flex';
-        container.style.gap = '4px';
+        container.style.gap = '8px';
     }
 
     // 为用户消息添加删除按钮
@@ -7380,7 +7380,7 @@ ${pageContent || '无内容'}
         container.appendChild(editButton);
         container.appendChild(deleteButton);
         container.style.display = 'flex';
-        container.style.gap = '4px';
+        container.style.gap = '8px';
     }
 
     // 启用消息编辑功能

@@ -2759,7 +2759,7 @@ ${pageContent || '无内容'}
         // 再显示其他角色（没有绑定按钮的角色）作为可点击按钮
         const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id));
         for (const config of otherRoles) {
-            // 创建或复用角色按钮（没有 actionKey，点击时打开编辑）
+            // 创建或复用角色按钮（没有 actionKey，点击时请求 /prompt 接口）
             let button = this.roleButtonsById[config.id];
             if (!button) {
                 button = document.createElement('span');
@@ -2793,14 +2793,326 @@ ${pageContent || '无内容'}
                     this.style.transform = 'scale(1)';
                 });
                 
-                // 点击时打开编辑表单
-                button.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.openRoleSettingsModal(config.id);
-                });
-                
                 this.roleButtonsById[config.id] = button;
             }
+            
+            // 创建 processing flag 用于防止重复点击
+            if (!this.roleButtonsProcessingFlags) {
+                this.roleButtonsProcessingFlags = {};
+            }
+            if (!this.roleButtonsProcessingFlags[config.id]) {
+                this.roleButtonsProcessingFlags[config.id] = { value: false };
+            }
+            const processingFlag = this.roleButtonsProcessingFlags[config.id];
+            
+            // 移除旧的点击事件（通过克隆节点来移除所有事件监听器）
+            // 只有在按钮已在 DOM 中时才需要替换（移除旧的事件监听器）
+            if (button.parentNode) {
+                const oldButton = button;
+                const newButton = oldButton.cloneNode(true);
+                oldButton.parentNode.replaceChild(newButton, oldButton);
+                button = newButton;
+                this.roleButtonsById[config.id] = button;
+                
+                // 重新绑定 hover 效果（因为克隆后事件监听器丢失了）
+                button.addEventListener('mouseenter', function() {
+                    this.style.fontSize = '20px';
+                    this.style.color = '#333';
+                    this.style.transform = 'scale(1.1)';
+                });
+                button.addEventListener('mouseleave', function() {
+                    this.style.fontSize = '18px';
+                    this.style.color = '#666';
+                    this.style.transform = 'scale(1)';
+                });
+            }
+            
+            // 点击时请求 /prompt 接口（参考 createRoleButtonHandler 的实现）
+            // 对于已存在的按钮，需要先移除旧的点击事件（如果之前绑定过的话）
+            // 但由于我们通过克隆来移除，所以这里直接绑定新事件即可
+            button.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    
+                    // 如果是设置按钮或正在处理中，不执行
+                    if (processingFlag.value) return;
+                    
+                    processingFlag.value = true;
+                    const originalIcon = button.innerHTML;
+                    const originalTitle = button.title;
+                    button.innerHTML = '◉';
+                    button.style.opacity = '0.6';
+                    button.style.cursor = 'not-allowed';
+                    
+                    // 获取消息容器
+                    const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                    if (!messagesContainer) {
+                        console.error('无法找到消息容器');
+                        processingFlag.value = false;
+                        button.innerHTML = originalIcon;
+                        button.style.opacity = '1';
+                        button.style.cursor = 'pointer';
+                        return;
+                    }
+                    
+                    // 获取页面信息
+                    const pageInfo = this.getPageInfo();
+                    
+                    // 获取角色配置信息
+                    const roleLabel = config.label || '自定义角色';
+                    const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
+                    const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
+                    
+                    // 构建 userPrompt
+                    const pageTitle = pageInfo.title || document.title || '当前页面';
+                    const pageUrl = pageInfo.url || window.location.href;
+                    const pageDescription = pageInfo.description || '';
+                    const pageContent = pageInfo.content || '';
+                    const userPrompt = `页面标题：${pageTitle}
+页面URL：${pageUrl}
+${pageDescription ? `页面描述：${pageDescription}` : ''}
+
+页面内容（Markdown 格式）：
+${pageContent || '无内容'}
+
+请根据以上信息进行分析和处理。`;
+                    
+                    // 创建新的消息
+                    const message = this.createMessageElement('', 'pet');
+                    messagesContainer.appendChild(message);
+                    const messageText = message.querySelector('[data-message-type="pet-bubble"]');
+                    const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
+                    
+                    // 显示加载动画
+                    if (messageAvatar) {
+                        messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+                    }
+                    
+                    // 使用角色配置中的图标显示加载文本
+                    if (messageText) {
+                        messageText.textContent = `${roleIcon} 正在${roleLabel}...`;
+                    }
+                    
+                    try {
+                        // 使用 /prompt 接口生成内容（非流式）
+                        console.log('调用大模型生成内容，角色:', roleLabel, '页面标题:', pageTitle);
+                        
+                        const response = await fetch(PET_CONFIG.api.promptUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                fromSystem: systemPrompt,
+                                fromUser: userPrompt,
+                                model: this.currentModel || PET_CONFIG.chatModels.default
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                        }
+                        
+                        // 先读取响应文本，判断是否为流式响应（SSE格式）
+                        const responseText = await response.text();
+                        let result;
+                        
+                        // 检查是否包含SSE格式（包含 "data: "）
+                        if (responseText.includes('data: ')) {
+                            // 处理SSE流式响应
+                            const lines = responseText.split('\n');
+                            let accumulatedData = '';
+                            let lastValidData = null;
+                            
+                            for (const line of lines) {
+                                const trimmedLine = line.trim();
+                                if (trimmedLine.startsWith('data: ')) {
+                                    try {
+                                        const dataStr = trimmedLine.substring(6).trim();
+                                        if (dataStr === '[DONE]' || dataStr === '') {
+                                            continue;
+                                        }
+                                        
+                                        // 尝试解析JSON
+                                        const chunk = JSON.parse(dataStr);
+                                        
+                                        // 检查是否完成
+                                        if (chunk.done === true) {
+                                            break;
+                                        }
+                                        
+                                        // 累积内容（处理流式内容块）
+                                        if (chunk.data) {
+                                            accumulatedData += chunk.data;
+                                        } else if (chunk.content) {
+                                            accumulatedData += chunk.content;
+                                        } else if (chunk.message && chunk.message.content) {
+                                            // Ollama格式
+                                            accumulatedData += chunk.message.content;
+                                        } else if (typeof chunk === 'string') {
+                                            accumulatedData += chunk;
+                                        }
+                                        
+                                        // 保存最后一个有效的数据块（用于提取其他字段如status等）
+                                        lastValidData = chunk;
+                                    } catch (e) {
+                                        // 如果不是JSON，可能是纯文本内容
+                                        const dataStr = trimmedLine.substring(6).trim();
+                                        if (dataStr && dataStr !== '[DONE]') {
+                                            accumulatedData += dataStr;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 如果累积了内容，创建结果对象
+                            if (accumulatedData || lastValidData) {
+                                if (lastValidData && lastValidData.status) {
+                                    // 如果有status字段，保留原有结构，但替换data/content
+                                    result = {
+                                        ...lastValidData,
+                                        data: accumulatedData || lastValidData.data || '',
+                                        content: accumulatedData || lastValidData.content || ''
+                                    };
+                                } else {
+                                    // 否则创建新的结果对象
+                                    result = {
+                                        data: accumulatedData,
+                                        content: accumulatedData
+                                    };
+                                }
+                            } else {
+                                // 如果无法解析SSE格式，尝试直接解析整个响应
+                                try {
+                                    result = JSON.parse(responseText);
+                                } catch (e) {
+                                    throw new Error('无法解析响应格式');
+                                }
+                            }
+                        } else {
+                            // 非SSE格式，直接解析JSON
+                            try {
+                                result = JSON.parse(responseText);
+                            } catch (e) {
+                                // 如果解析失败，尝试查找SSE格式的数据
+                                const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                                if (sseMatch) {
+                                    result = JSON.parse(sseMatch[1]);
+                                } else {
+                                    throw new Error(`无法解析响应: ${responseText.substring(0, 100)}`);
+                                }
+                            }
+                        }
+                        
+                        // 适配响应格式: {status, msg, data, pagination}
+                        let content = '';
+                        
+                        // 优先尝试提取内容，不管status值是什么（因为可能有内容但status不是200）
+                        if (result.data) {
+                            // 提取 data 字段
+                            content = result.data;
+                        } else if (result.content) {
+                            content = result.content;
+                        } else if (result.reply) {
+                            // 兼容旧格式
+                            content = result.reply;
+                        } else if (result.message && result.message.content) {
+                            // Ollama格式
+                            content = result.message.content;
+                        } else if (result.message && typeof result.message === 'string') {
+                            content = result.message;
+                        } else if (typeof result === 'string') {
+                            content = result;
+                        } else {
+                            // 未知格式，尝试提取可能的文本内容
+                            content = JSON.stringify(result);
+                        }
+                        
+                        // 如果提取到了有效内容，直接使用
+                        if (content && content.trim()) {
+                            // 内容提取成功，继续处理
+                        } else if (result.status !== undefined && result.status !== 200) {
+                            // 只有在明确status不是200且没有内容时，才认为是错误
+                            content = result.msg || '抱歉，服务器返回了错误。';
+                            throw new Error(content);
+                        } else if (result.msg && !content) {
+                            // 如果有错误消息但没有内容，也认为是错误
+                            content = result.msg;
+                            throw new Error(content);
+                        }
+                        
+                        // 停止加载动画
+                        if (messageAvatar) {
+                            messageAvatar.style.animation = '';
+                        }
+                        
+                        // 显示生成的内容
+                        if (messageText) {
+                            // 确保内容不为空
+                            if (!content || !content.trim()) {
+                                content = '抱歉，未能获取到有效内容。';
+                            }
+                            messageText.innerHTML = this.renderMarkdown(content);
+                            // 更新原始文本用于复制功能
+                            messageText.setAttribute('data-original-text', content);
+                            // 添加复制按钮
+                            if (content && content.trim()) {
+                                const copyButtonContainer = message.querySelector('[data-copy-button-container]');
+                                if (copyButtonContainer) {
+                                    this.addCopyButton(copyButtonContainer, messageText);
+                                }
+                            }
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
+                        
+                        button.innerHTML = '✓';
+                        button.style.cursor = 'default';
+                        button.style.color = '#4caf50';
+                        
+                        // 2秒后恢复初始状态，允许再次点击
+                        setTimeout(() => {
+                            button.innerHTML = originalIcon;
+                            button.title = originalTitle;
+                            button.style.color = '#666';
+                            button.style.cursor = 'pointer';
+                            button.style.opacity = '1';
+                            processingFlag.value = false;
+                        }, 2000);
+                        
+                    } catch (error) {
+                        console.error(`生成${roleLabel}失败:`, error);
+                        
+                        // 停止加载动画
+                        if (messageAvatar) {
+                            messageAvatar.style.animation = '';
+                        }
+                        
+                        // 显示错误消息
+                        if (messageText) {
+                            const errorMessage = error.message && error.message.includes('HTTP error') 
+                                ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${roleIcon}`
+                                : `抱歉，无法生成"${pageTitle}"的${roleLabel}。${error.message ? `错误信息：${error.message}` : '您可以尝试刷新页面后重试。'}${roleIcon}`;
+                            messageText.innerHTML = this.renderMarkdown(errorMessage);
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
+                        
+                        button.innerHTML = '✕';
+                        button.style.cursor = 'default';
+                        button.style.color = '#f44336';
+                        
+                        // 1.5秒后恢复初始状态，允许再次点击
+                        setTimeout(() => {
+                            button.innerHTML = originalIcon;
+                            button.title = originalTitle;
+                            button.style.color = '#666';
+                            button.style.cursor = 'pointer';
+                            button.style.opacity = '1';
+                            processingFlag.value = false;
+                        }, 1500);
+                    } finally {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                });
             
             // 更新按钮内容
             const displayIcon = this.getRoleIcon(config, configsRaw);
@@ -2900,31 +3212,73 @@ ${pageContent || '无内容'}
             }
 
             try {
-                // 使用动态提示语流式生成内容
-                await this.generateContentStream(
-                    roleInfo.systemPrompt,
-                    roleInfo.userPrompt,
-                    (chunk, fullContent) => {
-                        if (messageText) {
-                            messageText.innerHTML = this.renderMarkdown(fullContent);
-                            // 更新原始文本用于复制功能
-                            messageText.setAttribute('data-original-text', fullContent);
-                            // 添加复制按钮
-                            if (fullContent && fullContent.trim()) {
-                                const copyButtonContainer = message.querySelector('[data-copy-button-container]');
-                                if (copyButtonContainer) {
-                                    this.addCopyButton(copyButtonContainer, messageText);
-                                }
-                            }
-                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                        }
+                // 使用 /prompt 接口生成内容（非流式）
+                console.log('调用大模型生成内容，角色:', roleInfo.label, '页面标题:', pageInfo.title || '当前页面');
+                
+                const response = await fetch(PET_CONFIG.api.promptUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     },
-                    `${loadingIcon} 正在${roleInfo.label || '处理'}...`
-                );
+                    body: JSON.stringify({
+                        fromSystem: roleInfo.systemPrompt,
+                        fromUser: roleInfo.userPrompt,
+                        model: this.currentModel || PET_CONFIG.chatModels.default
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                const result = await response.json();
+                
+                // 适配响应格式: {status, msg, data, pagination}
+                let content = '';
+                if (result.status === 200 && result.data) {
+                    // 成功响应，提取 data 字段
+                    content = result.data;
+                } else if (result.status !== 200) {
+                    // API 返回错误，使用 msg 字段
+                    content = result.msg || '抱歉，服务器返回了错误。';
+                    throw new Error(content);
+                } else if (result.reply) {
+                    // 兼容旧格式
+                    content = result.reply;
+                } else if (result.content) {
+                    content = result.content;
+                } else if (result.message) {
+                    content = result.message;
+                } else if (typeof result === 'string') {
+                    content = result;
+                } else {
+                    // 未知格式，尝试提取可能的文本内容
+                    content = JSON.stringify(result);
+                }
 
                 // 停止加载动画
                 if (messageAvatar) {
                     messageAvatar.style.animation = '';
+                }
+
+                // 显示生成的内容
+                if (messageText) {
+                    // 确保内容不为空
+                    if (!content || !content.trim()) {
+                        content = '抱歉，未能获取到有效内容。';
+                    }
+                    messageText.innerHTML = this.renderMarkdown(content);
+                    // 更新原始文本用于复制功能
+                    messageText.setAttribute('data-original-text', content);
+                    // 添加复制按钮
+                    if (content && content.trim()) {
+                        const copyButtonContainer = message.querySelector('[data-copy-button-container]');
+                        if (copyButtonContainer) {
+                            this.addCopyButton(copyButtonContainer, messageText);
+                        }
+                    }
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
 
                 iconEl.innerHTML = '✓';
@@ -2942,14 +3296,21 @@ ${pageContent || '无内容'}
 
             } catch (error) {
                 console.error(`生成${roleInfo.label}失败:`, error);
-                if (messageText) {
-                    messageText.innerHTML = this.renderMarkdown(
-                        `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。您可以尝试刷新页面后重试。${loadingIcon}`
-                    );
-                }
+                
+                // 停止加载动画
                 if (messageAvatar) {
                     messageAvatar.style.animation = '';
                 }
+                
+                // 显示错误消息
+                if (messageText) {
+                    const errorMessage = error.message && error.message.includes('HTTP error') 
+                        ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${loadingIcon}`
+                        : `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。${error.message ? `错误信息：${error.message}` : '您可以尝试刷新页面后重试。'}${loadingIcon}`;
+                    messageText.innerHTML = this.renderMarkdown(errorMessage);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+                
                 iconEl.innerHTML = '✕';
                 iconEl.style.cursor = 'default';
                 iconEl.style.color = '#f44336';

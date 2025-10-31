@@ -45,13 +45,5 @@ function replaceMethod(methodName, roleName, description) {
     return content.replace(oldPattern, newCode);
 }
 
-// 执行替换
-let updated = content;
-// updated = replaceMethod('generateFlashcardStream', 'flashcard', '闪卡');
-// updated = replaceMethod('generateReportStream', 'report', '专项报告');
-// updated = replaceMethod('generateBestPracticeStream', 'bestPractice', '最佳实践');
-
-// 保存文件
-// fs.writeFileSync('content.js', updated, 'utf8');
 console.log('完成！');
 

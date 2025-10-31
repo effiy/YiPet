@@ -5716,7 +5716,7 @@ ${pageContent || '无内容'}
                     petMessageElement = this.createMessageElement('', 'pet');
                     messagesContainer.appendChild(petMessageElement);
                     
-                    // 尝试添加 try again 按钮（如果不是第一个消息）
+                    // 添加 try again 按钮
                     const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
                     if (tryAgainContainer) {
                         this.addTryAgainButton(tryAgainContainer, petMessageElement);
@@ -5750,7 +5750,7 @@ ${pageContent || '无内容'}
                             this.addCopyButton(copyButtonContainer, messageBubble);
                         }
                         
-                        // 确保 try again 按钮也显示（如果不是第一个消息）
+                        // 确保 try again 按钮已添加
                         const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
                         if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
                             this.addTryAgainButton(tryAgainContainer, petMessageElement);
@@ -5846,7 +5846,7 @@ ${pageContent || '无内容'}
                             await this.processMermaidBlocks(messageBubble);
                         }, 100);
                         
-                        // 确保 try again 按钮已添加（如果不是第一个消息）
+                        // 确保 try again 按钮已添加
                         const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
                         if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
                             this.addTryAgainButton(tryAgainContainer, petMessageElement);
@@ -5875,7 +5875,7 @@ ${pageContent || '无内容'}
                         }, 100);
                     }
                     
-                    // 确保 try again 按钮已添加（如果不是第一个消息）
+                    // 确保 try again 按钮已添加
                     const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
                     if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
                         this.addTryAgainButton(tryAgainContainer, petMessageElement);
@@ -5918,9 +5918,19 @@ ${pageContent || '无内容'}
                         if (messageBubble) {
                             messageBubble.innerHTML = '抱歉，发生了错误，请稍后再试。😔';
                         }
+                        // 确保 try again 按钮已添加
+                        const tryAgainContainer = petMessageElement.querySelector('[data-try-again-button-container]');
+                        if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                            this.addTryAgainButton(tryAgainContainer, petMessageElement);
+                        }
                     } else {
                         const errorMessage = this.createMessageElement('抱歉，发生了错误，请稍后再试。😔', 'pet');
                         messagesContainer.appendChild(errorMessage);
+                        // 为错误消息添加 try again 按钮
+                        const tryAgainContainer = errorMessage.querySelector('[data-try-again-button-container]');
+                        if (tryAgainContainer) {
+                            this.addTryAgainButton(tryAgainContainer, errorMessage);
+                        }
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
@@ -7689,7 +7699,7 @@ ${pageContent || '无内容'}
             copyButtonContainer.style.cssText = 'display: none; margin-left: 8px;';
             timeAndCopyContainer.appendChild(copyButtonContainer);
 
-            // 添加 try again 按钮容器（除了第一个消息）
+            // 添加 try again 按钮容器
             const tryAgainButtonContainer = document.createElement('div');
             tryAgainButtonContainer.setAttribute('data-try-again-button-container', 'true');
             tryAgainButtonContainer.style.cssText = 'display: none; margin-left: 8px; align-items: center;';
@@ -7884,10 +7894,10 @@ ${pageContent || '无内容'}
         return messageDiv;
     }
 
-    // 添加复制按钮和生成闪卡按钮的辅助方法
+    // 添加复制按钮的辅助方法
     addCopyButton(container, messageTextElement) {
         // 如果已经添加过，就不再添加
-        // 注意：已移除复制按钮，现在只添加编辑、删除、闪卡按钮
+        // 注意：现在只添加编辑、删除按钮
         if (container.querySelector('.edit-button')) {
             return;
         }
@@ -7920,113 +7930,6 @@ ${pageContent || '无内容'}
             }
         });
 
-        // 创建生成闪卡按钮
-        const flashcardButton = document.createElement('button');
-        flashcardButton.className = 'flashcard-button';
-        flashcardButton.innerHTML = '📚';
-        flashcardButton.setAttribute('title', '生成闪卡');
-
-        let isFlashcardProcessing = false;
-
-        // 点击生成闪卡
-        flashcardButton.addEventListener('click', async (e) => {
-            e.stopPropagation();
-
-            if (isFlashcardProcessing) return;
-
-            isFlashcardProcessing = true;
-            flashcardButton.innerHTML = '◉';
-            flashcardButton.style.opacity = '0.6';
-            flashcardButton.style.cursor = 'not-allowed';
-
-            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
-            if (!messagesContainer) {
-                isFlashcardProcessing = false;
-                return;
-            }
-
-            // 获取当前消息的内容
-            const currentMessage = container.closest('[data-message-type]');
-            const messageBubble = currentMessage ? currentMessage.querySelector('[data-message-type="pet-bubble"]') : null;
-            const messageContent = messageTextElement.getAttribute('data-original-text') || '';
-
-            // 创建新的闪卡消息
-            const flashcardMessage = this.createMessageElement('', 'pet');
-            messagesContainer.appendChild(flashcardMessage);
-            const flashcardText = flashcardMessage.querySelector('[data-message-type="pet-bubble"]');
-            const flashcardAvatar = flashcardMessage.querySelector('[data-message-type="pet-avatar"]');
-
-            // 显示加载动画
-            if (flashcardAvatar) {
-                flashcardAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-            }
-
-            if (flashcardText) {
-                flashcardText.textContent = '📚 正在生成闪卡...';
-            }
-
-            try {
-                // 流式生成闪卡信息（基于消息内容）
-                await this.generateFlashcardFromContent(messageContent, (chunk, fullContent) => {
-                    if (flashcardText) {
-                        flashcardText.innerHTML = this.renderMarkdown(fullContent);
-                        // 更新原始文本用于复制功能
-                        flashcardText.setAttribute('data-original-text', fullContent);
-                        // 添加复制按钮
-                        if (fullContent && fullContent.trim()) {
-                            const copyButtonContainer = flashcardMessage.querySelector('[data-copy-button-container]');
-                            if (copyButtonContainer) {
-                                this.addCopyButton(copyButtonContainer, flashcardText);
-                            }
-                        }
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-                });
-
-                // 停止加载动画
-                if (flashcardAvatar) {
-                    flashcardAvatar.style.animation = '';
-                }
-
-                flashcardButton.innerHTML = '✓';
-                flashcardButton.style.cursor = 'default';
-                flashcardButton.style.color = '#4caf50';
-
-                // 2秒后恢复初始状态，允许再次点击
-                setTimeout(() => {
-                    flashcardButton.innerHTML = '📚';
-                    flashcardButton.style.color = '';
-                    flashcardButton.style.cursor = 'pointer';
-                    flashcardButton.style.opacity = '1';
-                    isFlashcardProcessing = false;
-                }, 2000);
-
-            } catch (error) {
-                console.error('生成闪卡失败:', error);
-                if (flashcardText) {
-                    flashcardText.innerHTML = this.renderMarkdown(
-                        '抱歉，无法生成闪卡。您可以尝试刷新页面后重试。📚'
-                    );
-                }
-                if (flashcardAvatar) {
-                    flashcardAvatar.style.animation = '';
-                }
-                flashcardButton.innerHTML = '✕';
-                flashcardButton.style.color = '#f44336';
-
-                // 1.5秒后恢复初始状态，允许再次点击
-                setTimeout(() => {
-                    flashcardButton.innerHTML = '📚';
-                    flashcardButton.style.color = '';
-                    flashcardButton.style.cursor = 'pointer';
-                    flashcardButton.style.opacity = '1';
-                    isFlashcardProcessing = false;
-                }, 1500);
-            } finally {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        });
-
         // 创建编辑按钮
         const editButton = document.createElement('button');
         editButton.className = 'edit-button';
@@ -8042,34 +7945,19 @@ ${pageContent || '无内容'}
         container.innerHTML = '';
         container.appendChild(editButton);
         container.appendChild(deleteButton);
-        container.appendChild(flashcardButton);
         container.style.display = 'flex';
         container.style.gap = '8px';
     }
 
-    // 为宠物消息添加 try again 按钮（除了第一个消息）
+    // 为宠物消息添加 try again 按钮
     addTryAgainButton(container, messageDiv) {
         // 如果已经添加过，就不再添加
         if (container.querySelector('.try-again-button')) {
             return;
         }
 
-        // 检查是否是第一个宠物消息
         const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
         if (!messagesContainer) {
-            return;
-        }
-
-        // 统计已有的宠物消息数量（不包括打字指示器和当前消息）
-        const allMessages = Array.from(messagesContainer.children);
-        const petMessages = allMessages.filter(msg => {
-            return msg.querySelector('[data-message-type="pet-bubble"]') && 
-                   !msg.hasAttribute('data-typing-indicator') &&
-                   msg !== messageDiv;
-        });
-
-        // 如果是第一个宠物消息，不添加 try again 按钮
-        if (petMessages.length === 0) {
             return;
         }
 

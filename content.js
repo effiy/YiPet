@@ -2872,16 +2872,43 @@ ${pageContent ? pageContent : '无内容'}
         btns.style.cssText = 'display:flex; gap:6px;';
         const edit = document.createElement('button');
         edit.textContent = '编辑';
-        const mc = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-        edit.style.cssText = `padding:4px 8px; border:1px solid ${mc}; color:${mc}; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;`;
-        edit.addEventListener('mouseenter', () => { edit.style.background = mc; edit.style.color = '#fff'; });
-        edit.addEventListener('mouseleave', () => { edit.style.background = '#fff'; edit.style.color = mc; });
+        edit.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+        `;
+        edit.addEventListener('mouseenter', () => {
+            edit.style.background = 'rgba(255,255,255,0.12)';
+            edit.style.borderColor = 'rgba(255,255,255,0.25)';
+        });
+        edit.addEventListener('mouseleave', () => {
+            edit.style.background = 'rgba(255,255,255,0.04)';
+            edit.style.borderColor = 'rgba(255,255,255,0.15)';
+        });
         edit.addEventListener('click', () => this.renderRoleSettingsForm(c.id));
         const del = document.createElement('button');
         del.textContent = '删除';
-        del.style.cssText = 'padding:4px 8px; border:1px solid #ef4444; color:#ef4444; border-radius:6px; background:#fff; cursor:pointer; font-size:12px;';
-        del.addEventListener('mouseenter', () => { del.style.background = '#fee2e2'; });
-        del.addEventListener('mouseleave', () => { del.style.background = '#fff'; });
+        del.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+        `;
+        del.addEventListener('mouseenter', () => {
+            del.style.background = 'rgba(255,255,255,0.12)';
+            del.style.borderColor = 'rgba(255,255,255,0.25)';
+        });
+        del.addEventListener('mouseleave', () => {
+            del.style.background = 'rgba(255,255,255,0.04)';
+            del.style.borderColor = 'rgba(255,255,255,0.15)';
+        });
         del.addEventListener('click', async () => {
             const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
             await this.setRoleConfigs(next);
@@ -2950,7 +2977,7 @@ ${pageContent ? pageContent : '无内容'}
         iconPreview.textContent = iconInput.value || '🙂';
         iconPreview.style.cssText = `
             width: 36px; height: 36px; display:flex; align-items:center; justify-content:center;
-            border:1px solid ${mainColor}66; border-radius:8px; background:#121212; color:#e5e7eb;
+            border:1px solid rgba(255,255,255,0.12); border-radius:8px; background:#121212; color:#e5e7eb;
             font-size:18px;
         `;
         const emojiQuick = document.createElement('div');
@@ -2961,11 +2988,22 @@ ${pageContent ? pageContent : '无内容'}
             b.type = 'button';
             b.textContent = e;
             b.style.cssText = `
-                padding:4px 6px; border:1px solid ${mainColor}66; background:#0e0e0e; color:#e5e7eb;
-                border-radius:6px; cursor:pointer; font-size:14px;
+                padding: 4px 6px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.04) !important;
+                color: #e5e7eb !important;
+                border-radius: 6px !important;
+                cursor: pointer !important;
+                font-size: 14px !important;
             `;
-            b.addEventListener('mouseenter', () => { b.style.background = '#121212'; });
-            b.addEventListener('mouseleave', () => { b.style.background = '#0e0e0e'; });
+            b.addEventListener('mouseenter', () => {
+                b.style.background = 'rgba(255,255,255,0.12)';
+                b.style.borderColor = 'rgba(255,255,255,0.25)';
+            });
+            b.addEventListener('mouseleave', () => {
+                b.style.background = 'rgba(255,255,255,0.04)';
+                b.style.borderColor = 'rgba(255,255,255,0.15)';
+            });
             b.addEventListener('click', () => {
                 iconInput.value = e;
                 iconPreview.textContent = e || '🙂';
@@ -2990,9 +3028,23 @@ ${pageContent ? pageContent : '无内容'}
         btns.style.cssText = 'display:flex; gap:8px; margin-top:4px;';
         const saveBtn = document.createElement('button');
         saveBtn.textContent = '保存';
-        saveBtn.style.cssText = `padding:6px 10px; border:1px solid ${mainColor}; color:${mainColor}; background:#fff; border-radius:8px; cursor:pointer; font-size:12px;`;
-        saveBtn.addEventListener('mouseenter', () => { saveBtn.style.background = mainColor; saveBtn.style.color = '#fff'; });
-        saveBtn.addEventListener('mouseleave', () => { saveBtn.style.background = '#fff'; saveBtn.style.color = mainColor; });
+        saveBtn.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = 'rgba(255,255,255,0.12)';
+            saveBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = 'rgba(255,255,255,0.04)';
+            saveBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+        });
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = '取消';
         cancelBtn.style.cssText = `

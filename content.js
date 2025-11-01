@@ -5078,7 +5078,7 @@ ${pageContent || '无内容'}
             bottom: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            padding: 16px !important;
+            padding: 20px !important;
             background: white !important;
             border-top: 1px solid #e5e7eb !important;
             display: flex !important;
@@ -5374,8 +5374,9 @@ ${pageContent || '无内容'}
         inputWrapper.style.cssText = `
             display: flex !important;
             gap: 8px !important;
-            align-items: flex-start !important;
+            align-items: flex-end !important;
             position: relative !important;
+            width: 100% !important;
         `;
 
         const messageInput = document.createElement('textarea');
@@ -5385,6 +5386,7 @@ ${pageContent || '无内容'}
         messageInput.rows = 2; // 初始2行
         messageInput.style.cssText = `
             flex: 1 !important;
+            width: 100% !important;
             padding: 12px 16px !important;
             border: 2px solid ${mainColor} !important;
             border-radius: 8px !important;
@@ -5912,6 +5914,7 @@ ${pageContent || '无内容'}
             justify-content: space-between !important;
             align-items: center !important;
             margin-top: 8px !important;
+            width: 100% !important;
         `;
 
         // 左侧：模型选择器

@@ -54,14 +54,17 @@ class SessionManager {
     }
     
     /**
-     * 生成会话ID（基于URL的MD5哈希）
+     * 生成会话ID（基于URL的哈希或UUID）
+     * @param {string} url - 页面URL（可选）
+     * @returns {Promise<string>} 会话ID
      */
     async generateSessionId(url) {
         if (!url) {
+            // 如果没有URL，生成基于时间戳的会话ID
             return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
         
-        // 使用 Web Crypto API 生成 MD5 哈希（如果可用）
+        // 使用 Web Crypto API 生成 SHA-256 哈希（如果可用）
         if (window.crypto && window.crypto.subtle) {
             try {
                 const encoder = new TextEncoder();
@@ -322,64 +325,91 @@ class SessionManager {
     
     /**
      * 初始化或恢复会话（基于当前页面URL）
+     * 自动处理会话的查找、创建和激活
+     * @returns {Promise<string>} 会话ID
      */
     async initSession() {
         await this.initialize();
         
         const pageInfo = this.getPageInfo();
         const currentUrl = pageInfo.url;
-        const isSamePage = this.currentPageUrl === currentUrl;
         
-        // 处理同一页面的情况
-        if (isSamePage && this.hasAutoCreatedSessionForPage && this.currentSessionId) {
-            if (this.sessions[this.currentSessionId]) {
-                // 更新访问时间（节流）
-                const session = this.sessions[this.currentSessionId];
-                const now = Date.now();
-                if (!session.lastAccessTime || (now - session.lastAccessTime) > 60000) {
-                    session.lastAccessTime = now;
-                    await this.saveSession(this.currentSessionId);
-                }
-                return this.currentSessionId;
-            }
+        // 检查是否是同一页面且已有会话
+        if (this._isSamePageSession(currentUrl)) {
+            return this.currentSessionId;
         }
         
         // 处理新页面的情况
-        if (!isSamePage) {
+        if (this.currentPageUrl !== currentUrl) {
             this.currentPageUrl = currentUrl;
             this.hasAutoCreatedSessionForPage = false;
         }
         
-        // 使用URL生成会话ID
+        // 生成基于URL的会话ID
         const sessionId = await this.generateSessionId(currentUrl);
         
-        // 查找是否存在该会话ID的会话
-        let existingSession = this.sessions[sessionId];
-        
+        // 查找或创建会话
+        const existingSession = this.sessions[sessionId];
         if (existingSession) {
-            // 更新会话页面信息
-            this.updateSessionPageInfo(sessionId, pageInfo);
-            await this.saveSession(sessionId);
-            
-            // 激活会话
-            this.currentSessionId = sessionId;
-            this.hasAutoCreatedSessionForPage = true;
-            
-            console.log('找到基于URL的已有会话，已自动选中:', sessionId);
-            return sessionId;
+            // 恢复已有会话
+            await this._restoreExistingSession(sessionId, pageInfo);
         } else {
             // 创建新会话
-            const newSession = this.createSession(sessionId, pageInfo);
-            this.sessions[sessionId] = newSession;
-            await this.saveSession(sessionId);
-            
-            // 激活会话
-            this.currentSessionId = sessionId;
-            this.hasAutoCreatedSessionForPage = true;
-            
-            console.log('使用URL作为会话ID，已自动创建新会话:', sessionId, 'URL:', currentUrl);
-            return sessionId;
+            await this._createNewSession(sessionId, pageInfo);
         }
+        
+        // 激活会话
+        this.currentSessionId = sessionId;
+        this.hasAutoCreatedSessionForPage = true;
+        
+        return sessionId;
+    }
+    
+    /**
+     * 检查是否是同一页面的已有会话
+     * @private
+     */
+    _isSamePageSession(currentUrl) {
+        if (this.currentPageUrl === currentUrl && 
+            this.hasAutoCreatedSessionForPage && 
+            this.currentSessionId &&
+            this.sessions[this.currentSessionId]) {
+            
+            // 更新访问时间（节流，每分钟最多更新一次）
+            const session = this.sessions[this.currentSessionId];
+            const now = Date.now();
+            if (!session.lastAccessTime || (now - session.lastAccessTime) > 60000) {
+                session.lastAccessTime = now;
+                // 异步更新，不阻塞返回
+                this.saveSession(this.currentSessionId).catch(err => {
+                    console.warn('更新会话访问时间失败:', err);
+                });
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 恢复已有会话
+     * @private
+     */
+    async _restoreExistingSession(sessionId, pageInfo) {
+        // 更新会话页面信息
+        this.updateSessionPageInfo(sessionId, pageInfo);
+        await this.saveSession(sessionId);
+        console.log('找到基于URL的已有会话，已自动恢复:', sessionId);
+    }
+    
+    /**
+     * 创建新会话
+     * @private
+     */
+    async _createNewSession(sessionId, pageInfo) {
+        const newSession = this.createSession(sessionId, pageInfo);
+        this.sessions[sessionId] = newSession;
+        await this.saveSession(sessionId);
+        console.log('使用URL作为会话ID，已自动创建新会话:', sessionId, 'URL:', pageInfo.url);
     }
     
     /**
@@ -412,15 +442,19 @@ class SessionManager {
     
     /**
      * 创建新会话
+     * @param {string} customSessionId - 自定义会话ID（可选）
+     * @param {Object} pageInfo - 页面信息（可选）
+     * @returns {Promise<string>} 会话ID
      */
     async createNewSession(customSessionId = null, pageInfo = null) {
-        const sessionId = customSessionId || await this.generateSessionId(window.location.href);
+        await this.initialize();
+        
+        // 生成或使用提供的会话ID
         const info = pageInfo || this.getPageInfo();
+        const sessionId = customSessionId || await this.generateSessionId(info.url);
         
-        const session = this.createSession(sessionId, info);
-        this.sessions[sessionId] = session;
-        
-        await this.saveSession(sessionId);
+        // 使用统一的创建逻辑
+        await this._createNewSession(sessionId, info);
         
         return sessionId;
     }
@@ -522,27 +556,37 @@ class SessionManager {
     
     /**
      * 保存会话（本地 + 后端同步）
+     * 统一处理会话保存逻辑，包括时间戳更新、本地存储和后端同步
+     * @param {string} sessionId - 会话ID
+     * @param {boolean} force - 是否强制立即保存（跳过防抖节流）
+     * @returns {Promise<boolean>} 是否保存成功
      */
     async saveSession(sessionId, force = false) {
         const session = this.sessions[sessionId];
         if (!session) {
+            console.warn('会话不存在，无法保存:', sessionId);
             return false;
         }
         
-        // 更新更新时间
+        // 更新更新时间（除非是强制保存且提供了更新时间）
         if (!force) {
             session.updatedAt = Date.now();
         }
         
-        // 保存到本地
-        await this.saveLocalSessions(force);
-        
-        // 同步到后端
-        if (sessionId === this.currentSessionId || force) {
-            await this.syncSessionToBackend(sessionId, force);
+        try {
+            // 保存到本地存储
+            await this.saveLocalSessions(force);
+            
+            // 同步到后端（当前会话或强制保存时才同步）
+            if (sessionId === this.currentSessionId || force) {
+                await this.syncSessionToBackend(sessionId, force);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('保存会话失败:', error);
+            return false;
         }
-        
-        return true;
     }
     
     /**

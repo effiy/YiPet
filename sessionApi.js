@@ -233,10 +233,20 @@ class SessionApiManager {
                 
                 // 更新缓存
                 const sessionId = result.data?.session_id || result.data?.id || sessionData.id;
-                this.cache.sessionsMap.set(`session:${sessionId}`, {
-                    data: { ...sessionData, id: sessionId },
-                    timestamp: Date.now(),
-                });
+                
+                // 如果返回了完整会话数据，使用返回的数据更新缓存
+                if (result.data?.session) {
+                    this.cache.sessionsMap.set(`session:${sessionId}`, {
+                        data: result.data.session,
+                        timestamp: Date.now(),
+                    });
+                } else {
+                    // 否则使用传入的数据
+                    this.cache.sessionsMap.set(`session:${sessionId}`, {
+                        data: { ...sessionData, id: sessionId },
+                        timestamp: Date.now(),
+                    });
+                }
                 
                 // 清除列表缓存，因为列表可能已变化
                 this.cache.sessionsList = null;

@@ -2624,7 +2624,26 @@ class PetManager {
             if (this.sessionApi) {
                 if (immediate) {
                     // 立即保存
-                    await this.sessionApi.saveSession(sessionData);
+                    const result = await this.sessionApi.saveSession(sessionData);
+                    
+                    // 如果返回了完整的会话数据，更新本地会话数据
+                    if (result?.data?.session) {
+                        const updatedSession = result.data.session;
+                        if (this.sessions[sessionId]) {
+                            // 更新本地会话数据，但保留本地的 messages（可能包含未同步的最新消息）
+                            this.sessions[sessionId] = {
+                                ...updatedSession,
+                                // 如果本地消息更新，保留本地消息
+                                messages: this.sessions[sessionId].messages?.length > updatedSession.messages?.length
+                                    ? this.sessions[sessionId].messages
+                                    : updatedSession.messages
+                            };
+                        }
+                    }
+                    
+                    // 清除列表缓存，强制下次刷新时从接口获取最新数据
+                    this.lastSessionListLoadTime = 0;
+                    
                     console.log(`会话 ${sessionId} 已立即同步到后端`);
                 } else {
                     // 加入队列批量保存
@@ -3203,46 +3222,15 @@ class PetManager {
         }
     }
 
-    // 更新会话侧边栏
-    async updateSessionSidebar(forceRefresh = false) {
-        if (!this.sessionSidebar) {
-            console.log('会话侧边栏未创建，跳过更新');
-            return;
-        }
-        
-        const sessionList = this.sessionSidebar.querySelector('.session-list');
-        if (!sessionList) {
-            console.log('会话列表容器未找到，跳过更新');
-            return;
-        }
-        
-        // 先同步后端数据，确保列表是最新的（使用缓存，避免频繁调用）
-        if (PET_CONFIG.api.syncSessionsToBackend) {
-            try {
-                // 检查是否需要刷新（避免频繁调用）
-                const now = Date.now();
-                const shouldRefresh = (now - this.lastSessionListLoadTime) >= this.SESSION_LIST_RELOAD_INTERVAL;
-                
-                if (shouldRefresh || forceRefresh) {
-                    await this.loadSessionsFromBackend(forceRefresh);
-                    this.lastSessionListLoadTime = now;
-                }
-            } catch (error) {
-                console.warn('同步后端会话数据失败，使用本地数据:', error.message);
-            }
-        }
-        
+    // 从本地 sessions 对象获取会话列表（辅助函数）
+    _getSessionsFromLocal() {
         // 确保 sessions 对象已初始化
         if (!this.sessions) {
             this.sessions = {};
-            console.log('会话对象未初始化，已创建空对象');
+            return [];
         }
         
-        // 清空列表
-        sessionList.innerHTML = '';
-        
         // 获取所有会话并去重（按 id 去重，保留 updatedAt 最新的）
-        // 使用 Map 确保去重逻辑更清晰
         const sessionMap = new Map();
         for (const session of Object.values(this.sessions)) {
             if (!session || !session.id) {
@@ -3266,8 +3254,85 @@ class PetManager {
             }
         }
         
-        const allSessions = Array.from(sessionMap.values());
-        console.log('当前会话数量（去重后）:', allSessions.length, '会话列表:', allSessions.map(s => s.id));
+        return Array.from(sessionMap.values());
+    }
+
+    // 更新会话侧边栏
+    async updateSessionSidebar(forceRefresh = false) {
+        if (!this.sessionSidebar) {
+            console.log('会话侧边栏未创建，跳过更新');
+            return;
+        }
+        
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        if (!sessionList) {
+            console.log('会话列表容器未找到，跳过更新');
+            return;
+        }
+        
+        // 优先使用接口数据，确保列表与后端一致
+        let allSessions = [];
+        
+        if (PET_CONFIG.api.syncSessionsToBackend && this.sessionApi) {
+            try {
+                // 检查是否需要刷新（避免频繁调用）
+                const now = Date.now();
+                const shouldRefresh = (now - this.lastSessionListLoadTime) >= this.SESSION_LIST_RELOAD_INTERVAL;
+                
+                if (shouldRefresh || forceRefresh) {
+                    // 从接口获取最新的会话列表
+                    const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
+                    
+                    // 将接口数据转换为前端格式，确保格式一致
+                    allSessions = backendSessions.map(backendSession => ({
+                        id: backendSession.id,
+                        url: backendSession.url || '',
+                        title: backendSession.title || '',
+                        pageTitle: backendSession.pageTitle || '',
+                        pageDescription: backendSession.pageDescription || '',
+                        message_count: backendSession.message_count || 0,
+                        createdAt: backendSession.createdAt || Date.now(),
+                        updatedAt: backendSession.updatedAt || Date.now(),
+                        lastAccessTime: backendSession.lastAccessTime || backendSession.updatedAt || Date.now(),
+                        // 列表接口不包含完整消息，使用本地会话的消息（如果有）
+                        messages: this.sessions?.[backendSession.id]?.messages || []
+                    }));
+                    
+                    // 同时更新本地 sessions 对象，保持同步
+                    await this.loadSessionsFromBackend(forceRefresh);
+                    this.lastSessionListLoadTime = now;
+                    
+                    console.log('从接口获取会话列表，数量:', allSessions.length);
+                } else {
+                    // 使用缓存的接口数据
+                    const cachedSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
+                    allSessions = cachedSessions.map(s => ({
+                        id: s.id,
+                        url: s.url || '',
+                        title: s.title || '',
+                        pageTitle: s.pageTitle || '',
+                        pageDescription: s.pageDescription || '',
+                        message_count: s.message_count || 0,
+                        createdAt: s.createdAt || Date.now(),
+                        updatedAt: s.updatedAt || Date.now(),
+                        lastAccessTime: s.lastAccessTime || s.updatedAt || Date.now(),
+                        messages: this.sessions?.[s.id]?.messages || []
+                    }));
+                }
+            } catch (error) {
+                console.warn('从接口获取会话列表失败，使用本地数据:', error.message);
+                // 接口失败时，使用本地 sessions 作为后备
+                allSessions = this._getSessionsFromLocal();
+            }
+        } else {
+            // 未启用后端同步，使用本地 sessions
+            allSessions = this._getSessionsFromLocal();
+        }
+        
+        // 清空列表
+        sessionList.innerHTML = '';
+        
+        console.log('当前会话数量:', allSessions.length);
         
         if (allSessions.length === 0) {
             // 如果没有会话，显示提示信息
@@ -3283,19 +3348,18 @@ class PetManager {
             return;
         }
         
-        // 按创建时间排序会话（最早创建的在前，确保排序稳定）
-        // 使用 createdAt 而不是 updatedAt，因为创建时间不会改变，排序位置保持稳定
-        // 如果创建时间相同，则按会话ID排序（确保完全稳定的排序）
+        // 按更新时间排序会话（最新更新的在前，与接口排序一致）
+        // 这样可以确保列表与接口返回的顺序一致
         const sortedSessions = allSessions.sort((a, b) => {
-            const aCreated = a.createdAt || 0;
-            const bCreated = b.createdAt || 0;
+            const aUpdated = a.updatedAt || a.createdAt || 0;
+            const bUpdated = b.updatedAt || b.createdAt || 0;
             
-            // 首先按创建时间排序（早创建的在前）
-            if (aCreated !== bCreated) {
-                return aCreated - bCreated;
+            // 首先按更新时间排序（最新更新的在前）
+            if (aUpdated !== bUpdated) {
+                return bUpdated - aUpdated;
             }
             
-            // 如果创建时间相同，按会话ID排序（确保完全稳定）
+            // 如果更新时间相同，按会话ID排序（确保完全稳定）
             const aId = a.id || '';
             const bId = b.id || '';
             return aId.localeCompare(bId);

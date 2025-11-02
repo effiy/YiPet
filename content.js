@@ -1558,115 +1558,197 @@ class PetManager {
         };
     }
 
+    // ==================== 会话管理辅助方法 ====================
+    
+    // 根据URL查找会话
+    findSessionByUrl(url) {
+        return Object.values(this.sessions).find(session => session.url === url) || null;
+    }
+    
+    // 生成会话ID（如果URL过长则使用hash）
+    async generateSessionId(url) {
+        if (url.length <= 200) {
+            return url;
+        }
+        const hash = await this.hashString(url);
+        return `session_${hash}`;
+    }
+    
+    // 更新会话页面信息（保持消息不变）
+    updateSessionPageInfo(sessionId, pageInfo) {
+        if (!this.sessions[sessionId]) return false;
+        
+        const session = this.sessions[sessionId];
+        const sessionData = this.createSessionObject(sessionId, pageInfo, session);
+        
+        // 只更新页面相关信息，保留消息
+        Object.assign(session, {
+            title: sessionData.title,
+            url: sessionData.url,
+            pageTitle: sessionData.pageTitle,
+            pageDescription: sessionData.pageDescription,
+            pageContent: sessionData.pageContent || session.pageContent, // 保留已有内容
+            updatedAt: sessionData.updatedAt
+        });
+        
+        return true;
+    }
+    
+    // 统一更新UI（侧边栏、标题等）
+    async updateSessionUI(options = {}) {
+        const { 
+            updateSidebar = true, 
+            updateTitle = true, 
+            loadMessages = false,
+            highlightSessionId = null 
+        } = options;
+        
+        if (updateSidebar && this.sessionSidebar) {
+            this.updateSessionSidebar();
+        }
+        
+        if (updateTitle) {
+            this.updateChatHeaderTitle();
+        }
+        
+        if (loadMessages && this.chatWindow && this.isChatOpen) {
+            await this.loadSessionMessages();
+            
+            // 高亮显示新会话
+            if (highlightSessionId) {
+                setTimeout(() => {
+                    const sessionItem = this.sessionSidebar?.querySelector(`[data-session-id="${highlightSessionId}"]`);
+                    if (sessionItem) {
+                        sessionItem.classList.add('new-session-highlight');
+                        setTimeout(() => {
+                            sessionItem.classList.remove('new-session-highlight');
+                        }, 1500);
+                    }
+                }, 100);
+            }
+        }
+    }
+    
+    // 切换到会话（统一入口）
+    async activateSession(sessionId, options = {}) {
+        const { 
+            saveCurrent = true,
+            updateConsistency = true,
+            updateUI = true 
+        } = options;
+        
+        if (saveCurrent && this.currentSessionId && this.currentSessionId !== sessionId) {
+            await this.saveCurrentSession();
+        }
+        
+        this.currentSessionId = sessionId;
+        this.currentPageUrl = this.sessions[sessionId]?.url || null;
+        this.hasAutoCreatedSessionForPage = true;
+        
+        // 更新会话一致性
+        if (updateConsistency && this.sessions[sessionId]) {
+            const pageInfo = this.getPageInfo();
+            const session = this.sessions[sessionId];
+            
+            if (session.url === pageInfo.url) {
+                const needsUpdate = this.ensureSessionConsistency(sessionId);
+                if (needsUpdate) {
+                    await this.saveAllSessions();
+                }
+            }
+        }
+        
+        // 更新UI
+        if (updateUI) {
+            await this.updateSessionUI({
+                updateSidebar: true,
+                updateTitle: true,
+                loadMessages: this.isChatOpen
+            });
+        }
+    }
+    
+    // 辅助方法：生成字符串的hash值
+    async hashString(str) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(str);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        // 返回前16个字符作为会话ID的一部分
+        return hashHex.substring(0, 16);
+    }
 
     // 初始化或恢复会话 - 基于URL创建唯一会话，确保每个会话与页面上下文一一对应
     async initSession() {
         const pageInfo = this.getPageInfo();
         const currentUrl = pageInfo.url;
+        const isSamePage = this.currentPageUrl === currentUrl;
         
         // 加载所有会话数据
         await this.loadAllSessions();
         
-        // 检查是否是同一个页面（URL相同）
-        const isSamePage = this.currentPageUrl === currentUrl;
-        
-        // 如果当前已经有会话ID，且是同一页面且已经自动创建过会话，则检查并更新一致性
+        // 处理同一页面的情况：如果已选中会话，只更新一致性
         if (isSamePage && this.hasAutoCreatedSessionForPage && this.currentSessionId) {
-            console.log('同一页面已自动创建会话，检查一致性:', this.currentSessionId);
             if (this.sessions[this.currentSessionId]) {
-                // 检查并修复会话一致性（标题、描述等可能变化）
                 const needsUpdate = this.ensureSessionConsistency(this.currentSessionId);
                 if (needsUpdate) {
-                    // 更新标题显示（如果变化了）
-                    this.updateChatHeaderTitle();
                     await this.saveAllSessions();
+                    await this.updateSessionUI({ updateTitle: true });
                 } else {
-                    // 不需要修复，只更新访问时间（但不立即保存，避免频繁保存）
-                    // 访问时间更新延迟到下次实际保存时
+                    // 更新访问时间（节流）
                     const session = this.sessions[this.currentSessionId];
                     const now = Date.now();
-                    // 只在距离上次更新时间超过一定时间时才更新（避免频繁更新）
                     if (!session.lastAccessTime || (now - session.lastAccessTime) > 60000) {
                         session.lastAccessTime = now;
                     }
                 }
-            }
-            // 更新会话侧边栏
-            if (this.sessionSidebar) {
-                this.updateSessionSidebar();
+                await this.updateSessionUI({ updateSidebar: true });
             }
             return this.currentSessionId;
         }
         
-        // 如果是新页面，重置标志
+        // 处理新页面的情况
         if (!isSamePage) {
             this.currentPageUrl = currentUrl;
             this.hasAutoCreatedSessionForPage = false;
         }
         
-        // 查找是否已存在基于当前URL的会话
-        let existingSession = null;
-        for (const session of Object.values(this.sessions)) {
-            if (session.url === currentUrl) {
-                existingSession = session;
-                break;
-            }
+        // 保存当前会话（如果切换到不同页面）
+        if (this.currentSessionId) {
+            await this.saveCurrentSession();
         }
         
-        // 如果找到了基于URL的会话，使用它并确保一致性
+        // 查找是否存在相同URL的会话
+        const existingSession = this.findSessionByUrl(currentUrl);
+        
         if (existingSession) {
-            console.log('找到基于URL的已有会话:', existingSession.id);
-            
-            // 如果当前已经有会话ID且与找到的会话不同，先保存当前会话
-            if (this.currentSessionId && this.currentSessionId !== existingSession.id) {
-                await this.saveCurrentSession();
-            }
-            
-            // 切换到找到的会话
-            this.currentSessionId = existingSession.id;
-            this.hasAutoCreatedSessionForPage = true;
-            
-            // 确保会话数据一致性（更新标题、描述等信息，但保留消息记录）
-            const sessionData = this.createSessionObject(existingSession.id, pageInfo, existingSession);
-            // 合并到已有会话，保留原有数据但更新页面信息
-            Object.assign(this.sessions[existingSession.id], {
-                title: sessionData.title,
-                url: sessionData.url,
-                pageTitle: sessionData.pageTitle,
-                pageDescription: sessionData.pageDescription,
-                pageContent: sessionData.pageContent,
-                updatedAt: sessionData.updatedAt
-            });
-            
+            // 更新会话页面信息
+            this.updateSessionPageInfo(existingSession.id, pageInfo);
             await this.saveAllSessions();
             
-            // 更新聊天窗口标题
-            this.updateChatHeaderTitle();
-        } else {
-            // 没有找到基于URL的会话，不自动创建新会话
-            // 如果当前已经有会话ID且与新URL不同，先保存当前会话
-            if (this.currentSessionId && this.currentSessionId !== currentUrl) {
-                await this.saveCurrentSession();
-            }
+            // 自动选中匹配的会话
+            await this.activateSession(existingSession.id, {
+                saveCurrent: false, // 已经在前面保存了
+                updateConsistency: true,
+                updateUI: true
+            });
             
-            // 不自动创建新会话，等待用户手动创建或发送消息时创建
+            console.log('找到基于URL的已有会话，已自动选中:', existingSession.id);
+            return existingSession.id;
+        } else {
+            // 没有找到会话，不自动创建
             this.currentSessionId = null;
             this.hasAutoCreatedSessionForPage = false;
             
             console.log('未找到基于URL的会话，不自动创建新会话。URL:', currentUrl);
-        }
-        
-        // 更新会话侧边栏
-        if (this.sessionSidebar) {
-            this.updateSessionSidebar();
-        }
-        
-        // 更新聊天窗口标题（显示当前会话名称）
-        this.updateChatHeaderTitle();
-        
-        // 如果聊天窗口已打开，加载会话消息
-        if (this.chatWindow && this.isChatOpen) {
-            await this.loadSessionMessages();
+            
+            // 更新UI（但不加载消息，因为没有选中会话）
+            await this.updateSessionUI({
+                updateSidebar: true,
+                updateTitle: true,
+                loadMessages: false
+            });
         }
         
         return this.currentSessionId;
@@ -2061,57 +2143,45 @@ class PetManager {
         if (this.isSwitchingSession || sessionId === this.currentSessionId) {
             return;
         }
+        
+        // 验证会话是否存在
+        if (!this.sessions[sessionId]) {
+            console.error('会话不存在:', sessionId);
+            this.showNotification('会话不存在', 'error');
+            return;
+        }
 
         // 设置切换状态
         this.isSwitchingSession = true;
         
-        // 获取点击的会话项和前一个活动项
+        // 获取UI元素引用
         const clickedItem = this.sessionSidebar?.querySelector(`[data-session-id="${sessionId}"]`);
         const previousActiveItem = this.sessionSidebar?.querySelector('.session-item.active');
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
         
         // 显示加载状态
         if (clickedItem) {
             clickedItem.classList.add('switching');
-            // 移除之前的活动状态（添加过渡）
             if (previousActiveItem && previousActiveItem !== clickedItem) {
                 previousActiveItem.classList.remove('active');
             }
         }
         
-        // 获取消息容器引用（在 try 外部定义以便在 finally 中使用）
-        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        // 添加淡出效果
+        if (messagesContainer && this.isChatOpen) {
+            messagesContainer.style.opacity = '0.5';
+            messagesContainer.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+        }
         
         try {
-            // 如果聊天窗口已打开，添加淡出效果
-            if (messagesContainer && this.isChatOpen) {
-                messagesContainer.style.opacity = '0.5';
-                messagesContainer.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
-            }
-
-            // 保存当前会话
-            await this.saveCurrentSession();
+            // 使用统一的激活会话方法
+            await this.activateSession(sessionId, {
+                saveCurrent: true,
+                updateConsistency: true,
+                updateUI: false // 稍后手动更新UI以便添加过渡效果
+            });
             
-            // 设置新的当前会话
-            this.currentSessionId = sessionId;
-            
-            // 如果切换到的会话存在，确保数据一致性
-            if (this.sessions[sessionId]) {
-                const pageInfo = this.getPageInfo();
-                const session = this.sessions[sessionId];
-                
-                // 如果会话URL与当前页面URL匹配，使用一致性检查修复
-                // 如果不匹配（跨页面会话），则不修改页面信息
-                if (session.url === pageInfo.url) {
-                    const needsUpdate = this.ensureSessionConsistency(sessionId);
-                    if (needsUpdate) {
-                        await this.saveAllSessions();
-                        console.log('切换会话时修复了数据一致性');
-                    }
-                }
-            }
-            
-            // 更新会话侧边栏（更新active状态）
-            // 使用 requestAnimationFrame 确保视觉更新流畅
+            // 更新侧边栏
             await new Promise(resolve => {
                 requestAnimationFrame(() => {
                     this.updateSessionSidebar();
@@ -2119,14 +2189,11 @@ class PetManager {
                 });
             });
             
-            // 重新加载聊天窗口消息
+            // 加载消息并添加淡入效果
             if (this.chatWindow && this.isChatOpen) {
                 await this.loadSessionMessages();
-                
-                // 更新聊天窗口标题（显示当前会话名称）
                 this.updateChatHeaderTitle();
                 
-                // 淡入效果（使用 requestAnimationFrame 确保 DOM 更新完成）
                 requestAnimationFrame(() => {
                     if (messagesContainer) {
                         messagesContainer.style.opacity = '1';
@@ -2135,18 +2202,20 @@ class PetManager {
             }
         } catch (error) {
             console.error('切换会话时出错:', error);
-            // 恢复之前的活动状态
+            
+            // 恢复UI状态
             if (previousActiveItem) {
                 previousActiveItem.classList.add('active');
             }
             if (clickedItem) {
                 clickedItem.classList.remove('switching');
             }
-            // 恢复消息容器样式
             if (messagesContainer) {
                 messagesContainer.style.opacity = '1';
             }
-            throw error; // 重新抛出错误以便上层处理
+            
+            this.showNotification('切换会话失败，请重试', 'error');
+            throw error;
         } finally {
             // 清除加载状态
             if (clickedItem) {
@@ -2567,7 +2636,7 @@ class PetManager {
 
     // 删除会话
     async deleteSession(sessionId) {
-        if (!sessionId) return;
+        if (!sessionId || !this.sessions[sessionId]) return;
         
         // 获取会话标题用于提示
         const session = this.sessions[sessionId];
@@ -2587,39 +2656,39 @@ class PetManager {
         
         // 删除会话
         delete this.sessions[sessionId];
-        
-        // 保存到存储
         await this.saveAllSessions();
         
-        // 如果删除的是当前会话，需要切换到其他会话或创建新会话
+        // 如果删除的是当前会话，切换到其他会话或清空
         if (isCurrentSession) {
-            // 查找其他会话
+            // 查找最新的其他会话
             const otherSessions = Object.values(this.sessions);
             
             if (otherSessions.length > 0) {
-                // 切换到最新的其他会话
-                const latestSession = otherSessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
-                this.currentSessionId = latestSession.id;
+                // 切换到最新的会话
+                const latestSession = otherSessions
+                    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+                
+                await this.activateSession(latestSession.id, {
+                    saveCurrent: false, // 已经在前面保存了
+                    updateUI: true
+                });
             } else {
-                // 没有其他会话，清空当前会话ID，会在下次打开聊天窗口时创建新会话
+                // 没有其他会话，清空当前会话
                 this.currentSessionId = null;
-            }
-            
-            // 如果聊天窗口已打开，重新加载消息
-            if (this.chatWindow && this.isChatOpen) {
-                if (this.currentSessionId) {
-                    // 切换到其他会话
-                    await this.loadSessionMessages();
-                } else {
-                    // 没有其他会话，重新初始化会话（会创建新会话）
-                    await this.initSession();
-                    await this.loadSessionMessages();
+                this.hasAutoCreatedSessionForPage = false;
+                
+                // 清空消息显示
+                if (this.chatWindow && this.isChatOpen) {
+                    const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+                    if (messagesContainer) {
+                        messagesContainer.innerHTML = '';
+                    }
                 }
             }
         }
         
         // 更新侧边栏
-        this.updateSessionSidebar();
+        await this.updateSessionUI({ updateSidebar: true });
         
         console.log('会话已删除:', sessionId);
     }

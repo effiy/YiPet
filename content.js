@@ -150,6 +150,7 @@ class PetManager {
         this.sessionApi = null;
         this.lastSessionListLoadTime = 0;
         this.SESSION_LIST_RELOAD_INTERVAL = 10000; // 会话列表重新加载间隔（10秒）
+        this.isPageFirstLoad = true; // 标记是否是页面首次加载/刷新
 
         this.init();
     }
@@ -1226,7 +1227,8 @@ class PetManager {
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
-                    await this.saveAllSessions();
+                    // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+                    await this.saveAllSessions(false, false);
                 }
             } else {
                 // 如果没有当前会话，使用当前页面内容
@@ -1408,7 +1410,8 @@ class PetManager {
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
-                    await this.saveAllSessions();
+                    // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+                    await this.saveAllSessions(false, false);
                 }
             } else {
                 // 如果没有当前会话，使用当前页面内容
@@ -1879,7 +1882,93 @@ class PetManager {
             await this.saveCurrentSession();
         }
         
-        // 使用URL生成会话ID
+        // 首先查找是否存在URL匹配的会话（遍历所有会话）
+        let matchedSessionId = null;
+        for (const [sessionId, session] of Object.entries(this.sessions)) {
+            if (session && session.url === currentUrl) {
+                matchedSessionId = sessionId;
+                break;
+            }
+        }
+        
+        // 如果找到URL匹配的会话，调用后端API获取完整数据
+        if (matchedSessionId && this.sessionApi && this.sessionApi.isEnabled()) {
+            try {
+                console.log('找到URL匹配的会话，正在从后端获取完整数据:', matchedSessionId);
+                const fullSession = await this.sessionApi.getSession(matchedSessionId, true); // 强制刷新
+                
+                if (fullSession) {
+                    // 更新本地会话数据
+                    const existingSession = this.sessions[matchedSessionId];
+                    if (existingSession) {
+                        // 合并完整数据
+                        if (fullSession.messages && Array.isArray(fullSession.messages)) {
+                            existingSession.messages = fullSession.messages;
+                        }
+                        if (fullSession.pageDescription) {
+                            existingSession.pageDescription = fullSession.pageDescription;
+                        }
+                        if (fullSession.pageContent) {
+                            existingSession.pageContent = fullSession.pageContent;
+                        }
+                        if (fullSession.title) {
+                            existingSession.title = fullSession.title;
+                        }
+                        if (fullSession.pageTitle) {
+                            existingSession.pageTitle = fullSession.pageTitle;
+                        }
+                        existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
+                        existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
+                        existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
+                    } else {
+                        // 如果本地不存在，直接使用后端数据
+                        this.sessions[matchedSessionId] = fullSession;
+                    }
+                    
+                    // 保存更新后的会话数据
+                    await this.saveAllSessions(false, false); // 不触发后端同步，因为刚同步过
+                    
+                    // 更新会话页面信息
+                    this.updateSessionPageInfo(matchedSessionId, pageInfo);
+                    await this.saveAllSessions();
+                    
+                    // 自动选中匹配的会话
+                    await this.activateSession(matchedSessionId, {
+                        saveCurrent: false, // 已经在前面保存了
+                        updateConsistency: true,
+                        updateUI: true
+                    });
+                    
+                    console.log('找到URL匹配的会话，已从后端获取完整数据并自动选中:', matchedSessionId);
+                    return matchedSessionId;
+                }
+            } catch (error) {
+                console.warn('从后端获取会话完整数据失败:', error);
+                // 继续使用本地数据
+            }
+        }
+        
+        // 如果找到了匹配的会话（但可能没有后端数据或后端API不可用），直接选中
+        if (matchedSessionId) {
+            const existingSession = this.sessions[matchedSessionId];
+            if (existingSession) {
+                // 更新会话页面信息
+                this.updateSessionPageInfo(matchedSessionId, pageInfo);
+                await this.saveAllSessions();
+                
+                // 自动选中匹配的会话
+                await this.activateSession(matchedSessionId, {
+                    saveCurrent: false, // 已经在前面保存了
+                    updateConsistency: true,
+                    updateUI: true
+                });
+                
+                console.log('找到URL匹配的会话，已自动选中:', matchedSessionId);
+                return matchedSessionId;
+            }
+        }
+        
+        // 如果没有找到URL匹配的会话，使用URL生成会话ID
         const sessionId = await this.generateSessionId(currentUrl);
         
         // 查找是否存在该会话ID的会话
@@ -2135,7 +2224,18 @@ class PetManager {
         try {
             // 使用新的API管理器
             if (this.sessionApi) {
-                console.log('使用API管理器加载会话列表...');
+                // 只在页面首次加载/刷新时调用 getSessionsList，或者强制刷新时
+                const shouldLoadFromBackend = forceRefresh || this.isPageFirstLoad;
+                
+                if (!shouldLoadFromBackend) {
+                    console.log('跳过从后端加载会话列表（非页面刷新）');
+                    return;
+                }
+                
+                // 标记页面已加载
+                this.isPageFirstLoad = false;
+                
+                console.log('使用API管理器加载会话列表（页面刷新）...');
                 const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
                 
                 // 合并后端数据到本地 sessions
@@ -2278,13 +2378,24 @@ class PetManager {
                 return;
             }
             
+            // 只在页面首次加载/刷新时调用，或者强制刷新时
+            const shouldLoadFromBackend = forceRefresh || this.isPageFirstLoad;
+            
+            if (!shouldLoadFromBackend) {
+                console.log('跳过从后端加载会话列表（非页面刷新）');
+                return;
+            }
+            
+            // 标记页面已加载
+            this.isPageFirstLoad = false;
+            
             // 检查是否需要刷新（避免频繁调用）
             const now = Date.now();
             if (!forceRefresh && (now - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) {
                 return;
             }
             
-            console.log('开始从后端加载会话列表...');
+            console.log('开始从后端加载会话列表（页面刷新）...');
             
             // 调用后端API获取会话列表
             const response = await fetch(`${baseUrl}/session/`, {
@@ -2688,7 +2799,7 @@ class PetManager {
     }
 
     // 直接添加消息到当前会话对象（实时保存，确保消息与会话一一对应）
-    async addMessageToSession(type, content, timestamp = null) {
+    async addMessageToSession(type, content, timestamp = null, syncToBackend = true) {
         if (!this.currentSessionId) {
             console.warn('没有当前会话，无法添加消息');
             return;
@@ -2745,14 +2856,15 @@ class PetManager {
             message.type, message.content.substring(0, 50));
         
         // 异步保存到存储（使用防抖优化，避免频繁保存）
-        this.saveAllSessions().catch(err => {
+        // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+        this.saveAllSessions(false, syncToBackend).catch(err => {
             console.error('保存会话消息失败:', err);
         });
     }
 
     // 保存当前会话的消息和页面信息（确保一致性，优化版本）
     // 重要：只有当会话URL和当前页面URL匹配时，才更新页面信息，确保数据隔离
-    async saveCurrentSession(force = false) {
+    async saveCurrentSession(force = false, syncToBackend = true) {
         if (!this.currentSessionId) return;
         
         // 确保会话存在
@@ -2891,7 +3003,7 @@ class PetManager {
         // 强制保存模式：无论是否有变化都保存（用于切换会话前的保存）
         // 或者有实际变化时才保存
         if (hasActualChanges || force) {
-            await this.saveAllSessions(force);
+            await this.saveAllSessions(force, syncToBackend);
             return true; // 返回true表示有变化
         }
         
@@ -9372,12 +9484,14 @@ ${pageContent || '无内容'}
                 }
 
                 // 立即保存宠物回复到当前会话（确保消息实时持久化）
+                // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
                 if (reply && reply.trim()) {
-                    await this.addMessageToSession('pet', reply);
+                    await this.addMessageToSession('pet', reply, null, false);
                 }
 
                 // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
-                await this.saveCurrentSession();
+                // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+                await this.saveCurrentSession(false, false);
             } catch (error) {
                 // 检查是否是取消错误
                 const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
@@ -9440,8 +9554,9 @@ ${pageContent || '无内容'}
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     
                     // 保存错误消息到会话（确保错误消息也被记录）
+                    // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
                     if (!isAbortError) {
-                        await this.addMessageToSession('pet', errorMessageContent);
+                        await this.addMessageToSession('pet', errorMessageContent, null, false);
                     }
                 }
 
@@ -11681,20 +11796,6 @@ ${pageContent || '无内容'}
                                 );
                                 
                                 if (messageIndex !== -1) {
-                                    // 确保使用统一的会话ID（session.id 或 currentSessionId）
-                                    const unifiedSessionId = session.id || this.currentSessionId;
-                                    
-                                    // 先调用后端API删除消息（如果启用了后端同步）
-                                    if (this.sessionApi && this.sessionApi.isEnabled()) {
-                                        try {
-                                            await this.sessionApi.deleteMessage(unifiedSessionId, messageIndex);
-                                            console.log(`消息已从后端删除: 会话 ${unifiedSessionId}, 索引 ${messageIndex}`);
-                                        } catch (error) {
-                                            console.warn('从后端删除消息失败:', error);
-                                            // 即使后端删除失败，也继续本地删除，确保用户界面响应
-                                        }
-                                    }
-                                    
                                     // 从本地会话中删除消息
                                     session.messages.splice(messageIndex, 1);
                                     session.updatedAt = Date.now();
@@ -12032,20 +12133,6 @@ ${pageContent || '无内容'}
                                 );
                                 
                                 if (messageIndex !== -1) {
-                                    // 确保使用统一的会话ID（session.id 或 currentSessionId）
-                                    const unifiedSessionId = session.id || this.currentSessionId;
-                                    
-                                    // 先调用后端API删除消息（如果启用了后端同步）
-                                    if (this.sessionApi && this.sessionApi.isEnabled()) {
-                                        try {
-                                            await this.sessionApi.deleteMessage(unifiedSessionId, messageIndex);
-                                            console.log(`消息已从后端删除: 会话 ${unifiedSessionId}, 索引 ${messageIndex}`);
-                                        } catch (error) {
-                                            console.warn('从后端删除消息失败:', error);
-                                            // 即使后端删除失败，也继续本地删除，确保用户界面响应
-                                        }
-                                    }
-                                    
                                     // 从本地会话中删除消息
                                     session.messages.splice(messageIndex, 1);
                                     session.updatedAt = Date.now();

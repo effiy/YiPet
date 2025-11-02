@@ -2447,6 +2447,85 @@ class PetManager {
         };
         this.createWelcomeMessage(messagesContainer, pageInfo);
         
+        // 确保欢迎消息的按钮容器存在并刷新角色按钮
+        // 如果按钮容器不存在，创建一个临时的以确保 refreshWelcomeActionButtons 能正常工作
+        setTimeout(async () => {
+            let welcomeActionsContainer = this.chatWindow.querySelector('#pet-welcome-actions');
+            if (!welcomeActionsContainer) {
+                // 如果按钮容器不存在，找到欢迎消息的时间容器并创建按钮容器
+                const welcomeMessage = messagesContainer.querySelector('[data-welcome-message]');
+                if (welcomeMessage) {
+                    let messageTime = welcomeMessage.querySelector('[data-message-time]');
+                    if (messageTime) {
+                        // 检查 messageTime 是否在 messageTimeWrapper 中，如果是，使用 messageTimeWrapper
+                        // 因为 createMessageElement 会创建 messageTimeWrapper 包裹 messageTime
+                        const messageTimeWrapper = messageTime.parentElement;
+                        let targetContainer = messageTime;
+                        
+                        // 如果 messageTime 有父容器且父容器是 messageTimeWrapper，使用 messageTime 本身
+                        // 但需要检查父容器的结构
+                        const timeAndCopyContainer = messageTimeWrapper?.parentElement;
+                        if (timeAndCopyContainer && timeAndCopyContainer.querySelector('[data-copy-button-container]')) {
+                            // 这是标准的消息结构，messageTime 在 messageTimeWrapper 中
+                            // 我们需要修改 messageTime 的样式，使其成为 flex 容器
+                            targetContainer = messageTime;
+                        }
+                        
+                        // 创建按钮容器（与 createChatWindow 中的逻辑一致）
+                        // 将按钮直接添加到 data-message-time 元素中，和时间同一行
+                        // 首先确保 messageTime 是 flex 布局
+                        targetContainer.style.cssText = `
+                            display: flex !important;
+                            justify-content: space-between !important;
+                            align-items: center !important;
+                            font-size: 11px !important;
+                            color: #999 !important;
+                            margin-top: 4px !important;
+                            max-width: 100% !important;
+                            width: 100% !important;
+                        `;
+                        
+                        // 如果 targetContainer 没有时间文本，创建一个
+                        let timeText = targetContainer.querySelector('span');
+                        if (!timeText) {
+                            timeText = document.createElement('span');
+                            timeText.style.cssText = 'flex: 1 !important; min-width: 0 !important;';
+                            timeText.textContent = this.getCurrentTime();
+                            // 如果 targetContainer 有文本内容，先清除
+                            if (targetContainer.textContent.trim()) {
+                                const originalText = targetContainer.textContent.trim();
+                                targetContainer.innerHTML = '';
+                                timeText.textContent = originalText || this.getCurrentTime();
+                            }
+                            targetContainer.appendChild(timeText);
+                        }
+                        
+                        // 创建按钮容器
+                        const actionsGroup = document.createElement('div');
+                        actionsGroup.id = 'pet-welcome-actions';
+                        actionsGroup.style.cssText = `
+                            display: inline-flex !important;
+                            align-items: center !important;
+                            gap: 8px !important;
+                            flex-shrink: 0 !important;
+                        `;
+                        
+                        const actionsWrapper = document.createElement('div');
+                        actionsWrapper.style.cssText = `
+                            position: relative !important;
+                            display: inline-flex !important;
+                            align-items: center !important;
+                            gap: 8px !important;
+                        `;
+                        actionsWrapper.appendChild(actionsGroup);
+                        targetContainer.appendChild(actionsWrapper);
+                    }
+                }
+            }
+            // 刷新角色按钮（确保显示最新的角色列表）
+            await this.refreshWelcomeActionButtons();
+        }, 150);
+        
         // 加载会话消息（确保消息顺序和内容正确）
         if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
             // 先使用 DocumentFragment 批量添加消息，提高性能
@@ -6005,14 +6084,32 @@ ${pageContent || '无内容'}
             actionsContainer.appendChild(button);
         }
         
-        // 将按钮容器添加到时间容器中（在编辑按钮容器之前）
-        const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
-        if (copyButtonContainer) {
-            // 如果存在编辑按钮容器，将角色按钮插入到它之前
-            timeAndCopyContainer.insertBefore(actionsContainer, copyButtonContainer);
+        // 将按钮容器添加到时间容器中，和时间同一行（在 messageTimeWrapper 之后）
+        const messageTimeWrapper = timeAndCopyContainer.querySelector('[data-message-time]')?.parentElement;
+        if (messageTimeWrapper && messageTimeWrapper.parentNode === timeAndCopyContainer) {
+            // 将角色按钮插入到时间包装器之后，这样它就和时间在同一行了
+            // 查找 copyButtonContainer 的位置，如果存在则插入到它之前，否则添加到末尾
+            const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+            if (copyButtonContainer) {
+                // 如果存在复制按钮容器，将角色按钮插入到它之前
+                timeAndCopyContainer.insertBefore(actionsContainer, copyButtonContainer);
+            } else {
+                // 如果没有复制按钮容器，将角色按钮插入到时间包装器之后
+                timeAndCopyContainer.insertBefore(actionsContainer, messageTimeWrapper.nextSibling);
+            }
         } else {
-            // 如果不存在编辑按钮容器，则添加到末尾
-            timeAndCopyContainer.appendChild(actionsContainer);
+            // 如果找不到 messageTimeWrapper 或者结构不对，尝试找到第一个子元素之后插入
+            const firstChild = timeAndCopyContainer.firstElementChild;
+            if (firstChild && firstChild.nextSibling) {
+                timeAndCopyContainer.insertBefore(actionsContainer, firstChild.nextSibling);
+            } else {
+                // 如果没有合适的插入位置，添加到开头（在第一个子元素之前）
+                if (firstChild) {
+                    timeAndCopyContainer.insertBefore(actionsContainer, firstChild);
+                } else {
+                    timeAndCopyContainer.appendChild(actionsContainer);
+                }
+            }
         }
     }
     

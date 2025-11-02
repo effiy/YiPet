@@ -179,56 +179,12 @@ class SessionManager {
     
     /**
      * 从后端加载会话
+     * 注意：已移除 getSessionsList 调用，只在第一次页面加载时调用（由 content.js 的 loadSessionsFromBackend 处理）
      */
     async loadBackendSessions(forceRefresh = false) {
-        if (!this.sessionApi || !this.enableBackendSync) {
-            return;
-        }
-        
-        try {
-            const now = Date.now();
-            // 检查是否需要重新加载
-            if (!forceRefresh && (now - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) {
-                return;
-            }
-            
-            this.lastSessionListLoadTime = now;
-            const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
-            
-            // 合并后端会话到本地会话（以后端数据为准）
-            // 确保使用 session.id 作为统一的键
-            for (const backendSession of backendSessions) {
-                const sessionId = backendSession.id;
-                if (!sessionId) continue;
-                
-                // 确保使用 session.id 作为键（统一存储键）
-                const localSession = this.sessions[sessionId];
-                if (!localSession) {
-                    // 本地没有，直接使用后端数据
-                    this.sessions[sessionId] = backendSession;
-                } else {
-                    // 比较更新时间，使用更新的版本
-                    const localUpdatedAt = localSession.updatedAt || localSession.createdAt || 0;
-                    const backendUpdatedAt = backendSession.updatedAt || backendSession.createdAt || 0;
-                    
-                    if (backendUpdatedAt >= localUpdatedAt) {
-                        // 后端更新，使用后端数据（但保留本地未同步的字段）
-                        this.sessions[sessionId] = {
-                            ...localSession,
-                            ...backendSession,
-                            // 确保 id 字段正确
-                            id: sessionId,
-                            // 保留本地的 messages（如果后端没有或更旧）
-                            messages: backendSession.messages && backendSession.messages.length > 0
-                                ? backendSession.messages
-                                : localSession.messages
-                        };
-                    }
-                }
-            }
-        } catch (error) {
-            console.warn('从后端加载会话失败:', error);
-        }
+        // 不再调用后端接口，只在第一次页面加载时调用
+        // 第一次页面加载时的调用已在 content.js 的 loadSessionsFromBackend 中处理
+        return;
     }
     
     /**

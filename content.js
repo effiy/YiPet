@@ -3371,64 +3371,9 @@ class PetManager {
         // 优先使用接口数据，确保列表与后端一致
         let allSessions = [];
         
-        // 如果是 prompt 调用后的保存，跳过后端接口调用，只使用本地数据
-        if (skipBackendRefresh) {
-            allSessions = this._getSessionsFromLocal();
-        } else if (PET_CONFIG.api.syncSessionsToBackend && this.sessionApi) {
-            try {
-                // 检查是否需要刷新（避免频繁调用）
-                const now = Date.now();
-                const shouldRefresh = (now - this.lastSessionListLoadTime) >= this.SESSION_LIST_RELOAD_INTERVAL;
-                
-                if (shouldRefresh || forceRefresh) {
-                    // 从接口获取最新的会话列表
-                    const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
-                    
-                    // 将接口数据转换为前端格式，确保格式一致
-                    allSessions = backendSessions.map(backendSession => ({
-                        id: backendSession.id,
-                        url: backendSession.url || '',
-                        title: backendSession.title || '',
-                        pageTitle: backendSession.pageTitle || '',
-                        pageDescription: backendSession.pageDescription || '',
-                        message_count: backendSession.message_count || 0,
-                        createdAt: backendSession.createdAt || Date.now(),
-                        updatedAt: backendSession.updatedAt || Date.now(),
-                        lastAccessTime: backendSession.lastAccessTime || backendSession.updatedAt || Date.now(),
-                        // 列表接口不包含完整消息，使用本地会话的消息（如果有）
-                        messages: this.sessions?.[backendSession.id]?.messages || []
-                    }));
-                    
-                    // 同时更新本地 sessions 对象，保持同步
-                    await this.loadSessionsFromBackend(forceRefresh);
-                    this.lastSessionListLoadTime = now;
-                    
-                    console.log('从接口获取会话列表，数量:', allSessions.length);
-                } else {
-                    // 使用缓存的接口数据
-                    const cachedSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
-                    allSessions = cachedSessions.map(s => ({
-                        id: s.id,
-                        url: s.url || '',
-                        title: s.title || '',
-                        pageTitle: s.pageTitle || '',
-                        pageDescription: s.pageDescription || '',
-                        message_count: s.message_count || 0,
-                        createdAt: s.createdAt || Date.now(),
-                        updatedAt: s.updatedAt || Date.now(),
-                        lastAccessTime: s.lastAccessTime || s.updatedAt || Date.now(),
-                        messages: this.sessions?.[s.id]?.messages || []
-                    }));
-                }
-            } catch (error) {
-                console.warn('从接口获取会话列表失败，使用本地数据:', error.message);
-                // 接口失败时，使用本地 sessions 作为后备
-                allSessions = this._getSessionsFromLocal();
-            }
-        } else {
-            // 未启用后端同步，使用本地 sessions
-            allSessions = this._getSessionsFromLocal();
-        }
+        // 使用本地数据，不再调用后端接口（除了第一次页面加载）
+        // 第一次页面加载时的调用已在 loadSessionsFromBackend 中处理
+        allSessions = this._getSessionsFromLocal();
         
         // 清空列表
         sessionList.innerHTML = '';

@@ -4503,12 +4503,12 @@ ${pageContent || '无内容'}
                     const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
                     const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
                     
-                    // 构建 userPrompt
+                    // 构建基础 userPrompt（页面信息）
                     const pageTitle = pageInfo.title || document.title || '当前页面';
                     const pageUrl = pageInfo.url || window.location.href;
                     const pageDescription = pageInfo.description || '';
                     const pageContent = pageInfo.content || '';
-                    const userPrompt = `页面标题：${pageTitle}
+                    let baseUserPrompt = `页面标题：${pageTitle}
 页面URL：${pageUrl}
 ${pageDescription ? `页面描述：${pageDescription}` : ''}
 
@@ -4516,6 +4516,9 @@ ${pageDescription ? `页面描述：${pageDescription}` : ''}
 ${pageContent || '无内容'}
 
 请根据以上信息进行分析和处理。`;
+                    
+                    // 构建包含会话上下文的 fromUser 参数
+                    const fromUser = this.buildFromUserWithContext(baseUserPrompt, roleLabel);
                     
                     // 创建新的消息（按钮操作生成的消息）
                     const message = this.createMessageElement('', 'pet');
@@ -4554,7 +4557,7 @@ ${pageContent || '无内容'}
                             },
                             body: JSON.stringify({
                                 fromSystem: systemPrompt,
-                                fromUser: userPrompt,
+                                fromUser: fromUser,
                                 model: this.currentModel || PET_CONFIG.chatModels.default
                             }),
                             signal: abortController.signal
@@ -4953,16 +4956,41 @@ ${pageContent || '无内容'}
                     let roleInfo;
                     try {
                         roleInfo = await this.getRolePromptForAction(actionKey, pageInfo);
-                        // 使用消息内容替换 userPrompt
-                        roleInfo.userPrompt = messageContent.trim() || '无内容';
                     } catch (error) {
                         console.error('获取角色信息失败:', error);
                         roleInfo = {
                             systemPrompt: '',
-                            userPrompt: messageContent.trim() || '无内容',
+                            userPrompt: '',
                             label: '自定义角色',
                             icon: '🙂'
                         };
+                    }
+                    
+                    // 构建 fromUser：以当前消息内容为主，包含会话上下文
+                    const baseMessageContent = messageContent.trim() || '无内容';
+                    let fromUser = baseMessageContent;
+                    
+                    // 获取会话上下文，添加相关的上下文信息
+                    const context = this.buildConversationContext();
+                    
+                    // 如果存在会话历史，在消息内容前添加上下文
+                    if (context.hasHistory && context.messages.length > 0) {
+                        // 构建消息历史上下文（只包含当前消息之前的历史）
+                        let conversationContext = '\n\n## 会话历史：\n\n';
+                        context.messages.forEach((msg) => {
+                            const role = msg.type === 'user' ? '用户' : '助手';
+                            const content = msg.content.trim();
+                            if (content && content !== baseMessageContent) { // 排除当前消息本身
+                                conversationContext += `${role}：${content}\n\n`;
+                            }
+                        });
+                        // 将上下文放在前面，当前消息内容放在后面
+                        fromUser = conversationContext + `## 当前需要处理的消息：\n\n${baseMessageContent}`;
+                    }
+                    
+                    // 如果有页面内容且角色提示词包含页面内容，也添加页面内容
+                    if (context.pageContent && roleInfo.userPrompt && roleInfo.userPrompt.includes('页面内容')) {
+                        fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
                     }
                     
                     // 获取消息容器
@@ -5005,7 +5033,7 @@ ${pageContent || '无内容'}
                             },
                             body: JSON.stringify({
                                 fromSystem: roleInfo.systemPrompt,
-                                fromUser: roleInfo.userPrompt,
+                                fromUser: fromUser,
                                 model: this.currentModel || PET_CONFIG.chatModels.default
                             }),
                             signal: abortController.signal
@@ -5246,8 +5274,32 @@ ${pageContent || '无内容'}
                         const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
                         const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
                         
-                        // 构建 userPrompt（使用当前消息的内容）
-                        const userPrompt = messageContent.trim() || '无内容';
+                        // 构建 fromUser：以当前消息内容为主，包含会话上下文
+                        const baseMessageContent = messageContent.trim() || '无内容';
+                        let fromUser = baseMessageContent;
+                        
+                        // 获取会话上下文，添加相关的上下文信息
+                        const context = this.buildConversationContext();
+                        
+                        // 如果存在会话历史，在消息内容前添加上下文
+                        if (context.hasHistory && context.messages.length > 0) {
+                            // 构建消息历史上下文（只包含当前消息之前的历史）
+                            let conversationContext = '\n\n## 会话历史：\n\n';
+                            context.messages.forEach((msg) => {
+                                const role = msg.type === 'user' ? '用户' : '助手';
+                                const content = msg.content.trim();
+                                if (content && content !== baseMessageContent) { // 排除当前消息本身
+                                    conversationContext += `${role}：${content}\n\n`;
+                                }
+                            });
+                            // 将上下文放在前面，当前消息内容放在后面
+                            fromUser = conversationContext + `## 当前需要处理的消息：\n\n${baseMessageContent}`;
+                        }
+                        
+                        // 如果有页面内容，也添加页面内容
+                        if (context.pageContent) {
+                            fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
+                        }
                         
                         // 创建新的消息
                         const message = this.createMessageElement('', 'pet');
@@ -5273,7 +5325,7 @@ ${pageContent || '无内容'}
                                 },
                                 body: JSON.stringify({
                                     fromSystem: systemPrompt,
-                                    fromUser: userPrompt,
+                                    fromUser: fromUser,
                                     model: this.currentModel || PET_CONFIG.chatModels.default
                                 }),
                                 signal: abortController.signal
@@ -5555,15 +5607,41 @@ ${pageContent || '无内容'}
                         let roleInfo;
                         try {
                             roleInfo = await this.getRolePromptForAction(key, pageInfo);
-                            roleInfo.userPrompt = messageContent.trim() || '无内容';
                         } catch (error) {
                             console.error('获取角色信息失败:', error);
                             roleInfo = {
                                 systemPrompt: '',
-                                userPrompt: messageContent.trim() || '无内容',
+                                userPrompt: '',
                                 label: '自定义角色',
                                 icon: '🙂'
                             };
+                        }
+                        
+                        // 构建 fromUser：以当前消息内容为主，包含会话上下文
+                        const baseMessageContent = messageContent.trim() || '无内容';
+                        let fromUser = baseMessageContent;
+                        
+                        // 获取会话上下文，添加相关的上下文信息
+                        const context = this.buildConversationContext();
+                        
+                        // 如果存在会话历史，在消息内容前添加上下文
+                        if (context.hasHistory && context.messages.length > 0) {
+                            // 构建消息历史上下文（只包含当前消息之前的历史）
+                            let conversationContext = '\n\n## 会话历史：\n\n';
+                            context.messages.forEach((msg) => {
+                                const role = msg.type === 'user' ? '用户' : '助手';
+                                const content = msg.content.trim();
+                                if (content && content !== baseMessageContent) { // 排除当前消息本身
+                                    conversationContext += `${role}：${content}\n\n`;
+                                }
+                            });
+                            // 将上下文放在前面，当前消息内容放在后面
+                            fromUser = conversationContext + `## 当前需要处理的消息：\n\n${baseMessageContent}`;
+                        }
+                        
+                        // 如果有页面内容且角色提示词包含页面内容，也添加页面内容
+                        if (context.pageContent && roleInfo.userPrompt && roleInfo.userPrompt.includes('页面内容')) {
+                            fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
                         }
                         
                         const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
@@ -5602,7 +5680,7 @@ ${pageContent || '无内容'}
                                 },
                                 body: JSON.stringify({
                                     fromSystem: roleInfo.systemPrompt,
-                                    fromUser: roleInfo.userPrompt,
+                                    fromUser: fromUser,
                                     model: this.currentModel || PET_CONFIG.chatModels.default
                                 }),
                                 signal: abortController.signal
@@ -5857,7 +5935,33 @@ ${pageContent || '无内容'}
                 const roleLabel = config.label || '自定义角色';
                 const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
                 const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
-                const userPrompt = messageContent.trim() || '无内容';
+                
+                // 构建 fromUser：以当前消息内容为主，包含会话上下文
+                const baseMessageContent = messageContent.trim() || '无内容';
+                let fromUser = baseMessageContent;
+                
+                // 获取会话上下文，添加相关的上下文信息
+                const context = this.buildConversationContext();
+                
+                // 如果存在会话历史，在消息内容前添加上下文
+                if (context.hasHistory && context.messages.length > 0) {
+                    // 构建消息历史上下文（只包含当前消息之前的历史）
+                    let conversationContext = '\n\n## 会话历史：\n\n';
+                    context.messages.forEach((msg) => {
+                        const role = msg.type === 'user' ? '用户' : '助手';
+                        const content = msg.content.trim();
+                        if (content && content !== baseMessageContent) { // 排除当前消息本身
+                            conversationContext += `${role}：${content}\n\n`;
+                        }
+                    });
+                    // 将上下文放在前面，当前消息内容放在后面
+                    fromUser = conversationContext + `## 当前需要处理的消息：\n\n${baseMessageContent}`;
+                }
+                
+                // 如果有页面内容，也添加页面内容
+                if (context.pageContent) {
+                    fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
+                }
                 
                 const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
                 if (!messagesContainer) {
@@ -5889,7 +5993,7 @@ ${pageContent || '无内容'}
                         },
                         body: JSON.stringify({
                             fromSystem: systemPrompt,
-                            fromUser: userPrompt,
+                            fromUser: fromUser,
                             model: this.currentModel || PET_CONFIG.chatModels.default
                         }),
                         signal: abortController.signal
@@ -6153,6 +6257,68 @@ ${pageContent || '无内容'}
         }
     }
 
+    // 构建会话上下文（包含消息历史和页面内容）
+    buildConversationContext() {
+        const context = {
+            messages: [],
+            pageContent: '',
+            hasHistory: false
+        };
+
+        // 获取当前会话
+        if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+            const session = this.sessions[this.currentSessionId];
+            
+            // 获取消息历史（排除欢迎消息和按钮操作生成的消息）
+            if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
+                context.messages = session.messages.filter(msg => {
+                    // 只包含用户消息和宠物消息，排除按钮操作生成的消息
+                    return msg.type === 'user' || msg.type === 'pet';
+                });
+                context.hasHistory = context.messages.length > 0;
+            }
+            
+            // 获取页面内容
+            if (session.pageContent && session.pageContent.trim()) {
+                context.pageContent = session.pageContent.trim();
+            }
+        }
+
+        return context;
+    }
+
+    // 构建包含会话上下文的 fromUser 参数
+    buildFromUserWithContext(baseUserPrompt, roleLabel) {
+        const context = this.buildConversationContext();
+        
+        // 如果没有消息历史，直接使用基础提示词
+        if (!context.hasHistory) {
+            return baseUserPrompt;
+        }
+
+        // 构建消息历史上下文
+        let conversationContext = '';
+        if (context.messages.length > 0) {
+            conversationContext = '\n\n## 会话历史：\n\n';
+            context.messages.forEach((msg, index) => {
+                const role = msg.type === 'user' ? '用户' : '助手';
+                const content = msg.content.trim();
+                if (content) {
+                    conversationContext += `${role}：${content}\n\n`;
+                }
+            });
+        }
+
+        // 如果有页面内容，也包含进去
+        let pageContext = '';
+        if (context.pageContent) {
+            pageContext = '\n\n## 页面内容：\n\n' + context.pageContent;
+        }
+
+        // 组合：基础提示词 + 会话历史 + 页面内容
+        return baseUserPrompt + conversationContext + pageContext;
+    }
+
     // 创建角色按钮点击处理函数（用于有 actionKey 的角色）
     createRoleButtonHandler(actionKey, iconEl, processingFlag) {
         return async () => {
@@ -6184,6 +6350,9 @@ ${pageContent || '无内容'}
                     icon: '🙂'
                 };
             }
+
+            // 构建包含会话上下文的 fromUser 参数
+            const fromUser = this.buildFromUserWithContext(roleInfo.userPrompt, roleInfo.label);
 
             // 创建新的消息（按钮操作生成的消息）
             const message = this.createMessageElement('', 'pet');
@@ -6217,7 +6386,7 @@ ${pageContent || '无内容'}
                     },
                     body: JSON.stringify({
                         fromSystem: roleInfo.systemPrompt,
-                        fromUser: roleInfo.userPrompt,
+                        fromUser: fromUser,
                         model: this.currentModel || PET_CONFIG.chatModels.default
                     }),
                     signal: abortController.signal

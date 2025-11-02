@@ -158,6 +158,9 @@ class PetManager {
         
         // 监听页面标题变化，以便在标题改变时更新会话
         this.setupTitleChangeListener();
+        
+        // 监听会话列表变化，实现跨页面同步
+        this.setupSessionSyncListener();
     }
 
     setupMessageListener() {
@@ -1641,6 +1644,93 @@ class PetManager {
                 this.initSession();
             }
         }, 1000); // 每秒检查一次标题变化
+    }
+
+    // 设置会话列表同步监听器，实现跨页面同步
+    setupSessionSyncListener() {
+        // 防止重复添加监听器
+        if (this.sessionSyncListener) {
+            return;
+        }
+
+        // 创建会话同步监听器
+        this.sessionSyncListener = (changes, namespace) => {
+            // 只监听 local 存储中的会话数据变化
+            if (namespace === 'local' && changes.petChatSessions) {
+                const newSessions = changes.petChatSessions.newValue;
+                const oldSessions = changes.petChatSessions.oldValue || {};
+                
+                console.log('检测到会话列表变化，同步更新...');
+                
+                // 确保 this.sessions 已初始化
+                if (!this.sessions) {
+                    this.sessions = {};
+                }
+                
+                // 检查是否是其他页面的变化（避免自身触发无限循环）
+                // 注意：Chrome 的 onChanged 事件通常不会在同一个页面修改时触发
+                // 但为了健壮性，我们仍然进行比较
+                const currentSessionsStr = JSON.stringify(this.sessions);
+                const newSessionsStr = JSON.stringify(newSessions || {});
+                const sessionsChanged = currentSessionsStr !== newSessionsStr;
+                
+                if (sessionsChanged) {
+                    // 保存当前会话的ID，以便切换后恢复
+                    const previousSessionId = this.currentSessionId;
+                    
+                    // 更新会话数据
+                    this.sessions = newSessions || {};
+                    
+                    // 如果之前的会话已被删除，需要切换到另一个会话
+                    if (previousSessionId && !this.sessions[previousSessionId]) {
+                        console.log('当前会话已被删除，切换到最新会话');
+                        const sortedSessions = Object.values(this.sessions).sort((a, b) => {
+                            return (b.updatedAt || 0) - (a.updatedAt || 0);
+                        });
+                        
+                        if (sortedSessions.length > 0) {
+                            this.currentSessionId = sortedSessions[0].id;
+                            // 如果聊天窗口已打开，加载新会话的消息
+                            if (this.chatWindow && this.isChatOpen) {
+                                this.loadSessionMessages();
+                            }
+                        } else {
+                            // 没有其他会话了，清除当前会话ID
+                            this.currentSessionId = null;
+                            if (this.chatWindow && this.isChatOpen) {
+                                const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+                                if (messagesContainer) {
+                                    messagesContainer.innerHTML = '';
+                                }
+                            }
+                        }
+                    } else if (previousSessionId && this.sessions[previousSessionId]) {
+                        // 如果当前会话仍然存在，检查消息是否有更新
+                        // 比较更新时间，如果新会话的更新时间更新，则重新加载消息
+                        const newSessionData = this.sessions[previousSessionId];
+                        const oldSessionData = oldSessions[previousSessionId];
+                        
+                        if (!oldSessionData || (newSessionData.updatedAt || 0) > (oldSessionData.updatedAt || 0)) {
+                            // 会话消息已更新，重新加载
+                            if (this.chatWindow && this.isChatOpen) {
+                                this.loadSessionMessages();
+                            }
+                        }
+                    }
+                    
+                    // 更新会话侧边栏
+                    if (this.sessionSidebar) {
+                        this.updateSessionSidebar();
+                    }
+                    
+                    console.log('会话列表已同步，当前会话数量:', Object.keys(this.sessions).length);
+                }
+            }
+        };
+
+        // 添加监听器
+        chrome.storage.onChanged.addListener(this.sessionSyncListener);
+        console.log('会话列表同步监听器已设置');
     }
 
     // 加载所有会话

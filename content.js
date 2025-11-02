@@ -1488,7 +1488,7 @@ class PetManager {
             // 确保会话侧边栏已更新（如果侧边栏已创建）
             if (this.sessionSidebar) {
                 await this.loadAllSessions(); // 确保数据已加载
-                this.updateSessionSidebar();
+                await this.updateSessionSidebar();
             }
             
             return;
@@ -1725,7 +1725,7 @@ class PetManager {
         } = options;
         
         if (updateSidebar && this.sessionSidebar) {
-            this.updateSessionSidebar();
+            await this.updateSessionSidebar();
         }
         
         if (updateTitle) {
@@ -2096,7 +2096,10 @@ class PetManager {
                     
                     // 更新会话侧边栏
                     if (this.sessionSidebar) {
-                        this.updateSessionSidebar();
+                        // 在同步回调中异步调用，不阻塞
+                        this.updateSessionSidebar().catch(err => {
+                            console.warn('更新会话侧边栏失败:', err);
+                        });
                     }
                     
                     console.log('会话列表已同步，当前会话数量:', Object.keys(this.sessions).length);
@@ -2109,12 +2112,222 @@ class PetManager {
         console.log('会话列表同步监听器已设置');
     }
 
-    // 加载所有会话
+    // 从后端加载会话列表
+    async loadSessionsFromBackend() {
+        try {
+            if (!PET_CONFIG.api.syncSessionsToBackend) {
+                console.log('会话同步未启用，跳过从后端加载');
+                return;
+            }
+            
+            const baseUrl = PET_CONFIG.api.yiaiBaseUrl;
+            if (!baseUrl) {
+                console.warn('YiAi后端地址未配置，跳过从后端加载');
+                return;
+            }
+            
+            console.log('开始从后端加载会话列表...');
+            
+            // 调用后端API获取会话列表
+            const response = await fetch(`${baseUrl}/session/`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.warn(`从后端加载会话列表失败: HTTP ${response.status}: ${errorText}`);
+                return;
+            }
+            
+            const result = await response.json();
+            if (result.success && result.sessions && Array.isArray(result.sessions)) {
+                console.log(`从后端加载到 ${result.sessions.length} 个会话`);
+                
+                // 将后端返回的会话数据合并到本地 sessions 对象
+                // 如果后端数据更新（updatedAt 更晚），则使用后端数据
+                // 否则保留本地数据（可能包含未同步的最新消息）
+                const backendSessions = {};
+                const sessionsToFetch = []; // 需要获取完整数据的会话ID列表
+                
+                result.sessions.forEach(backendSession => {
+                    const sessionId = backendSession.id || backendSession.conversation_id;
+                    if (!sessionId) return;
+                    
+                    // 将后端会话数据转换为本地格式
+                    // 注意：后端列表API不返回messages字段，需要单独获取
+                    const localSession = {
+                        id: sessionId,
+                        url: backendSession.url || '',
+                        title: backendSession.title || '',
+                        pageTitle: backendSession.pageTitle || '',
+                        pageDescription: backendSession.pageDescription || '',
+                        pageContent: backendSession.pageContent || '',
+                        messages: backendSession.messages || [], // 后端列表API通常不包含messages
+                        createdAt: backendSession.createdAt || backendSession.created_time || Date.now(),
+                        updatedAt: backendSession.updatedAt || backendSession.updated_time || Date.now(),
+                        lastAccessTime: backendSession.lastAccessTime || backendSession.last_access_time || Date.now()
+                    };
+                    
+                    // 如果后端会话没有消息，但后端有message_count且大于0，需要获取完整数据
+                    const messageCount = backendSession.message_count || 0;
+                    if (!localSession.messages || localSession.messages.length === 0) {
+                        if (messageCount > 0) {
+                            sessionsToFetch.push(sessionId);
+                        }
+                    }
+                    
+                    backendSessions[sessionId] = localSession;
+                });
+                
+                // 对于没有消息的会话，尝试从后端获取完整数据
+                if (sessionsToFetch.length > 0) {
+                    console.log(`发现 ${sessionsToFetch.length} 个需要获取完整数据的会话`);
+                    await Promise.all(sessionsToFetch.map(async (sessionId) => {
+                        try {
+                            const sessionResponse = await fetch(`${baseUrl}/session/${sessionId}`, {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            
+                            if (sessionResponse.ok) {
+                                const sessionResult = await sessionResponse.json();
+                                if (sessionResult.success && sessionResult.data) {
+                                    const fullSession = sessionResult.data;
+                                    // 更新后端会话数据，包含完整的messages
+                                    if (fullSession.messages && Array.isArray(fullSession.messages)) {
+                                        backendSessions[sessionId].messages = fullSession.messages;
+                                        // 同时更新其他可能缺失的字段
+                                        if (fullSession.pageDescription) {
+                                            backendSessions[sessionId].pageDescription = fullSession.pageDescription;
+                                        }
+                                        if (fullSession.pageContent) {
+                                            backendSessions[sessionId].pageContent = fullSession.pageContent;
+                                        }
+                                    }
+                                    console.log(`已获取会话 ${sessionId} 的完整数据，包含 ${fullSession.messages?.length || 0} 条消息`);
+                                }
+                            }
+                        } catch (error) {
+                            console.warn(`获取会话 ${sessionId} 的完整数据失败:`, error.message);
+                        }
+                    }));
+                }
+                
+                // 合并后端数据到本地 sessions
+                // 初始化 sessions 对象如果不存在
+                if (!this.sessions) {
+                    this.sessions = {};
+                }
+                
+                // 合并策略：如果本地没有该会话，直接使用后端数据
+                // 如果本地有该会话，比较 updatedAt，使用更新的一方
+                // 关键：始终保留本地的消息，除非后端有更多消息
+                for (const [sessionId, backendSession] of Object.entries(backendSessions)) {
+                    const localSession = this.sessions[sessionId];
+                    
+                    if (!localSession) {
+                        // 本地没有，直接使用后端数据（已包含完整的messages）
+                        this.sessions[sessionId] = backendSession;
+                    } else {
+                        // 本地有，比较更新时间
+                        const localUpdatedAt = localSession.updatedAt || 0;
+                        const backendUpdatedAt = backendSession.updatedAt || 0;
+                        
+                        const localMessages = localSession.messages || [];
+                        const backendMessages = backendSession.messages || [];
+                        
+                        // 关键修复：始终优先保留本地消息，除非后端消息更多或更新时间更晚
+                        let finalMessages = localMessages;
+                        if (backendMessages.length > 0) {
+                            if (backendUpdatedAt >= localUpdatedAt && backendMessages.length >= localMessages.length) {
+                                // 后端更新且消息更多，使用后端消息
+                                finalMessages = backendMessages;
+                            } else if (localMessages.length === 0 && backendMessages.length > 0) {
+                                // 本地没有消息但后端有，使用后端消息
+                                finalMessages = backendMessages;
+                            }
+                            // 否则保留本地消息（不覆盖）
+                        }
+                        
+                        if (backendUpdatedAt >= localUpdatedAt) {
+                            // 后端数据更新，使用后端数据，但保留本地消息（如果本地消息更多或更新）
+                            this.sessions[sessionId] = {
+                                ...backendSession,
+                                messages: finalMessages, // 使用合并后的消息
+                                // 如果本地标题或内容有更新，保留本地的
+                                title: localSession.title || backendSession.title,
+                                pageTitle: localSession.pageTitle || backendSession.pageTitle,
+                                pageDescription: localSession.pageDescription || backendSession.pageDescription,
+                                pageContent: localSession.pageContent || backendSession.pageContent
+                            };
+                        } else {
+                            // 本地更新，保留本地数据，但更新其他字段（如果后端有更新的元数据）
+                            this.sessions[sessionId] = {
+                                ...localSession,
+                                // 更新元数据字段（如果后端有更新的值）
+                                url: backendSession.url || localSession.url,
+                                title: localSession.title || backendSession.title,
+                                pageTitle: localSession.pageTitle || backendSession.pageTitle,
+                                pageDescription: localSession.pageDescription || backendSession.pageDescription,
+                                pageContent: localSession.pageContent || backendSession.pageContent,
+                                // 消息始终使用本地的（因为本地更新）
+                                messages: localMessages
+                            };
+                        }
+                    }
+                }
+                
+                // 保存合并后的会话数据到本地存储
+                await this.saveAllSessions(true);
+                
+                console.log('会话列表已从后端同步，当前会话数量:', Object.keys(this.sessions).length);
+            } else {
+                console.warn('从后端加载会话列表返回数据格式错误:', result);
+            }
+        } catch (error) {
+            // 静默处理错误，不阻塞主流程
+            console.warn('从后端加载会话列表时出错:', error.message);
+        }
+    }
+
+    // 加载所有会话（先从后端加载，然后从本地存储加载）
     async loadAllSessions() {
+        // 先从后端加载会话列表
+        await this.loadSessionsFromBackend();
+        
+        // 然后从本地存储加载（作为补充，因为本地可能有一些未同步的临时会话）
         return new Promise((resolve) => {
             chrome.storage.local.get(['petChatSessions'], (result) => {
                 if (result.petChatSessions) {
-                    this.sessions = result.petChatSessions;
+                    // 合并本地存储的会话（如果后端没有）
+                    if (!this.sessions) {
+                        this.sessions = {};
+                    }
+                    
+                    // 将本地存储的会话合并进来（如果后端没有对应的会话）
+                    for (const [sessionId, localSession] of Object.entries(result.petChatSessions)) {
+                        if (!this.sessions[sessionId]) {
+                            this.sessions[sessionId] = localSession;
+                        } else {
+                            // 如果两端都有，使用更更新的版本
+                            const backendSession = this.sessions[sessionId];
+                            const localUpdatedAt = localSession.updatedAt || 0;
+                            const backendUpdatedAt = backendSession.updatedAt || 0;
+                            
+                            if (localUpdatedAt > backendUpdatedAt) {
+                                // 本地更新，使用本地数据
+                                this.sessions[sessionId] = localSession;
+                            }
+                        }
+                    }
+                } else if (!this.sessions) {
+                    // 如果本地存储也没有，初始化空对象
+                    this.sessions = {};
                 }
                 resolve();
             });
@@ -2499,8 +2712,8 @@ class PetManager {
             
             // 更新侧边栏
             await new Promise(resolve => {
-                requestAnimationFrame(() => {
-                    this.updateSessionSidebar();
+                requestAnimationFrame(async () => {
+                    await this.updateSessionSidebar();
                     resolve();
                 });
             });
@@ -2768,7 +2981,7 @@ class PetManager {
     }
 
     // 更新会话侧边栏
-    updateSessionSidebar() {
+    async updateSessionSidebar() {
         if (!this.sessionSidebar) {
             console.log('会话侧边栏未创建，跳过更新');
             return;
@@ -2778,6 +2991,15 @@ class PetManager {
         if (!sessionList) {
             console.log('会话列表容器未找到，跳过更新');
             return;
+        }
+        
+        // 先同步后端数据，确保列表是最新的
+        if (PET_CONFIG.api.syncSessionsToBackend) {
+            try {
+                await this.loadSessionsFromBackend();
+            } catch (error) {
+                console.warn('同步后端会话数据失败，使用本地数据:', error.message);
+            }
         }
         
         // 确保 sessions 对象已初始化
@@ -9351,7 +9573,7 @@ ${pageContent || '无内容'}
         await this.loadAllSessions();
         
         // 更新会话侧边栏（显示所有会话）
-        this.updateSessionSidebar();
+        await this.updateSessionSidebar();
         
         // 加载会话消息
         await this.loadSessionMessages();

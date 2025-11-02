@@ -196,24 +196,28 @@ class SessionManager {
             const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
             
             // 合并后端会话到本地会话（以后端数据为准）
+            // 确保使用 session.id 作为统一的键
             for (const backendSession of backendSessions) {
                 const sessionId = backendSession.id;
                 if (!sessionId) continue;
                 
+                // 确保使用 session.id 作为键（统一存储键）
                 const localSession = this.sessions[sessionId];
                 if (!localSession) {
                     // 本地没有，直接使用后端数据
                     this.sessions[sessionId] = backendSession;
                 } else {
                     // 比较更新时间，使用更新的版本
-                    const localUpdatedAt = localSession.updatedAt || 0;
-                    const backendUpdatedAt = backendSession.updatedAt || 0;
+                    const localUpdatedAt = localSession.updatedAt || localSession.createdAt || 0;
+                    const backendUpdatedAt = backendSession.updatedAt || backendSession.createdAt || 0;
                     
                     if (backendUpdatedAt >= localUpdatedAt) {
                         // 后端更新，使用后端数据（但保留本地未同步的字段）
                         this.sessions[sessionId] = {
                             ...localSession,
                             ...backendSession,
+                            // 确保 id 字段正确
+                            id: sessionId,
                             // 保留本地的 messages（如果后端没有或更旧）
                             messages: backendSession.messages && backendSession.messages.length > 0
                                 ? backendSession.messages
@@ -298,8 +302,18 @@ class SessionManager {
         }
         
         try {
+            // 确保使用 session.id 或 sessionId 作为统一标识
+            const unifiedSessionId = session.id || sessionId;
+            
+            // 确保会话的 id 字段与存储键一致
+            if (session.id !== sessionId && session.id) {
+                // 如果 id 不一致，更新存储键
+                delete this.sessions[sessionId];
+                this.sessions[unifiedSessionId] = session;
+            }
+            
             const sessionData = {
-                id: session.id || sessionId,
+                id: unifiedSessionId,
                 url: session.url || '',
                 title: session.title || '',
                 pageTitle: session.pageTitle || '',
@@ -313,10 +327,10 @@ class SessionManager {
             
             if (immediate) {
                 await this.sessionApi.saveSession(sessionData);
-                console.log(`会话 ${sessionId} 已立即同步到后端`);
+                console.log(`会话 ${unifiedSessionId} 已立即同步到后端`);
             } else {
-                this.sessionApi.queueSave(sessionId, sessionData);
-                console.log(`会话 ${sessionId} 已加入同步队列`);
+                this.sessionApi.queueSave(unifiedSessionId, sessionData);
+                console.log(`会话 ${unifiedSessionId} 已加入同步队列`);
             }
         } catch (error) {
             console.warn('同步会话到后端失败:', error);
@@ -395,6 +409,18 @@ class SessionManager {
      * @private
      */
     async _restoreExistingSession(sessionId, pageInfo) {
+        // 确保使用 session.id 作为键
+        const session = this.sessions[sessionId];
+        if (!session) {
+            console.warn('会话不存在，无法恢复:', sessionId);
+            return;
+        }
+        
+        // 确保 session.id 与存储键一致（统一标识）
+        if (!session.id || session.id !== sessionId) {
+            session.id = sessionId;
+        }
+        
         // 更新会话页面信息
         this.updateSessionPageInfo(sessionId, pageInfo);
         await this.saveSession(sessionId);
@@ -407,7 +433,15 @@ class SessionManager {
      */
     async _createNewSession(sessionId, pageInfo) {
         const newSession = this.createSession(sessionId, pageInfo);
+        
+        // 确保使用 session.id 作为统一的键
         this.sessions[sessionId] = newSession;
+        
+        // 确保 session.id 与存储键一致
+        if (newSession.id !== sessionId) {
+            newSession.id = sessionId;
+        }
+        
         await this.saveSession(sessionId);
         console.log('使用URL作为会话ID，已自动创建新会话:', sessionId, 'URL:', pageInfo.url);
     }
@@ -430,10 +464,38 @@ class SessionManager {
     }
     
     /**
-     * 获取所有会话列表
+     * 获取所有会话列表（已去重）
+     * 确保每个会话ID只出现一次，保留最新的版本
+     * @returns {Array} 去重后的会话列表
      */
     getAllSessions() {
-        return Object.values(this.sessions).sort((a, b) => {
+        // 按 session.id 去重，保留 updatedAt 最新的版本
+        const sessionMap = new Map();
+        
+        for (const session of Object.values(this.sessions)) {
+            if (!session || !session.id) {
+                continue;
+            }
+            
+            const sessionId = session.id;
+            const existingSession = sessionMap.get(sessionId);
+            
+            if (!existingSession) {
+                // 如果不存在，直接添加
+                sessionMap.set(sessionId, session);
+            } else {
+                // 如果已存在，比较 updatedAt，保留更新的版本
+                const existingUpdatedAt = existingSession.updatedAt || existingSession.createdAt || 0;
+                const currentUpdatedAt = session.updatedAt || session.createdAt || 0;
+                
+                if (currentUpdatedAt > existingUpdatedAt) {
+                    sessionMap.set(sessionId, session);
+                }
+            }
+        }
+        
+        // 转换为数组并按更新时间排序
+        return Array.from(sessionMap.values()).sort((a, b) => {
             const aTime = a.updatedAt || a.createdAt || 0;
             const bTime = b.updatedAt || b.createdAt || 0;
             return bTime - aTime;
@@ -617,28 +679,41 @@ class SessionManager {
     
     /**
      * 删除会话
+     * @param {string} sessionId - 会话ID
+     * @returns {Promise<boolean>} 是否删除成功
      */
     async deleteSession(sessionId) {
-        if (!this.sessions[sessionId]) {
+        const session = this.sessions[sessionId];
+        if (!session) {
+            console.warn('会话不存在，无法删除:', sessionId);
             return false;
         }
         
+        // 确保使用统一的会话ID（session.id 或 sessionId）
+        const unifiedSessionId = session.id || sessionId;
+        
         // 如果是当前会话，清空当前会话ID
-        if (this.currentSessionId === sessionId) {
+        if (this.currentSessionId === sessionId || this.currentSessionId === unifiedSessionId) {
             this.currentSessionId = null;
             this.hasAutoCreatedSessionForPage = false;
         }
         
         // 从本地删除
         delete this.sessions[sessionId];
+        // 如果 unifiedSessionId 不同，也删除那个键
+        if (unifiedSessionId !== sessionId && this.sessions[unifiedSessionId]) {
+            delete this.sessions[unifiedSessionId];
+        }
         await this.saveLocalSessions(true);
         
         // 从后端删除
         if (this.sessionApi && this.enableBackendSync) {
             try {
-                await this.sessionApi.deleteSession(sessionId);
+                await this.sessionApi.deleteSession(unifiedSessionId);
+                console.log('会话已从后端删除:', unifiedSessionId);
             } catch (error) {
                 console.warn('从后端删除会话失败:', error);
+                // 即使后端删除失败，也返回成功，因为本地已删除
             }
         }
         

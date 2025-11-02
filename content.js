@@ -3242,24 +3242,31 @@ class PetManager {
         sessionList.innerHTML = '';
         
         // 获取所有会话并去重（按 id 去重，保留 updatedAt 最新的）
-        const sessionMap = {};
-        for (const [sessionId, session] of Object.entries(this.sessions)) {
-            if (!session || !session.id) continue;
+        // 使用 Map 确保去重逻辑更清晰
+        const sessionMap = new Map();
+        for (const session of Object.values(this.sessions)) {
+            if (!session || !session.id) {
+                continue;
+            }
             
-            const id = session.id;
-            if (!sessionMap[id]) {
-                sessionMap[id] = session;
+            const sessionId = session.id;
+            const existingSession = sessionMap.get(sessionId);
+            
+            if (!existingSession) {
+                // 如果不存在，直接添加
+                sessionMap.set(sessionId, session);
             } else {
-                // 如果已存在，比较 updatedAt，保留更新的
-                const existingUpdatedAt = sessionMap[id].updatedAt || 0;
-                const currentUpdatedAt = session.updatedAt || 0;
+                // 如果已存在，比较 updatedAt，保留更新的版本
+                const existingUpdatedAt = existingSession.updatedAt || existingSession.createdAt || 0;
+                const currentUpdatedAt = session.updatedAt || session.createdAt || 0;
+                
                 if (currentUpdatedAt > existingUpdatedAt) {
-                    sessionMap[id] = session;
+                    sessionMap.set(sessionId, session);
                 }
             }
         }
         
-        const allSessions = Object.values(sessionMap);
+        const allSessions = Array.from(sessionMap.values());
         console.log('当前会话数量（去重后）:', allSessions.length, '会话列表:', allSessions.map(s => s.id));
         
         if (allSessions.length === 0) {
@@ -3618,7 +3625,20 @@ class PetManager {
             await this.saveCurrentSession();
         }
         
-        // 删除会话
+        // 从后端删除会话（如果启用了后端同步）
+        if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+            try {
+                // 确保使用 session.id 作为统一标识
+                const unifiedSessionId = session.id || sessionId;
+                await this.sessionApi.deleteSession(unifiedSessionId);
+                console.log('会话已从后端删除:', unifiedSessionId);
+            } catch (error) {
+                console.warn('从后端删除会话失败:', error);
+                // 即使后端删除失败，也继续本地删除，确保用户界面响应
+            }
+        }
+        
+        // 从本地删除会话
         delete this.sessions[sessionId];
         await this.saveAllSessions();
         

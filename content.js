@@ -4829,37 +4829,54 @@ ${pageContent || '无内容'}
     
     // 为消息添加动作按钮（复制欢迎消息的按钮，设置按钮已移动到 chat-request-status-button 后面）
     async addActionButtonsToMessage(messageDiv, forceRefresh = false) {
-        // 检查是否是第一条消息（欢迎消息），如果是则不添加（因为它已经有按钮了）
+        // 检查是否是欢迎消息，如果是则不添加（因为它已经有按钮了）
         const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
         if (!messagesContainer) return;
         
-        const petMessages = Array.from(messagesContainer.children).filter(
-            child => child.querySelector('[data-message-type="pet-bubble"]')
-        );
-        // 如果是第一条消息，不添加按钮
-        if (petMessages.length <= 1) return;
+        // 检查当前消息是否是欢迎消息，如果是则跳过（欢迎消息已经有按钮了）
+        const isWelcome = messageDiv.hasAttribute('data-welcome-message');
+        if (isWelcome) return;
         
         // 获取时间容器（需要在早期获取，因为后续逻辑需要使用）
-        const timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
-        if (!timeAndCopyContainer) return;
+        let timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
+        // 如果时间容器不存在，可能是消息结构还没准备好，尝试等待一下
+        if (!timeAndCopyContainer) {
+            // 等待消息结构完全准备好（最多等待500ms）
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
+                if (timeAndCopyContainer) break;
+            }
+        }
+        if (!timeAndCopyContainer) {
+            console.warn('无法找到消息时间容器，按钮添加失败');
+            return;
+        }
         
         // 如果强制刷新，先移除现有按钮容器
         const existingContainer = messageDiv.querySelector('[data-message-actions]');
         if (forceRefresh && existingContainer) {
             existingContainer.remove();
         } else if (existingContainer) {
-            // 如果已经有按钮容器且不强制刷新，则需要确保它在编辑按钮之前
-            const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
-            if (copyButtonContainer && existingContainer.nextSibling !== copyButtonContainer) {
-                // 如果顺序不对，重新插入到正确位置
-                timeAndCopyContainer.insertBefore(existingContainer, copyButtonContainer);
+            // 如果按钮容器存在但没有按钮（子元素为空），强制刷新
+            if (existingContainer.children.length === 0) {
+                existingContainer.remove();
+                // 继续执行后续逻辑添加按钮
+            } else {
+                // 如果已经有按钮容器且不强制刷新，则需要确保它在编辑按钮之前
+                const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+                if (copyButtonContainer && existingContainer.nextSibling !== copyButtonContainer) {
+                    // 如果顺序不对，重新插入到正确位置
+                    timeAndCopyContainer.insertBefore(existingContainer, copyButtonContainer);
+                }
+                return;
             }
-            return;
         }
         
         // 获取欢迎消息的按钮容器
         const welcomeActions = this.chatWindow.querySelector('#pet-welcome-actions');
-        if (!welcomeActions) return;
+        // 即使 welcomeActions 不存在，也尝试从角色配置创建按钮
+        // if (!welcomeActions) return;
         
         // 创建按钮容器
         const actionsContainer = document.createElement('div');
@@ -4894,7 +4911,7 @@ ${pageContent || '无内容'}
         }
         
         // 复制欢迎消息中的所有按钮（包括设置按钮）
-        const buttonsToCopy = Array.from(welcomeActions.children);
+        const buttonsToCopy = welcomeActions ? Array.from(welcomeActions.children) : [];
         const copiedButtonIds = new Set(); // 记录已复制的按钮ID
         
         for (const originalButton of buttonsToCopy) {
@@ -6084,30 +6101,33 @@ ${pageContent || '无内容'}
             actionsContainer.appendChild(button);
         }
         
-        // 将按钮容器添加到时间容器中，和时间同一行（在 messageTimeWrapper 之后）
-        const messageTimeWrapper = timeAndCopyContainer.querySelector('[data-message-time]')?.parentElement;
-        if (messageTimeWrapper && messageTimeWrapper.parentNode === timeAndCopyContainer) {
-            // 将角色按钮插入到时间包装器之后，这样它就和时间在同一行了
-            // 查找 copyButtonContainer 的位置，如果存在则插入到它之前，否则添加到末尾
-            const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
-            if (copyButtonContainer) {
-                // 如果存在复制按钮容器，将角色按钮插入到它之前
-                timeAndCopyContainer.insertBefore(actionsContainer, copyButtonContainer);
-            } else {
-                // 如果没有复制按钮容器，将角色按钮插入到时间包装器之后
-                timeAndCopyContainer.insertBefore(actionsContainer, messageTimeWrapper.nextSibling);
-            }
-        } else {
-            // 如果找不到 messageTimeWrapper 或者结构不对，尝试找到第一个子元素之后插入
-            const firstChild = timeAndCopyContainer.firstElementChild;
-            if (firstChild && firstChild.nextSibling) {
-                timeAndCopyContainer.insertBefore(actionsContainer, firstChild.nextSibling);
-            } else {
-                // 如果没有合适的插入位置，添加到开头（在第一个子元素之前）
-                if (firstChild) {
-                    timeAndCopyContainer.insertBefore(actionsContainer, firstChild);
+        // 只有在按钮容器中有按钮时才插入到DOM中
+        if (actionsContainer.children.length > 0) {
+            // 将按钮容器添加到时间容器中，和时间同一行（在 messageTimeWrapper 之后）
+            const messageTimeWrapper = timeAndCopyContainer.querySelector('[data-message-time]')?.parentElement;
+            if (messageTimeWrapper && messageTimeWrapper.parentNode === timeAndCopyContainer) {
+                // 将角色按钮插入到时间包装器之后，这样它就和时间在同一行了
+                // 查找 copyButtonContainer 的位置，如果存在则插入到它之前，否则添加到末尾
+                const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+                if (copyButtonContainer) {
+                    // 如果存在复制按钮容器，将角色按钮插入到它之前
+                    timeAndCopyContainer.insertBefore(actionsContainer, copyButtonContainer);
                 } else {
-                    timeAndCopyContainer.appendChild(actionsContainer);
+                    // 如果没有复制按钮容器，将角色按钮插入到时间包装器之后
+                    timeAndCopyContainer.insertBefore(actionsContainer, messageTimeWrapper.nextSibling);
+                }
+            } else {
+                // 如果找不到 messageTimeWrapper 或者结构不对，尝试找到第一个子元素之后插入
+                const firstChild = timeAndCopyContainer.firstElementChild;
+                if (firstChild && firstChild.nextSibling) {
+                    timeAndCopyContainer.insertBefore(actionsContainer, firstChild.nextSibling);
+                } else {
+                    // 如果没有合适的插入位置，添加到开头（在第一个子元素之前）
+                    if (firstChild) {
+                        timeAndCopyContainer.insertBefore(actionsContainer, firstChild);
+                    } else {
+                        timeAndCopyContainer.appendChild(actionsContainer);
+                    }
                 }
             }
         }
@@ -8302,9 +8322,10 @@ ${pageContent || '无内容'}
                         }
                         
                         // 确保角色按钮已添加（在流式更新过程中也添加，确保按钮及时显示）
+                        // 延迟添加以确保消息结构已完全准备好
                         setTimeout(async () => {
-                            await this.addActionButtonsToMessage(petMessageElement);
-                        }, 100);
+                            await this.addActionButtonsToMessage(petMessageElement, false);
+                        }, 200);
                     }
                 }
 
@@ -8408,7 +8429,8 @@ ${pageContent || '无内容'}
                         }
                         
                         // 确保角色按钮已添加（无论内容是否相同，都要确保按钮存在）
-                        await this.addActionButtonsToMessage(petMessageElement);
+                        // 使用强制刷新确保按钮被正确添加
+                        await this.addActionButtonsToMessage(petMessageElement, true);
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 } else if (petMessageElement) {
@@ -8445,7 +8467,8 @@ ${pageContent || '无内容'}
                     }
                     
                     // 确保角色按钮已添加（即使内容相同，也要确保按钮存在）
-                    await this.addActionButtonsToMessage(petMessageElement);
+                    // 使用强制刷新确保按钮被正确添加
+                    await this.addActionButtonsToMessage(petMessageElement, true);
                 }
 
                 // 请求成功完成，更新状态为空闲

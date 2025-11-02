@@ -221,45 +221,27 @@ class SessionApiManager {
             throw new Error('会话数据无效');
         }
         
-        try {
-            const url = `${this.baseUrl}/session/save`;
-            const result = await this._request(url, {
-                method: 'POST',
-                body: JSON.stringify(sessionData),
-            });
-            
-            if (result.success) {
-                this.stats.saveCount++;
-                
-                // 更新缓存
-                const sessionId = result.data?.session_id || result.data?.id || sessionData.id;
-                
-                // 如果返回了完整会话数据，使用返回的数据更新缓存
-                if (result.data?.session) {
-                    this.cache.sessionsMap.set(`session:${sessionId}`, {
-                        data: result.data.session,
-                        timestamp: Date.now(),
-                    });
-                } else {
-                    // 否则使用传入的数据
-                    this.cache.sessionsMap.set(`session:${sessionId}`, {
-                        data: { ...sessionData, id: sessionId },
-                        timestamp: Date.now(),
-                    });
-                }
-                
-                // 清除列表缓存，因为列表可能已变化
-                this.cache.sessionsList = null;
-                this.cache.sessionsListTimestamp = 0;
-                
-                return result;
-            } else {
-                throw new Error(result.message || '保存失败');
+        // session/save 调用已删除，直接返回成功结果
+        const sessionId = sessionData.id;
+        
+        // 更新本地缓存
+        this.cache.sessionsMap.set(`session:${sessionId}`, {
+            data: { ...sessionData, id: sessionId },
+            timestamp: Date.now(),
+        });
+        
+        // 清除列表缓存，因为列表可能已变化
+        this.cache.sessionsList = null;
+        this.cache.sessionsListTimestamp = 0;
+        
+        return {
+            success: true,
+            data: {
+                id: sessionId,
+                session_id: sessionId,
+                session: sessionData
             }
-        } catch (error) {
-            console.error('保存会话失败:', error);
-            throw error;
-        }
+        };
     }
     
     /**

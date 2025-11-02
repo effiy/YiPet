@@ -151,6 +151,7 @@ class PetManager {
         this.lastSessionListLoadTime = 0;
         this.SESSION_LIST_RELOAD_INTERVAL = 10000; // 会话列表重新加载间隔（10秒）
         this.isPageFirstLoad = true; // 标记是否是页面首次加载/刷新
+        this.skipSessionListRefresh = false; // 标记是否跳过会话列表刷新（prompt调用后使用）
 
         this.init();
     }
@@ -2201,12 +2202,15 @@ class PetManager {
                         }
                     }
                     
-                    // 更新会话侧边栏
+                    // 更新会话侧边栏（如果是 prompt 调用后的保存，跳过后端刷新）
                     if (this.sessionSidebar) {
                         // 在同步回调中异步调用，不阻塞
-                        this.updateSessionSidebar().catch(err => {
+                        // 如果是 prompt 调用后的保存，只使用本地数据更新UI，不调用后端接口
+                        this.updateSessionSidebar(this.skipSessionListRefresh).catch(err => {
                             console.warn('更新会话侧边栏失败:', err);
                         });
+                        // 重置标志
+                        this.skipSessionListRefresh = false;
                     }
                     
                     console.log('会话列表已同步，当前会话数量:', Object.keys(this.sessions).length);
@@ -2766,31 +2770,8 @@ class PetManager {
                 }
             } else {
                 // 向后兼容：使用旧方式
-                const baseUrl = PET_CONFIG.api.yiaiBaseUrl;
-                if (!baseUrl) {
-                    console.warn('YiAi后端地址未配置，跳过同步');
-                    return;
-                }
-                
-                const response = await fetch(`${baseUrl}/session/save`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(sessionData)
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-                
-                const result = await response.json();
-                if (result.success) {
-                    console.log(`会话 ${sessionId} 已同步到后端`);
-                } else {
-                    console.warn(`会话同步失败:`, result.message);
-                }
+                // session/save 调用已删除，跳过同步
+                console.log(`会话 ${sessionId} 同步已跳过（session/save 已移除）`);
             }
         } catch (error) {
             // 静默处理错误，不阻塞主流程
@@ -3375,7 +3356,7 @@ class PetManager {
     }
 
     // 更新会话侧边栏
-    async updateSessionSidebar(forceRefresh = false) {
+    async updateSessionSidebar(forceRefresh = false, skipBackendRefresh = false) {
         if (!this.sessionSidebar) {
             console.log('会话侧边栏未创建，跳过更新');
             return;
@@ -3390,7 +3371,10 @@ class PetManager {
         // 优先使用接口数据，确保列表与后端一致
         let allSessions = [];
         
-        if (PET_CONFIG.api.syncSessionsToBackend && this.sessionApi) {
+        // 如果是 prompt 调用后的保存，跳过后端接口调用，只使用本地数据
+        if (skipBackendRefresh) {
+            allSessions = this._getSessionsFromLocal();
+        } else if (PET_CONFIG.api.syncSessionsToBackend && this.sessionApi) {
             try {
                 // 检查是否需要刷新（避免频繁调用）
                 const now = Date.now();
@@ -5364,6 +5348,9 @@ ${pageContent || '无内容'}
                             this.chatWindow._updateRequestStatus('loading');
                         }
                         
+                        // 设置标志，避免 prompt 调用后触发会话列表刷新接口
+                        this.skipSessionListRefresh = true;
+                        
                         // 使用统一的 payload 构建函数，自动包含会话 ID
                         const payload = this.buildPromptPayload(
                             systemPrompt,
@@ -5843,6 +5830,9 @@ ${pageContent || '无内容'}
                             this.chatWindow._updateRequestStatus('loading');
                         }
                         
+                        // 设置标志，避免 prompt 调用后触发会话列表刷新接口
+                        this.skipSessionListRefresh = true;
+                        
                         // 使用统一的 payload 构建函数，自动包含会话 ID
                         const payload = this.buildPromptPayload(
                             roleInfo.systemPrompt,
@@ -6137,6 +6127,9 @@ ${pageContent || '无内容'}
                         
                         try {
                             const abortController = new AbortController();
+                            
+                            // 设置标志，避免 prompt 调用后触发会话列表刷新接口
+                            this.skipSessionListRefresh = true;
                             
                             // 使用统一的 payload 构建函数，自动包含会话 ID
                             const payload = this.buildPromptPayload(
@@ -7207,6 +7200,9 @@ ${pageContent || '无内容'}
                 
                 // 创建 AbortController 用于终止请求
                 const abortController = new AbortController();
+                
+                // 设置标志，避免 prompt 调用后触发会话列表刷新接口
+                this.skipSessionListRefresh = true;
                 
                 // 使用统一的 payload 构建函数，自动包含会话 ID
                 const payload = this.buildPromptPayload(
@@ -9485,6 +9481,8 @@ ${pageContent || '无内容'}
 
                 // 立即保存宠物回复到当前会话（确保消息实时持久化）
                 // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+                // 设置标志，避免触发会话列表刷新接口
+                this.skipSessionListRefresh = true;
                 if (reply && reply.trim()) {
                     await this.addMessageToSession('pet', reply, null, false);
                 }

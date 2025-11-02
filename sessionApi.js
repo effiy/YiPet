@@ -221,27 +221,69 @@ class SessionApiManager {
             throw new Error('会话数据无效');
         }
         
-        // session/save 调用已删除，直接返回成功结果
         const sessionId = sessionData.id;
         
-        // 更新本地缓存
-        this.cache.sessionsMap.set(`session:${sessionId}`, {
-            data: { ...sessionData, id: sessionId },
-            timestamp: Date.now(),
-        });
-        
-        // 清除列表缓存，因为列表可能已变化
-        this.cache.sessionsList = null;
-        this.cache.sessionsListTimestamp = 0;
-        
-        return {
-            success: true,
-            data: {
-                id: sessionId,
-                session_id: sessionId,
-                session: sessionData
+        try {
+            // 调用 session/save API 保存会话
+            const url = `${this.baseUrl}/session/save`;
+            const result = await this._request(url, {
+                method: 'POST',
+                body: JSON.stringify(sessionData),
+            });
+            
+            this.stats.saveCount++;
+            
+            // 更新本地缓存
+            this.cache.sessionsMap.set(`session:${sessionId}`, {
+                data: { ...sessionData, id: sessionId },
+                timestamp: Date.now(),
+            });
+            
+            // 清除列表缓存，因为列表可能已变化
+            this.cache.sessionsList = null;
+            this.cache.sessionsListTimestamp = 0;
+            
+            // 返回结果（适配不同的响应格式）
+            if (result.success && result.data) {
+                return result;
+            } else if (result.data) {
+                return {
+                    success: true,
+                    data: result.data
+                };
+            } else {
+                return {
+                    success: true,
+                    data: {
+                        id: sessionId,
+                        session_id: sessionId,
+                        session: sessionData
+                    }
+                };
             }
-        };
+        } catch (error) {
+            console.warn('保存会话到后端失败，使用本地缓存:', error.message);
+            
+            // 即使后端保存失败，也更新本地缓存
+            this.cache.sessionsMap.set(`session:${sessionId}`, {
+                data: { ...sessionData, id: sessionId },
+                timestamp: Date.now(),
+            });
+            
+            // 清除列表缓存
+            this.cache.sessionsList = null;
+            this.cache.sessionsListTimestamp = 0;
+            
+            // 返回成功结果（即使后端失败）
+            return {
+                success: true,
+                data: {
+                    id: sessionId,
+                    session_id: sessionId,
+                    session: sessionData
+                }
+            };
+        }
     }
     
     /**

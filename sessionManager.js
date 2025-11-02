@@ -98,8 +98,7 @@ class SessionManager {
         return {
             id: sessionId,
             url: pageInfo.url || window.location.href,
-            title: pageInfo.title || document.title || '',
-            pageTitle: pageInfo.pageTitle || document.title || '',
+            pageTitle: pageInfo.pageTitle || pageInfo.title || document.title || '',
             pageDescription: pageInfo.pageDescription || '',
             pageContent: pageInfo.pageContent || '',
             messages: [],
@@ -273,7 +272,6 @@ class SessionManager {
             const sessionData = {
                 id: unifiedSessionId,
                 url: session.url || '',
-                title: session.title || '',
                 pageTitle: session.pageTitle || '',
                 pageDescription: session.pageDescription || '',
                 pageContent: session.pageContent || '',
@@ -509,7 +507,7 @@ class SessionManager {
             return false;
         }
         
-        session.title = title;
+        session.pageTitle = title;
         session.updatedAt = Date.now();
         return true;
     }
@@ -669,7 +667,7 @@ class SessionManager {
         
         // 先从本地搜索
         const localResults = this.getAllSessions().filter(session => {
-            const searchText = `${session.title} ${session.pageTitle} ${session.url}`.toLowerCase();
+            const searchText = `${session.pageTitle} ${session.url}`.toLowerCase();
             return searchText.includes(query.toLowerCase());
         }).slice(0, limit);
         

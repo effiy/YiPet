@@ -305,7 +305,29 @@ class PetManager {
                     // 异步处理
                     (async () => {
                         try {
+                            // 确保有当前会话
+                            if (!this.currentSessionId) {
+                                await this.initSessionWithDelay();
+                            }
+                            
+                            // 添加用户消息到会话
+                            if (this.currentSessionId && request.message) {
+                                await this.addMessageToSession('user', request.message, null, false);
+                            }
+                            
+                            // 生成宠物回复
                             const reply = await this.generatePetResponse(request.message);
+                            
+                            // 添加宠物回复到会话
+                            if (this.currentSessionId && reply) {
+                                await this.addMessageToSession('pet', reply, null, true);
+                                
+                                // 调用 session/save 保存会话到后端
+                                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                                    await this.syncSessionToBackend(this.currentSessionId, true);
+                                }
+                            }
+                            
                             sendResponse({ success: true, reply: reply });
                         } catch (error) {
                             console.error('生成回复失败:', error);
@@ -1622,13 +1644,6 @@ class PetManager {
             updated = true;
         }
 
-        // 确保标题一致（用于显示）
-        if (session.title !== pageInfo.title) {
-            console.log(`修复会话 ${sessionId} 的标题不一致:`, session.title, '->', pageInfo.title);
-            session.title = pageInfo.title;
-            updated = true;
-        }
-
         // 确保页面标题一致
         if (session.pageTitle !== pageInfo.title) {
             console.log(`修复会话 ${sessionId} 的页面标题不一致:`, session.pageTitle, '->', pageInfo.title);
@@ -1680,7 +1695,7 @@ class PetManager {
 
     // 创建标准化的会话对象
     // 每个会话都会保存以下信息：
-    // - 网页标题（title, pageTitle）：用于显示和识别
+    // - 网页标题（pageTitle）：用于显示和识别
     // - 网页描述（pageDescription）：meta description 信息
     // - 网页网址（url）：用于唯一标识会话，作为会话ID的基础
     // - 网页上下文（pageContent）：页面的完整Markdown内容，用于AI理解页面上下文
@@ -1696,7 +1711,6 @@ class PetManager {
         
         return {
             id: sessionId, // 会话ID（基于URL生成）
-            title: pageInfo.title, // 显示名称（使用页面标题）
             url: pageInfo.url, // 页面URL（用于查找会话，作为会话的唯一标识）
             pageTitle: pageInfo.title, // 页面标题（与页面上下文对应）
             pageDescription: pageInfo.description || '', // 页面描述（meta description）
@@ -1762,7 +1776,6 @@ class PetManager {
         
         // 更新所有页面相关信息，保留消息和其他会话数据
         Object.assign(session, {
-            title: sessionData.title,
             url: sessionData.url,
             pageTitle: sessionData.pageTitle,
             pageDescription: sessionData.pageDescription || '',
@@ -1976,11 +1989,8 @@ class PetManager {
                         if (fullSession.pageContent) {
                             existingSession.pageContent = fullSession.pageContent;
                         }
-                        if (fullSession.title) {
-                            existingSession.title = fullSession.title;
-                        }
-                        if (fullSession.pageTitle) {
-                            existingSession.pageTitle = fullSession.pageTitle;
+                        if (fullSession.pageTitle || fullSession.title) {
+                            existingSession.pageTitle = fullSession.pageTitle || fullSession.title || '';
                         }
                         existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
                         existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
@@ -2322,8 +2332,7 @@ class PetManager {
                     const localSession = {
                         id: sessionId,
                         url: backendSession.url || '',
-                        title: backendSession.title || '',
-                        pageTitle: backendSession.pageTitle || '',
+                        pageTitle: backendSession.pageTitle || backendSession.title || '',
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
                         messages: backendSession.messages || [],
@@ -2387,8 +2396,7 @@ class PetManager {
                             this.sessions[sessionId] = {
                                 ...backendSession,
                                 messages: finalMessages,
-                                title: localSession.title || backendSession.title,
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle,
+                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
                                 pageContent: localSession.pageContent || backendSession.pageContent
                             };
@@ -2396,8 +2404,7 @@ class PetManager {
                             this.sessions[sessionId] = {
                                 ...localSession,
                                 url: backendSession.url || localSession.url,
-                                title: localSession.title || backendSession.title,
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle,
+                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
                                 pageContent: localSession.pageContent || backendSession.pageContent,
                                 messages: localMessages
@@ -2500,8 +2507,7 @@ class PetManager {
                     const localSession = {
                         id: sessionId,
                         url: backendSession.url || '',
-                        title: backendSession.title || '',
-                        pageTitle: backendSession.pageTitle || '',
+                        pageTitle: backendSession.pageTitle || backendSession.title || '',
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
                         messages: backendSession.messages || [], // 后端列表API通常不包含messages
@@ -2599,8 +2605,7 @@ class PetManager {
                                 ...backendSession,
                                 messages: finalMessages, // 使用合并后的消息
                                 // 如果本地标题或内容有更新，保留本地的
-                                title: localSession.title || backendSession.title,
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle,
+                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
                                 pageContent: localSession.pageContent || backendSession.pageContent
                             };
@@ -2610,8 +2615,7 @@ class PetManager {
                                 ...localSession,
                                 // 更新元数据字段（如果后端有更新的值）
                                 url: backendSession.url || localSession.url,
-                                title: localSession.title || backendSession.title,
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle,
+                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
                                 pageContent: localSession.pageContent || backendSession.pageContent,
                                 // 消息始终使用本地的（因为本地更新）
@@ -2792,7 +2796,6 @@ class PetManager {
             const sessionData = {
                 id: session.id || sessionId,
                 url: session.url || '',
-                title: session.title || '',
                 pageTitle: session.pageTitle || '',
                 pageDescription: session.pageDescription || '',
                 pageContent: session.pageContent || '',
@@ -2997,7 +3000,6 @@ class PetManager {
         if (isUrlMatched) {
             const pageInfoChanged = (
                 session.url !== pageInfo.url ||
-                session.title !== pageInfo.title ||
                 session.pageTitle !== pageInfo.title ||
                 session.pageDescription !== (pageInfo.description || '') ||
                 (!session.pageContent || session.pageContent.trim() === '')
@@ -3007,10 +3009,6 @@ class PetManager {
             if (pageInfoChanged) {
                 if (session.url !== pageInfo.url) {
                     session.url = pageInfo.url;
-                    hasActualChanges = true;
-                }
-                if (session.title !== pageInfo.title) {
-                    session.title = pageInfo.title;
                     hasActualChanges = true;
                 }
                 if (session.pageTitle !== pageInfo.title) {
@@ -3198,7 +3196,7 @@ class PetManager {
         
         // 创建欢迎消息（使用会话保存的页面信息）
         const pageInfo = {
-            title: session.pageTitle || session.title || document.title || '当前页面',
+            title: session.pageTitle || document.title || '当前页面',
             url: session.url || window.location.href,
             description: session.pageDescription || ''
         };
@@ -3488,9 +3486,9 @@ class PetManager {
             }
             
             // 截断过长的标题
-            const displayTitle = session.title && session.title.length > 20 
-                ? session.title.substring(0, 20) + '...' 
-                : (session.title || session.id || '未命名会话');
+            const displayTitle = session.pageTitle && session.pageTitle.length > 20 
+                ? session.pageTitle.substring(0, 20) + '...' 
+                : (session.pageTitle || session.id || '未命名会话');
             
             // 创建内容容器
             const contentWrapper = document.createElement('div');
@@ -3785,7 +3783,7 @@ class PetManager {
         
         // 获取会话标题用于提示
         const session = this.sessions[sessionId];
-        const sessionTitle = session?.title || sessionId || '未命名会话';
+        const sessionTitle = session?.pageTitle || sessionId || '未命名会话';
         
         // 确认删除
         const confirmDelete = confirm(`确定要删除会话"${sessionTitle}"吗？`);
@@ -3815,6 +3813,16 @@ class PetManager {
         // 从本地删除会话
         delete this.sessions[sessionId];
         await this.saveAllSessions();
+        
+        // 删除会话后，重新从接口获取会话列表（强制刷新）
+        if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+            try {
+                await this.loadSessionsFromBackend(true);
+                console.log('会话列表已从后端刷新');
+            } catch (error) {
+                console.warn('刷新会话列表失败:', error);
+            }
+        }
         
         // 如果删除的是当前会话，切换到其他会话或清空
         if (isCurrentSession) {
@@ -9497,8 +9505,12 @@ ${pageContent || '无内容'}
                 }
 
                 // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
-                // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
                 await this.saveCurrentSession(false, false);
+                
+                // 调用 session/save 保存会话到后端
+                if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                    await this.syncSessionToBackend(this.currentSessionId, true);
+                }
             } catch (error) {
                 // 检查是否是取消错误
                 const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
@@ -10108,7 +10120,7 @@ ${pageContent || '无内容'}
         
         // 获取当前会话名称
         if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-            const sessionTitle = this.sessions[this.currentSessionId].title || '未命名会话';
+            const sessionTitle = this.sessions[this.currentSessionId].pageTitle || '未命名会话';
             // 如果标题太长，截断并添加省略号
             const displayTitle = sessionTitle.length > 20 
                 ? sessionTitle.substring(0, 20) + '...' 
@@ -12516,7 +12528,7 @@ ${pageContent || '无内容'}
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
                 pageInfo = {
-                    title: session.pageTitle || session.title || document.title || '当前页面',
+                    title: session.pageTitle || document.title || '当前页面',
                     url: session.url || window.location.href,
                     description: session.pageDescription || ''
                 };

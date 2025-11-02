@@ -4797,6 +4797,7 @@ class PetManager {
             }, 200);
         } else {
             // 对于用户消息
+            const oldText = messageElement.getAttribute('data-original-text') || messageElement.textContent || '';
             const hasMarkdown = /[#*_`\[\]()!]|```/.test(newText);
             
             if (hasMarkdown) {
@@ -4819,6 +4820,28 @@ class PetManager {
             } else {
                 messageElement.textContent = newText;
                 messageElement.setAttribute('data-original-text', newText);
+            }
+            
+            // 更新会话中对应的消息内容
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                if (session.messages && Array.isArray(session.messages)) {
+                    // 找到对应的消息并更新
+                    const messageIndex = session.messages.findIndex(msg => 
+                        msg.type === 'user' && 
+                        (msg.content === oldText || msg.content.trim() === oldText.trim())
+                    );
+                    
+                    if (messageIndex !== -1) {
+                        session.messages[messageIndex].content = newText;
+                        session.updatedAt = Date.now();
+                        // 异步保存会话
+                        this.saveAllSessions().catch(err => {
+                            console.error('更新消息后保存会话失败:', err);
+                        });
+                        console.log(`已更新会话 ${this.currentSessionId} 中的用户消息内容`);
+                    }
+                }
             }
         }
         

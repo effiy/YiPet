@@ -1571,11 +1571,30 @@ class PetManager {
         return currentUrl;
     }
 
-    // 生成唯一会话ID
+    // 生成唯一会话ID（MD5格式）
     generateSessionId() {
+        // 确保md5函数可用
+        const md5Func = typeof md5 !== 'undefined' ? md5 : 
+                       (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
+        
+        if (!md5Func) {
+            console.error('MD5函数未找到，请确保已加载md5.js');
+            // 降级方案：生成32位十六进制字符串
+            const input = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            let hash = 0;
+            for (let i = 0; i < input.length; i++) {
+                const char = input.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            const hex = Math.abs(hash).toString(16).padStart(32, '0');
+            return hex.substring(0, 32);
+        }
+        
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(2, 9);
-        return `session_${timestamp}_${random}`;
+        const input = `session_${timestamp}_${random}`;
+        return md5Func(input);
     }
 
     // 检查并修复会话数据一致性
@@ -1696,13 +1715,32 @@ class PetManager {
         return Object.values(this.sessions).find(session => session.url === url) || null;
     }
     
-    // 生成会话ID（如果URL过长则使用hash）
+    // 生成会话ID（使用MD5哈希，确保所有会话ID都是32位MD5格式）
     async generateSessionId(url) {
-        if (url.length <= 200) {
-            return url;
+        // 确保md5函数可用
+        const md5Func = typeof md5 !== 'undefined' ? md5 : 
+                       (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
+        
+        if (!md5Func) {
+            console.error('MD5函数未找到，请确保已加载md5.js');
+            // 降级方案：生成32位十六进制字符串
+            if (!url) {
+                const input = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                let hash = 0;
+                for (let i = 0; i < input.length; i++) {
+                    const char = input.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                const hex = Math.abs(hash).toString(16).padStart(32, '0');
+                return hex.substring(0, 32);
+            }
+            const hash = await this.hashString(url);
+            return hash;
         }
-        const hash = await this.hashString(url);
-        return `session_${hash}`;
+        
+        // 始终使用MD5，不管URL长度如何，确保所有会话ID都是统一的32位MD5格式
+        return md5Func(url);
     }
     
     // 更新会话页面信息（保持消息不变，但更新所有页面信息：标题、描述、网址、上下文）
@@ -1832,15 +1870,41 @@ class PetManager {
         }
     }
     
-    // 辅助方法：生成字符串的hash值
+    // 辅助方法：生成字符串的MD5 hash值（32位十六进制）
     async hashString(str) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(str);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        // 返回前16个字符作为会话ID的一部分
-        return hashHex.substring(0, 16);
+        // 确保md5函数可用
+        const md5Func = typeof md5 !== 'undefined' ? md5 : 
+                       (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
+        
+        if (!md5Func) {
+            console.error('MD5函数未找到，请确保已加载md5.js');
+            // 降级方案：使用SHA-256并返回32位
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(str);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    // 返回32位十六进制字符串
+                    return hashHex.substring(0, 32);
+                } catch (error) {
+                    console.warn('使用 SHA-256 生成hash失败，使用备用方法:', error);
+                }
+            }
+            // 备用方法：简单哈希
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            const hex = Math.abs(hash).toString(16).padStart(32, '0');
+            return hex.substring(0, 32);
+        }
+        
+        // 使用MD5，返回32位十六进制字符串
+        return md5Func(str);
     }
 
     // 初始化或恢复会话 - 基于URL创建唯一会话，确保每个会话与页面上下文一一对应

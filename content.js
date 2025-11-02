@@ -1153,8 +1153,17 @@ class PetManager {
                         }
                         // 处理错误
                         else if (chunk.type === 'error' || chunk.error) {
-                            console.error('流式响应错误:', chunk.data || chunk.error);
-                            throw new Error(chunk.data || chunk.error || '未知错误');
+                            const errorMsg = chunk.data || chunk.error || '未知错误';
+                            // 检查是否是 Mem0 连接错误
+                            if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
+                                errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
+                                // Mem0 连接错误，记录警告但不中断请求，允许继续处理（只是不使用记忆功能）
+                                console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
+                                // 不抛出错误，允许流式响应继续
+                            } else {
+                                console.error('流式响应错误:', errorMsg);
+                                throw new Error(errorMsg);
+                            }
                         }
                     } catch (e) {
                         console.warn('解析 SSE 消息失败:', message, e);
@@ -1172,7 +1181,16 @@ class PetManager {
                     if (chunk.done === true || chunk.type === 'done') {
                         console.log('流式响应完成');
                     } else if (chunk.type === 'error' || chunk.error) {
-                        throw new Error(chunk.data || chunk.error || '未知错误');
+                        const errorMsg = chunk.data || chunk.error || '未知错误';
+                        // 检查是否是 Mem0 连接错误
+                        if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
+                            errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
+                            // Mem0 连接错误，记录警告但不中断请求
+                            console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
+                            // 不抛出错误，允许继续处理
+                        } else {
+                            throw new Error(errorMsg);
+                        }
                     }
                 } catch (e) {
                     console.warn('解析最后的 SSE 消息失败:', message, e);
@@ -1368,8 +1386,17 @@ class PetManager {
                             }
                             // 处理错误
                             else if (chunk.type === 'error' || chunk.error) {
-                                console.error('流式响应错误:', chunk.data || chunk.error);
-                                throw new Error(chunk.data || chunk.error || '未知错误');
+                                const errorMsg = chunk.data || chunk.error || '未知错误';
+                                // 检查是否是 Mem0 连接错误
+                                if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
+                                    errorMsg.includes('Connection error') || errorMsg.includes('记忆') && errorMsg.includes('失败')) {
+                                    // Mem0 连接错误，记录警告但不中断请求，允许继续处理（只是不使用记忆功能）
+                                    console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
+                                    // 不抛出错误，允许流式响应继续
+                                } else {
+                                    console.error('流式响应错误:', errorMsg);
+                                    throw new Error(errorMsg);
+                                }
                             }
                         } catch (e) {
                             console.warn('解析 SSE 消息失败:', message, e);
@@ -1387,7 +1414,16 @@ class PetManager {
                         if (chunk.done === true || chunk.type === 'done') {
                             console.log('流式响应完成');
                         } else if (chunk.type === 'error' || chunk.error) {
-                            throw new Error(chunk.data || chunk.error || '未知错误');
+                            const errorMsg = chunk.data || chunk.error || '未知错误';
+                            // 检查是否是 Mem0 连接错误
+                            if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
+                                errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
+                                // Mem0 连接错误，记录警告但不中断请求
+                                console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
+                                // 不抛出错误，允许继续处理
+                            } else {
+                                throw new Error(errorMsg);
+                            }
                         }
                     } catch (e) {
                         console.warn('解析最后的 SSE 消息失败:', message, e);
@@ -1400,6 +1436,15 @@ class PetManager {
             // 如果是中止错误，不记录为错误
             if (error.name === 'AbortError' || error.message === '请求已取消') {
                 console.log('请求已取消');
+                throw error;
+            }
+            // 检查是否是 Mem0 连接错误（从错误消息中提取）
+            const errorMsg = error.message || error.toString();
+            if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
+                errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
+                // Mem0 连接错误，记录警告但允许继续（可以降级为不使用记忆功能）
+                console.warn('Mem0 记忆服务连接失败，继续处理（不使用记忆功能）:', errorMsg);
+                // 可以选择返回空内容或抛出错误，这里选择抛出错误以通知调用者
                 throw error;
             }
             console.error('API 调用失败:', error);

@@ -136,6 +136,7 @@ class PetManager {
         this.isCreatingSession = false; // 是否正在创建会话（防抖标志）
         this.currentPageUrl = null; // 当前页面URL，用于判断是否为新页面
         this.hasAutoCreatedSessionForPage = false; // 当前页面是否已经自动创建了会话
+        this.sessionInitPending = false; // 会话初始化是否正在进行中
         this.sidebarWidth = 200; // 侧边栏宽度（像素）
         this.isResizingSidebar = false; // 是否正在调整侧边栏宽度
 
@@ -153,14 +154,47 @@ class PetManager {
         // 添加键盘快捷键支持
         this.setupKeyboardShortcuts();
 
-        // 初始化会话：判断是否需要创建新会话
-        await this.initSession();
+        // 初始化会话：等待页面加载完成后1秒再创建新会话
+        this.initSessionWithDelay();
         
         // 监听页面标题变化，以便在标题改变时更新会话
         this.setupTitleChangeListener();
         
         // 监听会话列表变化，实现跨页面同步
         this.setupSessionSyncListener();
+    }
+
+    // 延迟初始化会话：等待页面加载完成后1秒再执行
+    async initSessionWithDelay() {
+        // 使用标志防止重复执行
+        if (this.sessionInitPending) {
+            return;
+        }
+        this.sessionInitPending = true;
+
+        // 检查页面是否已经加载完成
+        const isPageLoaded = document.readyState === 'complete';
+        
+        if (isPageLoaded) {
+            // 页面已经加载完成，延迟1秒后初始化会话
+            console.log('页面已加载完成，等待1秒后初始化会话');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await this.initSession();
+        } else {
+            // 页面尚未加载完成，等待加载完成后再延迟1秒
+            console.log('等待页面加载完成，然后延迟1秒后初始化会话');
+            const handleLoad = async () => {
+                // 移除事件监听器，避免重复执行
+                window.removeEventListener('load', handleLoad);
+                
+                // 延迟1秒后初始化会话
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await this.initSession();
+            };
+            
+            // 监听页面完全加载完成事件（包括所有资源）
+            window.addEventListener('load', handleLoad);
+        }
     }
 
     setupMessageListener() {
@@ -982,13 +1016,33 @@ class PetManager {
 
     // 获取页面信息的辅助方法
     getPageInfo() {
-        const pageTitle = document.title || '当前页面';
+        // 优先使用会话保存的页面内容
+        let pageTitle = document.title || '当前页面';
         const pageUrl = window.location.href;
         const metaDescription = document.querySelector('meta[name="description"]');
         const pageDescription = metaDescription ? metaDescription.content : '';
 
-        // 获取页面内容并转换为 Markdown
-        let pageContent = this.getPageContentAsMarkdown();
+        // 获取页面内容：优先使用会话保存的内容
+        let pageContent = '';
+        if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+            const session = this.sessions[this.currentSessionId];
+            if (session.pageContent) {
+                pageContent = session.pageContent;
+                pageTitle = session.pageTitle || pageTitle;
+            } else {
+                // 如果没有保存的页面内容，获取当前页面内容并保存到会话
+                pageContent = this.getPageContentAsMarkdown();
+                pageTitle = document.title || '当前页面';
+                session.pageContent = pageContent;
+                session.pageTitle = pageTitle;
+                // 异步保存，不阻塞返回
+                this.saveAllSessions().catch(err => console.error('保存会话页面内容失败:', err));
+            }
+        } else {
+            // 如果没有当前会话，使用当前页面内容
+            pageContent = this.getPageContentAsMarkdown();
+        }
+        
         // 限制长度以免过长
         if (pageContent.length > 102400) {
             pageContent = pageContent.substring(0, 102400);
@@ -1091,11 +1145,30 @@ class PetManager {
                 includeContext = contextSwitch.checked;
             }
 
-            // 获取页面完整正文内容并转换为 Markdown
-            const fullPageMarkdown = this.getPageContentAsMarkdown();
+            // 优先使用会话保存的页面内容，如果没有则使用当前页面内容
+            let fullPageMarkdown = '';
+            let pageTitle = document.title || '当前页面';
+            
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                // 如果会话有保存的页面内容，使用它
+                if (session.pageContent) {
+                    fullPageMarkdown = session.pageContent;
+                    pageTitle = session.pageTitle || pageTitle;
+                } else {
+                    // 如果没有保存的页面内容，获取当前页面内容并保存到会话
+                    fullPageMarkdown = this.getPageContentAsMarkdown();
+                    pageTitle = document.title || '当前页面';
+                    session.pageContent = fullPageMarkdown;
+                    session.pageTitle = pageTitle;
+                    await this.saveAllSessions();
+                }
+            } else {
+                // 如果没有当前会话，使用当前页面内容
+                fullPageMarkdown = this.getPageContentAsMarkdown();
+            }
 
             // 构建包含页面内容的完整消息
-            const pageTitle = document.title || '当前页面';
             const pageUrl = window.location.href;
 
             // 根据开关状态决定是否包含页面内容
@@ -1232,12 +1305,30 @@ class PetManager {
                 includeContext = contextSwitch.checked;
             }
 
-            // 获取页面完整正文内容并转换为 Markdown
-            const fullPageMarkdown = this.getPageContentAsMarkdown();
+            // 优先使用会话保存的页面内容，如果没有则使用当前页面内容
+            let fullPageMarkdown = '';
+            let pageTitle = document.title || '当前页面';
+            
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                // 如果会话有保存的页面内容，使用它
+                if (session.pageContent) {
+                    fullPageMarkdown = session.pageContent;
+                    pageTitle = session.pageTitle || pageTitle;
+                } else {
+                    // 如果没有保存的页面内容，获取当前页面内容并保存到会话
+                    fullPageMarkdown = this.getPageContentAsMarkdown();
+                    pageTitle = document.title || '当前页面';
+                    session.pageContent = fullPageMarkdown;
+                    session.pageTitle = pageTitle;
+                    await this.saveAllSessions();
+                }
+            } else {
+                // 如果没有当前会话，使用当前页面内容
+                fullPageMarkdown = this.getPageContentAsMarkdown();
+            }
 
             // 构建包含页面内容的完整消息
-            const pageTitle = document.title || '当前页面';
-
             // 根据开关状态决定是否包含页面内容
             let userMessage = message;
             if (includeContext && fullPageMarkdown) {
@@ -1318,6 +1409,9 @@ class PetManager {
             // 更新聊天窗口颜色
             this.updateChatWindowColor();
             
+            // 更新聊天窗口标题（显示当前会话名称）
+            this.updateChatHeaderTitle();
+            
             // 确保会话侧边栏已更新（如果侧边栏已创建）
             if (this.sessionSidebar) {
                 await this.loadAllSessions(); // 确保数据已加载
@@ -1357,6 +1451,9 @@ class PetManager {
 
             await this.createChatWindow();
             this.isChatOpen = true;
+            
+            // 更新聊天窗口标题（显示当前会话名称）
+            this.updateChatHeaderTitle();
         });
     }
 
@@ -1429,11 +1526,17 @@ class PetManager {
             // 如果没有提供标题，使用默认命名
             const sessionTitle = title || `新会话 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
 
+            // 获取当前页面内容并保存为快照
+            const pageContent = this.getPageContentAsMarkdown();
+            const pageTitle = document.title || '当前页面';
+            
             // 创建新会话
             const newSession = {
                 id: newSessionId,
                 title: sessionTitle,
                 url: window.location.href,
+                pageTitle: pageTitle,
+                pageContent: pageContent, // 保存页面内容快照
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
                 messages: []
@@ -1446,6 +1549,9 @@ class PetManager {
 
             // 切换到新会话
             this.currentSessionId = newSessionId;
+
+            // 更新聊天窗口标题（显示当前会话名称）
+            this.updateChatHeaderTitle();
 
             // 更新会话侧边栏
             if (this.sessionSidebar) {
@@ -1515,7 +1621,19 @@ class PetManager {
                 const newTitle = document.title || '未命名页面';
                 if (this.sessions[this.currentSessionId].title !== newTitle.trim()) {
                     this.sessions[this.currentSessionId].title = newTitle.trim();
+                    // 更新聊天窗口标题（如果标题变化了）
+                    this.updateChatHeaderTitle();
                 }
+                
+                // 如果会话没有保存页面内容，补充它（向后兼容，防止旧数据）
+                if (!this.sessions[this.currentSessionId].pageContent) {
+                    const pageContent = this.getPageContentAsMarkdown();
+                    const pageTitle = document.title || '当前页面';
+                    this.sessions[this.currentSessionId].pageContent = pageContent;
+                    this.sessions[this.currentSessionId].pageTitle = pageTitle;
+                    console.log('为当前会话补充页面内容快照');
+                }
+                
                 await this.saveAllSessions();
             }
             // 更新会话侧边栏
@@ -1558,8 +1676,23 @@ class PetManager {
             const newTitle = document.title || '未命名页面';
             if (this.sessions[existingSession.id].title !== newTitle.trim()) {
                 this.sessions[existingSession.id].title = newTitle.trim();
+                // 更新聊天窗口标题（如果标题变化了）
+                this.updateChatHeaderTitle();
             }
+            
+            // 如果旧会话没有保存页面内容，补充它（向后兼容）
+            if (!this.sessions[existingSession.id].pageContent) {
+                const pageContent = this.getPageContentAsMarkdown();
+                const pageTitle = document.title || '当前页面';
+                this.sessions[existingSession.id].pageContent = pageContent;
+                this.sessions[existingSession.id].pageTitle = pageTitle;
+                console.log('为旧会话补充页面内容快照');
+            }
+            
             await this.saveAllSessions();
+            
+            // 更新聊天窗口标题（确保标题显示正确）
+            this.updateChatHeaderTitle();
         } else {
             // 没有找到基于URL的会话，检查是否需要创建新会话
             const sessionId = this.getCurrentSessionId();
@@ -1574,10 +1707,16 @@ class PetManager {
                 // 会话不存在，且当前页面还没有自动创建会话，创建新会话
                 if (!this.hasAutoCreatedSessionForPage) {
                     console.log('为新页面自动创建会话:', sessionId);
+                    // 获取当前页面内容并保存为快照
+                    const pageContent = this.getPageContentAsMarkdown();
+                    const pageTitle = document.title || '当前页面';
+                    
                     this.sessions[sessionId] = {
                         id: sessionId,
                         title: sessionId,
                         url: currentUrl,
+                        pageTitle: pageTitle,
+                        pageContent: pageContent, // 保存页面内容快照
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
                         messages: []
@@ -1604,6 +1743,9 @@ class PetManager {
         if (this.sessionSidebar) {
             this.updateSessionSidebar();
         }
+        
+        // 更新聊天窗口标题（显示当前会话名称）
+        this.updateChatHeaderTitle();
         
         // 如果聊天窗口已打开，加载会话消息
         if (this.chatWindow && this.isChatOpen) {
@@ -1790,8 +1932,15 @@ class PetManager {
         
         // 更新会话消息
         if (this.sessions[this.currentSessionId]) {
+            // 检查消息是否真的发生了变化
+            const existingMessages = this.sessions[this.currentSessionId].messages || [];
+            const messagesChanged = JSON.stringify(existingMessages) !== JSON.stringify(messages);
+            
+            // 只有在消息发生变化时才更新 updatedAt
             this.sessions[this.currentSessionId].messages = messages;
-            this.sessions[this.currentSessionId].updatedAt = Date.now();
+            if (messagesChanged) {
+                this.sessions[this.currentSessionId].updatedAt = Date.now();
+            }
             await this.saveAllSessions();
         }
     }
@@ -1846,6 +1995,21 @@ class PetManager {
             // 设置新的当前会话
             this.currentSessionId = sessionId;
             
+            // 如果切换到的会话没有保存页面内容，且会话URL与当前页面URL匹配，补充它（向后兼容）
+            if (this.sessions[sessionId]) {
+                const session = this.sessions[sessionId];
+                const currentUrl = window.location.href;
+                // 只有在URL匹配且没有pageContent时才补充，避免用当前页面内容覆盖其他页面的会话
+                if (!session.pageContent && session.url === currentUrl) {
+                    const pageContent = this.getPageContentAsMarkdown();
+                    const pageTitle = document.title || '当前页面';
+                    session.pageContent = pageContent;
+                    session.pageTitle = pageTitle;
+                    console.log('为切换到的旧会话补充页面内容快照');
+                    await this.saveAllSessions();
+                }
+            }
+            
             // 更新会话侧边栏（更新active状态）
             // 使用 requestAnimationFrame 确保视觉更新流畅
             await new Promise(resolve => {
@@ -1858,6 +2022,9 @@ class PetManager {
             // 重新加载聊天窗口消息
             if (this.chatWindow && this.isChatOpen) {
                 await this.loadSessionMessages();
+                
+                // 更新聊天窗口标题（显示当前会话名称）
+                this.updateChatHeaderTitle();
                 
                 // 淡入效果（使用 requestAnimationFrame 确保 DOM 更新完成）
                 requestAnimationFrame(() => {
@@ -2029,19 +2196,227 @@ class PetManager {
             contentWrapper.appendChild(titleDiv);
             contentWrapper.appendChild(metaDiv);
             
-            // 创建删除按钮
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'session-delete-btn';
-            deleteBtn.innerHTML = '🗑️';
-            deleteBtn.title = '删除会话';
-            
             sessionItem.appendChild(contentWrapper);
-            sessionItem.appendChild(deleteBtn);
             
-            // 点击会话项切换到该会话（不包括点击删除按钮）
+            // 长按删除相关变量
+            let longPressTimer = null;
+            let longPressProgressTimer = null;
+            let longPressThreshold = 800; // 长按时间阈值（毫秒）
+            let isLongPressing = false;
+            let hasMoved = false;
+            let startX = 0;
+            let startY = 0;
+            let longPressStartTime = 0;
+            const moveThreshold = 10; // 移动阈值，超过此值则取消长按
+            
+            // 创建长按进度指示器
+            const progressBar = document.createElement('div');
+            progressBar.className = 'long-press-progress';
+            progressBar.style.cssText = `
+                position: absolute !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                height: 3px !important;
+                background: rgba(244, 67, 54, 0.8) !important;
+                width: 0% !important;
+                border-radius: 0 0 8px 8px !important;
+                transition: width 0.05s linear !important;
+                z-index: 10 !important;
+            `;
+            sessionItem.appendChild(progressBar);
+            
+            // 创建长按提示文本
+            const hintText = document.createElement('div');
+            hintText.className = 'long-press-hint';
+            hintText.textContent = '继续按住以删除';
+            hintText.style.cssText = `
+                position: absolute !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) scale(0) !important;
+                background: rgba(244, 67, 54, 0.95) !important;
+                color: white !important;
+                padding: 6px 12px !important;
+                border-radius: 6px !important;
+                font-size: 12px !important;
+                white-space: nowrap !important;
+                pointer-events: none !important;
+                z-index: 20 !important;
+                opacity: 0 !important;
+                transition: all 0.2s ease !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+            `;
+            sessionItem.appendChild(hintText);
+            
+            // 清除长按定时器
+            const clearLongPress = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                if (longPressProgressTimer) {
+                    clearInterval(longPressProgressTimer);
+                    longPressProgressTimer = null;
+                }
+                if (isLongPressing) {
+                    sessionItem.classList.remove('long-pressing', 'long-press-start', 
+                        'long-press-stage-1', 'long-press-stage-2', 'long-press-stage-3');
+                    isLongPressing = false;
+                } else {
+                    // 即使没有完成长按，也要清除开始状态和阶段状态
+                    sessionItem.classList.remove('long-press-start', 
+                        'long-press-stage-1', 'long-press-stage-2', 'long-press-stage-3');
+                }
+                hasMoved = false;
+                progressBar.style.width = '0%';
+                hintText.style.opacity = '0';
+                hintText.style.transform = 'translate(-50%, -50%) scale(0)';
+                longPressStartTime = 0;
+            };
+            
+            // 触觉反馈（如果支持）
+            const triggerHapticFeedback = () => {
+                if ('vibrate' in navigator) {
+                    navigator.vibrate(50); // 短震动
+                }
+            };
+            
+            // 开始长按检测
+            const startLongPress = (e) => {
+                // 如果正在切换会话，忽略
+                if (this.isSwitchingSession) {
+                    return;
+                }
+                
+                hasMoved = false;
+                startX = e.touches ? e.touches[0].clientX : e.clientX;
+                startY = e.touches ? e.touches[0].clientY : e.clientY;
+                longPressStartTime = Date.now();
+                
+                // 添加开始长按的视觉反馈
+                sessionItem.classList.add('long-press-start');
+                
+                // 显示提示文本（延迟一点，避免立即显示）
+                setTimeout(() => {
+                    if (longPressStartTime && !hasMoved) {
+                        hintText.style.opacity = '1';
+                        hintText.style.transform = 'translate(-50%, -50%) scale(1)';
+                    }
+                }, 200);
+                
+                // 开始进度条动画
+                let lastStage = 0;
+                const progressInterval = 50; // 每50ms更新一次
+                longPressProgressTimer = setInterval(() => {
+                    if (hasMoved || !longPressStartTime) {
+                        clearInterval(longPressProgressTimer);
+                        return;
+                    }
+                    
+                    const elapsed = Date.now() - longPressStartTime;
+                    const progress = Math.min((elapsed / longPressThreshold) * 100, 100);
+                    progressBar.style.width = progress + '%';
+                    
+                    // 在不同阶段添加反馈（确保每个阶段只触发一次）
+                    if (progress >= 30 && progress < 35 && lastStage < 1) {
+                        sessionItem.classList.add('long-press-stage-1');
+                        lastStage = 1;
+                    } else if (progress >= 60 && progress < 65 && lastStage < 2) {
+                        sessionItem.classList.remove('long-press-stage-1');
+                        sessionItem.classList.add('long-press-stage-2');
+                        lastStage = 2;
+                        triggerHapticFeedback(); // 中期震动
+                    } else if (progress >= 90 && progress < 95 && lastStage < 3) {
+                        sessionItem.classList.remove('long-press-stage-2');
+                        sessionItem.classList.add('long-press-stage-3');
+                        lastStage = 3;
+                        triggerHapticFeedback(); // 接近完成时的震动
+                    }
+                    
+                    if (progress >= 100) {
+                        clearInterval(longPressProgressTimer);
+                    }
+                }, progressInterval);
+                
+                longPressTimer = setTimeout(async () => {
+                    if (!hasMoved) {
+                        isLongPressing = true;
+                        sessionItem.classList.add('long-pressing');
+                        triggerHapticFeedback(); // 触发删除前的震动
+                        
+                        // 触发删除（异步执行，删除完成后清除状态）
+                        try {
+                            await this.deleteSession(session.id);
+                        } catch (error) {
+                            console.error('删除会话失败:', error);
+                        } finally {
+                            // 清除长按状态
+                            clearLongPress();
+                        }
+                    }
+                }, longPressThreshold);
+            };
+            
+            // 结束长按检测
+            const endLongPress = () => {
+                clearLongPress();
+            };
+            
+            // 移动检测（取消长按）
+            const handleMove = (e) => {
+                const currentX = e.touches ? e.touches[0].clientX : e.clientX;
+                const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+                const deltaX = Math.abs(currentX - startX);
+                const deltaY = Math.abs(currentY - startY);
+                
+                if (deltaX > moveThreshold || deltaY > moveThreshold) {
+                    hasMoved = true;
+                    clearLongPress();
+                }
+            };
+            
+            // 触摸事件（移动设备）
+            sessionItem.addEventListener('touchstart', (e) => {
+                startLongPress(e);
+            }, { passive: true });
+            
+            sessionItem.addEventListener('touchmove', (e) => {
+                handleMove(e);
+            }, { passive: true });
+            
+            sessionItem.addEventListener('touchend', () => {
+                endLongPress();
+            }, { passive: true });
+            
+            sessionItem.addEventListener('touchcancel', () => {
+                endLongPress();
+            }, { passive: true });
+            
+            // 鼠标事件（桌面设备）
+            sessionItem.addEventListener('mousedown', (e) => {
+                startLongPress(e);
+            });
+            
+            sessionItem.addEventListener('mousemove', (e) => {
+                if (longPressTimer) {
+                    handleMove(e);
+                }
+            });
+            
+            sessionItem.addEventListener('mouseup', () => {
+                endLongPress();
+            });
+            
+            sessionItem.addEventListener('mouseleave', () => {
+                endLongPress();
+            });
+            
+            // 点击会话项切换到该会话
             sessionItem.addEventListener('click', async (e) => {
-                // 如果点击的是删除按钮或其子元素，不切换会话
-                if (e.target === deleteBtn || deleteBtn.contains(e.target)) {
+                // 如果正在长按，不执行点击
+                if (isLongPressing || hasMoved) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     return;
                 }
                 
@@ -2084,31 +2459,6 @@ class PetManager {
                 }
             });
             
-            // 删除按钮点击事件
-            deleteBtn.addEventListener('click', async (e) => {
-                e.stopPropagation(); // 阻止事件冒泡
-                
-                // 添加点击反馈
-                deleteBtn.classList.add('clicked');
-                setTimeout(() => {
-                    deleteBtn.classList.remove('clicked');
-                }, 150);
-                
-                await this.deleteSession(session.id);
-            });
-            
-            // 鼠标悬停效果
-            sessionItem.addEventListener('mouseenter', () => {
-                if (!sessionItem.classList.contains('switching')) {
-                    deleteBtn.style.opacity = '1';
-                }
-            });
-            sessionItem.addEventListener('mouseleave', () => {
-                if (!sessionItem.classList.contains('active')) {
-                    deleteBtn.style.opacity = '0.5';
-                }
-            });
-            
             sessionList.appendChild(sessionItem);
         }
         
@@ -2119,8 +2469,12 @@ class PetManager {
     async deleteSession(sessionId) {
         if (!sessionId) return;
         
+        // 获取会话标题用于提示
+        const session = this.sessions[sessionId];
+        const sessionTitle = session?.title || sessionId || '未命名会话';
+        
         // 确认删除
-        const confirmDelete = confirm(`确定要删除会话"${sessionId}"吗？`);
+        const confirmDelete = confirm(`确定要删除会话"${sessionTitle}"吗？`);
         if (!confirmDelete) return;
         
         // 记录是否删除的是当前会话
@@ -2586,6 +2940,16 @@ class PetManager {
     closeContextEditor() {
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
         if (overlay) overlay.style.display = 'none';
+        
+        // 保存用户编辑的页面上下文到会话
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (textarea && this.currentSessionId && this.sessions[this.currentSessionId]) {
+            const editedContent = textarea.value || '';
+            this.sessions[this.currentSessionId].pageContent = editedContent;
+            // 异步保存，不阻塞关闭
+            this.saveAllSessions().catch(err => console.error('保存编辑的页面上下文失败:', err));
+        }
+        
         if (this._contextKeydownHandler) {
             document.removeEventListener('keydown', this._contextKeydownHandler, { capture: true });
             this._contextKeydownHandler = null;
@@ -5773,7 +6137,14 @@ ${pageContent || '无内容'}
         const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
         if (!textarea) return;
         try {
-            const md = this.getPageContentAsMarkdown();
+            // 优先使用会话保存的页面内容
+            let md = '';
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                md = session.pageContent || this.getPageContentAsMarkdown();
+            } else {
+                md = this.getPageContentAsMarkdown();
+            }
             textarea.value = md || '';
         } catch (e) {
             textarea.value = '获取页面上下文失败。';
@@ -5871,6 +6242,8 @@ ${pageContent || '无内容'}
         chatHeader.title = '拖拽移动窗口';
 
         const headerTitle = document.createElement('div');
+        headerTitle.className = 'chat-header-title';
+        headerTitle.id = 'pet-chat-header-title';
         headerTitle.style.cssText = `
             display: flex !important;
             align-items: center !important;
@@ -5878,7 +6251,7 @@ ${pageContent || '无内容'}
         `;
         headerTitle.innerHTML = `
             <span style="font-size: 20px;">💕</span>
-            <span style="font-weight: 600; font-size: 16px;">与我聊天</span>
+            <span id="pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span>
         `;
 
         const closeBtn = document.createElement('button');
@@ -6081,6 +6454,45 @@ ${pageContent || '无内容'}
                     0% { transform: translate(-50%, -50%) rotate(0deg) !important; }
                     100% { transform: translate(-50%, -50%) rotate(360deg) !important; }
                 }
+                .session-item.long-press-start {
+                    background: rgba(244, 67, 54, 0.08) !important;
+                    border-color: rgba(244, 67, 54, 0.3) !important;
+                    transform: scale(0.99) !important;
+                    transition: all 0.2s ease !important;
+                }
+                .session-item.long-press-stage-1 {
+                    background: rgba(244, 67, 54, 0.12) !important;
+                    border-color: rgba(244, 67, 54, 0.4) !important;
+                    transform: scale(0.985) !important;
+                    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.2) !important;
+                }
+                .session-item.long-press-stage-2 {
+                    background: rgba(244, 67, 54, 0.18) !important;
+                    border-color: rgba(244, 67, 54, 0.6) !important;
+                    transform: scale(0.975) !important;
+                    box-shadow: 0 3px 10px rgba(244, 67, 54, 0.3) !important;
+                }
+                .session-item.long-press-stage-3 {
+                    background: rgba(244, 67, 54, 0.22) !important;
+                    border-color: rgba(244, 67, 54, 0.7) !important;
+                    transform: scale(0.97) !important;
+                    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4) !important;
+                }
+                .session-item.long-pressing {
+                    background: rgba(244, 67, 54, 0.25) !important;
+                    border-color: rgba(244, 67, 54, 0.8) !important;
+                    transform: scale(0.96) !important;
+                    box-shadow: 0 6px 16px rgba(244, 67, 54, 0.5) !important;
+                    animation: long-press-pulse 0.6s ease-in-out infinite !important;
+                }
+                @keyframes long-press-pulse {
+                    0%, 100% {
+                        box-shadow: 0 6px 16px rgba(244, 67, 54, 0.5) !important;
+                    }
+                    50% {
+                        box-shadow: 0 6px 20px rgba(244, 67, 54, 0.7) !important;
+                    }
+                }
                 .session-title {
                     font-size: 13px !important;
                     font-weight: 500 !important;
@@ -6098,34 +6510,6 @@ ${pageContent || '无内容'}
                 }
                 .session-item.active .session-meta {
                     color: ${mainColor} !important;
-                }
-                .session-delete-btn {
-                    background: rgba(244, 67, 54, 0.1) !important;
-                    border: none !important;
-                    padding: 4px 8px !important;
-                    cursor: pointer !important;
-                    font-size: 14px !important;
-                    opacity: 0.5 !important;
-                    transition: all 0.2s ease !important;
-                    border-radius: 4px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    flex-shrink: 0 !important;
-                    min-width: 28px !important;
-                    min-height: 28px !important;
-                }
-                .session-delete-btn:hover {
-                    opacity: 1 !important;
-                    background: rgba(244, 67, 54, 0.2) !important;
-                    transform: scale(1.1) !important;
-                }
-                .session-delete-btn.clicked {
-                    transform: scale(0.9) !important;
-                    background: rgba(244, 67, 54, 0.3) !important;
-                }
-                .session-item.active .session-delete-btn {
-                    opacity: 0.7 !important;
                 }
                 .session-item.new-session-highlight {
                     animation: new-session-highlight 1.5s ease-out !important;
@@ -6769,6 +7153,13 @@ ${pageContent || '无内容'}
         const sendMessage = async () => {
             const message = messageInput.value.trim();
             if (!message) return;
+
+            // 确保有当前会话（如果没有，先初始化会话）
+            if (!this.currentSessionId) {
+                await this.initSession();
+                // 更新聊天窗口标题
+                this.updateChatHeaderTitle();
+            }
 
             // 添加用户消息
             const userMessage = this.createMessageElement(message, 'user');
@@ -7604,6 +7995,27 @@ ${pageContent || '无内容'}
     getMainColorFromGradient(gradient) {
         const match = gradient.match(/#[0-9a-fA-F]{6}/);
         return match ? match[0] : '#3b82f6';
+    }
+
+    // 更新聊天窗口标题（显示当前会话名称）
+    updateChatHeaderTitle() {
+        if (!this.chatWindow) return;
+        
+        const titleTextEl = this.chatWindow.querySelector('#pet-chat-header-title-text');
+        if (!titleTextEl) return;
+        
+        // 获取当前会话名称
+        if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+            const sessionTitle = this.sessions[this.currentSessionId].title || '未命名会话';
+            // 如果标题太长，截断并添加省略号
+            const displayTitle = sessionTitle.length > 20 
+                ? sessionTitle.substring(0, 20) + '...' 
+                : sessionTitle;
+            titleTextEl.textContent = displayTitle;
+        } else {
+            // 如果没有会话，显示默认文本
+            titleTextEl.textContent = '与我聊天';
+        }
     }
 
     // 更新聊天窗口颜色（跟随宠物颜色）

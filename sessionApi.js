@@ -339,6 +339,69 @@ class SessionApiManager {
     }
     
     /**
+     * 删除会话
+     * @param {string} sessionId - 会话ID
+     * @returns {Promise<Object>} 删除结果
+     */
+    async deleteSession(sessionId) {
+        if (!sessionId) {
+            throw new Error('会话ID无效');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/session/${encodeURIComponent(sessionId)}`;
+            const result = await this._request(url, {
+                method: 'DELETE',
+            });
+            
+            if (result.success) {
+                // 从缓存中删除
+                this.cache.sessionsMap.delete(`session:${sessionId}`);
+                
+                // 清除列表缓存，因为列表可能已变化
+                this.cache.sessionsList = null;
+                this.cache.sessionsListTimestamp = 0;
+                
+                return result;
+            } else {
+                throw new Error(result.message || '删除失败');
+            }
+        } catch (error) {
+            console.error('删除会话失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * 搜索会话
+     * @param {string} query - 搜索关键词
+     * @param {number} limit - 返回数量限制
+     * @returns {Promise<Array>} 搜索结果
+     */
+    async searchSessions(query, limit = 10) {
+        if (!query) {
+            return [];
+        }
+        
+        try {
+            const url = `${this.baseUrl}/session/search`;
+            const result = await this._request(url, {
+                method: 'POST',
+                body: JSON.stringify({ query, limit }),
+            });
+            
+            if (result.success && Array.isArray(result.sessions)) {
+                return result.sessions;
+            } else {
+                throw new Error('返回数据格式错误');
+            }
+        } catch (error) {
+            console.warn('搜索会话失败:', error.message);
+            return [];
+        }
+    }
+    
+    /**
      * 清除缓存
      */
     clearCache() {

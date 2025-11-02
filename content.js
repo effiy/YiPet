@@ -138,6 +138,13 @@ class PetManager {
         this.sessionInitPending = false; // 会话初始化是否正在进行中
         this.sidebarWidth = 200; // 侧边栏宽度（像素）
         this.isResizingSidebar = false; // 是否正在调整侧边栏宽度
+        
+        // 会话更新优化相关
+        this.sessionUpdateTimer = null; // 会话更新防抖定时器
+        this.pendingSessionUpdate = false; // 是否有待处理的会话更新
+        this.lastSessionSaveTime = 0; // 上次保存会话的时间
+        this.SESSION_UPDATE_DEBOUNCE = 300; // 会话更新防抖时间（毫秒）
+        this.SESSION_SAVE_THROTTLE = 1000; // 会话保存节流时间（毫秒）
 
         this.init();
     }
@@ -158,6 +165,9 @@ class PetManager {
         
         // 监听页面标题变化，以便在标题改变时更新会话
         this.setupTitleChangeListener();
+        
+        // 监听URL变化，以便在URL改变时创建新会话（支持单页应用）
+        this.setupUrlChangeListener();
         
         // 监听会话列表变化，实现跨页面同步
         this.setupSessionSyncListener();
@@ -927,6 +937,26 @@ class PetManager {
     }
 
     // 获取页面内容并转换为 Markdown
+    // 统一获取页面信息的方法：标题、描述、URL、内容
+    getPageInfo() {
+        const pageTitle = document.title || '未命名页面';
+        const pageUrl = window.location.href;
+        
+        // 获取页面描述（meta description）
+        const metaDescription = document.querySelector('meta[name="description"]');
+        const pageDescription = metaDescription ? metaDescription.content.trim() : '';
+        
+        // 获取页面内容
+        const pageContent = this.getPageContentAsMarkdown();
+        
+        return {
+            title: pageTitle.trim(),
+            url: pageUrl,
+            description: pageDescription,
+            content: pageContent
+        };
+    }
+
     getPageContentAsMarkdown() {
         try {
             // 检查 Turndown 是否可用
@@ -1013,47 +1043,6 @@ class PetManager {
         }
     }
 
-    // 获取页面信息的辅助方法
-    getPageInfo() {
-        // 优先使用会话保存的页面内容
-        let pageTitle = document.title || '当前页面';
-        const pageUrl = window.location.href;
-        const metaDescription = document.querySelector('meta[name="description"]');
-        const pageDescription = metaDescription ? metaDescription.content : '';
-
-        // 获取页面内容：优先使用会话保存的内容
-        let pageContent = '';
-        if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-            const session = this.sessions[this.currentSessionId];
-            if (session.pageContent) {
-                pageContent = session.pageContent;
-                pageTitle = session.pageTitle || pageTitle;
-            } else {
-                // 如果没有保存的页面内容，获取当前页面内容并保存到会话
-                pageContent = this.getPageContentAsMarkdown();
-                pageTitle = document.title || '当前页面';
-                session.pageContent = pageContent;
-                session.pageTitle = pageTitle;
-                // 异步保存，不阻塞返回
-                this.saveAllSessions().catch(err => console.error('保存会话页面内容失败:', err));
-            }
-        } else {
-            // 如果没有当前会话，使用当前页面内容
-            pageContent = this.getPageContentAsMarkdown();
-        }
-        
-        // 限制长度以免过长
-        if (pageContent.length > 102400) {
-            pageContent = pageContent.substring(0, 102400);
-        }
-
-        return {
-            title: pageTitle,
-            url: pageUrl,
-            description: pageDescription,
-            content: pageContent
-        };
-    }
 
     // 通用的流式响应处理方法
     async processStreamingResponse(response, onContent) {
@@ -1468,9 +1457,12 @@ class PetManager {
 
     // 会话管理方法
     // 获取当前会话ID（基于网页标题）
+    // 基于URL生成会话ID，确保每个URL对应唯一会话
     getCurrentSessionId() {
-        const pageTitle = document.title || '未命名页面';
-        return pageTitle.trim() || '未命名页面';
+        const currentUrl = window.location.href;
+        // 使用URL作为会话ID的基础，如果URL过长则使用hash
+        // 为了保持向后兼容和唯一性，我们使用generateSessionId，但在initSession中通过URL查找
+        return currentUrl;
     }
 
     // 生成唯一会话ID
@@ -1480,10 +1472,97 @@ class PetManager {
         return `session_${timestamp}_${random}`;
     }
 
+    // 检查并修复会话数据一致性
+    ensureSessionConsistency(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            return false;
+        }
 
-    // 初始化或恢复会话
+        const session = this.sessions[sessionId];
+        const pageInfo = this.getPageInfo();
+        let updated = false;
+
+        // 确保URL一致
+        if (session.url !== pageInfo.url) {
+            console.log(`修复会话 ${sessionId} 的URL不一致:`, session.url, '->', pageInfo.url);
+            session.url = pageInfo.url;
+            updated = true;
+        }
+
+        // 确保标题一致（用于显示）
+        if (session.title !== pageInfo.title) {
+            console.log(`修复会话 ${sessionId} 的标题不一致:`, session.title, '->', pageInfo.title);
+            session.title = pageInfo.title;
+            updated = true;
+        }
+
+        // 确保页面标题一致
+        if (session.pageTitle !== pageInfo.title) {
+            console.log(`修复会话 ${sessionId} 的页面标题不一致:`, session.pageTitle, '->', pageInfo.title);
+            session.pageTitle = pageInfo.title;
+            updated = true;
+        }
+
+        // 确保页面描述一致
+        if (session.pageDescription !== pageInfo.description) {
+            console.log(`修复会话 ${sessionId} 的页面描述不一致`);
+            session.pageDescription = pageInfo.description;
+            updated = true;
+        }
+
+        // 确保页面内容存在（如果缺失则补充）
+        if (!session.pageContent || session.pageContent.trim() === '') {
+            console.log(`补充会话 ${sessionId} 的页面内容`);
+            session.pageContent = pageInfo.content;
+            updated = true;
+        }
+
+        // 确保messages数组存在
+        if (!Array.isArray(session.messages)) {
+            console.log(`修复会话 ${sessionId} 的消息数组`);
+            session.messages = [];
+            updated = true;
+        }
+
+        // 确保时间戳存在
+        if (!session.createdAt) {
+            session.createdAt = Date.now();
+            updated = true;
+        }
+        if (!session.updatedAt) {
+            session.updatedAt = Date.now();
+            updated = true;
+        }
+
+        return updated;
+    }
+
+    // 创建标准化的会话对象
+    createSessionObject(sessionId, pageInfo, existingSession = null) {
+        const now = Date.now();
+        
+        // 如果是已有会话，保留消息和创建时间
+        const messages = existingSession?.messages || [];
+        const createdAt = existingSession?.createdAt || now;
+        
+        return {
+            id: sessionId,
+            title: pageInfo.title, // 显示名称（使用页面标题）
+            url: pageInfo.url, // 页面URL（用于查找会话）
+            pageTitle: pageInfo.title, // 页面标题（与页面上下文对应）
+            pageDescription: pageInfo.description, // 页面描述
+            pageContent: pageInfo.content, // 页面内容（与第一条聊天记录对应）
+            messages: messages, // 聊天记录
+            createdAt: createdAt, // 创建时间
+            updatedAt: now // 更新时间
+        };
+    }
+
+
+    // 初始化或恢复会话 - 基于URL创建唯一会话，确保每个会话与页面上下文一一对应
     async initSession() {
-        const currentUrl = window.location.href;
+        const pageInfo = this.getPageInfo();
+        const currentUrl = pageInfo.url;
         
         // 加载所有会话数据
         await this.loadAllSessions();
@@ -1491,29 +1570,26 @@ class PetManager {
         // 检查是否是同一个页面（URL相同）
         const isSamePage = this.currentPageUrl === currentUrl;
         
-        // 如果当前已经有会话ID，且是同一页面且已经自动创建过会话，则不创建新会话
+        // 如果当前已经有会话ID，且是同一页面且已经自动创建过会话，则检查并更新一致性
         if (isSamePage && this.hasAutoCreatedSessionForPage && this.currentSessionId) {
-            console.log('同一页面已自动创建会话，跳过:', this.currentSessionId);
-            // 更新会话的访问时间和标题（如果标题变化了）
+            console.log('同一页面已自动创建会话，检查一致性:', this.currentSessionId);
             if (this.sessions[this.currentSessionId]) {
-                this.sessions[this.currentSessionId].updatedAt = Date.now();
-                const newTitle = document.title || '未命名页面';
-                if (this.sessions[this.currentSessionId].title !== newTitle.trim()) {
-                    this.sessions[this.currentSessionId].title = newTitle.trim();
-                    // 更新聊天窗口标题（如果标题变化了）
+                // 检查并修复会话一致性（标题、描述等可能变化）
+                const needsUpdate = this.ensureSessionConsistency(this.currentSessionId);
+                if (needsUpdate) {
+                    // 更新标题显示（如果变化了）
                     this.updateChatHeaderTitle();
+                    await this.saveAllSessions();
+                } else {
+                    // 不需要修复，只更新访问时间（但不立即保存，避免频繁保存）
+                    // 访问时间更新延迟到下次实际保存时
+                    const session = this.sessions[this.currentSessionId];
+                    const now = Date.now();
+                    // 只在距离上次更新时间超过一定时间时才更新（避免频繁更新）
+                    if (!session.lastAccessTime || (now - session.lastAccessTime) > 60000) {
+                        session.lastAccessTime = now;
+                    }
                 }
-                
-                // 如果会话没有保存页面内容，补充它（向后兼容，防止旧数据）
-                if (!this.sessions[this.currentSessionId].pageContent) {
-                    const pageContent = this.getPageContentAsMarkdown();
-                    const pageTitle = document.title || '当前页面';
-                    this.sessions[this.currentSessionId].pageContent = pageContent;
-                    this.sessions[this.currentSessionId].pageTitle = pageTitle;
-                    console.log('为当前会话补充页面内容快照');
-                }
-                
-                await this.saveAllSessions();
             }
             // 更新会话侧边栏
             if (this.sessionSidebar) {
@@ -1537,7 +1613,7 @@ class PetManager {
             }
         }
         
-        // 如果找到了基于URL的会话，使用它
+        // 如果找到了基于URL的会话，使用它并确保一致性
         if (existingSession) {
             console.log('找到基于URL的已有会话:', existingSession.id);
             
@@ -1548,74 +1624,49 @@ class PetManager {
             
             // 切换到找到的会话
             this.currentSessionId = existingSession.id;
-            this.hasAutoCreatedSessionForPage = true; // 标记已自动关联会话（虽然不是新创建的）
+            this.hasAutoCreatedSessionForPage = true;
             
-            // 更新会话信息
-            this.sessions[existingSession.id].updatedAt = Date.now();
-            const newTitle = document.title || '未命名页面';
-            if (this.sessions[existingSession.id].title !== newTitle.trim()) {
-                this.sessions[existingSession.id].title = newTitle.trim();
-                // 更新聊天窗口标题（如果标题变化了）
-                this.updateChatHeaderTitle();
-            }
-            
-            // 如果旧会话没有保存页面内容，补充它（向后兼容）
-            if (!this.sessions[existingSession.id].pageContent) {
-                const pageContent = this.getPageContentAsMarkdown();
-                const pageTitle = document.title || '当前页面';
-                this.sessions[existingSession.id].pageContent = pageContent;
-                this.sessions[existingSession.id].pageTitle = pageTitle;
-                console.log('为旧会话补充页面内容快照');
-            }
+            // 确保会话数据一致性（更新标题、描述等信息，但保留消息记录）
+            const sessionData = this.createSessionObject(existingSession.id, pageInfo, existingSession);
+            // 合并到已有会话，保留原有数据但更新页面信息
+            Object.assign(this.sessions[existingSession.id], {
+                title: sessionData.title,
+                url: sessionData.url,
+                pageTitle: sessionData.pageTitle,
+                pageDescription: sessionData.pageDescription,
+                pageContent: sessionData.pageContent,
+                updatedAt: sessionData.updatedAt
+            });
             
             await this.saveAllSessions();
             
-            // 更新聊天窗口标题（确保标题显示正确）
+            // 更新聊天窗口标题
             this.updateChatHeaderTitle();
         } else {
-            // 没有找到基于URL的会话，检查是否需要创建新会话
-            const sessionId = this.getCurrentSessionId();
-            
-            // 如果当前已经有会话ID且与新的会话ID不同，先保存当前会话
-            if (this.currentSessionId && this.currentSessionId !== sessionId) {
+            // 没有找到基于URL的会话，需要创建新会话
+            // 如果当前已经有会话ID且与新URL不同，先保存当前会话
+            if (this.currentSessionId && this.currentSessionId !== currentUrl) {
                 await this.saveCurrentSession();
             }
             
-            // 检查基于标题的会话是否已存在
-            if (!this.sessions[sessionId]) {
-                // 会话不存在，且当前页面还没有自动创建会话，创建新会话
-                if (!this.hasAutoCreatedSessionForPage) {
-                    console.log('为新页面自动创建会话:', sessionId);
-                    // 获取当前页面内容并保存为快照
-                    const pageContent = this.getPageContentAsMarkdown();
-                    const pageTitle = document.title || '当前页面';
-                    
-                    this.sessions[sessionId] = {
-                        id: sessionId,
-                        title: sessionId,
-                        url: currentUrl,
-                        pageTitle: pageTitle,
-                        pageContent: pageContent, // 保存页面内容快照
-                        createdAt: Date.now(),
-                        updatedAt: Date.now(),
-                        messages: []
-                    };
-                    await this.saveAllSessions();
-                    this.hasAutoCreatedSessionForPage = true; // 标记已自动创建
-                } else {
-                    console.log('当前页面已自动创建会话，不重复创建');
-                }
-            } else {
-                // 会话已存在，使用已有会话
-                console.log('使用已有会话:', sessionId);
-                // 更新会话的访问时间和URL
-                this.sessions[sessionId].updatedAt = Date.now();
-                this.sessions[sessionId].url = currentUrl;
+            // 为当前URL创建新会话
+            if (!this.hasAutoCreatedSessionForPage) {
+                console.log('为新页面URL自动创建会话:', currentUrl);
+                
+                // 生成唯一的会话ID
+                const sessionId = this.generateSessionId();
+                
+                // 创建标准化的会话对象，包含所有页面信息
+                this.sessions[sessionId] = this.createSessionObject(sessionId, pageInfo);
+                
                 await this.saveAllSessions();
+                this.currentSessionId = sessionId;
+                this.hasAutoCreatedSessionForPage = true;
+                
+                console.log('新会话已创建，会话ID:', sessionId, '标题:', pageInfo.title, 'URL:', currentUrl);
+            } else {
+                console.log('当前页面已自动创建会话，不重复创建');
             }
-            
-            // 设置当前会话
-            this.currentSessionId = sessionId;
         }
         
         // 更新会话侧边栏
@@ -1634,14 +1685,31 @@ class PetManager {
         return this.currentSessionId;
     }
 
-    // 设置页面标题变化监听
+    // 设置页面标题变化监听（带防抖优化）
     setupTitleChangeListener() {
+        let titleUpdateTimer = null;
+        let lastTitle = document.title;
+        
+        // 防抖的会话更新函数
+        const debouncedUpdateSession = () => {
+            if (titleUpdateTimer) {
+                clearTimeout(titleUpdateTimer);
+            }
+            titleUpdateTimer = setTimeout(() => {
+                this.initSession();
+            }, this.SESSION_UPDATE_DEBOUNCE);
+        };
+        
         // 使用 MutationObserver 监听标题变化
         const titleObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'childList' || mutation.type === 'characterData') {
-                    // 标题发生变化，重新初始化会话
-                    this.initSession();
+                    const currentTitle = document.title;
+                    // 只有标题真的变化了才触发更新
+                    if (currentTitle !== lastTitle) {
+                        lastTitle = currentTitle;
+                        debouncedUpdateSession();
+                    }
                 }
             });
         });
@@ -1657,14 +1725,82 @@ class PetManager {
         }
 
         // 也监听 document.title 的直接变化（某些动态页面会直接修改）
-        let lastTitle = document.title;
+        // 使用更长的检查间隔，减少不必要的检查
         setInterval(() => {
             const currentTitle = document.title;
             if (currentTitle !== lastTitle) {
                 lastTitle = currentTitle;
-                this.initSession();
+                debouncedUpdateSession();
             }
-        }, 1000); // 每秒检查一次标题变化
+        }, 2000); // 每2秒检查一次标题变化（降低频率）
+    }
+
+    // 设置URL变化监听，用于单页应用（SPA）的路由变化（带防抖优化）
+    setupUrlChangeListener() {
+        let lastUrl = window.location.href;
+        let urlUpdateTimer = null;
+        const self = this;
+        
+        // 防抖的会话更新函数
+        const debouncedUpdateSession = (reason = '') => {
+            if (urlUpdateTimer) {
+                clearTimeout(urlUpdateTimer);
+            }
+            urlUpdateTimer = setTimeout(() => {
+                self.initSession();
+            }, self.SESSION_UPDATE_DEBOUNCE);
+        };
+        
+        // 监听popstate事件（浏览器前进/后退）
+        window.addEventListener('popstate', () => {
+            const currentUrl = window.location.href;
+            if (currentUrl !== lastUrl) {
+                console.log('检测到URL变化（popstate）:', lastUrl, '->', currentUrl);
+                lastUrl = currentUrl;
+                debouncedUpdateSession('popstate');
+            }
+        });
+        
+        // 监听pushState和replaceState（单页应用路由变化）
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        
+        history.pushState = function(...args) {
+            originalPushState.apply(history, args);
+            const currentUrl = window.location.href;
+            if (currentUrl !== lastUrl) {
+                console.log('检测到URL变化（pushState）:', lastUrl, '->', currentUrl);
+                lastUrl = currentUrl;
+                // 延迟执行，确保页面已更新，并使用防抖
+                setTimeout(() => {
+                    debouncedUpdateSession('pushState');
+                }, 100);
+            }
+        };
+        
+        history.replaceState = function(...args) {
+            originalReplaceState.apply(history, args);
+            const currentUrl = window.location.href;
+            if (currentUrl !== lastUrl) {
+                console.log('检测到URL变化（replaceState）:', lastUrl, '->', currentUrl);
+                lastUrl = currentUrl;
+                // 延迟执行，确保页面已更新，并使用防抖
+                setTimeout(() => {
+                    debouncedUpdateSession('replaceState');
+                }, 100);
+            }
+        };
+        
+        // 定期检查URL变化（作为备用方案，防止某些边缘情况）
+        // 降低检查频率，减少性能开销
+        setInterval(() => {
+            const currentUrl = window.location.href;
+            if (currentUrl !== lastUrl) {
+                console.log('检测到URL变化（定期检查）:', lastUrl, '->', currentUrl);
+                lastUrl = currentUrl;
+                debouncedUpdateSession('periodic');
+            }
+        }, 3000); // 每3秒检查一次（降低频率）
     }
 
     // 设置会话列表同步监听器，实现跨页面同步
@@ -1766,8 +1902,42 @@ class PetManager {
         });
     }
 
-    // 保存所有会话
-    async saveAllSessions() {
+    // 保存所有会话（带节流优化）
+    async saveAllSessions(force = false) {
+        const now = Date.now();
+        
+        // 如果不在强制模式下，且距离上次保存时间太短，则延迟保存
+        if (!force && (now - this.lastSessionSaveTime) < this.SESSION_SAVE_THROTTLE) {
+            // 标记有待处理的更新
+            this.pendingSessionUpdate = true;
+            
+            // 如果已有定时器在等待，清除它
+            if (this.sessionUpdateTimer) {
+                clearTimeout(this.sessionUpdateTimer);
+            }
+            
+            // 延迟保存
+            return new Promise((resolve) => {
+                this.sessionUpdateTimer = setTimeout(async () => {
+                    this.pendingSessionUpdate = false;
+                    await this._doSaveAllSessions();
+                    resolve();
+                }, this.SESSION_SAVE_THROTTLE - (now - this.lastSessionSaveTime));
+            });
+        }
+        
+        // 立即保存
+        this.pendingSessionUpdate = false;
+        if (this.sessionUpdateTimer) {
+            clearTimeout(this.sessionUpdateTimer);
+            this.sessionUpdateTimer = null;
+        }
+        return await this._doSaveAllSessions();
+    }
+    
+    // 实际执行保存操作
+    async _doSaveAllSessions() {
+        this.lastSessionSaveTime = Date.now();
         return new Promise((resolve) => {
             chrome.storage.local.set({ petChatSessions: this.sessions }, () => {
                 resolve();
@@ -1775,53 +1945,116 @@ class PetManager {
         });
     }
 
-    // 保存当前会话的消息
-    async saveCurrentSession() {
-        if (!this.currentSessionId || !this.chatWindow) return;
+    // 保存当前会话的消息和页面信息（确保一致性，优化版本）
+    async saveCurrentSession(force = false) {
+        if (!this.currentSessionId) return;
         
-        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
-        if (!messagesContainer) return;
+        // 确保会话存在
+        if (!this.sessions[this.currentSessionId]) {
+            console.warn('会话不存在，无法保存:', this.currentSessionId);
+            return;
+        }
+
+        // 获取当前页面信息
+        const pageInfo = this.getPageInfo();
+        const session = this.sessions[this.currentSessionId];
+        let hasActualChanges = false;
+        let messagesChanged = false;
         
-        // 获取所有消息元素
-        const messageElements = Array.from(messagesContainer.children);
-        const messages = [];
-        
-        for (const msgEl of messageElements) {
-            const userBubble = msgEl.querySelector('[data-message-type="user-bubble"]');
-            const petBubble = msgEl.querySelector('[data-message-type="pet-bubble"]');
-            
-            if (userBubble) {
-                messages.push({
-                    type: 'user',
-                    content: userBubble.textContent || userBubble.getAttribute('data-original-text') || '',
-                    timestamp: this.getMessageTimestamp(msgEl)
-                });
-            } else if (petBubble) {
-                // 跳过欢迎消息（第一条宠物消息）
-                const isWelcome = msgEl.hasAttribute('data-welcome-message');
-                if (!isWelcome) {
-                    messages.push({
-                        type: 'pet',
-                        content: petBubble.getAttribute('data-original-text') || petBubble.textContent || '',
-                        timestamp: this.getMessageTimestamp(msgEl)
-                    });
+        // 如果聊天窗口已打开，同步消息记录
+        if (this.chatWindow) {
+            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+            if (messagesContainer) {
+                // 获取所有消息元素
+                const messageElements = Array.from(messagesContainer.children);
+                const messages = [];
+                
+                for (const msgEl of messageElements) {
+                    const userBubble = msgEl.querySelector('[data-message-type="user-bubble"]');
+                    const petBubble = msgEl.querySelector('[data-message-type="pet-bubble"]');
+                    
+                    if (userBubble) {
+                        messages.push({
+                            type: 'user',
+                            content: userBubble.textContent || userBubble.getAttribute('data-original-text') || '',
+                            timestamp: this.getMessageTimestamp(msgEl)
+                        });
+                    } else if (petBubble) {
+                        // 跳过欢迎消息（第一条宠物消息）
+                        const isWelcome = msgEl.hasAttribute('data-welcome-message');
+                        if (!isWelcome) {
+                            messages.push({
+                                type: 'pet',
+                                content: petBubble.getAttribute('data-original-text') || petBubble.textContent || '',
+                                timestamp: this.getMessageTimestamp(msgEl)
+                            });
+                        }
+                    }
+                }
+                
+                // 检查消息是否真的发生了变化
+                const existingMessages = session.messages || [];
+                messagesChanged = JSON.stringify(existingMessages) !== JSON.stringify(messages);
+                
+                // 只有在消息发生变化时才更新
+                if (messagesChanged) {
+                    session.messages = messages;
+                    session.updatedAt = Date.now();
+                    hasActualChanges = true;
                 }
             }
         }
         
-        // 更新会话消息
-        if (this.sessions[this.currentSessionId]) {
-            // 检查消息是否真的发生了变化
-            const existingMessages = this.sessions[this.currentSessionId].messages || [];
-            const messagesChanged = JSON.stringify(existingMessages) !== JSON.stringify(messages);
-            
-            // 只有在消息发生变化时才更新 updatedAt
-            this.sessions[this.currentSessionId].messages = messages;
-            if (messagesChanged) {
-                this.sessions[this.currentSessionId].updatedAt = Date.now();
+        // 同步更新页面信息（确保一致性，但只在有实际变化时更新）
+        const pageInfoChanged = (
+            session.url !== pageInfo.url ||
+            session.title !== pageInfo.title ||
+            session.pageTitle !== pageInfo.title ||
+            session.pageDescription !== pageInfo.description ||
+            (!session.pageContent || session.pageContent.trim() === '')
+        );
+        
+        if (pageInfoChanged && !messagesChanged) {
+            // 只有在页面信息变化且消息未变化时才更新页面信息
+            if (session.url !== pageInfo.url) {
+                session.url = pageInfo.url;
+                hasActualChanges = true;
             }
-            await this.saveAllSessions();
+            if (session.title !== pageInfo.title) {
+                session.title = pageInfo.title;
+                hasActualChanges = true;
+            }
+            if (session.pageTitle !== pageInfo.title) {
+                session.pageTitle = pageInfo.title;
+                hasActualChanges = true;
+            }
+            if (session.pageDescription !== pageInfo.description) {
+                session.pageDescription = pageInfo.description;
+                hasActualChanges = true;
+            }
+            // 注意：pageContent 只在创建会话时保存，保存时不再更新（避免覆盖原始快照）
+            // 但如果缺失，则补充
+            if (!session.pageContent || session.pageContent.trim() === '') {
+                session.pageContent = pageInfo.content;
+                hasActualChanges = true;
+            }
+            
+            // 只有在有实际变化时才更新时间戳
+            if (hasActualChanges) {
+                // 只有在没有消息或消息未变化时才更新（有消息变化时已更新）
+                if (!messagesChanged && (!session.messages || session.messages.length === 0)) {
+                    session.updatedAt = Date.now();
+                }
+            }
         }
+        
+        // 只有在有实际变化或强制保存时才保存到存储
+        if (hasActualChanges || force) {
+            await this.saveAllSessions(force);
+            return true; // 返回true表示有变化
+        }
+        
+        return false; // 返回false表示无变化
     }
 
     // 从消息元素获取时间戳
@@ -1835,7 +2068,7 @@ class PetManager {
         return Date.now();
     }
 
-    // 切换到指定会话
+    // 切换到指定会话（确保数据一致性）
     async switchSession(sessionId) {
         // 防抖：如果正在切换或点击的是当前会话，直接返回
         if (this.isSwitchingSession || sessionId === this.currentSessionId) {
@@ -1874,18 +2107,19 @@ class PetManager {
             // 设置新的当前会话
             this.currentSessionId = sessionId;
             
-            // 如果切换到的会话没有保存页面内容，且会话URL与当前页面URL匹配，补充它（向后兼容）
+            // 如果切换到的会话存在，确保数据一致性
             if (this.sessions[sessionId]) {
+                const pageInfo = this.getPageInfo();
                 const session = this.sessions[sessionId];
-                const currentUrl = window.location.href;
-                // 只有在URL匹配且没有pageContent时才补充，避免用当前页面内容覆盖其他页面的会话
-                if (!session.pageContent && session.url === currentUrl) {
-                    const pageContent = this.getPageContentAsMarkdown();
-                    const pageTitle = document.title || '当前页面';
-                    session.pageContent = pageContent;
-                    session.pageTitle = pageTitle;
-                    console.log('为切换到的旧会话补充页面内容快照');
-                    await this.saveAllSessions();
+                
+                // 如果会话URL与当前页面URL匹配，使用一致性检查修复
+                // 如果不匹配（跨页面会话），则不修改页面信息
+                if (session.url === pageInfo.url) {
+                    const needsUpdate = this.ensureSessionConsistency(sessionId);
+                    if (needsUpdate) {
+                        await this.saveAllSessions();
+                        console.log('切换会话时修复了数据一致性');
+                    }
                 }
             }
             

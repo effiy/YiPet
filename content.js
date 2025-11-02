@@ -1073,8 +1073,27 @@ class PetManager {
                         const dataStr = message.substring(6);
                         const chunk = JSON.parse(dataStr);
 
+                        // 处理后端返回的上下文信息（Mem0 和 Qdrant 检索结果）
+                        if (chunk.type === 'context_info') {
+                            const contextData = chunk.data || {};
+                            if (contextData.memories_count > 0 || contextData.chats_count > 0) {
+                                console.log(`检索到 ${contextData.memories_count} 条记忆和 ${contextData.chats_count} 条聊天记录`);
+                            }
+                        }
+                        // 处理后端返回的聊天保存成功事件，同步会话 ID
+                        else if (chunk.type === 'chat_saved') {
+                            const conversationId = chunk.conversation_id;
+                            if (conversationId && !this.currentSessionId) {
+                                // 如果当前没有会话 ID，使用后端返回的会话 ID
+                                this.currentSessionId = conversationId;
+                                console.log('从后端同步会话 ID:', conversationId);
+                            } else if (conversationId && this.currentSessionId !== conversationId) {
+                                // 如果后端返回的会话 ID 与当前不同，记录日志（但不强制更新，因为前端可能有自己的会话管理逻辑）
+                                console.log('后端返回的会话 ID 与当前不同:', conversationId, 'vs', this.currentSessionId);
+                            }
+                        }
                         // 支持 Ollama 格式: chunk.message.content
-                        if (chunk.message && chunk.message.content) {
+                        else if (chunk.message && chunk.message.content) {
                             fullContent += chunk.message.content;
                             if (onContent) {
                                 onContent(chunk.message.content, fullContent);
@@ -1123,6 +1142,47 @@ class PetManager {
         return fullContent;
     }
 
+    // 构建 prompt 请求 payload，自动包含会话 ID
+    buildPromptPayload(fromSystem, fromUser, model = null, options = {}) {
+        const payload = {
+            fromSystem: fromSystem || '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
+            fromUser: fromUser,
+            save_chat: options.save_chat !== false, // 默认保存聊天记录
+            use_memory: options.use_memory !== false, // 默认使用 Mem0
+            use_vector_search: options.use_vector_search !== false, // 默认使用 Qdrant
+        };
+        
+        // 添加模型名称（如果提供）
+        if (model) {
+            payload.model = model;
+        } else if (this.currentModel) {
+            payload.model = this.currentModel;
+        }
+        
+        // 添加会话 ID（conversation_id）- 使用当前会话 ID
+        if (this.currentSessionId) {
+            payload.conversation_id = this.currentSessionId;
+        }
+        
+        // 添加用户 ID（如果配置了）
+        if (options.user_id) {
+            payload.user_id = options.user_id;
+        }
+        
+        // 添加其他选项
+        if (options.memory_limit !== undefined) {
+            payload.memory_limit = options.memory_limit;
+        }
+        if (options.vector_search_limit !== undefined) {
+            payload.vector_search_limit = options.vector_search_limit;
+        }
+        if (options.images !== undefined) {
+            payload.images = options.images;
+        }
+        
+        return payload;
+    }
+
     // 生成宠物响应（流式版本）
     async generatePetResponseStream(message, onContent, abortController = null) {
         try {
@@ -1168,16 +1228,19 @@ class PetManager {
             // 调用 API，使用配置中的 URL
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
 
+            // 使用统一的 payload 构建函数，自动包含会话 ID
+            const payload = this.buildPromptPayload(
+                '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
+                userMessage,
+                this.currentModel
+            );
+            
             const fetchOptions = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    fromSystem: '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
-                    fromUser: userMessage,
-                    model: this.currentModel
-                })
+                body: JSON.stringify(payload)
             };
 
             // 如果提供了 AbortController，添加 signal
@@ -1224,8 +1287,27 @@ class PetManager {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
 
+                            // 处理后端返回的上下文信息（Mem0 和 Qdrant 检索结果）
+                            if (chunk.type === 'context_info') {
+                                const contextData = chunk.data || {};
+                                if (contextData.memories_count > 0 || contextData.chats_count > 0) {
+                                    console.log(`检索到 ${contextData.memories_count} 条记忆和 ${contextData.chats_count} 条聊天记录`);
+                                }
+                            }
+                            // 处理后端返回的聊天保存成功事件，同步会话 ID
+                            else if (chunk.type === 'chat_saved') {
+                                const conversationId = chunk.conversation_id;
+                                if (conversationId && !this.currentSessionId) {
+                                    // 如果当前没有会话 ID，使用后端返回的会话 ID
+                                    this.currentSessionId = conversationId;
+                                    console.log('从后端同步会话 ID:', conversationId);
+                                } else if (conversationId && this.currentSessionId !== conversationId) {
+                                    // 如果后端返回的会话 ID 与当前不同，记录日志（但不强制更新，因为前端可能有自己的会话管理逻辑）
+                                    console.log('后端返回的会话 ID 与当前不同:', conversationId, 'vs', this.currentSessionId);
+                                }
+                            }
                             // 支持 Ollama 格式: chunk.message.content
-                            if (chunk.message && chunk.message.content) {
+                            else if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
                                 if (onContent) {
                                     onContent(chunk.message.content, fullContent);
@@ -1323,16 +1405,19 @@ class PetManager {
                 userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
             }
 
+            // 使用统一的 payload 构建函数，自动包含会话 ID
+            const payload = this.buildPromptPayload(
+                '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
+                userMessage
+            );
+            
             // 调用 API，使用配置中的 URL
             const response = await fetch(PET_CONFIG.api.promptUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    fromSystem: '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
-                    fromUser: userMessage
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -2074,9 +2159,74 @@ class PetManager {
         this.lastSessionSaveTime = Date.now();
         return new Promise((resolve) => {
             chrome.storage.local.set({ petChatSessions: this.sessions }, () => {
+                // 保存到本地存储后，异步同步到后端（不阻塞保存流程）
+                if (PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
+                    this.syncSessionToBackend(this.currentSessionId).catch(err => {
+                        console.warn('同步会话到后端失败:', err);
+                    });
+                }
                 resolve();
             });
         });
+    }
+    
+    // 同步会话到YiAi后端
+    async syncSessionToBackend(sessionId) {
+        try {
+            if (!PET_CONFIG.api.syncSessionsToBackend) {
+                return;
+            }
+            
+            const session = this.sessions[sessionId];
+            if (!session) {
+                console.warn('会话不存在，无法同步:', sessionId);
+                return;
+            }
+            
+            const baseUrl = PET_CONFIG.api.yiaiBaseUrl;
+            if (!baseUrl) {
+                console.warn('YiAi后端地址未配置，跳过同步');
+                return;
+            }
+            
+            // 构建请求数据
+            const sessionData = {
+                id: session.id || sessionId,
+                url: session.url || '',
+                title: session.title || '',
+                pageTitle: session.pageTitle || '',
+                pageDescription: session.pageDescription || '',
+                pageContent: session.pageContent || '',
+                messages: session.messages || [],
+                createdAt: session.createdAt || Date.now(),
+                updatedAt: session.updatedAt || Date.now(),
+                lastAccessTime: session.lastAccessTime || Date.now()
+            };
+            
+            // 发送POST请求到后端
+            const response = await fetch(`${baseUrl}/session/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(sessionData)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            if (result.success) {
+                console.log(`会话 ${sessionId} 已同步到后端`, result);
+            } else {
+                console.warn(`会话同步失败:`, result.message);
+            }
+        } catch (error) {
+            // 静默处理错误，不阻塞主流程
+            console.warn('同步会话到后端时出错:', error.message);
+        }
     }
 
     // 直接添加消息到当前会话对象（实时保存，确保消息与会话一一对应）
@@ -4214,6 +4364,13 @@ ${pageContent || '无内容'}
         try {
             console.log('调用大模型生成内容，systemPrompt长度:', systemPrompt ? systemPrompt.length : 0);
             
+            // 使用统一的 payload 构建函数，自动包含会话 ID
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel
+            );
+            
             // 调用大模型 API（使用流式接口）
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
             const response = await fetch(apiUrl, {
@@ -4221,11 +4378,7 @@ ${pageContent || '无内容'}
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    fromSystem: systemPrompt,
-                    fromUser: userPrompt,
-                    model: this.currentModel
-                })
+                body: JSON.stringify(payload)
             });
 
             // 使用通用的流式响应处理
@@ -4550,16 +4703,19 @@ ${pageContent || '无内容'}
                             this.chatWindow._updateRequestStatus('loading');
                         }
                         
+                        // 使用统一的 payload 构建函数，自动包含会话 ID
+                        const payload = this.buildPromptPayload(
+                            systemPrompt,
+                            fromUser,
+                            this.currentModel || PET_CONFIG.chatModels.default
+                        );
+                        
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({
-                                fromSystem: systemPrompt,
-                                fromUser: fromUser,
-                                model: this.currentModel || PET_CONFIG.chatModels.default
-                            }),
+                            body: JSON.stringify(payload),
                             signal: abortController.signal
                         });
                         
@@ -5026,16 +5182,19 @@ ${pageContent || '无内容'}
                             this.chatWindow._updateRequestStatus('loading');
                         }
                         
+                        // 使用统一的 payload 构建函数，自动包含会话 ID
+                        const payload = this.buildPromptPayload(
+                            roleInfo.systemPrompt,
+                            fromUser,
+                            this.currentModel || PET_CONFIG.chatModels.default
+                        );
+                        
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({
-                                fromSystem: roleInfo.systemPrompt,
-                                fromUser: fromUser,
-                                model: this.currentModel || PET_CONFIG.chatModels.default
-                            }),
+                            body: JSON.stringify(payload),
                             signal: abortController.signal
                         });
                         
@@ -5318,16 +5477,19 @@ ${pageContent || '无内容'}
                         try {
                             const abortController = new AbortController();
                             
+                            // 使用统一的 payload 构建函数，自动包含会话 ID
+                            const payload = this.buildPromptPayload(
+                                systemPrompt,
+                                fromUser,
+                                this.currentModel || PET_CONFIG.chatModels.default
+                            );
+                            
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({
-                                    fromSystem: systemPrompt,
-                                    fromUser: fromUser,
-                                    model: this.currentModel || PET_CONFIG.chatModels.default
-                                }),
+                                body: JSON.stringify(payload),
                                 signal: abortController.signal
                             });
                             
@@ -5673,16 +5835,19 @@ ${pageContent || '无内容'}
                                 this.chatWindow._updateRequestStatus('loading');
                             }
                             
+                            // 使用统一的 payload 构建函数，自动包含会话 ID
+                            const payload = this.buildPromptPayload(
+                                roleInfo.systemPrompt,
+                                fromUser,
+                                this.currentModel || PET_CONFIG.chatModels.default
+                            );
+                            
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({
-                                    fromSystem: roleInfo.systemPrompt,
-                                    fromUser: fromUser,
-                                    model: this.currentModel || PET_CONFIG.chatModels.default
-                                }),
+                                body: JSON.stringify(payload),
                                 signal: abortController.signal
                             });
                             
@@ -5986,16 +6151,19 @@ ${pageContent || '无内容'}
                 try {
                     const abortController = new AbortController();
                     
+                    // 使用统一的 payload 构建函数，自动包含会话 ID
+                    const payload = this.buildPromptPayload(
+                        systemPrompt,
+                        fromUser,
+                        this.currentModel || PET_CONFIG.chatModels.default
+                    );
+                    
                     const response = await fetch(PET_CONFIG.api.promptUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({
-                            fromSystem: systemPrompt,
-                            fromUser: fromUser,
-                            model: this.currentModel || PET_CONFIG.chatModels.default
-                        }),
+                        body: JSON.stringify(payload),
                         signal: abortController.signal
                     });
                     
@@ -6379,16 +6547,19 @@ ${pageContent || '无内容'}
                 // 创建 AbortController 用于终止请求
                 const abortController = new AbortController();
                 
+                // 使用统一的 payload 构建函数，自动包含会话 ID
+                const payload = this.buildPromptPayload(
+                    roleInfo.systemPrompt,
+                    fromUser,
+                    this.currentModel || PET_CONFIG.chatModels.default
+                );
+                
                 const response = await fetch(PET_CONFIG.api.promptUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        fromSystem: roleInfo.systemPrompt,
-                        fromUser: fromUser,
-                        model: this.currentModel || PET_CONFIG.chatModels.default
-                    }),
+                    body: JSON.stringify(payload),
                     signal: abortController.signal
                 });
 

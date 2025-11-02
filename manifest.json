@@ -3,16 +3,11 @@
   "name": "温柔陪伴助手",
   "version": "1.1.0",
   "description": "在浏览器中添加一位温柔体贴的伴侣，陪伴您的浏览时光。支持多种互动功能，包括区域截图功能，让网页浏览更加有趣！",
-  "permissions": [
-    "activeTab",
-    "storage",
-    "tabs",
-    "scripting"
-  ],
+  "permissions": ["activeTab", "storage", "tabs", "scripting"],
   "host_permissions": [
     "<all_urls>",
     "https://api.effiy.cn/*",
-    "http://localhost:8000/*"
+    "https://api.effiy.cn/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -20,12 +15,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": [
-        "config.js", 
-        "turndown.js", 
-        "marked.min.js",
-        "content.js"
-      ],
+      "js": ["config.js", "turndown.js", "marked.min.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_end"
     }
@@ -42,11 +32,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/icon.png", "mermaid.min.js", "load-mermaid.js", "render-mermaid.js", "preview-mermaid.js"],
+      "resources": [
+        "icons/icon.png",
+        "mermaid.min.js",
+        "load-mermaid.js",
+        "render-mermaid.js",
+        "preview-mermaid.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ]
 }
-
-
-

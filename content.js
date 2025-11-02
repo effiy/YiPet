@@ -8283,7 +8283,7 @@ ${pageContent || '无内容'}
                         messageBubble._mermaidTimeout = null;
                     }, 500);
 
-                    // 如果有内容，添加复制按钮
+                    // 如果有内容，添加复制按钮和角色按钮
                     if (fullContent && fullContent.trim()) {
                         const copyButtonContainer = petMessageElement.querySelector('[data-copy-button-container]');
                         if (copyButtonContainer) {
@@ -8300,6 +8300,11 @@ ${pageContent || '无内容'}
                                 this.addTryAgainButton(tryAgainContainer, petMessageElement);
                             }
                         }
+                        
+                        // 确保角色按钮已添加（在流式更新过程中也添加，确保按钮及时显示）
+                        setTimeout(async () => {
+                            await this.addActionButtonsToMessage(petMessageElement);
+                        }, 100);
                     }
                 }
 
@@ -8402,7 +8407,7 @@ ${pageContent || '无内容'}
                             }
                         }
                         
-                        // 添加动作按钮（包括设置按钮）
+                        // 确保角色按钮已添加（无论内容是否相同，都要确保按钮存在）
                         await this.addActionButtonsToMessage(petMessageElement);
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -8439,7 +8444,7 @@ ${pageContent || '无内容'}
                         }
                     }
                     
-                    // 添加动作按钮（包括设置按钮）
+                    // 确保角色按钮已添加（即使内容相同，也要确保按钮存在）
                     await this.addActionButtonsToMessage(petMessageElement);
                 }
 
@@ -8498,10 +8503,10 @@ ${pageContent || '无内容'}
                             if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
                                 this.addTryAgainButton(tryAgainContainer, petMessageElement);
                             }
-                            
-                            // 添加动作按钮（包括设置按钮）
-                            await this.addActionButtonsToMessage(petMessageElement);
                         }
+                        
+                        // 确保角色按钮已添加（所有错误消息都应该有角色按钮）
+                        await this.addActionButtonsToMessage(petMessageElement);
                     } else {
                         const errorMessageContent = '抱歉，发生了错误，请稍后再试。😔';
                         const errorMessage = this.createMessageElement(errorMessageContent, 'pet');
@@ -8515,10 +8520,10 @@ ${pageContent || '无内容'}
                             if (tryAgainContainer) {
                                 this.addTryAgainButton(tryAgainContainer, errorMessage);
                             }
-                            
-                            // 添加动作按钮（包括设置按钮）
-                            await this.addActionButtonsToMessage(errorMessage);
                         }
+                        
+                        // 确保所有错误消息都有角色按钮
+                        await this.addActionButtonsToMessage(errorMessage);
                     }
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     

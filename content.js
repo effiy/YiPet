@@ -128,10 +128,21 @@ class PetManager {
         this.mermaidLoaded = false;
         this.mermaidLoading = false;
 
+        // 会话管理相关属性
+        this.currentSessionId = null;
+        this.sessions = {}; // 存储所有会话，key为sessionId，value为会话数据
+        this.sessionSidebar = null; // 会话侧边栏元素
+        this.isSwitchingSession = false; // 是否正在切换会话（防抖标志）
+        this.isCreatingSession = false; // 是否正在创建会话（防抖标志）
+        this.currentPageUrl = null; // 当前页面URL，用于判断是否为新页面
+        this.hasAutoCreatedSessionForPage = false; // 当前页面是否已经自动创建了会话
+        this.sidebarWidth = 200; // 侧边栏宽度（像素）
+        this.isResizingSidebar = false; // 是否正在调整侧边栏宽度
+
         this.init();
     }
 
-    init() {
+    async init() {
         console.log('初始化宠物管理器');
         this.loadState(); // 加载保存的状态
         this.setupMessageListener();
@@ -141,6 +152,12 @@ class PetManager {
 
         // 添加键盘快捷键支持
         this.setupKeyboardShortcuts();
+
+        // 初始化会话：判断是否需要创建新会话
+        await this.initSession();
+        
+        // 监听页面标题变化，以便在标题改变时更新会话
+        this.setupTitleChangeListener();
     }
 
     setupMessageListener() {
@@ -1281,10 +1298,13 @@ class PetManager {
     }
 
     // 打开聊天窗口
-    openChatWindow() {
+    async openChatWindow() {
         if (this.chatWindow) {
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
+
+            // 初始化会话
+            await this.initSession();
 
             // 重新初始化滚动功能
             this.initializeChatScroll();
@@ -1294,6 +1314,13 @@ class PetManager {
 
             // 更新聊天窗口颜色
             this.updateChatWindowColor();
+            
+            // 确保会话侧边栏已更新（如果侧边栏已创建）
+            if (this.sessionSidebar) {
+                await this.loadAllSessions(); // 确保数据已加载
+                this.updateSessionSidebar();
+            }
+            
             return;
         }
 
@@ -1322,6 +1349,9 @@ class PetManager {
                 console.log('使用默认聊天窗口状态，创建窗口');
             }
 
+            // 初始化会话
+            await this.initSession();
+
             await this.createChatWindow();
             this.isChatOpen = true;
         });
@@ -1330,9 +1360,862 @@ class PetManager {
     // 关闭聊天窗口
     closeChatWindow() {
         if (this.chatWindow) {
+            // 保存当前会话
+            this.saveCurrentSession();
             this.chatWindow.style.display = 'none';
             this.isChatOpen = false;
         }
+    }
+
+    // 会话管理方法
+    // 获取当前会话ID（基于网页标题）
+    getCurrentSessionId() {
+        const pageTitle = document.title || '未命名页面';
+        return pageTitle.trim() || '未命名页面';
+    }
+
+    // 生成唯一会话ID
+    generateSessionId() {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 9);
+        return `session_${timestamp}_${random}`;
+    }
+
+    // 创建新会话
+    async createNewSession(title = null) {
+        // 如果正在切换会话，等待完成
+        if (this.isSwitchingSession) {
+            console.log('正在切换会话，请稍候...');
+            return null;
+        }
+
+        // 防抖：防止快速多次点击
+        if (this.isCreatingSession) {
+            console.log('正在创建会话，请勿重复点击');
+            return null;
+        }
+
+        this.isCreatingSession = true;
+
+        // 更新按钮状态（在try外部定义以便finally中使用）
+        let newSessionBtn = null;
+        try {
+            newSessionBtn = this.sessionSidebar?.querySelector('.new-session-btn');
+            if (newSessionBtn) {
+                newSessionBtn.classList.add('creating');
+                newSessionBtn.style.opacity = '0.6';
+                newSessionBtn.style.cursor = 'wait';
+                newSessionBtn.disabled = true;
+            }
+        } catch (e) {
+            // 忽略按钮状态更新错误
+        }
+
+        try {
+            // 先保存当前会话（如果有）
+            if (this.currentSessionId) {
+                await this.saveCurrentSession();
+            }
+
+            // 加载所有会话数据
+            await this.loadAllSessions();
+
+            // 生成唯一会话ID
+            const newSessionId = this.generateSessionId();
+            
+            // 如果没有提供标题，使用默认命名
+            const sessionTitle = title || `新会话 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+
+            // 创建新会话
+            const newSession = {
+                id: newSessionId,
+                title: sessionTitle,
+                url: window.location.href,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                messages: []
+            };
+
+            this.sessions[newSessionId] = newSession;
+
+            // 保存所有会话
+            await this.saveAllSessions();
+
+            // 切换到新会话
+            this.currentSessionId = newSessionId;
+
+            // 更新会话侧边栏
+            if (this.sessionSidebar) {
+                this.updateSessionSidebar();
+                
+                // 等待DOM更新后添加视觉反馈和滚动
+                setTimeout(() => {
+                    const newSessionItem = this.sessionSidebar.querySelector(`[data-session-id="${newSessionId}"]`);
+                    if (newSessionItem) {
+                        // 添加高亮动画
+                        newSessionItem.classList.add('new-session-highlight');
+                        setTimeout(() => {
+                            newSessionItem.classList.remove('new-session-highlight');
+                        }, 1500);
+                        
+                        // 滚动到可见位置
+                        newSessionItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }, 50);
+            }
+
+            // 如果聊天窗口已打开，清空消息并显示欢迎信息
+            if (this.chatWindow && this.isChatOpen) {
+                await this.loadSessionMessages();
+                
+                // 滚动到顶部
+                const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+                if (messagesContainer) {
+                    messagesContainer.scrollTop = 0;
+                }
+            }
+
+            console.log('新会话创建成功:', newSessionId, sessionTitle);
+            return newSessionId;
+        } catch (error) {
+            console.error('创建新会话失败:', error);
+            return null;
+        } finally {
+            this.isCreatingSession = false;
+            
+            // 恢复按钮状态
+            if (newSessionBtn) {
+                newSessionBtn.classList.remove('creating');
+                newSessionBtn.style.opacity = '1';
+                newSessionBtn.style.cursor = 'pointer';
+                newSessionBtn.disabled = false;
+            }
+        }
+    }
+
+    // 初始化或恢复会话
+    async initSession() {
+        const currentUrl = window.location.href;
+        
+        // 加载所有会话数据
+        await this.loadAllSessions();
+        
+        // 检查是否是同一个页面（URL相同）
+        const isSamePage = this.currentPageUrl === currentUrl;
+        
+        // 如果当前已经有会话ID，且是同一页面且已经自动创建过会话，则不创建新会话
+        if (isSamePage && this.hasAutoCreatedSessionForPage && this.currentSessionId) {
+            console.log('同一页面已自动创建会话，跳过:', this.currentSessionId);
+            // 更新会话的访问时间和标题（如果标题变化了）
+            if (this.sessions[this.currentSessionId]) {
+                this.sessions[this.currentSessionId].updatedAt = Date.now();
+                const newTitle = document.title || '未命名页面';
+                if (this.sessions[this.currentSessionId].title !== newTitle.trim()) {
+                    this.sessions[this.currentSessionId].title = newTitle.trim();
+                }
+                await this.saveAllSessions();
+            }
+            // 更新会话侧边栏
+            if (this.sessionSidebar) {
+                this.updateSessionSidebar();
+            }
+            return this.currentSessionId;
+        }
+        
+        // 如果是新页面，重置标志
+        if (!isSamePage) {
+            this.currentPageUrl = currentUrl;
+            this.hasAutoCreatedSessionForPage = false;
+        }
+        
+        // 查找是否已存在基于当前URL的会话
+        let existingSession = null;
+        for (const session of Object.values(this.sessions)) {
+            if (session.url === currentUrl) {
+                existingSession = session;
+                break;
+            }
+        }
+        
+        // 如果找到了基于URL的会话，使用它
+        if (existingSession) {
+            console.log('找到基于URL的已有会话:', existingSession.id);
+            
+            // 如果当前已经有会话ID且与找到的会话不同，先保存当前会话
+            if (this.currentSessionId && this.currentSessionId !== existingSession.id) {
+                await this.saveCurrentSession();
+            }
+            
+            // 切换到找到的会话
+            this.currentSessionId = existingSession.id;
+            this.hasAutoCreatedSessionForPage = true; // 标记已自动关联会话（虽然不是新创建的）
+            
+            // 更新会话信息
+            this.sessions[existingSession.id].updatedAt = Date.now();
+            const newTitle = document.title || '未命名页面';
+            if (this.sessions[existingSession.id].title !== newTitle.trim()) {
+                this.sessions[existingSession.id].title = newTitle.trim();
+            }
+            await this.saveAllSessions();
+        } else {
+            // 没有找到基于URL的会话，检查是否需要创建新会话
+            const sessionId = this.getCurrentSessionId();
+            
+            // 如果当前已经有会话ID且与新的会话ID不同，先保存当前会话
+            if (this.currentSessionId && this.currentSessionId !== sessionId) {
+                await this.saveCurrentSession();
+            }
+            
+            // 检查基于标题的会话是否已存在
+            if (!this.sessions[sessionId]) {
+                // 会话不存在，且当前页面还没有自动创建会话，创建新会话
+                if (!this.hasAutoCreatedSessionForPage) {
+                    console.log('为新页面自动创建会话:', sessionId);
+                    this.sessions[sessionId] = {
+                        id: sessionId,
+                        title: sessionId,
+                        url: currentUrl,
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                        messages: []
+                    };
+                    await this.saveAllSessions();
+                    this.hasAutoCreatedSessionForPage = true; // 标记已自动创建
+                } else {
+                    console.log('当前页面已自动创建会话，不重复创建');
+                }
+            } else {
+                // 会话已存在，使用已有会话
+                console.log('使用已有会话:', sessionId);
+                // 更新会话的访问时间和URL
+                this.sessions[sessionId].updatedAt = Date.now();
+                this.sessions[sessionId].url = currentUrl;
+                await this.saveAllSessions();
+            }
+            
+            // 设置当前会话
+            this.currentSessionId = sessionId;
+        }
+        
+        // 更新会话侧边栏
+        if (this.sessionSidebar) {
+            this.updateSessionSidebar();
+        }
+        
+        // 如果聊天窗口已打开，加载会话消息
+        if (this.chatWindow && this.isChatOpen) {
+            await this.loadSessionMessages();
+        }
+        
+        return this.currentSessionId;
+    }
+
+    // 设置页面标题变化监听
+    setupTitleChangeListener() {
+        // 使用 MutationObserver 监听标题变化
+        const titleObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                    // 标题发生变化，重新初始化会话
+                    this.initSession();
+                }
+            });
+        });
+
+        // 观察 title 元素的变化
+        const titleElement = document.querySelector('title');
+        if (titleElement) {
+            titleObserver.observe(titleElement, {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
+        }
+
+        // 也监听 document.title 的直接变化（某些动态页面会直接修改）
+        let lastTitle = document.title;
+        setInterval(() => {
+            const currentTitle = document.title;
+            if (currentTitle !== lastTitle) {
+                lastTitle = currentTitle;
+                this.initSession();
+            }
+        }, 1000); // 每秒检查一次标题变化
+    }
+
+    // 加载所有会话
+    async loadAllSessions() {
+        return new Promise((resolve) => {
+            chrome.storage.local.get(['petChatSessions'], (result) => {
+                if (result.petChatSessions) {
+                    this.sessions = result.petChatSessions;
+                }
+                resolve();
+            });
+        });
+    }
+
+    // 保存所有会话
+    async saveAllSessions() {
+        return new Promise((resolve) => {
+            chrome.storage.local.set({ petChatSessions: this.sessions }, () => {
+                resolve();
+            });
+        });
+    }
+
+    // 保存当前会话的消息
+    async saveCurrentSession() {
+        if (!this.currentSessionId || !this.chatWindow) return;
+        
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (!messagesContainer) return;
+        
+        // 获取所有消息元素
+        const messageElements = Array.from(messagesContainer.children);
+        const messages = [];
+        
+        for (const msgEl of messageElements) {
+            const userBubble = msgEl.querySelector('[data-message-type="user-bubble"]');
+            const petBubble = msgEl.querySelector('[data-message-type="pet-bubble"]');
+            
+            if (userBubble) {
+                messages.push({
+                    type: 'user',
+                    content: userBubble.textContent || userBubble.getAttribute('data-original-text') || '',
+                    timestamp: this.getMessageTimestamp(msgEl)
+                });
+            } else if (petBubble) {
+                // 跳过欢迎消息（第一条宠物消息）
+                const isWelcome = msgEl.hasAttribute('data-welcome-message');
+                if (!isWelcome) {
+                    messages.push({
+                        type: 'pet',
+                        content: petBubble.getAttribute('data-original-text') || petBubble.textContent || '',
+                        timestamp: this.getMessageTimestamp(msgEl)
+                    });
+                }
+            }
+        }
+        
+        // 更新会话消息
+        if (this.sessions[this.currentSessionId]) {
+            this.sessions[this.currentSessionId].messages = messages;
+            this.sessions[this.currentSessionId].updatedAt = Date.now();
+            await this.saveAllSessions();
+        }
+    }
+
+    // 从消息元素获取时间戳
+    getMessageTimestamp(msgEl) {
+        const timeEl = msgEl.querySelector('[data-message-time="true"]');
+        if (timeEl) {
+            const timeText = timeEl.textContent.trim();
+            // 尝试解析时间戳，如果无法解析则使用当前时间
+            return Date.now();
+        }
+        return Date.now();
+    }
+
+    // 切换到指定会话
+    async switchSession(sessionId) {
+        // 防抖：如果正在切换或点击的是当前会话，直接返回
+        if (this.isSwitchingSession || sessionId === this.currentSessionId) {
+            return;
+        }
+
+        // 设置切换状态
+        this.isSwitchingSession = true;
+        
+        // 获取点击的会话项和前一个活动项
+        const clickedItem = this.sessionSidebar?.querySelector(`[data-session-id="${sessionId}"]`);
+        const previousActiveItem = this.sessionSidebar?.querySelector('.session-item.active');
+        
+        // 显示加载状态
+        if (clickedItem) {
+            clickedItem.classList.add('switching');
+            // 移除之前的活动状态（添加过渡）
+            if (previousActiveItem && previousActiveItem !== clickedItem) {
+                previousActiveItem.classList.remove('active');
+            }
+        }
+        
+        // 获取消息容器引用（在 try 外部定义以便在 finally 中使用）
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        
+        try {
+            // 如果聊天窗口已打开，添加淡出效果
+            if (messagesContainer && this.isChatOpen) {
+                messagesContainer.style.opacity = '0.5';
+                messagesContainer.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            }
+
+            // 保存当前会话
+            await this.saveCurrentSession();
+            
+            // 设置新的当前会话
+            this.currentSessionId = sessionId;
+            
+            // 更新会话侧边栏（更新active状态）
+            // 使用 requestAnimationFrame 确保视觉更新流畅
+            await new Promise(resolve => {
+                requestAnimationFrame(() => {
+                    this.updateSessionSidebar();
+                    resolve();
+                });
+            });
+            
+            // 重新加载聊天窗口消息
+            if (this.chatWindow && this.isChatOpen) {
+                await this.loadSessionMessages();
+                
+                // 淡入效果（使用 requestAnimationFrame 确保 DOM 更新完成）
+                requestAnimationFrame(() => {
+                    if (messagesContainer) {
+                        messagesContainer.style.opacity = '1';
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('切换会话时出错:', error);
+            // 恢复之前的活动状态
+            if (previousActiveItem) {
+                previousActiveItem.classList.add('active');
+            }
+            if (clickedItem) {
+                clickedItem.classList.remove('switching');
+            }
+            // 恢复消息容器样式
+            if (messagesContainer) {
+                messagesContainer.style.opacity = '1';
+            }
+            throw error; // 重新抛出错误以便上层处理
+        } finally {
+            // 清除加载状态
+            if (clickedItem) {
+                clickedItem.classList.remove('switching');
+            }
+            this.isSwitchingSession = false;
+        }
+    }
+
+    // 加载当前会话的消息
+    async loadSessionMessages() {
+        if (!this.chatWindow || !this.currentSessionId) return;
+        
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (!messagesContainer) return;
+        
+        // 先保存欢迎消息的引用（如果存在）
+        const existingWelcomeMessage = messagesContainer.querySelector('[data-welcome-message]');
+        let welcomeMessageCopy = null;
+        if (existingWelcomeMessage) {
+            welcomeMessageCopy = existingWelcomeMessage.cloneNode(true);
+        }
+        
+        // 清空现有消息
+        messagesContainer.innerHTML = '';
+        
+        // 恢复欢迎消息（如果存在）
+        if (welcomeMessageCopy) {
+            messagesContainer.appendChild(welcomeMessageCopy);
+        }
+        
+        // 加载会话消息
+        const session = this.sessions[this.currentSessionId];
+        if (session && session.messages && session.messages.length > 0) {
+            // 使用 DocumentFragment 批量添加消息，提高性能
+            const fragment = document.createDocumentFragment();
+            
+            for (const msg of session.messages) {
+                const msgEl = this.createMessageElement(msg.content, msg.type);
+                fragment.appendChild(msgEl);
+                
+                // 如果是宠物消息，渲染 Markdown
+                if (msg.type === 'pet') {
+                    const petBubble = msgEl.querySelector('[data-message-type="pet-bubble"]');
+                    if (petBubble) {
+                        petBubble.innerHTML = this.renderMarkdown(msg.content);
+                        petBubble.setAttribute('data-original-text', msg.content);
+                        
+                        // 处理 Mermaid 图表
+                        await this.processMermaidBlocks(petBubble);
+                    }
+                }
+            }
+            
+            // 一次性添加所有消息
+            messagesContainer.appendChild(fragment);
+            
+            // 使用 requestAnimationFrame 确保 DOM 更新完成后再滚动
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+        } else {
+            // 如果没有消息，确保滚动到底部
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+        }
+    }
+
+    // 更新会话侧边栏
+    updateSessionSidebar() {
+        if (!this.sessionSidebar) {
+            console.log('会话侧边栏未创建，跳过更新');
+            return;
+        }
+        
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        if (!sessionList) {
+            console.log('会话列表容器未找到，跳过更新');
+            return;
+        }
+        
+        // 确保 sessions 对象已初始化
+        if (!this.sessions) {
+            this.sessions = {};
+            console.log('会话对象未初始化，已创建空对象');
+        }
+        
+        // 清空列表
+        sessionList.innerHTML = '';
+        
+        // 获取所有会话并排序
+        const allSessions = Object.values(this.sessions);
+        console.log('当前会话数量:', allSessions.length, '会话列表:', Object.keys(this.sessions));
+        
+        if (allSessions.length === 0) {
+            // 如果没有会话，显示提示信息
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.cssText = `
+                padding: 20px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 12px !important;
+            `;
+            emptyMsg.textContent = '暂无会话';
+            sessionList.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 按更新时间排序会话（最新的在前）
+        const sortedSessions = allSessions.sort((a, b) => {
+            return (b.updatedAt || 0) - (a.updatedAt || 0);
+        });
+        
+        // 创建会话列表项
+        for (const session of sortedSessions) {
+            if (!session || !session.id) continue;
+            
+            const sessionItem = document.createElement('div');
+            sessionItem.className = 'session-item';
+            sessionItem.dataset.sessionId = session.id;
+            
+            if (session.id === this.currentSessionId) {
+                sessionItem.classList.add('active');
+            }
+            
+            // 截断过长的标题
+            const displayTitle = session.title && session.title.length > 20 
+                ? session.title.substring(0, 20) + '...' 
+                : (session.title || session.id || '未命名会话');
+            
+            // 创建内容容器
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
+            `;
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'session-title';
+            titleDiv.textContent = displayTitle;
+            
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'session-meta';
+            metaDiv.textContent = this.formatSessionTime(session.updatedAt);
+            
+            contentWrapper.appendChild(titleDiv);
+            contentWrapper.appendChild(metaDiv);
+            
+            // 创建删除按钮
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'session-delete-btn';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.title = '删除会话';
+            
+            sessionItem.appendChild(contentWrapper);
+            sessionItem.appendChild(deleteBtn);
+            
+            // 点击会话项切换到该会话（不包括点击删除按钮）
+            sessionItem.addEventListener('click', async (e) => {
+                // 如果点击的是删除按钮或其子元素，不切换会话
+                if (e.target === deleteBtn || deleteBtn.contains(e.target)) {
+                    return;
+                }
+                
+                // 如果正在切换，忽略点击
+                if (this.isSwitchingSession) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                // 如果点击的是当前会话，不执行操作（但仍添加视觉反馈）
+                if (session.id === this.currentSessionId) {
+                    // 添加轻微反馈提示这是当前会话
+                    sessionItem.classList.add('clicked');
+                    setTimeout(() => {
+                        sessionItem.classList.remove('clicked');
+                    }, 150);
+                    return;
+                }
+                
+                // 立即添加点击反馈
+                sessionItem.classList.add('clicked');
+                
+                // 防止重复点击：快速禁用
+                sessionItem.style.pointerEvents = 'none';
+                
+                try {
+                    // 切换会话
+                    await this.switchSession(session.id);
+                } catch (error) {
+                    console.error('切换会话失败:', error);
+                    // 移除加载状态
+                    sessionItem.classList.remove('switching', 'clicked');
+                } finally {
+                    // 恢复交互（延迟一点，避免过快重复点击）
+                    setTimeout(() => {
+                        sessionItem.style.pointerEvents = '';
+                        sessionItem.classList.remove('clicked');
+                    }, 300);
+                }
+            });
+            
+            // 删除按钮点击事件
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation(); // 阻止事件冒泡
+                
+                // 添加点击反馈
+                deleteBtn.classList.add('clicked');
+                setTimeout(() => {
+                    deleteBtn.classList.remove('clicked');
+                }, 150);
+                
+                await this.deleteSession(session.id);
+            });
+            
+            // 鼠标悬停效果
+            sessionItem.addEventListener('mouseenter', () => {
+                if (!sessionItem.classList.contains('switching')) {
+                    deleteBtn.style.opacity = '1';
+                }
+            });
+            sessionItem.addEventListener('mouseleave', () => {
+                if (!sessionItem.classList.contains('active')) {
+                    deleteBtn.style.opacity = '0.5';
+                }
+            });
+            
+            sessionList.appendChild(sessionItem);
+        }
+        
+        console.log('会话侧边栏已更新，显示', sortedSessions.length, '个会话');
+    }
+
+    // 删除会话
+    async deleteSession(sessionId) {
+        if (!sessionId) return;
+        
+        // 确认删除
+        const confirmDelete = confirm(`确定要删除会话"${sessionId}"吗？`);
+        if (!confirmDelete) return;
+        
+        // 记录是否删除的是当前会话
+        const isCurrentSession = sessionId === this.currentSessionId;
+        
+        // 如果删除的是当前会话，先保存当前会话
+        if (isCurrentSession) {
+            await this.saveCurrentSession();
+        }
+        
+        // 删除会话
+        delete this.sessions[sessionId];
+        
+        // 保存到存储
+        await this.saveAllSessions();
+        
+        // 如果删除的是当前会话，需要切换到其他会话或创建新会话
+        if (isCurrentSession) {
+            // 查找其他会话
+            const otherSessions = Object.values(this.sessions);
+            
+            if (otherSessions.length > 0) {
+                // 切换到最新的其他会话
+                const latestSession = otherSessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+                this.currentSessionId = latestSession.id;
+            } else {
+                // 没有其他会话，清空当前会话ID，会在下次打开聊天窗口时创建新会话
+                this.currentSessionId = null;
+            }
+            
+            // 如果聊天窗口已打开，重新加载消息
+            if (this.chatWindow && this.isChatOpen) {
+                if (this.currentSessionId) {
+                    // 切换到其他会话
+                    await this.loadSessionMessages();
+                } else {
+                    // 没有其他会话，重新初始化会话（会创建新会话）
+                    await this.initSession();
+                    await this.loadSessionMessages();
+                }
+            }
+        }
+        
+        // 更新侧边栏
+        this.updateSessionSidebar();
+        
+        console.log('会话已删除:', sessionId);
+    }
+
+    // 加载侧边栏宽度
+    loadSidebarWidth() {
+        try {
+            chrome.storage.local.get(['sessionSidebarWidth'], (result) => {
+                if (result.sessionSidebarWidth && typeof result.sessionSidebarWidth === 'number') {
+                    // 验证宽度是否在合理范围内
+                    const width = Math.max(150, Math.min(500, result.sessionSidebarWidth));
+                    this.sidebarWidth = width;
+                    console.log('加载侧边栏宽度:', width);
+                    
+                    // 如果侧边栏已创建，更新其宽度
+                    if (this.sessionSidebar) {
+                        this.sessionSidebar.style.setProperty('width', `${width}px`, 'important');
+                    }
+                }
+            });
+        } catch (error) {
+            console.log('加载侧边栏宽度失败:', error);
+        }
+    }
+
+    // 保存侧边栏宽度
+    saveSidebarWidth() {
+        try {
+            chrome.storage.local.set({ sessionSidebarWidth: this.sidebarWidth }, () => {
+                console.log('保存侧边栏宽度:', this.sidebarWidth);
+            });
+        } catch (error) {
+            console.log('保存侧边栏宽度失败:', error);
+        }
+    }
+
+    // 创建侧边栏拖拽调整边框
+    createSidebarResizer() {
+        if (!this.sessionSidebar) return;
+
+        const resizer = document.createElement('div');
+        resizer.className = 'sidebar-resizer';
+        resizer.style.cssText = `
+            position: absolute !important;
+            top: 0 !important;
+            right: -4px !important;
+            width: 8px !important;
+            height: 100% !important;
+            cursor: col-resize !important;
+            z-index: 10 !important;
+            background: transparent !important;
+            transition: background 0.2s ease !important;
+        `;
+
+        // 鼠标悬停效果
+        resizer.addEventListener('mouseenter', () => {
+            if (!this.isResizingSidebar) {
+                resizer.style.setProperty('background', 'rgba(59, 130, 246, 0.3)', 'important');
+            }
+        });
+
+        resizer.addEventListener('mouseleave', () => {
+            if (!this.isResizingSidebar) {
+                resizer.style.setProperty('background', 'transparent', 'important');
+            }
+        });
+
+        // 拖拽开始
+        resizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            this.isResizingSidebar = true;
+            resizer.style.setProperty('background', 'rgba(59, 130, 246, 0.5)', 'important');
+            resizer.style.setProperty('cursor', 'col-resize', 'important');
+            
+            // 记录初始位置和宽度
+            const startX = e.clientX;
+            const startWidth = this.sidebarWidth;
+            
+            // 添加全局样式，禁用文本选择
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'col-resize';
+            
+            // 拖拽中
+            const handleMouseMove = (e) => {
+                if (!this.isResizingSidebar) return;
+                
+                const diffX = e.clientX - startX;
+                let newWidth = startWidth + diffX;
+                
+                // 限制宽度范围
+                newWidth = Math.max(150, Math.min(500, newWidth));
+                
+                // 更新宽度
+                this.sidebarWidth = newWidth;
+                if (this.sessionSidebar) {
+                    this.sessionSidebar.style.setProperty('width', `${newWidth}px`, 'important');
+                }
+            };
+            
+            // 拖拽结束
+            const handleMouseUp = () => {
+                this.isResizingSidebar = false;
+                resizer.style.setProperty('background', 'transparent', 'important');
+                resizer.style.setProperty('cursor', 'col-resize', 'important');
+                
+                // 恢复全局样式
+                document.body.style.userSelect = '';
+                document.body.style.cursor = '';
+                
+                // 保存宽度
+                this.saveSidebarWidth();
+                
+                // 移除事件监听器
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+            
+            // 添加全局事件监听器
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        });
+
+        this.sessionSidebar.appendChild(resizer);
+    }
+
+    formatSessionTime(timestamp) {
+        if (!timestamp) return '';
+        const now = Date.now();
+        const diff = now - timestamp;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (minutes < 1) return '刚刚';
+        if (minutes < 60) return `${minutes}分钟前`;
+        if (hours < 24) return `${hours}小时前`;
+        if (days < 7) return `${days}天前`;
+        return new Date(timestamp).toLocaleDateString('zh-CN');
     }
 
     // 确保上下文编辑器 UI 存在
@@ -4936,6 +5819,272 @@ ${pageContent || '无内容'}
         chatHeader.appendChild(headerTitle);
         chatHeader.appendChild(closeBtn);
 
+        // 创建主内容容器（包含侧边栏和消息区域）
+        const mainContentContainer = document.createElement('div');
+        mainContentContainer.style.cssText = `
+            display: flex !important;
+            flex: 1 !important;
+            overflow: hidden !important;
+            background: linear-gradient(135deg, #f8f9fa, #ffffff) !important;
+        `;
+
+        // 创建会话侧边栏
+        // 加载保存的侧边栏宽度
+        this.loadSidebarWidth();
+        
+        this.sessionSidebar = document.createElement('div');
+        this.sessionSidebar.className = 'session-sidebar';
+        this.sessionSidebar.style.cssText = `
+            width: ${this.sidebarWidth}px !important;
+            min-width: 150px !important;
+            max-width: 500px !important;
+            background: white !important;
+            border-right: 1px solid #e5e7eb !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            position: relative !important;
+            resize: none !important;
+        `;
+
+        // 侧边栏标题和新建按钮容器
+        const sidebarHeader = document.createElement('div');
+        sidebarHeader.style.cssText = `
+            padding: 12px 15px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        `;
+        
+        const sidebarTitle = document.createElement('div');
+        sidebarTitle.style.cssText = `
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            color: #374151 !important;
+        `;
+        sidebarTitle.textContent = '💬 会话列表';
+        
+        // 新建会话按钮
+        const newSessionBtn = document.createElement('button');
+        newSessionBtn.className = 'new-session-btn';
+        newSessionBtn.innerHTML = '➕';
+        newSessionBtn.title = '新建会话';
+        newSessionBtn.style.cssText = `
+            background: ${mainColor} !important;
+            border: none !important;
+            color: white !important;
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+        `;
+        
+        newSessionBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await this.createNewSession();
+        });
+        
+        newSessionBtn.addEventListener('mouseenter', () => {
+            if (!this.isCreatingSession) {
+                newSessionBtn.style.transform = 'scale(1.1)';
+                newSessionBtn.style.boxShadow = `0 2px 8px ${mainColor}40`;
+            }
+        });
+        
+        newSessionBtn.addEventListener('mouseleave', () => {
+            newSessionBtn.style.transform = 'scale(1)';
+            newSessionBtn.style.boxShadow = 'none';
+        });
+        
+        newSessionBtn.addEventListener('mousedown', () => {
+            newSessionBtn.style.transform = 'scale(0.95)';
+        });
+        
+        newSessionBtn.addEventListener('mouseup', () => {
+            if (!this.isCreatingSession) {
+                newSessionBtn.style.transform = 'scale(1.1)';
+            } else {
+                newSessionBtn.style.transform = 'scale(1)';
+            }
+        });
+        
+        sidebarHeader.appendChild(sidebarTitle);
+        sidebarHeader.appendChild(newSessionBtn);
+
+        // 会话列表容器
+        const sessionList = document.createElement('div');
+        sessionList.className = 'session-list';
+        sessionList.style.cssText = `
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 8px !important;
+        `;
+
+        // 添加会话列表样式
+        if (!document.getElementById('session-sidebar-styles')) {
+            const style = document.createElement('style');
+            style.id = 'session-sidebar-styles';
+            style.textContent = `
+                .session-item {
+                    padding: 12px !important;
+                    margin-bottom: 6px !important;
+                    border-radius: 8px !important;
+                    cursor: pointer !important;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                    background: #f9fafb !important;
+                    border: 1px solid transparent !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                    position: relative !important;
+                    user-select: none !important;
+                    will-change: transform, background-color, border-color !important;
+                }
+                .session-item:hover:not(.switching) {
+                    background: #f3f4f6 !important;
+                    border-color: #e5e7eb !important;
+                    transform: translateX(2px) !important;
+                }
+                .session-item.active {
+                    background: ${mainColor}15 !important;
+                    border-color: ${mainColor} !important;
+                    box-shadow: 0 2px 8px ${mainColor}20 !important;
+                    transform: translateX(4px) !important;
+                }
+                .session-item.clicked {
+                    transform: scale(0.97) translateX(2px) !important;
+                    background: ${mainColor}25 !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+                }
+                .session-item.switching {
+                    cursor: wait !important;
+                    opacity: 0.8 !important;
+                    pointer-events: none !important;
+                    position: relative !important;
+                    background: ${mainColor}10 !important;
+                    border-color: ${mainColor}40 !important;
+                }
+                .session-item.switching::after {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: 50% !important;
+                    left: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    width: 16px !important;
+                    height: 16px !important;
+                    border: 2px solid ${mainColor} !important;
+                    border-top-color: transparent !important;
+                    border-radius: 50% !important;
+                    animation: session-switching-spin 0.6s linear infinite !important;
+                }
+                @keyframes session-switching-spin {
+                    0% { transform: translate(-50%, -50%) rotate(0deg) !important; }
+                    100% { transform: translate(-50%, -50%) rotate(360deg) !important; }
+                }
+                .session-title {
+                    font-size: 13px !important;
+                    font-weight: 500 !important;
+                    color: #374151 !important;
+                    margin-bottom: 4px !important;
+                    word-break: break-word !important;
+                }
+                .session-item.active .session-title {
+                    color: ${mainColor} !important;
+                    font-weight: 600 !important;
+                }
+                .session-meta {
+                    font-size: 11px !important;
+                    color: #9ca3af !important;
+                }
+                .session-item.active .session-meta {
+                    color: ${mainColor} !important;
+                }
+                .session-delete-btn {
+                    background: rgba(244, 67, 54, 0.1) !important;
+                    border: none !important;
+                    padding: 4px 8px !important;
+                    cursor: pointer !important;
+                    font-size: 14px !important;
+                    opacity: 0.5 !important;
+                    transition: all 0.2s ease !important;
+                    border-radius: 4px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    flex-shrink: 0 !important;
+                    min-width: 28px !important;
+                    min-height: 28px !important;
+                }
+                .session-delete-btn:hover {
+                    opacity: 1 !important;
+                    background: rgba(244, 67, 54, 0.2) !important;
+                    transform: scale(1.1) !important;
+                }
+                .session-delete-btn.clicked {
+                    transform: scale(0.9) !important;
+                    background: rgba(244, 67, 54, 0.3) !important;
+                }
+                .session-item.active .session-delete-btn {
+                    opacity: 0.7 !important;
+                }
+                .session-item.new-session-highlight {
+                    animation: new-session-highlight 1.5s ease-out !important;
+                }
+                @keyframes new-session-highlight {
+                    0% {
+                        background: ${mainColor}30 !important;
+                        transform: scale(1.02) !important;
+                    }
+                    50% {
+                        background: ${mainColor}20 !important;
+                    }
+                    100% {
+                        background: ${mainColor}15 !important;
+                        transform: scale(1) !important;
+                    }
+                }
+                .new-session-btn:active:not(.creating) {
+                    transform: scale(0.95) !important;
+                }
+                .new-session-btn.creating {
+                    opacity: 0.6 !important;
+                    cursor: wait !important;
+                    pointer-events: none !important;
+                }
+                .new-session-btn.creating::after {
+                    content: '' !important;
+                    position: absolute !important;
+                    width: 12px !important;
+                    height: 12px !important;
+                    border: 2px solid white !important;
+                    border-top-color: transparent !important;
+                    border-radius: 50% !important;
+                    animation: new-session-spin 0.6s linear infinite !important;
+                }
+                @keyframes new-session-spin {
+                    0% { transform: rotate(0deg) !important; }
+                    100% { transform: rotate(360deg) !important; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        this.sessionSidebar.appendChild(sidebarHeader);
+        this.sessionSidebar.appendChild(sessionList);
+        
+        // 在所有内容添加完成后，创建拖拽调整边框（确保在最上层）
+        this.createSidebarResizer();
+
         // 创建消息区域
         const messagesContainer = document.createElement('div');
         messagesContainer.id = 'pet-chat-messages';
@@ -4949,6 +6098,10 @@ ${pageContent || '无内容'}
             min-height: 200px !important;
             user-select: text !important;
         `;
+
+        // 将侧边栏和消息区域添加到主容器
+        mainContentContainer.appendChild(this.sessionSidebar);
+        mainContentContainer.appendChild(messagesContainer);
 
         // 统一的 AbortController，用于终止所有正在进行的请求
         let currentAbortController = null;
@@ -5004,6 +6157,7 @@ ${pageContent || '无内容'}
 
         // 创建页面信息容器
         const welcomeMessage = this.createMessageElement('', 'pet');
+        welcomeMessage.setAttribute('data-welcome-message', 'true');
         messagesContainer.appendChild(welcomeMessage);
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
 
@@ -5768,6 +6922,9 @@ ${pageContent || '无内容'}
                 } else {
                     updateRequestStatus('idle');
                 }
+
+                // 保存当前会话
+                await this.saveCurrentSession();
             } catch (error) {
                 // 检查是否是取消错误
                 const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
@@ -6258,7 +7415,7 @@ ${pageContent || '无内容'}
 
         // 组装聊天窗口
         this.chatWindow.appendChild(chatHeader);
-        this.chatWindow.appendChild(messagesContainer);
+        this.chatWindow.appendChild(mainContentContainer);
         this.chatWindow.appendChild(inputContainer);
 		this.chatWindow.appendChild(resizeHandleTL);
 		this.chatWindow.appendChild(resizeHandleTR);
@@ -6287,6 +7444,15 @@ ${pageContent || '无内容'}
         // 初始化消息容器的底部padding
         this.updateMessagesPaddingBottom = updatePaddingBottom;
         setTimeout(() => this.updateMessagesPaddingBottom(), 50);
+
+        // 加载所有会话数据（确保会话数据已加载）
+        await this.loadAllSessions();
+        
+        // 更新会话侧边栏（显示所有会话）
+        this.updateSessionSidebar();
+        
+        // 加载会话消息
+        await this.loadSessionMessages();
 
         // 监听角色配置变化，自动刷新按钮列表
         if (!this.roleConfigChangeListener) {

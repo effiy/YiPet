@@ -1643,30 +1643,17 @@ class PetManager {
             // 更新聊天窗口标题
             this.updateChatHeaderTitle();
         } else {
-            // 没有找到基于URL的会话，需要创建新会话
+            // 没有找到基于URL的会话，不自动创建新会话
             // 如果当前已经有会话ID且与新URL不同，先保存当前会话
             if (this.currentSessionId && this.currentSessionId !== currentUrl) {
                 await this.saveCurrentSession();
             }
             
-            // 为当前URL创建新会话
-            if (!this.hasAutoCreatedSessionForPage) {
-                console.log('为新页面URL自动创建会话:', currentUrl);
-                
-                // 生成唯一的会话ID
-                const sessionId = this.generateSessionId();
-                
-                // 创建标准化的会话对象，包含所有页面信息
-                this.sessions[sessionId] = this.createSessionObject(sessionId, pageInfo);
-                
-                await this.saveAllSessions();
-                this.currentSessionId = sessionId;
-                this.hasAutoCreatedSessionForPage = true;
-                
-                console.log('新会话已创建，会话ID:', sessionId, '标题:', pageInfo.title, 'URL:', currentUrl);
-            } else {
-                console.log('当前页面已自动创建会话，不重复创建');
-            }
+            // 不自动创建新会话，等待用户手动创建或发送消息时创建
+            this.currentSessionId = null;
+            this.hasAutoCreatedSessionForPage = false;
+            
+            console.log('未找到基于URL的会话，不自动创建新会话。URL:', currentUrl);
         }
         
         // 更新会话侧边栏

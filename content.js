@@ -11675,6 +11675,21 @@ ${pageContent || '无内容'}
                                 );
                                 
                                 if (messageIndex !== -1) {
+                                    // 确保使用统一的会话ID（session.id 或 currentSessionId）
+                                    const unifiedSessionId = session.id || this.currentSessionId;
+                                    
+                                    // 先调用后端API删除消息（如果启用了后端同步）
+                                    if (this.sessionApi && this.sessionApi.isEnabled()) {
+                                        try {
+                                            await this.sessionApi.deleteMessage(unifiedSessionId, messageIndex);
+                                            console.log(`消息已从后端删除: 会话 ${unifiedSessionId}, 索引 ${messageIndex}`);
+                                        } catch (error) {
+                                            console.warn('从后端删除消息失败:', error);
+                                            // 即使后端删除失败，也继续本地删除，确保用户界面响应
+                                        }
+                                    }
+                                    
+                                    // 从本地会话中删除消息
                                     session.messages.splice(messageIndex, 1);
                                     session.updatedAt = Date.now();
                                     // 保存会话
@@ -11982,7 +11997,7 @@ ${pageContent || '无内容'}
         deleteButton.setAttribute('title', '删除消息');
 
         // 点击删除
-        deleteButton.addEventListener('click', (e) => {
+        deleteButton.addEventListener('click', async (e) => {
             e.stopPropagation();
 
             // 确认删除
@@ -11994,10 +12009,57 @@ ${pageContent || '无内容'}
                 }
 
                 if (currentMessage) {
+                    // 从会话中删除对应的消息
+                    if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                        const session = this.sessions[this.currentSessionId];
+                        if (session.messages && Array.isArray(session.messages)) {
+                            // 获取消息内容，用于匹配会话中的消息
+                            const userBubble = currentMessage.querySelector('[data-message-type="user-bubble"]');
+                            if (userBubble) {
+                                const messageContent = userBubble.getAttribute('data-original-text') || 
+                                                      userBubble.textContent || '';
+                                
+                                // 找到并删除对应的消息
+                                const messageIndex = session.messages.findIndex(msg => 
+                                    msg.type === 'user' && 
+                                    (msg.content === messageContent || msg.content.trim() === messageContent.trim())
+                                );
+                                
+                                if (messageIndex !== -1) {
+                                    // 确保使用统一的会话ID（session.id 或 currentSessionId）
+                                    const unifiedSessionId = session.id || this.currentSessionId;
+                                    
+                                    // 先调用后端API删除消息（如果启用了后端同步）
+                                    if (this.sessionApi && this.sessionApi.isEnabled()) {
+                                        try {
+                                            await this.sessionApi.deleteMessage(unifiedSessionId, messageIndex);
+                                            console.log(`消息已从后端删除: 会话 ${unifiedSessionId}, 索引 ${messageIndex}`);
+                                        } catch (error) {
+                                            console.warn('从后端删除消息失败:', error);
+                                            // 即使后端删除失败，也继续本地删除，确保用户界面响应
+                                        }
+                                    }
+                                    
+                                    // 从本地会话中删除消息
+                                    session.messages.splice(messageIndex, 1);
+                                    session.updatedAt = Date.now();
+                                    // 保存会话
+                                    await this.saveAllSessions();
+                                    console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 动画删除消息
                     currentMessage.style.transition = 'opacity 0.3s ease';
                     currentMessage.style.opacity = '0';
                     setTimeout(() => {
                         currentMessage.remove();
+                        // 删除后保存会话（确保数据同步）
+                        this.saveCurrentSession().catch(err => {
+                            console.error('删除消息后保存会话失败:', err);
+                        });
                     }, 300);
                 }
             }

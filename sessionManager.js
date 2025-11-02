@@ -607,6 +607,21 @@ class SessionManager {
         }
         
         if (messageIndex >= 0 && messageIndex < session.messages.length) {
+            // 确保使用统一的会话ID（session.id 或 sessionId）
+            const unifiedSessionId = session.id || sessionId;
+            
+            // 先调用后端API删除消息（如果启用了后端同步）
+            if (this.sessionApi && this.sessionApi.isEnabled()) {
+                try {
+                    await this.sessionApi.deleteMessage(unifiedSessionId, messageIndex);
+                    console.log(`消息已从后端删除: 会话 ${unifiedSessionId}, 索引 ${messageIndex}`);
+                } catch (error) {
+                    console.warn('从后端删除消息失败:', error);
+                    // 即使后端删除失败，也继续本地删除，确保用户界面响应
+                }
+            }
+            
+            // 从本地会话中删除消息
             session.messages.splice(messageIndex, 1);
             session.updatedAt = Date.now();
             await this.saveSession(sessionId);

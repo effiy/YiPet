@@ -383,6 +383,43 @@ class SessionApiManager {
     }
     
     /**
+     * 删除会话中的消息
+     * @param {string} sessionId - 会话ID
+     * @param {number} messageIndex - 消息索引
+     * @returns {Promise<Object>} 删除结果
+     */
+    async deleteMessage(sessionId, messageIndex) {
+        if (!sessionId) {
+            throw new Error('会话ID无效');
+        }
+        
+        if (typeof messageIndex !== 'number' || messageIndex < 0) {
+            throw new Error('消息索引无效');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/message/${messageIndex}`;
+            const result = await this._request(url, {
+                method: 'DELETE',
+            });
+            
+            if (result.success) {
+                // 清除缓存，因为会话内容已变化
+                this.cache.sessionsMap.delete(`session:${sessionId}`);
+                this.cache.sessionsList = null;
+                this.cache.sessionsListTimestamp = 0;
+                
+                return result;
+            } else {
+                throw new Error(result.message || '删除消息失败');
+            }
+        } catch (error) {
+            console.error('删除消息失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
      * 搜索会话
      * @param {string} query - 搜索关键词
      * @param {number} limit - 返回数量限制

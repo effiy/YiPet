@@ -1773,7 +1773,8 @@ class PetManager {
         const { 
             saveCurrent = true,
             updateConsistency = true,
-            updateUI = true 
+            updateUI = true,
+            syncToBackend = true
         } = options;
         
         // 在切换会话前，强制保存当前会话的所有数据（确保数据持久化）
@@ -1805,7 +1806,7 @@ class PetManager {
             // 这样可以防止切换到不同URL的会话时，意外修改那个会话的页面信息
             const needsUpdate = this.ensureSessionConsistency(sessionId);
             if (needsUpdate) {
-                await this.saveAllSessions();
+                await this.saveAllSessions(false, syncToBackend);
             }
         } else if (!isUrlMatched) {
             // URL不匹配时，只更新最后访问时间，不更新页面信息（保持数据隔离）
@@ -1813,7 +1814,7 @@ class PetManager {
             const now = Date.now();
             if (!targetSession.lastAccessTime || (now - targetSession.lastAccessTime) > 60000) {
                 targetSession.lastAccessTime = now;
-                await this.saveAllSessions();
+                await this.saveAllSessions(false, syncToBackend);
             }
         }
         
@@ -2259,7 +2260,8 @@ class PetManager {
                     }
                 }
                 
-                await this.saveAllSessions(true);
+                // 从后端加载数据后，只保存到本地，不触发后端同步（避免不必要的 session/save 调用）
+                await this.saveAllSessions(true, false);
                 console.log('会话列表已从后端同步（API管理器），当前会话数量:', Object.keys(this.sessions).length);
                 return;
             }
@@ -2465,8 +2467,8 @@ class PetManager {
                     }
                 }
                 
-                // 保存合并后的会话数据到本地存储
-                await this.saveAllSessions(true);
+                // 保存合并后的会话数据到本地存储，不触发后端同步（避免不必要的 session/save 调用）
+                await this.saveAllSessions(true, false);
                 
                 console.log('会话列表已从后端同步（旧方式），当前会话数量（去重后）:', Object.keys(this.sessions).length);
                 } else {
@@ -2544,7 +2546,7 @@ class PetManager {
     }
 
     // 保存所有会话（带节流优化）
-    async saveAllSessions(force = false) {
+    async saveAllSessions(force = false, syncToBackend = true) {
         const now = Date.now();
         
         // 如果不在强制模式下，且距离上次保存时间太短，则延迟保存
@@ -2561,7 +2563,7 @@ class PetManager {
             return new Promise((resolve) => {
                 this.sessionUpdateTimer = setTimeout(async () => {
                     this.pendingSessionUpdate = false;
-                    await this._doSaveAllSessions();
+                    await this._doSaveAllSessions(syncToBackend);
                     resolve();
                 }, this.SESSION_SAVE_THROTTLE - (now - this.lastSessionSaveTime));
             });
@@ -2573,16 +2575,17 @@ class PetManager {
             clearTimeout(this.sessionUpdateTimer);
             this.sessionUpdateTimer = null;
         }
-        return await this._doSaveAllSessions();
+        return await this._doSaveAllSessions(syncToBackend);
     }
     
     // 实际执行保存操作
-    async _doSaveAllSessions() {
+    async _doSaveAllSessions(syncToBackend = true) {
         this.lastSessionSaveTime = Date.now();
         return new Promise((resolve) => {
             chrome.storage.local.set({ petChatSessions: this.sessions }, () => {
                 // 保存到本地存储后，异步同步到后端（使用队列批量保存，不阻塞保存流程）
-                if (PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
+                // 只有在允许同步且启用后端同步时，才同步到后端
+                if (syncToBackend && PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
                     // 使用队列批量保存，提高性能
                     this.syncSessionToBackend(this.currentSessionId, false).catch(err => {
                         console.warn('同步会话到后端失败:', err);
@@ -2946,10 +2949,12 @@ class PetManager {
         try {
             // 使用统一的激活会话方法
             // 注意：saveCurrent设为false，手动切换会话时不保存当前会话
+            // syncToBackend设为false，手动切换会话时不调用 session/save 接口
             await this.activateSession(sessionId, {
                 saveCurrent: false, // 手动切换会话时不保存，避免调用 session/save 接口
                 updateConsistency: true,
-                updateUI: false // 稍后手动更新UI以便添加过渡效果
+                updateUI: false, // 稍后手动更新UI以便添加过渡效果
+                syncToBackend: false // 手动切换会话时不同步到后端，避免调用 session/save 接口
             });
             
             // 更新侧边栏
@@ -3722,7 +3727,8 @@ class PetManager {
                 
                 await this.activateSession(latestSession.id, {
                     saveCurrent: false, // 已经在前面保存了
-                    updateUI: true
+                    updateUI: true,
+                    syncToBackend: false // 删除会话后的自动切换不调用 session/save 接口
                 });
             } else {
                 // 没有其他会话，清空当前会话

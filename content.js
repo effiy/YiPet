@@ -2452,7 +2452,7 @@ class PetManager {
     }
 
     // 切换到指定会话（确保数据一致性）
-    // 重要：切换前强制保存当前会话，确保数据持久化和隔离
+    // 注意：手动切换会话时不调用 session/save 接口
     async switchSession(sessionId) {
         // 防抖：如果正在切换或点击的是当前会话，直接返回
         if (this.isSwitchingSession || sessionId === this.currentSessionId) {
@@ -2468,16 +2468,6 @@ class PetManager {
 
         // 设置切换状态
         this.isSwitchingSession = true;
-        
-        // 在切换前，强制保存当前会话的所有数据（确保数据持久化）
-        if (this.currentSessionId && this.currentSessionId !== sessionId) {
-            try {
-                await this.saveCurrentSession(true); // 强制保存，确保不丢失任何数据
-            } catch (error) {
-                console.error('保存当前会话失败:', error);
-                // 即使保存失败，也继续切换（避免阻塞用户操作）
-            }
-        }
         
         // 获取UI元素引用
         const clickedItem = this.sessionSidebar?.querySelector(`[data-session-id="${sessionId}"]`);
@@ -2500,9 +2490,9 @@ class PetManager {
         
         try {
             // 使用统一的激活会话方法
-            // 注意：saveCurrent设为false，因为已经在前面强制保存过了
+            // 注意：saveCurrent设为false，手动切换会话时不保存当前会话
             await this.activateSession(sessionId, {
-                saveCurrent: false, // 已在前面保存，避免重复保存
+                saveCurrent: false, // 手动切换会话时不保存，避免调用 session/save 接口
                 updateConsistency: true,
                 updateUI: false // 稍后手动更新UI以便添加过渡效果
             });

@@ -7167,18 +7167,6 @@ ${pageContent || '无内容'}
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
 
-                // prompt 接口完成后，立即同步到后端
-                if (content && content.trim()) {
-                    // 更新会话中的消息（角色按钮生成的消息）
-                    await this.addMessageToSession('pet', content);
-                    await this.saveCurrentSession();
-                    if (PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
-                        await this.syncSessionToBackend(this.currentSessionId, true).catch(err => {
-                            console.warn('角色按钮操作后同步会话到后端失败:', err);
-                        });
-                    }
-                }
-
                 iconEl.innerHTML = '✓';
                 iconEl.style.cursor = 'default';
                 iconEl.style.color = '#4caf50';
@@ -9384,13 +9372,6 @@ ${pageContent || '无内容'}
 
                 // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
                 await this.saveCurrentSession();
-                
-                // prompt 接口完成后，立即同步到后端
-                if (PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
-                    await this.syncSessionToBackend(this.currentSessionId, true).catch(err => {
-                        console.warn('prompt 接口完成后同步会话到后端失败:', err);
-                    });
-                }
             } catch (error) {
                 // 检查是否是取消错误
                 const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
@@ -11918,18 +11899,6 @@ ${pageContent || '无内容'}
                 }
                 if (this.chatWindow && this.chatWindow._updateRequestStatus) {
                     this.chatWindow._updateRequestStatus('idle');
-                }
-
-                // prompt 接口完成后，立即同步到后端
-                if (reply && reply.trim()) {
-                    // 更新会话中的消息
-                    await this.addMessageToSession('pet', reply);
-                    await this.saveCurrentSession();
-                    if (PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
-                        await this.syncSessionToBackend(this.currentSessionId, true).catch(err => {
-                            console.warn('重新生成后同步会话到后端失败:', err);
-                        });
-                    }
                 }
 
                 // 恢复按钮状态

@@ -2436,25 +2436,22 @@ class PetManager {
         
         console.log(`加载会话 ${this.currentSessionId} 的消息，共 ${session.messages?.length || 0} 条`);
         
-        // 先保存欢迎消息的引用（如果存在）
-        const existingWelcomeMessage = messagesContainer.querySelector('[data-welcome-message]');
-        let welcomeMessageCopy = null;
-        if (existingWelcomeMessage) {
-            welcomeMessageCopy = existingWelcomeMessage.cloneNode(true);
-        }
-        
         // 清空现有消息（确保干净的加载状态）
         messagesContainer.innerHTML = '';
         
-        // 恢复欢迎消息（如果存在）
-        if (welcomeMessageCopy) {
-            messagesContainer.appendChild(welcomeMessageCopy);
-        }
+        // 创建欢迎消息（使用会话保存的页面信息）
+        const pageInfo = {
+            title: session.pageTitle || session.title || document.title || '当前页面',
+            url: session.url || window.location.href,
+            description: session.pageDescription || ''
+        };
+        this.createWelcomeMessage(messagesContainer, pageInfo);
         
         // 加载会话消息（确保消息顺序和内容正确）
         if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
-            // 使用 DocumentFragment 批量添加消息，提高性能
+            // 先使用 DocumentFragment 批量添加消息，提高性能
             const fragment = document.createDocumentFragment();
+            const petMessages = []; // 保存所有宠物消息，用于后续添加按钮
             
             for (const msg of session.messages) {
                 // 验证消息格式
@@ -2473,6 +2470,9 @@ class PetManager {
                         petBubble.innerHTML = this.renderMarkdown(msg.content);
                         petBubble.setAttribute('data-original-text', msg.content);
                         
+                        // 保存宠物消息引用，用于后续添加按钮
+                        petMessages.push(msgEl);
+                        
                         // 处理 Mermaid 图表（异步处理，不阻塞其他消息渲染）
                         this.processMermaidBlocks(petBubble).catch(err => {
                             console.error('处理 Mermaid 图表失败:', err);
@@ -2489,6 +2489,52 @@ class PetManager {
             
             // 一次性添加所有消息
             messagesContainer.appendChild(fragment);
+            
+            // 为所有宠物消息添加按钮（异步处理，不阻塞渲染）
+            // 使用 setTimeout 确保 DOM 完全更新后再添加按钮
+            setTimeout(async () => {
+                for (const petMsg of petMessages) {
+                    try {
+                        const petBubble = petMsg.querySelector('[data-message-type="pet-bubble"]');
+                        if (!petBubble) continue;
+                        
+                        // 检查是否是欢迎消息（第一条消息），欢迎消息不需要添加按钮
+                        const isWelcome = petMsg.hasAttribute('data-welcome-message');
+                        if (isWelcome) continue;
+                        
+                        // 添加复制按钮（编辑和删除按钮）
+                        const copyButtonContainer = petMsg.querySelector('[data-copy-button-container]');
+                        if (copyButtonContainer && !copyButtonContainer.querySelector('.edit-button')) {
+                            this.addCopyButton(copyButtonContainer, petBubble);
+                        }
+                        
+                        // 添加重试按钮（仅当不是第一条消息时）
+                        // 检查是否是第一条宠物消息
+                        const allPetMessages = Array.from(messagesContainer.children).filter(
+                            child => child.querySelector('[data-message-type="pet-bubble"]') && 
+                            !child.hasAttribute('data-welcome-message')
+                        );
+                        
+                        if (allPetMessages.length > 0) {
+                            const tryAgainContainer = petMsg.querySelector('[data-try-again-button-container]');
+                            if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                // 检查是否是按钮操作生成的消息，不添加重试按钮
+                                if (!petMsg.hasAttribute('data-button-action')) {
+                                    this.addTryAgainButton(tryAgainContainer, petMsg);
+                                }
+                            }
+                        }
+                        
+                        // 添加动作按钮（包括角色按钮和设置按钮）
+                        await this.addActionButtonsToMessage(petMsg);
+                    } catch (error) {
+                        console.error('为消息添加按钮时出错:', error);
+                    }
+                }
+                
+                // 确保滚动到底部
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 100);
             
             // 使用 requestAnimationFrame 确保 DOM 更新完成后再滚动
             requestAnimationFrame(() => {
@@ -3819,9 +3865,32 @@ class PetManager {
         // 更新消息内容
         if (sender === 'pet') {
             // 对于宠物消息，使用Markdown渲染
+            const oldText = messageElement.getAttribute('data-original-text') || messageElement.textContent || '';
             messageElement.innerHTML = this.renderMarkdown(newText);
             messageElement.classList.add('markdown-content');
             messageElement.setAttribute('data-original-text', newText);
+            
+            // 更新会话中对应的消息内容
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                if (session.messages && Array.isArray(session.messages)) {
+                    // 找到对应的消息并更新
+                    const messageIndex = session.messages.findIndex(msg => 
+                        msg.type === 'pet' && 
+                        (msg.content === oldText || msg.content.trim() === oldText.trim())
+                    );
+                    
+                    if (messageIndex !== -1) {
+                        session.messages[messageIndex].content = newText;
+                        session.updatedAt = Date.now();
+                        // 异步保存会话
+                        this.saveAllSessions().catch(err => {
+                            console.error('更新消息后保存会话失败:', err);
+                        });
+                        console.log(`已更新会话 ${this.currentSessionId} 中的消息内容`);
+                    }
+                }
+            }
             
             // 处理可能的 Mermaid 图表
             setTimeout(async () => {
@@ -4727,8 +4796,28 @@ ${pageContent || '无内容'}
         // 获取所有角色配置（用于没有 actionKey 的按钮）
         const configsRaw = await this.getRoleConfigs();
         
+        // 获取已绑定的角色键，用于检查哪些角色已经有按钮
+        const orderedKeys = await this.getOrderedBoundRoleKeys();
+        const boundRoleIds = new Set();
+        const configsByActionKey = {};
+        const configsById = {};
+        
+        for (const config of (configsRaw || [])) {
+            if (config && config.id) {
+                configsById[config.id] = config;
+                if (config.actionKey) {
+                    configsByActionKey[config.actionKey] = config;
+                    if (orderedKeys.includes(config.actionKey)) {
+                        boundRoleIds.add(config.id);
+                    }
+                }
+            }
+        }
+        
         // 复制欢迎消息中的所有按钮（包括设置按钮）
         const buttonsToCopy = Array.from(welcomeActions.children);
+        const copiedButtonIds = new Set(); // 记录已复制的按钮ID
+        
         for (const originalButton of buttonsToCopy) {
             // 创建新按钮（通过克隆并重新绑定事件）
             const newButton = originalButton.cloneNode(true);
@@ -4739,9 +4828,15 @@ ${pageContent || '无内容'}
                     e.stopPropagation();
                     this.openRoleSettingsModal();
                 });
+                actionsContainer.appendChild(newButton);
+                continue;
             } else if (newButton.hasAttribute('data-action-key')) {
                 // 如果是角色按钮（有 actionKey），创建使用消息内容的处理函数
                 const actionKey = newButton.getAttribute('data-action-key');
+                const config = configsByActionKey[actionKey];
+                if (config && config.id) {
+                    copiedButtonIds.add(config.id);
+                }
                 
                 // 为消息下的按钮创建特殊的处理函数（使用消息内容而不是页面内容）
                 newButton.addEventListener('click', async (e) => {
@@ -5020,7 +5115,8 @@ ${pageContent || '无内容'}
             } else if (newButton.hasAttribute('data-role-id')) {
                 // 如果是没有 actionKey 的角色按钮，需要重新创建点击处理函数
                 const roleId = newButton.getAttribute('data-role-id');
-                const config = (configsRaw || []).find(c => c && c.id === roleId);
+                copiedButtonIds.add(roleId); // 记录已复制
+                const config = configsById[roleId];
                 if (config) {
                     // 创建 processing flag
                     if (!this.roleButtonsProcessingFlags) {
@@ -5335,6 +5431,578 @@ ${pageContent || '无内容'}
             }
             
             actionsContainer.appendChild(newButton);
+        }
+        
+        // 补充遗漏的角色按钮（确保所有角色按钮都被添加）
+        // 首先添加有 actionKey 但可能遗漏的按钮
+        for (const key of orderedKeys) {
+            const config = configsByActionKey[key];
+            if (config && config.id && !copiedButtonIds.has(config.id)) {
+                // 这个按钮没有被复制，需要创建
+                const button = await this.createActionButton(key);
+                if (button) {
+                    const clonedButton = button.cloneNode(true);
+                    
+                    // 重新绑定点击事件（使用消息内容）
+                    clonedButton.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        
+                        const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                        let messageContent = '';
+                        if (messageBubble) {
+                            messageContent = messageBubble.getAttribute('data-original-text') || 
+                                           messageBubble.innerText || 
+                                           messageBubble.textContent || '';
+                        }
+                        
+                        const pageInfo = this.getPageInfo();
+                        let roleInfo;
+                        try {
+                            roleInfo = await this.getRolePromptForAction(key, pageInfo);
+                            roleInfo.userPrompt = messageContent.trim() || '无内容';
+                        } catch (error) {
+                            console.error('获取角色信息失败:', error);
+                            roleInfo = {
+                                systemPrompt: '',
+                                userPrompt: messageContent.trim() || '无内容',
+                                label: '自定义角色',
+                                icon: '🙂'
+                            };
+                        }
+                        
+                        const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                        if (!messagesContainer) {
+                            console.error('无法找到消息容器');
+                            return;
+                        }
+                        
+                        const message = this.createMessageElement('', 'pet');
+                        message.setAttribute('data-button-action', 'true');
+                        messagesContainer.appendChild(message);
+                        const messageText = message.querySelector('[data-message-type="pet-bubble"]');
+                        const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
+                        
+                        if (messageAvatar) {
+                            messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+                        }
+                        const loadingIcon = roleInfo.icon || '📖';
+                        if (messageText) {
+                            messageText.textContent = `${loadingIcon} 正在${roleInfo.label || '处理'}...`;
+                        }
+                        
+                        try {
+                            const abortController = new AbortController();
+                            if (this.chatWindow && this.chatWindow._setAbortController) {
+                                this.chatWindow._setAbortController(abortController);
+                            }
+                            if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                                this.chatWindow._updateRequestStatus('loading');
+                            }
+                            
+                            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    fromSystem: roleInfo.systemPrompt,
+                                    fromUser: roleInfo.userPrompt,
+                                    model: this.currentModel || PET_CONFIG.chatModels.default
+                                }),
+                                signal: abortController.signal
+                            });
+                            
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                            }
+                            
+                            const responseText = await response.text();
+                            let result;
+                            
+                            if (responseText.includes('data: ')) {
+                                const lines = responseText.split('\n');
+                                let accumulatedData = '';
+                                let lastValidData = null;
+                                
+                                for (const line of lines) {
+                                    const trimmedLine = line.trim();
+                                    if (trimmedLine.startsWith('data: ')) {
+                                        try {
+                                            const dataStr = trimmedLine.substring(6).trim();
+                                            if (dataStr === '[DONE]' || dataStr === '') {
+                                                continue;
+                                            }
+                                            
+                                            const chunk = JSON.parse(dataStr);
+                                            if (chunk.done === true) {
+                                                break;
+                                            }
+                                            
+                                            if (chunk.data) {
+                                                accumulatedData += chunk.data;
+                                            } else if (chunk.content) {
+                                                accumulatedData += chunk.content;
+                                            } else if (chunk.message && chunk.message.content) {
+                                                accumulatedData += chunk.message.content;
+                                            } else if (typeof chunk === 'string') {
+                                                accumulatedData += chunk;
+                                            }
+                                            
+                                            lastValidData = chunk;
+                                        } catch (e) {
+                                            const dataStr = trimmedLine.substring(6).trim();
+                                            if (dataStr && dataStr !== '[DONE]') {
+                                                accumulatedData += dataStr;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (accumulatedData || lastValidData) {
+                                    if (lastValidData && lastValidData.status) {
+                                        result = {
+                                            ...lastValidData,
+                                            data: accumulatedData || lastValidData.data || '',
+                                            content: accumulatedData || lastValidData.content || ''
+                                        };
+                                    } else {
+                                        result = {
+                                            data: accumulatedData,
+                                            content: accumulatedData
+                                        };
+                                    }
+                                } else {
+                                    try {
+                                        result = JSON.parse(responseText);
+                                    } catch (e) {
+                                        throw new Error('无法解析响应格式');
+                                    }
+                                }
+                            } else {
+                                try {
+                                    result = JSON.parse(responseText);
+                                } catch (e) {
+                                    const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                                    if (sseMatch) {
+                                        result = JSON.parse(sseMatch[1]);
+                                    } else {
+                                        throw new Error(`无法解析响应: ${responseText.substring(0, 100)}`);
+                                    }
+                                }
+                            }
+                            
+                            let content = '';
+                            if (result.data) {
+                                content = result.data;
+                            } else if (result.content) {
+                                content = result.content;
+                            } else if (result.message && result.message.content) {
+                                content = result.message.content;
+                            } else if (result.message && typeof result.message === 'string') {
+                                content = result.message;
+                            } else if (typeof result === 'string') {
+                                content = result;
+                            } else {
+                                content = JSON.stringify(result);
+                            }
+                            
+                            if (content && content.trim()) {
+                                // 内容提取成功
+                            } else if (result.status !== undefined && result.status !== 200) {
+                                content = result.msg || '抱歉，服务器返回了错误。';
+                                throw new Error(content);
+                            } else if (result.msg && !content) {
+                                content = result.msg;
+                                throw new Error(content);
+                            }
+                            
+                            if (messageAvatar) {
+                                messageAvatar.style.animation = '';
+                            }
+                            
+                            if (messageText) {
+                                if (!content || !content.trim()) {
+                                    content = '抱歉，未能获取到有效内容。';
+                                }
+                                messageText.innerHTML = this.renderMarkdown(content);
+                                messageText.setAttribute('data-original-text', content);
+                                
+                                if (content && content.trim()) {
+                                    const copyButtonContainer = message.querySelector('[data-copy-button-container]');
+                                    if (copyButtonContainer) {
+                                        this.addCopyButton(copyButtonContainer, messageText);
+                                    }
+                                    const petMessages = Array.from(messagesContainer.children).filter(
+                                        child => child.querySelector('[data-message-type="pet-bubble"]')
+                                    );
+                                    if (petMessages.length > 1) {
+                                        const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                                        if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                            this.addTryAgainButton(tryAgainContainer, message);
+                                        }
+                                    }
+                                    
+                                    await this.addActionButtonsToMessage(message);
+                                }
+                                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                            }
+                        } catch (error) {
+                            const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+                            
+                            if (!isAbortError) {
+                                console.error(`生成${roleInfo.label}失败:`, error);
+                            }
+                            
+                            if (!isAbortError && messageText) {
+                                const errorMessage = error.message && error.message.includes('HTTP error') 
+                                    ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${loadingIcon}`
+                                    : `抱歉，无法生成${roleInfo.label}。${error.message ? `错误信息：${error.message}` : '您可以尝试刷新页面后重试。'}${loadingIcon}`;
+                                messageText.innerHTML = this.renderMarkdown(errorMessage);
+                                const petMessages = Array.from(messagesContainer.children).filter(
+                                    child => child.querySelector('[data-message-type="pet-bubble"]')
+                                );
+                                if (petMessages.length > 1) {
+                                    const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                                    if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                        this.addTryAgainButton(tryAgainContainer, message);
+                                    }
+                                }
+                                await this.addActionButtonsToMessage(message);
+                                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                            } else if (isAbortError && message) {
+                                message.remove();
+                            }
+                        } finally {
+                            if (this.chatWindow && this.chatWindow._setAbortController) {
+                                this.chatWindow._setAbortController(null);
+                            }
+                            if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                                this.chatWindow._updateRequestStatus('idle');
+                            }
+                            if (messageAvatar) {
+                                messageAvatar.style.animation = '';
+                            }
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
+                    });
+                    
+                    actionsContainer.appendChild(clonedButton);
+                    copiedButtonIds.add(config.id);
+                }
+            }
+        }
+        
+        // 然后添加没有 actionKey 但遗漏的角色按钮
+        const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id) && !copiedButtonIds.has(c.id));
+        for (const config of otherRoles) {
+            // 创建新的角色按钮（没有 actionKey）
+            const button = document.createElement('span');
+            button.setAttribute('data-role-id', config.id);
+            button.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 16px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                flex-shrink: 0 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 22px !important;
+                height: 22px !important;
+                line-height: 22px !important;
+            `;
+            
+            const displayIcon = this.getRoleIcon(config, configsRaw);
+            button.innerHTML = displayIcon || '🙂';
+            button.title = config.label || '(未命名)';
+            
+            // 添加 hover 效果
+            button.addEventListener('mouseenter', function() {
+                this.style.fontSize = '18px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            });
+            button.addEventListener('mouseleave', function() {
+                this.style.fontSize = '16px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            
+            // 创建 processing flag
+            if (!this.roleButtonsProcessingFlags) {
+                this.roleButtonsProcessingFlags = {};
+            }
+            if (!this.roleButtonsProcessingFlags[config.id]) {
+                this.roleButtonsProcessingFlags[config.id] = { value: false };
+            }
+            const processingFlag = this.roleButtonsProcessingFlags[config.id];
+            
+            // 绑定点击事件（使用与 refreshWelcomeActionButtons 中相同的逻辑，但使用消息内容）
+            button.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                
+                if (processingFlag.value) return;
+                processingFlag.value = true;
+                const originalIcon = button.innerHTML;
+                const originalTitle = button.title;
+                
+                const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                let messageContent = '';
+                if (messageBubble) {
+                    messageContent = messageBubble.getAttribute('data-original-text') || 
+                                   messageBubble.innerText || 
+                                   messageBubble.textContent || '';
+                }
+                
+                const roleLabel = config.label || '自定义角色';
+                const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
+                const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
+                const userPrompt = messageContent.trim() || '无内容';
+                
+                const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                if (!messagesContainer) {
+                    console.error('无法找到消息容器');
+                    processingFlag.value = false;
+                    return;
+                }
+                
+                const message = this.createMessageElement('', 'pet');
+                message.setAttribute('data-button-action', 'true');
+                messagesContainer.appendChild(message);
+                const messageText = message.querySelector('[data-message-type="pet-bubble"]');
+                const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
+                
+                if (messageAvatar) {
+                    messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
+                }
+                if (messageText) {
+                    messageText.textContent = `${roleIcon} 正在${roleLabel}...`;
+                }
+                
+                try {
+                    const abortController = new AbortController();
+                    
+                    const response = await fetch(PET_CONFIG.api.promptUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            fromSystem: systemPrompt,
+                            fromUser: userPrompt,
+                            model: this.currentModel || PET_CONFIG.chatModels.default
+                        }),
+                        signal: abortController.signal
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    }
+                    
+                    const responseText = await response.text();
+                    let result;
+                    
+                    if (responseText.includes('data: ')) {
+                        const lines = responseText.split('\n');
+                        let accumulatedData = '';
+                        let lastValidData = null;
+                        
+                        for (const line of lines) {
+                            const trimmedLine = line.trim();
+                            if (trimmedLine.startsWith('data: ')) {
+                                try {
+                                    const dataStr = trimmedLine.substring(6).trim();
+                                    if (dataStr === '[DONE]' || dataStr === '') {
+                                        continue;
+                                    }
+                                    
+                                    const chunk = JSON.parse(dataStr);
+                                    if (chunk.done === true) {
+                                        break;
+                                    }
+                                    
+                                    if (chunk.data) {
+                                        accumulatedData += chunk.data;
+                                    } else if (chunk.content) {
+                                        accumulatedData += chunk.content;
+                                    } else if (chunk.message && chunk.message.content) {
+                                        accumulatedData += chunk.message.content;
+                                    } else if (typeof chunk === 'string') {
+                                        accumulatedData += chunk;
+                                    }
+                                    
+                                    lastValidData = chunk;
+                                } catch (e) {
+                                    const dataStr = trimmedLine.substring(6).trim();
+                                    if (dataStr && dataStr !== '[DONE]') {
+                                        accumulatedData += dataStr;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (accumulatedData || lastValidData) {
+                            if (lastValidData && lastValidData.status) {
+                                result = {
+                                    ...lastValidData,
+                                    data: accumulatedData || lastValidData.data || '',
+                                    content: accumulatedData || lastValidData.content || ''
+                                };
+                            } else {
+                                result = {
+                                    data: accumulatedData,
+                                    content: accumulatedData
+                                };
+                            }
+                        } else {
+                            try {
+                                result = JSON.parse(responseText);
+                            } catch (e) {
+                                throw new Error('无法解析响应格式');
+                            }
+                        }
+                    } else {
+                        try {
+                            result = JSON.parse(responseText);
+                        } catch (e) {
+                            const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                            if (sseMatch) {
+                                result = JSON.parse(sseMatch[1]);
+                            } else {
+                                throw new Error(`无法解析响应: ${responseText.substring(0, 100)}`);
+                            }
+                        }
+                    }
+                    
+                    let content = '';
+                    if (result.data) {
+                        content = result.data;
+                    } else if (result.content) {
+                        content = result.content;
+                    } else if (result.message && result.message.content) {
+                        content = result.message.content;
+                    } else if (result.message && typeof result.message === 'string') {
+                        content = result.message;
+                    } else if (typeof result === 'string') {
+                        content = result;
+                    } else {
+                        content = JSON.stringify(result);
+                    }
+                    
+                    if (content && content.trim()) {
+                        // 内容提取成功
+                    } else if (result.status !== undefined && result.status !== 200) {
+                        content = result.msg || '抱歉，服务器返回了错误。';
+                        throw new Error(content);
+                    } else if (result.msg && !content) {
+                        content = result.msg;
+                        throw new Error(content);
+                    }
+                    
+                    if (messageAvatar) {
+                        messageAvatar.style.animation = '';
+                    }
+                    
+                    if (messageText) {
+                        if (!content || !content.trim()) {
+                            content = '抱歉，未能获取到有效内容。';
+                        }
+                        messageText.innerHTML = this.renderMarkdown(content);
+                        messageText.setAttribute('data-original-text', content);
+                        
+                        if (content && content.trim()) {
+                            const copyButtonContainer = message.querySelector('[data-copy-button-container]');
+                            if (copyButtonContainer) {
+                                this.addCopyButton(copyButtonContainer, messageText);
+                            }
+                            const petMessages = Array.from(messagesContainer.children).filter(
+                                child => child.querySelector('[data-message-type="pet-bubble"]')
+                            );
+                            if (petMessages.length > 1) {
+                                const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                                if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                    this.addTryAgainButton(tryAgainContainer, message);
+                                }
+                            }
+                            
+                            await this.addActionButtonsToMessage(message);
+                        }
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                    
+                    button.innerHTML = '✓';
+                    button.style.cursor = 'default';
+                    button.style.color = '#4caf50';
+                    
+                    setTimeout(() => {
+                        button.innerHTML = originalIcon;
+                        button.title = originalTitle;
+                        button.style.color = '#666';
+                        button.style.cursor = 'pointer';
+                        button.style.opacity = '1';
+                        processingFlag.value = false;
+                    }, 2000);
+                } catch (error) {
+                    const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+                    
+                    if (!isAbortError) {
+                        console.error(`生成${roleLabel}失败:`, error);
+                    }
+                    
+                    if (!isAbortError && messageText) {
+                        const errorMessage = error.message && error.message.includes('HTTP error') 
+                            ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${roleIcon}`
+                            : `抱歉，无法生成${roleLabel}。${error.message ? `错误信息：${error.message}` : '您可以尝试刷新页面后重试。'}${roleIcon}`;
+                        messageText.innerHTML = this.renderMarkdown(errorMessage);
+                        const petMessages = Array.from(messagesContainer.children).filter(
+                            child => child.querySelector('[data-message-type="pet-bubble"]')
+                        );
+                        if (petMessages.length > 1) {
+                            const tryAgainContainer = message.querySelector('[data-try-again-button-container]');
+                            if (tryAgainContainer && !tryAgainContainer.querySelector('.try-again-button')) {
+                                this.addTryAgainButton(tryAgainContainer, message);
+                            }
+                        }
+                        await this.addActionButtonsToMessage(message);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    } else if (isAbortError && message) {
+                        message.remove();
+                    }
+                    
+                    if (!isAbortError) {
+                        button.innerHTML = '✕';
+                        button.style.cursor = 'default';
+                        button.style.color = '#f44336';
+                        
+                        setTimeout(() => {
+                            button.innerHTML = originalIcon;
+                            button.title = originalTitle;
+                            button.style.color = '#666';
+                            button.style.cursor = 'pointer';
+                            button.style.opacity = '1';
+                            processingFlag.value = false;
+                        }, 1500);
+                    } else {
+                        button.innerHTML = originalIcon;
+                        button.title = originalTitle;
+                        button.style.color = '#666';
+                        button.style.cursor = 'pointer';
+                        button.style.opacity = '1';
+                        processingFlag.value = false;
+                    }
+                } finally {
+                    if (messageAvatar) {
+                        messageAvatar.style.animation = '';
+                    }
+                }
+            });
+            
+            actionsContainer.appendChild(button);
         }
         
         // 将按钮容器添加到时间容器中（在编辑按钮容器之前）
@@ -6919,61 +7587,16 @@ ${pageContent || '无内容'}
             }
         };
 
-        // 获取页面基本信息
-        const pageTitle = document.title || '当前页面';
-        const pageUrl = window.location.href;
-        const metaDescription = document.querySelector('meta[name="description"]');
-        const pageDescription = metaDescription ? metaDescription.content : '';
-
-        // 获取页面图标
-        const getPageIcon = () => {
-            let iconUrl = '';
-            const linkTags = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
-            if (linkTags.length > 0) {
-                iconUrl = linkTags[0].href;
-                if (!iconUrl.startsWith('http')) {
-                    iconUrl = new URL(iconUrl, window.location.origin).href;
-                }
-            }
-            if (!iconUrl) {
-                iconUrl = '/favicon.ico';
-                if (!iconUrl.startsWith('http')) {
-                    iconUrl = new URL(iconUrl, window.location.origin).href;
-                }
-            }
-            return iconUrl;
-        };
-        const pageIconUrl = getPageIcon();
-
-        // 构建页面信息显示内容
-        let pageInfoHtml = `<div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;"><img src="${pageIconUrl}" alt="页面图标" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;" onerror="this.style.display='none'">${pageTitle}</div>`;
-
-        pageInfoHtml += `<h3 style="color: #4ECDC4; font-weight: bold; margin: 10px 0;">🔗 网址</h3>`;
-        pageInfoHtml += `<div style="margin-bottom: 15px; word-break: break-all; color: #2196F3; text-decoration: underline;">${pageUrl}</div>`;
-
-        if (pageDescription) {
-            pageInfoHtml += `<h3 style="color: #FFD93D; font-weight: bold; margin: 10px 0;">📝 页面描述</h3>`;
-            pageInfoHtml += `<div style="margin-bottom: 15px;">${pageDescription}</div>`;
-        }
-
-        // 创建页面信息容器
-        const welcomeMessage = this.createMessageElement('', 'pet');
-        welcomeMessage.setAttribute('data-welcome-message', 'true');
-        messagesContainer.appendChild(welcomeMessage);
-        const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
-
-        // 设置页面基本信息
-        if (messageText) {
-            messageText.innerHTML = pageInfoHtml;
-        }
-
         // 初始化按钮相关的对象（保留以避免其他地方出错）
         this.actionIcons = {};
         this.buttonHandlers = {};
 
+        // 创建欢迎消息（使用统一方法）
+        const welcomeMessage = this.createWelcomeMessage(messagesContainer);
+
         // 将按钮添加到消息容器中，和时间戳同一行
         setTimeout(() => {
-            const messageTime = welcomeMessage.querySelector('[data-message-time="true"]');
+            const messageTime = welcomeMessage?.querySelector('[data-message-time="true"]');
             if (messageTime) {
                 // 修改时间戳容器为 flex 布局
                 messageTime.style.cssText = `
@@ -10015,7 +10638,7 @@ ${pageContent || '无内容'}
         deleteButton.setAttribute('title', '删除消息');
 
         // 点击删除
-        deleteButton.addEventListener('click', (e) => {
+        deleteButton.addEventListener('click', async (e) => {
             e.stopPropagation();
 
             // 确认删除
@@ -10027,10 +10650,42 @@ ${pageContent || '无内容'}
                 }
 
                 if (currentMessage) {
+                    // 从会话中删除对应的消息
+                    if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                        const session = this.sessions[this.currentSessionId];
+                        if (session.messages && Array.isArray(session.messages)) {
+                            // 获取消息内容，用于匹配会话中的消息
+                            const petBubble = currentMessage.querySelector('[data-message-type="pet-bubble"]');
+                            if (petBubble) {
+                                const messageContent = petBubble.getAttribute('data-original-text') || 
+                                                      petBubble.textContent || '';
+                                
+                                // 找到并删除对应的消息
+                                const messageIndex = session.messages.findIndex(msg => 
+                                    msg.type === 'pet' && 
+                                    (msg.content === messageContent || msg.content.trim() === messageContent.trim())
+                                );
+                                
+                                if (messageIndex !== -1) {
+                                    session.messages.splice(messageIndex, 1);
+                                    session.updatedAt = Date.now();
+                                    // 保存会话
+                                    await this.saveAllSessions();
+                                    console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 动画删除消息
                     currentMessage.style.transition = 'opacity 0.3s ease';
                     currentMessage.style.opacity = '0';
                     setTimeout(() => {
                         currentMessage.remove();
+                        // 删除后保存会话（确保数据同步）
+                        this.saveCurrentSession().catch(err => {
+                            console.error('删除消息后保存会话失败:', err);
+                        });
                     }, 300);
                 }
             }
@@ -10659,6 +11314,103 @@ ${pageContent || '无内容'}
     }
 
     // 获取当前时间
+    // 获取页面图标URL（辅助方法）
+    getPageIconUrl() {
+        let iconUrl = '';
+        const linkTags = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+        if (linkTags.length > 0) {
+            iconUrl = linkTags[0].href;
+            if (!iconUrl.startsWith('http')) {
+                iconUrl = new URL(iconUrl, window.location.origin).href;
+            }
+        }
+        if (!iconUrl) {
+            iconUrl = '/favicon.ico';
+            if (!iconUrl.startsWith('http')) {
+                iconUrl = new URL(iconUrl, window.location.origin).href;
+            }
+        }
+        return iconUrl;
+    }
+
+    // 创建欢迎消息（重构后的统一方法）
+    // @param {HTMLElement} messagesContainer - 消息容器
+    // @param {Object} pageInfo - 页面信息对象（可选，如果不提供则使用当前页面信息）
+    //   - title: 页面标题
+    //   - url: 页面URL
+    //   - description: 页面描述（可选）
+    createWelcomeMessage(messagesContainer, pageInfo = null) {
+        // 如果没有提供页面信息，使用当前页面信息或会话信息
+        if (!pageInfo) {
+            // 优先使用当前会话的页面信息，如果没有则使用当前页面信息
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                pageInfo = {
+                    title: session.pageTitle || session.title || document.title || '当前页面',
+                    url: session.url || window.location.href,
+                    description: session.pageDescription || ''
+                };
+            } else {
+                // 使用 getPageInfo 方法获取当前页面信息
+                const currentPageInfo = this.getPageInfo();
+                pageInfo = {
+                    title: currentPageInfo.title,
+                    url: currentPageInfo.url,
+                    description: currentPageInfo.description || ''
+                };
+            }
+        }
+
+        // 获取页面图标
+        const pageIconUrl = this.getPageIconUrl();
+
+        // 构建页面信息显示内容（优化后的HTML结构）
+        let pageInfoHtml = `
+            <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)); border-radius: 12px; border-left: 3px solid #4ECDC4;">
+                <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <img src="${pageIconUrl}" alt="页面图标" style="width: 20px; height: 20px; border-radius: 4px; object-fit: contain; flex-shrink: 0;" onerror="this.style.display='none'">
+                    <span style="font-weight: 600; font-size: 15px; color: #374151;">${this.escapeHtml(pageInfo.title)}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🔗 网址</div>
+                    <a href="${pageInfo.url}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(pageInfo.url)}</a>
+                </div>
+        `;
+
+        if (pageInfo.description && pageInfo.description.trim()) {
+            pageInfoHtml += `
+                <div style="margin-bottom: 0;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 页面描述</div>
+                    <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(pageInfo.description)}</div>
+                </div>
+            `;
+        }
+
+        pageInfoHtml += `</div>`;
+
+        // 创建欢迎消息元素
+        const welcomeMessage = this.createMessageElement('', 'pet');
+        welcomeMessage.setAttribute('data-welcome-message', 'true');
+        messagesContainer.appendChild(welcomeMessage);
+        
+        const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+        if (messageText) {
+            messageText.innerHTML = pageInfoHtml;
+            // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
+            messageText.setAttribute('data-original-text', pageInfoHtml);
+        }
+
+        return welcomeMessage;
+    }
+
+    // HTML转义辅助方法（防止XSS）
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     getCurrentTime() {
         const now = new Date();
         return now.toLocaleTimeString('zh-CN', {

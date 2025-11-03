@@ -4153,6 +4153,84 @@ class PetManager {
         });
         copyBtn.addEventListener('click', () => this.copyContextEditor());
         
+        // 拉取当前网页上下文按钮
+        const refreshBtn = document.createElement('button');
+        refreshBtn.id = 'pet-context-refresh-btn';
+        refreshBtn.className = 'chat-toolbar-btn';
+        refreshBtn.setAttribute('title', '拉取当前网页上下文');
+        refreshBtn.setAttribute('aria-label', '拉取当前网页上下文');
+        refreshBtn.textContent = '刷新';
+        refreshBtn.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+            transition: transform .12s ease, background .12s ease, border-color .12s ease, color .12s ease !important;
+            outline: none !important;
+        `;
+        refreshBtn.addEventListener('mouseenter', () => {
+            if (!refreshBtn.hasAttribute('data-refreshing')) {
+                refreshBtn.style.background = 'rgba(255,255,255,0.12)';
+                refreshBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+            }
+        });
+        refreshBtn.addEventListener('mouseleave', () => {
+            if (!refreshBtn.hasAttribute('data-refreshing')) {
+                refreshBtn.style.background = 'rgba(255,255,255,0.04)';
+                refreshBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            }
+        });
+        refreshBtn.addEventListener('click', async () => {
+            if (refreshBtn.hasAttribute('data-refreshing')) return;
+            
+            refreshBtn.setAttribute('data-refreshing', 'true');
+            const originalText = refreshBtn.textContent;
+            refreshBtn.textContent = '拉取中...';
+            refreshBtn.style.opacity = '0.6';
+            refreshBtn.style.cursor = 'not-allowed';
+            
+            try {
+                await this.refreshContextFromPage();
+                
+                // 显示成功提示
+                refreshBtn.textContent = '✓ 已更新';
+                refreshBtn.style.background = 'rgba(76, 175, 80, 0.2)';
+                refreshBtn.style.color = '#4caf50';
+                refreshBtn.style.borderColor = 'rgba(76, 175, 80, 0.4)';
+                
+                setTimeout(() => {
+                    refreshBtn.textContent = originalText;
+                    refreshBtn.style.background = 'rgba(255,255,255,0.04)';
+                    refreshBtn.style.color = '#e5e7eb';
+                    refreshBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+                    refreshBtn.removeAttribute('data-refreshing');
+                    refreshBtn.style.opacity = '1';
+                    refreshBtn.style.cursor = 'pointer';
+                }, 2000);
+            } catch (error) {
+                console.error('拉取网页上下文失败:', error);
+                
+                // 显示失败提示
+                refreshBtn.textContent = '✕ 失败';
+                refreshBtn.style.background = 'rgba(244, 67, 54, 0.2)';
+                refreshBtn.style.color = '#f44336';
+                refreshBtn.style.borderColor = 'rgba(244, 67, 54, 0.4)';
+                
+                setTimeout(() => {
+                    refreshBtn.textContent = originalText;
+                    refreshBtn.style.background = 'rgba(255,255,255,0.04)';
+                    refreshBtn.style.color = '#e5e7eb';
+                    refreshBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+                    refreshBtn.removeAttribute('data-refreshing');
+                    refreshBtn.style.opacity = '1';
+                    refreshBtn.style.cursor = 'pointer';
+                }, 2000);
+            }
+        });
+        
         // 保存按钮
         const saveBtn = document.createElement('button');
         saveBtn.id = 'pet-context-save-btn';
@@ -4227,6 +4305,7 @@ class PetManager {
         `;
         downloadBtn.addEventListener('click', () => this.downloadContextMarkdown());
         headerBtns.appendChild(copyBtn);
+        headerBtns.appendChild(refreshBtn);
         headerBtns.appendChild(saveBtn);
         headerBtns.appendChild(downloadBtn);
         headerBtns.appendChild(closeBtn);
@@ -8527,6 +8606,42 @@ ${pageContent || '无内容'}
         overlay.style.left = '0px';
         overlay.style.right = '0px';
         overlay.style.bottom = '0px';
+    }
+
+    /**
+     * 从当前网页拉取上下文并更新编辑器
+     * @returns {Promise<void>}
+     */
+    async refreshContextFromPage() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (!textarea) {
+            throw new Error('未找到上下文编辑器');
+        }
+
+        try {
+            // 获取当前网页内容
+            const pageContent = this.getPageContentAsMarkdown();
+            
+            // 更新编辑器内容
+            textarea.value = pageContent || '';
+            
+            // 更新预览
+            this.updateContextPreview();
+            
+            // 如果当前有会话，也更新会话中的页面内容
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const pageTitle = document.title || '当前页面';
+                this.sessions[this.currentSessionId].pageContent = pageContent;
+                this.sessions[this.currentSessionId].pageTitle = pageTitle;
+                // 静默保存，不显示提示
+                this.saveAllSessions().catch(err => {
+                    console.error('自动保存更新的上下文失败:', err);
+                });
+            }
+        } catch (error) {
+            console.error('拉取网页上下文失败:', error);
+            throw error;
+        }
     }
 
     /**

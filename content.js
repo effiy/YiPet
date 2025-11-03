@@ -1247,18 +1247,29 @@ class PetManager {
             
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
+                
+                // 检查是否为空白会话（空白会话不应该填充页面内容）
+                const isBlankSession = session._isBlankSession || 
+                                      !session.url || 
+                                      session.url.startsWith('blank-session://');
+                
                 // 如果会话有保存的页面内容，使用它
-                if (session.pageContent) {
+                if (session.pageContent && session.pageContent.trim() !== '') {
                     fullPageMarkdown = session.pageContent;
                     pageTitle = session.pageTitle || pageTitle;
-                } else {
-                    // 如果没有保存的页面内容，获取当前页面内容并保存到会话
+                } else if (!isBlankSession) {
+                    // 如果不是空白会话且没有保存的页面内容，获取当前页面内容并保存到会话
                     fullPageMarkdown = this.getPageContentAsMarkdown();
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
                     // 临时保存页面内容到本地（prompt 接口调用完成后会触发 session/save）
                     await this.saveAllSessions(false, false);
+                } else {
+                    // 空白会话：不填充页面内容，使用空内容
+                    fullPageMarkdown = '';
+                    pageTitle = session.pageTitle || '新会话';
+                    console.log('空白会话，不填充页面内容');
                 }
             } else {
                 // 如果没有当前会话，使用当前页面内容
@@ -1446,18 +1457,29 @@ class PetManager {
             
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
+                
+                // 检查是否为空白会话（空白会话不应该填充页面内容）
+                const isBlankSession = session._isBlankSession || 
+                                      !session.url || 
+                                      session.url.startsWith('blank-session://');
+                
                 // 如果会话有保存的页面内容，使用它
-                if (session.pageContent) {
+                if (session.pageContent && session.pageContent.trim() !== '') {
                     fullPageMarkdown = session.pageContent;
                     pageTitle = session.pageTitle || pageTitle;
-                } else {
-                    // 如果没有保存的页面内容，获取当前页面内容并保存到会话
+                } else if (!isBlankSession) {
+                    // 如果不是空白会话且没有保存的页面内容，获取当前页面内容并保存到会话
                     fullPageMarkdown = this.getPageContentAsMarkdown();
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
                     // 临时保存页面内容到本地（prompt 接口调用完成后会触发 session/save）
                     await this.saveAllSessions(false, false);
+                } else {
+                    // 空白会话：不填充页面内容，使用空内容
+                    fullPageMarkdown = '';
+                    pageTitle = session.pageTitle || '新会话';
+                    console.log('空白会话，不填充页面内容');
                 }
             } else {
                 // 如果没有当前会话，使用当前页面内容
@@ -1668,6 +1690,30 @@ class PetManager {
         const session = this.sessions[sessionId];
         const pageInfo = this.getPageInfo();
         
+        // 检查是否为空白会话（不应该更新页面信息）
+        const isBlankSession = session._isBlankSession || 
+                              !session.url || 
+                              session.url.startsWith('blank-session://');
+        
+        if (isBlankSession) {
+            console.log(`确保会话一致性 ${sessionId}：空白会话，跳过页面信息更新`);
+            // 空白会话只需要确保基本结构存在，不更新页面内容
+            let updated = false;
+            if (!Array.isArray(session.messages)) {
+                session.messages = [];
+                updated = true;
+            }
+            if (!session.createdAt) {
+                session.createdAt = Date.now();
+                updated = true;
+            }
+            if (!session.updatedAt) {
+                session.updatedAt = Date.now();
+                updated = true;
+            }
+            return updated;
+        }
+        
         // 关键检查：只有当会话URL和当前页面URL匹配时，才更新一致性
         // 这样可以防止修改不同URL的会话数据
         if (session.url !== pageInfo.url) {
@@ -1700,6 +1746,7 @@ class PetManager {
         }
 
         // 确保页面内容存在（如果缺失则补充）
+        // 注意：空白会话不会进入这个分支，因为前面已经处理了
         if (!session.pageContent || session.pageContent.trim() === '') {
             console.log(`补充会话 ${sessionId} 的页面内容`);
             session.pageContent = pageInfo.content;
@@ -1911,20 +1958,27 @@ class PetManager {
             _isBlankSession: true // 标记为空白会话，用于后续处理
         };
         
-        // 保存新会话到本地存储（先不同步到后端，避免立即请求导致404）
+        // 保存新会话到本地存储
         this.sessions[finalSessionId] = blankSession;
-        await this.saveAllSessions(true, false); // 只保存到本地，不同步到后端
+        await this.saveAllSessions(true, false); // 先保存到本地
         
         console.log('已创建空白新会话:', finalSessionId);
         
-        // 延迟同步到后端（使用队列批量保存，避免立即请求）
+        // 立即同步到后端（创建新会话后应该立即发送接口请求）
         if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-            // 使用队列保存，而不是立即保存，避免404错误
             try {
-                this.sessionApi.queueSave(finalSessionId, blankSession);
-                console.log('空白会话已加入保存队列，将延迟同步到后端');
+                // 立即同步到后端
+                await this.syncSessionToBackend(finalSessionId, true);
+                console.log('空白会话已立即同步到后端');
             } catch (error) {
-                console.warn('空白会话加入保存队列失败（将稍后重试）:', error.message);
+                console.warn('空白会话同步到后端失败（将稍后重试）:', error.message);
+                // 如果立即同步失败，加入队列稍后重试
+                try {
+                    this.sessionApi.queueSave(finalSessionId, blankSession);
+                    console.log('空白会话已加入保存队列，将延迟重试');
+                } catch (queueError) {
+                    console.warn('空白会话加入保存队列也失败:', queueError.message);
+                }
             }
         }
         
@@ -1933,7 +1987,7 @@ class PetManager {
             saveCurrent: true, // 保存当前会话
             updateConsistency: false, // 空白会话不需要更新页面一致性
             updateUI: true, // 更新UI
-            syncToBackend: false, // 已通过队列同步，不再立即同步
+            syncToBackend: false, // 已立即同步，不再重复同步
             skipBackendFetch: true // 跳过从后端获取数据（避免404）
         });
         
@@ -2924,53 +2978,43 @@ class PetManager {
             // 使用API管理器
             if (this.sessionApi) {
                 if (immediate) {
-                    // 对于空白会话（URL为空或以blank-session://开头），使用队列保存而不是立即保存，避免404错误
-                    const isBlankSession = !sessionData.url || 
-                                         sessionData.url === '' || 
-                                         sessionData.url.startsWith('blank-session://');
-                    if (isBlankSession) {
-                        console.log('空白会话使用队列保存（避免立即请求导致404）:', sessionId);
-                        this.sessionApi.queueSave(sessionId, sessionData);
-                        console.log(`空白会话 ${sessionId} 已加入保存队列`);
-                    } else {
-                        // 立即保存（非空白会话）
-                        try {
-                            const result = await this.sessionApi.saveSession(sessionData);
-                            
-                            // 如果返回了完整的会话数据，更新本地会话数据
-                            if (result?.data?.session) {
-                                const updatedSession = result.data.session;
-                                if (this.sessions[sessionId]) {
-                                    // 更新本地会话数据，但保留本地的 messages（可能包含未同步的最新消息）
-                                    this.sessions[sessionId] = {
-                                        ...updatedSession,
-                                        // 如果本地消息更新，保留本地消息
-                                        messages: this.sessions[sessionId].messages?.length > updatedSession.messages?.length
-                                            ? this.sessions[sessionId].messages
-                                            : updatedSession.messages
-                                    };
-                                }
+                    // 立即保存（包括空白会话，创建新会话时需要立即发送请求）
+                    try {
+                        const result = await this.sessionApi.saveSession(sessionData);
+                        
+                        // 如果返回了完整的会话数据，更新本地会话数据
+                        if (result?.data?.session) {
+                            const updatedSession = result.data.session;
+                            if (this.sessions[sessionId]) {
+                                // 更新本地会话数据，但保留本地的 messages（可能包含未同步的最新消息）
+                                this.sessions[sessionId] = {
+                                    ...updatedSession,
+                                    // 如果本地消息更新，保留本地消息
+                                    messages: this.sessions[sessionId].messages?.length > updatedSession.messages?.length
+                                        ? this.sessions[sessionId].messages
+                                        : updatedSession.messages
+                                };
                             }
-                            
-                            // 清除列表缓存，强制下次刷新时从接口获取最新数据
-                            this.lastSessionListLoadTime = 0;
-                            
-                            console.log(`会话 ${sessionId} 已立即同步到后端`);
-                        } catch (error) {
-                            // 如果立即保存失败，降级为队列保存
-                            const is404 = error.message && (
-                                error.message.includes('404') || 
-                                error.message.includes('Not Found') ||
-                                error.status === 404 ||
-                                error.response?.status === 404
-                            );
-                            
-                            if (is404) {
-                                console.log('立即保存失败（404），降级为队列保存:', sessionId);
-                                this.sessionApi.queueSave(sessionId, sessionData);
-                            } else {
-                                throw error; // 重新抛出非404错误
-                            }
+                        }
+                        
+                        // 清除列表缓存，强制下次刷新时从接口获取最新数据
+                        this.lastSessionListLoadTime = 0;
+                        
+                        console.log(`会话 ${sessionId} 已立即同步到后端`);
+                    } catch (error) {
+                        // 如果立即保存失败，降级为队列保存
+                        const is404 = error.message && (
+                            error.message.includes('404') || 
+                            error.message.includes('Not Found') ||
+                            error.status === 404 ||
+                            error.response?.status === 404
+                        );
+                        
+                        if (is404) {
+                            console.log('立即保存失败（404），降级为队列保存:', sessionId);
+                            this.sessionApi.queueSave(sessionId, sessionData);
+                        } else {
+                            throw error; // 重新抛出非404错误
                         }
                     }
                 } else {
@@ -3168,9 +3212,14 @@ class PetManager {
             }
         }
         
-        // 同步更新页面信息（只有在URL匹配时才更新，确保数据隔离）
+        // 检查是否为空白会话（不应该更新页面信息）
+        const isBlankSession = session._isBlankSession || 
+                              !session.url || 
+                              session.url.startsWith('blank-session://');
+        
+        // 同步更新页面信息（只有在URL匹配且不是空白会话时才更新，确保数据隔离）
         // 当用户切换到不同URL的会话时，不会影响那个会话的页面信息
-        if (isUrlMatched) {
+        if (isUrlMatched && !isBlankSession) {
             const pageInfoChanged = (
                 session.url !== pageInfo.url ||
                 session.pageTitle !== pageInfo.title ||
@@ -3178,7 +3227,7 @@ class PetManager {
                 (!session.pageContent || session.pageContent.trim() === '')
             );
             
-            // 只有在URL匹配时，才更新页面信息（确保会话信息完整且隔离）
+            // 只有在URL匹配且不是空白会话时，才更新页面信息（确保会话信息完整且隔离）
             if (pageInfoChanged) {
                 if (session.url !== pageInfo.url) {
                     session.url = pageInfo.url;
@@ -3193,6 +3242,7 @@ class PetManager {
                     hasActualChanges = true;
                 }
                 // 如果 pageContent 缺失，则补充（保留原始快照，但确保信息完整）
+                // 注意：空白会话不应该填充页面内容
                 if (!session.pageContent || session.pageContent.trim() === '') {
                     session.pageContent = pageInfo.content || '';
                     hasActualChanges = true;
@@ -3204,6 +3254,9 @@ class PetManager {
                     session.updatedAt = Date.now();
                 }
             }
+        } else if (isBlankSession) {
+            // 空白会话：只更新最后访问时间，不更新页面信息
+            console.log(`保存空白会话 ${this.currentSessionId}：跳过页面信息更新`);
         } else {
             // URL不匹配时，只记录日志，不更新页面信息（保持数据隔离）
             console.log(`保存会话 ${this.currentSessionId}：URL不匹配，不更新页面信息。会话URL: ${session.url}, 当前页面URL: ${pageInfo.url}`);

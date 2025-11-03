@@ -3714,10 +3714,11 @@ class PetManager {
                 sessionItem.classList.add('active');
             }
             
-            // 截断过长的标题
-            const displayTitle = session.pageTitle && session.pageTitle.length > 20 
-                ? session.pageTitle.substring(0, 20) + '...' 
-                : (session.pageTitle || session.id || '未命名会话');
+            // 获取完整标题和显示标题
+            const fullTitle = session.pageTitle || session.id || '未命名会话';
+            const displayTitle = fullTitle.length > 20 
+                ? fullTitle.substring(0, 20) + '...' 
+                : fullTitle;
             
             // 创建内容容器
             const contentWrapper = document.createElement('div');
@@ -3732,7 +3733,46 @@ class PetManager {
             
             const metaDiv = document.createElement('div');
             metaDiv.className = 'session-meta';
-            metaDiv.textContent = this.formatSessionTime(session.updatedAt);
+            metaDiv.style.cssText = `
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+            `;
+            
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'session-time';
+            timeSpan.textContent = this.formatSessionTime(session.updatedAt);
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'session-edit-btn';
+            editBtn.innerHTML = '✏️';
+            editBtn.title = '编辑标题';
+            editBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+            `;
+            
+            editBtn.addEventListener('mouseenter', () => {
+                editBtn.style.opacity = '1';
+            });
+            editBtn.addEventListener('mouseleave', () => {
+                editBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止编辑按钮点击事件冒泡到 sessionItem
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.editSessionTitle(session.id);
+            });
+            
+            metaDiv.appendChild(timeSpan);
+            metaDiv.appendChild(editBtn);
             
             contentWrapper.appendChild(titleDiv);
             contentWrapper.appendChild(metaDiv);
@@ -4229,6 +4269,54 @@ class PetManager {
         if (hours < 24) return `${hours}小时前`;
         if (days < 7) return `${days}天前`;
         return new Date(timestamp).toLocaleDateString('zh-CN');
+    }
+
+    // 编辑会话标题
+    async editSessionTitle(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法编辑标题:', sessionId);
+            return;
+        }
+
+        const session = this.sessions[sessionId];
+        const originalTitle = session.pageTitle || '未命名会话';
+        
+        // 使用 prompt 获取用户输入
+        const newTitle = prompt('请输入新的会话标题:', originalTitle);
+        
+        // 如果用户取消或输入为空，不进行更新
+        if (newTitle === null || newTitle.trim() === '') {
+            return;
+        }
+        
+        const trimmedTitle = newTitle.trim();
+        
+        // 如果标题没有变化，不需要更新
+        if (trimmedTitle === originalTitle) {
+            return;
+        }
+        
+        try {
+            // 更新会话标题
+            session.pageTitle = trimmedTitle;
+            session.updatedAt = Date.now();
+            
+            // 保存会话到本地
+            await this.saveAllSessions(false, true);
+            
+            // 更新UI显示
+            await this.updateSessionSidebar(true);
+            
+            // 如果这是当前会话，同时更新聊天窗口标题
+            if (sessionId === this.currentSessionId) {
+                this.updateChatHeaderTitle();
+            }
+            
+            console.log('会话标题已更新:', trimmedTitle);
+        } catch (error) {
+            console.error('更新会话标题失败:', error);
+            alert('更新标题失败，请重试');
+        }
     }
 
     // 确保上下文编辑器 UI 存在

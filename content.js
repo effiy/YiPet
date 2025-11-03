@@ -11767,7 +11767,219 @@ ${pageContent || '无内容'}
         container.style.gap = '8px';
     }
 
-    // 为宠物消息添加 try again 按钮
+    /**
+     * 查找与宠物消息对应的用户消息
+     * @param {HTMLElement} messageDiv - 宠物消息元素
+     * @param {HTMLElement} messagesContainer - 消息容器
+     * @returns {string|null} 用户消息文本，如果未找到则返回 null
+     */
+    _findUserMessageForRetry(messageDiv, messagesContainer) {
+        const allMessages = Array.from(messagesContainer.children);
+        const currentIndex = allMessages.indexOf(messageDiv);
+        
+        if (currentIndex === -1) {
+            throw new Error('当前消息不在消息容器中');
+        }
+        
+        // 向前遍历所有消息，找到最近的用户消息
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            const messageElement = allMessages[i];
+            const userBubble = messageElement.querySelector('[data-message-type="user-bubble"]');
+            
+            if (userBubble) {
+                // 优先使用 data-original-text，如果没有则使用文本内容
+                const userMessageText = userBubble.getAttribute('data-original-text') || 
+                                       userBubble.textContent || 
+                                       userBubble.innerText;
+                
+                if (userMessageText && userMessageText.trim()) {
+                    return userMessageText.trim();
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 获取等待图标（从欢迎动作按钮中获取）
+     * @returns {string} 等待图标
+     */
+    _getWaitingIcon() {
+        if (this.chatWindow) {
+            const welcomeActions = this.chatWindow.querySelector('#pet-welcome-actions');
+            if (welcomeActions) {
+                const firstButton = welcomeActions.querySelector('[data-action-key]');
+                if (firstButton && firstButton.innerHTML) {
+                    return firstButton.innerHTML.trim();
+                }
+            }
+        }
+        return '⏳'; // 默认图标
+    }
+
+    /**
+     * 更新重新生成按钮的状态
+     * @param {HTMLElement} button - 按钮元素
+     * @param {string} state - 状态: 'idle' | 'loading' | 'success' | 'error'
+     */
+    _updateTryAgainButtonState(button, state) {
+        const states = {
+            idle: {
+                icon: '🔄',
+                opacity: '0.7',
+                cursor: 'pointer',
+                color: ''
+            },
+            loading: {
+                icon: this._getWaitingIcon(),
+                opacity: '0.6',
+                cursor: 'not-allowed',
+                color: ''
+            },
+            success: {
+                icon: '✓',
+                opacity: '0.7',
+                cursor: 'pointer',
+                color: '#4caf50'
+            },
+            error: {
+                icon: '✕',
+                opacity: '0.7',
+                cursor: 'pointer',
+                color: '#f44336'
+            }
+        };
+
+        const buttonState = states[state] || states.idle;
+        button.innerHTML = buttonState.icon;
+        button.style.opacity = buttonState.opacity;
+        button.style.cursor = buttonState.cursor;
+        button.style.color = buttonState.color;
+    }
+
+    /**
+     * 更新请求状态（loading/idle）
+     * @param {string} status - 状态: 'loading' | 'idle'
+     * @param {AbortController|null} abortController - 中止控制器
+     */
+    _updateRequestStatus(status, abortController = null) {
+        if (this.chatWindow) {
+            if (this.chatWindow._setAbortController) {
+                this.chatWindow._setAbortController(abortController);
+            }
+            if (this.chatWindow._updateRequestStatus) {
+                this.chatWindow._updateRequestStatus(status);
+            }
+        }
+    }
+
+    /**
+     * 创建流式内容更新回调
+     * @param {HTMLElement} messageBubble - 消息气泡元素
+     * @param {HTMLElement} messagesContainer - 消息容器
+     * @returns {Function} 内容更新回调函数
+     */
+    _createStreamContentCallback(messageBubble, messagesContainer) {
+        let fullContent = '';
+        
+        return (chunk, accumulatedContent) => {
+            fullContent = accumulatedContent;
+            messageBubble.innerHTML = this.renderMarkdown(fullContent);
+            messageBubble.setAttribute('data-original-text', fullContent);
+            
+            // 处理可能的 Mermaid 图表
+            if (messageBubble._mermaidTimeout) {
+                clearTimeout(messageBubble._mermaidTimeout);
+            }
+            messageBubble._mermaidTimeout = setTimeout(async () => {
+                await this.processMermaidBlocks(messageBubble);
+                messageBubble._mermaidTimeout = null;
+            }, 500);
+
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return fullContent;
+        };
+    }
+
+    /**
+     * 执行重新生成回复的核心逻辑
+     * @param {HTMLElement} messageDiv - 宠物消息元素
+     * @param {string} userMessageText - 用户消息文本
+     * @param {HTMLElement} messagesContainer - 消息容器
+     * @returns {Promise<string>} 生成的回复内容
+     */
+    async _retryGenerateResponse(messageDiv, userMessageText, messagesContainer) {
+        const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+        if (!messageBubble) {
+            throw new Error('未找到消息气泡');
+        }
+
+        const waitingIcon = this._getWaitingIcon();
+        messageBubble.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // 创建流式内容更新回调
+        const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer);
+
+        // 创建 AbortController 用于终止请求
+        const abortController = new AbortController();
+        this._updateRequestStatus('loading', abortController);
+        
+        try {
+            // 调用 API 重新生成
+            const reply = await this.generatePetResponseStream(userMessageText, onStreamContent, abortController);
+
+            // 确保最终内容被显示（流式更新可能已经完成，但再次确认）
+            if (reply && reply.trim()) {
+                messageBubble.innerHTML = this.renderMarkdown(reply);
+                messageBubble.setAttribute('data-original-text', reply);
+                setTimeout(async () => {
+                    await this.processMermaidBlocks(messageBubble);
+                }, 100);
+            }
+
+            // 更新复制按钮
+            const copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]');
+            if (copyButtonContainer && reply && reply.trim()) {
+                this.addCopyButton(copyButtonContainer, messageBubble);
+            }
+
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            return reply;
+        } finally {
+            this._updateRequestStatus('idle', null);
+        }
+    }
+
+    /**
+     * 处理重新生成失败的情况
+     * @param {HTMLElement} messageDiv - 宠物消息元素
+     * @param {Error} error - 错误对象
+     */
+    _handleRetryError(messageDiv, error) {
+        const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+        
+        if (!isAbortError) {
+            console.error('重新生成回复失败:', error);
+            
+            const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+            if (messageBubble) {
+                const originalText = messageBubble.getAttribute('data-original-text') || 
+                                   '抱歉，重新生成失败，请稍后重试。';
+                messageBubble.innerHTML = this.renderMarkdown(originalText);
+            }
+        }
+        
+        return isAbortError;
+    }
+
+    /**
+     * 为宠物消息添加重新生成按钮
+     * @param {HTMLElement} container - 按钮容器
+     * @param {HTMLElement} messageDiv - 宠物消息元素
+     */
     addTryAgainButton(container, messageDiv) {
         // 如果已经添加过，就不再添加
         if (container.querySelector('.try-again-button')) {
@@ -11784,11 +11996,11 @@ ${pageContent || '无内容'}
             return;
         }
 
-        // 创建 try again 按钮
+        // 创建重新生成按钮
         const tryAgainButton = document.createElement('button');
         tryAgainButton.className = 'try-again-button';
-        tryAgainButton.innerHTML = '🔄';
         tryAgainButton.setAttribute('title', '重新生成回复');
+        tryAgainButton.setAttribute('aria-label', '重新生成回复');
         tryAgainButton.style.cssText = `
             background: transparent !important;
             border: none !important;
@@ -11796,214 +12008,91 @@ ${pageContent || '无内容'}
             font-size: 16px !important;
             padding: 4px 8px !important;
             opacity: 0.7 !important;
-            transition: opacity 0.2s ease !important;
+            transition: opacity 0.2s ease, color 0.2s ease !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
         `;
 
+        // 初始化按钮状态
+        this._updateTryAgainButtonState(tryAgainButton, 'idle');
+
         // 悬停效果
         tryAgainButton.addEventListener('mouseenter', () => {
-            tryAgainButton.style.opacity = '1';
+            if (!tryAgainButton.hasAttribute('data-retrying')) {
+                tryAgainButton.style.opacity = '1';
+            }
         });
         tryAgainButton.addEventListener('mouseleave', () => {
-            tryAgainButton.style.opacity = '0.7';
+            if (!tryAgainButton.hasAttribute('data-retrying')) {
+                tryAgainButton.style.opacity = '0.7';
+            }
         });
 
         // 点击重新生成
-        let isRetrying = false;
         tryAgainButton.addEventListener('click', async (e) => {
             e.stopPropagation();
 
-            if (isRetrying) return;
-            isRetrying = true;
-            
-            // 获取第一个聊天下面第一个按钮的图标作为等待图标
-            let waitingIcon = '⏳'; // 默认图标
-            if (this.chatWindow) {
-                const welcomeActions = this.chatWindow.querySelector('#pet-welcome-actions');
-                if (welcomeActions) {
-                    const firstButton = welcomeActions.querySelector('[data-action-key]');
-                    if (firstButton && firstButton.innerHTML) {
-                        waitingIcon = firstButton.innerHTML.trim();
-                    }
-                }
+            // 防止重复点击
+            if (tryAgainButton.hasAttribute('data-retrying')) {
+                return;
             }
-            
-            tryAgainButton.innerHTML = waitingIcon;
-            tryAgainButton.style.opacity = '0.6';
-            tryAgainButton.style.cursor = 'not-allowed';
+
+            tryAgainButton.setAttribute('data-retrying', 'true');
+            this._updateTryAgainButtonState(tryAgainButton, 'loading');
 
             try {
-                // 找到对应的用户消息（当前宠物消息之前的上一条用户消息）
-                let userMessageText = '';
-                
-                // 获取消息容器中所有的消息元素
-                const allMessages = Array.from(messagesContainer.children);
-                
-                // 找到当前宠物消息的索引
-                const currentIndex = allMessages.indexOf(messageDiv);
-                
-                if (currentIndex === -1) {
-                    throw new Error('当前消息不在消息容器中');
-                }
-                
-                // 向前遍历所有消息，找到最近的用户消息
-                for (let i = currentIndex - 1; i >= 0; i--) {
-                    const messageElement = allMessages[i];
-                    const userBubble = messageElement.querySelector('[data-message-type="user-bubble"]');
-                    if (userBubble) {
-                        // 优先使用 data-original-text，如果没有则使用文本内容
-                        userMessageText = userBubble.getAttribute('data-original-text');
-                        if (!userMessageText) {
-                            // 如果没有保存原始文本，尝试从文本内容获取
-                            userMessageText = userBubble.textContent || userBubble.innerText;
-                        }
-                        break;
-                    }
-                }
+                // 查找对应的用户消息
+                const userMessageText = this._findUserMessageForRetry(messageDiv, messagesContainer);
 
-                if (!userMessageText || !userMessageText.trim()) {
+                if (!userMessageText) {
                     // 如果找不到用户消息，可能是通过按钮触发的操作
-                    // 尝试从消息本身获取信息，或者显示友好的错误提示
                     console.warn('未找到对应的用户消息，无法重新生成回复');
                     
-                    // 恢复按钮状态
-                    tryAgainButton.innerHTML = '🔄';
-                    tryAgainButton.style.opacity = '0.7';
-                    tryAgainButton.style.cursor = 'pointer';
-                    isRetrying = false;
-                    
-                    // 显示提示信息
                     const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
                     if (messageBubble) {
-                        const originalText = messageBubble.getAttribute('data-original-text') || messageBubble.textContent;
-                        messageBubble.innerHTML = this.renderMarkdown(`${originalText}\n\n💡 提示：此消息可能是通过按钮操作生成的，无法重新生成。`);
+                        const originalText = messageBubble.getAttribute('data-original-text') || 
+                                           messageBubble.textContent ||
+                                           '此消息无法重新生成';
+                        messageBubble.innerHTML = this.renderMarkdown(
+                            `${originalText}\n\n💡 **提示**：此消息可能是通过按钮操作生成的，无法重新生成。`
+                        );
                     }
                     
+                    this._updateTryAgainButtonState(tryAgainButton, 'idle');
+                    tryAgainButton.removeAttribute('data-retrying');
                     return;
                 }
 
-                // 获取消息气泡元素
-                const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
-                if (!messageBubble) {
-                    throw new Error('未找到消息气泡');
-                }
+                // 执行重新生成
+                await this._retryGenerateResponse(messageDiv, userMessageText, messagesContainer);
 
-                // 显示加载状态（使用与等待按钮相同的图标）
-                messageBubble.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-                // 重新生成回复
-                let fullContent = '';
-                const onStreamContent = (chunk, accumulatedContent) => {
-                    fullContent = accumulatedContent;
-                    messageBubble.innerHTML = this.renderMarkdown(fullContent);
-                    messageBubble.setAttribute('data-original-text', fullContent);
-                    
-                    // 处理可能的 Mermaid 图表
-                    if (messageBubble._mermaidTimeout) {
-                        clearTimeout(messageBubble._mermaidTimeout);
-                    }
-                    messageBubble._mermaidTimeout = setTimeout(async () => {
-                        await this.processMermaidBlocks(messageBubble);
-                        messageBubble._mermaidTimeout = null;
-                    }, 500);
-
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                };
-
-                // 创建 AbortController 用于终止请求（使用统一的 currentAbortController）
-                const abortController = new AbortController();
-                if (this.chatWindow && this.chatWindow._setAbortController) {
-                    this.chatWindow._setAbortController(abortController);
-                }
-                if (this.chatWindow && this.chatWindow._updateRequestStatus) {
-                    this.chatWindow._updateRequestStatus('loading');
-                }
+                // 显示成功状态
+                this._updateTryAgainButtonState(tryAgainButton, 'success');
                 
-                // 调用 API 重新生成
-                const reply = await this.generatePetResponseStream(userMessageText, onStreamContent, abortController);
-
-                // 确保最终内容被显示
-                if (fullContent !== reply) {
-                    messageBubble.innerHTML = this.renderMarkdown(reply);
-                    messageBubble.setAttribute('data-original-text', reply);
-                    setTimeout(async () => {
-                        await this.processMermaidBlocks(messageBubble);
-                    }, 100);
-                }
-
-                // 更新复制按钮
-                const copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]');
-                if (copyButtonContainer && reply && reply.trim()) {
-                    this.addCopyButton(copyButtonContainer, messageBubble);
-                }
-
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-                // 更新状态为空闲
-                if (this.chatWindow && this.chatWindow._setAbortController) {
-                    this.chatWindow._setAbortController(null);
-                }
-                if (this.chatWindow && this.chatWindow._updateRequestStatus) {
-                    this.chatWindow._updateRequestStatus('idle');
-                }
-
-                // 恢复按钮状态
-                tryAgainButton.innerHTML = '✓';
-                tryAgainButton.style.color = '#4caf50';
-                
+                // 1.5秒后恢复为初始状态
                 setTimeout(() => {
-                    tryAgainButton.innerHTML = '🔄';
-                    tryAgainButton.style.color = '';
-                    tryAgainButton.style.opacity = '0.7';
-                    tryAgainButton.style.cursor = 'pointer';
-                    isRetrying = false;
+                    this._updateTryAgainButtonState(tryAgainButton, 'idle');
+                    tryAgainButton.removeAttribute('data-retrying');
                 }, 1500);
 
             } catch (error) {
-                // 检查是否是取消错误
-                const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+                // 处理错误
+                const isAbortError = this._handleRetryError(messageDiv, error);
                 
                 if (!isAbortError) {
-                    console.error('重新生成回复失败:', error);
-                }
-                
-                // 更新状态为空闲
-                if (this.chatWindow && this.chatWindow._setAbortController) {
-                    this.chatWindow._setAbortController(null);
-                }
-                if (this.chatWindow && this.chatWindow._updateRequestStatus) {
-                    this.chatWindow._updateRequestStatus('idle');
-                }
-                
-                // 显示错误信息（取消时不显示错误）
-                if (!isAbortError) {
-                    const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
-                    if (messageBubble) {
-                        const originalText = messageBubble.getAttribute('data-original-text') || '抱歉，重新生成失败。';
-                        messageBubble.innerHTML = this.renderMarkdown(originalText);
-                    }
-
-                    // 恢复按钮状态
-                    tryAgainButton.innerHTML = '✕';
-                    tryAgainButton.style.color = '#f44336';
+                    // 显示错误状态
+                    this._updateTryAgainButtonState(tryAgainButton, 'error');
                     
+                    // 1.5秒后恢复为初始状态
                     setTimeout(() => {
-                        tryAgainButton.innerHTML = '🔄';
-                        tryAgainButton.style.color = '';
-                        tryAgainButton.style.opacity = '0.7';
-                        tryAgainButton.style.cursor = 'pointer';
-                        isRetrying = false;
+                        this._updateTryAgainButtonState(tryAgainButton, 'idle');
+                        tryAgainButton.removeAttribute('data-retrying');
                     }, 1500);
                 } else {
-                    // 请求被取消，恢复按钮状态
-                    tryAgainButton.innerHTML = '🔄';
-                    tryAgainButton.style.color = '';
-                    tryAgainButton.style.opacity = '0.7';
-                    tryAgainButton.style.cursor = 'pointer';
-                    isRetrying = false;
+                    // 请求被取消，直接恢复状态
+                    this._updateTryAgainButtonState(tryAgainButton, 'idle');
+                    tryAgainButton.removeAttribute('data-retrying');
                 }
             }
         });
@@ -12012,7 +12101,7 @@ ${pageContent || '无内容'}
         container.style.display = 'flex';
         container.style.gap = '8px';
         
-        // 如果容器之前是隐藏的，现在显示它
+        // 确保容器可见
         if (container.style.display === 'none') {
             container.style.display = 'flex';
         }
@@ -12099,8 +12188,229 @@ ${pageContent || '无内容'}
             }
         });
 
+        // 创建重新发送按钮
+        const resendButton = document.createElement('button');
+        resendButton.className = 'resend-button';
+        resendButton.innerHTML = '📤';
+        resendButton.setAttribute('title', '重新发送 prompt 请求');
+
+        // 设置按钮样式（与 try again 按钮保持一致）
+        resendButton.style.cssText = `
+            background: transparent !important;
+            border: none !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            padding: 4px 8px !important;
+            opacity: 0.7 !important;
+            transition: opacity 0.2s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif !important;
+            line-height: 1 !important;
+            min-width: 24px !important;
+            min-height: 24px !important;
+        `;
+
+        // 悬停效果
+        resendButton.addEventListener('mouseenter', () => {
+            resendButton.style.opacity = '1';
+        });
+        resendButton.addEventListener('mouseleave', () => {
+            resendButton.style.opacity = '0.7';
+        });
+
+        // 点击重新发送
+        let isResending = false;
+        resendButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            if (isResending) return;
+            isResending = true;
+
+            try {
+                // 获取用户消息的原始文本
+                let userMessageText = messageTextElement.getAttribute('data-original-text');
+                if (!userMessageText) {
+                    userMessageText = messageTextElement.textContent || messageTextElement.innerText || '';
+                }
+
+                if (!userMessageText || !userMessageText.trim()) {
+                    console.warn('无法获取用户消息内容');
+                    isResending = false;
+                    return;
+                }
+
+                // 获取消息容器
+                const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                if (!messagesContainer) {
+                    console.warn('无法找到消息容器');
+                    isResending = false;
+                    return;
+                }
+
+                // 找到当前用户消息元素
+                let currentMessage = container.parentElement;
+                while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
+                    currentMessage = currentMessage.parentElement;
+                }
+
+                if (!currentMessage) {
+                    console.warn('无法找到当前消息元素');
+                    isResending = false;
+                    return;
+                }
+
+                // 更新按钮状态
+                resendButton.innerHTML = '⏳';
+                resendButton.style.opacity = '0.6';
+                resendButton.style.cursor = 'not-allowed';
+                resendButton.style.color = '';
+
+                // 创建打字指示器
+                const typingIndicator = this.createTypingIndicator();
+                
+                // 在当前用户消息之后插入打字指示器
+                if (currentMessage.nextSibling) {
+                    messagesContainer.insertBefore(typingIndicator, currentMessage.nextSibling);
+                } else {
+                    messagesContainer.appendChild(typingIndicator);
+                }
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                // 生成回复
+                let fullContent = '';
+                const messageBubble = typingIndicator.querySelector('[data-message-type="pet-bubble"]');
+                
+                const onStreamContent = (chunk, accumulatedContent) => {
+                    fullContent = accumulatedContent;
+                    if (messageBubble) {
+                        messageBubble.innerHTML = this.renderMarkdown(fullContent);
+                        messageBubble.setAttribute('data-original-text', fullContent);
+                        
+                        // 处理可能的 Mermaid 图表
+                        if (messageBubble._mermaidTimeout) {
+                            clearTimeout(messageBubble._mermaidTimeout);
+                        }
+                        messageBubble._mermaidTimeout = setTimeout(async () => {
+                            await this.processMermaidBlocks(messageBubble);
+                            messageBubble._mermaidTimeout = null;
+                        }, 500);
+
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                };
+
+                // 创建 AbortController 用于终止请求
+                const abortController = new AbortController();
+                if (this.chatWindow && this.chatWindow._setAbortController) {
+                    this.chatWindow._setAbortController(abortController);
+                }
+                if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                    this.chatWindow._updateRequestStatus('loading');
+                }
+
+                // 调用 API 生成回复
+                const reply = await this.generatePetResponseStream(userMessageText.trim(), onStreamContent, abortController);
+
+                // 移除打字指示器，创建正式的消息元素
+                typingIndicator.remove();
+
+                // 创建正式的宠物消息
+                const petMessage = this.createMessageElement(reply, 'pet');
+                if (currentMessage.nextSibling) {
+                    messagesContainer.insertBefore(petMessage, currentMessage.nextSibling);
+                } else {
+                    messagesContainer.appendChild(petMessage);
+                }
+
+                // 确保最终内容被显示
+                const finalMessageBubble = petMessage.querySelector('[data-message-type="pet-bubble"]');
+                if (finalMessageBubble && fullContent !== reply) {
+                    finalMessageBubble.innerHTML = this.renderMarkdown(reply);
+                    finalMessageBubble.setAttribute('data-original-text', reply);
+                    setTimeout(async () => {
+                        await this.processMermaidBlocks(finalMessageBubble);
+                    }, 100);
+                }
+
+                // 添加复制按钮等操作按钮
+                const copyButtonContainer = petMessage.querySelector('[data-copy-button-container]');
+                if (copyButtonContainer && reply && reply.trim()) {
+                    this.addCopyButton(copyButtonContainer, finalMessageBubble);
+                }
+
+                // 添加重试按钮
+                const tryAgainButtonContainer = petMessage.querySelector('[data-try-again-button-container]');
+                if (tryAgainButtonContainer) {
+                    this.addTryAgainButton(tryAgainButtonContainer, petMessage);
+                }
+
+                // 添加消息到会话
+                if (this.currentSessionId && reply && reply.trim()) {
+                    await this.addMessageToSession('pet', reply, null, true);
+                    
+                    // 调用 session/save 保存会话到后端
+                    if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                        await this.syncSessionToBackend(this.currentSessionId, true);
+                    }
+                }
+
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                // 更新状态为空闲
+                if (this.chatWindow && this.chatWindow._setAbortController) {
+                    this.chatWindow._setAbortController(null);
+                }
+                if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                    this.chatWindow._updateRequestStatus('idle');
+                }
+
+                // 恢复按钮状态
+                resendButton.innerHTML = '✓';
+                resendButton.style.color = '#4caf50';
+                
+                setTimeout(() => {
+                    resendButton.innerHTML = '📤';
+                    resendButton.style.color = '';
+                    resendButton.style.opacity = '0.7';
+                    resendButton.style.cursor = 'pointer';
+                    isResending = false;
+                }, 1500);
+
+            } catch (error) {
+                // 检查是否是取消错误
+                const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+                
+                if (!isAbortError) {
+                    console.error('重新发送 prompt 请求失败:', error);
+                }
+
+                // 更新状态为空闲
+                if (this.chatWindow && this.chatWindow._setAbortController) {
+                    this.chatWindow._setAbortController(null);
+                }
+                if (this.chatWindow && this.chatWindow._updateRequestStatus) {
+                    this.chatWindow._updateRequestStatus('idle');
+                }
+
+                // 恢复按钮状态
+                resendButton.innerHTML = '✕';
+                resendButton.style.color = '#f44336';
+                
+                setTimeout(() => {
+                    resendButton.innerHTML = '📤';
+                    resendButton.style.color = '';
+                    resendButton.style.opacity = '0.7';
+                    resendButton.style.cursor = 'pointer';
+                    isResending = false;
+                }, 1500);
+            }
+        });
+
         container.innerHTML = '';
         container.appendChild(editButton);
+        container.appendChild(resendButton);
         container.appendChild(deleteButton);
         container.style.display = 'flex';
         container.style.gap = '8px';

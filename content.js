@@ -1114,11 +1114,11 @@ class PetManager {
                         const dataStr = message.substring(6);
                         const chunk = JSON.parse(dataStr);
 
-                        // 处理后端返回的上下文信息（Mem0 和 Qdrant 检索结果）
+                        // 处理后端返回的上下文信息
                         if (chunk.type === 'context_info') {
                             const contextData = chunk.data || {};
-                            if (contextData.memories_count > 0 || contextData.chats_count > 0) {
-                                console.log(`检索到 ${contextData.memories_count} 条记忆和 ${contextData.chats_count} 条聊天记录`);
+                            if (contextData.chats_count > 0) {
+                                console.log(`检索到 ${contextData.chats_count} 条聊天记录`);
                             }
                         }
                         // 处理后端返回的聊天保存成功事件，同步会话 ID
@@ -1151,19 +1151,11 @@ class PetManager {
                         else if (chunk.done === true) {
                             console.log('流式响应完成');
                         }
-                        // 处理错误
+                            // 处理错误
                         else if (chunk.type === 'error' || chunk.error) {
                             const errorMsg = chunk.data || chunk.error || '未知错误';
-                            // 检查是否是 Mem0 连接错误
-                            if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
-                                errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
-                                // Mem0 连接错误，记录警告但不中断请求，允许继续处理（只是不使用记忆功能）
-                                console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
-                                // 不抛出错误，允许流式响应继续
-                            } else {
-                                console.error('流式响应错误:', errorMsg);
-                                throw new Error(errorMsg);
-                            }
+                            console.error('流式响应错误:', errorMsg);
+                            throw new Error(errorMsg);
                         }
                     } catch (e) {
                         console.warn('解析 SSE 消息失败:', message, e);
@@ -1180,18 +1172,10 @@ class PetManager {
                     const chunk = JSON.parse(message.substring(6));
                     if (chunk.done === true || chunk.type === 'done') {
                         console.log('流式响应完成');
-                    } else if (chunk.type === 'error' || chunk.error) {
-                        const errorMsg = chunk.data || chunk.error || '未知错误';
-                        // 检查是否是 Mem0 连接错误
-                        if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
-                            errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
-                            // Mem0 连接错误，记录警告但不中断请求
-                            console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
-                            // 不抛出错误，允许继续处理
-                        } else {
+                        } else if (chunk.type === 'error' || chunk.error) {
+                            const errorMsg = chunk.data || chunk.error || '未知错误';
                             throw new Error(errorMsg);
                         }
-                    }
                 } catch (e) {
                     console.warn('解析最后的 SSE 消息失败:', message, e);
                 }
@@ -1207,8 +1191,6 @@ class PetManager {
             fromSystem: fromSystem || '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
             fromUser: fromUser,
             save_chat: options.save_chat !== false, // 默认保存聊天记录
-            use_memory: options.use_memory !== false, // 默认使用 Mem0
-            use_vector_search: options.use_vector_search !== false, // 默认使用 Qdrant
         };
         
         // 添加模型名称（如果提供）
@@ -1229,12 +1211,6 @@ class PetManager {
         }
         
         // 添加其他选项
-        if (options.memory_limit !== undefined) {
-            payload.memory_limit = options.memory_limit;
-        }
-        if (options.vector_search_limit !== undefined) {
-            payload.vector_search_limit = options.vector_search_limit;
-        }
         if (options.images !== undefined) {
             payload.images = options.images;
         }
@@ -1347,11 +1323,11 @@ class PetManager {
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
 
-                            // 处理后端返回的上下文信息（Mem0 和 Qdrant 检索结果）
+                            // 处理后端返回的上下文信息
                             if (chunk.type === 'context_info') {
                                 const contextData = chunk.data || {};
-                                if (contextData.memories_count > 0 || contextData.chats_count > 0) {
-                                    console.log(`检索到 ${contextData.memories_count} 条记忆和 ${contextData.chats_count} 条聊天记录`);
+                                if (contextData.chats_count > 0) {
+                                    console.log(`检索到 ${contextData.chats_count} 条聊天记录`);
                                 }
                             }
                             // 处理后端返回的聊天保存成功事件，同步会话 ID
@@ -1387,16 +1363,8 @@ class PetManager {
                             // 处理错误
                             else if (chunk.type === 'error' || chunk.error) {
                                 const errorMsg = chunk.data || chunk.error || '未知错误';
-                                // 检查是否是 Mem0 连接错误
-                                if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
-                                    errorMsg.includes('Connection error') || errorMsg.includes('记忆') && errorMsg.includes('失败')) {
-                                    // Mem0 连接错误，记录警告但不中断请求，允许继续处理（只是不使用记忆功能）
-                                    console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
-                                    // 不抛出错误，允许流式响应继续
-                                } else {
-                                    console.error('流式响应错误:', errorMsg);
-                                    throw new Error(errorMsg);
-                                }
+                                console.error('流式响应错误:', errorMsg);
+                                throw new Error(errorMsg);
                             }
                         } catch (e) {
                             console.warn('解析 SSE 消息失败:', message, e);
@@ -1415,15 +1383,7 @@ class PetManager {
                             console.log('流式响应完成');
                         } else if (chunk.type === 'error' || chunk.error) {
                             const errorMsg = chunk.data || chunk.error || '未知错误';
-                            // 检查是否是 Mem0 连接错误
-                            if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
-                                errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
-                                // Mem0 连接错误，记录警告但不中断请求
-                                console.warn('Mem0 记忆服务连接失败，将继续处理但无法使用记忆功能:', errorMsg);
-                                // 不抛出错误，允许继续处理
-                            } else {
-                                throw new Error(errorMsg);
-                            }
+                            throw new Error(errorMsg);
                         }
                     } catch (e) {
                         console.warn('解析最后的 SSE 消息失败:', message, e);
@@ -1436,15 +1396,6 @@ class PetManager {
             // 如果是中止错误，不记录为错误
             if (error.name === 'AbortError' || error.message === '请求已取消') {
                 console.log('请求已取消');
-                throw error;
-            }
-            // 检查是否是 Mem0 连接错误（从错误消息中提取）
-            const errorMsg = error.message || error.toString();
-            if (errorMsg.includes('mem0Client') || errorMsg.includes('搜索记忆失败') || 
-                errorMsg.includes('Connection error') || (errorMsg.includes('记忆') && errorMsg.includes('失败'))) {
-                // Mem0 连接错误，记录警告但允许继续（可以降级为不使用记忆功能）
-                console.warn('Mem0 记忆服务连接失败，继续处理（不使用记忆功能）:', errorMsg);
-                // 可以选择返回空内容或抛出错误，这里选择抛出错误以通知调用者
                 throw error;
             }
             console.error('API 调用失败:', error);

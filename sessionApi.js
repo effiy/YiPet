@@ -122,12 +122,10 @@ class SessionApiManager {
      * 获取会话列表（带缓存）
      * @param {Object} options - 查询选项
      * @param {boolean} options.forceRefresh - 强制刷新缓存
-     * @param {number} options.limit - 限制数量
-     * @param {number} options.skip - 跳过数量
      * @returns {Promise<Array>} 会话列表
      */
     async getSessionsList(options = {}) {
-        const { forceRefresh = false, limit = 50, skip = 0 } = options;
+        const { forceRefresh = false } = options;
         const now = Date.now();
         
         // 检查缓存
@@ -141,7 +139,7 @@ class SessionApiManager {
         this.stats.cacheMisses++;
         
         try {
-            const url = `${this.baseUrl}/session/?limit=${limit}&skip=${skip}`;
+            const url = `${this.baseUrl}/session/`;
             const result = await this._request(url, { method: 'GET' });
             
             if (result.success && Array.isArray(result.sessions)) {
@@ -475,4 +473,5 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionApiManager = SessionApiManager;
 }
+
 

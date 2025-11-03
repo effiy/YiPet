@@ -3479,7 +3479,8 @@ class PetManager {
         });
         
         // 创建会话列表项
-        for (const session of sortedSessions) {
+        for (let index = 0; index < sortedSessions.length; index++) {
+            const session = sortedSessions[index];
             if (!session || !session.id) continue;
             
             const sessionItem = document.createElement('div');
@@ -3504,7 +3505,7 @@ class PetManager {
             
             const titleDiv = document.createElement('div');
             titleDiv.className = 'session-title';
-            titleDiv.textContent = displayTitle;
+            titleDiv.textContent = `${index + 1}. ${displayTitle}`;
             
             const metaDiv = document.createElement('div');
             metaDiv.className = 'session-meta';

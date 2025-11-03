@@ -3297,7 +3297,9 @@ class PetManager {
                     continue;
                 }
                 
-                const msgEl = this.createMessageElement(msg.content, msg.type);
+                // 使用消息保存的时间戳（如果有）
+                const timestamp = msg.timestamp || null;
+                const msgEl = this.createMessageElement(msg.content, msg.type, null, timestamp);
                 fragment.appendChild(msgEl);
                 
                 // 如果是宠物消息，渲染 Markdown
@@ -8664,7 +8666,9 @@ ${pageContent || '无内容'}
         sessionList.style.cssText = `
             flex: 1 !important;
             overflow-y: auto !important;
-            padding: 8px !important;
+            padding: 8px 8px 40px 8px !important;
+            scroll-padding-bottom: 16px !important;
+            box-sizing: border-box !important;
         `;
 
         // 添加会话列表样式
@@ -8800,6 +8804,9 @@ ${pageContent || '无内容'}
                         background: ${mainColor}15 !important;
                         transform: scale(1) !important;
                     }
+                }
+                .session-list .session-item:last-child {
+                    margin-bottom: 0 !important;
                 }
             `;
             document.head.appendChild(style);
@@ -11213,7 +11220,7 @@ ${pageContent || '无内容'}
     }
 
     // 创建消息元素
-    createMessageElement(text, sender, imageDataUrl = null) {
+    createMessageElement(text, sender, imageDataUrl = null, timestamp = null) {
         const messageDiv = document.createElement('div');
         messageDiv.style.cssText = `
             display: flex !important;
@@ -11374,7 +11381,8 @@ ${pageContent || '无内容'}
             color: #999 !important;
             margin-top: 4px !important;
         `;
-        messageTime.textContent = this.getCurrentTime();
+        // 如果有时间戳，使用时间戳；否则使用当前时间
+        messageTime.textContent = timestamp ? this.formatTimestamp(timestamp) : this.getCurrentTime();
 
         content.appendChild(messageText);
 
@@ -12419,10 +12427,18 @@ ${pageContent || '无内容'}
 
     getCurrentTime() {
         const now = new Date();
-        return now.toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return this.formatTimestamp(now.getTime());
+    }
+
+    // 格式化时间戳为年月日时分格式
+    formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        return `${year}年${month}月${day}日 ${hour}:${minute}`;
     }
 
     // 添加聊天滚动条样式
@@ -13805,6 +13821,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

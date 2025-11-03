@@ -1172,13 +1172,27 @@ class PetManager {
                     const chunk = JSON.parse(message.substring(6));
                     if (chunk.done === true || chunk.type === 'done') {
                         console.log('流式响应完成');
-                        } else if (chunk.type === 'error' || chunk.error) {
-                            const errorMsg = chunk.data || chunk.error || '未知错误';
-                            throw new Error(errorMsg);
-                        }
+                    } else if (chunk.type === 'error' || chunk.error) {
+                        const errorMsg = chunk.data || chunk.error || '未知错误';
+                        throw new Error(errorMsg);
+                    }
                 } catch (e) {
                     console.warn('解析最后的 SSE 消息失败:', message, e);
                 }
+            }
+        }
+
+        // prompt 接口调用后触发 session/save
+        if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+            try {
+                // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
+                await this.saveCurrentSession(false, false);
+                
+                // 调用 session/save 接口保存会话
+                await this.syncSessionToBackend(this.currentSessionId, true);
+                console.log(`processStreamingResponse 完成后，会话 ${this.currentSessionId} 已保存到后端`);
+            } catch (error) {
+                console.warn('processStreamingResponse 完成后保存会话失败:', error);
             }
         }
 
@@ -1243,7 +1257,7 @@ class PetManager {
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
-                    // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+                    // 临时保存页面内容到本地（prompt 接口调用完成后会触发 session/save）
                     await this.saveAllSessions(false, false);
                 }
             } else {
@@ -1390,6 +1404,20 @@ class PetManager {
                 }
             }
 
+            // prompt 接口调用后触发 session/save
+            if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                try {
+                    // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
+                    await this.saveCurrentSession(false, false);
+                    
+                    // 调用 session/save 接口保存会话
+                    await this.syncSessionToBackend(this.currentSessionId, true);
+                    console.log(`流式 prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
+                } catch (error) {
+                    console.warn('流式 prompt 接口调用后保存会话失败:', error);
+                }
+            }
+
             return fullContent;
         } catch (error) {
             // 如果是中止错误，不记录为错误
@@ -1428,7 +1456,7 @@ class PetManager {
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
-                    // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+                    // 临时保存页面内容到本地（prompt 接口调用完成后会触发 session/save）
                     await this.saveAllSessions(false, false);
                 }
             } else {
@@ -1465,22 +1493,39 @@ class PetManager {
             const result = await response.json();
 
             // 适配新的响应格式: {status, msg, data, pagination}
+            let responseContent;
             if (result.status === 200 && result.data) {
                 // 成功响应，提取 data 字段
-                return result.data;
+                responseContent = result.data;
             } else if (result.status !== 200) {
                 // API 返回错误，使用 msg 字段
-                return result.msg || '抱歉，服务器返回了错误。';
+                responseContent = result.msg || '抱歉，服务器返回了错误。';
             } else if (result.content) {
-                return result.content;
+                responseContent = result.content;
             } else if (result.message) {
-                return result.message;
+                responseContent = result.message;
             } else if (typeof result === 'string') {
-                return result;
+                responseContent = result;
             } else {
                 // 未知格式，尝试提取可能的文本内容
-                return JSON.stringify(result);
+                responseContent = JSON.stringify(result);
             }
+
+            // prompt 接口调用后触发 session/save
+            if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                try {
+                    // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
+                    await this.saveCurrentSession(false, false);
+                    
+                    // 调用 session/save 接口保存会话
+                    await this.syncSessionToBackend(this.currentSessionId, true);
+                    console.log(`非流式 prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
+                } catch (error) {
+                    console.warn('非流式 prompt 接口调用后保存会话失败:', error);
+                }
+            }
+
+            return responseContent;
         } catch (error) {
             console.error('API 调用失败:', error);
             // 如果 API 调用失败，返回默认响应
@@ -7351,8 +7396,7 @@ ${pageContent || '无内容'}
                 }
 
                 // 立即保存宠物回复到当前会话（参考用户输入后的保存逻辑）
-                // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
-                // 设置标志，避免触发会话列表刷新接口
+                // 设置标志，避免触发会话列表刷新接口（prompt 接口调用完成后会触发 session/save）
                 this.skipSessionListRefresh = true;
                 if (content && content.trim()) {
                     await this.addMessageToSession('pet', content, null, false);

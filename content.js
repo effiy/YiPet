@@ -1189,8 +1189,7 @@ class PetManager {
     buildPromptPayload(fromSystem, fromUser, model = null, options = {}) {
         const payload = {
             fromSystem: fromSystem || '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
-            fromUser: fromUser,
-            save_chat: options.save_chat !== false, // 默认保存聊天记录
+            fromUser: fromUser
         };
         
         // 添加模型名称（如果提供）

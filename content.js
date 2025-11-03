@@ -2902,7 +2902,7 @@ class PetManager {
             message.type, message.content.substring(0, 50));
         
         // 异步保存到存储（使用防抖优化，避免频繁保存）
-        // prompt 接口调用后不触发 session/save，后端已通过 save_chat 保存
+        // prompt 接口调用后必须触发 session/save
         this.saveAllSessions(false, syncToBackend).catch(err => {
             console.error('保存会话消息失败:', err);
         });
@@ -6405,6 +6405,31 @@ ${pageContent || '无内容'}
                                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                             }
                             
+                            // 立即保存宠物回复到当前会话
+                            this.skipSessionListRefresh = true;
+                            if (content && content.trim()) {
+                                await this.addMessageToSession('pet', content, null, false);
+                            }
+                            
+                            // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
+                            await this.saveCurrentSession(false, false);
+                            
+                            // prompt 接口调用后必须触发 session/save
+                            if (this.currentSessionId) {
+                                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                                    try {
+                                        await this.syncSessionToBackend(this.currentSessionId, true);
+                                        console.log(`prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
+                                    } catch (error) {
+                                        console.warn('保存会话到后端失败:', error);
+                                    }
+                                } else {
+                                    console.warn('无法保存会话：sessionApi 未初始化或后端同步未启用');
+                                }
+                            } else {
+                                console.warn('无法保存会话：当前会话 ID 不存在');
+                            }
+                            
                             newButton.innerHTML = '✓';
                             newButton.style.cursor = 'default';
                             newButton.style.color = '#4caf50';
@@ -6731,6 +6756,31 @@ ${pageContent || '无内容'}
                                 }
                                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                             }
+                            
+                            // 立即保存宠物回复到当前会话
+                            this.skipSessionListRefresh = true;
+                            if (content && content.trim()) {
+                                await this.addMessageToSession('pet', content, null, false);
+                            }
+                            
+                            // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
+                            await this.saveCurrentSession(false, false);
+                            
+                            // prompt 接口调用后必须触发 session/save
+                            if (this.currentSessionId) {
+                                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                                    try {
+                                        await this.syncSessionToBackend(this.currentSessionId, true);
+                                        console.log(`prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
+                                    } catch (error) {
+                                        console.warn('保存会话到后端失败:', error);
+                                    }
+                                } else {
+                                    console.warn('无法保存会话：sessionApi 未初始化或后端同步未启用');
+                                }
+                            } else {
+                                console.warn('无法保存会话：当前会话 ID 不存在');
+                            }
                         } catch (error) {
                             const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
                             
@@ -7046,6 +7096,31 @@ ${pageContent || '无内容'}
                             await this.addActionButtonsToMessage(message);
                         }
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                    
+                    // 立即保存宠物回复到当前会话
+                    this.skipSessionListRefresh = true;
+                    if (content && content.trim()) {
+                        await this.addMessageToSession('pet', content, null, false);
+                    }
+                    
+                    // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
+                    await this.saveCurrentSession(false, false);
+                    
+                    // prompt 接口调用后必须触发 session/save
+                    if (this.currentSessionId) {
+                        if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                            try {
+                                await this.syncSessionToBackend(this.currentSessionId, true);
+                                console.log(`prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
+                            } catch (error) {
+                                console.warn('保存会话到后端失败:', error);
+                            }
+                        } else {
+                            console.warn('无法保存会话：sessionApi 未初始化或后端同步未启用');
+                        }
+                    } else {
+                        console.warn('无法保存会话：当前会话 ID 不存在');
                     }
                     
                     button.innerHTML = '✓';

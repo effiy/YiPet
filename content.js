@@ -1862,6 +1862,100 @@ class PetManager {
         }
     }
     
+    // 创建空白新会话（手动添加）
+    async createBlankSession() {
+        // 确保已加载所有会话
+        await this.loadAllSessions();
+        
+        // 生成一个唯一的会话ID（不基于URL，使用时间戳和随机数）
+        const uniqueId = `blank_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        const sessionId = await this.generateSessionId(uniqueId);
+        
+        // 检查会话ID是否已存在，如果存在则重新生成
+        let finalSessionId = sessionId;
+        let attempts = 0;
+        while (this.sessions[finalSessionId] && attempts < 10) {
+            const newUniqueId = `blank_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            finalSessionId = await this.generateSessionId(newUniqueId);
+            attempts++;
+        }
+        
+        // 生成唯一的空白会话URL（确保不会重复）
+        // 使用自定义协议格式：blank-session://{timestamp}-{random}
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 11); // 9位随机字符串
+        const uniqueUrl = `blank-session://${timestamp}-${randomStr}`;
+        
+        // 确保URL唯一：检查是否已存在相同URL的会话
+        let finalUrl = uniqueUrl;
+        let urlAttempts = 0;
+        while (Object.values(this.sessions).some(s => s && s.url === finalUrl) && urlAttempts < 10) {
+            const newTimestamp = Date.now();
+            const newRandomStr = Math.random().toString(36).substring(2, 11);
+            finalUrl = `blank-session://${newTimestamp}-${newRandomStr}`;
+            urlAttempts++;
+        }
+        
+        // 创建空白会话对象（不包含当前页面信息）
+        const now = Date.now();
+        const blankSession = {
+            id: finalSessionId,
+            url: finalUrl, // 空白会话使用唯一的随机URL
+            pageTitle: '新会话', // 默认标题
+            pageDescription: '',
+            pageContent: '',
+            messages: [], // 空的对话列表
+            createdAt: now,
+            updatedAt: now,
+            lastAccessTime: now,
+            _isBlankSession: true // 标记为空白会话，用于后续处理
+        };
+        
+        // 保存新会话到本地存储（先不同步到后端，避免立即请求导致404）
+        this.sessions[finalSessionId] = blankSession;
+        await this.saveAllSessions(true, false); // 只保存到本地，不同步到后端
+        
+        console.log('已创建空白新会话:', finalSessionId);
+        
+        // 延迟同步到后端（使用队列批量保存，避免立即请求）
+        if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+            // 使用队列保存，而不是立即保存，避免404错误
+            try {
+                this.sessionApi.queueSave(finalSessionId, blankSession);
+                console.log('空白会话已加入保存队列，将延迟同步到后端');
+            } catch (error) {
+                console.warn('空白会话加入保存队列失败（将稍后重试）:', error.message);
+            }
+        }
+        
+        // 激活新创建的会话（跳过从后端获取数据，因为这是新创建的空白会话）
+        await this.activateSession(finalSessionId, {
+            saveCurrent: true, // 保存当前会话
+            updateConsistency: false, // 空白会话不需要更新页面一致性
+            updateUI: true, // 更新UI
+            syncToBackend: false, // 已通过队列同步，不再立即同步
+            skipBackendFetch: true // 跳过从后端获取数据（避免404）
+        });
+        
+        // 更新聊天窗口（如果已打开）
+        if (this.isChatOpen && this.chatWindow) {
+            // 清空消息容器并显示欢迎消息
+            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+            if (messagesContainer) {
+                messagesContainer.innerHTML = '';
+                const welcomeMessage = this.createWelcomeMessage(messagesContainer);
+            }
+            
+            // 更新聊天窗口标题
+            this.updateChatHeaderTitle();
+        }
+        
+        // 显示成功通知
+        this.showNotification('已创建新会话', 'success');
+        
+        return finalSessionId;
+    }
+    
     // 切换到会话（统一入口）
     // 重要：确保数据隔离，切换到不同URL的会话时，不会更新该会话的页面信息
     async activateSession(sessionId, options = {}) {
@@ -1869,7 +1963,8 @@ class PetManager {
             saveCurrent = true,
             updateConsistency = true,
             updateUI = true,
-            syncToBackend = true
+            syncToBackend = true,
+            skipBackendFetch = false // 是否跳过从后端获取数据（用于新创建的空白会话）
         } = options;
         
         // 在切换会话前，强制保存当前会话的所有数据（确保数据持久化）
@@ -1896,7 +1991,14 @@ class PetManager {
         this.hasAutoCreatedSessionForPage = isUrlMatched;
         
         // 当会话高亮时，调用 getSession 获取完整数据
-        if (this.sessionApi && this.sessionApi.isEnabled()) {
+        // 跳过情况：1. 明确指定跳过；2. 空白会话（URL为空、以blank-session://开头或标记为空白会话）；3. 新创建的会话（创建时间很近）
+        const isBlankSession = !targetSession.url || 
+                              targetSession.url.startsWith('blank-session://') || 
+                              targetSession._isBlankSession || 
+                              skipBackendFetch;
+        const isNewSession = targetSession.createdAt && (Date.now() - targetSession.createdAt) < 5000; // 5秒内创建的会话视为新会话
+        
+        if (!skipBackendFetch && !isBlankSession && !isNewSession && this.sessionApi && this.sessionApi.isEnabled()) {
             try {
                 console.log('会话高亮，正在从后端获取完整数据:', sessionId);
                 const fullSession = await this.sessionApi.getSession(sessionId, true); // 强制刷新
@@ -1930,9 +2032,25 @@ class PetManager {
                     await this.saveAllSessions(false, false); // 保存到本地，不同步到后端（因为刚同步过）
                 }
             } catch (error) {
-                console.warn('从后端获取会话完整数据失败:', error);
+                // 优雅处理404错误和其他错误
+                const is404 = error.message && (
+                    error.message.includes('404') || 
+                    error.message.includes('Not Found') ||
+                    error.status === 404 ||
+                    error.response?.status === 404
+                );
+                
+                if (is404) {
+                    // 404错误是正常的（会话可能还未同步到后端），静默处理
+                    console.log('会话在后端不存在（可能还未同步），使用本地数据:', sessionId);
+                } else {
+                    // 其他错误才警告
+                    console.warn('从后端获取会话完整数据失败:', error.message);
+                }
                 // 继续使用本地数据
             }
+        } else if (isBlankSession || isNewSession) {
+            console.log('跳过从后端获取数据（空白会话或新创建的会话）:', sessionId);
         }
         
         // 更新会话一致性（只有在URL匹配时才更新，确保数据隔离）
@@ -2806,28 +2924,55 @@ class PetManager {
             // 使用API管理器
             if (this.sessionApi) {
                 if (immediate) {
-                    // 立即保存
-                    const result = await this.sessionApi.saveSession(sessionData);
-                    
-                    // 如果返回了完整的会话数据，更新本地会话数据
-                    if (result?.data?.session) {
-                        const updatedSession = result.data.session;
-                        if (this.sessions[sessionId]) {
-                            // 更新本地会话数据，但保留本地的 messages（可能包含未同步的最新消息）
-                            this.sessions[sessionId] = {
-                                ...updatedSession,
-                                // 如果本地消息更新，保留本地消息
-                                messages: this.sessions[sessionId].messages?.length > updatedSession.messages?.length
-                                    ? this.sessions[sessionId].messages
-                                    : updatedSession.messages
-                            };
+                    // 对于空白会话（URL为空或以blank-session://开头），使用队列保存而不是立即保存，避免404错误
+                    const isBlankSession = !sessionData.url || 
+                                         sessionData.url === '' || 
+                                         sessionData.url.startsWith('blank-session://');
+                    if (isBlankSession) {
+                        console.log('空白会话使用队列保存（避免立即请求导致404）:', sessionId);
+                        this.sessionApi.queueSave(sessionId, sessionData);
+                        console.log(`空白会话 ${sessionId} 已加入保存队列`);
+                    } else {
+                        // 立即保存（非空白会话）
+                        try {
+                            const result = await this.sessionApi.saveSession(sessionData);
+                            
+                            // 如果返回了完整的会话数据，更新本地会话数据
+                            if (result?.data?.session) {
+                                const updatedSession = result.data.session;
+                                if (this.sessions[sessionId]) {
+                                    // 更新本地会话数据，但保留本地的 messages（可能包含未同步的最新消息）
+                                    this.sessions[sessionId] = {
+                                        ...updatedSession,
+                                        // 如果本地消息更新，保留本地消息
+                                        messages: this.sessions[sessionId].messages?.length > updatedSession.messages?.length
+                                            ? this.sessions[sessionId].messages
+                                            : updatedSession.messages
+                                    };
+                                }
+                            }
+                            
+                            // 清除列表缓存，强制下次刷新时从接口获取最新数据
+                            this.lastSessionListLoadTime = 0;
+                            
+                            console.log(`会话 ${sessionId} 已立即同步到后端`);
+                        } catch (error) {
+                            // 如果立即保存失败，降级为队列保存
+                            const is404 = error.message && (
+                                error.message.includes('404') || 
+                                error.message.includes('Not Found') ||
+                                error.status === 404 ||
+                                error.response?.status === 404
+                            );
+                            
+                            if (is404) {
+                                console.log('立即保存失败（404），降级为队列保存:', sessionId);
+                                this.sessionApi.queueSave(sessionId, sessionData);
+                            } else {
+                                throw error; // 重新抛出非404错误
+                            }
                         }
                     }
-                    
-                    // 清除列表缓存，强制下次刷新时从接口获取最新数据
-                    this.lastSessionListLoadTime = 0;
-                    
-                    console.log(`会话 ${sessionId} 已立即同步到后端`);
                 } else {
                     // 加入队列批量保存
                     this.sessionApi.queueSave(sessionId, sessionData);
@@ -2836,11 +2981,41 @@ class PetManager {
             } else {
                 // 向后兼容：使用旧方式
                 // session/save 调用已删除，跳过同步
-                console.log(`会话 ${sessionId} 同步已跳过（session/save 已移除）`);
+                console.log(`会话 ${sessionId} 同步已跳过（sessionApi 未初始化）`);
             }
         } catch (error) {
-            // 静默处理错误，不阻塞主流程
-            console.warn('同步会话到后端时出错:', error.message);
+            // 优雅处理错误，不阻塞主流程
+            const is404 = error.message && (
+                error.message.includes('404') || 
+                error.message.includes('Not Found') ||
+                error.status === 404 ||
+                error.response?.status === 404
+            );
+            
+            if (is404) {
+                // 404错误是正常的（会话可能还未同步到后端），尝试使用队列保存
+                if (this.sessionApi && session) {
+                    try {
+                        const sessionData = {
+                            id: session.id || sessionId,
+                            url: session.url || '',
+                            pageTitle: session.pageTitle || '',
+                            pageDescription: session.pageDescription || '',
+                            pageContent: session.pageContent || '',
+                            messages: session.messages || [],
+                            createdAt: session.createdAt || Date.now(),
+                            updatedAt: session.updatedAt || Date.now(),
+                            lastAccessTime: session.lastAccessTime || Date.now()
+                        };
+                        this.sessionApi.queueSave(sessionId, sessionData);
+                        console.log('同步失败（404），已加入队列稍后重试:', sessionId);
+                    } catch (queueError) {
+                        console.warn('加入队列也失败:', queueError.message);
+                    }
+                }
+            } else {
+                console.warn('同步会话到后端时出错:', error.message);
+            }
         }
     }
 
@@ -8967,10 +9142,67 @@ ${pageContent || '无内容'}
             font-weight: 600 !important;
             font-size: 14px !important;
             color: #374151 !important;
+            flex: 1 !important;
         `;
         sidebarTitle.textContent = '💬 会话列表';
         
+        // 创建添加新会话按钮
+        const addSessionBtn = document.createElement('button');
+        addSessionBtn.innerHTML = '➕';
+        addSessionBtn.title = '添加新会话';
+        addSessionBtn.style.cssText = `
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 6px !important;
+            background: ${mainColor} !important;
+            color: white !important;
+            border: none !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 16px !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+        `;
+        
+        // 按钮悬停效果
+        addSessionBtn.addEventListener('mouseenter', () => {
+            addSessionBtn.style.background = `${mainColor}dd`;
+            addSessionBtn.style.transform = 'scale(1.1)';
+        });
+        addSessionBtn.addEventListener('mouseleave', () => {
+            addSessionBtn.style.background = mainColor;
+            addSessionBtn.style.transform = 'scale(1)';
+        });
+        
+        // 按钮点击事件：创建空白新会话
+        addSessionBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 禁用按钮，防止重复点击
+            addSessionBtn.disabled = true;
+            addSessionBtn.style.opacity = '0.6';
+            addSessionBtn.style.cursor = 'wait';
+            
+            try {
+                await this.createBlankSession();
+            } catch (error) {
+                console.error('创建新会话失败:', error);
+                this.showNotification('创建新会话失败', 'error');
+            } finally {
+                // 恢复按钮状态
+                setTimeout(() => {
+                    addSessionBtn.disabled = false;
+                    addSessionBtn.style.opacity = '1';
+                    addSessionBtn.style.cursor = 'pointer';
+                }, 500);
+            }
+        });
+        
         sidebarHeader.appendChild(sidebarTitle);
+        sidebarHeader.appendChild(addSessionBtn);
 
         // 会话列表容器
         const sessionList = document.createElement('div');

@@ -1900,6 +1900,46 @@ class PetManager {
         // 如果URL不匹配（例如用户切换到其他页面的会话），不标记为自动创建
         this.hasAutoCreatedSessionForPage = isUrlMatched;
         
+        // 当会话高亮时，调用 getSession 获取完整数据
+        if (this.sessionApi && this.sessionApi.isEnabled()) {
+            try {
+                console.log('会话高亮，正在从后端获取完整数据:', sessionId);
+                const fullSession = await this.sessionApi.getSession(sessionId, true); // 强制刷新
+                
+                if (fullSession) {
+                    // 更新本地会话数据
+                    const existingSession = this.sessions[sessionId];
+                    if (existingSession) {
+                        // 合并完整数据
+                        if (fullSession.messages && Array.isArray(fullSession.messages)) {
+                            existingSession.messages = fullSession.messages;
+                        }
+                        if (fullSession.pageDescription) {
+                            existingSession.pageDescription = fullSession.pageDescription;
+                        }
+                        if (fullSession.pageContent) {
+                            existingSession.pageContent = fullSession.pageContent;
+                        }
+                        if (fullSession.pageTitle || fullSession.title) {
+                            existingSession.pageTitle = fullSession.pageTitle || fullSession.title || '';
+                        }
+                        existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
+                        existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
+                        existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
+                    } else {
+                        // 如果本地不存在，直接使用后端数据
+                        this.sessions[sessionId] = fullSession;
+                    }
+                    
+                    // 保存更新后的会话数据到本地
+                    await this.saveAllSessions(false, false); // 保存到本地，不同步到后端（因为刚同步过）
+                }
+            } catch (error) {
+                console.warn('从后端获取会话完整数据失败:', error);
+                // 继续使用本地数据
+            }
+        }
+        
         // 更新会话一致性（只有在URL匹配时才更新，确保数据隔离）
         if (updateConsistency && isUrlMatched) {
             // 只有当目标会话的URL和当前页面URL匹配时，才更新一致性
@@ -2014,61 +2054,7 @@ class PetManager {
             }
         }
         
-        // 如果找到URL匹配的会话，调用后端API获取完整数据
-        if (matchedSessionId && this.sessionApi && this.sessionApi.isEnabled()) {
-            try {
-                console.log('找到URL匹配的会话，正在从后端获取完整数据:', matchedSessionId);
-                const fullSession = await this.sessionApi.getSession(matchedSessionId, true); // 强制刷新
-                
-                if (fullSession) {
-                    // 更新本地会话数据
-                    const existingSession = this.sessions[matchedSessionId];
-                    if (existingSession) {
-                        // 合并完整数据
-                        if (fullSession.messages && Array.isArray(fullSession.messages)) {
-                            existingSession.messages = fullSession.messages;
-                        }
-                        if (fullSession.pageDescription) {
-                            existingSession.pageDescription = fullSession.pageDescription;
-                        }
-                        if (fullSession.pageContent) {
-                            existingSession.pageContent = fullSession.pageContent;
-                        }
-                        if (fullSession.pageTitle || fullSession.title) {
-                            existingSession.pageTitle = fullSession.pageTitle || fullSession.title || '';
-                        }
-                        existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
-                        existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
-                        existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
-                    } else {
-                        // 如果本地不存在，直接使用后端数据
-                        this.sessions[matchedSessionId] = fullSession;
-                    }
-                    
-                    // 保存更新后的会话数据
-                    await this.saveAllSessions(false, false); // 不触发后端同步，因为刚同步过
-                    
-                    // 更新会话页面信息
-                    this.updateSessionPageInfo(matchedSessionId, pageInfo);
-                    await this.saveAllSessions();
-                    
-                    // 自动选中匹配的会话
-                    await this.activateSession(matchedSessionId, {
-                        saveCurrent: false, // 已经在前面保存了
-                        updateConsistency: true,
-                        updateUI: true
-                    });
-                    
-                    console.log('找到URL匹配的会话，已从后端获取完整数据并自动选中:', matchedSessionId);
-                    return matchedSessionId;
-                }
-            } catch (error) {
-                console.warn('从后端获取会话完整数据失败:', error);
-                // 继续使用本地数据
-            }
-        }
-        
-        // 如果找到了匹配的会话（但可能没有后端数据或后端API不可用），直接选中
+        // 如果找到了匹配的会话，直接选中
         if (matchedSessionId) {
             const existingSession = this.sessions[matchedSessionId];
             if (existingSession) {
@@ -2366,8 +2352,7 @@ class PetManager {
                     this.sessions = {};
                 }
                 
-                // 对于每个后端会话，如果没有消息但message_count>0，获取完整数据
-                const sessionsToFetch = [];
+                // 处理每个后端会话数据
                 const backendSessionsMap = {};
                 
                 backendSessions.forEach(backendSession => {
@@ -2386,35 +2371,8 @@ class PetManager {
                         lastAccessTime: backendSession.lastAccessTime || Date.now()
                     };
                     
-                    const messageCount = backendSession.message_count || 0;
-                    if ((!localSession.messages || localSession.messages.length === 0) && messageCount > 0) {
-                        sessionsToFetch.push(sessionId);
-                    }
-                    
                     backendSessionsMap[sessionId] = localSession;
                 });
-                
-                // 获取需要完整数据的会话
-                if (sessionsToFetch.length > 0) {
-                    await Promise.all(sessionsToFetch.map(async (sessionId) => {
-                        try {
-                            const fullSession = await this.sessionApi.getSession(sessionId);
-                            if (fullSession && backendSessionsMap[sessionId]) {
-                                if (fullSession.messages && Array.isArray(fullSession.messages)) {
-                                    backendSessionsMap[sessionId].messages = fullSession.messages;
-                                }
-                                if (fullSession.pageDescription) {
-                                    backendSessionsMap[sessionId].pageDescription = fullSession.pageDescription;
-                                }
-                                if (fullSession.pageContent) {
-                                    backendSessionsMap[sessionId].pageContent = fullSession.pageContent;
-                                }
-                            }
-                        } catch (error) {
-                            console.warn(`获取会话 ${sessionId} 的完整数据失败:`, error.message);
-                        }
-                    }));
-                }
                 
                 // 合并策略
                 for (const [sessionId, backendSession] of Object.entries(backendSessionsMap)) {
@@ -14149,6 +14107,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

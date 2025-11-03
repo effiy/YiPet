@@ -8666,8 +8666,8 @@ ${pageContent || '无内容'}
         sessionList.style.cssText = `
             flex: 1 !important;
             overflow-y: auto !important;
-            padding: 8px 8px 40px 8px !important;
-            scroll-padding-bottom: 16px !important;
+            padding: 8px 8px 80px 8px !important;
+            scroll-padding-bottom: 20px !important;
             box-sizing: border-box !important;
         `;
 
@@ -8807,6 +8807,12 @@ ${pageContent || '无内容'}
                 }
                 .session-list .session-item:last-child {
                     margin-bottom: 0 !important;
+                }
+                .session-list::after {
+                    content: '' !important;
+                    display: block !important;
+                    height: 20px !important;
+                    flex-shrink: 0 !important;
                 }
             `;
             document.head.appendChild(style);

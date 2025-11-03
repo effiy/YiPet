@@ -4152,6 +4152,64 @@ class PetManager {
             copyBtn.style.borderColor = 'rgba(255,255,255,0.15)';
         });
         copyBtn.addEventListener('click', () => this.copyContextEditor());
+        
+        // 保存按钮
+        const saveBtn = document.createElement('button');
+        saveBtn.id = 'pet-context-save-btn';
+        saveBtn.className = 'chat-toolbar-btn';
+        saveBtn.setAttribute('title', '保存修改 (Ctrl+S / Cmd+S)');
+        saveBtn.setAttribute('aria-label', '保存修改');
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.04) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+            transition: transform .12s ease, background .12s ease, border-color .12s ease, color .12s ease !important;
+            outline: none !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            if (!saveBtn.hasAttribute('data-saving')) {
+                saveBtn.style.background = 'rgba(255,255,255,0.12)';
+                saveBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+            }
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            if (!saveBtn.hasAttribute('data-saving')) {
+                saveBtn.style.background = 'rgba(255,255,255,0.04)';
+                saveBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            }
+        });
+        saveBtn.addEventListener('click', async () => {
+            if (saveBtn.hasAttribute('data-saving')) return;
+            
+            saveBtn.setAttribute('data-saving', 'true');
+            const originalText = saveBtn.textContent; // 保存原始文本（应该是"保存"）
+            saveBtn.textContent = '保存中...';
+            saveBtn.style.opacity = '0.6';
+            saveBtn.style.cursor = 'not-allowed';
+            
+            try {
+                const success = await this.saveContextEditor();
+                // 传递原始文本，确保恢复正确
+                this._showSaveStatus(saveBtn, success, originalText);
+            } catch (error) {
+                console.error('保存失败:', error);
+                // 传递原始文本，确保恢复正确
+                this._showSaveStatus(saveBtn, false, originalText);
+            } finally {
+                // 在状态提示显示2秒后，移除禁用状态
+                setTimeout(() => {
+                    saveBtn.removeAttribute('data-saving');
+                    saveBtn.style.opacity = '1';
+                    saveBtn.style.cursor = 'pointer';
+                }, 2000);
+            }
+        });
+        
         // 下载按钮（导出 Markdown）
         const downloadBtn = document.createElement('button');
         downloadBtn.id = 'pet-context-download-btn';
@@ -4169,6 +4227,7 @@ class PetManager {
         `;
         downloadBtn.addEventListener('click', () => this.downloadContextMarkdown());
         headerBtns.appendChild(copyBtn);
+        headerBtns.appendChild(saveBtn);
         headerBtns.appendChild(downloadBtn);
         headerBtns.appendChild(closeBtn);
         header.appendChild(title);
@@ -4266,10 +4325,16 @@ class PetManager {
         // 默认并排模式
         this._contextPreviewMode = this._contextPreviewMode || 'split';
         this.applyContextPreviewMode();
-        // Esc 关闭
+        // 键盘快捷键：Esc 关闭，Ctrl+S / Cmd+S 保存
         this._contextKeydownHandler = (e) => {
             if (e.key === 'Escape') {
                 this.closeContextEditor();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                const saveBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-save-btn') : null;
+                if (saveBtn && !saveBtn.hasAttribute('data-saving')) {
+                    saveBtn.click();
+                }
             }
         };
         document.addEventListener('keydown', this._contextKeydownHandler, { capture: true });
@@ -4282,14 +4347,10 @@ class PetManager {
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
         if (overlay) overlay.style.display = 'none';
         
-        // 保存用户编辑的页面上下文到会话
-        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
-        if (textarea && this.currentSessionId && this.sessions[this.currentSessionId]) {
-            const editedContent = textarea.value || '';
-            this.sessions[this.currentSessionId].pageContent = editedContent;
-            // 异步保存，不阻塞关闭
-            this.saveAllSessions().catch(err => console.error('保存编辑的页面上下文失败:', err));
-        }
+        // 自动保存用户编辑的页面上下文到会话（静默保存，不显示提示）
+        this.saveContextEditor().catch(err => {
+            console.error('关闭时保存页面上下文失败:', err);
+        });
         
         if (this._contextKeydownHandler) {
             document.removeEventListener('keydown', this._contextKeydownHandler, { capture: true });
@@ -8466,6 +8527,72 @@ ${pageContent || '无内容'}
         overlay.style.left = '0px';
         overlay.style.right = '0px';
         overlay.style.bottom = '0px';
+    }
+
+    /**
+     * 保存页面上下文编辑器内容到会话
+     * @returns {Promise<boolean>} 保存是否成功
+     */
+    async saveContextEditor() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (!textarea) {
+            console.warn('未找到上下文编辑器');
+            return false;
+        }
+
+        if (!this.currentSessionId) {
+            console.warn('当前没有活动会话');
+            return false;
+        }
+
+        if (!this.sessions[this.currentSessionId]) {
+            console.warn('会话不存在');
+            return false;
+        }
+
+        try {
+            const editedContent = textarea.value || '';
+            this.sessions[this.currentSessionId].pageContent = editedContent;
+            
+            // 异步保存到存储
+            await this.saveAllSessions();
+            
+            return true;
+        } catch (error) {
+            console.error('保存页面上下文失败:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 显示保存状态提示
+     * @param {HTMLElement} button - 保存按钮元素
+     * @param {boolean} success - 是否成功
+     * @param {string} originalText - 原始按钮文本（可选，默认使用 '保存'）
+     */
+    _showSaveStatus(button, success, originalText = '保存') {
+        const originalBackground = button.style.background;
+        const originalColor = button.style.color;
+        
+        if (success) {
+            button.textContent = '✓ 已保存';
+            button.style.background = 'rgba(76, 175, 80, 0.2)';
+            button.style.color = '#4caf50';
+            button.style.borderColor = 'rgba(76, 175, 80, 0.4)';
+        } else {
+            button.textContent = '✕ 保存失败';
+            button.style.background = 'rgba(244, 67, 54, 0.2)';
+            button.style.color = '#f44336';
+            button.style.borderColor = 'rgba(244, 67, 54, 0.4)';
+        }
+        
+        // 2秒后恢复原状态
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.style.background = originalBackground;
+            button.style.color = originalColor;
+            button.style.borderColor = 'rgba(255,255,255,0.15)';
+        }, 2000);
     }
 
     // 复制页面上下文编辑器内容

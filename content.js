@@ -4378,33 +4378,39 @@ class PetManager {
             timeSpan.className = 'session-time';
             timeSpan.textContent = this.formatSessionTime(session.updatedAt);
             
-            const editBtn = document.createElement('button');
-            editBtn.className = 'session-edit-btn';
-            editBtn.innerHTML = '✏️';
-            editBtn.title = '编辑标题';
-            editBtn.style.cssText = `
-                background: none !important;
-                border: none !important;
-                cursor: pointer !important;
-                padding: 2px 4px !important;
-                font-size: 12px !important;
-                opacity: 0.6 !important;
-                transition: opacity 0.2s ease !important;
-                line-height: 1 !important;
-            `;
+            // 只有网址是blank-session开头的才显示编辑标题按钮
+            const isBlankSession = session.url && session.url.startsWith('blank-session://');
+            let editBtn = null;
             
-            editBtn.addEventListener('mouseenter', () => {
-                editBtn.style.opacity = '1';
-            });
-            editBtn.addEventListener('mouseleave', () => {
-                editBtn.style.opacity = '0.6';
-            });
-            
-            // 阻止编辑按钮点击事件冒泡到 sessionItem
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.editSessionTitle(session.id);
-            });
+            if (isBlankSession) {
+                editBtn = document.createElement('button');
+                editBtn.className = 'session-edit-btn';
+                editBtn.innerHTML = '✏️';
+                editBtn.title = '编辑标题';
+                editBtn.style.cssText = `
+                    background: none !important;
+                    border: none !important;
+                    cursor: pointer !important;
+                    padding: 2px 4px !important;
+                    font-size: 12px !important;
+                    opacity: 0.6 !important;
+                    transition: opacity 0.2s ease !important;
+                    line-height: 1 !important;
+                `;
+                
+                editBtn.addEventListener('mouseenter', () => {
+                    editBtn.style.opacity = '1';
+                });
+                editBtn.addEventListener('mouseleave', () => {
+                    editBtn.style.opacity = '0.6';
+                });
+                
+                // 阻止编辑按钮点击事件冒泡到 sessionItem
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.editSessionTitle(session.id);
+                });
+            }
             
             // 创建标签管理按钮
             const tagBtn = document.createElement('button');
@@ -4443,7 +4449,10 @@ class PetManager {
                 align-items: center !important;
                 gap: 2px !important;
             `;
-            buttonContainer.appendChild(editBtn);
+            // 只有编辑按钮存在时才添加
+            if (editBtn) {
+                buttonContainer.appendChild(editBtn);
+            }
             buttonContainer.appendChild(tagBtn);
             
             metaDiv.appendChild(timeSpan);

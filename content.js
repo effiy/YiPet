@@ -3950,19 +3950,55 @@ class PetManager {
                 return;
             }
             
-            // 准备导出数据（序列化会话数据）
-            const exportData = sessions.map(session => {
-                const timestamp = session.updatedAt || session.createdAt || Date.now();
-                const dateInfo = this._getDateInfo(timestamp);
-                const title = this._sanitizeFileName(session.pageTitle || '未命名会话');
+            // 显示进度提示
+            this.showNotification(`正在获取 ${sessions.length} 个会话的完整数据...`, 'info');
+            
+            // 遍历每个会话，从后端API获取完整数据（包括页面上下文和聊天消息）
+            const exportData = [];
+            for (let i = 0; i < sessions.length; i++) {
+                const session = sessions[i];
+                const sessionId = session.id || session.session_id;
                 
-                return {
+                let fullSessionData = session; // 默认使用本地数据
+                
+                // 如果启用了后端同步，尝试从后端获取完整的会话数据
+                if (sessionId && this.sessionApi && this.sessionApi.isEnabled()) {
+                    try {
+                        // 强制刷新，获取最新的完整会话数据
+                        const backendSession = await this.sessionApi.getSession(sessionId, true);
+                        
+                        if (backendSession) {
+                            // 合并数据：后端数据优先，但保留本地数据中可能缺失的字段
+                            fullSessionData = {
+                                ...session, // 先使用本地数据
+                                ...backendSession, // 后端数据覆盖（包含完整的 pageContent 和 messages）
+                                id: sessionId, // 确保 ID 一致
+                            };
+                            console.log(`已从后端获取会话 ${sessionId} 的完整数据`);
+                        }
+                    } catch (error) {
+                        console.warn(`获取会话 ${sessionId} 的完整数据失败，使用本地数据:`, error.message);
+                        // 如果获取失败，继续使用本地数据
+                    }
+                }
+                
+                // 生成导出数据
+                const timestamp = fullSessionData.updatedAt || fullSessionData.createdAt || Date.now();
+                const dateInfo = this._getDateInfo(timestamp);
+                const title = this._sanitizeFileName(fullSessionData.pageTitle || '未命名会话');
+                
+                exportData.push({
                     dateInfo: dateInfo,
                     title: title,
-                    contextMd: this._generateContextMd(session),
-                    chatMd: this._generateChatMd(session)
-                };
-            });
+                    contextMd: this._generateContextMd(fullSessionData),
+                    chatMd: this._generateChatMd(fullSessionData)
+                });
+                
+                // 更新进度提示（每10个会话更新一次）
+                if ((i + 1) % 10 === 0 || (i + 1) === sessions.length) {
+                    this.showNotification(`已处理 ${i + 1}/${sessions.length} 个会话...`, 'info');
+                }
+            }
             
             // 在页面上下文中执行导出逻辑
             this.showNotification('正在生成ZIP文件...', 'info');
@@ -16604,6 +16640,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

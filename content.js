@@ -1957,14 +1957,16 @@ class PetManager {
             urlAttempts++;
         }
         
-        // 创建空白会话对象（不包含当前页面信息）
+        // 创建空白会话对象（包含当前页面信息以便保留上下文）
         const now = Date.now();
+        // 获取当前页面信息，用于保留页面上下文
+        const pageInfo = this.getPageInfo();
         const blankSession = {
             id: finalSessionId,
-            url: finalUrl, // 空白会话使用唯一的随机URL
-            pageTitle: '新会话', // 默认标题
-            pageDescription: '',
-            pageContent: '',
+            url: finalUrl, // 空白会话使用唯一的随机URL（不会与基于URL的会话冲突）
+            pageTitle: pageInfo.title || '新会话', // 使用当前页面标题
+            pageDescription: pageInfo.description || '', // 使用当前页面描述
+            pageContent: pageInfo.content || '', // 保存当前页面内容，以便后续使用
             messages: [], // 空的对话列表
             createdAt: now,
             updatedAt: now,
@@ -2553,6 +2555,7 @@ class PetManager {
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
                         messages: backendSession.messages || [],
+                        tags: backendSession.tags || [],
                         createdAt: backendSession.createdAt || Date.now(),
                         updatedAt: backendSession.updatedAt || Date.now(),
                         lastAccessTime: backendSession.lastAccessTime || Date.now()
@@ -2582,13 +2585,26 @@ class PetManager {
                             }
                         }
                         
+                        // 合并 tags：如果后端更新，使用后端的 tags（如果存在），否则保留本地的
+                        let finalTags = localSession.tags || [];
+                        if (backendUpdatedAt >= localUpdatedAt && backendSession.tags && Array.isArray(backendSession.tags)) {
+                            finalTags = backendSession.tags;
+                        }
+                        
                         if (backendUpdatedAt >= localUpdatedAt) {
                             this.sessions[sessionId] = {
                                 ...backendSession,
                                 messages: finalMessages,
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
+                                tags: finalTags,
+                                // 优先保留本地的 pageTitle（如果本地有内容）
+                                pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
+                                    ? localSession.pageTitle
+                                    : (backendSession.pageTitle || backendSession.title || ''),
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
-                                pageContent: localSession.pageContent || backendSession.pageContent
+                                // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
+                                pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
+                                    ? localSession.pageContent
+                                    : (backendSession.pageContent || '')
                             };
                         } else {
                             this.sessions[sessionId] = {
@@ -2597,7 +2613,8 @@ class PetManager {
                                 pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
                                 pageContent: localSession.pageContent || backendSession.pageContent,
-                                messages: localMessages
+                                messages: localMessages,
+                                tags: finalTags
                             };
                         }
                     }
@@ -2701,6 +2718,7 @@ class PetManager {
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
                         messages: backendSession.messages || [], // 后端列表API通常不包含messages
+                        tags: backendSession.tags || [],
                         createdAt: backendSession.createdAt || backendSession.created_time || Date.now(),
                         updatedAt: backendSession.updatedAt || backendSession.updated_time || Date.now(),
                         lastAccessTime: backendSession.lastAccessTime || backendSession.last_access_time || Date.now()
@@ -2742,6 +2760,9 @@ class PetManager {
                                         }
                                         if (fullSession.pageContent) {
                                             backendSessions[sessionId].pageContent = fullSession.pageContent;
+                                        }
+                                        if (fullSession.tags && Array.isArray(fullSession.tags)) {
+                                            backendSessions[sessionId].tags = fullSession.tags;
                                         }
                                     }
                                     console.log(`已获取会话 ${sessionId} 的完整数据，包含 ${fullSession.messages?.length || 0} 条消息`);
@@ -2789,15 +2810,27 @@ class PetManager {
                             // 否则保留本地消息（不覆盖）
                         }
                         
+                        // 合并 tags：如果后端更新，使用后端的 tags（如果存在），否则保留本地的
+                        let finalTags = localSession.tags || [];
+                        if (backendUpdatedAt >= localUpdatedAt && backendSession.tags && Array.isArray(backendSession.tags)) {
+                            finalTags = backendSession.tags;
+                        }
+                        
                         if (backendUpdatedAt >= localUpdatedAt) {
                             // 后端数据更新，使用后端数据，但保留本地消息（如果本地消息更多或更新）
                             this.sessions[sessionId] = {
                                 ...backendSession,
                                 messages: finalMessages, // 使用合并后的消息
-                                // 如果本地标题或内容有更新，保留本地的
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
+                                tags: finalTags,
+                                // 优先保留本地的 pageTitle（如果本地有内容）
+                                pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
+                                    ? localSession.pageTitle
+                                    : (backendSession.pageTitle || backendSession.title || ''),
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
-                                pageContent: localSession.pageContent || backendSession.pageContent
+                                // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
+                                pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
+                                    ? localSession.pageContent
+                                    : (backendSession.pageContent || '')
                             };
                         } else {
                             // 本地更新，保留本地数据，但更新其他字段（如果后端有更新的元数据）
@@ -2809,7 +2842,8 @@ class PetManager {
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
                                 pageContent: localSession.pageContent || backendSession.pageContent,
                                 // 消息始终使用本地的（因为本地更新）
-                                messages: localMessages
+                                messages: localMessages,
+                                tags: finalTags
                             };
                         }
                     }
@@ -2990,6 +3024,7 @@ class PetManager {
                 pageDescription: session.pageDescription || '',
                 pageContent: session.pageContent || '',
                 messages: session.messages || [],
+                tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),
                 lastAccessTime: session.lastAccessTime || Date.now()
@@ -3006,13 +3041,22 @@ class PetManager {
                         if (result?.data?.session) {
                             const updatedSession = result.data.session;
                             if (this.sessions[sessionId]) {
-                                // 更新本地会话数据，但保留本地的 messages（可能包含未同步的最新消息）
+                                const localSession = this.sessions[sessionId];
+                                // 更新本地会话数据，但保留本地的 messages 和 pageContent（可能包含未同步的最新数据）
                                 this.sessions[sessionId] = {
                                     ...updatedSession,
                                     // 如果本地消息更新，保留本地消息
-                                    messages: this.sessions[sessionId].messages?.length > updatedSession.messages?.length
-                                        ? this.sessions[sessionId].messages
-                                        : updatedSession.messages
+                                    messages: localSession.messages?.length > updatedSession.messages?.length
+                                        ? localSession.messages
+                                        : updatedSession.messages,
+                                    // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
+                                    pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
+                                        ? localSession.pageContent
+                                        : (updatedSession.pageContent || localSession.pageContent || ''),
+                                    // 优先保留本地的 pageTitle（如果本地有内容）
+                                    pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
+                                        ? localSession.pageTitle
+                                        : (updatedSession.pageTitle || localSession.pageTitle || '')
                                 };
                             }
                         }
@@ -3840,11 +3884,110 @@ class PetManager {
                 this.editSessionTitle(session.id);
             });
             
+            // 创建标签管理按钮
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'session-tag-btn';
+            tagBtn.innerHTML = '🏷️';
+            tagBtn.title = '管理标签';
+            tagBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                margin-left: 4px !important;
+            `;
+            
+            tagBtn.addEventListener('mouseenter', () => {
+                tagBtn.style.opacity = '1';
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                tagBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止标签按钮点击事件冒泡到 sessionItem
+            tagBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openTagManager(session.id);
+            });
+            
+            // 创建按钮容器
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 2px !important;
+            `;
+            buttonContainer.appendChild(editBtn);
+            buttonContainer.appendChild(tagBtn);
+            
             metaDiv.appendChild(timeSpan);
-            metaDiv.appendChild(editBtn);
+            metaDiv.appendChild(buttonContainer);
             
             contentWrapper.appendChild(titleDiv);
             contentWrapper.appendChild(metaDiv);
+            
+            // 显示会话标签（在时间下面一行）
+            const tags = session.tags || [];
+            if (tags.length > 0) {
+                const tagsContainer = document.createElement('div');
+                tagsContainer.className = 'session-tags';
+                tagsContainer.style.cssText = `
+                    display: flex !important;
+                    flex-wrap: wrap !important;
+                    gap: 4px !important;
+                    margin-top: 4px !important;
+                    margin-bottom: 0 !important;
+                `;
+                
+                // 最多显示3个标签，超出部分显示"+N"
+                const maxVisibleTags = 3;
+                const visibleTags = tags.slice(0, maxVisibleTags);
+                const remainingCount = tags.length - maxVisibleTags;
+                
+                visibleTags.forEach((tag) => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'session-tag-item';
+                    tagElement.textContent = tag;
+                    tagElement.style.cssText = `
+                        display: inline-block !important;
+                        background: #4CAF50 !important;
+                        color: white !important;
+                        padding: 2px 6px !important;
+                        border-radius: 10px !important;
+                        font-size: 11px !important;
+                        line-height: 1.4 !important;
+                        white-space: nowrap !important;
+                        max-width: 80px !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                    `;
+                    tagElement.setAttribute('title', tag);
+                    tagsContainer.appendChild(tagElement);
+                });
+                
+                if (remainingCount > 0) {
+                    const moreTag = document.createElement('span');
+                    moreTag.className = 'session-tag-more';
+                    moreTag.textContent = `+${remainingCount}`;
+                    moreTag.style.cssText = `
+                        display: inline-block !important;
+                        background: #999 !important;
+                        color: white !important;
+                        padding: 2px 6px !important;
+                        border-radius: 10px !important;
+                        font-size: 11px !important;
+                        line-height: 1.4 !important;
+                    `;
+                    moreTag.setAttribute('title', `还有 ${remainingCount} 个标签`);
+                    tagsContainer.appendChild(moreTag);
+                }
+                
+                contentWrapper.appendChild(tagsContainer);
+            }
             
             sessionItem.appendChild(contentWrapper);
             
@@ -4385,6 +4528,509 @@ class PetManager {
         } catch (error) {
             console.error('更新会话标题失败:', error);
             alert('更新标题失败，请重试');
+        }
+    }
+
+    // 打开标签管理弹窗
+    openTagManager(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法管理标签:', sessionId);
+            return;
+        }
+
+        const session = this.sessions[sessionId];
+        const currentTags = session.tags || [];
+
+        // 创建标签管理弹窗
+        this.ensureTagManagerUi();
+        const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+        if (!modal) {
+            console.error('标签管理弹窗未找到');
+            return;
+        }
+
+        // 显示弹窗
+        modal.style.display = 'flex';
+        modal.dataset.sessionId = sessionId;
+
+        // 加载当前标签
+        this.loadTagsIntoManager(sessionId, currentTags);
+
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.tag-manager-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeTagManager();
+        }
+
+        // 添加保存事件
+        const saveBtn = modal.querySelector('.tag-manager-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveTags(sessionId);
+        }
+
+        // 添加输入框回车事件（兼容中文输入法）
+        const tagInput = modal.querySelector('.tag-manager-input');
+        if (tagInput) {
+            // 确保输入法组合状态已初始化（如果输入框是新创建的）
+            if (tagInput._isComposing === undefined) {
+                tagInput._isComposing = false;
+                tagInput.addEventListener('compositionstart', () => {
+                    tagInput._isComposing = true;
+                });
+                tagInput.addEventListener('compositionend', () => {
+                    tagInput._isComposing = false;
+                });
+            }
+            
+            // 添加回车键事件处理（移除旧的监听器，避免重复绑定）
+            const existingHandler = tagInput._enterKeyHandler;
+            if (existingHandler) {
+                tagInput.removeEventListener('keydown', existingHandler);
+            }
+            
+            const enterKeyHandler = (e) => {
+                // 如果在输入法组合过程中，忽略回车键
+                if (tagInput._isComposing) {
+                    return;
+                }
+                
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addTagFromInput(sessionId);
+                }
+            };
+            
+            tagInput._enterKeyHandler = enterKeyHandler;
+            tagInput.addEventListener('keydown', enterKeyHandler);
+            
+            tagInput.focus();
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeTagManager();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    // 确保标签管理UI存在
+    ensureTagManagerUi() {
+        if (!this.chatWindow) return;
+        if (this.chatWindow.querySelector('#pet-tag-manager')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'pet-tag-manager';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 10000 !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeTagManager();
+            }
+        });
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
+            width: 90% !important;
+            max-width: 500px !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+        `;
+
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 20px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '管理标签';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'tag-manager-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // 输入区域
+        const inputGroup = document.createElement('div');
+        inputGroup.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            margin-bottom: 20px !important;
+        `;
+
+        const tagInput = document.createElement('input');
+        tagInput.className = 'tag-manager-input';
+        tagInput.type = 'text';
+        tagInput.placeholder = '输入标签名称，按回车添加';
+        tagInput.style.cssText = `
+            flex: 1 !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        
+        // 输入法组合状态跟踪（用于处理中文输入）
+        // 将状态存储在输入框元素上，便于后续访问
+        tagInput._isComposing = false;
+        tagInput.addEventListener('compositionstart', () => {
+            tagInput._isComposing = true;
+        });
+        tagInput.addEventListener('compositionend', () => {
+            tagInput._isComposing = false;
+        });
+        
+        tagInput.addEventListener('focus', () => {
+            tagInput.style.borderColor = '#4CAF50';
+        });
+        tagInput.addEventListener('blur', () => {
+            tagInput.style.borderColor = '#e0e0e0';
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加';
+        addBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.background = '#45a049';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.background = '#4CAF50';
+        });
+        addBtn.addEventListener('click', () => {
+            const sessionId = modal.dataset.sessionId;
+            if (sessionId) {
+                this.addTagFromInput(sessionId);
+            }
+        });
+
+        inputGroup.appendChild(tagInput);
+        inputGroup.appendChild(addBtn);
+
+        // 标签列表
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'tag-manager-tags';
+        tagsContainer.style.cssText = `
+            min-height: 100px !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            margin-bottom: 20px !important;
+            padding: 12px !important;
+            background: #f8f9fa !important;
+            border-radius: 6px !important;
+        `;
+
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 10px !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #f0f0f0 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: background 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#e0e0e0';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#f0f0f0';
+        });
+        cancelBtn.addEventListener('click', () => this.closeTagManager());
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'tag-manager-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#1976D2';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#2196F3';
+        });
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+
+        panel.appendChild(header);
+        panel.appendChild(inputGroup);
+        panel.appendChild(tagsContainer);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        this.chatWindow.appendChild(modal);
+    }
+
+    // 加载标签到管理器
+    loadTagsIntoManager(sessionId, tags) {
+        const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+        if (!modal) return;
+
+        const tagsContainer = modal.querySelector('.tag-manager-tags');
+        if (!tagsContainer) return;
+
+        tagsContainer.innerHTML = '';
+
+        if (!tags || tags.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无标签';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+                font-size: 14px !important;
+            `;
+            tagsContainer.appendChild(emptyMsg);
+            return;
+        }
+
+        tags.forEach((tag, index) => {
+            const tagItem = document.createElement('div');
+            tagItem.style.cssText = `
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                background: #4CAF50 !important;
+                color: white !important;
+                padding: 6px 12px !important;
+                border-radius: 20px !important;
+                margin: 4px !important;
+                font-size: 13px !important;
+            `;
+
+            const tagText = document.createElement('span');
+            tagText.textContent = tag;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '✕';
+            removeBtn.style.cssText = `
+                background: rgba(255, 255, 255, 0.3) !important;
+                border: none !important;
+                color: white !important;
+                width: 18px !important;
+                height: 18px !important;
+                border-radius: 50% !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 !important;
+                transition: background 0.2s ease !important;
+            `;
+            removeBtn.addEventListener('mouseenter', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.5)';
+            });
+            removeBtn.addEventListener('mouseleave', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+            });
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const sessionId = modal.dataset.sessionId;
+                if (sessionId) {
+                    this.removeTag(sessionId, index);
+                }
+            });
+
+            tagItem.appendChild(tagText);
+            tagItem.appendChild(removeBtn);
+            tagsContainer.appendChild(tagItem);
+        });
+    }
+
+    // 从输入框添加标签
+    addTagFromInput(sessionId) {
+        const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+        if (!modal) return;
+
+        const tagInput = modal.querySelector('.tag-manager-input');
+        if (!tagInput) return;
+
+        const tagName = tagInput.value.trim();
+        if (!tagName) return;
+
+        const session = this.sessions[sessionId];
+        if (!session) return;
+
+        if (!session.tags) {
+            session.tags = [];
+        }
+
+        // 检查标签是否已存在
+        if (session.tags.includes(tagName)) {
+            tagInput.value = '';
+            tagInput.focus();
+            return;
+        }
+
+        // 添加标签
+        session.tags.push(tagName);
+        tagInput.value = '';
+        tagInput.focus();
+
+        // 重新加载标签列表
+        this.loadTagsIntoManager(sessionId, session.tags);
+    }
+
+    // 删除标签
+    removeTag(sessionId, index) {
+        const session = this.sessions[sessionId];
+        if (!session || !session.tags) return;
+
+        session.tags.splice(index, 1);
+        this.loadTagsIntoManager(sessionId, session.tags);
+    }
+
+    // 保存标签
+    async saveTags(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法保存标签:', sessionId);
+            return;
+        }
+
+        try {
+            const session = this.sessions[sessionId];
+            session.updatedAt = Date.now();
+
+            // 保存会话到本地
+            await this.saveAllSessions(false, true);
+
+            // 立即同步到后端（确保标签被保存）
+            if (PET_CONFIG.api.syncSessionsToBackend && this.sessionApi) {
+                await this.syncSessionToBackend(sessionId, true);
+            }
+
+            // 更新UI显示
+            await this.updateSessionSidebar(true);
+
+            // 关闭弹窗（不自动保存，因为已经保存过了）
+            const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+            if (modal) {
+                modal.style.display = 'none';
+                const tagInput = modal.querySelector('.tag-manager-input');
+                if (tagInput) {
+                    tagInput.value = '';
+                }
+            }
+
+            console.log('标签已保存:', session.tags);
+        } catch (error) {
+            console.error('保存标签失败:', error);
+            alert('保存标签失败，请重试');
+        }
+    }
+
+    // 关闭标签管理器（自动保存）
+    async closeTagManager() {
+        const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+        if (modal) {
+            const sessionId = modal.dataset.sessionId;
+            // 关闭前自动保存
+            if (sessionId && this.sessions[sessionId]) {
+                try {
+                    const session = this.sessions[sessionId];
+                    session.updatedAt = Date.now();
+                    await this.saveAllSessions(false, true);
+                    
+                    // 立即同步到后端（确保标签被保存）
+                    if (PET_CONFIG.api.syncSessionsToBackend && this.sessionApi) {
+                        await this.syncSessionToBackend(sessionId, true);
+                    }
+                    
+                    await this.updateSessionSidebar(true);
+                } catch (error) {
+                    console.error('自动保存标签失败:', error);
+                }
+            }
+            
+            modal.style.display = 'none';
+            const tagInput = modal.querySelector('.tag-manager-input');
+            if (tagInput) {
+                tagInput.value = '';
+            }
         }
     }
 
@@ -14915,6 +15561,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

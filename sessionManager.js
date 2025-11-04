@@ -276,6 +276,7 @@ class SessionManager {
                 pageDescription: session.pageDescription || '',
                 pageContent: session.pageContent || '',
                 messages: session.messages || [],
+                tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),
                 lastAccessTime: session.lastAccessTime || Date.now()
@@ -719,4 +720,5 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionManager = SessionManager;
 }
+
 

@@ -4398,6 +4398,7 @@ class PetManager {
                     line-height: 1 !important;
                 `;
                 
+                // 按钮悬停时增加不透明度
                 editBtn.addEventListener('mouseenter', () => {
                     editBtn.style.opacity = '1';
                 });
@@ -4429,6 +4430,7 @@ class PetManager {
                 margin-left: 4px !important;
             `;
             
+            // 按钮悬停时增加不透明度
             tagBtn.addEventListener('mouseenter', () => {
                 tagBtn.style.opacity = '1';
             });
@@ -4448,12 +4450,22 @@ class PetManager {
                 display: flex !important;
                 align-items: center !important;
                 gap: 2px !important;
+                opacity: 0 !important;
+                transition: opacity 0.2s ease !important;
             `;
             // 只有编辑按钮存在时才添加
             if (editBtn) {
                 buttonContainer.appendChild(editBtn);
             }
             buttonContainer.appendChild(tagBtn);
+            
+            // 鼠标悬停在会话项上时显示按钮
+            sessionItem.addEventListener('mouseenter', () => {
+                buttonContainer.style.opacity = '1';
+            });
+            sessionItem.addEventListener('mouseleave', () => {
+                buttonContainer.style.opacity = '0';
+            });
             
             metaDiv.appendChild(timeSpan);
             metaDiv.appendChild(buttonContainer);

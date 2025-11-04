@@ -85,6 +85,20 @@ if (typeof PET_CONFIG === 'undefined') {
         storage: {
             keys: { globalState: 'petGlobalState' },
             syncInterval: 3000
+        },
+        chatModels: {
+            default: 'qwen3',
+            models: [
+                { id: 'qwen3', name: 'Qwen3', icon: '🤖' },
+                { id: 'qwq', name: 'QWQ', icon: '💬' },
+                { id: 'gpt-oss', name: 'GPT-OSS', icon: '✨' }
+            ]
+        },
+        api: {
+            streamPromptUrl: 'https://api.effiy.cn/prompt',
+            promptUrl: 'https://api.effiy.cn/prompt/',
+            yiaiBaseUrl: 'https://api.effiy.cn',
+            syncSessionsToBackend: true
         }
     };
 
@@ -122,7 +136,7 @@ class PetManager {
         this.position = getPetDefaultPosition();
         this.chatWindow = null;
         this.isChatOpen = false;
-        this.currentModel = PET_CONFIG.chatModels.default;
+        this.currentModel = (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3';
 
         this.colors = PET_CONFIG.pet.colors;
         this.mermaidLoaded = false;
@@ -503,7 +517,7 @@ class PetManager {
     }
 
     setModel(modelId) {
-        if (PET_CONFIG.chatModels.models.some(m => m.id === modelId)) {
+        if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models && PET_CONFIG.chatModels.models.some(m => m.id === modelId)) {
             this.currentModel = modelId;
             this.saveState();
             this.syncToGlobalState();
@@ -605,7 +619,7 @@ class PetManager {
                         this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
                     }
 
-                    this.currentModel = state.model !== undefined ? state.model : PET_CONFIG.chatModels.default;
+                    this.currentModel = state.model !== undefined ? state.model : ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
                     // 位置也使用全局状态，但会进行边界检查
                     this.position = this.validatePosition(state.position || getPetDefaultPosition());
                     console.log('宠物全局状态已恢复:', state);
@@ -2045,14 +2059,16 @@ class PetManager {
         this.hasAutoCreatedSessionForPage = isUrlMatched;
         
         // 当会话高亮时，调用 getSession 获取完整数据
-        // 跳过情况：1. 明确指定跳过；2. 空白会话（URL为空、以blank-session://开头或标记为空白会话）；3. 新创建的会话（创建时间很近）
+        // 跳过情况：1. 明确指定跳过；2. 新创建的会话（创建时间很近，5秒内）
+        // 注意：即使是空白会话，如果已经同步到后端，也应该尝试获取最新数据
         const isBlankSession = !targetSession.url || 
                               targetSession.url.startsWith('blank-session://') || 
-                              targetSession._isBlankSession || 
-                              skipBackendFetch;
+                              targetSession._isBlankSession;
         const isNewSession = targetSession.createdAt && (Date.now() - targetSession.createdAt) < 5000; // 5秒内创建的会话视为新会话
         
-        if (!skipBackendFetch && !isBlankSession && !isNewSession && this.sessionApi && this.sessionApi.isEnabled()) {
+        // 即使判定为空白会话，也应该尝试从后端获取数据（除非明确指定跳过或新创建）
+        // 这样已同步到后端的空白会话也能获取最新数据
+        if (!skipBackendFetch && !isNewSession && this.sessionApi && this.sessionApi.isEnabled()) {
             try {
                 console.log('会话高亮，正在从后端获取完整数据:', sessionId);
                 const fullSession = await this.sessionApi.getSession(sessionId, true); // 强制刷新
@@ -2103,8 +2119,12 @@ class PetManager {
                 }
                 // 继续使用本地数据
             }
-        } else if (isBlankSession || isNewSession) {
-            console.log('跳过从后端获取数据（空白会话或新创建的会话）:', sessionId);
+        } else if (skipBackendFetch || isNewSession) {
+            if (skipBackendFetch) {
+                console.log('跳过从后端获取数据（明确指定跳过）:', sessionId);
+            } else if (isNewSession) {
+                console.log('跳过从后端获取数据（新创建的会话）:', sessionId);
+            }
         }
         
         // 更新会话一致性（只有在URL匹配时才更新，确保数据隔离）
@@ -3715,9 +3735,50 @@ class PetManager {
             }
             
             // 获取完整标题和显示标题
-            const fullTitle = session.pageTitle || session.id || '未命名会话';
-            const displayTitle = fullTitle.length > 20 
-                ? fullTitle.substring(0, 20) + '...' 
+            // 优先使用会话的 pageTitle，如果是空白会话且有默认标题，使用默认标题
+            let fullTitle = session.pageTitle || '未命名会话';
+            
+            // 如果是空白会话且标题是默认值，尝试生成更友好的标题
+            if (session._isBlankSession || (session.url && session.url.startsWith('blank-session://'))) {
+                if (!session.pageTitle || session.pageTitle === '新会话' || session.pageTitle === '未命名会话') {
+                    // 如果有消息，使用第一条用户消息的前几个字
+                    if (session.messages && session.messages.length > 0) {
+                        const firstUserMessage = session.messages.find(m => m.type === 'user');
+                        if (firstUserMessage && firstUserMessage.content) {
+                            const content = firstUserMessage.content.trim();
+                            // 取前30个字符作为标题
+                            const preview = content.length > 30 ? content.substring(0, 30) + '...' : content;
+                            fullTitle = preview;
+                        } else {
+                            // 没有用户消息，使用创建时间
+                            const createDate = new Date(session.createdAt || Date.now());
+                            const month = String(createDate.getMonth() + 1).padStart(2, '0');
+                            const day = String(createDate.getDate()).padStart(2, '0');
+                            const hour = String(createDate.getHours()).padStart(2, '0');
+                            const minute = String(createDate.getMinutes()).padStart(2, '0');
+                            fullTitle = `${month}-${day} ${hour}:${minute}`;
+                        }
+                    } else {
+                        // 没有消息，使用创建时间
+                        const createDate = new Date(session.createdAt || Date.now());
+                        const month = String(createDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(createDate.getDate()).padStart(2, '0');
+                        const hour = String(createDate.getHours()).padStart(2, '0');
+                        const minute = String(createDate.getMinutes()).padStart(2, '0');
+                        fullTitle = `${month}-${day} ${hour}:${minute}`;
+                    }
+                }
+            }
+            
+            // 根据侧边栏宽度动态计算标题最大显示长度
+            // 侧边栏宽度减去内边距、时间戳、编辑按钮等，大约可用宽度为 sidebarWidth - 80
+            const availableWidth = Math.max(100, this.sidebarWidth - 80);
+            // 估算：每个字符大约 7-8px（13px字体），留一些余量
+            const maxChars = Math.floor(availableWidth / 7);
+            const titleMaxLength = Math.max(15, Math.min(50, maxChars)); // 最少15个字符，最多50个字符
+            
+            const displayTitle = fullTitle.length > titleMaxLength 
+                ? fullTitle.substring(0, titleMaxLength) + '...' 
                 : fullTitle;
             
             // 创建内容容器
@@ -3729,7 +3790,15 @@ class PetManager {
             
             const titleDiv = document.createElement('div');
             titleDiv.className = 'session-title';
-            titleDiv.textContent = `${index + 1}. ${displayTitle}`;
+            titleDiv.textContent = displayTitle;
+            // 如果标题被截断，添加 tooltip 显示完整标题
+            if (fullTitle.length > titleMaxLength) {
+                titleDiv.setAttribute('title', fullTitle);
+            }
+            // 添加文本溢出处理（只添加必要的样式，不覆盖类样式）
+            titleDiv.style.overflow = 'hidden';
+            titleDiv.style.textOverflow = 'ellipsis';
+            titleDiv.style.whiteSpace = 'nowrap';
             
             const metaDiv = document.createElement('div');
             metaDiv.className = 'session-meta';
@@ -4659,6 +4728,7 @@ class PetManager {
         `;
         const preview = document.createElement('div');
         preview.id = 'pet-context-preview';
+        preview.className = 'markdown-content'; // 添加 markdown-content 类以应用样式
         preview.style.cssText = `
             flex: 1 !important;
             width: 50% !important;
@@ -4672,6 +4742,8 @@ class PetManager {
             overflow-x: hidden !important;
             -webkit-overflow-scrolling: touch !important;
             pointer-events: auto !important;
+            font-size: 14px !important;
+            line-height: 1.6 !important;
         `;
         // 防止滚动事件冒泡到父级，保证自身滚动有效
         preview.addEventListener('wheel', (e) => { e.stopPropagation(); }, { passive: true });
@@ -5852,7 +5924,7 @@ ${pageContent || '无内容'}
                         const payload = this.buildPromptPayload(
                             systemPrompt,
                             fromUser,
-                            this.currentModel || PET_CONFIG.chatModels.default
+                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
                         );
                         
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -6359,7 +6431,7 @@ ${pageContent || '无内容'}
                         const payload = this.buildPromptPayload(
                             roleInfo.systemPrompt,
                             fromUser,
-                            this.currentModel || PET_CONFIG.chatModels.default
+                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
                         );
                         
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -6682,7 +6754,7 @@ ${pageContent || '无内容'}
                             const payload = this.buildPromptPayload(
                                 systemPrompt,
                                 fromUser,
-                                this.currentModel || PET_CONFIG.chatModels.default
+                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
                             );
                             
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -7065,7 +7137,7 @@ ${pageContent || '无内容'}
                             const payload = this.buildPromptPayload(
                                 roleInfo.systemPrompt,
                                 fromUser,
-                                this.currentModel || PET_CONFIG.chatModels.default
+                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
                             );
                             
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -7406,7 +7478,7 @@ ${pageContent || '无内容'}
                     const payload = this.buildPromptPayload(
                         systemPrompt,
                         fromUser,
-                        this.currentModel || PET_CONFIG.chatModels.default
+                        this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
                     );
                     
                     const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -7830,7 +7902,7 @@ ${pageContent || '无内容'}
                 const payload = this.buildPromptPayload(
                     roleInfo.systemPrompt,
                     fromUser,
-                    this.currentModel || PET_CONFIG.chatModels.default
+                    this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
                 );
                 
                 const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -8947,10 +9019,14 @@ ${pageContent || '无内容'}
             // 如果当前有会话，也更新会话中的页面内容
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const pageTitle = document.title || '当前页面';
-                this.sessions[this.currentSessionId].pageContent = pageContent;
-                this.sessions[this.currentSessionId].pageTitle = pageTitle;
-                // 静默保存，不显示提示
-                this.saveAllSessions().catch(err => {
+                const session = this.sessions[this.currentSessionId];
+                session.pageContent = pageContent;
+                session.pageTitle = pageTitle;
+                // 更新会话时间戳，确保保存逻辑识别到变化
+                session.updatedAt = Date.now();
+                session.lastAccessTime = Date.now();
+                // 静默保存，不显示提示（同步到后端）
+                this.saveAllSessions(true, true).catch(err => {
                     console.error('自动保存更新的上下文失败:', err);
                 });
             }
@@ -8983,11 +9059,23 @@ ${pageContent || '无内容'}
 
         try {
             const editedContent = textarea.value || '';
-            this.sessions[this.currentSessionId].pageContent = editedContent;
+            const session = this.sessions[this.currentSessionId];
             
-            // 异步保存到存储
-            await this.saveAllSessions();
+            // 更新页面内容
+            session.pageContent = editedContent;
+            // 更新会话时间戳，确保保存逻辑识别到变化
+            session.updatedAt = Date.now();
+            session.lastAccessTime = Date.now();
             
+            // 如果页面标题还没有设置，同时更新页面标题
+            if (!session.pageTitle || session.pageTitle === '当前页面') {
+                session.pageTitle = document.title || '当前页面';
+            }
+            
+            // 异步保存到存储（同步到后端）
+            await this.saveAllSessions(true, true);
+            
+            console.log('页面上下文已保存到会话:', this.currentSessionId);
             return true;
         } catch (error) {
             console.error('保存页面上下文失败:', error);
@@ -9461,7 +9549,10 @@ ${pageContent || '无内容'}
                     font-weight: 500 !important;
                     color: #374151 !important;
                     margin-bottom: 4px !important;
-                    word-break: break-word !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    white-space: nowrap !important;
+                    max-width: 100% !important;
                 }
                 .session-item.active .session-title {
                     color: ${mainColor} !important;
@@ -10217,20 +10308,22 @@ ${pageContent || '无内容'}
         `;
 
         // 添加模型选项
-        PET_CONFIG.chatModels.models.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.id;
-            option.textContent = `${model.icon} ${model.name}`;
-            option.selected = model.id === this.currentModel;
-            modelSelector.appendChild(option);
-        });
+        if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models) {
+            PET_CONFIG.chatModels.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = `${model.icon} ${model.name}`;
+                option.selected = model.id === this.currentModel;
+                modelSelector.appendChild(option);
+            });
+        }
 
         // 模型切换事件
         modelSelector.addEventListener('change', (e) => {
             const selectedModel = e.target.value;
             this.setModel(selectedModel);
             // 显示切换提示
-            const modelConfig = PET_CONFIG.chatModels.models.find(m => m.id === selectedModel);
+            const modelConfig = (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models) ? PET_CONFIG.chatModels.models.find(m => m.id === selectedModel) : null;
             if (modelConfig) {
                 this.showNotification(`已切换到 ${modelConfig.name}`, 'info');
             }
@@ -14822,6 +14915,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

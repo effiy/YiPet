@@ -273,11 +273,77 @@
 
 /* Markdown 内容样式 */
 .markdown-content {
-    color: white !important;
+    color: #e5e7eb !important;
     user-select: text !important;
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;
+}
+
+/* 预览框中的 Markdown 内容样式（深色背景） */
+#pet-context-preview.markdown-content {
+    color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content h1,
+#pet-context-preview.markdown-content h2,
+#pet-context-preview.markdown-content h3,
+#pet-context-preview.markdown-content h4,
+#pet-context-preview.markdown-content h5,
+#pet-context-preview.markdown-content h6 {
+    color: #f3f4f6 !important;
+    margin: 0.8em 0 0.4em 0 !important;
+}
+
+#pet-context-preview.markdown-content p {
+    margin: 0.6em 0 !important;
+    color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content code {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fbbf24 !important;
+    padding: 0.2em 0.4em !important;
+    border-radius: 3px !important;
+    font-size: 0.9em !important;
+}
+
+#pet-context-preview.markdown-content pre {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content pre code {
+    background: transparent !important;
+    color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content blockquote {
+    border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+    color: #d1d5db !important;
+}
+
+#pet-context-preview.markdown-content a {
+    color: #60a5fa !important;
+}
+
+#pet-context-preview.markdown-content a:hover {
+    color: #93c5fd !important;
+}
+
+#pet-context-preview.markdown-content table {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+#pet-context-preview.markdown-content th {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #f3f4f6 !important;
+}
+
+#pet-context-preview.markdown-content td {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #e5e7eb !important;
 }
 
 .markdown-content h1,
@@ -578,6 +644,7 @@
 .edit-button[data-editing="true"] {
     background: rgba(76, 175, 80, 0.3) !important;
 }
+
 
 
 

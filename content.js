@@ -5029,7 +5029,7 @@ class PetManager {
         return new Date(timestamp).toLocaleDateString('zh-CN');
     }
 
-    // 编辑会话标题
+    // 编辑会话标题和描述
     async editSessionTitle(sessionId) {
         if (!sessionId || !this.sessions[sessionId]) {
             console.warn('会话不存在，无法编辑标题:', sessionId);
@@ -5038,25 +5038,363 @@ class PetManager {
 
         const session = this.sessions[sessionId];
         const originalTitle = session.pageTitle || '未命名会话';
+        const originalDescription = session.pageDescription || '';
         
-        // 使用 prompt 获取用户输入
-        const newTitle = prompt('请输入新的会话标题:', originalTitle);
+        // 打开编辑对话框
+        this.openSessionInfoEditor(sessionId, originalTitle, originalDescription);
+    }
+
+    // 打开会话信息编辑对话框
+    openSessionInfoEditor(sessionId, originalTitle, originalDescription) {
+        // 确保对话框UI存在
+        this.ensureSessionInfoEditorUi();
         
-        // 如果用户取消或输入为空，不进行更新
-        if (newTitle === null || newTitle.trim() === '') {
+        const modal = document.body.querySelector('#pet-session-info-editor');
+        if (!modal) {
+            console.error('会话信息编辑对话框未找到');
             return;
         }
+
+        // 显示对话框
+        modal.style.display = 'flex';
+        modal.dataset.sessionId = sessionId;
+
+        // 填充当前值
+        const titleInput = modal.querySelector('.session-editor-title-input');
+        const descriptionInput = modal.querySelector('.session-editor-description-input');
         
-        const trimmedTitle = newTitle.trim();
+        if (titleInput) {
+            titleInput.value = originalTitle;
+        }
+        if (descriptionInput) {
+            descriptionInput.value = originalDescription;
+        }
+
+        // 聚焦到标题输入框
+        if (titleInput) {
+            setTimeout(() => {
+                titleInput.focus();
+                titleInput.select();
+            }, 100);
+        }
+
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.session-editor-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeSessionInfoEditor();
+        }
+
+        // 添加保存事件
+        const saveBtn = modal.querySelector('.session-editor-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveSessionInfo(sessionId);
+        }
+
+        // 添加取消事件
+        const cancelBtn = modal.querySelector('.session-editor-cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeSessionInfoEditor();
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeSessionInfoEditor();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    // 确保会话信息编辑对话框UI存在
+    ensureSessionInfoEditorUi() {
+        if (document.body.querySelector('#pet-session-info-editor')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'pet-session-info-editor';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2147483653 !important;
+        `;
         
-        // 如果标题没有变化，不需要更新
-        if (trimmedTitle === originalTitle) {
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeSessionInfoEditor();
+            }
+        });
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 32px !important;
+            width: 90% !important;
+            max-width: 700px !important;
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+            position: relative !important;
+            z-index: 2147483654 !important;
+        `;
+
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 24px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '编辑会话信息';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 20px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'session-editor-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // 标题输入区域
+        const titleGroup = document.createElement('div');
+        titleGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+
+        const titleLabel = document.createElement('label');
+        titleLabel.textContent = '会话标题';
+        titleLabel.style.cssText = `
+            display: block !important;
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+        `;
+
+        const titleInput = document.createElement('input');
+        titleInput.className = 'session-editor-title-input';
+        titleInput.type = 'text';
+        titleInput.placeholder = '请输入会话标题';
+        titleInput.style.cssText = `
+            width: 100% !important;
+            padding: 12px 14px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 15px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+            box-sizing: border-box !important;
+        `;
+        
+        titleInput.addEventListener('focus', () => {
+            titleInput.style.borderColor = '#4CAF50';
+        });
+        titleInput.addEventListener('blur', () => {
+            titleInput.style.borderColor = '#e0e0e0';
+        });
+
+        titleGroup.appendChild(titleLabel);
+        titleGroup.appendChild(titleInput);
+
+        // 描述输入区域
+        const descriptionGroup = document.createElement('div');
+        descriptionGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+
+        const descriptionLabel = document.createElement('label');
+        descriptionLabel.textContent = '网页描述';
+        descriptionLabel.style.cssText = `
+            display: block !important;
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+        `;
+
+        const descriptionInput = document.createElement('textarea');
+        descriptionInput.className = 'session-editor-description-input';
+        descriptionInput.placeholder = '请输入网页描述（可选）';
+        descriptionInput.rows = 6;
+        descriptionInput.style.cssText = `
+            width: 100% !important;
+            padding: 12px 14px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+            resize: vertical !important;
+            font-family: inherit !important;
+            box-sizing: border-box !important;
+            min-height: 120px !important;
+        `;
+        
+        descriptionInput.addEventListener('focus', () => {
+            descriptionInput.style.borderColor = '#4CAF50';
+        });
+        descriptionInput.addEventListener('blur', () => {
+            descriptionInput.style.borderColor = '#e0e0e0';
+        });
+
+        descriptionGroup.appendChild(descriptionLabel);
+        descriptionGroup.appendChild(descriptionInput);
+
+        // 按钮区域
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.cssText = `
+            display: flex !important;
+            gap: 12px !important;
+            justify-content: flex-end !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'session-editor-cancel';
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 12px 24px !important;
+            background: #f5f5f5 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#e0e0e0';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#f5f5f5';
+        });
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'session-editor-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 12px 24px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#45a049';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#4CAF50';
+        });
+
+        buttonGroup.appendChild(cancelBtn);
+        buttonGroup.appendChild(saveBtn);
+
+        // 组装面板
+        panel.appendChild(header);
+        panel.appendChild(titleGroup);
+        panel.appendChild(descriptionGroup);
+        panel.appendChild(buttonGroup);
+
+        // 组装模态框
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+    }
+
+    // 关闭会话信息编辑对话框
+    closeSessionInfoEditor() {
+        const modal = document.body.querySelector('#pet-session-info-editor');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    // 保存会话信息
+    async saveSessionInfo(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法保存信息:', sessionId);
             return;
         }
+
+        const modal = document.body.querySelector('#pet-session-info-editor');
+        if (!modal) {
+            return;
+        }
+
+        const titleInput = modal.querySelector('.session-editor-title-input');
+        const descriptionInput = modal.querySelector('.session-editor-description-input');
         
+        if (!titleInput) {
+            console.error('标题输入框未找到');
+            return;
+        }
+
+        const newTitle = titleInput.value.trim();
+        const newDescription = descriptionInput ? descriptionInput.value.trim() : '';
+
+        // 如果标题为空，不进行更新
+        if (newTitle === '') {
+            alert('会话标题不能为空');
+            titleInput.focus();
+            return;
+        }
+
+        const session = this.sessions[sessionId];
+        const originalTitle = session.pageTitle || '未命名会话';
+        const originalDescription = session.pageDescription || '';
+
+        // 如果标题和描述都没有变化，不需要更新
+        if (newTitle === originalTitle && newDescription === originalDescription) {
+            this.closeSessionInfoEditor();
+            return;
+        }
+
         try {
-            // 更新会话标题
-            session.pageTitle = trimmedTitle;
+            // 更新会话信息
+            session.pageTitle = newTitle;
+            session.pageDescription = newDescription;
             session.updatedAt = Date.now();
             
             // 保存会话到本地
@@ -5065,15 +5403,20 @@ class PetManager {
             // 更新UI显示
             await this.updateSessionSidebar(true);
             
-            // 如果这是当前会话，同时更新聊天窗口标题
+            // 如果这是当前会话，同时更新聊天窗口标题和第一条消息
             if (sessionId === this.currentSessionId) {
                 this.updateChatHeaderTitle();
+                // 刷新第一条欢迎消息
+                this.refreshWelcomeMessage();
             }
             
-            console.log('会话标题已更新:', trimmedTitle);
+            console.log('会话信息已更新:', { title: newTitle, description: newDescription });
+            
+            // 关闭对话框
+            this.closeSessionInfoEditor();
         } catch (error) {
-            console.error('更新会话标题失败:', error);
-            alert('更新标题失败，请重试');
+            console.error('更新会话信息失败:', error);
+            alert('更新信息失败，请重试');
         }
     }
 
@@ -15259,6 +15602,75 @@ ${pageContent || '无内容'}
         }
 
         return welcomeMessage;
+    }
+
+    // 刷新第一条欢迎消息（当会话信息更新时调用）
+    refreshWelcomeMessage() {
+        if (!this.chatWindow || !this.currentSessionId) {
+            return;
+        }
+
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (!messagesContainer) {
+            return;
+        }
+
+        // 查找第一条欢迎消息
+        const welcomeMessage = messagesContainer.querySelector('[data-welcome-message]');
+        if (!welcomeMessage) {
+            console.log('未找到欢迎消息，跳过刷新');
+            return;
+        }
+
+        // 获取当前会话的更新后的页面信息
+        const session = this.sessions[this.currentSessionId];
+        if (!session) {
+            return;
+        }
+
+        const pageInfo = {
+            title: session.pageTitle || document.title || '当前页面',
+            url: session.url || window.location.href,
+            description: session.pageDescription || ''
+        };
+
+        // 获取页面图标
+        const pageIconUrl = this.getPageIconUrl();
+
+        // 重新构建页面信息显示内容
+        let pageInfoHtml = `
+            <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)); border-radius: 12px; border-left: 3px solid #4ECDC4;">
+                <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <img src="${pageIconUrl}" alt="页面图标" style="width: 20px; height: 20px; border-radius: 4px; object-fit: contain; flex-shrink: 0;" onerror="this.style.display='none'">
+                    <span style="font-weight: 600; font-size: 15px; color: #374151;">${this.escapeHtml(pageInfo.title)}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🔗 网址</div>
+                    <a href="${pageInfo.url}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(pageInfo.url)}</a>
+                </div>
+        `;
+
+        if (pageInfo.description && pageInfo.description.trim()) {
+            pageInfoHtml += `
+                <div style="margin-bottom: 0;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 页面描述</div>
+                    <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(pageInfo.description)}</div>
+                </div>
+            `;
+        }
+
+        pageInfoHtml += `</div>`;
+
+        // 更新欢迎消息的内容
+        const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+        if (messageText) {
+            messageText.innerHTML = pageInfoHtml;
+            // 更新原始HTML
+            messageText.setAttribute('data-original-text', pageInfoHtml);
+        }
+
+        console.log('欢迎消息已刷新');
     }
 
     // HTML转义辅助方法（防止XSS）

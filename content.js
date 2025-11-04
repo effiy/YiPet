@@ -141,6 +141,8 @@ class PetManager {
         this.colors = PET_CONFIG.pet.colors;
         this.mermaidLoaded = false;
         this.mermaidLoading = false;
+        this.jszipLoaded = false;
+        this.jszipLoading = false;
 
         // 会话管理相关属性
         this.currentSessionId = null;
@@ -3732,6 +3734,307 @@ class PetManager {
         });
         
         return Array.from(tagSet).sort();
+    }
+
+    // 获取筛选后的会话列表
+    _getFilteredSessions() {
+        let allSessions = this._getSessionsFromLocal();
+        
+        // 应用标签过滤（与updateSessionSidebar中的逻辑一致）
+        if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
+            allSessions = allSessions.filter(session => {
+                const sessionTags = session.tags || [];
+                const hasSelectedTags = this.selectedFilterTags.some(selectedTag => 
+                    sessionTags.includes(selectedTag)
+                );
+                
+                if (this.tagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的会话
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的会话
+                    return hasSelectedTags;
+                }
+            });
+        }
+        
+        return allSessions;
+    }
+
+    // 日期处理辅助函数
+    _getDateInfo(timestamp) {
+        const date = new Date(timestamp);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // 0-11 -> 1-12
+        const day = date.getDate();
+        
+        // 计算季度
+        const quarter = Math.floor((month - 1) / 3) + 1;
+        
+        // 计算该周的起始日期（周一）和结束日期（周日）
+        const dayOfWeek = date.getDay(); // 0=周日, 1=周一, ..., 6=周六
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 距离周一的天数
+        const monday = new Date(date);
+        monday.setDate(date.getDate() + mondayOffset);
+        const weekStart = monday.getDate();
+        const weekStartMonth = monday.getMonth() + 1;
+        
+        // 计算该周的结束日期（周日）
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const weekEnd = sunday.getDate();
+        const weekEndMonth = sunday.getMonth() + 1;
+        
+        // 计算当月第几周（从当月1日所在周开始计算）
+        const firstDayOfMonth = new Date(year, month - 1, 1);
+        const firstDayOfWeek = firstDayOfMonth.getDay(); // 当月1日是星期几
+        const daysSinceMonthStart = Math.floor((date - firstDayOfMonth) / 86400000);
+        // 计算周数：从当月1日所在周开始，每7天一周
+        const weekNumber = Math.floor((daysSinceMonthStart + firstDayOfWeek) / 7) + 1;
+        
+        return {
+            year: year.toString(),
+            quarter: `Q${quarter}`,
+            month: month.toString().padStart(2, '0'),
+            week: `W${weekNumber}[${weekStartMonth}-${weekStart}_${weekEndMonth}-${weekEnd}]`,
+            day: day.toString().padStart(2, '0'),
+            date: date
+        };
+    }
+
+    // 清理文件名（移除非法字符）
+    _sanitizeFileName(fileName) {
+        // 移除或替换Windows/Linux文件名中的非法字符
+        return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+    }
+
+    // 加载JSZip库（参考loadMermaid的方式）
+    async _loadJSZip() {
+        // 检查是否已经加载
+        if (this.jszipLoaded || this.jszipLoading) {
+            return this.jszipLoaded;
+        }
+
+        this.jszipLoading = true;
+
+        return new Promise((resolve, reject) => {
+            // 检查是否已经在页面上下文中加载
+            const checkLoaded = () => {
+                return window.__JSZIP_LOADED__ || window.__JSZIP_READY__;
+            };
+            
+            if (checkLoaded()) {
+                this.jszipLoaded = true;
+                this.jszipLoading = false;
+                console.log('JSZip已在页面上下文中加载');
+                resolve(true);
+                return;
+            }
+
+            // 使用注入脚本在页面上下文中加载 JSZip
+            const scriptUrl = chrome.runtime.getURL('jszip.min.js');
+            const loadScriptUrl = chrome.runtime.getURL('load-jszip.js');
+            console.log('尝试在页面上下文中加载 JSZip.js，URL:', scriptUrl);
+            
+            // 通过 data 属性传递 URL（避免内联脚本）
+            const urlContainer = document.createElement('div');
+            urlContainer.id = '__jszip_url_container__';
+            urlContainer.style.display = 'none';
+            urlContainer.setAttribute('data-jszip-url', scriptUrl);
+            (document.head || document.documentElement).appendChild(urlContainer);
+            
+            // 加载外部脚本文件（避免 CSP 限制）
+            const injectedScript = document.createElement('script');
+            injectedScript.src = loadScriptUrl;
+            injectedScript.charset = 'UTF-8';
+            injectedScript.async = false;
+            
+            // 监听页面中的 JSZip 加载事件（在脚本加载前设置）
+            const handleJSZipLoaded = () => {
+                console.log('[Content] 收到 JSZip 加载完成事件');
+                this.jszipLoaded = true;
+                this.jszipLoading = false;
+                console.log('[Content] JSZip.js 在页面上下文中已加载');
+                window.removeEventListener('jszip-loaded', handleJSZipLoaded);
+                window.removeEventListener('jszip-error', handleJSZipError);
+                resolve(true);
+            };
+            
+            const handleJSZipError = (event) => {
+                console.error('[Content] 收到 JSZip 加载失败事件', event);
+                this.jszipLoading = false;
+                window.removeEventListener('jszip-loaded', handleJSZipLoaded);
+                window.removeEventListener('jszip-error', handleJSZipError);
+                const errorMsg = event && event.detail && event.detail.error ? event.detail.error : '页面上下文中的 JSZip.js 加载失败';
+                reject(new Error(errorMsg));
+            };
+            
+            // 监听页面事件（通过注入的事件监听器）
+            window.addEventListener('jszip-loaded', handleJSZipLoaded);
+            window.addEventListener('jszip-error', handleJSZipError);
+            
+            // 注入脚本到页面上下文
+            (document.head || document.documentElement).appendChild(injectedScript);
+            
+            // 清理注入的脚本
+            setTimeout(() => {
+                if (injectedScript.parentNode) {
+                    injectedScript.parentNode.removeChild(injectedScript);
+                }
+            }, 1000);
+        });
+    }
+
+    // 生成context.md内容
+    _generateContextMd(session) {
+        let content = `# ${session.pageTitle || '未命名会话'}\n\n`;
+        content += `**创建时间**: ${new Date(session.createdAt || Date.now()).toLocaleString('zh-CN')}\n\n`;
+        content += `**更新时间**: ${new Date(session.updatedAt || session.createdAt || Date.now()).toLocaleString('zh-CN')}\n\n`;
+        content += `**URL**: ${session.url || ''}\n\n`;
+        
+        if (session.pageDescription) {
+            content += `**页面描述**: ${session.pageDescription}\n\n`;
+        }
+        
+        if (session.tags && session.tags.length > 0) {
+            content += `**标签**: ${session.tags.join(', ')}\n\n`;
+        }
+        
+        if (session.pageContent) {
+            content += `## 页面内容\n\n${session.pageContent}\n`;
+        }
+        
+        return content;
+    }
+
+    // 生成chat.md内容
+    _generateChatMd(session) {
+        let content = `# 聊天记录\n\n`;
+        
+        if (!session.messages || session.messages.length === 0) {
+            content += `暂无聊天记录。\n`;
+            return content;
+        }
+        
+        session.messages.forEach((message, index) => {
+            const role = message.role || 'unknown';
+            const text = message.content || message.text || '';
+            const timestamp = message.timestamp || message.createdAt || '';
+            
+            content += `## 消息 ${index + 1}\n\n`;
+            content += `**角色**: ${role}\n\n`;
+            if (timestamp) {
+                content += `**时间**: ${new Date(timestamp).toLocaleString('zh-CN')}\n\n`;
+            }
+            content += `**内容**:\n\n${text}\n\n`;
+            content += `---\n\n`;
+        });
+        
+        return content;
+    }
+
+    // 导出会话为ZIP文件（使用页面上下文中的JSZip）
+    async exportSessionsToZip() {
+        try {
+            // 显示加载提示
+            this.showNotification('正在准备导出...', 'info');
+            
+            // 加载JSZip库（在页面上下文中）
+            await this._loadJSZip();
+            
+            // 获取筛选后的会话列表
+            const sessions = this._getFilteredSessions();
+            
+            if (sessions.length === 0) {
+                this.showNotification('没有可导出的会话', 'error');
+                return;
+            }
+            
+            // 准备导出数据（序列化会话数据）
+            const exportData = sessions.map(session => {
+                const timestamp = session.updatedAt || session.createdAt || Date.now();
+                const dateInfo = this._getDateInfo(timestamp);
+                const title = this._sanitizeFileName(session.pageTitle || '未命名会话');
+                
+                return {
+                    dateInfo: dateInfo,
+                    title: title,
+                    contextMd: this._generateContextMd(session),
+                    chatMd: this._generateChatMd(session)
+                };
+            });
+            
+            // 在页面上下文中执行导出逻辑
+            this.showNotification('正在生成ZIP文件...', 'info');
+            
+            // 使用注入外部脚本的方式（避免CSP限制）
+            return new Promise((resolve, reject) => {
+                // 创建数据容器（通过data属性传递数据，避免内联脚本）
+                const dataContainer = document.createElement('div');
+                dataContainer.id = '__jszip_export_data__';
+                dataContainer.style.display = 'none';
+                dataContainer.setAttribute('data-export', JSON.stringify(exportData));
+                (document.head || document.documentElement).appendChild(dataContainer);
+                
+                // 加载外部导出脚本
+                const exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+                const exportScript = document.createElement('script');
+                exportScript.src = exportScriptUrl;
+                exportScript.charset = 'UTF-8';
+                exportScript.async = false;
+                
+                // 监听导出结果
+                const handleSuccess = (event) => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    // 清理
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    this.showNotification(`成功导出 ${event.detail.count} 个会话`, 'success');
+                    resolve();
+                };
+                
+                const handleError = (event) => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    // 清理
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    const errorMsg = event.detail && event.detail.error ? event.detail.error : '导出失败';
+                    reject(new Error(errorMsg));
+                };
+                
+                window.addEventListener('jszip-export-success', handleSuccess);
+                window.addEventListener('jszip-export-error', handleError);
+                
+                // 注入脚本
+                (document.head || document.documentElement).appendChild(exportScript);
+                
+                // 设置超时
+                setTimeout(() => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    reject(new Error('导出超时'));
+                }, 30000);
+            });
+        } catch (error) {
+            console.error('导出会话失败:', error);
+            throw error;
+        }
     }
 
     // 更新标签过滤器UI
@@ -10516,6 +10819,62 @@ ${pageContent || '无内容'}
         `;
         sidebarTitle.textContent = '💬 会话列表';
         
+        // 创建导出按钮
+        const exportBtn = document.createElement('button');
+        exportBtn.innerHTML = '📥';
+        exportBtn.title = '导出筛选后的会话列表';
+        exportBtn.style.cssText = `
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 6px !important;
+            background: #10b981 !important;
+            color: white !important;
+            border: none !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 16px !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0 !important;
+            margin-right: 8px !important;
+        `;
+        
+        // 导出按钮悬停效果
+        exportBtn.addEventListener('mouseenter', () => {
+            exportBtn.style.background = '#059669';
+            exportBtn.style.transform = 'scale(1.1)';
+        });
+        exportBtn.addEventListener('mouseleave', () => {
+            exportBtn.style.background = '#10b981';
+            exportBtn.style.transform = 'scale(1)';
+        });
+        
+        // 导出按钮点击事件
+        exportBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 禁用按钮，防止重复点击
+            exportBtn.disabled = true;
+            exportBtn.style.opacity = '0.6';
+            exportBtn.style.cursor = 'wait';
+            
+            try {
+                await this.exportSessionsToZip();
+            } catch (error) {
+                console.error('导出会话失败:', error);
+                this.showNotification('导出会话失败: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                setTimeout(() => {
+                    exportBtn.disabled = false;
+                    exportBtn.style.opacity = '1';
+                    exportBtn.style.cursor = 'pointer';
+                }, 500);
+            }
+        });
+        
         // 创建添加新会话按钮
         const addSessionBtn = document.createElement('button');
         addSessionBtn.innerHTML = '➕';
@@ -10572,6 +10931,7 @@ ${pageContent || '无内容'}
         });
         
         sidebarHeader.appendChild(sidebarTitle);
+        sidebarHeader.appendChild(exportBtn);
         sidebarHeader.appendChild(addSessionBtn);
 
         // 标签过滤器容器
@@ -16244,6 +16604,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

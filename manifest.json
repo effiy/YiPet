@@ -37,9 +37,13 @@
         "mermaid.min.js",
         "load-mermaid.js",
         "render-mermaid.js",
-        "preview-mermaid.js"
+        "preview-mermaid.js",
+        "jszip.min.js",
+        "load-jszip.js",
+        "export-sessions.js"
       ],
       "matches": ["<all_urls>"]
     }
   ]
 }
+

@@ -9439,7 +9439,7 @@ ${pageContent || '无内容'}
         sessionList.style.cssText = `
             flex: 1 !important;
             overflow-y: auto !important;
-            padding: 8px 8px 80px 8px !important;
+            padding: 8px 8px 220px 8px !important;
             scroll-padding-bottom: 20px !important;
             box-sizing: border-box !important;
         `;
@@ -14915,6 +14915,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

@@ -160,6 +160,12 @@ class PetManager {
         this.SESSION_UPDATE_DEBOUNCE = 300; // 会话更新防抖时间（毫秒）
         this.SESSION_SAVE_THROTTLE = 1000; // 会话保存节流时间（毫秒）
         
+        // 标签过滤相关
+        this.selectedFilterTags = []; // 选中的过滤标签
+        this.tagFilterReverse = false; // 是否反向过滤
+        this.tagFilterExpanded = false; // 标签列表是否展开
+        this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量
+        
         // 会话API管理器
         this.sessionApi = null;
         this.lastSessionListLoadTime = 0;
@@ -3710,11 +3716,170 @@ class PetManager {
     }
 
     // 更新会话侧边栏
+    // 收集所有会话的标签
+    getAllTags() {
+        const allSessions = this._getSessionsFromLocal();
+        const tagSet = new Set();
+        
+        allSessions.forEach(session => {
+            if (session.tags && Array.isArray(session.tags)) {
+                session.tags.forEach(tag => {
+                    if (tag && tag.trim()) {
+                        tagSet.add(tag.trim());
+                    }
+                });
+            }
+        });
+        
+        return Array.from(tagSet).sort();
+    }
+
+    // 更新标签过滤器UI
+    updateTagFilterUI() {
+        if (!this.sessionSidebar) return;
+        
+        // 更新反向过滤按钮状态
+        const reverseFilterBtn = this.sessionSidebar.querySelector('.tag-filter-reverse');
+        if (reverseFilterBtn) {
+            reverseFilterBtn.style.color = this.tagFilterReverse ? '#4CAF50' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.tagFilterReverse ? '1' : '0.6';
+        }
+        
+        // 更新清除按钮显示状态（如果有选中的标签才显示为可用状态）
+        const clearFilterBtn = this.sessionSidebar.querySelector('.tag-filter-clear');
+        if (clearFilterBtn) {
+            const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
+            clearFilterBtn.style.opacity = hasSelectedTags ? '0.8' : '0.4';
+            clearFilterBtn.style.cursor = hasSelectedTags ? 'pointer' : 'default';
+        }
+        
+        const tagFilterList = this.sessionSidebar.querySelector('.tag-filter-list');
+        if (!tagFilterList) return;
+        
+        // 清空现有标签
+        tagFilterList.innerHTML = '';
+        
+        // 获取所有标签
+        const allTags = this.getAllTags();
+        
+        if (allTags.length === 0) {
+            // 如果没有标签，隐藏展开/收起按钮
+            const expandToggleContainer = this.sessionSidebar.querySelector('.tag-filter-expand-toggle');
+            if (expandToggleContainer) {
+                expandToggleContainer.style.display = 'none';
+            }
+            return;
+        }
+        
+        // 确定要显示的标签（根据折叠状态）
+        // 确保选中的标签始终显示
+        const selectedTags = this.selectedFilterTags || [];
+        let visibleTags;
+        let hasMoreTags;
+        
+        if (this.tagFilterExpanded) {
+            // 展开状态：显示所有标签
+            visibleTags = allTags;
+            hasMoreTags = false;
+        } else {
+            // 折叠状态：显示前N个标签，但确保选中的标签也在其中
+            const defaultVisible = allTags.slice(0, this.tagFilterVisibleCount);
+            const selectedNotInDefault = selectedTags.filter(tag => !defaultVisible.includes(tag));
+            
+            // 保持allTags的原始顺序，但确保选中的标签也在可见列表中
+            const visibleSet = new Set([...defaultVisible, ...selectedNotInDefault]);
+            visibleTags = allTags.filter(tag => visibleSet.has(tag));
+            hasMoreTags = allTags.length > visibleTags.length;
+        }
+        
+        // 更新展开/折叠按钮
+        const expandToggleContainer = this.sessionSidebar.querySelector('.tag-filter-expand-toggle');
+        const expandToggleBtn = expandToggleContainer?.querySelector('.tag-filter-expand-btn');
+        if (expandToggleContainer && expandToggleBtn) {
+            if (hasMoreTags || this.tagFilterExpanded) {
+                expandToggleContainer.style.display = 'block';
+                if (hasMoreTags) {
+                    const remainingCount = allTags.length - visibleTags.length;
+                    expandToggleBtn.textContent = this.tagFilterExpanded ? '收起' : `展开 ${remainingCount} 个`;
+                } else {
+                    expandToggleBtn.textContent = '收起';
+                }
+            } else {
+                expandToggleContainer.style.display = 'none';
+            }
+        }
+        
+        // 创建标签按钮
+        visibleTags.forEach(tag => {
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'tag-filter-item';
+            tagBtn.textContent = tag;
+            const isSelected = this.selectedFilterTags && this.selectedFilterTags.includes(tag);
+            
+            tagBtn.style.cssText = `
+                padding: 3px 8px !important;
+                border-radius: 10px !important;
+                border: 1px solid ${isSelected ? '#4CAF50' : '#e5e7eb'} !important;
+                background: ${isSelected ? '#4CAF50' : '#f9fafb'} !important;
+                color: ${isSelected ? 'white' : '#6b7280'} !important;
+                font-size: 10px !important;
+                font-weight: ${isSelected ? '500' : '400'} !important;
+                cursor: pointer !important;
+                transition: all 0.15s ease !important;
+                white-space: nowrap !important;
+                line-height: 1.4 !important;
+            `;
+            
+            tagBtn.addEventListener('mouseenter', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#4CAF50';
+                    tagBtn.style.background = '#f0fdf4';
+                    tagBtn.style.color = '#4CAF50';
+                } else {
+                    tagBtn.style.opacity = '0.9';
+                }
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#e5e7eb';
+                    tagBtn.style.background = '#f9fafb';
+                    tagBtn.style.color = '#6b7280';
+                } else {
+                    tagBtn.style.opacity = '1';
+                }
+            });
+            tagBtn.addEventListener('click', () => {
+                if (!this.selectedFilterTags) {
+                    this.selectedFilterTags = [];
+                }
+                
+                const index = this.selectedFilterTags.indexOf(tag);
+                if (index > -1) {
+                    // 取消选中
+                    this.selectedFilterTags.splice(index, 1);
+                } else {
+                    // 选中
+                    this.selectedFilterTags.push(tag);
+                }
+                
+                // 更新所有标签按钮（确保状态一致）
+                this.updateTagFilterUI();
+                // 更新会话列表（应用过滤）
+                this.updateSessionSidebar();
+            });
+            
+            tagFilterList.appendChild(tagBtn);
+        });
+    }
+
     async updateSessionSidebar(forceRefresh = false, skipBackendRefresh = false) {
         if (!this.sessionSidebar) {
             console.log('会话侧边栏未创建，跳过更新');
             return;
         }
+        
+        // 更新标签过滤器UI
+        this.updateTagFilterUI();
         
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         if (!sessionList) {
@@ -3728,6 +3893,24 @@ class PetManager {
         // 使用本地数据，不再调用后端接口（除了第一次页面加载）
         // 第一次页面加载时的调用已在 loadSessionsFromBackend 中处理
         allSessions = this._getSessionsFromLocal();
+        
+        // 应用标签过滤
+        if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
+            allSessions = allSessions.filter(session => {
+                const sessionTags = session.tags || [];
+                const hasSelectedTags = this.selectedFilterTags.some(selectedTag => 
+                    sessionTags.includes(selectedTag)
+                );
+                
+                if (this.tagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的会话
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的会话
+                    return hasSelectedTags;
+                }
+            });
+        }
         
         // 清空列表
         sessionList.innerHTML = '';
@@ -4768,8 +4951,42 @@ class PetManager {
             }
         });
 
+        // 智能生成标签按钮
+        const smartGenerateBtn = document.createElement('button');
+        smartGenerateBtn.className = 'tag-manager-smart-generate';
+        smartGenerateBtn.textContent = '✨ 智能生成';
+        smartGenerateBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #9C27B0 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        smartGenerateBtn.addEventListener('mouseenter', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#7B1FA2';
+            }
+        });
+        smartGenerateBtn.addEventListener('mouseleave', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#9C27B0';
+            }
+        });
+        smartGenerateBtn.addEventListener('click', () => {
+            const sessionId = modal.dataset.sessionId;
+            if (sessionId) {
+                this.generateSmartTags(sessionId, smartGenerateBtn);
+            }
+        });
+
         inputGroup.appendChild(tagInput);
         inputGroup.appendChild(addBtn);
+        inputGroup.appendChild(smartGenerateBtn);
 
         // 标签列表
         const tagsContainer = document.createElement('div');
@@ -4962,6 +5179,284 @@ class PetManager {
 
         session.tags.splice(index, 1);
         this.loadTagsIntoManager(sessionId, session.tags);
+    }
+
+    // 智能生成标签
+    async generateSmartTags(sessionId, buttonElement) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法生成标签:', sessionId);
+            return;
+        }
+
+        const session = this.sessions[sessionId];
+        const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+        
+        if (!modal) {
+            console.error('标签管理弹窗未找到');
+            return;
+        }
+
+        // 禁用按钮，显示加载状态
+        // 临时保存当前会话ID，以便生成标签后恢复
+        const originalSessionId = this.currentSessionId;
+        
+        if (buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.style.background = '#ccc';
+            buttonElement.style.cursor = 'not-allowed';
+            const originalText = buttonElement.textContent;
+            buttonElement.textContent = '生成中...';
+            
+            try {
+                // 收集页面上下文信息
+                const pageTitle = session.pageTitle || '当前页面';
+                const pageUrl = session.url || window.location.href;
+                const pageDescription = session.pageDescription || '';
+                
+                // 获取会话消息摘要（取前5条消息作为上下文）
+                let messageSummary = '';
+                if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
+                    const recentMessages = session.messages.slice(0, 5);
+                    messageSummary = recentMessages.map((msg, idx) => {
+                        const role = msg.role === 'user' ? '用户' : '助手';
+                        const content = msg.content || '';
+                        // 限制每条消息长度，避免过长
+                        const truncatedContent = content.length > 100 ? content.substring(0, 100) + '...' : content;
+                        return `${idx + 1}. ${role}: ${truncatedContent}`;
+                    }).join('\n');
+                }
+
+                // 构建系统提示词
+                const systemPrompt = `你是一个专业的标签生成助手。根据用户提供的页面上下文和会话内容，生成合适的标签。
+
+标签要求：
+1. 标签应该简洁明了，每个标签2-6个汉字或3-12个英文字符
+2. 标签应该准确反映页面或会话的核心主题
+3. 生成3-8个标签
+4. 标签之间用逗号分隔
+5. 只返回标签，不要返回其他说明文字
+6. 如果已有标签，避免生成重复的标签
+
+输出格式示例：技术,编程,前端开发,JavaScript`;
+
+                // 构建用户提示词
+                let userPrompt = `页面信息：
+- 标题：${pageTitle}
+- 网址：${pageUrl}`;
+
+                if (pageDescription) {
+                    userPrompt += `\n- 描述：${pageDescription}`;
+                }
+
+                if (messageSummary) {
+                    userPrompt += `\n\n会话内容摘要：\n${messageSummary}`;
+                }
+
+                const currentTags = session.tags || [];
+                if (currentTags.length > 0) {
+                    userPrompt += `\n\n已有标签：${currentTags.join(', ')}\n请避免生成重复的标签。`;
+                }
+
+                userPrompt += `\n\n请根据以上信息生成合适的标签。`;
+
+                // 构建 payload
+                
+                // 临时设置会话ID为目标会话ID，确保 prompt 接口使用正确的会话上下文
+                this.currentSessionId = sessionId;
+                
+                try {
+                    const payload = this.buildPromptPayload(
+                        systemPrompt,
+                        userPrompt,
+                        this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                    );
+                    
+                    // 确保 payload 中包含正确的会话ID
+                    payload.conversation_id = sessionId;
+
+                    // 调用 prompt 接口
+                    const response = await fetch(PET_CONFIG.api.promptUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    }
+
+                    // 先读取响应文本，判断是否为流式响应（SSE格式）
+                    const responseText = await response.text();
+                    let result;
+                    
+                    // 检查是否包含SSE格式（包含 "data: "）
+                    if (responseText.includes('data: ')) {
+                        // 处理SSE流式响应
+                        const lines = responseText.split('\n');
+                        let accumulatedData = '';
+                        let lastValidData = null;
+                        
+                        for (const line of lines) {
+                            const trimmedLine = line.trim();
+                            if (trimmedLine.startsWith('data: ')) {
+                                try {
+                                    const dataStr = trimmedLine.substring(6).trim();
+                                    if (dataStr === '[DONE]' || dataStr === '') {
+                                        continue;
+                                    }
+                                    
+                                    // 尝试解析JSON
+                                    const chunk = JSON.parse(dataStr);
+                                    
+                                    // 检查是否完成
+                                    if (chunk.done === true) {
+                                        break;
+                                    }
+                                    
+                                    // 累积内容（处理流式内容块）
+                                    if (chunk.data) {
+                                        accumulatedData += chunk.data;
+                                    } else if (chunk.content) {
+                                        accumulatedData += chunk.content;
+                                    } else if (chunk.message && chunk.message.content) {
+                                        // Ollama格式
+                                        accumulatedData += chunk.message.content;
+                                    } else if (typeof chunk === 'string') {
+                                        accumulatedData += chunk;
+                                    }
+                                    
+                                    // 保存最后一个有效的数据块（用于提取其他字段如status等）
+                                    lastValidData = chunk;
+                                } catch (e) {
+                                    // 如果不是JSON，可能是纯文本内容
+                                    const dataStr = trimmedLine.substring(6).trim();
+                                    if (dataStr && dataStr !== '[DONE]') {
+                                        accumulatedData += dataStr;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 如果累积了内容，创建结果对象
+                        if (accumulatedData || lastValidData) {
+                            if (lastValidData && lastValidData.status) {
+                                // 如果有status字段，保留原有结构，但替换data/content
+                                result = {
+                                    ...lastValidData,
+                                    data: accumulatedData || lastValidData.data || '',
+                                    content: accumulatedData || lastValidData.content || ''
+                                };
+                            } else {
+                                // 否则创建新的结果对象
+                                result = {
+                                    data: accumulatedData,
+                                    content: accumulatedData
+                                };
+                            }
+                        } else {
+                            // 如果无法解析SSE格式，尝试直接解析整个响应
+                            try {
+                                result = JSON.parse(responseText);
+                            } catch (e) {
+                                throw new Error('无法解析响应格式');
+                            }
+                        }
+                    } else {
+                        // 非SSE格式，直接解析JSON
+                        try {
+                            result = JSON.parse(responseText);
+                        } catch (e) {
+                            // 如果解析失败，尝试查找SSE格式的数据
+                            const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                            if (sseMatch) {
+                                result = JSON.parse(sseMatch[1]);
+                            } else {
+                                throw new Error(`无法解析响应: ${responseText.substring(0, 100)}`);
+                            }
+                        }
+                    }
+                    
+                    // 解析返回的标签
+                    let generatedTags = [];
+                    // 适配响应格式: {status, msg, data, pagination} 或 {content} 或 {response}
+                    let content = '';
+                    if (result.data) {
+                        content = result.data;
+                    } else if (result.content) {
+                        content = result.content;
+                    } else if (result.response) {
+                        content = result.response;
+                    }
+                    
+                    if (content) {
+                        const trimmedContent = content.trim();
+                        
+                        // 尝试解析 JSON 格式
+                        try {
+                            const parsed = JSON.parse(trimmedContent);
+                            if (Array.isArray(parsed)) {
+                                generatedTags = parsed;
+                            } else if (typeof parsed === 'object' && parsed.tags) {
+                                generatedTags = Array.isArray(parsed.tags) ? parsed.tags : [];
+                            }
+                        } catch (e) {
+                            // 如果不是 JSON，尝试按逗号分割
+                            generatedTags = trimmedContent.split(/[,，、]/).map(tag => tag.trim()).filter(tag => tag.length > 0);
+                        }
+                    }
+
+                    if (generatedTags.length === 0) {
+                        throw new Error('未能生成有效标签，请重试');
+                    }
+
+                    // 确保标签数组存在
+                    if (!session.tags) {
+                        session.tags = [];
+                    }
+
+                    // 添加新标签（排除已存在的标签）
+                    let addedCount = 0;
+                    generatedTags.forEach(tag => {
+                        const trimmedTag = tag.trim();
+                        if (trimmedTag && !session.tags.includes(trimmedTag)) {
+                            session.tags.push(trimmedTag);
+                            addedCount++;
+                        }
+                    });
+
+                    if (addedCount > 0) {
+                        // 重新加载标签列表
+                        this.loadTagsIntoManager(sessionId, session.tags);
+                        console.log(`成功生成并添加 ${addedCount} 个标签:`, generatedTags.filter(tag => session.tags.includes(tag.trim())));
+                    } else {
+                        console.log('生成的标签都已存在，未添加新标签');
+                    }
+
+                } finally {
+                    // 恢复原始会话ID
+                    this.currentSessionId = originalSessionId;
+                }
+
+            } catch (error) {
+                console.error('智能生成标签失败:', error);
+                alert(`生成标签失败：${error.message || '未知错误'}`);
+            } finally {
+                // 恢复按钮状态
+                if (buttonElement) {
+                    buttonElement.disabled = false;
+                    buttonElement.style.background = '#9C27B0';
+                    buttonElement.style.cursor = 'pointer';
+                    buttonElement.textContent = '✨ 智能生成';
+                }
+                // 确保恢复原始会话ID（即使出错）
+                if (this.currentSessionId !== originalSessionId) {
+                    this.currentSessionId = originalSessionId;
+                }
+            }
+        }
     }
 
     // 保存标签
@@ -10079,6 +10574,193 @@ ${pageContent || '无内容'}
         sidebarHeader.appendChild(sidebarTitle);
         sidebarHeader.appendChild(addSessionBtn);
 
+        // 标签过滤器容器
+        const tagFilterContainer = document.createElement('div');
+        tagFilterContainer.className = 'tag-filter-container';
+        tagFilterContainer.style.cssText = `
+            padding: 8px 12px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #ffffff !important;
+            max-height: 180px !important;
+            overflow-y: auto !important;
+        `;
+
+        // 过滤器标题行（包含标题、清除按钮和反向开关）
+        const filterHeader = document.createElement('div');
+        filterHeader.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 6px !important;
+        `;
+
+        const filterTitle = document.createElement('div');
+        filterTitle.style.cssText = `
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            color: #9ca3af !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        `;
+        filterTitle.textContent = '标签筛选';
+
+        // 右侧操作区（反向过滤开关 + 清除按钮）
+        const filterActions = document.createElement('div');
+        filterActions.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        `;
+
+        // 反向过滤开关（简化版，使用图标）
+        const reverseFilterBtn = document.createElement('button');
+        reverseFilterBtn.className = 'tag-filter-reverse';
+        reverseFilterBtn.title = '反向过滤';
+        reverseFilterBtn.innerHTML = '⇄';
+        reverseFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.tagFilterReverse ? '#4CAF50' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.tagFilterReverse ? '1' : '0.6'} !important;
+        `;
+        reverseFilterBtn.addEventListener('mouseenter', () => {
+            reverseFilterBtn.style.opacity = '1';
+            reverseFilterBtn.style.background = '#f3f4f6';
+        });
+        reverseFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.tagFilterReverse) {
+                reverseFilterBtn.style.opacity = '0.6';
+            }
+            reverseFilterBtn.style.background = 'none';
+        });
+        reverseFilterBtn.addEventListener('click', () => {
+            this.tagFilterReverse = !this.tagFilterReverse;
+            reverseFilterBtn.style.color = this.tagFilterReverse ? '#4CAF50' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.tagFilterReverse ? '1' : '0.6';
+            this.updateSessionSidebar();
+        });
+
+        // 清除按钮（简化版）
+        const clearFilterBtn = document.createElement('button');
+        clearFilterBtn.className = 'tag-filter-clear';
+        clearFilterBtn.textContent = '×';
+        clearFilterBtn.title = '清除筛选';
+        clearFilterBtn.style.cssText = `
+            font-size: 16px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 0 !important;
+            width: 18px !important;
+            height: 18px !important;
+            line-height: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.6 !important;
+        `;
+        clearFilterBtn.addEventListener('mouseenter', () => {
+            const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
+            if (hasSelectedTags) {
+                clearFilterBtn.style.color = '#ef4444';
+                clearFilterBtn.style.opacity = '1';
+                clearFilterBtn.style.background = '#fee2e2';
+            } else {
+                clearFilterBtn.style.opacity = '0.4';
+            }
+        });
+        clearFilterBtn.addEventListener('mouseleave', () => {
+            const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
+            clearFilterBtn.style.color = '#9ca3af';
+            clearFilterBtn.style.opacity = hasSelectedTags ? '0.8' : '0.4';
+            clearFilterBtn.style.background = 'none';
+        });
+        clearFilterBtn.addEventListener('click', () => {
+            if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
+                this.selectedFilterTags = [];
+                this.updateTagFilterUI();
+                this.updateSessionSidebar();
+            }
+        });
+
+        filterActions.appendChild(reverseFilterBtn);
+        filterActions.appendChild(clearFilterBtn);
+        filterHeader.appendChild(filterTitle);
+        filterHeader.appendChild(filterActions);
+
+        // 标签列表容器
+        const tagFilterList = document.createElement('div');
+        tagFilterList.className = 'tag-filter-list';
+        tagFilterList.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+        `;
+
+        tagFilterContainer.appendChild(filterHeader);
+        tagFilterContainer.appendChild(tagFilterList);
+
+        // 展开/收起按钮容器
+        const expandToggleContainer = document.createElement('div');
+        expandToggleContainer.className = 'tag-filter-expand-toggle';
+        expandToggleContainer.style.cssText = `
+            display: none !important;
+            margin-top: 4px !important;
+            text-align: center !important;
+        `;
+
+        const expandToggleBtn = document.createElement('button');
+        expandToggleBtn.className = 'tag-filter-expand-btn';
+        expandToggleBtn.textContent = '展开';
+        expandToggleBtn.style.cssText = `
+            font-size: 10px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.7 !important;
+        `;
+        expandToggleBtn.addEventListener('mouseenter', () => {
+            expandToggleBtn.style.opacity = '1';
+            expandToggleBtn.style.color = '#4CAF50';
+            expandToggleBtn.style.background = '#f0fdf4';
+        });
+        expandToggleBtn.addEventListener('mouseleave', () => {
+            expandToggleBtn.style.opacity = '0.7';
+            expandToggleBtn.style.color = '#9ca3af';
+            expandToggleBtn.style.background = 'none';
+        });
+        expandToggleBtn.addEventListener('click', () => {
+            this.tagFilterExpanded = !this.tagFilterExpanded;
+            this.updateTagFilterUI();
+        });
+
+        expandToggleContainer.appendChild(expandToggleBtn);
+        tagFilterContainer.appendChild(expandToggleContainer);
+
+        // 初始化标签过滤器状态
+        if (this.selectedFilterTags === undefined) {
+            this.selectedFilterTags = [];
+        }
+        if (this.tagFilterReverse === undefined) {
+            this.tagFilterReverse = false;
+        }
+        if (this.tagFilterExpanded === undefined) {
+            this.tagFilterExpanded = false;
+        }
+
         // 会话列表容器
         const sessionList = document.createElement('div');
         sessionList.className = 'session-list';
@@ -10241,6 +10923,7 @@ ${pageContent || '无内容'}
         }
 
         this.sessionSidebar.appendChild(sidebarHeader);
+        this.sessionSidebar.appendChild(tagFilterContainer);
         this.sessionSidebar.appendChild(sessionList);
         
         // 在所有内容添加完成后，创建拖拽调整边框（确保在最上层）
@@ -15561,6 +16244,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

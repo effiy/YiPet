@@ -5062,12 +5062,29 @@ class PetManager {
         // 填充当前值
         const titleInput = modal.querySelector('.session-editor-title-input');
         const descriptionInput = modal.querySelector('.session-editor-description-input');
+        const updatedAtInput = modal.querySelector('.session-editor-updatedat-input');
         
         if (titleInput) {
             titleInput.value = originalTitle;
         }
         if (descriptionInput) {
             descriptionInput.value = originalDescription;
+        }
+        
+        // 填充更新时间，默认是今天
+        if (updatedAtInput) {
+            const session = this.sessions[sessionId];
+            // 优先使用 updatedAt，如果没有则使用当前时间（今天）
+            let updatedAt = session.updatedAt || Date.now();
+            
+            // 将时间戳转换为 datetime-local 格式 (YYYY-MM-DDTHH:mm)
+            const date = new Date(updatedAt);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            updatedAtInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
         }
 
         // 聚焦到标题输入框
@@ -5356,6 +5373,46 @@ class PetManager {
         descriptionGroup.appendChild(descriptionLabel);
         descriptionGroup.appendChild(descriptionInputWrapper);
 
+        // 更新时间输入区域
+        const updatedAtGroup = document.createElement('div');
+        updatedAtGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+
+        const updatedAtLabel = document.createElement('label');
+        updatedAtLabel.textContent = '更新时间';
+        updatedAtLabel.style.cssText = `
+            display: block !important;
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+        `;
+
+        const updatedAtInput = document.createElement('input');
+        updatedAtInput.className = 'session-editor-updatedat-input';
+        updatedAtInput.type = 'datetime-local';
+        updatedAtInput.style.cssText = `
+            width: 100% !important;
+            padding: 12px 14px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 15px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+            box-sizing: border-box !important;
+        `;
+        
+        updatedAtInput.addEventListener('focus', () => {
+            updatedAtInput.style.borderColor = '#4CAF50';
+        });
+        updatedAtInput.addEventListener('blur', () => {
+            updatedAtInput.style.borderColor = '#e0e0e0';
+        });
+
+        updatedAtGroup.appendChild(updatedAtLabel);
+        updatedAtGroup.appendChild(updatedAtInput);
+
         // 按钮区域
         const buttonGroup = document.createElement('div');
         buttonGroup.style.cssText = `
@@ -5413,6 +5470,7 @@ class PetManager {
         panel.appendChild(header);
         panel.appendChild(titleGroup);
         panel.appendChild(descriptionGroup);
+        panel.appendChild(updatedAtGroup);
         panel.appendChild(buttonGroup);
 
         // 组装模态框
@@ -5442,6 +5500,7 @@ class PetManager {
 
         const titleInput = modal.querySelector('.session-editor-title-input');
         const descriptionInput = modal.querySelector('.session-editor-description-input');
+        const updatedAtInput = modal.querySelector('.session-editor-updatedat-input');
         
         if (!titleInput) {
             console.error('标题输入框未找到');
@@ -5450,6 +5509,16 @@ class PetManager {
 
         const newTitle = titleInput.value.trim();
         const newDescription = descriptionInput ? descriptionInput.value.trim() : '';
+        
+        // 获取更新的时间
+        let newUpdatedAt = Date.now();
+        if (updatedAtInput && updatedAtInput.value) {
+            // 将 datetime-local 格式转换为时间戳
+            const dateValue = new Date(updatedAtInput.value);
+            if (!isNaN(dateValue.getTime())) {
+                newUpdatedAt = dateValue.getTime();
+            }
+        }
 
         // 如果标题为空，不进行更新
         if (newTitle === '') {
@@ -5461,9 +5530,10 @@ class PetManager {
         const session = this.sessions[sessionId];
         const originalTitle = session.pageTitle || '未命名会话';
         const originalDescription = session.pageDescription || '';
+        const originalUpdatedAt = session.updatedAt || Date.now();
 
-        // 如果标题和描述都没有变化，不需要更新
-        if (newTitle === originalTitle && newDescription === originalDescription) {
+        // 如果标题、描述和更新时间都没有变化，不需要更新
+        if (newTitle === originalTitle && newDescription === originalDescription && newUpdatedAt === originalUpdatedAt) {
             this.closeSessionInfoEditor();
             return;
         }
@@ -5472,7 +5542,7 @@ class PetManager {
             // 更新会话信息
             session.pageTitle = newTitle;
             session.pageDescription = newDescription;
-            session.updatedAt = Date.now();
+            session.updatedAt = newUpdatedAt;
             
             // 保存会话到本地
             await this.saveAllSessions(false, true);

@@ -4337,8 +4337,8 @@ class PetManager {
             }
             
             // 根据侧边栏宽度动态计算标题最大显示长度
-            // 侧边栏宽度减去内边距、时间戳、编辑按钮等，大约可用宽度为 sidebarWidth - 80
-            const availableWidth = Math.max(100, this.sidebarWidth - 80);
+            // 侧边栏宽度减去内边距、编辑按钮等，大约可用宽度为 sidebarWidth - 60
+            const availableWidth = Math.max(100, this.sidebarWidth - 60);
             // 估算：每个字符大约 7-8px（13px字体），留一些余量
             const maxChars = Math.floor(availableWidth / 7);
             const titleMaxLength = Math.max(15, Math.min(50, maxChars)); // 最少15个字符，最多50个字符
@@ -4354,6 +4354,16 @@ class PetManager {
                 min-width: 0 !important;
             `;
             
+            // 创建标题行容器（标题和按钮在同一行）
+            const titleRow = document.createElement('div');
+            titleRow.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 8px !important;
+                width: 100% !important;
+            `;
+            
             const titleDiv = document.createElement('div');
             titleDiv.className = 'session-title';
             titleDiv.textContent = displayTitle;
@@ -4365,18 +4375,9 @@ class PetManager {
             titleDiv.style.overflow = 'hidden';
             titleDiv.style.textOverflow = 'ellipsis';
             titleDiv.style.whiteSpace = 'nowrap';
-            
-            const metaDiv = document.createElement('div');
-            metaDiv.className = 'session-meta';
-            metaDiv.style.cssText = `
-                display: flex !important;
-                justify-content: space-between !important;
-                align-items: center !important;
-            `;
-            
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'session-time';
-            timeSpan.textContent = this.formatSessionTime(session.updatedAt);
+            titleDiv.style.flex = '1';
+            titleDiv.style.minWidth = '0';
+            titleDiv.style.marginBottom = '0';
             
             // 只有网址是blank-session开头的才显示编辑标题按钮
             const isBlankSession = session.url && session.url.startsWith('blank-session://');
@@ -4396,6 +4397,7 @@ class PetManager {
                     opacity: 0.6 !important;
                     transition: opacity 0.2s ease !important;
                     line-height: 1 !important;
+                    flex-shrink: 0 !important;
                 `;
                 
                 // 按钮悬停时增加不透明度
@@ -4427,7 +4429,7 @@ class PetManager {
                 opacity: 0.6 !important;
                 transition: opacity 0.2s ease !important;
                 line-height: 1 !important;
-                margin-left: 4px !important;
+                flex-shrink: 0 !important;
             `;
             
             // 按钮悬停时增加不透明度
@@ -4452,6 +4454,7 @@ class PetManager {
                 gap: 2px !important;
                 opacity: 0 !important;
                 transition: opacity 0.2s ease !important;
+                flex-shrink: 0 !important;
             `;
             // 只有编辑按钮存在时才添加
             if (editBtn) {
@@ -4467,13 +4470,13 @@ class PetManager {
                 buttonContainer.style.opacity = '0';
             });
             
-            metaDiv.appendChild(timeSpan);
-            metaDiv.appendChild(buttonContainer);
+            // 将标题和按钮容器添加到标题行
+            titleRow.appendChild(titleDiv);
+            titleRow.appendChild(buttonContainer);
             
-            contentWrapper.appendChild(titleDiv);
-            contentWrapper.appendChild(metaDiv);
+            contentWrapper.appendChild(titleRow);
             
-            // 显示会话标签（在时间下面一行）
+            // 显示会话标签（在标题下面一行）
             const tags = session.tags || [];
             if (tags.length > 0) {
                 const tagsContainer = document.createElement('div');

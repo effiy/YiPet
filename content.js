@@ -5096,6 +5096,18 @@ class PetManager {
             cancelBtn.onclick = () => this.closeSessionInfoEditor();
         }
 
+        // 添加智能生成标题事件
+        const generateTitleBtn = modal.querySelector('.session-editor-generate-title');
+        if (generateTitleBtn) {
+            generateTitleBtn.onclick = () => this.generateSessionTitle(sessionId);
+        }
+
+        // 添加智能生成描述事件
+        const generateDescriptionBtn = modal.querySelector('.session-editor-generate-description');
+        if (generateDescriptionBtn) {
+            generateDescriptionBtn.onclick = () => this.generateSessionDescription(sessionId);
+        }
+
         // ESC 键关闭
         const escHandler = (e) => {
             if (e.key === 'Escape') {
@@ -5210,12 +5222,19 @@ class PetManager {
             color: #333 !important;
         `;
 
+        const titleInputWrapper = document.createElement('div');
+        titleInputWrapper.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            align-items: center !important;
+        `;
+
         const titleInput = document.createElement('input');
         titleInput.className = 'session-editor-title-input';
         titleInput.type = 'text';
         titleInput.placeholder = '请输入会话标题';
         titleInput.style.cssText = `
-            width: 100% !important;
+            flex: 1 !important;
             padding: 12px 14px !important;
             border: 2px solid #e0e0e0 !important;
             border-radius: 6px !important;
@@ -5232,8 +5251,33 @@ class PetManager {
             titleInput.style.borderColor = '#e0e0e0';
         });
 
+        const generateTitleBtn = document.createElement('button');
+        generateTitleBtn.className = 'session-editor-generate-title';
+        generateTitleBtn.innerHTML = '✨ 智能生成';
+        generateTitleBtn.style.cssText = `
+            padding: 12px 16px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        generateTitleBtn.addEventListener('mouseenter', () => {
+            generateTitleBtn.style.background = '#1976D2';
+        });
+        generateTitleBtn.addEventListener('mouseleave', () => {
+            generateTitleBtn.style.background = '#2196F3';
+        });
+
+        titleInputWrapper.appendChild(titleInput);
+        titleInputWrapper.appendChild(generateTitleBtn);
+
         titleGroup.appendChild(titleLabel);
-        titleGroup.appendChild(titleInput);
+        titleGroup.appendChild(titleInputWrapper);
 
         // 描述输入区域
         const descriptionGroup = document.createElement('div');
@@ -5249,6 +5293,13 @@ class PetManager {
             font-size: 15px !important;
             font-weight: 500 !important;
             color: #333 !important;
+        `;
+
+        const descriptionInputWrapper = document.createElement('div');
+        descriptionInputWrapper.style.cssText = `
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
         `;
 
         const descriptionInput = document.createElement('textarea');
@@ -5276,8 +5327,34 @@ class PetManager {
             descriptionInput.style.borderColor = '#e0e0e0';
         });
 
+        const generateDescriptionBtn = document.createElement('button');
+        generateDescriptionBtn.className = 'session-editor-generate-description';
+        generateDescriptionBtn.innerHTML = '✨ 智能生成描述';
+        generateDescriptionBtn.style.cssText = `
+            align-self: flex-end !important;
+            padding: 12px 16px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        generateDescriptionBtn.addEventListener('mouseenter', () => {
+            generateDescriptionBtn.style.background = '#1976D2';
+        });
+        generateDescriptionBtn.addEventListener('mouseleave', () => {
+            generateDescriptionBtn.style.background = '#2196F3';
+        });
+
+        descriptionInputWrapper.appendChild(descriptionInput);
+        descriptionInputWrapper.appendChild(generateDescriptionBtn);
+
         descriptionGroup.appendChild(descriptionLabel);
-        descriptionGroup.appendChild(descriptionInput);
+        descriptionGroup.appendChild(descriptionInputWrapper);
 
         // 按钮区域
         const buttonGroup = document.createElement('div');
@@ -5417,6 +5494,429 @@ class PetManager {
         } catch (error) {
             console.error('更新会话信息失败:', error);
             alert('更新信息失败，请重试');
+        }
+    }
+
+    // 获取指定会话的上下文（包含消息历史和页面内容）
+    getSessionContext(sessionId) {
+        const context = {
+            messages: [],
+            pageContent: '',
+            pageTitle: '',
+            pageDescription: '',
+            url: '',
+            hasHistory: false
+        };
+
+        if (!sessionId || !this.sessions[sessionId]) {
+            return context;
+        }
+
+        const session = this.sessions[sessionId];
+        
+        // 获取消息历史（排除欢迎消息和按钮操作生成的消息）
+        if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
+            context.messages = session.messages.filter(msg => {
+                // 只包含用户消息和宠物消息，排除按钮操作生成的消息
+                return msg.type === 'user' || msg.type === 'pet';
+            });
+            context.hasHistory = context.messages.length > 0;
+        }
+        
+        // 获取页面信息
+        if (session.pageContent && session.pageContent.trim()) {
+            context.pageContent = session.pageContent.trim();
+        }
+        if (session.pageTitle) {
+            context.pageTitle = session.pageTitle;
+        }
+        if (session.pageDescription) {
+            context.pageDescription = session.pageDescription;
+        }
+        if (session.url) {
+            context.url = session.url;
+        }
+
+        return context;
+    }
+
+    // 智能生成会话标题
+    async generateSessionTitle(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法生成标题:', sessionId);
+            return;
+        }
+
+        const modal = document.body.querySelector('#pet-session-info-editor');
+        if (!modal) {
+            return;
+        }
+
+        const generateBtn = modal.querySelector('.session-editor-generate-title');
+        const titleInput = modal.querySelector('.session-editor-title-input');
+        
+        if (!generateBtn || !titleInput) {
+            return;
+        }
+
+        // 设置按钮为加载状态
+        const originalText = generateBtn.innerHTML;
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '生成中...';
+        generateBtn.style.opacity = '0.6';
+        generateBtn.style.cursor = 'not-allowed';
+
+        try {
+            // 获取会话上下文
+            const context = this.getSessionContext(sessionId);
+            
+            // 构建生成标题的 prompt
+            let systemPrompt = '你是一个专业的助手，擅长根据会话内容生成简洁、准确的标题。';
+            let userPrompt = '请根据以下会话内容，生成一个简洁、准确的标题（不超过20个字）：\n\n';
+
+            // 添加页面信息
+            if (context.pageTitle) {
+                userPrompt += `页面标题：${context.pageTitle}\n`;
+            }
+            if (context.url) {
+                userPrompt += `页面URL：${context.url}\n`;
+            }
+
+            // 添加消息历史
+            if (context.messages.length > 0) {
+                userPrompt += '\n会话内容：\n';
+                context.messages.slice(0, 10).forEach((msg, index) => {
+                    const role = msg.type === 'user' ? '用户' : '助手';
+                    const content = msg.content.trim();
+                    if (content) {
+                        userPrompt += `${role}：${content.substring(0, 200)}\n`;
+                    }
+                });
+            } else if (context.pageContent) {
+                // 如果没有消息历史，使用页面内容
+                userPrompt += '\n页面内容摘要：\n';
+                userPrompt += context.pageContent.substring(0, 500);
+            }
+
+            userPrompt += '\n\n请直接返回标题，不要包含其他说明文字。';
+
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // 先获取响应文本，检查是否是 SSE 格式
+            const responseText = await response.text();
+            let result;
+            
+            try {
+                // 检查是否包含 SSE 格式（包含 "data: "）
+                if (responseText.includes('data: ')) {
+                    // 处理 SSE 格式响应
+                    const lines = responseText.split('\n');
+                    let accumulatedData = '';
+                    let lastValidData = null;
+                    
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.startsWith('data: ')) {
+                            try {
+                                const dataStr = trimmedLine.substring(6).trim();
+                                if (dataStr === '[DONE]' || dataStr === '') {
+                                    continue;
+                                }
+                                
+                                // 尝试解析 JSON
+                                const chunk = JSON.parse(dataStr);
+                                
+                                // 检查是否完成
+                                if (chunk.done === true) {
+                                    break;
+                                }
+                                
+                                // 累积内容
+                                if (chunk.content) {
+                                    accumulatedData += chunk.content;
+                                    lastValidData = chunk;
+                                } else if (chunk.data) {
+                                    accumulatedData += (typeof chunk.data === 'string' ? chunk.data : chunk.data.content || '');
+                                    lastValidData = chunk;
+                                } else if (chunk.message && chunk.message.content) {
+                                    accumulatedData += chunk.message.content;
+                                    lastValidData = chunk;
+                                }
+                            } catch (e) {
+                                console.warn('解析 SSE 数据块失败:', trimmedLine, e);
+                            }
+                        }
+                    }
+                    
+                    // 如果有累积的内容，使用它
+                    if (accumulatedData) {
+                        result = { content: accumulatedData, data: accumulatedData };
+                    } else if (lastValidData) {
+                        result = lastValidData;
+                    } else {
+                        // 尝试从最后一行提取 JSON
+                        const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                        if (sseMatch) {
+                            result = JSON.parse(sseMatch[1]);
+                        } else {
+                            throw new Error('无法解析 SSE 响应');
+                        }
+                    }
+                } else {
+                    // 普通 JSON 响应
+                    result = JSON.parse(responseText);
+                }
+            } catch (parseError) {
+                console.error('解析响应失败:', parseError, '响应内容:', responseText.substring(0, 200));
+                throw new Error('解析响应失败: ' + parseError.message);
+            }
+            
+            // 提取生成的标题（适配不同的响应格式）
+            let generatedTitle = '';
+            if (result.status === 200 && result.data) {
+                // 成功响应，提取 data 字段
+                generatedTitle = typeof result.data === 'string' ? result.data.trim() : (result.data.content || '').trim();
+            } else if (result && result.content) {
+                generatedTitle = result.content.trim();
+            } else if (result && result.data && result.data.content) {
+                generatedTitle = result.data.content.trim();
+            } else if (result && result.message) {
+                generatedTitle = result.message.trim();
+            } else if (typeof result === 'string') {
+                generatedTitle = result.trim();
+            }
+
+            // 清理标题（移除可能的引号、换行等）
+            generatedTitle = generatedTitle.replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim();
+            
+            // 限制长度
+            if (generatedTitle.length > 50) {
+                generatedTitle = generatedTitle.substring(0, 50);
+            }
+
+            if (generatedTitle) {
+                titleInput.value = generatedTitle;
+                titleInput.focus();
+            } else {
+                alert('生成标题失败，请重试');
+            }
+        } catch (error) {
+            console.error('生成标题失败:', error);
+            alert('生成标题失败：' + error.message);
+        } finally {
+            // 恢复按钮状态
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = originalText;
+            generateBtn.style.opacity = '1';
+            generateBtn.style.cursor = 'pointer';
+        }
+    }
+
+    // 智能生成会话描述
+    async generateSessionDescription(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法生成描述:', sessionId);
+            return;
+        }
+
+        const modal = document.body.querySelector('#pet-session-info-editor');
+        if (!modal) {
+            return;
+        }
+
+        const generateBtn = modal.querySelector('.session-editor-generate-description');
+        const descriptionInput = modal.querySelector('.session-editor-description-input');
+        
+        if (!generateBtn || !descriptionInput) {
+            return;
+        }
+
+        // 设置按钮为加载状态
+        const originalText = generateBtn.innerHTML;
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '生成中...';
+        generateBtn.style.opacity = '0.6';
+        generateBtn.style.cursor = 'not-allowed';
+
+        try {
+            // 获取会话上下文
+            const context = this.getSessionContext(sessionId);
+            
+            // 构建生成描述的 prompt
+            let systemPrompt = '你是一个专业的助手，擅长根据会话内容生成简洁、准确的网页描述。';
+            let userPrompt = '请根据以下会话内容，生成一个简洁、准确的网页描述（50-200字）：\n\n';
+
+            // 添加页面信息
+            if (context.pageTitle) {
+                userPrompt += `页面标题：${context.pageTitle}\n`;
+            }
+            if (context.url) {
+                userPrompt += `页面URL：${context.url}\n`;
+            }
+
+            // 添加消息历史
+            if (context.messages.length > 0) {
+                userPrompt += '\n会话内容：\n';
+                context.messages.slice(0, 15).forEach((msg, index) => {
+                    const role = msg.type === 'user' ? '用户' : '助手';
+                    const content = msg.content.trim();
+                    if (content) {
+                        userPrompt += `${role}：${content.substring(0, 300)}\n`;
+                    }
+                });
+            } else if (context.pageContent) {
+                // 如果没有消息历史，使用页面内容
+                userPrompt += '\n页面内容摘要：\n';
+                userPrompt += context.pageContent.substring(0, 1000);
+            }
+
+            userPrompt += '\n\n请直接返回描述，不要包含其他说明文字。描述应该简洁明了，概括会话或页面的主要内容。';
+
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // 先获取响应文本，检查是否是 SSE 格式
+            const responseText = await response.text();
+            let result;
+            
+            try {
+                // 检查是否包含 SSE 格式（包含 "data: "）
+                if (responseText.includes('data: ')) {
+                    // 处理 SSE 格式响应
+                    const lines = responseText.split('\n');
+                    let accumulatedData = '';
+                    let lastValidData = null;
+                    
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.startsWith('data: ')) {
+                            try {
+                                const dataStr = trimmedLine.substring(6).trim();
+                                if (dataStr === '[DONE]' || dataStr === '') {
+                                    continue;
+                                }
+                                
+                                // 尝试解析 JSON
+                                const chunk = JSON.parse(dataStr);
+                                
+                                // 检查是否完成
+                                if (chunk.done === true) {
+                                    break;
+                                }
+                                
+                                // 累积内容
+                                if (chunk.content) {
+                                    accumulatedData += chunk.content;
+                                    lastValidData = chunk;
+                                } else if (chunk.data) {
+                                    accumulatedData += (typeof chunk.data === 'string' ? chunk.data : chunk.data.content || '');
+                                    lastValidData = chunk;
+                                } else if (chunk.message && chunk.message.content) {
+                                    accumulatedData += chunk.message.content;
+                                    lastValidData = chunk;
+                                }
+                            } catch (e) {
+                                console.warn('解析 SSE 数据块失败:', trimmedLine, e);
+                            }
+                        }
+                    }
+                    
+                    // 如果有累积的内容，使用它
+                    if (accumulatedData) {
+                        result = { content: accumulatedData, data: accumulatedData };
+                    } else if (lastValidData) {
+                        result = lastValidData;
+                    } else {
+                        // 尝试从最后一行提取 JSON
+                        const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                        if (sseMatch) {
+                            result = JSON.parse(sseMatch[1]);
+                        } else {
+                            throw new Error('无法解析 SSE 响应');
+                        }
+                    }
+                } else {
+                    // 普通 JSON 响应
+                    result = JSON.parse(responseText);
+                }
+            } catch (parseError) {
+                console.error('解析响应失败:', parseError, '响应内容:', responseText.substring(0, 200));
+                throw new Error('解析响应失败: ' + parseError.message);
+            }
+            
+            // 提取生成的描述（适配不同的响应格式）
+            let generatedDescription = '';
+            if (result.status === 200 && result.data) {
+                // 成功响应，提取 data 字段
+                generatedDescription = typeof result.data === 'string' ? result.data.trim() : (result.data.content || '').trim();
+            } else if (result && result.content) {
+                generatedDescription = result.content.trim();
+            } else if (result && result.data && result.data.content) {
+                generatedDescription = result.data.content.trim();
+            } else if (result && result.message) {
+                generatedDescription = result.message.trim();
+            } else if (typeof result === 'string') {
+                generatedDescription = result.trim();
+            }
+
+            // 清理描述（移除可能的引号等）
+            generatedDescription = generatedDescription.replace(/^["']|["']$/g, '').trim();
+            
+            // 限制长度
+            if (generatedDescription.length > 500) {
+                generatedDescription = generatedDescription.substring(0, 500);
+            }
+
+            if (generatedDescription) {
+                descriptionInput.value = generatedDescription;
+                descriptionInput.focus();
+            } else {
+                alert('生成描述失败，请重试');
+            }
+        } catch (error) {
+            console.error('生成描述失败:', error);
+            alert('生成描述失败：' + error.message);
+        } finally {
+            // 恢复按钮状态
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = originalText;
+            generateBtn.style.opacity = '1';
+            generateBtn.style.cursor = 'pointer';
         }
     }
 

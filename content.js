@@ -3835,13 +3835,15 @@ class PetManager {
             });
         }
         
-        // 应用标题模糊匹配过滤
+        // 应用标题和网址模糊匹配过滤
         if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
             const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
             allSessions = allSessions.filter(session => {
                 const sessionTitle = this._getSessionDisplayTitle(session);
-                // 模糊匹配：标题包含关键词（不区分大小写）
-                return sessionTitle.toLowerCase().includes(filterKeyword);
+                const sessionUrl = (session.url || '').toLowerCase();
+                // 模糊匹配：标题或网址包含关键词（不区分大小写）
+                return sessionTitle.toLowerCase().includes(filterKeyword) || 
+                       sessionUrl.includes(filterKeyword);
             });
         }
         
@@ -4338,13 +4340,15 @@ class PetManager {
             });
         }
         
-        // 应用标题模糊匹配过滤
+        // 应用标题和网址模糊匹配过滤
         if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
             const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
             allSessions = allSessions.filter(session => {
                 const sessionTitle = this._getSessionDisplayTitle(session);
-                // 模糊匹配：标题包含关键词（不区分大小写）
-                return sessionTitle.toLowerCase().includes(filterKeyword);
+                const sessionUrl = (session.url || '').toLowerCase();
+                // 模糊匹配：标题或网址包含关键词（不区分大小写）
+                return sessionTitle.toLowerCase().includes(filterKeyword) || 
+                       sessionUrl.includes(filterKeyword);
             });
         }
         

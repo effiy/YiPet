@@ -403,6 +403,49 @@ class SessionApiManager {
             throw error;
         }
     }
+    
+    /**
+     * 批量删除会话
+     * @param {Array<string>} sessionIds - 会话ID数组
+     * @returns {Promise<Object>} 删除结果
+     */
+    async deleteSessions(sessionIds) {
+        if (!sessionIds || !Array.isArray(sessionIds) || sessionIds.length === 0) {
+            throw new Error('会话ID列表无效');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/session/batch/delete`;
+            const result = await this._request(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_ids: sessionIds
+                })
+            });
+            
+            if (result.success) {
+                // 从缓存中删除所有已删除的会话
+                sessionIds.forEach(sessionId => {
+                    this.cache.sessionsMap.delete(`session:${sessionId}`);
+                });
+                
+                // 清除列表缓存，因为列表可能已变化
+                this.cache.sessionsList = null;
+                this.cache.sessionsListTimestamp = 0;
+                
+                return result;
+            } else {
+                throw new Error(result.message || '批量删除失败');
+            }
+        } catch (error) {
+            console.error('批量删除会话失败:', error);
+            throw error;
+        }
+    }
+    
     /**
      * 搜索会话
      * @param {string} query - 搜索关键词

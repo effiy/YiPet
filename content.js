@@ -169,6 +169,10 @@ class PetManager {
         this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         
+        // 批量操作相关
+        this.batchMode = false; // 是否处于批量选择模式
+        this.selectedSessionIds = new Set(); // 选中的会话ID集合
+        
         // 会话API管理器
         this.sessionApi = null;
         this.lastSessionListLoadTime = 0;
@@ -4393,6 +4397,44 @@ class PetManager {
                 sessionItem.classList.add('active');
             }
             
+            // 批量模式下添加选中状态类
+            if (this.batchMode && this.selectedSessionIds.has(session.id)) {
+                sessionItem.classList.add('selected');
+            }
+            
+            // 创建复选框（仅在批量模式下显示）
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'session-checkbox';
+            checkbox.dataset.sessionId = session.id;
+            checkbox.checked = this.selectedSessionIds.has(session.id);
+            checkbox.style.cssText = `
+                width: 16px !important;
+                height: 16px !important;
+                cursor: pointer !important;
+                margin-right: 8px !important;
+                flex-shrink: 0 !important;
+                display: ${this.batchMode ? 'block' : 'none'} !important;
+            `;
+            
+            checkbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const sessionId = e.target.dataset.sessionId;
+                if (e.target.checked) {
+                    this.selectedSessionIds.add(sessionId);
+                    sessionItem.classList.add('selected');
+                } else {
+                    this.selectedSessionIds.delete(sessionId);
+                    sessionItem.classList.remove('selected');
+                }
+                this.updateBatchToolbar();
+            });
+            
+            // 阻止复选框点击事件冒泡
+            checkbox.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+            
             // 获取完整标题和显示标题（使用统一的辅助函数）
             const fullTitle = this._getSessionDisplayTitle(session);
             
@@ -4410,6 +4452,26 @@ class PetManager {
             // 创建内容容器
             const contentWrapper = document.createElement('div');
             contentWrapper.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            `;
+            
+            // 创建会话项内部容器（包含复选框和内容）
+            const itemInner = document.createElement('div');
+            itemInner.style.cssText = `
+                display: flex !important;
+                align-items: flex-start !important;
+                width: 100% !important;
+            `;
+            
+            // 添加复选框
+            itemInner.appendChild(checkbox);
+            
+            // 创建内容包装器（包含标题和标签）
+            const contentInner = document.createElement('div');
+            contentInner.style.cssText = `
                 flex: 1 !important;
                 min-width: 0 !important;
             `;
@@ -4534,7 +4596,7 @@ class PetManager {
             titleRow.appendChild(titleDiv);
             titleRow.appendChild(buttonContainer);
             
-            contentWrapper.appendChild(titleRow);
+            contentInner.appendChild(titleRow);
             
             // 显示会话标签（在标题下面一行）
             const tags = session.tags || [];
@@ -4592,10 +4654,12 @@ class PetManager {
                     tagsContainer.appendChild(moreTag);
                 }
                 
-                contentWrapper.appendChild(tagsContainer);
+                contentInner.appendChild(tagsContainer);
             }
             
-            sessionItem.appendChild(contentWrapper);
+            contentWrapper.appendChild(contentInner);
+            itemInner.appendChild(contentWrapper);
+            sessionItem.appendChild(itemInner);
             
             // 长按删除相关变量
             let longPressTimer = null;
@@ -4812,6 +4876,11 @@ class PetManager {
             
             // 点击会话项切换到该会话
             sessionItem.addEventListener('click', async (e) => {
+                // 如果点击的是复选框，不执行切换操作
+                if (e.target.type === 'checkbox' || e.target.closest('.session-checkbox')) {
+                    return;
+                }
+                
                 // 如果正在长按，不执行点击
                 if (isLongPressing || hasMoved) {
                     e.preventDefault();
@@ -4823,6 +4892,13 @@ class PetManager {
                 if (this.isSwitchingSession) {
                     e.preventDefault();
                     e.stopPropagation();
+                    return;
+                }
+                
+                // 批量模式下，点击切换选中状态
+                if (this.batchMode) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
                     return;
                 }
                 
@@ -4862,6 +4938,172 @@ class PetManager {
         }
         
         console.log('会话侧边栏已更新，显示', sortedSessions.length, '个会话');
+    }
+    
+    // 进入批量选择模式
+    enterBatchMode() {
+        this.batchMode = true;
+        this.selectedSessionIds.clear();
+        
+        // 显示批量操作工具栏（带动画）
+        const batchToolbar = document.getElementById('batch-toolbar');
+        if (batchToolbar) {
+            batchToolbar.style.display = 'flex';
+            // 使用 requestAnimationFrame 确保样式已应用
+            requestAnimationFrame(() => {
+                batchToolbar.style.opacity = '1';
+                batchToolbar.style.transform = 'translateY(0)';
+            });
+        }
+        
+        // 更新批量模式按钮状态
+        const batchModeBtn = this.sessionSidebar.querySelector('button[title="批量选择模式"]');
+        if (batchModeBtn) {
+            batchModeBtn.style.background = '#10b981';
+            batchModeBtn.innerHTML = '✓';
+            batchModeBtn.title = '退出批量选择模式';
+        }
+        
+        // 更新会话列表，显示复选框
+        this.updateSessionSidebar();
+        
+        // 更新批量工具栏状态
+        setTimeout(() => {
+            this.updateBatchToolbar();
+        }, 100);
+        
+        // 显示通知
+        this.showNotification('已进入批量选择模式', 'info');
+    }
+    
+    // 退出批量选择模式
+    exitBatchMode() {
+        this.batchMode = false;
+        this.selectedSessionIds.clear();
+        
+        // 隐藏批量操作工具栏（带动画）
+        const batchToolbar = document.getElementById('batch-toolbar');
+        if (batchToolbar) {
+            batchToolbar.style.opacity = '0';
+            batchToolbar.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                batchToolbar.style.display = 'none';
+            }, 300);
+        }
+        
+        // 更新批量模式按钮状态
+        const batchModeBtn = this.sessionSidebar.querySelector('button[title="退出批量选择模式"], button[title="批量选择模式"]');
+        if (batchModeBtn) {
+            batchModeBtn.style.background = '#6366f1';
+            batchModeBtn.innerHTML = '☑️';
+            batchModeBtn.title = '批量选择模式';
+        }
+        // 更新会话列表，隐藏复选框
+        this.updateSessionSidebar();
+        
+        // 显示通知
+        this.showNotification('已退出批量选择模式', 'info');
+    }
+    
+    // 更新批量操作工具栏
+    updateBatchToolbar() {
+        const selectedCount = document.getElementById('selected-count');
+        const batchDeleteBtn = document.getElementById('batch-delete-btn');
+        
+        if (selectedCount) {
+            const count = this.selectedSessionIds.size;
+            selectedCount.textContent = `已选择 ${count} 个`;
+            
+            // 根据选中数量更新样式
+            if (count > 0) {
+                selectedCount.style.color = '#4338ca';
+                selectedCount.style.fontWeight = '600';
+            } else {
+                selectedCount.style.color = '#6b7280';
+                selectedCount.style.fontWeight = '500';
+            }
+        }
+        
+        if (batchDeleteBtn) {
+            const hasSelection = this.selectedSessionIds.size > 0;
+            batchDeleteBtn.disabled = !hasSelection;
+            
+            if (hasSelection) {
+                batchDeleteBtn.style.opacity = '1';
+                batchDeleteBtn.style.cursor = 'pointer';
+            } else {
+                batchDeleteBtn.style.opacity = '0.5';
+                batchDeleteBtn.style.cursor = 'not-allowed';
+            }
+        }
+    }
+    
+    // 批量删除会话
+    async batchDeleteSessions() {
+        if (this.selectedSessionIds.size === 0) {
+            this.showNotification('请先选择要删除的会话', 'error');
+            return;
+        }
+        
+        const count = this.selectedSessionIds.size;
+        const confirmMessage = `确定要删除选中的 ${count} 个会话吗？此操作不可撤销。`;
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+        
+        const sessionIds = Array.from(this.selectedSessionIds);
+        
+        try {
+            // 从本地删除
+            sessionIds.forEach(sessionId => {
+                if (this.sessions[sessionId]) {
+                    delete this.sessions[sessionId];
+                }
+                // 如果删除的是当前会话，清空当前会话ID
+                if (sessionId === this.currentSessionId) {
+                    this.currentSessionId = null;
+                    this.hasAutoCreatedSessionForPage = false;
+                }
+            });
+            
+            // 保存本地更改
+            if (this.sessionManager) {
+                // 使用 SessionManager 批量删除
+                for (const sessionId of sessionIds) {
+                    await this.sessionManager.deleteSession(sessionId);
+                }
+            } else {
+                // 保存到本地存储
+                await this.saveAllSessions(true);
+            }
+            
+            // 从后端删除（如果启用了后端同步）
+            if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                try {
+                    await this.sessionApi.deleteSessions(sessionIds);
+                    console.log('批量删除会话已同步到后端:', sessionIds);
+                } catch (error) {
+                    console.warn('从后端批量删除会话失败:', error);
+                    // 即使后端删除失败，也继续执行，因为本地已删除
+                }
+            }
+            
+            // 清空选中状态
+            this.selectedSessionIds.clear();
+            
+            // 退出批量模式
+            this.exitBatchMode();
+            
+            // 刷新会话列表
+            await this.updateSessionSidebar(true);
+            
+            // 显示成功通知
+            this.showNotification(`已成功删除 ${count} 个会话`, 'success');
+            
+        } catch (error) {
+            console.error('批量删除会话失败:', error);
+            this.showNotification('批量删除会话失败: ' + error.message, 'error');
+        }
     }
 
     // 删除会话
@@ -12008,14 +12250,56 @@ ${pageContent || '无内容'}
         searchContainer.appendChild(sidebarTitle);
         searchContainer.appendChild(clearBtn);
         
+        // 创建批量模式按钮
+        const batchModeBtn = document.createElement('button');
+        batchModeBtn.innerHTML = '☑️';
+        batchModeBtn.title = '批量选择模式';
+        batchModeBtn.style.cssText = `
+            width: 24px !important;
+            height: 24px !important;
+            border-radius: 4px !important;
+            background: #6366f1 !important;
+            color: white !important;
+            border: none !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 14px !important;
+            transition: background 0.15s ease !important;
+            flex-shrink: 0 !important;
+            margin-right: 6px !important;
+            padding: 0 !important;
+        `;
+        
+        // 批量模式按钮悬停效果
+        batchModeBtn.addEventListener('mouseenter', () => {
+            batchModeBtn.style.background = '#4f46e5';
+        });
+        batchModeBtn.addEventListener('mouseleave', () => {
+            batchModeBtn.style.background = '#6366f1';
+        });
+        
+        // 批量模式按钮点击事件
+        batchModeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (this.batchMode) {
+                this.exitBatchMode();
+            } else {
+                this.enterBatchMode();
+            }
+        });
+        
         // 创建导出按钮
         const exportBtn = document.createElement('button');
         exportBtn.innerHTML = '📥';
         exportBtn.title = '导出筛选后的会话列表';
         exportBtn.style.cssText = `
-            width: 28px !important;
-            height: 28px !important;
-            border-radius: 6px !important;
+            width: 24px !important;
+            height: 24px !important;
+            border-radius: 4px !important;
             background: #10b981 !important;
             color: white !important;
             border: none !important;
@@ -12023,20 +12307,19 @@ ${pageContent || '无内容'}
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 16px !important;
-            transition: all 0.2s ease !important;
+            font-size: 14px !important;
+            transition: background 0.15s ease !important;
             flex-shrink: 0 !important;
-            margin-right: 8px !important;
+            margin-right: 6px !important;
+            padding: 0 !important;
         `;
         
         // 导出按钮悬停效果
         exportBtn.addEventListener('mouseenter', () => {
             exportBtn.style.background = '#059669';
-            exportBtn.style.transform = 'scale(1.1)';
         });
         exportBtn.addEventListener('mouseleave', () => {
             exportBtn.style.background = '#10b981';
-            exportBtn.style.transform = 'scale(1)';
         });
         
         // 导出按钮点击事件
@@ -12069,9 +12352,9 @@ ${pageContent || '无内容'}
         addSessionBtn.innerHTML = '➕';
         addSessionBtn.title = '添加新会话';
         addSessionBtn.style.cssText = `
-            width: 28px !important;
-            height: 28px !important;
-            border-radius: 6px !important;
+            width: 24px !important;
+            height: 24px !important;
+            border-radius: 4px !important;
             background: ${mainColor} !important;
             color: white !important;
             border: none !important;
@@ -12079,19 +12362,18 @@ ${pageContent || '无内容'}
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 16px !important;
-            transition: all 0.2s ease !important;
+            font-size: 14px !important;
+            transition: background 0.15s ease !important;
             flex-shrink: 0 !important;
+            padding: 0 !important;
         `;
         
         // 按钮悬停效果
         addSessionBtn.addEventListener('mouseenter', () => {
             addSessionBtn.style.background = `${mainColor}dd`;
-            addSessionBtn.style.transform = 'scale(1.1)';
         });
         addSessionBtn.addEventListener('mouseleave', () => {
             addSessionBtn.style.background = mainColor;
-            addSessionBtn.style.transform = 'scale(1)';
         });
         
         // 按钮点击事件：创建空白新会话
@@ -12120,8 +12402,191 @@ ${pageContent || '无内容'}
         });
         
         sidebarHeader.appendChild(searchContainer);
+        sidebarHeader.appendChild(batchModeBtn);
         sidebarHeader.appendChild(exportBtn);
         sidebarHeader.appendChild(addSessionBtn);
+        this.sessionSidebar.appendChild(sidebarHeader);
+        
+        // 创建批量操作工具栏容器（初始隐藏）
+        const batchToolbar = document.createElement('div');
+        batchToolbar.id = 'batch-toolbar';
+        batchToolbar.style.cssText = `
+            padding: 8px 12px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+            display: none !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-wrap: wrap !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            opacity: 0 !important;
+            transform: translateY(-10px) !important;
+        `;
+        // 选中数量显示
+        const selectedCount = document.createElement('span');
+        selectedCount.id = 'selected-count';
+        selectedCount.textContent = '已选择 0 个';
+        selectedCount.style.cssText = `
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            color: #6b7280 !important;
+            flex: 1 !important;
+            padding: 2px 8px !important;
+            background: transparent !important;
+            border-radius: 4px !important;
+            transition: color 0.2s ease !important;
+            text-align: left !important;
+        `;
+        
+        // 批量删除按钮
+        const batchDeleteBtn = document.createElement('button');
+        batchDeleteBtn.id = 'batch-delete-btn';
+        batchDeleteBtn.style.cssText = `
+            padding: 4px 10px !important;
+            border-radius: 4px !important;
+            background: #ef4444 !important;
+            color: white !important;
+            border: none !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            transition: background 0.15s ease !important;
+            flex-shrink: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            position: relative !important;
+            overflow: hidden !important;
+            gap: 4px !important;
+        `;
+        
+        // 添加加载状态指示器
+        const deleteLoader = document.createElement('span');
+        deleteLoader.className = 'delete-loader';
+        deleteLoader.style.cssText = `
+            display: none !important;
+            width: 14px !important;
+            height: 14px !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            border-top-color: white !important;
+            border-radius: 50% !important;
+            animation: spin 0.8s linear infinite !important;
+        `;
+        
+        // 按钮文本
+        const deleteIcon = document.createElement('span');
+        deleteIcon.textContent = '🗑️';
+        deleteIcon.style.cssText = 'font-size: 12px !important;';
+        
+        const deleteText = document.createElement('span');
+        deleteText.textContent = '删除';
+        
+        batchDeleteBtn.appendChild(deleteLoader);
+        batchDeleteBtn.appendChild(deleteIcon);
+        batchDeleteBtn.appendChild(deleteText);
+        
+        // 添加加载动画样式
+        if (!document.getElementById('delete-loader-style')) {
+            const style = document.createElement('style');
+            style.id = 'delete-loader-style';
+            style.textContent = `
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        batchDeleteBtn.addEventListener('mouseenter', () => {
+            if (!batchDeleteBtn.disabled) {
+                batchDeleteBtn.style.background = '#dc2626';
+            }
+        });
+        batchDeleteBtn.addEventListener('mouseleave', () => {
+            if (!batchDeleteBtn.disabled) {
+                batchDeleteBtn.style.background = '#ef4444';
+            }
+        });
+        
+        // 取消批量模式按钮
+        const cancelBatchBtn = document.createElement('button');
+        cancelBatchBtn.innerHTML = '<span style="margin-right: 3px;">✕</span>取消';
+        cancelBatchBtn.style.cssText = `
+            padding: 4px 10px !important;
+            border-radius: 4px !important;
+            background: #ffffff !important;
+            color: #6b7280 !important;
+            border: 1px solid #e5e7eb !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+            flex-shrink: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        `;
+        
+        cancelBatchBtn.addEventListener('mouseenter', () => {
+            cancelBatchBtn.style.background = '#f9fafb';
+            cancelBatchBtn.style.borderColor = '#d1d5db';
+            cancelBatchBtn.style.color = '#374151';
+        });
+        cancelBatchBtn.addEventListener('mouseleave', () => {
+            cancelBatchBtn.style.background = '#ffffff';
+            cancelBatchBtn.style.borderColor = '#e5e7eb';
+            cancelBatchBtn.style.color = '#6b7280';
+        });
+        // 批量删除按钮事件
+        batchDeleteBtn.addEventListener('click', async () => {
+            if (batchDeleteBtn.disabled) return;
+            
+            // 显示加载状态
+            const loader = batchDeleteBtn.querySelector('.delete-loader');
+            const spans = batchDeleteBtn.querySelectorAll('span:not(.delete-loader)');
+            const deleteIcon = spans[0];
+            const deleteText = spans[1];
+            
+            if (loader) {
+                loader.style.display = 'block';
+            }
+            if (deleteIcon) {
+                deleteIcon.style.display = 'none';
+            }
+            if (deleteText) {
+                deleteText.textContent = '删除中...';
+            }
+            
+            batchDeleteBtn.disabled = true;
+            batchDeleteBtn.style.opacity = '0.7';
+            
+            try {
+                await this.batchDeleteSessions();
+            } finally {
+                // 隐藏加载状态
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+                if (deleteIcon) {
+                    deleteIcon.style.display = 'inline';
+                }
+            if (deleteText) {
+                deleteText.textContent = '删除';
+            }
+                batchDeleteBtn.disabled = false;
+                batchDeleteBtn.style.opacity = '1';
+            }
+        });
+        
+        // 取消批量模式按钮事件
+        cancelBatchBtn.addEventListener('click', () => {
+            this.exitBatchMode();
+        });
+        
+        batchToolbar.appendChild(selectedCount);
+        batchToolbar.appendChild(batchDeleteBtn);
+        batchToolbar.appendChild(cancelBatchBtn);
+        this.sessionSidebar.appendChild(batchToolbar);
 
         // 标签过滤器容器
         const tagFilterContainer = document.createElement('div');

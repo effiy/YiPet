@@ -167,6 +167,7 @@ class PetManager {
         this.tagFilterReverse = false; // 是否反向过滤
         this.tagFilterExpanded = false; // 标签列表是否展开
         this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量
+        this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         
         // 会话API管理器
         this.sessionApi = null;
@@ -3767,6 +3768,47 @@ class PetManager {
         return Array.from(tagSet).sort();
     }
 
+    // 获取会话的显示标题（用于过滤和显示）
+    _getSessionDisplayTitle(session) {
+        if (!session) return '未命名会话';
+        
+        // 优先使用会话的 pageTitle
+        let sessionTitle = session.pageTitle || '未命名会话';
+        
+        // 如果是空白会话且标题是默认值，尝试生成更友好的标题
+        if (session._isBlankSession || (session.url && session.url.startsWith('blank-session://'))) {
+            if (!session.pageTitle || session.pageTitle === '新会话' || session.pageTitle === '未命名会话') {
+                // 如果有消息，使用第一条用户消息的前几个字
+                if (session.messages && session.messages.length > 0) {
+                    const firstUserMessage = session.messages.find(m => m.type === 'user');
+                    if (firstUserMessage && firstUserMessage.content) {
+                        const content = firstUserMessage.content.trim();
+                        const preview = content.length > 30 ? content.substring(0, 30) + '...' : content;
+                        sessionTitle = preview;
+                    } else {
+                        // 没有用户消息，使用创建时间
+                        const createDate = new Date(session.createdAt || Date.now());
+                        const month = String(createDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(createDate.getDate()).padStart(2, '0');
+                        const hour = String(createDate.getHours()).padStart(2, '0');
+                        const minute = String(createDate.getMinutes()).padStart(2, '0');
+                        sessionTitle = `${month}-${day} ${hour}:${minute}`;
+                    }
+                } else {
+                    // 没有消息，使用创建时间
+                    const createDate = new Date(session.createdAt || Date.now());
+                    const month = String(createDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(createDate.getDate()).padStart(2, '0');
+                    const hour = String(createDate.getHours()).padStart(2, '0');
+                    const minute = String(createDate.getMinutes()).padStart(2, '0');
+                    sessionTitle = `${month}-${day} ${hour}:${minute}`;
+                }
+            }
+        }
+        
+        return sessionTitle;
+    }
+
     // 获取筛选后的会话列表
     _getFilteredSessions() {
         let allSessions = this._getSessionsFromLocal();
@@ -3786,6 +3828,16 @@ class PetManager {
                     // 正向过滤：只显示包含选中标签的会话
                     return hasSelectedTags;
                 }
+            });
+        }
+        
+        // 应用标题模糊匹配过滤
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            allSessions = allSessions.filter(session => {
+                const sessionTitle = this._getSessionDisplayTitle(session);
+                // 模糊匹配：标题包含关键词（不区分大小写）
+                return sessionTitle.toLowerCase().includes(filterKeyword);
             });
         }
         
@@ -4282,6 +4334,16 @@ class PetManager {
             });
         }
         
+        // 应用标题模糊匹配过滤
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            allSessions = allSessions.filter(session => {
+                const sessionTitle = this._getSessionDisplayTitle(session);
+                // 模糊匹配：标题包含关键词（不区分大小写）
+                return sessionTitle.toLowerCase().includes(filterKeyword);
+            });
+        }
+        
         // 清空列表
         sessionList.innerHTML = '';
         
@@ -4331,41 +4393,8 @@ class PetManager {
                 sessionItem.classList.add('active');
             }
             
-            // 获取完整标题和显示标题
-            // 优先使用会话的 pageTitle，如果是空白会话且有默认标题，使用默认标题
-            let fullTitle = session.pageTitle || '未命名会话';
-            
-            // 如果是空白会话且标题是默认值，尝试生成更友好的标题
-            if (session._isBlankSession || (session.url && session.url.startsWith('blank-session://'))) {
-                if (!session.pageTitle || session.pageTitle === '新会话' || session.pageTitle === '未命名会话') {
-                    // 如果有消息，使用第一条用户消息的前几个字
-                    if (session.messages && session.messages.length > 0) {
-                        const firstUserMessage = session.messages.find(m => m.type === 'user');
-                        if (firstUserMessage && firstUserMessage.content) {
-                            const content = firstUserMessage.content.trim();
-                            // 取前30个字符作为标题
-                            const preview = content.length > 30 ? content.substring(0, 30) + '...' : content;
-                            fullTitle = preview;
-                        } else {
-                            // 没有用户消息，使用创建时间
-                            const createDate = new Date(session.createdAt || Date.now());
-                            const month = String(createDate.getMonth() + 1).padStart(2, '0');
-                            const day = String(createDate.getDate()).padStart(2, '0');
-                            const hour = String(createDate.getHours()).padStart(2, '0');
-                            const minute = String(createDate.getMinutes()).padStart(2, '0');
-                            fullTitle = `${month}-${day} ${hour}:${minute}`;
-                        }
-                    } else {
-                        // 没有消息，使用创建时间
-                        const createDate = new Date(session.createdAt || Date.now());
-                        const month = String(createDate.getMonth() + 1).padStart(2, '0');
-                        const day = String(createDate.getDate()).padStart(2, '0');
-                        const hour = String(createDate.getHours()).padStart(2, '0');
-                        const minute = String(createDate.getMinutes()).padStart(2, '0');
-                        fullTitle = `${month}-${day} ${hour}:${minute}`;
-                    }
-                }
-            }
+            // 获取完整标题和显示标题（使用统一的辅助函数）
+            const fullTitle = this._getSessionDisplayTitle(session);
             
             // 根据侧边栏宽度动态计算标题最大显示长度
             // 侧边栏宽度减去内边距、编辑按钮等，大约可用宽度为 sidebarWidth - 60
@@ -7261,11 +7290,6 @@ class PetManager {
     closeContextEditor() {
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
         if (overlay) overlay.style.display = 'none';
-        
-        // 自动保存用户编辑的页面上下文到会话（静默保存，不显示提示）
-        this.saveContextEditor().catch(err => {
-            console.error('关闭时保存页面上下文失败:', err);
-        });
         
         if (this._contextKeydownHandler) {
             document.removeEventListener('keydown', this._contextKeydownHandler, { capture: true });
@@ -11635,7 +11659,8 @@ ${pageContent || '无内容'}
             let md = '';
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
-                md = session.pageContent || this.getPageContentAsMarkdown();
+                // 如果会话的pageContent字段为空，则弹框内容也为空
+                md = (session.pageContent && session.pageContent.trim() !== '') ? session.pageContent : '';
             } else {
                 md = this.getPageContentAsMarkdown();
             }
@@ -11812,16 +11837,176 @@ ${pageContent || '无内容'}
             background: #f9fafb !important;
             display: flex !important;
             align-items: center !important;
+            gap: 8px !important;
         `;
         
-        const sidebarTitle = document.createElement('div');
-        sidebarTitle.style.cssText = `
-            font-weight: 600 !important;
-            font-size: 14px !important;
-            color: #374151 !important;
+        // 创建搜索输入框容器（带图标和清除按钮）
+        const searchContainer = document.createElement('div');
+        searchContainer.style.cssText = `
+            position: relative !important;
             flex: 1 !important;
+            display: flex !important;
+            align-items: center !important;
         `;
-        sidebarTitle.textContent = '💬 会话列表';
+        
+        // 搜索图标
+        const searchIcon = document.createElement('span');
+        searchIcon.textContent = '🔍';
+        searchIcon.style.cssText = `
+            position: absolute !important;
+            left: 10px !important;
+            font-size: 14px !important;
+            pointer-events: none !important;
+            z-index: 1 !important;
+            opacity: 0.5 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+        
+        // 创建搜索输入框
+        const sidebarTitle = document.createElement('input');
+        sidebarTitle.type = 'text';
+        sidebarTitle.placeholder = '搜索会话...';
+        sidebarTitle.value = this.sessionTitleFilter || '';
+        sidebarTitle.id = 'session-search-input';
+        sidebarTitle.style.cssText = `
+            width: 100% !important;
+            font-weight: 400 !important;
+            font-size: 13px !important;
+            color: #374151 !important;
+            padding: 8px 32px 8px 32px !important;
+            border: 1.5px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+        `;
+        
+        // 添加占位符样式（通过动态样式表）
+        if (!document.getElementById('session-search-placeholder-style')) {
+            const style = document.createElement('style');
+            style.id = 'session-search-placeholder-style';
+            style.textContent = `
+                #session-search-input::placeholder {
+                    color: #9ca3af !important;
+                    opacity: 1 !important;
+                }
+                #session-search-input:focus::placeholder {
+                    color: #d1d5db !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // 清除按钮
+        const clearBtn = document.createElement('button');
+        clearBtn.innerHTML = '✕';
+        clearBtn.type = 'button';
+        clearBtn.style.cssText = `
+            position: absolute !important;
+            right: 6px !important;
+            width: 20px !important;
+            height: 20px !important;
+            border: none !important;
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+            border-radius: 50% !important;
+            cursor: pointer !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 12px !important;
+            padding: 0 !important;
+            transition: all 0.2s ease !important;
+            z-index: 2 !important;
+            line-height: 1 !important;
+        `;
+        
+        // 更新清除按钮显示状态
+        const updateClearButton = () => {
+            if (sidebarTitle.value.trim() !== '') {
+                clearBtn.style.display = 'flex';
+                searchIcon.style.opacity = '0.3';
+            } else {
+                clearBtn.style.display = 'none';
+                searchIcon.style.opacity = '0.5';
+            }
+        };
+        
+        // 初始状态
+        updateClearButton();
+        
+        // 清除按钮点击事件
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            sidebarTitle.value = '';
+            this.sessionTitleFilter = '';
+            updateClearButton();
+            this.updateSessionSidebar();
+            sidebarTitle.focus();
+        });
+        
+        // 清除按钮悬停效果
+        clearBtn.addEventListener('mouseenter', () => {
+            clearBtn.style.background = '#d1d5db';
+            clearBtn.style.transform = 'scale(1.1)';
+        });
+        clearBtn.addEventListener('mouseleave', () => {
+            clearBtn.style.background = '#e5e7eb';
+            clearBtn.style.transform = 'scale(1)';
+        });
+        
+        // 输入框聚焦和失焦样式
+        sidebarTitle.addEventListener('focus', () => {
+            sidebarTitle.style.borderColor = mainColor;
+            sidebarTitle.style.boxShadow = `0 0 0 3px ${mainColor}22`;
+            searchIcon.style.opacity = '0.7';
+        });
+        sidebarTitle.addEventListener('blur', () => {
+            sidebarTitle.style.borderColor = '#e5e7eb';
+            sidebarTitle.style.boxShadow = 'none';
+            searchIcon.style.opacity = sidebarTitle.value.trim() !== '' ? '0.3' : '0.5';
+        });
+        
+        // 输入框输入事件，实时过滤会话列表（添加防抖）
+        let searchDebounceTimer = null;
+        sidebarTitle.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            this.sessionTitleFilter = value;
+            updateClearButton();
+            
+            // 清除之前的定时器
+            if (searchDebounceTimer) {
+                clearTimeout(searchDebounceTimer);
+            }
+            
+            // 防抖处理：300ms后执行过滤
+            searchDebounceTimer = setTimeout(() => {
+                this.updateSessionSidebar();
+            }, 300);
+        });
+        
+        // 阻止输入框事件冒泡，避免触发其他操作
+        sidebarTitle.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        // 键盘快捷键：ESC清除输入
+        sidebarTitle.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebarTitle.value.trim() !== '') {
+                sidebarTitle.value = '';
+                this.sessionTitleFilter = '';
+                updateClearButton();
+                this.updateSessionSidebar();
+                e.stopPropagation();
+            }
+        });
+        
+        // 组装搜索容器
+        searchContainer.appendChild(searchIcon);
+        searchContainer.appendChild(sidebarTitle);
+        searchContainer.appendChild(clearBtn);
         
         // 创建导出按钮
         const exportBtn = document.createElement('button');
@@ -11934,7 +12119,7 @@ ${pageContent || '无内容'}
             }
         });
         
-        sidebarHeader.appendChild(sidebarTitle);
+        sidebarHeader.appendChild(searchContainer);
         sidebarHeader.appendChild(exportBtn);
         sidebarHeader.appendChild(addSessionBtn);
 
@@ -17677,6 +17862,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

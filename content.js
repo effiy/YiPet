@@ -4501,11 +4501,11 @@ class PetManager {
             titleDiv.style.minWidth = '0';
             titleDiv.style.marginBottom = '0';
             
-            // 只有网址是blank-session开头的才显示编辑标题按钮
-            const isBlankSession = session.url && session.url.startsWith('blank-session://');
+            // 只要不是http开头的网址就会显示编辑标题按钮
+            const shouldShowEditBtn = session.url && !session.url.startsWith('http');
             let editBtn = null;
             
-            if (isBlankSession) {
+            if (shouldShowEditBtn) {
                 editBtn = document.createElement('button');
                 editBtn.className = 'session-edit-btn';
                 editBtn.innerHTML = '✏️';

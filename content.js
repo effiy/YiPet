@@ -8576,8 +8576,20 @@ ${pageContent || '无内容'}
                         return;
                     }
                     
-                    // 获取页面信息
-                    const pageInfo = this.getPageInfo();
+                    // 获取页面信息：优先使用当前会话保存的页面上下文
+                    let pageInfo;
+                    if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                        const session = this.sessions[this.currentSessionId];
+                        pageInfo = {
+                            title: session.pageTitle || document.title || '当前页面',
+                            url: session.url || window.location.href,
+                            description: session.pageDescription || '',
+                            content: session.pageContent || '' // 使用会话保存的页面内容
+                        };
+                    } else {
+                        // 如果没有当前会话，使用当前页面信息
+                        pageInfo = this.getPageInfo();
+                    }
                     
                     // 获取角色配置信息
                     const roleLabel = config.label || '自定义角色';
@@ -8598,7 +8610,7 @@ ${pageContent || '无内容'}
 
 请根据以上信息进行分析和处理。`;
                     
-                    // 构建包含会话上下文的 fromUser 参数
+                    // 构建包含会话上下文的 fromUser 参数（会使用会话保存的页面上下文）
                     const fromUser = this.buildFromUserWithContext(baseUserPrompt, roleLabel);
                     
                     // 创建新的消息（按钮操作生成的消息）
@@ -10519,11 +10531,45 @@ ${pageContent || '无内容'}
 
     // 构建包含会话上下文的 fromUser 参数
     buildFromUserWithContext(baseUserPrompt, roleLabel) {
+        // 检查页面上下文开关状态
+        let includeContext = true; // 默认包含上下文
+        const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
+        if (contextSwitch) {
+            includeContext = contextSwitch.checked;
+        }
+        
         const context = this.buildConversationContext();
         
-        // 如果没有消息历史，直接使用基础提示词
+        // 如果 baseUserPrompt 已经包含了页面内容，根据开关状态决定是否替换或移除
+        let finalBasePrompt = baseUserPrompt;
+        if (baseUserPrompt.includes('页面内容（Markdown 格式）：')) {
+            if (includeContext && context.pageContent) {
+                // 开关打开且有会话页面内容：使用会话保存的页面上下文替换它
+                const pageContentMatch = baseUserPrompt.match(/页面内容（Markdown 格式）：\s*\n([\s\S]*?)(?=\n\n|$)/);
+                if (pageContentMatch) {
+                    // 替换为会话保存的页面内容
+                    finalBasePrompt = baseUserPrompt.replace(
+                        /页面内容（Markdown 格式）：\s*\n[\s\S]*?(?=\n\n|$)/,
+                        `页面内容（Markdown 格式）：\n${context.pageContent}`
+                    );
+                }
+            } else if (!includeContext) {
+                // 开关关闭：移除页面内容部分
+                finalBasePrompt = baseUserPrompt.replace(
+                    /页面内容（Markdown 格式）：\s*\n[\s\S]*?(?=\n\n|$)/,
+                    '页面内容（Markdown 格式）：\n无内容（页面上下文已关闭）'
+                );
+            }
+        }
+        
+        // 如果没有消息历史，直接使用基础提示词（可能已包含页面内容）
         if (!context.hasHistory) {
-            return baseUserPrompt;
+            // 如果开关打开、baseUserPrompt 中没有页面内容，但会话有页面内容，添加页面内容
+            if (includeContext && context.pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
+                const pageContext = '\n\n## 页面内容：\n\n' + context.pageContent;
+                return finalBasePrompt + pageContext;
+            }
+            return finalBasePrompt;
         }
 
         // 构建消息历史上下文
@@ -10539,14 +10585,14 @@ ${pageContent || '无内容'}
             });
         }
 
-        // 如果有页面内容，也包含进去
+        // 如果开关打开、baseUserPrompt 中没有页面内容，但会话有页面内容，添加页面内容
         let pageContext = '';
-        if (context.pageContent) {
+        if (includeContext && context.pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
             pageContext = '\n\n## 页面内容：\n\n' + context.pageContent;
         }
 
-        // 组合：基础提示词 + 会话历史 + 页面内容
-        return baseUserPrompt + conversationContext + pageContext;
+        // 组合：基础提示词（已包含会话的页面上下文）+ 会话历史 + 页面内容（如果需要）
+        return finalBasePrompt + conversationContext + pageContext;
     }
 
     // 创建角色按钮点击处理函数（用于有 actionKey 的角色）
@@ -10564,8 +10610,20 @@ ${pageContent || '无内容'}
                 return;
             }
 
-            // 获取页面信息
-            const pageInfo = this.getPageInfo();
+            // 获取页面信息：优先使用当前会话保存的页面上下文
+            let pageInfo;
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                pageInfo = {
+                    title: session.pageTitle || document.title || '当前页面',
+                    url: session.url || window.location.href,
+                    description: session.pageDescription || '',
+                    content: session.pageContent || '' // 使用会话保存的页面内容
+                };
+            } else {
+                // 如果没有当前会话，使用当前页面信息
+                pageInfo = this.getPageInfo();
+            }
             
             // 从角色配置中获取提示语、名称、图标
             let roleInfo;
@@ -10581,7 +10639,7 @@ ${pageContent || '无内容'}
                 };
             }
 
-            // 构建包含会话上下文的 fromUser 参数
+            // 构建包含会话上下文的 fromUser 参数（会使用会话保存的页面上下文）
             const fromUser = this.buildFromUserWithContext(roleInfo.userPrompt, roleInfo.label);
 
             // 创建新的消息（按钮操作生成的消息）

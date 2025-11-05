@@ -764,11 +764,11 @@ class PetManager {
     // 设置键盘快捷键
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // 检查是否按下了 F7 (截图快捷键)
-            if (e.key === 'F7') {
+            // 检查是否按下了 Ctrl+Shift+S (截图快捷键)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('检测到截图快捷键 F7');
+                console.log('检测到截图快捷键 Ctrl+Shift+S');
 
                 // 直接进行截图，不需要打开聊天窗口
                 this.takeScreenshot();
@@ -776,17 +776,26 @@ class PetManager {
                 return false;
             }
 
-            // 检查是否按下了 F8 (打开聊天窗口快捷键)
-            if (e.key === 'F8') {
+            // 检查是否按下了 Ctrl+Shift+X (切换聊天窗口快捷键)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'x') {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('检测到聊天快捷键 F8');
+                console.log('检测到聊天快捷键 Ctrl+Shift+X');
 
                 if (this.isChatOpen) {
                     this.closeChatWindow();
                 } else {
                     this.openChatWindow();
                 }
+                return false;
+            }
+
+            // 检查是否按下了 Ctrl+Shift+P (切换宠物显示/隐藏快捷键)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('检测到切换宠物显示/隐藏快捷键 Ctrl+Shift+P');
+                this.toggleVisibility();
                 return false;
             }
 
@@ -800,8 +809,9 @@ class PetManager {
         }, true); // 使用捕获阶段，确保在其他处理之前执行
 
         console.log('键盘快捷键已设置：');
-        console.log('  - F7：截图');
-        console.log('  - F8：切换聊天窗口');
+        console.log('  - Ctrl+Shift+S：截图');
+        console.log('  - Ctrl+Shift+X：切换聊天窗口');
+        console.log('  - Ctrl+Shift+P：切换宠物显示/隐藏');
         console.log('  - Esc：关闭聊天窗口');
     }
 
@@ -17646,6 +17656,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

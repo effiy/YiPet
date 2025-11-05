@@ -495,6 +495,8 @@ class PetManager {
     toggleVisibility() {
         this.isVisible = !this.isVisible;
         this.updatePetStyle();
+        this.saveState(); // 保存状态
+        this.syncToGlobalState(); // 同步到全局状态
         console.log('宠物可见性切换为:', this.isVisible);
     }
 
@@ -763,11 +765,13 @@ class PetManager {
 
     // 设置键盘快捷键
     setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
+        // 使用箭头函数确保 this 绑定正确
+        const handleKeyDown = (e) => {
             // 检查是否按下了 Ctrl+Shift+S (截图快捷键)
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 console.log('检测到截图快捷键 Ctrl+Shift+S');
 
                 // 直接进行截图，不需要打开聊天窗口
@@ -780,6 +784,7 @@ class PetManager {
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'x') {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 console.log('检测到聊天快捷键 Ctrl+Shift+X');
 
                 if (this.isChatOpen) {
@@ -791,9 +796,10 @@ class PetManager {
             }
 
             // 检查是否按下了 Ctrl+Shift+P (切换宠物显示/隐藏快捷键)
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === 'p' || e.code === 'KeyP')) {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 console.log('检测到切换宠物显示/隐藏快捷键 Ctrl+Shift+P');
                 this.toggleVisibility();
                 return false;
@@ -803,10 +809,18 @@ class PetManager {
             if (e.key === 'Escape' && this.isChatOpen) {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 this.closeChatWindow();
                 return false;
             }
-        }, true); // 使用捕获阶段，确保在其他处理之前执行
+        };
+
+        // 同时监听 window 和 document，确保能够捕获所有键盘事件
+        window.addEventListener('keydown', handleKeyDown, true); // 使用捕获阶段
+        document.addEventListener('keydown', handleKeyDown, true); // 使用捕获阶段
+
+        // 保存事件处理器引用，以便后续清理
+        this._keyboardShortcutHandler = handleKeyDown;
 
         console.log('键盘快捷键已设置：');
         console.log('  - Ctrl+Shift+S：截图');
@@ -821,6 +835,13 @@ class PetManager {
 
         // 停止定期同步
         this.stopPeriodicSync();
+
+        // 移除键盘快捷键监听器
+        if (this._keyboardShortcutHandler) {
+            window.removeEventListener('keydown', this._keyboardShortcutHandler, true);
+            document.removeEventListener('keydown', this._keyboardShortcutHandler, true);
+            this._keyboardShortcutHandler = null;
+        }
 
         // 移除宠物
         this.removePet();
@@ -17656,6 +17677,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

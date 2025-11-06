@@ -15321,53 +15321,7 @@ ${messageContent}`;
         // 先添加请求状态按钮
         rightBottomGroup.appendChild(requestStatusButton);
         
-        // 然后添加角色设置按钮到 rightBottomGroup（在 requestStatusButton 之后）
-        let settingsButton = this.settingsButton;
-        if (!settingsButton) {
-            settingsButton = document.createElement('span');
-            settingsButton.innerHTML = '👤';
-            settingsButton.title = '角色设置';
-            settingsButton.style.cssText = `
-                padding: 4px !important;
-                cursor: pointer !important;
-                font-size: 18px !important;
-                color: #666 !important;
-                font-weight: 300 !important;
-                transition: all 0.2s ease !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                user-select: none !important;
-                width: 24px !important;
-                height: 24px !important;
-                line-height: 24px !important;
-            `;
-            settingsButton.addEventListener('mouseenter', function() {
-                this.style.color = '#2196F3';
-                this.style.transform = 'scale(1.1)';
-            });
-            settingsButton.addEventListener('mouseleave', function() {
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            });
-            settingsButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openRoleSettingsModal();
-            });
-            this.settingsButton = settingsButton;
-        }
-        
-        // 如果设置按钮已经在其他容器中，先移除它
-        if (settingsButton.parentNode && settingsButton.parentNode !== rightBottomGroup) {
-            settingsButton.parentNode.removeChild(settingsButton);
-        }
-        
-        // 如果设置按钮不在 rightBottomGroup 中，添加它（在 requestStatusButton 之后）
-        if (settingsButton.parentNode !== rightBottomGroup) {
-            rightBottomGroup.appendChild(settingsButton);
-        }
-        
-        // 添加企微机器人设置按钮（在角色设置按钮之后）
+        // 添加企微机器人设置按钮（在 requestStatusButton 之后）
         let robotSettingsButton = this.robotSettingsButton;
         if (!robotSettingsButton) {
             robotSettingsButton = document.createElement('span');
@@ -15408,9 +15362,55 @@ ${messageContent}`;
             robotSettingsButton.parentNode.removeChild(robotSettingsButton);
         }
         
-        // 如果企微机器人设置按钮不在 rightBottomGroup 中，添加它（在角色设置按钮之后）
+        // 如果企微机器人设置按钮不在 rightBottomGroup 中，添加它（在 requestStatusButton 之后）
         if (robotSettingsButton.parentNode !== rightBottomGroup) {
             rightBottomGroup.appendChild(robotSettingsButton);
+        }
+        
+        // 然后添加角色设置按钮到 rightBottomGroup（在企微机器人设置按钮之后）
+        let settingsButton = this.settingsButton;
+        if (!settingsButton) {
+            settingsButton = document.createElement('span');
+            settingsButton.innerHTML = '👤';
+            settingsButton.title = '角色设置';
+            settingsButton.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 18px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 24px !important;
+                height: 24px !important;
+                line-height: 24px !important;
+            `;
+            settingsButton.addEventListener('mouseenter', function() {
+                this.style.color = '#2196F3';
+                this.style.transform = 'scale(1.1)';
+            });
+            settingsButton.addEventListener('mouseleave', function() {
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            settingsButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openRoleSettingsModal();
+            });
+            this.settingsButton = settingsButton;
+        }
+        
+        // 如果设置按钮已经在其他容器中，先移除它
+        if (settingsButton.parentNode && settingsButton.parentNode !== rightBottomGroup) {
+            settingsButton.parentNode.removeChild(settingsButton);
+        }
+        
+        // 如果设置按钮不在 rightBottomGroup 中，添加它（在企微机器人设置按钮之后）
+        if (settingsButton.parentNode !== rightBottomGroup) {
+            rightBottomGroup.appendChild(settingsButton);
         }
         
         bottomToolbar.appendChild(rightBottomGroup);

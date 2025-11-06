@@ -10632,8 +10632,8 @@ ${pageContent || '无内容'}
                     // 先调用 prompt 接口处理消息内容
                     const processedContent = await this.processMessageForRobot(messageContent.trim());
                     
-                    // 限制字数不超过 4090
-                    const limitedContent = this.limitMarkdownLength(processedContent, 4090);
+                    // 限制字数不超过 4096（企微机器人 markdown.content 的最大长度限制）
+                    const limitedContent = this.limitMarkdownLength(processedContent, 4096);
                     
                     // 发送到企微机器人
                     await this.sendToWeWorkRobot(robotConfig.webhookUrl, limitedContent);
@@ -12092,20 +12092,78 @@ ${pageContent || '无内容'}
     // 处理消息内容，通过 prompt 接口处理并返回 md 格式
     async processMessageForRobot(messageContent) {
         try {
-            // 构建 system prompt，要求返回 md 格式且不超过 4090 字
-            const systemPrompt = `你是一个内容处理助手。请将用户提供的消息内容进行处理，并以 Markdown 格式返回。要求：
-1. 返回的内容必须是有效的 Markdown 格式
-2. 内容总字数（包括 Markdown 语法字符）不能超过 4090 字
-3. 保持原意，可以适当精简和优化表达
-4. 如果原内容已经是 Markdown 格式，保持原有格式
-5. 如果原内容不是 Markdown 格式，请转换为合适的 Markdown 格式
+            // 构建 system prompt，要求返回精简的 md 格式且严格不超过 4096 字符
+            const systemPrompt = `你是一个内容精简专家。请将用户提供的消息内容进行**大幅精简和压缩**，并以 Markdown 格式返回。
 
-请直接返回处理后的 Markdown 内容，不要添加额外的说明文字。`;
+**核心要求（必须严格遵守）：**
+1. **长度限制是硬性要求**：最终输出内容（包括所有 Markdown 语法字符和表情符号）必须严格控制在 4096 字符以内，这是企业微信机器人的限制，超过会导致发送失败
+2. **优先保留核心信息**：只保留最关键、最重要的信息，删除所有冗余、重复、次要的内容
+3. **使用紧凑格式**：
+   - 优先使用列表（有序/无序）而非段落
+   - 使用标题层级（##、###）组织内容
+   - 使用**加粗**突出关键点，避免冗长描述
+   - 删除不必要的空行和装饰性内容
+4. **精简策略**：
+   - 合并相似内容，去除重复表达
+   - 用关键词和短语替代完整句子
+   - 删除示例、详细解释等非核心内容
+   - 如果原内容过长，只保留摘要和要点
+5. **格式要求**：
+   - 如果原内容已经是 Markdown，大幅精简后保持格式
+   - 如果原内容不是 Markdown，转换为精简的 Markdown 格式
+   - 使用简洁的 Markdown 语法，避免复杂的嵌套结构
+6. **表情符号使用（重要）**：
+   - **适度使用表情符号**，让内容更生动有趣、更容易记忆
+   - 在标题、关键点、重要信息处使用合适的表情符号
+   - 常用表情符号语义映射：
+     * 📋 报告/文档/总结
+     * 📝 笔记/记录/要点
+     * 💡 想法/建议/提示
+     * 🔑 关键/核心/重点
+     * ⚠️ 注意/警告/风险
+     * ✅ 完成/成功/优势
+     * ❌ 错误/问题/缺点
+     * 📊 数据/统计/图表
+     * 🎯 目标/目的/方向
+     * 🚀 趋势/发展/提升
+     * ⭐ 重要/亮点/推荐
+     * 🔍 分析/研究/探索
+     * 💬 观点/评论/讨论
+     * 📌 标记/强调/固定
+     * 🎉 庆祝/成就/好消息
+     * 📈 增长/上升/积极
+     * 📉 下降/减少/消极
+     * 🔥 热门/紧急/重要
+     * 💰 财务/成本/价值
+     * 🎓 学习/教育/知识
+     * ⏰ 时间/期限/计划
+     * 🏆 成就/优秀/排名
+     * 🌟 亮点/特色/突出
+   - 表情符号使用原则：
+     * 每个标题或关键点使用 1-2 个相关表情符号
+     * 不要过度使用，保持内容简洁
+     * 表情符号应该增强语义，而不是装饰
+
+**重要提醒**：如果原内容很长，必须进行**大幅压缩**，只保留核心要点。宁可内容简短，也绝不能超过 4096 字符限制。表情符号的使用要适度，不能影响内容的精简。
+
+请直接返回精简后的 Markdown 内容，不要添加任何说明文字、前缀或后缀。`;
+
+            // 构建 userPrompt，添加精简和表情符号提示
+            const userPrompt = `请将以下内容**大幅精简和压缩**为 Markdown 格式，确保最终输出严格控制在 4096 字符以内。
+
+**要求**：
+- 使用合适的表情符号让内容更生动有趣、更容易记忆
+- 在标题、关键点、重要信息处添加相关表情符号
+- 保持内容精简，表情符号要适度使用
+
+内容：
+
+${messageContent}`;
 
             // 构建 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                messageContent,
+                userPrompt,
                 this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
             );
 
@@ -12226,9 +12284,17 @@ ${pageContent || '无内容'}
                 content = JSON.stringify(result);
             }
 
-            // 如果提取到了有效内容，返回
+            // 如果提取到了有效内容，去除 markdown 代码块标记
             if (content && content.trim()) {
-                return content.trim();
+                let cleanedContent = content.trim();
+                
+                // 去除开头的 ```markdown 或 ``` 标记
+                cleanedContent = cleanedContent.replace(/^```(?:markdown)?\s*/i, '');
+                
+                // 去除结尾的 ``` 标记
+                cleanedContent = cleanedContent.replace(/\s*```\s*$/, '');
+                
+                return cleanedContent.trim();
             } else if (result.status !== undefined && result.status !== 200) {
                 const errorMsg = result.msg || '抱歉，服务器返回了错误。';
                 throw new Error(errorMsg);
@@ -12254,34 +12320,54 @@ ${pageContent || '无内容'}
             return content;
         }
 
-        // 截断内容到指定长度
-        let truncated = content.substring(0, maxLength);
+        // 计算截断提示文本（固定格式，长度可预测）
+        const truncateHint = '\n\n*(内容已截断)*';
+        const hintLength = truncateHint.length;
+        
+        // 预留空间：提示文本 + 可能的换行符
+        const reservedLength = hintLength + 1; // +1 为可能的换行符预留
+        const availableLength = maxLength - reservedLength;
+        
+        // 如果可用长度太小，直接截断到最大长度（不添加提示）
+        if (availableLength < 50) {
+            return content.substring(0, maxLength);
+        }
+
+        // 截断内容到可用长度
+        let truncated = content.substring(0, availableLength);
 
         // 尝试在最后一个完整的句子或段落处截断，避免截断 Markdown 语法
         // 查找最后一个换行符、句号、问号或感叹号
+        const searchStart = Math.max(0, availableLength - 200);
         const lastBreak = Math.max(
-            truncated.lastIndexOf('\n\n'),
-            truncated.lastIndexOf('\n'),
-            truncated.lastIndexOf('。'),
-            truncated.lastIndexOf('！'),
-            truncated.lastIndexOf('？'),
-            truncated.lastIndexOf('.'),
-            truncated.lastIndexOf('!'),
-            truncated.lastIndexOf('?')
+            truncated.lastIndexOf('\n\n', availableLength - 1),
+            truncated.lastIndexOf('\n', availableLength - 1),
+            truncated.lastIndexOf('。', availableLength - 1),
+            truncated.lastIndexOf('！', availableLength - 1),
+            truncated.lastIndexOf('？', availableLength - 1),
+            truncated.lastIndexOf('.', availableLength - 1),
+            truncated.lastIndexOf('!', availableLength - 1),
+            truncated.lastIndexOf('?', availableLength - 1)
         );
 
-        // 如果找到了合适的截断点（在最后 200 个字符内），使用该点截断
-        if (lastBreak > maxLength - 200) {
+        // 如果找到了合适的截断点（在搜索范围内），使用该点截断
+        if (lastBreak >= searchStart && lastBreak > 0) {
             truncated = truncated.substring(0, lastBreak + 1);
         }
 
-        // 确保截断后的内容以换行符结尾（如果原内容有换行）
-        if (content.length > maxLength && !truncated.endsWith('\n')) {
+        // 确保截断后的内容以换行符结尾（但要确保加上提示后不超过限制）
+        if (!truncated.endsWith('\n') && truncated.length + hintLength + 1 <= maxLength) {
             truncated += '\n';
         }
 
         // 添加截断提示
-        truncated += '\n\n*(内容已截断，原始内容超过 ' + maxLength + ' 字)*';
+        truncated += truncateHint;
+
+        // 最终严格检查：确保不超过最大长度（这是最后一道防线）
+        if (truncated.length > maxLength) {
+            // 如果仍然超过，强制截断到最大长度（去掉提示文本）
+            truncated = content.substring(0, maxLength);
+        }
 
         return truncated;
     }
@@ -12289,13 +12375,39 @@ ${pageContent || '无内容'}
     // 发送消息到企微机器人（通过 background script 避免 CORS 问题）
     async sendToWeWorkRobot(webhookUrl, content) {
         try {
+            // 参数验证
+            if (!webhookUrl || typeof webhookUrl !== 'string') {
+                throw new Error('webhookUrl 参数无效');
+            }
+            
+            if (!content || typeof content !== 'string') {
+                throw new Error('content 参数无效');
+            }
+            
             // 检查内容是否是 markdown 格式
             let markdownContent = content;
             
             if (!this.isMarkdownFormat(content)) {
                 // 如果不是 markdown 格式，先转换为 markdown
-                console.log('内容不是 markdown 格式，正在转换为 markdown...');
+                console.log('[企微机器人] 内容不是 markdown 格式，正在转换为 markdown...');
                 markdownContent = await this.convertToMarkdown(content);
+                console.log(`[企微机器人] 转换后长度: ${markdownContent.length}`);
+            }
+            
+            // 最终长度检查：确保不超过企微机器人的 4096 字符限制
+            const MAX_LENGTH = 4096;
+            const originalLength = markdownContent.length;
+            
+            if (originalLength > MAX_LENGTH) {
+                console.warn(`[企微机器人] 内容长度 ${originalLength} 超过限制 ${MAX_LENGTH}，进行截断`);
+                markdownContent = this.limitMarkdownLength(markdownContent, MAX_LENGTH);
+                console.log(`[企微机器人] 截断后长度: ${markdownContent.length}`);
+            }
+            
+            // 再次验证长度（双重保险）
+            if (markdownContent.length > MAX_LENGTH) {
+                console.error(`[企微机器人] 截断后仍然超过限制: ${markdownContent.length} > ${MAX_LENGTH}，强制截断`);
+                markdownContent = markdownContent.substring(0, MAX_LENGTH);
             }
             
             // 通过 background script 发送请求，避免 CORS 问题
@@ -19974,6 +20086,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

@@ -3616,10 +3616,17 @@ class PetManager {
                         });
                     }
                 } else if (msg.type === 'user') {
-                    // 确保用户消息的原始文本被保存（用于保存时提取）
+                    // 渲染用户消息（使用 Markdown 渲染，与 pet 消息一致）
                     const userBubble = msgEl.querySelector('[data-message-type="user-bubble"]');
                     if (userBubble) {
+                        userBubble.innerHTML = this.renderMarkdown(msg.content);
                         userBubble.setAttribute('data-original-text', msg.content);
+                        userBubble.classList.add('markdown-content');
+                        
+                        // 处理可能的 Mermaid 图表
+                        this.processMermaidBlocks(userBubble).catch(err => {
+                            console.error('处理用户消息的 Mermaid 图表失败:', err);
+                        });
                     }
                     // 保存用户消息引用，用于后续添加按钮
                     userMessages.push(msgEl);
@@ -7650,7 +7657,8 @@ class PetManager {
         const saveBtn = document.createElement('button');
         saveBtn.id = 'pet-message-save-btn';
         saveBtn.className = 'chat-toolbar-btn';
-        saveBtn.setAttribute('title', '保存 (Ctrl+Enter)');
+        saveBtn.setAttribute('title', '保存修改 (Ctrl+S / Cmd+S)');
+        saveBtn.setAttribute('aria-label', '保存修改');
         saveBtn.textContent = '保存';
         saveBtn.style.cssText = `
             padding: 4px 12px !important;
@@ -8028,31 +8036,24 @@ class PetManager {
                 }
             }, 200);
         } else {
-            // 对于用户消息
+            // 对于用户消息，使用 Markdown 渲染（与 pet 消息一致）
             const oldText = messageElement.getAttribute('data-original-text') || messageElement.textContent || '';
-            const hasMarkdown = /[#*_`\[\]()!]|```/.test(newText);
+            messageElement.innerHTML = this.renderMarkdown(newText);
+            messageElement.classList.add('markdown-content');
+            messageElement.setAttribute('data-original-text', newText);
             
-            if (hasMarkdown) {
-                messageElement.innerHTML = this.renderMarkdown(newText);
-                messageElement.classList.add('markdown-content');
-                messageElement.setAttribute('data-original-text', newText);
-                
-                // 处理可能的 Mermaid 图表
-                setTimeout(async () => {
-                    try {
-                        await this.loadMermaid();
-                        const hasMermaidCode = messageElement.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
-                        if (hasMermaidCode) {
-                            await this.processMermaidBlocks(messageElement);
-                        }
-                    } catch (error) {
-                        console.error('处理编辑后的 Mermaid 图表时出错:', error);
+            // 处理可能的 Mermaid 图表
+            setTimeout(async () => {
+                try {
+                    await this.loadMermaid();
+                    const hasMermaidCode = messageElement.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                    if (hasMermaidCode) {
+                        await this.processMermaidBlocks(messageElement);
                     }
-                }, 200);
-            } else {
-                messageElement.textContent = newText;
-                messageElement.setAttribute('data-original-text', newText);
-            }
+                } catch (error) {
+                    console.error('处理编辑后的 Mermaid 图表时出错:', error);
+                }
+            }, 200);
             
             // 更新会话中对应的消息内容
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
@@ -16991,8 +16992,8 @@ ${messageContent}`;
             -ms-user-select: text !important;
         `;
 
-        // 为宠物消息添加 Markdown 样式
-        if (sender === 'pet') {
+        // 为宠物消息和用户消息添加 Markdown 样式
+        if (sender === 'pet' || sender === 'user') {
             messageText.classList.add('markdown-content');
         }
 
@@ -17049,20 +17050,15 @@ ${messageContent}`;
 
         // 如果有文本，添加文本（支持 Markdown 渲染）
         if (text) {
-            // 对于宠物消息，使用 Markdown 渲染；对于用户消息，使用纯文本
-            const displayText = sender === 'pet' ? this.renderMarkdown(text) : this.escapeHtml(text);
-
-            if (imageDataUrl) {
-                // 如果已经添加了图片，则追加文本
-                const textSpan = document.createElement('span');
-                if (sender === 'pet') {
+            if (sender === 'pet') {
+                // 对于宠物消息，使用 Markdown 渲染
+                const displayText = this.renderMarkdown(text);
+                if (imageDataUrl) {
+                    // 如果已经添加了图片，则追加文本
+                    const textSpan = document.createElement('span');
                     textSpan.innerHTML = displayText;
+                    messageText.appendChild(textSpan);
                 } else {
-                    textSpan.textContent = text;
-                }
-                messageText.appendChild(textSpan);
-            } else {
-                if (sender === 'pet') {
                     messageText.innerHTML = displayText;
                     // 对于宠物消息，处理可能的 Mermaid 图表
                     if (!messageText.hasAttribute('data-mermaid-processing')) {
@@ -17072,8 +17068,33 @@ ${messageContent}`;
                             messageText.removeAttribute('data-mermaid-processing');
                         }, 100);
                     }
+                }
+            } else {
+                // 对于用户消息，使用 Markdown 渲染（与 pet 消息一致）
+                const displayText = this.renderMarkdown(text);
+                if (imageDataUrl) {
+                    // 如果已经添加了图片，则追加文本
+                    const textSpan = document.createElement('span');
+                    textSpan.innerHTML = displayText;
+                    messageText.appendChild(textSpan);
                 } else {
-                    messageText.textContent = text;
+                    messageText.innerHTML = displayText;
+                }
+                // 处理可能的 Mermaid 图表
+                if (!messageText.hasAttribute('data-mermaid-processing')) {
+                    messageText.setAttribute('data-mermaid-processing', 'true');
+                    setTimeout(async () => {
+                        try {
+                            await this.loadMermaid();
+                            const hasMermaidCode = messageText.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                            if (hasMermaidCode) {
+                                await this.processMermaidBlocks(messageText);
+                            }
+                        } catch (error) {
+                            console.error('处理用户消息的 Mermaid 图表时出错:', error);
+                        }
+                        messageText.removeAttribute('data-mermaid-processing');
+                    }, 100);
                 }
             }
         } else if (imageDataUrl) {

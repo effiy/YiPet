@@ -8972,6 +8972,101 @@ ${pageContent || '无内容'}
         }
         
         // 角色设置按钮已移动到 chat-request-status-button 后面，不再添加到欢迎消息容器中
+        
+        // 添加企微机器人按钮到欢迎消息
+        const robotConfigs = await this.getWeWorkRobotConfigs();
+        for (const robotConfig of robotConfigs) {
+            if (!robotConfig || !robotConfig.webhookUrl) continue;
+            
+            const robotButton = document.createElement('span');
+            robotButton.setAttribute('data-robot-id', robotConfig.id);
+            robotButton.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 16px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                flex-shrink: 0 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 22px !important;
+                height: 22px !important;
+                line-height: 22px !important;
+            `;
+            
+            robotButton.innerHTML = robotConfig.icon || '🤖';
+            robotButton.title = robotConfig.name || '企微机器人';
+            
+            robotButton.addEventListener('mouseenter', function() {
+                this.style.fontSize = '18px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            });
+            robotButton.addEventListener('mouseleave', function() {
+                this.style.fontSize = '16px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            
+            robotButton.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                
+                // 获取欢迎消息的内容
+                const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                if (!messagesContainer) return;
+                
+                const welcomeMessage = messagesContainer.querySelector('[data-welcome-message]');
+                if (!welcomeMessage) return;
+                
+                const messageBubble = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+                let messageContent = '';
+                if (messageBubble) {
+                    messageContent = messageBubble.getAttribute('data-original-text') || 
+                                   messageBubble.innerText || 
+                                   messageBubble.textContent || '';
+                }
+                
+                if (!messageContent || !messageContent.trim()) {
+                    this.showNotification('消息内容为空，无法发送', 'error');
+                    return;
+                }
+                
+                // 显示发送状态
+                const originalIcon = robotButton.innerHTML;
+                robotButton.innerHTML = '⏳';
+                robotButton.style.color = '#2196F3';
+                robotButton.style.cursor = 'default';
+                
+                try {
+                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, messageContent.trim());
+                    robotButton.innerHTML = '✓';
+                    robotButton.style.color = '#4caf50';
+                    this.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
+                    
+                    setTimeout(() => {
+                        robotButton.innerHTML = originalIcon;
+                        robotButton.style.color = '#666';
+                        robotButton.style.cursor = 'pointer';
+                    }, 2000);
+                } catch (error) {
+                    console.error('发送到企微机器人失败:', error);
+                    robotButton.innerHTML = '✕';
+                    robotButton.style.color = '#f44336';
+                    this.showNotification(`发送失败：${error.message || '未知错误'}`, 'error');
+                    
+                    setTimeout(() => {
+                        robotButton.innerHTML = originalIcon;
+                        robotButton.style.color = '#666';
+                        robotButton.style.cursor = 'pointer';
+                    }, 2000);
+                }
+            });
+            
+            container.appendChild(robotButton);
+        }
     }
     
     // 为消息添加动作按钮（复制欢迎消息的按钮，设置按钮已移动到 chat-request-status-button 后面）
@@ -9066,7 +9161,9 @@ ${pageContent || '无内容'}
             const newButton = originalButton.cloneNode(true);
             
             // 如果是设置按钮，绑定点击事件
-            if (newButton.innerHTML.trim() === '⚙️' || newButton.title === '角色设置') {
+            if (newButton.innerHTML.trim() === '⚙️' || newButton.innerHTML.trim() === '👤' || newButton.title === '角色设置') {
+                newButton.innerHTML = '👤';
+                newButton.title = '角色设置';
                 newButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.openRoleSettingsModal();
@@ -10467,6 +10564,97 @@ ${pageContent || '无内容'}
             actionsContainer.appendChild(button);
         }
         
+        // 添加企微机器人按钮
+        const robotConfigs = await this.getWeWorkRobotConfigs();
+        for (const robotConfig of robotConfigs) {
+            if (!robotConfig || !robotConfig.webhookUrl) continue;
+            
+            const robotButton = document.createElement('span');
+            robotButton.setAttribute('data-robot-id', robotConfig.id);
+            robotButton.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 16px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                flex-shrink: 0 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 22px !important;
+                height: 22px !important;
+                line-height: 22px !important;
+            `;
+            
+            robotButton.innerHTML = robotConfig.icon || '🤖';
+            robotButton.title = robotConfig.name || '企微机器人';
+            
+            robotButton.addEventListener('mouseenter', function() {
+                this.style.fontSize = '18px';
+                this.style.color = '#333';
+                this.style.transform = 'scale(1.1)';
+            });
+            robotButton.addEventListener('mouseleave', function() {
+                this.style.fontSize = '16px';
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            
+            robotButton.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                
+                // 获取当前消息的内容
+                const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                let messageContent = '';
+                if (messageBubble) {
+                    messageContent = messageBubble.getAttribute('data-original-text') || 
+                                   messageBubble.innerText || 
+                                   messageBubble.textContent || '';
+                }
+                
+                if (!messageContent || !messageContent.trim()) {
+                    this.showNotification('消息内容为空，无法发送', 'error');
+                    return;
+                }
+                
+                // 显示发送状态
+                const originalIcon = robotButton.innerHTML;
+                robotButton.innerHTML = '⏳';
+                robotButton.style.color = '#2196F3';
+                robotButton.style.cursor = 'default';
+                
+                try {
+                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, messageContent.trim());
+                    robotButton.innerHTML = '✓';
+                    robotButton.style.color = '#4caf50';
+                    this.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
+                    
+                    setTimeout(() => {
+                        robotButton.innerHTML = originalIcon;
+                        robotButton.style.color = '#666';
+                        robotButton.style.cursor = 'pointer';
+                    }, 2000);
+                } catch (error) {
+                    console.error('发送到企微机器人失败:', error);
+                    robotButton.innerHTML = '✕';
+                    robotButton.style.color = '#f44336';
+                    this.showNotification(`发送失败：${error.message || '未知错误'}`, 'error');
+                    
+                    setTimeout(() => {
+                        robotButton.innerHTML = originalIcon;
+                        robotButton.style.color = '#666';
+                        robotButton.style.cursor = 'pointer';
+                    }, 2000);
+                }
+            });
+            
+            actionsContainer.appendChild(robotButton);
+        }
+        
+        // 企微机器人设置按钮已移动到 chat-request-status-button 后面，不再添加到消息容器中
+        
         // 只有在按钮容器中有按钮时才插入到DOM中
         if (actionsContainer.children.length > 0) {
             // 将按钮容器添加到时间容器中，和时间同一行（在 messageTimeWrapper 之后）
@@ -11101,6 +11289,626 @@ ${pageContent || '无内容'}
         if (overlay) overlay.style.display = 'none';
     }
 
+    // 打开企微机器人设置模态框
+    openWeWorkRobotSettingsModal(editId = null) {
+        if (!this.chatWindow) return;
+        let overlay = this.chatWindow.querySelector('#pet-wework-robot-settings');
+        const currentColor = this.colors[this.colorIndex];
+        const mainColor = this.getMainColorFromGradient(currentColor);
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'pet-wework-robot-settings';
+            const chatHeaderEl = this.chatWindow.querySelector('.chat-header');
+            const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60;
+            overlay.style.cssText = `
+                position: absolute !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                top: ${headerH}px !important;
+                background: transparent !important;
+                display: none !important;
+                align-items: center !important;
+                justify-content: center !important;
+                z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 1} !important;
+                pointer-events: none !important;
+            `;
+
+            const panel = document.createElement('div');
+            panel.id = 'pet-wework-robot-settings-panel';
+            panel.style.cssText = `
+                width: calc(100% - 24px) !important;
+                height: calc(100% - 12px) !important;
+                margin: 0 12px 12px 12px !important;
+                background: #1f1f1f !important;
+                color: #fff !important;
+                border-radius: 12px !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.35) !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+                pointer-events: auto !important;
+            `;
+
+            const header = document.createElement('div');
+            header.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                padding: 16px 20px !important;
+                border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+                background: rgba(255,255,255,0.04) !important;
+                flex-shrink: 0 !important;
+            `;
+            const title = document.createElement('div');
+            title.textContent = '企微机器人设置';
+            title.style.cssText = 'font-weight: 600; font-size: 16px; color: #fff;';
+
+            const headerBtns = document.createElement('div');
+            headerBtns.style.cssText = 'display:flex; gap:10px; align-items:center;';
+            const closeBtn = document.createElement('button');
+            closeBtn.id = 'pet-wework-robot-settings-close-btn';
+            closeBtn.setAttribute('aria-label', '关闭企微机器人设置 (Esc)');
+            closeBtn.setAttribute('title', '关闭 (Esc)');
+            closeBtn.textContent = '✕';
+            closeBtn.style.cssText = `
+                width: 32px !important;
+                height: 32px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 6px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.06) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
+                font-size: 16px !important;
+                transition: all 0.2s ease !important;
+                outline: none !important;
+            `;
+            closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.background = 'rgba(239, 68, 68, 0.15)';
+                closeBtn.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                closeBtn.style.color = '#ef4444';
+                closeBtn.style.transform = 'translateY(-1px)';
+            });
+            closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.background = 'rgba(255,255,255,0.06)';
+                closeBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+                closeBtn.style.color = '#e5e7eb';
+                closeBtn.style.transform = 'translateY(0)';
+            });
+            closeBtn.addEventListener('mousedown', () => {
+                closeBtn.style.transform = 'scale(0.96)';
+            });
+            closeBtn.addEventListener('mouseup', () => {
+                closeBtn.style.transform = 'scale(1)';
+            });
+            closeBtn.addEventListener('click', () => this.closeWeWorkRobotSettingsModal());
+            headerBtns.appendChild(closeBtn);
+            header.appendChild(title);
+            header.appendChild(headerBtns);
+
+            const body = document.createElement('div');
+            body.id = 'pet-wework-robot-settings-body';
+            body.style.cssText = `
+                display: flex !important;
+                gap: 16px !important;
+                padding: 16px 20px !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            `;
+
+            // 左侧：机器人列表
+            const listContainer = document.createElement('div');
+            listContainer.style.cssText = `
+                width: 38% !important;
+                min-width: 280px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+            `;
+            
+            // 新增机器人按钮
+            const addBtn = document.createElement('button');
+            addBtn.textContent = '新增机器人';
+            addBtn.style.cssText = `
+                padding: 8px 16px !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                border-radius: 6px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.06) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                flex-shrink: 0 !important;
+            `;
+            addBtn.addEventListener('mouseenter', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.12)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+                addBtn.style.transform = 'translateY(-1px)';
+            });
+            addBtn.addEventListener('mouseleave', () => {
+                addBtn.style.background = 'rgba(255,255,255,0.06)';
+                addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+                addBtn.style.transform = 'translateY(0)';
+            });
+            addBtn.addEventListener('click', () => this.renderWeWorkRobotSettingsForm(null, false));
+            listContainer.appendChild(addBtn);
+            
+            const list = document.createElement('div');
+            list.id = 'pet-wework-robot-list';
+            list.style.cssText = `
+                flex: 1 !important;
+                min-height: 0 !important;
+                background: #181818 !important;
+                color: #e5e7eb !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
+                border-radius: 10px !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                padding: 12px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+            `;
+            listContainer.appendChild(list);
+
+            // 右侧：表单区
+            const form = document.createElement('div');
+            form.id = 'pet-wework-robot-form';
+            form.style.cssText = `
+                flex: 1 !important;
+                background: #181818 !important;
+                color: #e5e7eb !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
+                border-radius: 10px !important;
+                padding: 20px !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 16px !important;
+            `;
+
+            body.appendChild(listContainer);
+            body.appendChild(form);
+            panel.appendChild(header);
+            panel.appendChild(body);
+            overlay.appendChild(panel);
+            this.chatWindow.appendChild(overlay);
+        }
+
+        overlay.style.display = 'flex';
+        this.renderWeWorkRobotSettingsList();
+        if (editId) {
+            this.renderWeWorkRobotSettingsForm(editId);
+        } else {
+            this.renderWeWorkRobotSettingsForm(null, true);
+        }
+    }
+
+    closeWeWorkRobotSettingsModal() {
+        if (!this.chatWindow) return;
+        const overlay = this.chatWindow.querySelector('#pet-wework-robot-settings');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    async renderWeWorkRobotSettingsList() {
+        if (!this.chatWindow) return;
+        const list = this.chatWindow.querySelector('#pet-wework-robot-list');
+        if (!list) return;
+        const configs = await this.getWeWorkRobotConfigs();
+        list.innerHTML = '';
+
+        configs.forEach((config) => {
+            const row = this.createWeWorkRobotListItem(config);
+            list.appendChild(row);
+        });
+
+        if (list.children.length === 0) {
+            const empty = document.createElement('div');
+            empty.textContent = '暂无可编辑机器人。点击"新增机器人"开始创建';
+            empty.style.cssText = 'color: #64748b; font-size: 13px; padding: 24px 12px; text-align: center; line-height: 1.5;';
+            list.appendChild(empty);
+        }
+    }
+
+    createWeWorkRobotListItem(config) {
+        const row = document.createElement('div');
+        row.style.cssText = `
+            display:flex !important;
+            align-items:center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+            padding: 12px !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            border-radius: 8px !important;
+            background: rgba(255,255,255,0.02) !important;
+            transition: all 0.2s ease !important;
+            cursor: pointer !important;
+        `;
+        row.addEventListener('mouseenter', () => {
+            row.style.background = 'rgba(255,255,255,0.05)';
+            row.style.borderColor = 'rgba(255,255,255,0.15)';
+            row.style.transform = 'translateX(2px)';
+        });
+        row.addEventListener('mouseleave', () => {
+            row.style.background = 'rgba(255,255,255,0.02)';
+            row.style.borderColor = 'rgba(255,255,255,0.08)';
+            row.style.transform = 'translateX(0)';
+        });
+        const info = document.createElement('div');
+        info.style.cssText = 'display:flex; flex-direction:column; gap:6px; flex:1; min-width:0;';
+        const name = document.createElement('div');
+        name.textContent = `${config.icon || '🤖'} ${config.name || '(未命名)'}`;
+        name.style.cssText = 'font-weight: 600; font-size: 13px; color: #fff; line-height: 1.4; word-break: break-word;';
+        info.appendChild(name);
+
+        const btns = document.createElement('div');
+        btns.style.cssText = 'display:flex; gap:6px; flex-shrink:0;';
+        const edit = document.createElement('button');
+        edit.textContent = '编辑';
+        edit.style.cssText = `
+            padding: 6px 10px !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.06) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        edit.addEventListener('mouseenter', () => {
+            edit.style.background = 'rgba(59, 130, 246, 0.15)';
+            edit.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+            edit.style.color = '#60a5fa';
+            edit.style.transform = 'translateY(-1px)';
+        });
+        edit.addEventListener('mouseleave', () => {
+            edit.style.background = 'rgba(255,255,255,0.06)';
+            edit.style.borderColor = 'rgba(255,255,255,0.15)';
+            edit.style.color = '#e5e7eb';
+            edit.style.transform = 'translateY(0)';
+        });
+        edit.addEventListener('click', () => this.renderWeWorkRobotSettingsForm(config.id));
+        const del = document.createElement('button');
+        del.textContent = '删除';
+        del.style.cssText = `
+            padding: 6px 10px !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.06) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        del.addEventListener('mouseenter', () => {
+            del.style.background = 'rgba(239, 68, 68, 0.15)';
+            del.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+            del.style.color = '#f87171';
+            del.style.transform = 'translateY(-1px)';
+        });
+        del.addEventListener('mouseleave', () => {
+            del.style.background = 'rgba(255,255,255,0.06)';
+            del.style.borderColor = 'rgba(255,255,255,0.15)';
+            del.style.color = '#e5e7eb';
+            del.style.transform = 'translateY(0)';
+        });
+        del.addEventListener('click', async () => {
+            const next = (await this.getWeWorkRobotConfigs()).filter(x => x.id !== config.id);
+            await this.setWeWorkRobotConfigs(next);
+            this.renderWeWorkRobotSettingsList();
+            this.renderWeWorkRobotSettingsForm(null, true);
+        });
+        btns.appendChild(edit);
+        btns.appendChild(del);
+
+        row.appendChild(info);
+        row.appendChild(btns);
+        row.addEventListener('click', () => this.renderWeWorkRobotSettingsForm(config.id));
+        return row;
+    }
+
+    async renderWeWorkRobotSettingsForm(editId = null, showEmptyState = false) {
+        if (!this.chatWindow) return;
+        const form = this.chatWindow.querySelector('#pet-wework-robot-form');
+        if (!form) return;
+        const configsAll = await this.getWeWorkRobotConfigs();
+        const current = editId ? (configsAll || []).find(c => c && c.id === editId) : null;
+        
+        form.innerHTML = '';
+
+        if (showEmptyState && !editId && !current) {
+            const emptyState = document.createElement('div');
+            emptyState.style.cssText = `
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                height: 100% !important;
+                padding: 40px 20px !important;
+                text-align: center !important;
+            `;
+            
+            const icon = document.createElement('div');
+            icon.textContent = '🤖';
+            icon.style.cssText = `
+                font-size: 64px !important;
+                margin-bottom: 20px !important;
+                opacity: 0.6 !important;
+            `;
+            
+            const title = document.createElement('div');
+            title.textContent = '选择一个机器人开始编辑';
+            title.style.cssText = `
+                font-weight: 600 !important;
+                font-size: 16px !important;
+                color: #e5e7eb !important;
+                margin-bottom: 8px !important;
+            `;
+            
+            const desc = document.createElement('div');
+            desc.textContent = '从左侧列表选择机器人进行编辑，或点击"新增机器人"创建新机器人';
+            desc.style.cssText = `
+                font-size: 13px !important;
+                color: #94a3b8 !important;
+                line-height: 1.6 !important;
+                max-width: 320px !important;
+            `;
+            
+            const actionBtn = document.createElement('button');
+            actionBtn.textContent = '新增机器人';
+            actionBtn.style.cssText = `
+                margin-top: 24px !important;
+                padding: 10px 24px !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                border-radius: 8px !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                background: rgba(255,255,255,0.06) !important;
+                color: #e5e7eb !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+            `;
+            actionBtn.addEventListener('mouseenter', () => {
+                actionBtn.style.background = 'rgba(255,255,255,0.12)';
+                actionBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+                actionBtn.style.transform = 'translateY(-2px)';
+            });
+            actionBtn.addEventListener('mouseleave', () => {
+                actionBtn.style.background = 'rgba(255,255,255,0.06)';
+                actionBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+                actionBtn.style.transform = 'translateY(0)';
+            });
+            actionBtn.addEventListener('click', () => {
+                this.renderWeWorkRobotSettingsForm(null, false);
+            });
+            
+            emptyState.appendChild(icon);
+            emptyState.appendChild(title);
+            emptyState.appendChild(desc);
+            emptyState.appendChild(actionBtn);
+            form.appendChild(emptyState);
+            return;
+        }
+
+        const title = document.createElement('div');
+        title.textContent = current ? '编辑机器人' : '新增机器人';
+        title.style.cssText = 'font-weight: 600; font-size: 18px; color: #fff; margin-bottom: 4px;';
+
+        const row = (labelText, inputEl) => {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
+            const lab = document.createElement('label');
+            lab.textContent = labelText;
+            lab.style.cssText = 'font-size: 13px; font-weight: 500; color: #cbd5e1;';
+            wrap.appendChild(lab);
+            wrap.appendChild(inputEl);
+            return wrap;
+        };
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = current?.name || '';
+        nameInput.placeholder = '机器人名称，如：通知机器人';
+        nameInput.style.cssText = `
+            padding: 10px 12px !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: 8px !important;
+            outline: none !important;
+            background: #121212 !important;
+            color: #fff !important;
+            font-size: 13px !important;
+            transition: all 0.2s ease !important;
+        `;
+        nameInput.addEventListener('focus', () => {
+            nameInput.style.borderColor = 'rgba(255,255,255,0.25)';
+            nameInput.style.background = '#1a1a1a';
+        });
+        nameInput.addEventListener('blur', () => {
+            nameInput.style.borderColor = 'rgba(255,255,255,0.12)';
+            nameInput.style.background = '#121212';
+        });
+
+        const iconInput = document.createElement('input');
+        iconInput.type = 'text';
+        iconInput.value = current?.icon || '🤖';
+        iconInput.placeholder = '图标（Emoji）';
+        iconInput.style.cssText = `
+            padding: 10px 12px !important;
+            width: 80px !important;
+            text-align: center !important;
+            font-size: 18px !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: 8px !important;
+            outline: none !important;
+            background: #121212 !important;
+            color: #fff !important;
+            transition: all 0.2s ease !important;
+        `;
+        iconInput.addEventListener('focus', () => {
+            iconInput.style.borderColor = 'rgba(255,255,255,0.25)';
+            iconInput.style.background = '#1a1a1a';
+        });
+        iconInput.addEventListener('blur', () => {
+            iconInput.style.borderColor = 'rgba(255,255,255,0.12)';
+            iconInput.style.background = '#121212';
+        });
+
+        const webhookInput = document.createElement('input');
+        webhookInput.type = 'text';
+        webhookInput.value = current?.webhookUrl || '';
+        webhookInput.placeholder = 'Webhook地址，如：https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx';
+        webhookInput.style.cssText = `
+            padding: 10px 12px !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: 8px !important;
+            outline: none !important;
+            background: #121212 !important;
+            color: #fff !important;
+            font-size: 13px !important;
+            transition: all 0.2s ease !important;
+        `;
+        webhookInput.addEventListener('focus', () => {
+            webhookInput.style.borderColor = 'rgba(255,255,255,0.25)';
+            webhookInput.style.background = '#1a1a1a';
+        });
+        webhookInput.addEventListener('blur', () => {
+            webhookInput.style.borderColor = 'rgba(255,255,255,0.12)';
+            webhookInput.style.background = '#121212';
+        });
+
+        const helpText = document.createElement('div');
+        helpText.innerHTML = '💡 获取Webhook地址：<a href="https://developer.work.weixin.qq.com/document/path/91770" target="_blank" style="color: #60a5fa; text-decoration: underline;">查看企微机器人文档</a>';
+        helpText.style.cssText = 'font-size: 12px; color: #94a3b8; line-height: 1.5; margin-top: -8px;';
+
+        const btns = document.createElement('div');
+        btns.style.cssText = 'display:flex; gap:10px; margin-top: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);';
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(34, 197, 94, 0.3) !important;
+            background: rgba(34, 197, 94, 0.15) !important;
+            color: #4ade80 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            flex: 1 !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = 'rgba(34, 197, 94, 0.25)';
+            saveBtn.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+            saveBtn.style.transform = 'translateY(-1px)';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = 'rgba(34, 197, 94, 0.15)';
+            saveBtn.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+            saveBtn.style.transform = 'translateY(0)';
+        });
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            background: rgba(255,255,255,0.06) !important;
+            color: #e5e7eb !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            flex: 1 !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = 'rgba(255,255,255,0.12)';
+            cancelBtn.style.borderColor = 'rgba(255,255,255,0.25)';
+            cancelBtn.style.transform = 'translateY(-1px)';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'rgba(255,255,255,0.06)';
+            cancelBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            cancelBtn.style.transform = 'translateY(0)';
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            const originalText = saveBtn.textContent;
+            const isLoading = saveBtn.dataset.loading === 'true';
+            if (isLoading) return;
+            
+            saveBtn.dataset.loading = 'true';
+            saveBtn.textContent = '保存中...';
+            saveBtn.disabled = true;
+            saveBtn.style.opacity = '0.7';
+            saveBtn.style.cursor = 'not-allowed';
+            
+            try {
+                if (!webhookInput.value.trim()) {
+                    throw new Error('Webhook地址不能为空');
+                }
+                
+                const next = {
+                    id: current?.id || ('robot_' + Math.random().toString(36).slice(2, 10)),
+                    name: nameInput.value.trim() || '未命名机器人',
+                    icon: iconInput.value.trim() || '🤖',
+                    webhookUrl: webhookInput.value.trim(),
+                };
+                
+                const arr = await this.getWeWorkRobotConfigs();
+                
+                const idx = arr.findIndex(x => x.id === next.id);
+                const isEdit = idx >= 0;
+                if (isEdit) {
+                    arr[idx] = next;
+                } else {
+                    arr.push(next);
+                }
+                
+                await this.setWeWorkRobotConfigs(arr);
+                
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                this.renderWeWorkRobotSettingsList();
+                this.renderWeWorkRobotSettingsForm(null, true);
+                
+                const successMessage = isEdit ? `✅ 机器人 "${next.name}" 已更新` : `✅ 机器人 "${next.name}" 已创建`;
+                this.showNotification(successMessage, 'success');
+                
+            } catch (error) {
+                console.error('保存企微机器人设置失败:', error);
+                this.showNotification(`❌ 保存失败：${error.message || '未知错误'}`, 'error');
+            } finally {
+                saveBtn.dataset.loading = 'false';
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            this.renderWeWorkRobotSettingsForm(null, true);
+        });
+
+        form.appendChild(title);
+        form.appendChild(row('机器人名称', nameInput));
+        form.appendChild(row('图标', iconInput));
+        form.appendChild(row('Webhook地址', webhookInput));
+        form.appendChild(helpText);
+        form.appendChild(btns);
+        btns.appendChild(saveBtn);
+        btns.appendChild(cancelBtn);
+    }
+
     async getRoleConfigs() {
         return new Promise((resolve) => {
             chrome.storage.local.get(['roleConfigs'], (result) => {
@@ -11113,6 +11921,164 @@ ${pageContent || '无内容'}
         return new Promise((resolve) => {
             chrome.storage.local.set({ roleConfigs: configs }, () => resolve(true));
         });
+    }
+
+    // 企微机器人配置存储和读取
+    async getWeWorkRobotConfigs() {
+        return new Promise((resolve) => {
+            chrome.storage.local.get(['weWorkRobotConfigs'], (result) => {
+                resolve(Array.isArray(result.weWorkRobotConfigs) ? result.weWorkRobotConfigs : []);
+            });
+        });
+    }
+
+    async setWeWorkRobotConfigs(configs) {
+        return new Promise((resolve) => {
+            chrome.storage.local.set({ weWorkRobotConfigs: configs }, () => resolve(true));
+        });
+    }
+
+    // 判断内容是否是 markdown 格式
+    isMarkdownFormat(content) {
+        if (!content || typeof content !== 'string') {
+            return false;
+        }
+        
+        // 检查常见的 markdown 语法特征
+        const markdownPatterns = [
+            /^#{1,6}\s+.+/m,                    // 标题 (# 标题)
+            /\*\*[^*]+\*\*/,                    // 加粗 (**text**)
+            /\*[^*]+\*/,                        // 斜体 (*text*)
+            /\[.+\]\(.+\)/,                     // 链接 ([text](url))
+            /`[^`]+`/,                          // 行内代码 (`code`)
+            /```[\s\S]*?```/,                    // 代码块 (```code```)
+            /^>\s+.+/m,                          // 引用 (> text)
+            /^[-*+]\s+.+/m,                      // 无序列表 (- item)
+            /^\d+\.\s+.+/m,                      // 有序列表 (1. item)
+            /\[.+\]:\s*https?:\/\/.+/,          // 链接定义
+            /<font\s+color=["'](info|comment|warning)["']>.+<\/font>/i, // 企微颜色标签
+        ];
+        
+        // 如果匹配到任何一个 markdown 模式，认为是 markdown 格式
+        return markdownPatterns.some(pattern => pattern.test(content));
+    }
+
+    // 调用 prompt 接口将内容转换为 markdown 格式
+    async convertToMarkdown(content) {
+        try {
+            const systemPrompt = '你是一个专业的文本格式化助手。请将用户提供的内容转换为适合企业微信机器人的 markdown 格式。要求：\n1. 保持原意不变\n2. 使用合适的 markdown 语法（标题、加粗、列表等）\n3. 确保格式清晰易读\n4. 如果内容已经是 markdown 格式，直接返回原内容\n5. 输出纯 markdown 文本，不要添加任何解释';
+            
+            const userPrompt = `请将以下内容转换为 markdown 格式：\n\n${content}`;
+            
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+            
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const responseText = await response.text();
+            let result;
+            
+            // 处理流式响应
+            if (responseText.includes('data: ')) {
+                const lines = responseText.split('\n');
+                let accumulatedData = '';
+                
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.startsWith('data: ')) {
+                        try {
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr === '[DONE]' || dataStr === '') {
+                                continue;
+                            }
+                            
+                            const chunk = JSON.parse(dataStr);
+                            if (chunk.done === true) {
+                                break;
+                            }
+                            
+                            if (chunk.data) {
+                                accumulatedData += chunk.data;
+                            } else if (chunk.content) {
+                                accumulatedData += chunk.content;
+                            } else if (chunk.message && chunk.message.content) {
+                                accumulatedData += chunk.message.content;
+                            }
+                        } catch (e) {
+                            // 忽略解析错误
+                        }
+                    }
+                }
+                
+                result = accumulatedData || content;
+            } else {
+                // 处理非流式响应
+                try {
+                    const jsonResult = JSON.parse(responseText);
+                    if (jsonResult.status === 200 && jsonResult.data) {
+                        result = jsonResult.data;
+                    } else if (jsonResult.content) {
+                        result = jsonResult.content;
+                    } else if (jsonResult.message) {
+                        result = jsonResult.message;
+                    } else {
+                        result = content; // 如果无法解析，使用原内容
+                    }
+                } catch (e) {
+                    result = content; // 如果解析失败，使用原内容
+                }
+            }
+            
+            // 如果转换结果为空，使用原内容
+            return (result && result.trim()) ? result.trim() : content;
+        } catch (error) {
+            console.error('转换为 markdown 失败:', error);
+            // 转换失败时返回原内容
+            return content;
+        }
+    }
+
+    // 发送消息到企微机器人（通过 background script 避免 CORS 问题）
+    async sendToWeWorkRobot(webhookUrl, content) {
+        try {
+            // 检查内容是否是 markdown 格式
+            let markdownContent = content;
+            
+            if (!this.isMarkdownFormat(content)) {
+                // 如果不是 markdown 格式，先转换为 markdown
+                console.log('内容不是 markdown 格式，正在转换为 markdown...');
+                markdownContent = await this.convertToMarkdown(content);
+            }
+            
+            // 通过 background script 发送请求，避免 CORS 问题
+            const response = await chrome.runtime.sendMessage({
+                action: 'sendToWeWorkRobot',
+                webhookUrl: webhookUrl,
+                content: markdownContent
+            });
+
+            if (!response || !response.success) {
+                throw new Error(response?.error || '发送失败');
+            }
+
+            return response.result;
+        } catch (error) {
+            console.error('发送到企微机器人失败:', error);
+            throw error;
+        }
     }
 
     // 读取内置角色定义并转为默认配置（从已有配置中获取label、icon和prompt，如果没有则使用默认值）
@@ -13883,7 +14849,7 @@ ${pageContent || '无内容'}
         let settingsButton = this.settingsButton;
         if (!settingsButton) {
             settingsButton = document.createElement('span');
-            settingsButton.innerHTML = '⚙️';
+            settingsButton.innerHTML = '👤';
             settingsButton.title = '角色设置';
             settingsButton.style.cssText = `
                 padding: 4px !important;
@@ -13900,6 +14866,14 @@ ${pageContent || '无内容'}
                 height: 24px !important;
                 line-height: 24px !important;
             `;
+            settingsButton.addEventListener('mouseenter', function() {
+                this.style.color = '#2196F3';
+                this.style.transform = 'scale(1.1)';
+            });
+            settingsButton.addEventListener('mouseleave', function() {
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
             settingsButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.openRoleSettingsModal();
@@ -13915,6 +14889,52 @@ ${pageContent || '无内容'}
         // 如果设置按钮不在 rightBottomGroup 中，添加它（在 requestStatusButton 之后）
         if (settingsButton.parentNode !== rightBottomGroup) {
             rightBottomGroup.appendChild(settingsButton);
+        }
+        
+        // 添加企微机器人设置按钮（在角色设置按钮之后）
+        let robotSettingsButton = this.robotSettingsButton;
+        if (!robotSettingsButton) {
+            robotSettingsButton = document.createElement('span');
+            robotSettingsButton.innerHTML = '🤖';
+            robotSettingsButton.title = '企微机器人设置';
+            robotSettingsButton.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 18px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 24px !important;
+                height: 24px !important;
+                line-height: 24px !important;
+            `;
+            robotSettingsButton.addEventListener('mouseenter', function() {
+                this.style.color = '#10b981';
+                this.style.transform = 'scale(1.1)';
+            });
+            robotSettingsButton.addEventListener('mouseleave', function() {
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            robotSettingsButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openWeWorkRobotSettingsModal();
+            });
+            this.robotSettingsButton = robotSettingsButton;
+        }
+        
+        // 如果企微机器人设置按钮已经在其他容器中，先移除它
+        if (robotSettingsButton.parentNode && robotSettingsButton.parentNode !== rightBottomGroup) {
+            robotSettingsButton.parentNode.removeChild(robotSettingsButton);
+        }
+        
+        // 如果企微机器人设置按钮不在 rightBottomGroup 中，添加它（在角色设置按钮之后）
+        if (robotSettingsButton.parentNode !== rightBottomGroup) {
+            rightBottomGroup.appendChild(robotSettingsButton);
         }
         
         bottomToolbar.appendChild(rightBottomGroup);
@@ -18405,6 +19425,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

@@ -143,6 +143,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
             return true; // 保持消息通道开放
             
+        case 'sendToWeWorkRobot':
+            // 通过 background script 发送消息到企微机器人（避免 CORS 问题）
+            console.log('发送消息到企微机器人:', request.webhookUrl);
+            sendToWeWorkRobot(request.webhookUrl, request.content)
+                .then((result) => {
+                    sendResponse({ success: true, result: result });
+                })
+                .catch((error) => {
+                    console.error('发送到企微机器人失败:', error);
+                    sendResponse({ success: false, error: error.message || '发送失败' });
+                });
+            return true; // 保持消息通道开放
+            
         default:
             sendResponse({ success: false, error: 'Unknown action' });
     }
@@ -418,13 +431,51 @@ chrome.runtime.onSuspend.addListener(() => {
     console.log('扩展即将被挂起');
 });
 
+// 发送消息到企微机器人
+async function sendToWeWorkRobot(webhookUrl, content) {
+    try {
+        // 根据企微机器人文档，发送 markdown 消息
+        const payload = {
+            msgtype: "markdown",
+            markdown: {
+                content: content
+            }
+        };
+
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
+        const result = await response.json();
+        if (result.errcode !== 0) {
+            throw new Error(result.errmsg || '发送失败');
+        }
+
+        return result;
+    } catch (error) {
+        console.error('发送到企微机器人失败:', error);
+        throw error;
+    }
+}
+
 // 导出函数供其他脚本使用
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         injectPetToTab,
         removePetFromTab,
-        executeInAllTabs
+        executeInAllTabs,
+        sendToWeWorkRobot
     };
 }
+
 
 

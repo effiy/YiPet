@@ -2050,7 +2050,10 @@ class PetManager {
                 console.warn('空白会话同步到后端失败（将稍后重试）:', error.message);
                 // 如果立即同步失败，加入队列稍后重试
                 try {
-                    this.sessionApi.queueSave(finalSessionId, blankSession);
+                    // 创建不包含 pageContent 的副本用于保存（空白会话不是手动保存）
+                    const sessionDataForSave = { ...blankSession };
+                    delete sessionDataForSave.pageContent;
+                    this.sessionApi.queueSave(finalSessionId, sessionDataForSave);
                     console.log('空白会话已加入保存队列，将延迟重试');
                 } catch (queueError) {
                     console.warn('空白会话加入保存队列也失败:', queueError.message);
@@ -3064,7 +3067,7 @@ class PetManager {
     }
     
     // 同步会话到YiAi后端（使用API管理器，支持批量保存）
-    async syncSessionToBackend(sessionId, immediate = false) {
+    async syncSessionToBackend(sessionId, immediate = false, includePageContent = false) {
         try {
             if (!PET_CONFIG.api.syncSessionsToBackend) {
                 return;
@@ -3082,13 +3085,17 @@ class PetManager {
                 url: session.url || '',
                 pageTitle: session.pageTitle || '',
                 pageDescription: session.pageDescription || '',
-                pageContent: session.pageContent || '',
                 messages: session.messages || [],
                 tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),
                 lastAccessTime: session.lastAccessTime || Date.now()
             };
+            
+            // 只有在手动保存页面上下文时才包含 pageContent 字段
+            if (includePageContent) {
+                sessionData.pageContent = session.pageContent || '';
+            }
             
             // 使用API管理器
             if (this.sessionApi) {
@@ -3169,12 +3176,17 @@ class PetManager {
                             url: session.url || '',
                             pageTitle: session.pageTitle || '',
                             pageDescription: session.pageDescription || '',
-                            pageContent: session.pageContent || '',
                             messages: session.messages || [],
                             createdAt: session.createdAt || Date.now(),
                             updatedAt: session.updatedAt || Date.now(),
                             lastAccessTime: session.lastAccessTime || Date.now()
                         };
+                        
+                        // 只有在手动保存页面上下文时才包含 pageContent 字段
+                        if (includePageContent) {
+                            sessionData.pageContent = session.pageContent || '';
+                        }
+                        
                         this.sessionApi.queueSave(sessionId, sessionData);
                         console.log('同步失败（404），已加入队列稍后重试:', sessionId);
                     } catch (queueError) {
@@ -12795,6 +12807,83 @@ ${pageContent || '无内容'}
     }
 
     /**
+     * 处理手动保存会话（从欢迎消息按钮触发）
+     * @param {HTMLElement} button - 保存按钮元素
+     */
+    async handleManualSaveSession(button) {
+        if (!this.currentSessionId) {
+            console.warn('当前没有活动会话');
+            this._showSaveStatus(button, false, '手动保存会话');
+            return;
+        }
+
+        if (!this.sessions[this.currentSessionId]) {
+            console.warn('会话不存在');
+            this._showSaveStatus(button, false, '手动保存会话');
+            return;
+        }
+
+        try {
+            // 禁用按钮，防止重复点击
+            button.disabled = true;
+            button.style.opacity = '0.6';
+            button.style.cursor = 'not-allowed';
+            
+            const session = this.sessions[this.currentSessionId];
+            
+            // 获取当前页面内容并更新到会话
+            const pageContent = this.getPageContentAsMarkdown();
+            session.pageContent = pageContent || '';
+            
+            // 更新页面信息（确保信息是最新的）
+            const pageInfo = this.getPageInfo();
+            session.pageTitle = pageInfo.title || session.pageTitle || document.title || '当前页面';
+            session.pageDescription = pageInfo.description || session.pageDescription || '';
+            session.url = pageInfo.url || session.url || window.location.href;
+            
+            // 更新会话时间戳
+            session.updatedAt = Date.now();
+            session.lastAccessTime = Date.now();
+            
+            // 先保存到本地存储
+            await this.saveAllSessions(true, true);
+            
+            // 手动保存时，同步到后端并包含 pageContent 字段
+            await this.syncSessionToBackend(this.currentSessionId, true, true);
+            
+            // 显示成功状态
+            this._showSaveStatus(button, true, '手动保存会话');
+            
+            console.log('会话已手动保存:', this.currentSessionId);
+            
+            // 3秒后恢复按钮状态
+            setTimeout(() => {
+                button.disabled = false;
+                button.style.opacity = '1';
+                button.style.cursor = 'pointer';
+                button.textContent = '💾 手动保存会话';
+                button.style.background = 'linear-gradient(135deg, #4ECDC4, #44A08D)';
+                button.style.color = 'white';
+                button.style.borderColor = 'transparent';
+            }, 3000);
+        } catch (error) {
+            console.error('手动保存会话失败:', error);
+            this._showSaveStatus(button, false, '手动保存会话');
+            
+            // 3秒后恢复按钮状态
+            setTimeout(() => {
+                button.disabled = false;
+                button.style.opacity = '1';
+                button.style.cursor = 'pointer';
+                button.textContent = '💾 手动保存会话';
+                button.style.background = 'linear-gradient(135deg, #4ECDC4, #44A08D)';
+                button.style.color = 'white';
+                button.style.borderColor = 'transparent';
+            }, 3000);
+        }
+    }
+
+    /**
      * 保存页面上下文编辑器内容到会话
      * @returns {Promise<boolean>} 保存是否成功
      */
@@ -12832,6 +12921,9 @@ ${pageContent || '无内容'}
             
             // 异步保存到存储（同步到后端）
             await this.saveAllSessions(true, true);
+            
+            // 手动保存页面上下文时，需要同步到后端并包含 pageContent 字段
+            await this.syncSessionToBackend(this.currentSessionId, true, true);
             
             console.log('页面上下文已保存到会话:', this.currentSessionId);
             return true;
@@ -17937,6 +18029,29 @@ ${pageContent || '无内容'}
         }
 
         pageInfoHtml += `</div>`;
+        
+        // 添加手动保存会话按钮
+        pageInfoHtml += `
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                <button id="pet-manual-save-session-btn" style="
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    gap: 6px !important;
+                    padding: 8px 16px !important;
+                    background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 8px !important;
+                    font-size: 13px !important;
+                    font-weight: 500 !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s ease !important;
+                    box-shadow: 0 2px 4px rgba(78, 205, 196, 0.2) !important;
+                " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(78, 205, 196, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(78, 205, 196, 0.2)'">
+                    💾 手动保存会话
+                </button>
+            </div>
+        `;
 
         // 创建欢迎消息元素
         const welcomeMessage = this.createMessageElement('', 'pet');
@@ -17948,6 +18063,14 @@ ${pageContent || '无内容'}
             messageText.innerHTML = pageInfoHtml;
             // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
             messageText.setAttribute('data-original-text', pageInfoHtml);
+            
+            // 绑定手动保存按钮的点击事件
+            const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => {
+                    this.handleManualSaveSession(saveBtn);
+                });
+            }
         }
 
         return welcomeMessage;
@@ -18010,6 +18133,29 @@ ${pageContent || '无内容'}
         }
 
         pageInfoHtml += `</div>`;
+        
+        // 添加手动保存会话按钮
+        pageInfoHtml += `
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                <button id="pet-manual-save-session-btn" style="
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    gap: 6px !important;
+                    padding: 8px 16px !important;
+                    background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 8px !important;
+                    font-size: 13px !important;
+                    font-weight: 500 !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s ease !important;
+                    box-shadow: 0 2px 4px rgba(78, 205, 196, 0.2) !important;
+                " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(78, 205, 196, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(78, 205, 196, 0.2)'">
+                    💾 手动保存会话
+                </button>
+            </div>
+        `;
 
         // 更新欢迎消息的内容
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
@@ -18017,6 +18163,14 @@ ${pageContent || '无内容'}
             messageText.innerHTML = pageInfoHtml;
             // 更新原始HTML
             messageText.setAttribute('data-original-text', pageInfoHtml);
+            
+            // 重新绑定手动保存按钮的点击事件（innerHTML 会移除所有事件监听器，所以直接绑定即可）
+            const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => {
+                    this.handleManualSaveSession(saveBtn);
+                });
+            }
         }
 
         console.log('欢迎消息已刷新');
@@ -19425,6 +19579,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

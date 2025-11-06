@@ -247,7 +247,7 @@ class SessionManager {
     /**
      * 同步会话到后端
      */
-    async syncSessionToBackend(sessionId, immediate = false) {
+    async syncSessionToBackend(sessionId, immediate = false, includePageContent = false) {
         if (!this.sessionApi || !this.enableBackendSync) {
             return;
         }
@@ -274,13 +274,17 @@ class SessionManager {
                 url: session.url || '',
                 pageTitle: session.pageTitle || '',
                 pageDescription: session.pageDescription || '',
-                pageContent: session.pageContent || '',
                 messages: session.messages || [],
                 tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),
                 lastAccessTime: session.lastAccessTime || Date.now()
             };
+            
+            // 只有在手动保存页面上下文时才包含 pageContent 字段
+            if (includePageContent) {
+                sessionData.pageContent = session.pageContent || '';
+            }
             
             if (immediate) {
                 await this.sessionApi.saveSession(sessionData);
@@ -720,5 +724,6 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionManager = SessionManager;
 }
+
 
 

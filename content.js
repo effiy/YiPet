@@ -792,11 +792,8 @@ class PetManager {
                 e.stopImmediatePropagation();
                 console.log('检测到聊天快捷键 Ctrl+Shift+X');
 
-                if (this.isChatOpen) {
-                    this.closeChatWindow();
-                } else {
-                    this.openChatWindow();
-                }
+                // 仅切换显示/隐藏，不影响其他功能
+                this.toggleChatWindowVisibility();
                 return false;
             }
 
@@ -1624,6 +1621,25 @@ class PetManager {
             this.closeChatWindow();
         } else {
             this.openChatWindow();
+        }
+    }
+
+    // 仅切换聊天窗口的显示/隐藏状态（用于快捷键，不影响其他功能）
+    toggleChatWindowVisibility() {
+        if (!this.chatWindow) {
+            // 如果窗口还未创建，需要先创建
+            this.openChatWindow();
+            return;
+        }
+        
+        if (this.isChatOpen) {
+            // 仅隐藏窗口，不保存会话，不影响其他功能
+            this.chatWindow.style.display = 'none';
+            this.isChatOpen = false;
+        } else {
+            // 仅显示窗口，不重新初始化，不影响其他功能
+            this.chatWindow.style.display = 'block';
+            this.isChatOpen = true;
         }
     }
 
@@ -18389,6 +18405,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

@@ -7870,10 +7870,16 @@ class PetManager {
         this._messageEditorMode = this._messageEditorMode || 'split';
         this.applyMessageEditorMode();
         
-        // Esc 关闭
+        // 键盘快捷键：Esc 关闭，Ctrl+S / Cmd+S 保存
         this._messageKeydownHandler = (e) => {
             if (e.key === 'Escape') {
                 this.closeMessageEditor();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                const saveBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-message-save-btn') : null;
+                if (saveBtn && !saveBtn.hasAttribute('data-saving')) {
+                    saveBtn.click();
+                }
             }
         };
         document.addEventListener('keydown', this._messageKeydownHandler, { capture: true });

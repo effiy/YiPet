@@ -7669,7 +7669,32 @@ class PetManager {
             color: #4caf50 !important;
             cursor: pointer !important;
         `;
-        saveBtn.addEventListener('click', () => this.saveMessageEditor());
+        saveBtn.addEventListener('click', async () => {
+            if (saveBtn.hasAttribute('data-saving')) return;
+            
+            saveBtn.setAttribute('data-saving', 'true');
+            const originalText = saveBtn.textContent; // 保存原始文本（应该是"保存"）
+            saveBtn.textContent = '保存中...';
+            saveBtn.style.opacity = '0.6';
+            saveBtn.style.cursor = 'not-allowed';
+            
+            try {
+                const success = await this.saveMessageEditor();
+                // 传递原始文本，确保恢复正确
+                this._showSaveStatus(saveBtn, success, originalText);
+            } catch (error) {
+                console.error('保存失败:', error);
+                // 传递原始文本，确保恢复正确
+                this._showSaveStatus(saveBtn, false, originalText);
+            } finally {
+                // 在状态提示显示2秒后，移除禁用状态
+                setTimeout(() => {
+                    saveBtn.removeAttribute('data-saving');
+                    saveBtn.style.opacity = '1';
+                    saveBtn.style.cursor = 'pointer';
+                }, 2000);
+            }
+        });
         
         // 复制按钮
         const copyBtn = document.createElement('button');
@@ -7976,112 +8001,120 @@ class PetManager {
         }, 200);
     }
 
-    saveMessageEditor() {
-        if (!this._editingMessageElement || !this._editingMessageSender) return;
+    async saveMessageEditor() {
+        if (!this._editingMessageElement || !this._editingMessageSender) {
+            return false;
+        }
         
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor') : null;
         const textarea = overlay ? overlay.querySelector('#pet-message-editor-textarea') : null;
-        if (!textarea) return;
+        if (!textarea) {
+            return false;
+        }
         
         const newText = textarea.value.trim();
         if (!newText) {
             // 如果内容为空，关闭编辑器
             this.closeMessageEditor();
-            return;
+            return false;
         }
         
-        const messageElement = this._editingMessageElement;
-        const sender = this._editingMessageSender;
-        
-        // 更新消息内容
-        if (sender === 'pet') {
-            // 对于宠物消息，使用Markdown渲染
-            const oldText = messageElement.getAttribute('data-original-text') || messageElement.textContent || '';
-            messageElement.innerHTML = this.renderMarkdown(newText);
-            messageElement.classList.add('markdown-content');
-            messageElement.setAttribute('data-original-text', newText);
+        try {
+            const messageElement = this._editingMessageElement;
+            const sender = this._editingMessageSender;
             
-            // 更新会话中对应的消息内容
-            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                const session = this.sessions[this.currentSessionId];
-                if (session.messages && Array.isArray(session.messages)) {
-                    // 找到对应的消息并更新
-                    const messageIndex = session.messages.findIndex(msg => 
-                        msg.type === 'pet' && 
-                        (msg.content === oldText || msg.content.trim() === oldText.trim())
-                    );
-                    
-                    if (messageIndex !== -1) {
-                        session.messages[messageIndex].content = newText;
-                        session.updatedAt = Date.now();
-                        // 异步保存会话
-                        this.saveAllSessions().catch(err => {
-                            console.error('更新消息后保存会话失败:', err);
-                        });
-                        console.log(`已更新会话 ${this.currentSessionId} 中的消息内容`);
+            // 更新消息内容
+            if (sender === 'pet') {
+                // 对于宠物消息，使用Markdown渲染
+                const oldText = messageElement.getAttribute('data-original-text') || messageElement.textContent || '';
+                messageElement.innerHTML = this.renderMarkdown(newText);
+                messageElement.classList.add('markdown-content');
+                messageElement.setAttribute('data-original-text', newText);
+                
+                // 更新会话中对应的消息内容
+                if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                    const session = this.sessions[this.currentSessionId];
+                    if (session.messages && Array.isArray(session.messages)) {
+                        // 找到对应的消息并更新
+                        const messageIndex = session.messages.findIndex(msg => 
+                            msg.type === 'pet' && 
+                            (msg.content === oldText || msg.content.trim() === oldText.trim())
+                        );
+                        
+                        if (messageIndex !== -1) {
+                            session.messages[messageIndex].content = newText;
+                            session.updatedAt = Date.now();
+                            // 异步保存会话
+                            await this.saveAllSessions();
+                            console.log(`已更新会话 ${this.currentSessionId} 中的消息内容`);
+                        }
+                    }
+                }
+                
+                // 处理可能的 Mermaid 图表
+                setTimeout(async () => {
+                    try {
+                        await this.loadMermaid();
+                        const hasMermaidCode = messageElement.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                        if (hasMermaidCode) {
+                            await this.processMermaidBlocks(messageElement);
+                        }
+                    } catch (error) {
+                        console.error('处理编辑后的 Mermaid 图表时出错:', error);
+                    }
+                }, 200);
+            } else {
+                // 对于用户消息，使用 Markdown 渲染（与 pet 消息一致）
+                const oldText = messageElement.getAttribute('data-original-text') || messageElement.textContent || '';
+                messageElement.innerHTML = this.renderMarkdown(newText);
+                messageElement.classList.add('markdown-content');
+                messageElement.setAttribute('data-original-text', newText);
+                
+                // 处理可能的 Mermaid 图表
+                setTimeout(async () => {
+                    try {
+                        await this.loadMermaid();
+                        const hasMermaidCode = messageElement.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                        if (hasMermaidCode) {
+                            await this.processMermaidBlocks(messageElement);
+                        }
+                    } catch (error) {
+                        console.error('处理编辑后的 Mermaid 图表时出错:', error);
+                    }
+                }, 200);
+                
+                // 更新会话中对应的消息内容
+                if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                    const session = this.sessions[this.currentSessionId];
+                    if (session.messages && Array.isArray(session.messages)) {
+                        // 找到对应的消息并更新
+                        const messageIndex = session.messages.findIndex(msg => 
+                            msg.type === 'user' && 
+                            (msg.content === oldText || msg.content.trim() === oldText.trim())
+                        );
+                        
+                        if (messageIndex !== -1) {
+                            session.messages[messageIndex].content = newText;
+                            session.updatedAt = Date.now();
+                            // 异步保存会话
+                            await this.saveAllSessions();
+                            console.log(`已更新会话 ${this.currentSessionId} 中的用户消息内容`);
+                        }
                     }
                 }
             }
             
-            // 处理可能的 Mermaid 图表
-            setTimeout(async () => {
-                try {
-                    await this.loadMermaid();
-                    const hasMermaidCode = messageElement.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
-                    if (hasMermaidCode) {
-                        await this.processMermaidBlocks(messageElement);
-                    }
-                } catch (error) {
-                    console.error('处理编辑后的 Mermaid 图表时出错:', error);
-                }
-            }, 200);
-        } else {
-            // 对于用户消息，使用 Markdown 渲染（与 pet 消息一致）
-            const oldText = messageElement.getAttribute('data-original-text') || messageElement.textContent || '';
-            messageElement.innerHTML = this.renderMarkdown(newText);
-            messageElement.classList.add('markdown-content');
-            messageElement.setAttribute('data-original-text', newText);
+            messageElement.setAttribute('data-edited', 'true');
             
-            // 处理可能的 Mermaid 图表
-            setTimeout(async () => {
-                try {
-                    await this.loadMermaid();
-                    const hasMermaidCode = messageElement.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
-                    if (hasMermaidCode) {
-                        await this.processMermaidBlocks(messageElement);
-                    }
-                } catch (error) {
-                    console.error('处理编辑后的 Mermaid 图表时出错:', error);
-                }
-            }, 200);
+            // 保存后不关闭编辑器，允许继续编辑
+            // 更新预览
+            this.updateMessagePreview();
             
-            // 更新会话中对应的消息内容
-            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                const session = this.sessions[this.currentSessionId];
-                if (session.messages && Array.isArray(session.messages)) {
-                    // 找到对应的消息并更新
-                    const messageIndex = session.messages.findIndex(msg => 
-                        msg.type === 'user' && 
-                        (msg.content === oldText || msg.content.trim() === oldText.trim())
-                    );
-                    
-                    if (messageIndex !== -1) {
-                        session.messages[messageIndex].content = newText;
-                        session.updatedAt = Date.now();
-                        // 异步保存会话
-                        this.saveAllSessions().catch(err => {
-                            console.error('更新消息后保存会话失败:', err);
-                        });
-                        console.log(`已更新会话 ${this.currentSessionId} 中的用户消息内容`);
-                    }
-                }
-            }
+            return true;
+        } catch (error) {
+            console.error('保存消息失败:', error);
+            return false;
         }
-        
-        messageElement.setAttribute('data-edited', 'true');
-        
-        // 关闭编辑器
-        this.closeMessageEditor();
     }
 
     // 复制消息编辑器内容

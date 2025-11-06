@@ -3586,6 +3586,7 @@ class PetManager {
             // 先使用 DocumentFragment 批量添加消息，提高性能
             const fragment = document.createDocumentFragment();
             const petMessages = []; // 保存所有宠物消息，用于后续添加按钮
+            const userMessages = []; // 保存所有用户消息，用于后续添加按钮
             
             for (const msg of session.messages) {
                 // 验证消息格式
@@ -3620,15 +3621,18 @@ class PetManager {
                     if (userBubble) {
                         userBubble.setAttribute('data-original-text', msg.content);
                     }
+                    // 保存用户消息引用，用于后续添加按钮
+                    userMessages.push(msgEl);
                 }
             }
             
             // 一次性添加所有消息
             messagesContainer.appendChild(fragment);
             
-            // 为所有宠物消息添加按钮（异步处理，不阻塞渲染）
+            // 为所有消息添加按钮（异步处理，不阻塞渲染）
             // 使用 setTimeout 确保 DOM 完全更新后再添加按钮
             setTimeout(async () => {
+                // 为宠物消息添加按钮
                 for (const petMsg of petMessages) {
                     try {
                         const petBubble = petMsg.querySelector('[data-message-type="pet-bubble"]');
@@ -3665,6 +3669,16 @@ class PetManager {
                         await this.addActionButtonsToMessage(petMsg);
                     } catch (error) {
                         console.error('为消息添加按钮时出错:', error);
+                    }
+                }
+                
+                // 为用户消息添加按钮
+                for (const userMsg of userMessages) {
+                    try {
+                        // 添加动作按钮（包括机器人按钮）
+                        await this.addActionButtonsToMessage(userMsg);
+                    } catch (error) {
+                        console.error('为用户消息添加按钮时出错:', error);
                     }
                 }
                 
@@ -9046,7 +9060,17 @@ ${pageContent || '无内容'}
         
         // 如果强制刷新，先移除现有按钮容器
         const existingContainer = messageDiv.querySelector('[data-message-actions]');
+        const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
+        const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+        
         if (forceRefresh && existingContainer) {
+            // 对于用户消息，如果按钮已经在 copyButtonContainer 内部，需要移除它们
+            if (isUserMessage && copyButtonContainer) {
+                // 查找所有带有 data-action-key 或其他标识的按钮（角色按钮等）
+                // 这些按钮可能是之前添加的，需要移除
+                const actionButtons = copyButtonContainer.querySelectorAll('[data-action-key], [data-robot-id]');
+                actionButtons.forEach(btn => btn.remove());
+            }
             existingContainer.remove();
         } else if (existingContainer) {
             // 如果按钮容器存在但没有按钮（子元素为空），强制刷新
@@ -9054,11 +9078,25 @@ ${pageContent || '无内容'}
                 existingContainer.remove();
                 // 继续执行后续逻辑添加按钮
             } else {
-                // 如果已经有按钮容器且不强制刷新，则需要确保它在编辑按钮之前
-                const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
-                if (copyButtonContainer && existingContainer.nextSibling !== copyButtonContainer) {
-                    // 如果顺序不对，重新插入到正确位置
-                    timeAndCopyContainer.insertBefore(existingContainer, copyButtonContainer);
+                // 对于用户消息，如果按钮容器不在 copyButtonContainer 内部，需要移动
+                if (isUserMessage && copyButtonContainer) {
+                    // 将按钮移动到 copyButtonContainer 内部
+                    while (existingContainer.firstChild) {
+                        copyButtonContainer.appendChild(existingContainer.firstChild);
+                    }
+                    existingContainer.remove();
+                    // 确保 copyButtonContainer 使用 flex 布局，保留原有样式
+                    if (!copyButtonContainer.style.display || copyButtonContainer.style.display === 'none') {
+                        copyButtonContainer.style.display = 'flex';
+                    }
+                    copyButtonContainer.style.alignItems = 'center';
+                    copyButtonContainer.style.gap = '8px';
+                } else {
+                    // 宠物消息：如果已经有按钮容器且不强制刷新，则需要确保它在编辑按钮之前
+                    if (copyButtonContainer && existingContainer.nextSibling !== copyButtonContainer) {
+                        // 如果顺序不对，重新插入到正确位置
+                        timeAndCopyContainer.insertBefore(existingContainer, copyButtonContainer);
+                    }
                 }
                 return;
             }
@@ -9072,13 +9110,28 @@ ${pageContent || '无内容'}
         // 创建按钮容器
         const actionsContainer = document.createElement('div');
         actionsContainer.setAttribute('data-message-actions', 'true');
-        actionsContainer.style.cssText = `
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            flex-shrink: 0 !important;
-            margin-left: 8px !important;
-        `;
+        
+        // 检查是用户消息还是宠物消息，设置不同的样式
+        // isUserMessage 已在函数开始处声明
+        if (isUserMessage) {
+            // 用户消息：按钮容器紧跟在其他按钮后面，不需要左边距
+            actionsContainer.style.cssText = `
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                flex-shrink: 0 !important;
+                margin-left: 4px !important;
+            `;
+        } else {
+            // 宠物消息：保持原有样式
+            actionsContainer.style.cssText = `
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                flex-shrink: 0 !important;
+                margin-left: 8px !important;
+            `;
+        }
         
         // 获取所有角色配置（用于没有 actionKey 的按钮）
         const configsRaw = await this.getRoleConfigs();
@@ -10554,8 +10607,9 @@ ${pageContent || '无内容'}
             robotButton.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 
-                // 获取当前消息的内容
-                const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                // 获取当前消息的内容（支持用户消息和宠物消息）
+                const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]') || 
+                                     messageDiv.querySelector('[data-message-type="user-bubble"]');
                 let messageContent = '';
                 if (messageBubble) {
                     messageContent = messageBubble.getAttribute('data-original-text') || 
@@ -10575,7 +10629,14 @@ ${pageContent || '无内容'}
                 robotButton.style.cursor = 'default';
                 
                 try {
-                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, messageContent.trim());
+                    // 先调用 prompt 接口处理消息内容
+                    const processedContent = await this.processMessageForRobot(messageContent.trim());
+                    
+                    // 限制字数不超过 4090
+                    const limitedContent = this.limitMarkdownLength(processedContent, 4090);
+                    
+                    // 发送到企微机器人
+                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, limitedContent);
                     robotButton.innerHTML = '✓';
                     robotButton.style.color = '#4caf50';
                     this.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
@@ -10606,30 +10667,58 @@ ${pageContent || '无内容'}
         
         // 只有在按钮容器中有按钮时才插入到DOM中
         if (actionsContainer.children.length > 0) {
-            // 将按钮容器添加到时间容器中，和时间同一行（在 messageTimeWrapper 之后）
+            // 检查是用户消息还是宠物消息
+            // isUserMessage 和 copyButtonContainer 已在函数开始处声明
             const messageTimeWrapper = timeAndCopyContainer.querySelector('[data-message-time]')?.parentElement;
-            if (messageTimeWrapper && messageTimeWrapper.parentNode === timeAndCopyContainer) {
-                // 将角色按钮插入到时间包装器之后，这样它就和时间在同一行了
-                // 查找 copyButtonContainer 的位置，如果存在则插入到它之前，否则添加到末尾
-                const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+            
+            if (isUserMessage) {
+                // 用户消息：将所有按钮（编辑、删除、角色按钮等）都放在 copyButtonContainer 内部
+                // 这样所有按钮都会在一起
                 if (copyButtonContainer) {
-                    // 如果存在复制按钮容器，将角色按钮插入到它之前
-                    timeAndCopyContainer.insertBefore(actionsContainer, copyButtonContainer);
+                    // 将 actionsContainer 中的所有按钮移动到 copyButtonContainer 内部
+                    // 先移除 actionsContainer 的样式，因为按钮会直接添加到 copyButtonContainer
+                    actionsContainer.style.cssText = '';
+                    // 将 actionsContainer 中的所有子元素移动到 copyButtonContainer
+                    while (actionsContainer.firstChild) {
+                        copyButtonContainer.appendChild(actionsContainer.firstChild);
+                    }
+                    // 移除空的 actionsContainer
+                    actionsContainer.remove();
+                    // 确保 copyButtonContainer 使用 flex 布局，按钮之间有间距，保留原有样式
+                    if (!copyButtonContainer.style.display || copyButtonContainer.style.display === 'none') {
+                        copyButtonContainer.style.display = 'flex';
+                    }
+                    copyButtonContainer.style.alignItems = 'center';
+                    copyButtonContainer.style.gap = '8px';
+                } else if (messageTimeWrapper) {
+                    // 如果没有复制按钮容器，插入到时间包装器之前
+                    timeAndCopyContainer.insertBefore(actionsContainer, messageTimeWrapper);
                 } else {
-                    // 如果没有复制按钮容器，将角色按钮插入到时间包装器之后
-                    timeAndCopyContainer.insertBefore(actionsContainer, messageTimeWrapper.nextSibling);
+                    // 如果都找不到，添加到开头
+                    timeAndCopyContainer.insertBefore(actionsContainer, timeAndCopyContainer.firstChild);
                 }
             } else {
-                // 如果找不到 messageTimeWrapper 或者结构不对，尝试找到第一个子元素之后插入
-                const firstChild = timeAndCopyContainer.firstElementChild;
-                if (firstChild && firstChild.nextSibling) {
-                    timeAndCopyContainer.insertBefore(actionsContainer, firstChild.nextSibling);
-                } else {
-                    // 如果没有合适的插入位置，添加到开头（在第一个子元素之前）
-                    if (firstChild) {
-                        timeAndCopyContainer.insertBefore(actionsContainer, firstChild);
+                // 宠物消息：按钮应该插入到时间包装器之后，复制按钮之前
+                if (messageTimeWrapper && messageTimeWrapper.parentNode === timeAndCopyContainer) {
+                    if (copyButtonContainer) {
+                        // 如果存在复制按钮容器，将按钮插入到它之前
+                        timeAndCopyContainer.insertBefore(actionsContainer, copyButtonContainer);
                     } else {
-                        timeAndCopyContainer.appendChild(actionsContainer);
+                        // 如果没有复制按钮容器，将按钮插入到时间包装器之后
+                        timeAndCopyContainer.insertBefore(actionsContainer, messageTimeWrapper.nextSibling);
+                    }
+                } else {
+                    // 如果找不到 messageTimeWrapper 或者结构不对，尝试找到第一个子元素之后插入
+                    const firstChild = timeAndCopyContainer.firstElementChild;
+                    if (firstChild && firstChild.nextSibling) {
+                        timeAndCopyContainer.insertBefore(actionsContainer, firstChild.nextSibling);
+                    } else {
+                        // 如果没有合适的插入位置，添加到开头（在第一个子元素之前）
+                        if (firstChild) {
+                            timeAndCopyContainer.insertBefore(actionsContainer, firstChild);
+                        } else {
+                            timeAndCopyContainer.appendChild(actionsContainer);
+                        }
                     }
                 }
             }
@@ -11998,6 +12087,203 @@ ${pageContent || '无内容'}
             // 转换失败时返回原内容
             return content;
         }
+    }
+
+    // 处理消息内容，通过 prompt 接口处理并返回 md 格式
+    async processMessageForRobot(messageContent) {
+        try {
+            // 构建 system prompt，要求返回 md 格式且不超过 4090 字
+            const systemPrompt = `你是一个内容处理助手。请将用户提供的消息内容进行处理，并以 Markdown 格式返回。要求：
+1. 返回的内容必须是有效的 Markdown 格式
+2. 内容总字数（包括 Markdown 语法字符）不能超过 4090 字
+3. 保持原意，可以适当精简和优化表达
+4. 如果原内容已经是 Markdown 格式，保持原有格式
+5. 如果原内容不是 Markdown 格式，请转换为合适的 Markdown 格式
+
+请直接返回处理后的 Markdown 内容，不要添加额外的说明文字。`;
+
+            // 构建 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                messageContent,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
+
+            // 读取响应文本
+            const responseText = await response.text();
+            let result;
+
+            // 检查是否包含SSE格式（包含 "data: "）
+            if (responseText.includes('data: ')) {
+                // 处理SSE流式响应
+                const lines = responseText.split('\n');
+                let accumulatedData = '';
+                let lastValidData = null;
+
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.startsWith('data: ')) {
+                        try {
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr === '[DONE]' || dataStr === '') {
+                                continue;
+                            }
+
+                            // 尝试解析JSON
+                            const chunk = JSON.parse(dataStr);
+
+                            // 检查是否完成
+                            if (chunk.done === true) {
+                                break;
+                            }
+
+                            // 累积内容（处理流式内容块）
+                            if (chunk.data) {
+                                accumulatedData += chunk.data;
+                            } else if (chunk.content) {
+                                accumulatedData += chunk.content;
+                            } else if (chunk.message && chunk.message.content) {
+                                // Ollama格式
+                                accumulatedData += chunk.message.content;
+                            } else if (typeof chunk === 'string') {
+                                accumulatedData += chunk;
+                            }
+
+                            // 保存最后一个有效的数据块
+                            lastValidData = chunk;
+                        } catch (e) {
+                            // 如果不是JSON，可能是纯文本内容
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr && dataStr !== '[DONE]') {
+                                accumulatedData += dataStr;
+                            }
+                        }
+                    }
+                }
+
+                // 如果累积了内容，创建结果对象
+                if (accumulatedData || lastValidData) {
+                    if (lastValidData && lastValidData.status) {
+                        result = {
+                            ...lastValidData,
+                            data: accumulatedData || lastValidData.data || '',
+                            content: accumulatedData || lastValidData.content || ''
+                        };
+                    } else {
+                        result = {
+                            data: accumulatedData,
+                            content: accumulatedData
+                        };
+                    }
+                } else {
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        throw new Error('无法解析响应格式');
+                    }
+                }
+            } else {
+                // 非SSE格式，直接解析JSON
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                    if (sseMatch) {
+                        result = JSON.parse(sseMatch[1]);
+                    } else {
+                        throw new Error(`无法解析响应: ${responseText.substring(0, 100)}`);
+                    }
+                }
+            }
+
+            // 适配响应格式
+            let content = '';
+            if (result.data) {
+                content = result.data;
+            } else if (result.content) {
+                content = result.content;
+            } else if (result.message && result.message.content) {
+                content = result.message.content;
+            } else if (result.message && typeof result.message === 'string') {
+                content = result.message;
+            } else if (typeof result === 'string') {
+                content = result;
+            } else {
+                content = JSON.stringify(result);
+            }
+
+            // 如果提取到了有效内容，返回
+            if (content && content.trim()) {
+                return content.trim();
+            } else if (result.status !== undefined && result.status !== 200) {
+                const errorMsg = result.msg || '抱歉，服务器返回了错误。';
+                throw new Error(errorMsg);
+            } else if (result.msg && !content) {
+                throw new Error(result.msg);
+            } else {
+                throw new Error('无法获取有效内容');
+            }
+        } catch (error) {
+            console.error('处理消息内容失败:', error);
+            throw error;
+        }
+    }
+
+    // 限制 Markdown 内容长度，确保不超过指定字数
+    limitMarkdownLength(content, maxLength) {
+        if (!content || typeof content !== 'string') {
+            return '';
+        }
+
+        // 如果内容长度已经小于等于限制，直接返回
+        if (content.length <= maxLength) {
+            return content;
+        }
+
+        // 截断内容到指定长度
+        let truncated = content.substring(0, maxLength);
+
+        // 尝试在最后一个完整的句子或段落处截断，避免截断 Markdown 语法
+        // 查找最后一个换行符、句号、问号或感叹号
+        const lastBreak = Math.max(
+            truncated.lastIndexOf('\n\n'),
+            truncated.lastIndexOf('\n'),
+            truncated.lastIndexOf('。'),
+            truncated.lastIndexOf('！'),
+            truncated.lastIndexOf('？'),
+            truncated.lastIndexOf('.'),
+            truncated.lastIndexOf('!'),
+            truncated.lastIndexOf('?')
+        );
+
+        // 如果找到了合适的截断点（在最后 200 个字符内），使用该点截断
+        if (lastBreak > maxLength - 200) {
+            truncated = truncated.substring(0, lastBreak + 1);
+        }
+
+        // 确保截断后的内容以换行符结尾（如果原内容有换行）
+        if (content.length > maxLength && !truncated.endsWith('\n')) {
+            truncated += '\n';
+        }
+
+        // 添加截断提示
+        truncated += '\n\n*(内容已截断，原始内容超过 ' + maxLength + ' 字)*';
+
+        return truncated;
     }
 
     // 发送消息到企微机器人（通过 background script 避免 CORS 问题）
@@ -14626,6 +14912,9 @@ ${pageContent || '无内容'}
 
             // 添加用户消息到会话（注意：已移除自动保存，仅在 prompt 接口调用后保存）
             await this.addMessageToSession('user', message, null, false);
+            
+            // 为用户消息添加操作按钮（包括机器人按钮）
+            await this.addActionButtonsToMessage(userMessage);
 
             // 清空输入框并重置高度
             messageInput.value = '';
@@ -17846,6 +18135,9 @@ ${pageContent || '无内容'}
         const userMessage = this.createMessageElement('', 'user', imageDataUrl);
         messagesContainer.appendChild(userMessage);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // 为用户消息添加操作按钮（包括机器人按钮）
+        this.addActionButtonsToMessage(userMessage);
 
         // 播放思考动画
         this.playChatAnimation();
@@ -19682,6 +19974,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

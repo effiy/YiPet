@@ -179,6 +179,7 @@ class PetManager {
         this.SESSION_LIST_RELOAD_INTERVAL = 10000; // 会话列表重新加载间隔（10秒）
         this.isPageFirstLoad = true; // 标记是否是页面首次加载/刷新
         this.skipSessionListRefresh = false; // 标记是否跳过会话列表刷新（prompt调用后使用）
+        this.backendSessionIds = new Set(); // 存储后端会话ID集合，用于判断是否显示保存按钮
 
         this.init();
     }
@@ -215,8 +216,7 @@ class PetManager {
         // 监听URL变化，以便在URL改变时创建新会话（支持单页应用）
         this.setupUrlChangeListener();
         
-        // 监听会话列表变化，实现跨页面同步
-        this.setupSessionSyncListener();
+        // 注意：已移除多页面会话列表同步逻辑，多页面之间的会话互相独立
     }
 
     // 延迟初始化会话：等待页面加载完成后1秒再执行
@@ -1318,8 +1318,7 @@ class PetManager {
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
-                    // 临时保存页面内容到本地（prompt 接口调用完成后会触发 session/save）
-                    await this.saveAllSessions(false, false);
+                    // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
                 } else {
                     // 空白会话：不填充页面内容，使用空内容
                     fullPageMarkdown = '';
@@ -1528,8 +1527,7 @@ class PetManager {
                     pageTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
                     session.pageTitle = pageTitle;
-                    // 临时保存页面内容到本地（prompt 接口调用完成后会触发 session/save）
-                    await this.saveAllSessions(false, false);
+                    // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
                 } else {
                     // 空白会话：不填充页面内容，使用空内容
                     fullPageMarkdown = '';
@@ -1712,8 +1710,7 @@ class PetManager {
     // 关闭聊天窗口
     closeChatWindow() {
         if (this.chatWindow) {
-            // 保存当前会话
-            this.saveCurrentSession();
+            // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
             this.chatWindow.style.display = 'none';
             this.isChatOpen = false;
         }
@@ -2034,32 +2031,13 @@ class PetManager {
             _isBlankSession: true // 标记为空白会话，用于后续处理
         };
         
-        // 保存新会话到本地存储
+        // 保存新会话到本地存储（仅内存，不自动保存）
         this.sessions[finalSessionId] = blankSession;
-        await this.saveAllSessions(true, false); // 先保存到本地
+        // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
         
         console.log('已创建空白新会话:', finalSessionId);
         
-        // 立即同步到后端（创建新会话后应该立即发送接口请求）
-        if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-            try {
-                // 立即同步到后端
-                await this.syncSessionToBackend(finalSessionId, true);
-                console.log('空白会话已立即同步到后端');
-            } catch (error) {
-                console.warn('空白会话同步到后端失败（将稍后重试）:', error.message);
-                // 如果立即同步失败，加入队列稍后重试
-                try {
-                    // 创建不包含 pageContent 的副本用于保存（空白会话不是手动保存）
-                    const sessionDataForSave = { ...blankSession };
-                    delete sessionDataForSave.pageContent;
-                    this.sessionApi.queueSave(finalSessionId, sessionDataForSave);
-                    console.log('空白会话已加入保存队列，将延迟重试');
-                } catch (queueError) {
-                    console.warn('空白会话加入保存队列也失败:', queueError.message);
-                }
-            }
-        }
+        // 注意：已移除创建空白会话后的自动同步，仅在 prompt 接口调用后保存
         
         // 激活新创建的会话（跳过从后端获取数据，因为这是新创建的空白会话）
         await this.activateSession(finalSessionId, {
@@ -2076,7 +2054,7 @@ class PetManager {
             const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
             if (messagesContainer) {
                 messagesContainer.innerHTML = '';
-                const welcomeMessage = this.createWelcomeMessage(messagesContainer);
+                const welcomeMessage = await this.createWelcomeMessage(messagesContainer);
             }
             
             // 更新聊天窗口标题
@@ -2100,10 +2078,8 @@ class PetManager {
             skipBackendFetch = false // 是否跳过从后端获取数据（用于新创建的空白会话）
         } = options;
         
-        // 在切换会话前，强制保存当前会话的所有数据（确保数据持久化）
-        if (saveCurrent && this.currentSessionId && this.currentSessionId !== sessionId) {
-            await this.saveCurrentSession(true); // 强制保存，确保数据不丢失
-        }
+        // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
+        // 切换会话时不再自动保存
         
         // 切换到目标会话
         const targetSession = this.sessions[sessionId];
@@ -2198,7 +2174,7 @@ class PetManager {
             // 这样可以防止切换到不同URL的会话时，意外修改那个会话的页面信息
             const needsUpdate = this.ensureSessionConsistency(sessionId);
             if (needsUpdate) {
-                await this.saveAllSessions(false, syncToBackend);
+                // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
             }
         } else if (!isUrlMatched) {
             // URL不匹配时，只更新最后访问时间，不更新页面信息（保持数据隔离）
@@ -2206,7 +2182,7 @@ class PetManager {
             const now = Date.now();
             if (!targetSession.lastAccessTime || (now - targetSession.lastAccessTime) > 60000) {
                 targetSession.lastAccessTime = now;
-                await this.saveAllSessions(false, syncToBackend);
+                // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
             }
         }
         
@@ -2271,7 +2247,7 @@ class PetManager {
             if (this.sessions[this.currentSessionId]) {
                 const needsUpdate = this.ensureSessionConsistency(this.currentSessionId);
                 if (needsUpdate) {
-                    await this.saveAllSessions();
+                    // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
                     await this.updateSessionUI({ updateTitle: true });
                 } else {
                     // 更新访问时间（节流）
@@ -2292,10 +2268,7 @@ class PetManager {
             this.hasAutoCreatedSessionForPage = false;
         }
         
-        // 保存当前会话（如果切换到不同页面）
-        if (this.currentSessionId) {
-            await this.saveCurrentSession();
-        }
+        // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
         
         // 首先查找是否存在URL匹配的会话（遍历所有会话）
         let matchedSessionId = null;
@@ -2312,7 +2285,7 @@ class PetManager {
             if (existingSession) {
                 // 更新会话页面信息
                 this.updateSessionPageInfo(matchedSessionId, pageInfo);
-                await this.saveAllSessions();
+                // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
                 
                 // 自动选中匹配的会话
                 await this.activateSession(matchedSessionId, {
@@ -2335,7 +2308,7 @@ class PetManager {
         if (existingSession) {
             // 更新会话页面信息
             this.updateSessionPageInfo(sessionId, pageInfo);
-            await this.saveAllSessions();
+            // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
             
             // 自动选中匹配的会话
             await this.activateSession(sessionId, {
@@ -2350,7 +2323,7 @@ class PetManager {
             // 没有找到会话，使用URL作为会话ID自动创建新会话
             const newSession = this.createSessionObject(sessionId, pageInfo);
             this.sessions[sessionId] = newSession;
-            await this.saveAllSessions();
+            // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
             
             // 自动激活新创建的会话
             await this.activateSession(sessionId, {
@@ -2483,101 +2456,40 @@ class PetManager {
         }, 3000); // 每3秒检查一次（降低频率）
     }
 
-    // 设置会话列表同步监听器，实现跨页面同步
-    setupSessionSyncListener() {
-        // 防止重复添加监听器
-        if (this.sessionSyncListener) {
-            return;
+    // 注意：已移除 setupSessionSyncListener() 方法，多页面之间的会话互相独立
+
+    /**
+     * 检查当前会话是否已存在于后端会话列表中
+     * @param {string} sessionId - 会话ID（可选，默认使用当前会话ID）
+     * @returns {Promise<boolean>} 如果会话已存在于后端列表中返回true，否则返回false
+     */
+    async isSessionInBackendList(sessionId = null) {
+        const targetSessionId = sessionId || this.currentSessionId;
+        if (!targetSessionId) {
+            return false;
         }
 
-        // 创建会话同步监听器
-        this.sessionSyncListener = (changes, namespace) => {
-            // 只监听 local 存储中的会话数据变化
-            if (namespace === 'local' && changes.petChatSessions) {
-                const newSessions = changes.petChatSessions.newValue;
-                const oldSessions = changes.petChatSessions.oldValue || {};
-                
-                console.log('检测到会话列表变化，同步更新...');
-                
-                // 确保 this.sessions 已初始化
-                if (!this.sessions) {
-                    this.sessions = {};
-                }
-                
-                // 检查是否是其他页面的变化（避免自身触发无限循环）
-                // 注意：Chrome 的 onChanged 事件通常不会在同一个页面修改时触发
-                // 但为了健壮性，我们仍然进行比较
-                const currentSessionsStr = JSON.stringify(this.sessions);
-                const newSessionsStr = JSON.stringify(newSessions || {});
-                const sessionsChanged = currentSessionsStr !== newSessionsStr;
-                
-                if (sessionsChanged) {
-                    // 保存当前会话的ID，以便切换后恢复
-                    const previousSessionId = this.currentSessionId;
-                    
-                    // 更新会话数据
-                    this.sessions = newSessions || {};
-                    
-                    // 如果之前的会话已被删除，需要切换到另一个会话
-                    if (previousSessionId && !this.sessions[previousSessionId]) {
-                        console.log('当前会话已被删除，切换到最近访问的会话');
-                        // 使用 lastAccessTime 查找最近访问的会话（更合理）
-                        // 如果没有 lastAccessTime，则使用 createdAt 作为备选
-                        const sortedSessions = Object.values(this.sessions).sort((a, b) => {
-                            const aTime = a.lastAccessTime || a.createdAt || 0;
-                            const bTime = b.lastAccessTime || b.createdAt || 0;
-                            return bTime - aTime; // 最近访问的在前
-                        });
-                        
-                        if (sortedSessions.length > 0) {
-                            this.currentSessionId = sortedSessions[0].id;
-                            // 如果聊天窗口已打开，加载新会话的消息
-                            if (this.chatWindow && this.isChatOpen) {
-                                this.loadSessionMessages();
-                            }
-                        } else {
-                            // 没有其他会话了，清除当前会话ID
-                            this.currentSessionId = null;
-                            if (this.chatWindow && this.isChatOpen) {
-                                const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
-                                if (messagesContainer) {
-                                    messagesContainer.innerHTML = '';
-                                }
-                            }
-                        }
-                    } else if (previousSessionId && this.sessions[previousSessionId]) {
-                        // 如果当前会话仍然存在，检查消息是否有更新
-                        // 比较更新时间，如果新会话的更新时间更新，则重新加载消息
-                        const newSessionData = this.sessions[previousSessionId];
-                        const oldSessionData = oldSessions[previousSessionId];
-                        
-                        if (!oldSessionData || (newSessionData.updatedAt || 0) > (oldSessionData.updatedAt || 0)) {
-                            // 会话消息已更新，重新加载
-                            if (this.chatWindow && this.isChatOpen) {
-                                this.loadSessionMessages();
-                            }
-                        }
+        // 如果后端列表还没有加载，尝试加载一次
+        if (this.backendSessionIds.size === 0 && this.sessionApi) {
+            try {
+                // 尝试从后端获取最新的会话列表
+                const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
+                this.backendSessionIds.clear();
+                backendSessions.forEach(backendSession => {
+                    const id = backendSession.id || backendSession.conversation_id;
+                    if (id) {
+                        this.backendSessionIds.add(id);
                     }
-                    
-                    // 更新会话侧边栏（如果是 prompt 调用后的保存，跳过后端刷新）
-                    if (this.sessionSidebar) {
-                        // 在同步回调中异步调用，不阻塞
-                        // 如果是 prompt 调用后的保存，只使用本地数据更新UI，不调用后端接口
-                        this.updateSessionSidebar(this.skipSessionListRefresh).catch(err => {
-                            console.warn('更新会话侧边栏失败:', err);
-                        });
-                        // 重置标志
-                        this.skipSessionListRefresh = false;
-                    }
-                    
-                    console.log('会话列表已同步，当前会话数量:', Object.keys(this.sessions).length);
-                }
+                });
+            } catch (error) {
+                console.warn('获取后端会话列表失败:', error);
+                // 如果获取失败，返回false，显示保存按钮
+                return false;
             }
-        };
+        }
 
-        // 添加监听器
-        chrome.storage.onChanged.addListener(this.sessionSyncListener);
-        console.log('会话列表同步监听器已设置');
+        // 检查会话ID是否在后端列表中
+        return this.backendSessionIds.has(targetSessionId);
     }
 
     // 从后端加载会话列表（使用API管理器）
@@ -2598,6 +2510,15 @@ class PetManager {
                 
                 console.log('使用API管理器加载会话列表（页面刷新）...');
                 const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
+                
+                // 更新后端会话ID集合
+                this.backendSessionIds.clear();
+                backendSessions.forEach(backendSession => {
+                    const sessionId = backendSession.id || backendSession.conversation_id;
+                    if (sessionId) {
+                        this.backendSessionIds.add(sessionId);
+                    }
+                });
                 
                 // 合并后端数据到本地 sessions
                 if (!this.sessions) {
@@ -2761,6 +2682,15 @@ class PetManager {
             
             if (result.success && result.sessions && Array.isArray(result.sessions)) {
                 console.log(`从后端加载到 ${result.sessions.length} 个会话`);
+                
+                // 更新后端会话ID集合
+                this.backendSessionIds.clear();
+                result.sessions.forEach(backendSession => {
+                    const sessionId = backendSession.id || backendSession.conversation_id;
+                    if (sessionId) {
+                        this.backendSessionIds.add(sessionId);
+                    }
+                });
                 
                 // 将后端返回的会话数据合并到本地 sessions 对象
                 // 如果后端数据更新（updatedAt 更晚），则使用后端数据
@@ -3256,11 +3186,8 @@ class PetManager {
         console.log(`消息已添加到会话 ${this.currentSessionId} (${session.messages.length} 条):`, 
             message.type, message.content.substring(0, 50));
         
-        // 异步保存到存储（使用防抖优化，避免频繁保存）
-        // prompt 接口调用后必须触发 session/save
-        this.saveAllSessions(false, syncToBackend).catch(err => {
-            console.error('保存会话消息失败:', err);
-        });
+        // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
+        // addMessageToSession 不再自动保存，保存逻辑由 prompt 接口调用后统一处理
     }
 
     // 保存当前会话的消息和页面信息（确保一致性，优化版本）
@@ -3434,6 +3361,17 @@ class PetManager {
             return;
         }
         
+        // 检查当前会话是否显示保存按钮（如果显示，则不允许切换）
+        if (this.currentSessionId) {
+            const isInBackendList = await this.isSessionInBackendList(this.currentSessionId);
+            if (!isInBackendList) {
+                // 当前会话不在后端列表中，显示保存按钮，不允许切换
+                this.showNotification('请先保存当前会话后再切换', 'warning');
+                console.log('当前会话未保存，阻止切换会话');
+                return;
+            }
+        }
+        
         // 验证会话是否存在
         if (!this.sessions[sessionId]) {
             console.error('会话不存在:', sessionId);
@@ -3562,7 +3500,7 @@ class PetManager {
             url: session.url || window.location.href,
             description: session.pageDescription || ''
         };
-        this.createWelcomeMessage(messagesContainer, pageInfo);
+        await this.createWelcomeMessage(messagesContainer, pageInfo);
         
         // 确保欢迎消息的按钮容器存在并刷新角色按钮
         // 如果按钮容器不存在，创建一个临时的以确保 refreshWelcomeActionButtons 能正常工作
@@ -5153,10 +5091,8 @@ class PetManager {
         // 记录是否删除的是当前会话
         const isCurrentSession = sessionId === this.currentSessionId;
         
-        // 如果删除的是当前会话，先保存当前会话
-        if (isCurrentSession) {
-            await this.saveCurrentSession();
-        }
+        // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
+        // 删除会话前不再自动保存当前会话
         
         // 从后端删除会话（如果启用了后端同步）
         if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
@@ -5173,7 +5109,8 @@ class PetManager {
         
         // 从本地删除会话
         delete this.sessions[sessionId];
-        await this.saveAllSessions();
+        // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
+        // 删除操作通过后端API完成持久化
         
         // 删除会话后，重新从接口获取会话列表（强制刷新）
         if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
@@ -5888,7 +5825,7 @@ class PetManager {
             if (sessionId === this.currentSessionId) {
                 this.updateChatHeaderTitle();
                 // 刷新第一条欢迎消息
-                this.refreshWelcomeMessage();
+                await this.refreshWelcomeMessage();
             }
             
             console.log('会话信息已更新:', { title: newTitle, description: newDescription });
@@ -12813,22 +12750,38 @@ ${pageContent || '无内容'}
     async handleManualSaveSession(button) {
         if (!this.currentSessionId) {
             console.warn('当前没有活动会话');
-            this._showSaveStatus(button, false, '手动保存会话');
+            this._showManualSaveStatus(button, false);
             return;
         }
 
         if (!this.sessions[this.currentSessionId]) {
             console.warn('会话不存在');
-            this._showSaveStatus(button, false, '手动保存会话');
+            this._showManualSaveStatus(button, false);
             return;
         }
 
+        // 获取按钮元素
+        const iconEl = button.querySelector('.save-btn-icon');
+        const textEl = button.querySelector('.save-btn-text');
+        const loaderEl = button.querySelector('.save-btn-loader');
+
         try {
-            // 禁用按钮，防止重复点击
+            // 设置 loading 状态
             button.disabled = true;
-            button.style.opacity = '0.6';
-            button.style.cursor = 'not-allowed';
-            
+            button.classList.add('loading');
+            // 隐藏图标和文本，显示 loader
+            if (iconEl) {
+                iconEl.style.opacity = '0';
+                iconEl.style.display = 'none';
+            }
+            if (textEl) {
+                textEl.style.opacity = '0';
+                textEl.textContent = '保存中...';
+            }
+            if (loaderEl) {
+                loaderEl.style.display = 'block';
+            }
+
             const session = this.sessions[this.currentSessionId];
             
             // 获取当前页面内容并更新到会话
@@ -12851,36 +12804,66 @@ ${pageContent || '无内容'}
             // 手动保存时，同步到后端并包含 pageContent 字段
             await this.syncSessionToBackend(this.currentSessionId, true, true);
             
+            // 将会话ID添加到后端会话ID集合中（表示已保存到后端）
+            this.backendSessionIds.add(this.currentSessionId);
+            
+            // 刷新欢迎消息以隐藏保存按钮（因为现在已存在于后端列表中）
+            await this.refreshWelcomeMessage();
+            
             // 显示成功状态
-            this._showSaveStatus(button, true, '手动保存会话');
+            this._showManualSaveStatus(button, true);
             
             console.log('会话已手动保存:', this.currentSessionId);
-            
-            // 3秒后恢复按钮状态
-            setTimeout(() => {
-                button.disabled = false;
-                button.style.opacity = '1';
-                button.style.cursor = 'pointer';
-                button.textContent = '💾 手动保存会话';
-                button.style.background = 'linear-gradient(135deg, #4ECDC4, #44A08D)';
-                button.style.color = 'white';
-                button.style.borderColor = 'transparent';
-            }, 3000);
         } catch (error) {
             console.error('手动保存会话失败:', error);
-            this._showSaveStatus(button, false, '手动保存会话');
-            
-            // 3秒后恢复按钮状态
-            setTimeout(() => {
-                button.disabled = false;
-                button.style.opacity = '1';
-                button.style.cursor = 'pointer';
-                button.textContent = '💾 手动保存会话';
-                button.style.background = 'linear-gradient(135deg, #4ECDC4, #44A08D)';
-                button.style.color = 'white';
-                button.style.borderColor = 'transparent';
-            }, 3000);
+            this._showManualSaveStatus(button, false);
         }
+    }
+
+    /**
+     * 显示手动保存按钮的状态
+     * @param {HTMLElement} button - 按钮元素
+     * @param {boolean} success - 是否成功
+     */
+    _showManualSaveStatus(button, success) {
+        const iconEl = button.querySelector('.save-btn-icon');
+        const textEl = button.querySelector('.save-btn-text');
+        const loaderEl = button.querySelector('.save-btn-loader');
+
+        // 移除 loading 状态
+        button.classList.remove('loading');
+        if (loaderEl) loaderEl.style.display = 'none';
+
+        if (success) {
+            // 成功状态
+            button.classList.add('success');
+            button.classList.remove('error');
+            if (iconEl) {
+                iconEl.textContent = '✓';
+                iconEl.style.display = 'inline-flex';
+            }
+            if (textEl) textEl.textContent = '已保存';
+        } else {
+            // 失败状态
+            button.classList.add('error');
+            button.classList.remove('success');
+            if (iconEl) {
+                iconEl.textContent = '✕';
+                iconEl.style.display = 'inline-flex';
+            }
+            if (textEl) textEl.textContent = '保存失败';
+        }
+
+        // 2.5秒后恢复按钮状态
+        setTimeout(() => {
+            button.disabled = false;
+            button.classList.remove('success', 'error');
+            if (iconEl) {
+                iconEl.textContent = '💾';
+                iconEl.style.display = 'inline-flex';
+            }
+            if (textEl) textEl.textContent = '保存会话';
+        }, 2500);
     }
 
     /**
@@ -14117,7 +14100,7 @@ ${pageContent || '无内容'}
         this.buttonHandlers = {};
 
         // 创建欢迎消息（使用统一方法）
-        const welcomeMessage = this.createWelcomeMessage(messagesContainer);
+        const welcomeMessage = await this.createWelcomeMessage(messagesContainer);
 
         // 将按钮添加到消息容器中，和时间戳同一行
         setTimeout(() => {
@@ -14641,8 +14624,8 @@ ${pageContent || '无内容'}
             messagesContainer.appendChild(userMessage);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-            // 立即保存用户消息到当前会话（确保消息实时持久化）
-            await this.addMessageToSession('user', message);
+            // 添加用户消息到会话（注意：已移除自动保存，仅在 prompt 接口调用后保存）
+            await this.addMessageToSession('user', message, null, false);
 
             // 清空输入框并重置高度
             messageInput.value = '';
@@ -17980,7 +17963,7 @@ ${pageContent || '无内容'}
     //   - title: 页面标题
     //   - url: 页面URL
     //   - description: 页面描述（可选）
-    createWelcomeMessage(messagesContainer, pageInfo = null) {
+    async createWelcomeMessage(messagesContainer, pageInfo = null) {
         // 如果没有提供页面信息，使用当前页面信息或会话信息
         if (!pageInfo) {
             // 优先使用当前会话的页面信息，如果没有则使用当前页面信息
@@ -18030,28 +18013,88 @@ ${pageContent || '无内容'}
 
         pageInfoHtml += `</div>`;
         
-        // 添加手动保存会话按钮
+        // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
+        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        
+        // 根据检查结果决定是否添加手动保存会话按钮
+        if (shouldShowSaveButton) {
         pageInfoHtml += `
             <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
-                <button id="pet-manual-save-session-btn" style="
-                    display: inline-flex !important;
+                <button id="pet-manual-save-session-btn" class="pet-manual-save-btn" style="
+                    position: relative !important;
+                    display: flex !important;
                     align-items: center !important;
-                    gap: 6px !important;
-                    padding: 8px 16px !important;
+                    justify-content: center !important;
+                    gap: 8px !important;
+                    width: 100% !important;
+                    padding: 10px 20px !important;
                     background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
                     color: white !important;
                     border: none !important;
-                    border-radius: 8px !important;
-                    font-size: 13px !important;
-                    font-weight: 500 !important;
+                    border-radius: 10px !important;
+                    font-size: 14px !important;
+                    font-weight: 600 !important;
                     cursor: pointer !important;
-                    transition: all 0.2s ease !important;
-                    box-shadow: 0 2px 4px rgba(78, 205, 196, 0.2) !important;
-                " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(78, 205, 196, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(78, 205, 196, 0.2)'">
-                    💾 手动保存会话
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+                    overflow: hidden !important;
+                    user-select: none !important;
+                ">
+                    <span class="save-btn-icon" style="
+                        display: inline-flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        font-size: 16px !important;
+                        transition: transform 0.3s ease !important;
+                    ">💾</span>
+                    <span class="save-btn-text">保存会话</span>
+                    <span class="save-btn-loader" style="
+                        display: none !important;
+                        position: absolute !important;
+                        width: 16px !important;
+                        height: 16px !important;
+                        border: 2px solid rgba(255, 255, 255, 0.3) !important;
+                        border-top-color: white !important;
+                        border-radius: 50% !important;
+                        animation: spin 0.8s linear infinite !important;
+                    "></span>
                 </button>
+                <style>
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                    .pet-manual-save-btn:hover:not(:disabled) {
+                        transform: translateY(-2px) !important;
+                        box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+                    }
+                    .pet-manual-save-btn:active:not(:disabled) {
+                        transform: translateY(0) !important;
+                        box-shadow: 0 1px 4px rgba(78, 205, 196, 0.2) !important;
+                    }
+                    .pet-manual-save-btn:disabled {
+                        opacity: 0.7 !important;
+                        cursor: not-allowed !important;
+                        transform: none !important;
+                    }
+                    .pet-manual-save-btn.loading .save-btn-icon,
+                    .pet-manual-save-btn.loading .save-btn-text {
+                        opacity: 0 !important;
+                    }
+                    .pet-manual-save-btn.loading .save-btn-loader {
+                        display: block !important;
+                    }
+                    .pet-manual-save-btn.success {
+                        background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+                        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+                    }
+                    .pet-manual-save-btn.error {
+                        background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+                        box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
+                    }
+                </style>
             </div>
         `;
+        }
 
         // 创建欢迎消息元素
         const welcomeMessage = this.createMessageElement('', 'pet');
@@ -18077,7 +18120,7 @@ ${pageContent || '无内容'}
     }
 
     // 刷新第一条欢迎消息（当会话信息更新时调用）
-    refreshWelcomeMessage() {
+    async refreshWelcomeMessage() {
         if (!this.chatWindow || !this.currentSessionId) {
             return;
         }
@@ -18134,28 +18177,88 @@ ${pageContent || '无内容'}
 
         pageInfoHtml += `</div>`;
         
-        // 添加手动保存会话按钮
+        // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
+        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        
+        // 根据检查结果决定是否添加手动保存会话按钮
+        if (shouldShowSaveButton) {
         pageInfoHtml += `
             <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
-                <button id="pet-manual-save-session-btn" style="
-                    display: inline-flex !important;
+                <button id="pet-manual-save-session-btn" class="pet-manual-save-btn" style="
+                    position: relative !important;
+                    display: flex !important;
                     align-items: center !important;
-                    gap: 6px !important;
-                    padding: 8px 16px !important;
+                    justify-content: center !important;
+                    gap: 8px !important;
+                    width: 100% !important;
+                    padding: 10px 20px !important;
                     background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
                     color: white !important;
                     border: none !important;
-                    border-radius: 8px !important;
-                    font-size: 13px !important;
-                    font-weight: 500 !important;
+                    border-radius: 10px !important;
+                    font-size: 14px !important;
+                    font-weight: 600 !important;
                     cursor: pointer !important;
-                    transition: all 0.2s ease !important;
-                    box-shadow: 0 2px 4px rgba(78, 205, 196, 0.2) !important;
-                " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(78, 205, 196, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(78, 205, 196, 0.2)'">
-                    💾 手动保存会话
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+                    overflow: hidden !important;
+                    user-select: none !important;
+                ">
+                    <span class="save-btn-icon" style="
+                        display: inline-flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        font-size: 16px !important;
+                        transition: transform 0.3s ease !important;
+                    ">💾</span>
+                    <span class="save-btn-text">保存会话</span>
+                    <span class="save-btn-loader" style="
+                        display: none !important;
+                        position: absolute !important;
+                        width: 16px !important;
+                        height: 16px !important;
+                        border: 2px solid rgba(255, 255, 255, 0.3) !important;
+                        border-top-color: white !important;
+                        border-radius: 50% !important;
+                        animation: spin 0.8s linear infinite !important;
+                    "></span>
                 </button>
+                <style>
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                    .pet-manual-save-btn:hover:not(:disabled) {
+                        transform: translateY(-2px) !important;
+                        box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+                    }
+                    .pet-manual-save-btn:active:not(:disabled) {
+                        transform: translateY(0) !important;
+                        box-shadow: 0 1px 4px rgba(78, 205, 196, 0.2) !important;
+                    }
+                    .pet-manual-save-btn:disabled {
+                        opacity: 0.7 !important;
+                        cursor: not-allowed !important;
+                        transform: none !important;
+                    }
+                    .pet-manual-save-btn.loading .save-btn-icon,
+                    .pet-manual-save-btn.loading .save-btn-text {
+                        opacity: 0 !important;
+                    }
+                    .pet-manual-save-btn.loading .save-btn-loader {
+                        display: block !important;
+                    }
+                    .pet-manual-save-btn.success {
+                        background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+                        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+                    }
+                    .pet-manual-save-btn.error {
+                        background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+                        box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
+                    }
+                </style>
             </div>
         `;
+        }
 
         // 更新欢迎消息的内容
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
@@ -19579,6 +19682,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

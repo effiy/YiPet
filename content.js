@@ -7156,18 +7156,22 @@ class PetManager {
             const fileNameDiv = document.createElement('div');
             fileNameDiv.className = 'oss-file-name';
             
+            // 获取自定义标题（如果有）
+            const customTitle = this.getOssFileTitle(file.name);
+            const displayName = customTitle || fileName;
+            
             // 根据侧边栏宽度动态计算文件名最大显示长度
             const availableWidth = Math.max(100, this.sidebarWidth - 60);
             const maxChars = Math.floor(availableWidth / 7);
             const fileNameMaxLength = Math.max(15, Math.min(50, maxChars));
             
-            const displayFileName = fileName.length > fileNameMaxLength 
-                ? fileName.substring(0, fileNameMaxLength) + '...' 
-                : fileName;
+            const displayFileName = displayName.length > fileNameMaxLength 
+                ? displayName.substring(0, fileNameMaxLength) + '...' 
+                : displayName;
             
             fileNameDiv.textContent = displayFileName;
-            if (fileName.length > fileNameMaxLength) {
-                fileNameDiv.setAttribute('title', fileName);
+            if (displayName.length > fileNameMaxLength) {
+                fileNameDiv.setAttribute('title', displayName);
             }
             fileNameDiv.style.cssText = `
                 font-size: 13px !important;
@@ -7243,6 +7247,37 @@ class PetManager {
                 await this.downloadOssFile(file.name);
             });
             
+            // 编辑标题按钮
+            const editBtn = document.createElement('button');
+            editBtn.className = 'oss-file-edit-btn';
+            editBtn.innerHTML = '✏️';
+            editBtn.title = '编辑标题';
+            editBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停时增加不透明度
+            editBtn.addEventListener('mouseenter', () => {
+                editBtn.style.opacity = '1';
+            });
+            editBtn.addEventListener('mouseleave', () => {
+                editBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止编辑按钮点击事件冒泡到 fileItem
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.editOssFileTitle(file.name);
+            });
+            
             // 创建按钮容器
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -7253,6 +7288,7 @@ class PetManager {
                 transition: opacity 0.2s ease !important;
                 flex-shrink: 0 !important;
             `;
+            buttonContainer.appendChild(editBtn);
             buttonContainer.appendChild(downloadBtn);
             buttonContainer.appendChild(tagBtn);
             
@@ -9191,6 +9227,402 @@ class PetManager {
         } catch (error) {
             console.error('更新会话信息失败:', error);
             alert('更新信息失败，请重试');
+        }
+    }
+
+    // 获取 OSS 文件的自定义标题
+    getOssFileTitle(fileName) {
+        if (!fileName) return null;
+        
+        // 从本地存储获取自定义标题
+        const storageKey = 'petOssFileTitles';
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                // Chrome 扩展环境，使用同步方式（这里需要异步，但为了简化先同步获取）
+                // 实际应该使用异步方式，但为了保持一致性，先使用 localStorage
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    const titles = JSON.parse(stored);
+                    return titles[fileName] || null;
+                }
+            } else {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    const titles = JSON.parse(stored);
+                    return titles[fileName] || null;
+                }
+            }
+        } catch (error) {
+            console.error('获取文件标题失败:', error);
+        }
+        return null;
+    }
+    
+    // 保存 OSS 文件的自定义标题
+    async saveOssFileTitle(fileName, title) {
+        if (!fileName) return;
+        
+        const storageKey = 'petOssFileTitles';
+        try {
+            let titles = {};
+            
+            // 从本地存储读取现有标题
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    titles = JSON.parse(stored);
+                }
+            } else {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    titles = JSON.parse(stored);
+                }
+            }
+            
+            // 更新标题
+            if (title && title.trim()) {
+                titles[fileName] = title.trim();
+            } else {
+                // 如果标题为空，删除该文件的标题
+                delete titles[fileName];
+            }
+            
+            // 保存到本地存储
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                localStorage.setItem(storageKey, JSON.stringify(titles));
+            } else {
+                localStorage.setItem(storageKey, JSON.stringify(titles));
+            }
+        } catch (error) {
+            console.error('保存文件标题失败:', error);
+        }
+    }
+    
+    // 编辑 OSS 文件标题
+    async editOssFileTitle(fileName) {
+        if (!fileName) {
+            console.warn('文件名无效，无法编辑标题');
+            return;
+        }
+
+        // 获取当前标题
+        const currentTitle = this.getOssFileTitle(fileName) || fileName;
+        
+        // 打开编辑对话框
+        this.openOssFileTitleEditor(fileName, currentTitle);
+    }
+    
+    // 打开 OSS 文件标题编辑对话框
+    openOssFileTitleEditor(fileName, originalTitle) {
+        // 确保对话框UI存在
+        this.ensureOssFileTitleEditorUi();
+        
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (!modal) {
+            console.error('OSS文件标题编辑对话框未找到');
+            return;
+        }
+
+        // 显示对话框
+        modal.style.display = 'flex';
+        modal.dataset.fileName = fileName;
+
+        // 填充当前值
+        const titleInput = modal.querySelector('.oss-file-editor-title-input');
+        
+        if (titleInput) {
+            titleInput.value = originalTitle;
+        }
+
+        // 聚焦到标题输入框
+        if (titleInput) {
+            setTimeout(() => {
+                titleInput.focus();
+                titleInput.select();
+            }, 100);
+        }
+
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.oss-file-editor-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeOssFileTitleEditor();
+        }
+
+        // 添加保存事件
+        const saveBtn = modal.querySelector('.oss-file-editor-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveOssFileTitleInfo(fileName);
+        }
+
+        // 添加取消事件
+        const cancelBtn = modal.querySelector('.oss-file-editor-cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeOssFileTitleEditor();
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeOssFileTitleEditor();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+    
+    // 确保 OSS 文件标题编辑对话框UI存在
+    ensureOssFileTitleEditorUi() {
+        if (document.body.querySelector('#pet-oss-file-title-editor')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'pet-oss-file-title-editor';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2147483653 !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeOssFileTitleEditor();
+            }
+        });
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 32px !important;
+            width: 90% !important;
+            max-width: 500px !important;
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+            position: relative !important;
+            z-index: 2147483654 !important;
+        `;
+
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 24px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '编辑文件标题';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 20px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'oss-file-editor-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // 标题输入区域
+        const titleGroup = document.createElement('div');
+        titleGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+
+        const titleLabel = document.createElement('label');
+        titleLabel.textContent = '文件标题';
+        titleLabel.style.cssText = `
+            display: block !important;
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+        `;
+
+        const titleInput = document.createElement('input');
+        titleInput.className = 'oss-file-editor-title-input';
+        titleInput.type = 'text';
+        titleInput.placeholder = '请输入文件标题';
+        titleInput.style.cssText = `
+            width: 100% !important;
+            padding: 12px 14px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 15px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+            box-sizing: border-box !important;
+        `;
+        
+        titleInput.addEventListener('focus', () => {
+            titleInput.style.borderColor = '#4CAF50';
+        });
+        titleInput.addEventListener('blur', () => {
+            titleInput.style.borderColor = '#e0e0e0';
+        });
+        
+        // Enter 键保存
+        titleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const fileName = modal.dataset.fileName;
+                if (fileName) {
+                    this.saveOssFileTitleInfo(fileName);
+                }
+            }
+        });
+
+        titleGroup.appendChild(titleLabel);
+        titleGroup.appendChild(titleInput);
+
+        // 按钮区域
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 12px !important;
+            margin-top: 24px !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'oss-file-editor-cancel';
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #f5f5f5 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#e0e0e0';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#f5f5f5';
+        });
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'oss-file-editor-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#45a049';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#4CAF50';
+        });
+
+        buttonGroup.appendChild(cancelBtn);
+        buttonGroup.appendChild(saveBtn);
+
+        panel.appendChild(header);
+        panel.appendChild(titleGroup);
+        panel.appendChild(buttonGroup);
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+    }
+    
+    // 关闭 OSS 文件标题编辑对话框
+    closeOssFileTitleEditor() {
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // 保存 OSS 文件标题信息
+    async saveOssFileTitleInfo(fileName) {
+        if (!fileName) {
+            console.warn('文件名无效，无法保存标题');
+            return;
+        }
+
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (!modal) {
+            return;
+        }
+
+        const titleInput = modal.querySelector('.oss-file-editor-title-input');
+        
+        if (!titleInput) {
+            console.error('标题输入框未找到');
+            return;
+        }
+
+        const newTitle = titleInput.value.trim();
+        
+        // 如果标题为空，使用原文件名
+        const finalTitle = newTitle || fileName;
+
+        // 获取原始文件名（用于显示）
+        const originalFileName = fileName;
+
+        try {
+            // 保存标题到本地存储
+            await this.saveOssFileTitle(fileName, finalTitle === originalFileName ? '' : finalTitle);
+            
+            // 更新UI显示
+            await this.updateOssFileSidebar(true);
+            
+            console.log('文件标题已更新:', { fileName, title: finalTitle });
+            
+            // 关闭对话框
+            this.closeOssFileTitleEditor();
+            
+            // 显示成功提示
+            this.showNotification('文件标题已更新', 'success');
+        } catch (error) {
+            console.error('更新文件标题失败:', error);
+            alert('更新标题失败，请重试');
         }
     }
 

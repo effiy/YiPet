@@ -4898,8 +4898,12 @@ class PetManager {
                             await this.loadAllSessions();
                         }
                         
-                        // 刷新会话列表UI
-                        await this.updateSessionUI({ updateSidebar: true });
+                        // 刷新会话列表UI（保持当前视图模式）
+                        const currentViewMode = this.ossFileListVisible ? 'oss' : 'session';
+                        await this.updateSessionUI({ 
+                            updateSidebar: true,
+                            keepOssFileListView: currentViewMode === 'oss' // 如果当前是OSS文件列表视图，保持该视图
+                        });
                         
                         // 显示导入结果
                         let resultMsg = `导入完成：创建 ${createdCount} 个，更新 ${updatedCount} 个`;

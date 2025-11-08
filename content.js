@@ -5470,10 +5470,10 @@ class PetManager {
             z-index: 10000 !important;
         `;
         
-        // 点击背景关闭
+        // 点击背景关闭（自动保存）
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                this.closeOssTagManager();
+                this.closeOssTagManager(true);
             }
         });
 
@@ -5510,6 +5510,7 @@ class PetManager {
         const closeBtn = document.createElement('button');
         closeBtn.className = 'oss-tag-manager-close';
         closeBtn.innerHTML = '✕';
+        closeBtn.title = '关闭并保存（ESC）';
         closeBtn.style.cssText = `
             background: none !important;
             border: none !important;
@@ -5626,7 +5627,9 @@ class PetManager {
         `;
 
         const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'oss-tag-manager-cancel';
         cancelBtn.textContent = '取消';
+        cancelBtn.title = '取消更改，不保存';
         cancelBtn.style.cssText = `
             padding: 10px 20px !important;
             background: #f0f0f0 !important;
@@ -5643,7 +5646,7 @@ class PetManager {
         cancelBtn.addEventListener('mouseleave', () => {
             cancelBtn.style.background = '#f0f0f0';
         });
-        cancelBtn.addEventListener('click', () => this.closeOssTagManager());
+        cancelBtn.addEventListener('click', () => this.closeOssTagManager(false));
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'oss-tag-manager-save';
@@ -5856,17 +5859,26 @@ class PetManager {
             const latestTags = await this.ossApi.getFileTags(objectName);
             this.loadOssTagsIntoManager(objectName, latestTags);
             // 保存到modal的临时数据中
-            modal._currentTags = latestTags;
+            modal._currentTags = [...latestTags]; // 使用副本，避免引用问题
+            modal._originalTags = [...latestTags]; // 保存原始标签，用于取消时恢复
         } catch (error) {
             console.warn('获取文件标签失败，使用传入的标签:', error);
-            this.loadOssTagsIntoManager(objectName, currentTags);
-            modal._currentTags = currentTags || [];
+            const tags = currentTags || [];
+            this.loadOssTagsIntoManager(objectName, tags);
+            modal._currentTags = [...tags]; // 使用副本，避免引用问题
+            modal._originalTags = [...tags]; // 保存原始标签，用于取消时恢复
         }
 
-        // 添加关闭事件
+        // 添加关闭事件（自动保存）
         const closeBtn = modal.querySelector('.oss-tag-manager-close');
         if (closeBtn) {
-            closeBtn.onclick = () => this.closeOssTagManager();
+            closeBtn.onclick = () => this.closeOssTagManager(true);
+        }
+        
+        // 添加取消事件（不保存）
+        const cancelBtn = modal.querySelector('.oss-tag-manager-cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeOssTagManager(false);
         }
 
         // 添加保存事件
@@ -5913,10 +5925,10 @@ class PetManager {
             tagInput.focus();
         }
 
-        // ESC 键关闭
+        // ESC 键关闭（自动保存）
         const escHandler = (e) => {
             if (e.key === 'Escape') {
-                this.closeOssTagManager();
+                this.closeOssTagManager(true);
                 document.removeEventListener('keydown', escHandler);
             }
         };
@@ -5976,41 +5988,85 @@ class PetManager {
             await this.ossApi.setFileTags(objectName, modal._currentTags);
             this.showNotification('标签保存成功', 'success');
             
+            // 更新原始标签为当前标签，避免关闭时重复保存
+            modal._originalTags = [...modal._currentTags];
+            
             // 刷新文件列表和标签筛选器
             await this.updateOssFileSidebar(true);
             await this.updateOssTagFilterUI();
             
-            // 关闭弹窗
-            this.closeOssTagManager();
+            // 关闭弹窗（不保存，因为已经保存过了）
+            this.closeOssTagManager(false);
         } catch (error) {
             console.error('保存标签失败:', error);
             this.showNotification('保存标签失败: ' + error.message, 'error');
         }
     }
 
-    // 关闭OSS标签管理器（自动保存）
-    async closeOssTagManager() {
+    // 关闭OSS标签管理器
+    // @param {boolean} saveChanges - 是否保存更改，true=保存，false=取消（恢复原始标签）
+    async closeOssTagManager(saveChanges = true) {
         const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
         if (!modal) return;
 
         const objectName = modal.dataset.objectName;
-        if (objectName && modal._currentTags) {
-            try {
-                await this.ossApi.setFileTags(objectName, modal._currentTags);
-                // 刷新文件列表和标签筛选器
-                await this.updateOssFileSidebar(true);
-                await this.updateOssTagFilterUI();
-            } catch (error) {
-                console.error('自动保存标签失败:', error);
+        
+        if (saveChanges) {
+            // 保存更改（仅在标签有变化时保存）
+            if (objectName && modal._currentTags) {
+                // 检查标签是否有变化
+                const hasChanges = this._hasTagChanges(modal._currentTags, modal._originalTags);
+                
+                if (hasChanges) {
+                    try {
+                        await this.ossApi.setFileTags(objectName, modal._currentTags);
+                        this.showNotification('标签已保存', 'success');
+                        // 刷新文件列表和标签筛选器
+                        await this.updateOssFileSidebar(true);
+                        await this.updateOssTagFilterUI();
+                    } catch (error) {
+                        console.error('保存标签失败:', error);
+                        this.showNotification('保存标签失败: ' + (error.message || '未知错误'), 'error');
+                    }
+                } else {
+                    // 标签没有变化，不需要保存
+                    console.log('标签未变化，无需保存');
+                }
+            }
+        } else {
+            // 取消更改，恢复原始标签
+            if (objectName && modal._originalTags !== undefined) {
+                // 恢复原始标签（如果需要，可以在这里重新加载原始标签）
+                // 由于已经取消了，不需要做任何操作，只是关闭弹窗
+                console.log('已取消标签更改');
             }
         }
 
+        // 关闭弹窗
         modal.style.display = 'none';
         const tagInput = modal.querySelector('.oss-tag-manager-input');
         if (tagInput) {
             tagInput.value = '';
         }
+        
+        // 清理数据
         delete modal._currentTags;
+        delete modal._originalTags;
+    }
+    
+    // 检查标签是否有变化
+    _hasTagChanges(currentTags, originalTags) {
+        if (!currentTags && !originalTags) return false;
+        if (!currentTags || !originalTags) return true;
+        
+        // 比较数组长度
+        if (currentTags.length !== originalTags.length) return true;
+        
+        // 排序后比较内容
+        const currentSorted = [...currentTags].sort().join(',');
+        const originalSorted = [...originalTags].sort().join(',');
+        
+        return currentSorted !== originalSorted;
     }
 
     // 上传文件到OSS

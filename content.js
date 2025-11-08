@@ -4060,14 +4060,18 @@ class PetManager {
                 
                 // 生成导出数据
                 const timestamp = fullSessionData.updatedAt || fullSessionData.createdAt || Date.now();
-                const dateInfo = this._getDateInfo(timestamp);
                 const title = this._sanitizeFileName(fullSessionData.pageTitle || '未命名会话');
+                const tags = fullSessionData.tags || [];
+                
+                // 生成页面上下文内容（合并 context 和 chat）
+                const contextMd = this._generateContextMd(fullSessionData);
+                const chatMd = this._generateChatMd(fullSessionData);
+                const pageContent = contextMd + '\n\n' + chatMd;
                 
                 exportData.push({
-                    dateInfo: dateInfo,
+                    tags: tags,
                     title: title,
-                    contextMd: this._generateContextMd(fullSessionData),
-                    chatMd: this._generateChatMd(fullSessionData)
+                    pageContent: pageContent
                 });
                 
                 // 更新进度提示（每10个会话更新一次）

@@ -32,13 +32,49 @@
     const JSZipLib = window.JSZip || JSZip;
     const zip = new JSZipLib();
     
+    // 清理路径中的非法字符
+    function sanitizePath(path) {
+        return path.replace(/[<>:"|?*\x00-\x1f]/g, '_').trim();
+    }
+    
+    // 用于跟踪已使用的文件路径，避免文件名冲突
+    const usedPaths = new Map();
+    
     // 添加文件到ZIP
-    exportData.forEach(function(item) {
-        const filePath = item.dateInfo.year + '/' + item.dateInfo.quarter + '/' + 
-                        item.dateInfo.month + '/' + item.dateInfo.week + '/' + 
-                        item.dateInfo.day + '/' + item.title + '/';
-        zip.file(filePath + 'context.md', item.contextMd);
-        zip.file(filePath + 'chat.md', item.chatMd);
+    exportData.forEach(function(item, index) {
+        // 获取标签数组，如果没有标签则使用"未分类"
+        const tags = item.tags && Array.isArray(item.tags) && item.tags.length > 0 
+            ? item.tags 
+            : ['未分类'];
+        
+        // 按标签顺序建立目录层次
+        // 每个标签作为一层目录
+        let filePath = '';
+        tags.forEach(function(tag) {
+            const sanitizedTag = sanitizePath(tag);
+            filePath += sanitizedTag + '/';
+        });
+        
+        // 文件名为页面标题.md
+        const baseFileName = sanitizePath(item.title || '未命名会话');
+        let fileName = baseFileName + '.md';
+        let fullPath = filePath + fileName;
+        
+        // 处理文件名冲突：如果路径已存在，添加序号
+        if (usedPaths.has(fullPath)) {
+            let counter = 1;
+            do {
+                fileName = baseFileName + '_' + counter + '.md';
+                fullPath = filePath + fileName;
+                counter++;
+            } while (usedPaths.has(fullPath));
+        }
+        
+        // 记录已使用的路径
+        usedPaths.set(fullPath, true);
+        
+        // 添加文件，内容为页面上下文
+        zip.file(fullPath, item.pageContent || '');
     });
     
     // 生成ZIP文件

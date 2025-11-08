@@ -7081,9 +7081,9 @@ class PetManager {
             previewAvatar.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (file.url) {
-                    // 如果是图片，创建预览弹窗
+                    // 如果是图片，创建预览弹窗（传递文件对象名用于下载）
                     if (isImage) {
-                        this.showImagePreview(file.url, fileName);
+                        this.showImagePreview(file.url, file.name);
                     } else {
                         // 非图片文件，直接在新标签页打开
                         window.open(file.url, '_blank');
@@ -7216,37 +7216,6 @@ class PetManager {
                 this.openOssFileTagEditor(file.name, file.tags || []);
             });
             
-            // 下载按钮
-            const downloadBtn = document.createElement('button');
-            downloadBtn.className = 'oss-file-download-btn';
-            downloadBtn.innerHTML = '⬇️';
-            downloadBtn.title = '下载文件';
-            downloadBtn.style.cssText = `
-                background: none !important;
-                border: none !important;
-                cursor: pointer !important;
-                padding: 2px 4px !important;
-                font-size: 12px !important;
-                opacity: 0.6 !important;
-                transition: opacity 0.2s ease !important;
-                line-height: 1 !important;
-                flex-shrink: 0 !important;
-            `;
-            
-            // 按钮悬停时增加不透明度
-            downloadBtn.addEventListener('mouseenter', () => {
-                downloadBtn.style.opacity = '1';
-            });
-            downloadBtn.addEventListener('mouseleave', () => {
-                downloadBtn.style.opacity = '0.6';
-            });
-            
-            // 阻止下载按钮点击事件冒泡到 fileItem
-            downloadBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                await this.downloadOssFile(file.name);
-            });
-            
             // 编辑标题按钮
             const editBtn = document.createElement('button');
             editBtn.className = 'oss-file-edit-btn';
@@ -7289,7 +7258,6 @@ class PetManager {
                 flex-shrink: 0 !important;
             `;
             buttonContainer.appendChild(editBtn);
-            buttonContainer.appendChild(downloadBtn);
             buttonContainer.appendChild(tagBtn);
             
             // 鼠标悬停在文件项上时显示按钮
@@ -22537,13 +22505,62 @@ ${messageContent}`;
             modal.appendChild(titleBar);
         }
 
+        // 创建按钮容器（下载和关闭按钮）
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            position: absolute !important;
+            top: 20px !important;
+            right: 20px !important;
+            display: flex !important;
+            gap: 12px !important;
+            align-items: center !important;
+        `;
+
+        // 创建下载按钮（仅当有文件名时显示）
+        let downloadBtn = null;
+        if (fileName) {
+            downloadBtn = document.createElement('button');
+            downloadBtn.innerHTML = '⬇️';
+            downloadBtn.title = '下载文件';
+            downloadBtn.style.cssText = `
+                background: rgba(255, 255, 255, 0.15) !important;
+                color: white !important;
+                border: none !important;
+                width: 44px !important;
+                height: 44px !important;
+                border-radius: 50% !important;
+                font-size: 20px !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+                backdrop-filter: blur(10px) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                line-height: 1 !important;
+            `;
+            downloadBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // fileName 就是文件对象名（objectName），直接使用
+                await this.downloadOssFile(fileName);
+            });
+
+            downloadBtn.addEventListener('mouseenter', () => {
+                downloadBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+                downloadBtn.style.transform = 'scale(1.1)';
+            });
+
+            downloadBtn.addEventListener('mouseleave', () => {
+                downloadBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+                downloadBtn.style.transform = 'scale(1)';
+            });
+
+            buttonContainer.appendChild(downloadBtn);
+        }
+
         // 创建关闭按钮
         const closeBtn = document.createElement('button');
         closeBtn.textContent = '✕';
         closeBtn.style.cssText = `
-            position: absolute !important;
-            top: 20px !important;
-            right: 20px !important;
             background: rgba(255, 255, 255, 0.15) !important;
             color: white !important;
             border: none !important;
@@ -22574,6 +22591,8 @@ ${messageContent}`;
             closeBtn.style.transform = 'scale(1)';
         });
 
+        buttonContainer.appendChild(closeBtn);
+
         // 点击背景关闭
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
@@ -22591,7 +22610,7 @@ ${messageContent}`;
         document.addEventListener('keydown', handleKeyDown);
 
         modal.appendChild(imageContainer);
-        modal.appendChild(closeBtn);
+        modal.appendChild(buttonContainer);
         document.body.appendChild(modal);
     }
 

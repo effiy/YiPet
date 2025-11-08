@@ -6970,19 +6970,21 @@ class PetManager {
             const previewAvatar = document.createElement('div');
             previewAvatar.className = 'oss-file-preview-avatar';
             previewAvatar.style.cssText = `
-                width: 40px !important;
-                height: 40px !important;
-                border-radius: 8px !important;
+                width: 48px !important;
+                height: 48px !important;
+                border-radius: 10px !important;
                 flex-shrink: 0 !important;
-                margin-right: 8px !important;
+                margin-right: 10px !important;
                 cursor: pointer !important;
-                background: #e5e7eb !important;
+                background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%) !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 overflow: hidden !important;
                 position: relative !important;
-                transition: all 0.2s ease !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                border: 2px solid transparent !important;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
             `;
             
             // 判断文件类型并设置预览头像
@@ -6992,21 +6994,61 @@ class PetManager {
             
             // 如果是图片，尝试加载预览图
             if (isImage && file.url) {
+                // 添加加载状态指示器
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.style.cssText = `
+                    position: absolute !important;
+                    top: 50% !important;
+                    left: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    width: 16px !important;
+                    height: 16px !important;
+                    border: 2px solid #d1d5db !important;
+                    border-top-color: #6366f1 !important;
+                    border-radius: 50% !important;
+                    animation: spin 0.6s linear infinite !important;
+                `;
+                
+                // 添加旋转动画
+                if (!document.getElementById('preview-avatar-spin-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'preview-avatar-spin-style';
+                    style.textContent = `
+                        @keyframes spin {
+                            to { transform: translate(-50%, -50%) rotate(360deg); }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                
+                previewAvatar.appendChild(loadingIndicator);
+                
                 const img = document.createElement('img');
                 img.style.cssText = `
                     width: 100% !important;
                     height: 100% !important;
                     object-fit: cover !important;
+                    opacity: 0 !important;
+                    transition: opacity 0.3s ease !important;
                 `;
                 img.alt = fileName;
                 
-                // 直接使用file.url加载预览图
-                img.src = file.url;
+                // 图片加载成功
+                img.onload = () => {
+                    loadingIndicator.style.display = 'none';
+                    img.style.opacity = '1';
+                };
+                
+                // 图片加载失败
                 img.onerror = () => {
-                    // 如果加载失败，显示默认图标
+                    loadingIndicator.style.display = 'none';
                     previewAvatar.innerHTML = '🖼️';
                     previewAvatar.style.fontSize = '20px';
+                    previewAvatar.style.background = '#f3f4f6';
                 };
+                
+                // 直接使用file.url加载预览图
+                img.src = file.url;
                 
                 previewAvatar.appendChild(img);
             } else {
@@ -7025,20 +7067,27 @@ class PetManager {
             
             // 预览头像悬停效果
             previewAvatar.addEventListener('mouseenter', () => {
-                previewAvatar.style.transform = 'scale(1.05)';
-                previewAvatar.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                previewAvatar.style.transform = 'scale(1.08)';
+                previewAvatar.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                previewAvatar.style.borderColor = '#6366f1';
             });
             previewAvatar.addEventListener('mouseleave', () => {
                 previewAvatar.style.transform = 'scale(1)';
-                previewAvatar.style.boxShadow = 'none';
+                previewAvatar.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                previewAvatar.style.borderColor = 'transparent';
             });
             
             // 点击预览头像，预览文件URL内容
             previewAvatar.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (file.url) {
-                    // 直接使用文件的url在新标签页打开预览
-                    window.open(file.url, '_blank');
+                    // 如果是图片，创建预览弹窗
+                    if (isImage) {
+                        this.showImagePreview(file.url, fileName);
+                    } else {
+                        // 非图片文件，直接在新标签页打开
+                        window.open(file.url, '_blank');
+                    }
                 }
             });
             
@@ -21918,62 +21967,199 @@ ${messageContent}`;
     }
 
     // 显示图片预览
-    showImagePreview(imageDataUrl) {
+    // @param {string} imageUrl - 图片URL或DataURL
+    // @param {string} fileName - 文件名（可选）
+    showImagePreview(imageUrl, fileName = '') {
+        // 如果已有预览弹窗，先关闭
+        const existingModal = document.querySelector('.image-preview-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
         const modal = document.createElement('div');
+        modal.className = 'image-preview-modal';
         modal.style.cssText = `
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            background: rgba(0, 0, 0, 0.9) !important;
+            background: rgba(0, 0, 0, 0.95) !important;
             z-index: 2147483650 !important;
             display: flex !important;
+            flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
             animation: fadeIn 0.3s ease-out !important;
         `;
 
-        const img = document.createElement('img');
-        img.src = imageDataUrl;
-        img.style.cssText = `
-            max-width: 90% !important;
+        // 添加fadeIn动画
+        if (!document.getElementById('image-preview-fade-style')) {
+            const style = document.createElement('style');
+            style.id = 'image-preview-fade-style';
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 创建图片容器
+        const imageContainer = document.createElement('div');
+        imageContainer.style.cssText = `
+            position: relative !important;
+            max-width: 95% !important;
             max-height: 90% !important;
-            border-radius: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         `;
 
+        // 创建加载指示器
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.style.cssText = `
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 40px !important;
+            height: 40px !important;
+            border: 3px solid rgba(255, 255, 255, 0.3) !important;
+            border-top-color: #fff !important;
+            border-radius: 50% !important;
+            animation: spin 0.8s linear infinite !important;
+        `;
+
+        // 添加spin动画
+        if (!document.getElementById('image-preview-spin-style')) {
+            const style = document.createElement('style');
+            style.id = 'image-preview-spin-style';
+            style.textContent = `
+                @keyframes spin {
+                    to { transform: translate(-50%, -50%) rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        imageContainer.appendChild(loadingIndicator);
+
+        const img = document.createElement('img');
+        img.style.cssText = `
+            max-width: 100% !important;
+            max-height: 85vh !important;
+            border-radius: 8px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+            opacity: 0 !important;
+            transition: opacity 0.3s ease !important;
+            object-fit: contain !important;
+        `;
+        img.alt = fileName || '图片预览';
+
+        // 图片加载成功
+        img.onload = () => {
+            loadingIndicator.style.display = 'none';
+            img.style.opacity = '1';
+        };
+
+        // 图片加载失败
+        img.onerror = () => {
+            loadingIndicator.style.display = 'none';
+            const errorMsg = document.createElement('div');
+            errorMsg.style.cssText = `
+                color: white !important;
+                text-align: center !important;
+                padding: 20px !important;
+                font-size: 16px !important;
+            `;
+            errorMsg.textContent = '图片加载失败';
+            imageContainer.appendChild(errorMsg);
+        };
+
+        img.src = imageUrl;
+        imageContainer.appendChild(img);
+
+        // 创建标题栏（显示文件名）
+        let titleBar = null;
+        if (fileName) {
+            titleBar = document.createElement('div');
+            titleBar.style.cssText = `
+                position: absolute !important;
+                top: 20px !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                background: rgba(0, 0, 0, 0.6) !important;
+                color: white !important;
+                padding: 8px 16px !important;
+                border-radius: 20px !important;
+                font-size: 14px !important;
+                max-width: 80% !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+                backdrop-filter: blur(10px) !important;
+            `;
+            titleBar.textContent = fileName;
+            modal.appendChild(titleBar);
+        }
+
+        // 创建关闭按钮
         const closeBtn = document.createElement('button');
         closeBtn.textContent = '✕';
         closeBtn.style.cssText = `
             position: absolute !important;
             top: 20px !important;
             right: 20px !important;
-            background: rgba(255, 255, 255, 0.2) !important;
+            background: rgba(255, 255, 255, 0.15) !important;
             color: white !important;
             border: none !important;
-            width: 40px !important;
-            height: 40px !important;
+            width: 44px !important;
+            height: 44px !important;
             border-radius: 50% !important;
-            font-size: 20px !important;
+            font-size: 24px !important;
             cursor: pointer !important;
             transition: all 0.3s ease !important;
+            backdrop-filter: blur(10px) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
         `;
-        closeBtn.addEventListener('click', () => {
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             modal.remove();
         });
 
         closeBtn.addEventListener('mouseenter', () => {
-            closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+            closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+            closeBtn.style.transform = 'scale(1.1)';
         });
 
-        modal.appendChild(img);
-        modal.appendChild(closeBtn);
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+            closeBtn.style.transform = 'scale(1)';
+        });
+
+        // 点击背景关闭
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
 
+        // 按ESC键关闭
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', handleKeyDown);
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+
+        modal.appendChild(imageContainer);
+        modal.appendChild(closeBtn);
         document.body.appendChild(modal);
     }
 

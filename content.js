@@ -6836,6 +6836,87 @@ class PetManager {
         console.log('会话侧边栏已更新，显示', sortedSessions.length, '个会话');
     }
     
+    /**
+     * 生成OSS图片处理URL
+     * 参考：https://help.aliyun.com/zh/oss/user-guide/overview-17/
+     * @param {string} originalUrl - 原始图片URL
+     * @param {Object} options - 处理选项
+     * @param {number} options.width - 目标宽度（像素）
+     * @param {number} options.height - 目标高度（像素）
+     * @param {number} options.quality - 图片质量（1-100，默认80）
+     * @param {string} options.format - 输出格式（webp, jpg, png等，默认不转换）
+     * @param {boolean} options.keepAspectRatio - 是否保持宽高比（默认true）
+     * @returns {string} 处理后的图片URL
+     */
+    generateOssImageProcessUrl(originalUrl, options = {}) {
+        if (!originalUrl) {
+            return originalUrl;
+        }
+        
+        // 检查是否是OSS URL（支持多种OSS URL格式）
+        // 格式1: https://bucket-name.oss-cn-hangzhou.aliyuncs.com/path
+        // 格式2: https://oss-cn-hangzhou.aliyuncs.com/bucket-name/path
+        // 格式3: 自定义域名但包含.oss.标识
+        const isOssUrl = /oss[-a-z0-9]*\.aliyuncs\.com/i.test(originalUrl) || 
+                        /\.oss\./i.test(originalUrl) ||
+                        /aliyuncs\.com/i.test(originalUrl);
+        
+        if (!isOssUrl) {
+            // 不是OSS URL，直接返回原URL
+            return originalUrl;
+        }
+        
+        const {
+            width,
+            height,
+            quality = 80,
+            format = null,
+            keepAspectRatio = true
+        } = options;
+        
+        // 构建图片处理参数
+        const params = [];
+        
+        // 缩放参数
+        if (width || height) {
+            let resizeParam = 'resize';
+            if (width && height) {
+                if (keepAspectRatio) {
+                    // 保持宽高比，使用m_lfit模式
+                    resizeParam += `,m_lfit,w_${width},h_${height}`;
+                } else {
+                    // 不保持宽高比，固定尺寸
+                    resizeParam += `,w_${width},h_${height}`;
+                }
+            } else if (width) {
+                resizeParam += `,w_${width}`;
+            } else if (height) {
+                resizeParam += `,h_${height}`;
+            }
+            params.push(resizeParam);
+        }
+        
+        // 质量参数（仅对JPG和WebP有效）
+        if (quality && quality < 100) {
+            params.push(`quality,q_${quality}`);
+        }
+        
+        // 格式转换
+        if (format && ['webp', 'jpg', 'jpeg', 'png'].includes(format.toLowerCase())) {
+            params.push(`format,${format.toLowerCase()}`);
+        }
+        
+        // 如果没有处理参数，返回原URL
+        if (params.length === 0) {
+            return originalUrl;
+        }
+        
+        // 构建完整的处理URL
+        const processParam = `x-oss-process=image/${params.join('/')}`;
+        const separator = originalUrl.includes('?') ? '&' : '?';
+        return `${originalUrl}${separator}${processParam}`;
+    }
+    
     // 更新OSS文件列表侧边栏
     async updateOssFileSidebar(forceRefresh = false) {
         if (!this.sessionSidebar) {
@@ -7120,8 +7201,15 @@ class PetManager {
                     previewAvatar.style.background = '#f3f4f6';
                 };
                 
-                // 直接使用file.url加载预览图
-                img.src = file.url;
+                // 使用OSS图片处理生成缩略图（96x96，质量70，支持高DPI屏幕）
+                // 实际显示为48x48，但使用96x96可以支持2x高DPI屏幕
+                const thumbnailUrl = this.generateOssImageProcessUrl(file.url, {
+                    width: 96,
+                    height: 96,
+                    quality: 70,
+                    keepAspectRatio: true
+                });
+                img.src = thumbnailUrl;
                 
                 previewAvatar.appendChild(img);
             } else {
@@ -22551,7 +22639,33 @@ ${messageContent}`;
             imageContainer.appendChild(errorMsg);
         };
 
-        img.src = imageUrl;
+        // 根据屏幕尺寸优化图片加载
+        // 获取屏幕尺寸，动态调整图片大小和质量
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        // 计算合适的预览尺寸（不超过屏幕的90%）
+        const maxWidth = Math.min(screenWidth * 0.9, 1920); // 最大不超过1920px
+        const maxHeight = Math.min(screenHeight * 0.85, 1080); // 最大不超过1080px
+        
+        // 根据屏幕尺寸决定质量
+        // 大屏幕使用较高质量，小屏幕使用较低质量以加快加载
+        let quality = 85;
+        if (screenWidth < 768) {
+            quality = 75; // 移动设备使用较低质量
+        } else if (screenWidth < 1440) {
+            quality = 80; // 中等屏幕
+        }
+        
+        // 使用OSS图片处理优化预览图
+        const optimizedUrl = this.generateOssImageProcessUrl(imageUrl, {
+            width: maxWidth,
+            height: maxHeight,
+            quality: quality,
+            keepAspectRatio: true
+        });
+        
+        img.src = optimizedUrl;
         imageContainer.appendChild(img);
 
         // 创建标题栏（显示文件名）
@@ -22941,7 +23055,13 @@ ${messageContent}`;
                     
                     // 创建图片元素
                     const img = document.createElement('img');
-                    img.src = downloadUrl;
+                    // 使用OSS图片处理优化欢迎消息中的图片（最大宽度800px，质量80）
+                    const optimizedUrl = this.generateOssImageProcessUrl(downloadUrl, {
+                        width: 800,
+                        quality: 80,
+                        keepAspectRatio: true
+                    });
+                    img.src = optimizedUrl;
                     img.alt = this.escapeHtml(fileInfo.name || '图片预览');
                     img.style.cssText = 'max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto; cursor: pointer;';
                     
@@ -23222,7 +23342,13 @@ ${messageContent}`;
                             
                             // 创建图片元素
                             const img = document.createElement('img');
-                            img.src = downloadUrl;
+                            // 使用OSS图片处理优化欢迎消息中的图片（最大宽度800px，质量80）
+                            const optimizedUrl = this.generateOssImageProcessUrl(downloadUrl, {
+                                width: 800,
+                                quality: 80,
+                                keepAspectRatio: true
+                            });
+                            img.src = optimizedUrl;
                             img.alt = this.escapeHtml(ossFileInfo.name || '图片预览');
                             img.style.cssText = 'max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto; cursor: pointer;';
                             
@@ -23259,7 +23385,13 @@ ${messageContent}`;
                         if (newPreviewContainer && existingPreviewInfo) {
                             // 恢复图片元素
                             const img = document.createElement('img');
-                            img.src = existingPreviewInfo.src;
+                            // 如果原URL是OSS URL，使用优化后的URL
+                            const optimizedSrc = this.generateOssImageProcessUrl(existingPreviewInfo.src, {
+                                width: 800,
+                                quality: 80,
+                                keepAspectRatio: true
+                            });
+                            img.src = optimizedSrc;
                             img.alt = existingPreviewInfo.alt;
                             img.style.cssText = existingPreviewInfo.style;
                             

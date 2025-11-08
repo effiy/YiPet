@@ -180,6 +180,12 @@ class PetManager {
         this.isPageFirstLoad = true; // 标记是否是页面首次加载/刷新
         this.skipSessionListRefresh = false; // 标记是否跳过会话列表刷新（prompt调用后使用）
         this.backendSessionIds = new Set(); // 存储后端会话ID集合，用于判断是否显示保存按钮
+        
+        // OSS文件管理相关属性
+        this.ossApi = null;
+        this.ossFileManager = null;
+        this.ossFileListVisible = false; // OSS文件列表是否可见
+        this.currentOssDirectory = ''; // 当前OSS目录
 
         this.init();
     }
@@ -196,6 +202,28 @@ class PetManager {
             console.log('会话API管理器已初始化');
         } else {
             console.log('会话API管理器未启用');
+        }
+        
+        // 初始化OSS API管理器
+        if (typeof OssApiManager !== 'undefined' && PET_CONFIG.api.yiaiBaseUrl) {
+            this.ossApi = new OssApiManager(
+                PET_CONFIG.api.yiaiBaseUrl,
+                true
+            );
+            console.log('OSS API管理器已初始化');
+            
+            // 初始化OSS文件管理器
+            if (typeof OssFileManager !== 'undefined') {
+                this.ossFileManager = new OssFileManager({
+                    ossApi: this.ossApi,
+                    enableBackendSync: true,
+                    directory: this.currentOssDirectory
+                });
+                await this.ossFileManager.initialize();
+                console.log('OSS文件管理器已初始化');
+            }
+        } else {
+            console.log('OSS API管理器未启用');
         }
         
         this.loadState(); // 加载保存的状态
@@ -4779,6 +4807,28 @@ class PetManager {
             return;
         }
         
+        // 隐藏OSS文件列表
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        if (ossFileList) {
+            ossFileList.style.display = 'none';
+        }
+        
+        // 显示会话列表相关元素
+        const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
+        const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
+        if (tagFilterContainer) {
+            tagFilterContainer.style.display = 'block';
+        }
+        if (batchToolbar && this.batchMode) {
+            batchToolbar.style.display = 'flex';
+        }
+        
+        // 更新搜索框占位符
+        const searchInput = this.sessionSidebar.querySelector('#session-search-input');
+        if (searchInput) {
+            searchInput.placeholder = '搜索会话...';
+        }
+        
         // 更新标签过滤器UI
         this.updateTagFilterUI();
         
@@ -4787,6 +4837,7 @@ class PetManager {
             console.log('会话列表容器未找到，跳过更新');
             return;
         }
+        sessionList.style.display = 'block';
         
         // 优先使用接口数据，确保列表与后端一致
         let allSessions = [];
@@ -5417,6 +5468,267 @@ class PetManager {
         console.log('会话侧边栏已更新，显示', sortedSessions.length, '个会话');
     }
     
+    // 更新OSS文件列表侧边栏
+    async updateOssFileSidebar(forceRefresh = false) {
+        if (!this.sessionSidebar) {
+            console.log('侧边栏未创建，跳过更新');
+            return;
+        }
+        
+        // 隐藏会话列表相关元素
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
+        const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
+        
+        if (sessionList) {
+            sessionList.style.display = 'none';
+        }
+        if (tagFilterContainer) {
+            tagFilterContainer.style.display = 'none';
+        }
+        if (batchToolbar) {
+            batchToolbar.style.display = 'none';
+        }
+        
+        // 获取或创建OSS文件列表容器
+        let ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        if (!ossFileList) {
+            ossFileList = document.createElement('div');
+            ossFileList.className = 'oss-file-list';
+            ossFileList.style.cssText = `
+                flex: 1 !important;
+                overflow-y: auto !important;
+                padding: 8px 8px 220px 8px !important;
+                scroll-padding-bottom: 20px !important;
+                box-sizing: border-box !important;
+            `;
+            this.sessionSidebar.appendChild(ossFileList);
+        }
+        ossFileList.style.display = 'block';
+        
+        // 更新搜索框占位符
+        const searchInput = this.sessionSidebar.querySelector('#session-search-input');
+        if (searchInput) {
+            searchInput.placeholder = '搜索文件...';
+        }
+        
+        // 加载文件列表
+        try {
+            if (this.ossFileManager && this.ossApi) {
+                await this.ossFileManager.loadBackendFiles(forceRefresh);
+            }
+        } catch (error) {
+            console.warn('加载OSS文件列表失败:', error);
+        }
+        
+        const files = this.ossFileManager ? this.ossFileManager.getAllFiles() : [];
+        
+        // 清空列表
+        ossFileList.innerHTML = '';
+        
+        if (files.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.cssText = `
+                padding: 20px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 12px !important;
+            `;
+            emptyMsg.textContent = '暂无文件';
+            ossFileList.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 按修改时间排序（最新的在前）
+        const sortedFiles = files.sort((a, b) => {
+            const aTime = a.last_modified || 0;
+            const bTime = b.last_modified || 0;
+            return bTime - aTime;
+        });
+        
+        // 创建文件列表项
+        for (const file of sortedFiles) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'oss-file-item';
+            fileItem.style.cssText = `
+                padding: 12px !important;
+                margin-bottom: 6px !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                background: #f9fafb !important;
+                border: 1px solid transparent !important;
+                display: flex !important;
+                align-items: flex-start !important;
+                gap: 8px !important;
+                position: relative !important;
+                user-select: none !important;
+            `;
+            
+            // 文件图标
+            const fileIcon = document.createElement('span');
+            fileIcon.style.cssText = `
+                font-size: 20px !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 判断文件类型并设置图标
+            const fileName = file.name || '';
+            const ext = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+            if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext)) {
+                fileIcon.textContent = '🖼️';
+            } else if (['.pdf'].includes(ext)) {
+                fileIcon.textContent = '📄';
+            } else if (['.doc', '.docx'].includes(ext)) {
+                fileIcon.textContent = '📝';
+            } else if (['.zip', '.rar', '.7z'].includes(ext)) {
+                fileIcon.textContent = '📦';
+            } else {
+                fileIcon.textContent = '📄';
+            }
+            
+            // 文件信息容器
+            const fileInfo = document.createElement('div');
+            fileInfo.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            `;
+            
+            // 文件名
+            const fileNameDiv = document.createElement('div');
+            fileNameDiv.className = 'oss-file-name';
+            fileNameDiv.textContent = fileName;
+            fileNameDiv.style.cssText = `
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                color: #374151 !important;
+                margin-bottom: 4px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+                max-width: 100% !important;
+            `;
+            fileNameDiv.setAttribute('title', fileName);
+            
+            // 文件元信息
+            const fileMeta = document.createElement('div');
+            fileMeta.className = 'oss-file-meta';
+            fileMeta.style.cssText = `
+                font-size: 11px !important;
+                color: #9ca3af !important;
+                margin-bottom: 4px !important;
+            `;
+            const sizeText = file.size_human || `${(file.size / 1024 / 1024).toFixed(2)}MB`;
+            const timeText = file.last_modified_str || '未知时间';
+            fileMeta.textContent = `📊 ${sizeText} | 📅 ${timeText}`;
+            
+            // 文件URL（可点击复制）
+            const fileUrl = document.createElement('div');
+            fileUrl.className = 'oss-file-url';
+            fileUrl.textContent = file.url || '';
+            fileUrl.style.cssText = `
+                font-size: 10px !important;
+                color: #667eea !important;
+                word-break: break-all !important;
+                font-family: 'Consolas', 'Monaco', monospace !important;
+                margin-top: 4px !important;
+                cursor: pointer !important;
+                opacity: 0.7 !important;
+                transition: opacity 0.2s ease !important;
+            `;
+            fileUrl.setAttribute('title', '点击复制链接');
+            fileUrl.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                try {
+                    await navigator.clipboard.writeText(file.url);
+                    this.showNotification('链接已复制到剪贴板', 'success');
+                } catch (error) {
+                    console.error('复制失败:', error);
+                }
+            });
+            fileUrl.addEventListener('mouseenter', () => {
+                fileUrl.style.opacity = '1';
+            });
+            fileUrl.addEventListener('mouseleave', () => {
+                fileUrl.style.opacity = '0.7';
+            });
+            
+            fileInfo.appendChild(fileNameDiv);
+            fileInfo.appendChild(fileMeta);
+            fileInfo.appendChild(fileUrl);
+            
+            // 操作按钮容器
+            const actionsContainer = document.createElement('div');
+            actionsContainer.style.cssText = `
+                display: flex !important;
+                gap: 4px !important;
+                opacity: 0 !important;
+                transition: opacity 0.2s ease !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 删除按钮
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.title = '删除文件';
+            deleteBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 4px !important;
+                font-size: 14px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+            `;
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (confirm(`确定要删除文件 "${fileName}" 吗？`)) {
+                    try {
+                        if (this.ossFileManager) {
+                            await this.ossFileManager.deleteFile(file.name);
+                            this.showNotification('文件已删除', 'success');
+                            // 刷新列表
+                            await this.updateOssFileSidebar(true);
+                        }
+                    } catch (error) {
+                        console.error('删除文件失败:', error);
+                        this.showNotification('删除文件失败', 'error');
+                    }
+                }
+            });
+            deleteBtn.addEventListener('mouseenter', () => {
+                deleteBtn.style.opacity = '1';
+            });
+            deleteBtn.addEventListener('mouseleave', () => {
+                deleteBtn.style.opacity = '0.6';
+            });
+            
+            actionsContainer.appendChild(deleteBtn);
+            
+            // 鼠标悬停时显示操作按钮
+            fileItem.addEventListener('mouseenter', () => {
+                fileItem.style.background = '#f3f4f6';
+                fileItem.style.borderColor = '#e5e7eb';
+                actionsContainer.style.opacity = '1';
+            });
+            fileItem.addEventListener('mouseleave', () => {
+                fileItem.style.background = '#f9fafb';
+                fileItem.style.borderColor = 'transparent';
+                actionsContainer.style.opacity = '0';
+            });
+            
+            fileItem.appendChild(fileIcon);
+            fileItem.appendChild(fileInfo);
+            fileItem.appendChild(actionsContainer);
+            
+            ossFileList.appendChild(fileItem);
+        }
+        
+        console.log('OSS文件列表已更新，显示', sortedFiles.length, '个文件');
+    }
+    
     // 进入批量选择模式
     enterBatchMode() {
         this.batchMode = true;
@@ -5434,11 +5746,13 @@ class PetManager {
         }
         
         // 更新批量模式按钮状态
-        const batchModeBtn = this.sessionSidebar.querySelector('button[title="批量选择模式"]');
+        const batchModeBtn = this.sessionSidebar.querySelector('span[title="批量选择"], span[title="退出批量选择模式"]');
         if (batchModeBtn) {
-            batchModeBtn.style.background = '#10b981';
-            batchModeBtn.innerHTML = '✓';
+            batchModeBtn.classList.add('batch-mode-active');
+            batchModeBtn.innerHTML = '☑️ 退出批量';
             batchModeBtn.title = '退出批量选择模式';
+            batchModeBtn.style.background = 'linear-gradient(135deg, #10b981, #059669) !important';
+            batchModeBtn.style.borderColor = '#059669 !important';
         }
         
         // 更新会话列表，显示复选框
@@ -5469,11 +5783,15 @@ class PetManager {
         }
         
         // 更新批量模式按钮状态
-        const batchModeBtn = this.sessionSidebar.querySelector('button[title="退出批量选择模式"], button[title="批量选择模式"]');
+        const batchModeBtn = this.sessionSidebar.querySelector('span[title="退出批量选择模式"], span[title="批量选择"]');
         if (batchModeBtn) {
-            batchModeBtn.style.background = '#6366f1';
-            batchModeBtn.innerHTML = '☑️';
-            batchModeBtn.title = '批量选择模式';
+            batchModeBtn.classList.remove('batch-mode-active');
+            batchModeBtn.innerHTML = '☑️ 批量选择';
+            batchModeBtn.title = '批量选择';
+            batchModeBtn.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
+            batchModeBtn.style.borderColor = '#4f46e5 !important';
+            batchModeBtn.style.transform = 'translateY(0)';
+            batchModeBtn.style.boxShadow = 'none !important';
         }
         // 更新会话列表，隐藏复选框
         this.updateSessionSidebar();
@@ -8916,9 +9234,9 @@ ${pageContent || '无内容'}
         
         // 统一的按钮样式
         button.style.cssText = `
-            padding: 4px !important;
+            padding: 2px !important;
             cursor: pointer !important;
-            font-size: 16px !important;
+            font-size: 10px !important;
             color: #666 !important;
             font-weight: 300 !important;
             transition: all 0.2s ease !important;
@@ -8927,9 +9245,9 @@ ${pageContent || '无内容'}
             align-items: center !important;
             justify-content: center !important;
             user-select: none !important;
-            width: 22px !important;
-            height: 22px !important;
-            line-height: 22px !important;
+            width: 18px !important;
+            height: 18px !important;
+            line-height: 18px !important;
         `;
         
         return button;
@@ -9009,14 +9327,14 @@ ${pageContent || '无内容'}
                         hover: {
                             mouseenter: function() {
                                 if (!processingFlag.value) {
-                                    this.style.fontSize = '18px';
+                                    this.style.fontSize = '12px';
                                     this.style.color = '#333';
                                     this.style.transform = 'scale(1.1)';
                                 }
                             },
                             mouseleave: function() {
                                 if (!processingFlag.value) {
-                                    this.style.fontSize = '16px';
+                                    this.style.fontSize = '10px';
                                     this.style.color = '#666';
                                     this.style.transform = 'scale(1)';
                                 }
@@ -9056,9 +9374,9 @@ ${pageContent || '无内容'}
                 button = document.createElement('span');
                 button.setAttribute('data-role-id', config.id);
                 button.style.cssText = `
-                    padding: 4px !important;
+                    padding: 2px !important;
                     cursor: pointer !important;
-                    font-size: 16px !important;
+                    font-size: 10px !important;
                     color: #666 !important;
                     font-weight: 300 !important;
                     transition: all 0.2s ease !important;
@@ -9067,19 +9385,19 @@ ${pageContent || '无内容'}
                     align-items: center !important;
                     justify-content: center !important;
                     user-select: none !important;
-                    width: 22px !important;
-                    height: 22px !important;
-                    line-height: 22px !important;
+                    width: 18px !important;
+                    height: 18px !important;
+                    line-height: 18px !important;
                 `;
                 
                 // 添加 hover 效果
                 button.addEventListener('mouseenter', function() {
-                    this.style.fontSize = '18px';
+                    this.style.fontSize = '12px';
                     this.style.color = '#333';
                     this.style.transform = 'scale(1.1)';
                 });
                 button.addEventListener('mouseleave', function() {
-                    this.style.fontSize = '16px';
+                    this.style.fontSize = '10px';
                     this.style.color = '#666';
                     this.style.transform = 'scale(1)';
                 });
@@ -9107,12 +9425,12 @@ ${pageContent || '无内容'}
                 
                 // 重新绑定 hover 效果（因为克隆后事件监听器丢失了）
                 button.addEventListener('mouseenter', function() {
-                    this.style.fontSize = '18px';
+                    this.style.fontSize = '12px';
                     this.style.color = '#333';
                     this.style.transform = 'scale(1.1)';
                 });
                 button.addEventListener('mouseleave', function() {
-                    this.style.fontSize = '16px';
+                    this.style.fontSize = '10px';
                     this.style.color = '#666';
                     this.style.transform = 'scale(1)';
                 });
@@ -14178,8 +14496,36 @@ ${messageContent}`;
             border-bottom: 1px solid #e5e7eb !important;
             background: #f9fafb !important;
             display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+        `;
+        
+        // 第一行：搜索输入框和OSS切换按钮
+        const firstRow = document.createElement('div');
+        firstRow.style.cssText = `
+            display: flex !important;
             align-items: center !important;
             gap: 8px !important;
+            width: 100% !important;
+        `;
+        
+        // 第二行：其他操作按钮
+        const secondRow = document.createElement('div');
+        secondRow.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            width: 100% !important;
+            flex-wrap: wrap !important;
+        `;
+        
+        // 创建左侧按钮组（批量、导出、导入）
+        const leftButtonGroup = document.createElement('div');
+        leftButtonGroup.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            flex: 1 !important;
         `;
         
         // 创建搜索输入框容器（带图标和清除按钮）
@@ -14351,33 +14697,50 @@ ${messageContent}`;
         searchContainer.appendChild(clearBtn);
         
         // 创建批量模式按钮
-        const batchModeBtn = document.createElement('button');
-        batchModeBtn.innerHTML = '☑️';
-        batchModeBtn.title = '批量选择模式';
+        const batchModeBtn = document.createElement('span');
+        batchModeBtn.innerHTML = '☑️ 批量选择';
+        batchModeBtn.title = '批量选择';
         batchModeBtn.style.cssText = `
-            width: 24px !important;
-            height: 24px !important;
-            border-radius: 4px !important;
-            background: #6366f1 !important;
-            color: white !important;
-            border: none !important;
+            padding: 4px 10px !important;
             cursor: pointer !important;
-            display: flex !important;
+            font-size: 12px !important;
+            color: white !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 14px !important;
-            transition: background 0.15s ease !important;
+            gap: 4px !important;
+            user-select: none !important;
+            border-radius: 4px !important;
+            background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+            border: 1px solid #4f46e5 !important;
             flex-shrink: 0 !important;
-            margin-right: 6px !important;
-            padding: 0 !important;
+            white-space: nowrap !important;
         `;
         
         // 批量模式按钮悬停效果
-        batchModeBtn.addEventListener('mouseenter', () => {
-            batchModeBtn.style.background = '#4f46e5';
+        batchModeBtn.addEventListener('mouseenter', function() {
+            if (this.classList.contains('batch-mode-active')) {
+                this.style.background = 'linear-gradient(135deg, #059669, #047857) !important';
+                this.style.transform = 'translateY(-1px)';
+                this.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3) !important';
+            } else {
+                this.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca) !important';
+                this.style.transform = 'translateY(-1px)';
+                this.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.3) !important';
+            }
         });
-        batchModeBtn.addEventListener('mouseleave', () => {
-            batchModeBtn.style.background = '#6366f1';
+        batchModeBtn.addEventListener('mouseleave', function() {
+            if (this.classList.contains('batch-mode-active')) {
+                this.style.background = 'linear-gradient(135deg, #10b981, #059669) !important';
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = 'none !important';
+            } else {
+                this.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = 'none !important';
+            }
         });
         
         // 批量模式按钮点击事件
@@ -14393,33 +14756,38 @@ ${messageContent}`;
         });
         
         // 创建导出按钮
-        const exportBtn = document.createElement('button');
-        exportBtn.innerHTML = '📥';
-        exportBtn.title = '导出筛选后的会话列表';
+        const exportBtn = document.createElement('span');
+        exportBtn.innerHTML = '⬇️ 导出';
+        exportBtn.title = '导出会话';
         exportBtn.style.cssText = `
-            width: 24px !important;
-            height: 24px !important;
-            border-radius: 4px !important;
-            background: #10b981 !important;
-            color: white !important;
-            border: none !important;
+            padding: 4px 10px !important;
             cursor: pointer !important;
-            display: flex !important;
+            font-size: 12px !important;
+            color: white !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 14px !important;
-            transition: background 0.15s ease !important;
+            gap: 4px !important;
+            user-select: none !important;
+            border-radius: 4px !important;
+            background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+            border: 1px solid #1976D2 !important;
             flex-shrink: 0 !important;
-            margin-right: 6px !important;
-            padding: 0 !important;
+            white-space: nowrap !important;
         `;
         
         // 导出按钮悬停效果
-        exportBtn.addEventListener('mouseenter', () => {
-            exportBtn.style.background = '#059669';
+        exportBtn.addEventListener('mouseenter', function() {
+            this.style.background = 'linear-gradient(135deg, #1976D2, #1565C0) !important';
+            this.style.transform = 'translateY(-1px)';
+            this.style.boxShadow = '0 2px 8px rgba(33, 150, 243, 0.3) !important';
         });
-        exportBtn.addEventListener('mouseleave', () => {
-            exportBtn.style.background = '#10b981';
+        exportBtn.addEventListener('mouseleave', function() {
+            this.style.background = 'linear-gradient(135deg, #2196F3, #1976D2) !important';
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none !important';
         });
         
         // 导出按钮点击事件
@@ -14428,7 +14796,7 @@ ${messageContent}`;
             e.stopPropagation();
             
             // 禁用按钮，防止重复点击
-            exportBtn.disabled = true;
+            exportBtn.style.pointerEvents = 'none';
             exportBtn.style.opacity = '0.6';
             exportBtn.style.cursor = 'wait';
             
@@ -14440,7 +14808,7 @@ ${messageContent}`;
             } finally {
                 // 恢复按钮状态
                 setTimeout(() => {
-                    exportBtn.disabled = false;
+                    exportBtn.style.pointerEvents = 'auto';
                     exportBtn.style.opacity = '1';
                     exportBtn.style.cursor = 'pointer';
                 }, 500);
@@ -14449,31 +14817,37 @@ ${messageContent}`;
         
         // 创建添加新会话按钮
         const addSessionBtn = document.createElement('button');
-        addSessionBtn.innerHTML = '➕';
-        addSessionBtn.title = '添加新会话';
+        addSessionBtn.innerHTML = '➕ 新建';
+        addSessionBtn.title = '新建';
         addSessionBtn.style.cssText = `
-            width: 24px !important;
-            height: 24px !important;
-            border-radius: 4px !important;
-            background: ${mainColor} !important;
-            color: white !important;
-            border: none !important;
+            padding: 4px 10px !important;
             cursor: pointer !important;
-            display: flex !important;
+            font-size: 12px !important;
+            color: white !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 14px !important;
-            transition: background 0.15s ease !important;
+            gap: 4px !important;
+            user-select: none !important;
+            border-radius: 4px !important;
+            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            border: 1px solid #764ba2 !important;
             flex-shrink: 0 !important;
-            padding: 0 !important;
+            white-space: nowrap !important;
         `;
         
         // 按钮悬停效果
-        addSessionBtn.addEventListener('mouseenter', () => {
-            addSessionBtn.style.background = `${mainColor}dd`;
+        addSessionBtn.addEventListener('mouseenter', function() {
+            this.style.background = 'linear-gradient(135deg, #764ba2, #6a3d9a) !important';
+            this.style.transform = 'translateY(-1px)';
+            this.style.boxShadow = '0 2px 8px rgba(118, 75, 162, 0.3) !important';
         });
-        addSessionBtn.addEventListener('mouseleave', () => {
-            addSessionBtn.style.background = mainColor;
+        addSessionBtn.addEventListener('mouseleave', function() {
+            this.style.background = 'linear-gradient(135deg, #667eea, #764ba2) !important';
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none !important';
         });
         
         // 按钮点击事件：创建空白新会话
@@ -14502,33 +14876,38 @@ ${messageContent}`;
         });
         
         // 创建导入按钮
-        const importBtn = document.createElement('button');
-        importBtn.innerHTML = '📤';
-        importBtn.title = '导入会话（从ZIP文件）';
+        const importBtn = document.createElement('span');
+        importBtn.innerHTML = '⬆️ 导入';
+        importBtn.title = '导入会话';
         importBtn.style.cssText = `
-            width: 24px !important;
-            height: 24px !important;
-            border-radius: 4px !important;
-            background: #3b82f6 !important;
-            color: white !important;
-            border: none !important;
+            padding: 4px 10px !important;
             cursor: pointer !important;
-            display: flex !important;
+            font-size: 12px !important;
+            color: white !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 14px !important;
-            transition: background 0.15s ease !important;
+            gap: 4px !important;
+            user-select: none !important;
+            border-radius: 4px !important;
+            background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+            border: 1px solid #45a049 !important;
             flex-shrink: 0 !important;
-            margin-right: 6px !important;
-            padding: 0 !important;
+            white-space: nowrap !important;
         `;
         
         // 导入按钮悬停效果
-        importBtn.addEventListener('mouseenter', () => {
-            importBtn.style.background = '#2563eb';
+        importBtn.addEventListener('mouseenter', function() {
+            this.style.background = 'linear-gradient(135deg, #45a049, #3d8b40) !important';
+            this.style.transform = 'translateY(-1px)';
+            this.style.boxShadow = '0 2px 8px rgba(76, 175, 80, 0.3) !important';
         });
-        importBtn.addEventListener('mouseleave', () => {
-            importBtn.style.background = '#3b82f6';
+        importBtn.addEventListener('mouseleave', function() {
+            this.style.background = 'linear-gradient(135deg, #4CAF50, #45a049) !important';
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none !important';
         });
         
         // 导入按钮点击事件
@@ -14549,7 +14928,7 @@ ${messageContent}`;
                 }
                 
                 // 禁用按钮，防止重复点击
-                importBtn.disabled = true;
+                importBtn.style.pointerEvents = 'none';
                 importBtn.style.opacity = '0.6';
                 importBtn.style.cursor = 'wait';
                 
@@ -14561,7 +14940,7 @@ ${messageContent}`;
                 } finally {
                     // 恢复按钮状态
                     setTimeout(() => {
-                        importBtn.disabled = false;
+                        importBtn.style.pointerEvents = 'auto';
                         importBtn.style.opacity = '1';
                         importBtn.style.cursor = 'pointer';
                     }, 500);
@@ -14578,11 +14957,96 @@ ${messageContent}`;
             fileInput.click();
         });
         
-        sidebarHeader.appendChild(searchContainer);
-        sidebarHeader.appendChild(batchModeBtn);
-        sidebarHeader.appendChild(exportBtn);
-        sidebarHeader.appendChild(importBtn);
-        sidebarHeader.appendChild(addSessionBtn);
+        // 创建OSS文件列表切换按钮
+        const ossToggleBtn = document.createElement('button');
+        ossToggleBtn.innerHTML = '📦 OSS';
+        ossToggleBtn.title = '切换到OSS文件列表';
+        ossToggleBtn.id = 'oss-toggle-btn';
+        ossToggleBtn.style.cssText = `
+            padding: 4px 10px !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            color: white !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 4px !important;
+            user-select: none !important;
+            border-radius: 4px !important;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+            border: 1px solid #7c3aed !important;
+            flex-shrink: 0 !important;
+            white-space: nowrap !important;
+        `;
+        
+        // OSS切换按钮悬停效果
+        ossToggleBtn.addEventListener('mouseenter', function() {
+            if (this.classList.contains('oss-mode-active')) {
+                this.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
+                this.style.transform = 'translateY(-1px)';
+                this.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.3) !important';
+            } else {
+                this.style.background = 'linear-gradient(135deg, #7c3aed, #6d28d9) !important';
+                this.style.transform = 'translateY(-1px)';
+                this.style.boxShadow = '0 2px 8px rgba(139, 92, 246, 0.3) !important';
+            }
+        });
+        ossToggleBtn.addEventListener('mouseleave', function() {
+            if (this.classList.contains('oss-mode-active')) {
+                this.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = 'none !important';
+            } else {
+                this.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed) !important';
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = 'none !important';
+            }
+        });
+        
+        // OSS切换按钮点击事件
+        ossToggleBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            this.ossFileListVisible = !this.ossFileListVisible;
+            
+            if (this.ossFileListVisible) {
+                ossToggleBtn.classList.add('oss-mode-active');
+                ossToggleBtn.title = '切换到会话列表';
+                ossToggleBtn.innerHTML = '💬 会话';
+                ossToggleBtn.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
+                ossToggleBtn.style.borderColor = '#4f46e5 !important';
+                // 切换到OSS文件列表
+                await this.updateOssFileSidebar();
+            } else {
+                ossToggleBtn.classList.remove('oss-mode-active');
+                ossToggleBtn.title = '切换到OSS文件列表';
+                ossToggleBtn.innerHTML = '📦 OSS';
+                ossToggleBtn.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed) !important';
+                ossToggleBtn.style.borderColor = '#7c3aed !important';
+                // 切换回会话列表
+                this.updateSessionSidebar();
+            }
+        });
+        
+        // 第一行：搜索输入框 + OSS切换按钮
+        firstRow.appendChild(searchContainer);
+        firstRow.appendChild(ossToggleBtn);
+        
+        // 组装左侧按钮组
+        leftButtonGroup.appendChild(batchModeBtn);
+        leftButtonGroup.appendChild(exportBtn);
+        leftButtonGroup.appendChild(importBtn);
+        
+        // 第二行：左侧按钮组 + 右侧新建按钮
+        secondRow.appendChild(leftButtonGroup);
+        secondRow.appendChild(addSessionBtn);
+        
+        // 组装侧边栏标题
+        sidebarHeader.appendChild(firstRow);
+        sidebarHeader.appendChild(secondRow);
         this.sessionSidebar.appendChild(sidebarHeader);
         
         // 创建批量操作工具栏容器（初始隐藏）
@@ -14656,21 +15120,23 @@ ${messageContent}`;
         batchDeleteBtn.id = 'batch-delete-btn';
         batchDeleteBtn.style.cssText = `
             padding: 4px 10px !important;
-            border-radius: 4px !important;
-            background: #ef4444 !important;
-            color: white !important;
-            border: none !important;
             cursor: pointer !important;
             font-size: 12px !important;
+            color: white !important;
             font-weight: 500 !important;
-            transition: background 0.15s ease !important;
-            flex-shrink: 0 !important;
-            display: flex !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
+            gap: 4px !important;
+            user-select: none !important;
+            border-radius: 4px !important;
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            border: 1px solid #dc2626 !important;
+            flex-shrink: 0 !important;
+            white-space: nowrap !important;
             position: relative !important;
             overflow: hidden !important;
-            gap: 4px !important;
         `;
         
         // 添加加载状态指示器
@@ -14710,14 +15176,18 @@ ${messageContent}`;
             document.head.appendChild(style);
         }
         
-        batchDeleteBtn.addEventListener('mouseenter', () => {
-            if (!batchDeleteBtn.disabled) {
-                batchDeleteBtn.style.background = '#dc2626';
+        batchDeleteBtn.addEventListener('mouseenter', function() {
+            if (!this.disabled) {
+                this.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c) !important';
+                this.style.transform = 'translateY(-1px)';
+                this.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3) !important';
             }
         });
-        batchDeleteBtn.addEventListener('mouseleave', () => {
-            if (!batchDeleteBtn.disabled) {
-                batchDeleteBtn.style.background = '#ef4444';
+        batchDeleteBtn.addEventListener('mouseleave', function() {
+            if (!this.disabled) {
+                this.style.background = 'linear-gradient(135deg, #ef4444, #dc2626) !important';
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = 'none !important';
             }
         });
         
@@ -15279,8 +15749,8 @@ ${messageContent}`;
         `;
 
         // 左侧按钮组
-        const leftButtonGroup = document.createElement('div');
-        leftButtonGroup.style.cssText = `
+        const inputLeftButtonGroup = document.createElement('div');
+        inputLeftButtonGroup.style.cssText = `
             display: flex !important;
             gap: 6px !important;
             align-items: center !important;
@@ -15512,8 +15982,8 @@ ${messageContent}`;
         // 存储更新函数以便在其他地方调用
         contextSwitchContainer.updateColor = updateSwitchColor;
 
-        leftButtonGroup.appendChild(mentionButton);
-        leftButtonGroup.appendChild(imageUploadButton);
+        inputLeftButtonGroup.appendChild(mentionButton);
+        inputLeftButtonGroup.appendChild(imageUploadButton);
         rightStatusGroup.appendChild(contextSwitchContainer);
         // 添加：页面上下文预览/编辑按钮
         const contextBtn = document.createElement('button');
@@ -15543,10 +16013,10 @@ ${messageContent}`;
             contextBtn.style.borderColor = currentMainColor;
         });
         contextBtn.addEventListener('click', () => this.openContextEditor());
-        leftButtonGroup.appendChild(contextBtn);
+        inputLeftButtonGroup.appendChild(contextBtn);
         // 已移除自定义角色快捷入口
 
-        topToolbar.appendChild(leftButtonGroup);
+        topToolbar.appendChild(inputLeftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);
         inputContainer.appendChild(topToolbar);
 

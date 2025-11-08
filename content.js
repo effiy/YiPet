@@ -8063,137 +8063,24 @@ class PetManager {
         }
     }
     
-    // 更新OSS文件视图下的批量操作按钮（导入、导出、新建）
+    // 更新OSS文件视图下的批量操作按钮（移除所有OSS专用按钮）
     updateOssFileBatchButtons() {
         const batchToolbar = document.getElementById('batch-toolbar');
         if (!batchToolbar) return;
         
-        // 检查是否已存在OSS文件专用按钮
-        let importBtn = batchToolbar.querySelector('#oss-batch-import-btn');
-        let exportBtn = batchToolbar.querySelector('#oss-batch-export-btn');
-        let newBtn = batchToolbar.querySelector('#oss-batch-new-btn');
+        // 移除已存在的导入、导出和新建按钮
+        const importBtn = batchToolbar.querySelector('#oss-batch-import-btn');
+        const exportBtn = batchToolbar.querySelector('#oss-batch-export-btn');
+        const newBtn = batchToolbar.querySelector('#oss-batch-new-btn');
         
-        // 如果不存在，创建按钮
-        if (!importBtn) {
-            importBtn = document.createElement('button');
-            importBtn.id = 'oss-batch-import-btn';
-            importBtn.textContent = '📥 导入';
-            importBtn.title = '导入OSS文件';
-            importBtn.style.cssText = `
-                padding: 6px 12px !important;
-                background: #2196F3 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 12px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                margin-left: 8px !important;
-            `;
-            importBtn.addEventListener('mouseenter', () => {
-                importBtn.style.background = '#1976D2';
-            });
-            importBtn.addEventListener('mouseleave', () => {
-                importBtn.style.background = '#2196F3';
-            });
-            importBtn.addEventListener('click', () => {
-                this.importOssFiles();
-            });
-            
-            // 插入到批量工具栏中（在删除按钮之前）
-            const batchDeleteBtn = document.getElementById('batch-delete-btn');
-            if (batchDeleteBtn && batchDeleteBtn.parentNode) {
-                batchDeleteBtn.parentNode.insertBefore(importBtn, batchDeleteBtn);
-            } else {
-                batchToolbar.appendChild(importBtn);
-            }
+        if (importBtn && importBtn.parentNode) {
+            importBtn.parentNode.removeChild(importBtn);
         }
-        
-        if (!exportBtn) {
-            exportBtn = document.createElement('button');
-            exportBtn.id = 'oss-batch-export-btn';
-            exportBtn.textContent = '📤 导出';
-            exportBtn.title = '导出选中的OSS文件';
-            exportBtn.style.cssText = `
-                padding: 6px 12px !important;
-                background: #4CAF50 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 12px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                margin-left: 8px !important;
-            `;
-            exportBtn.addEventListener('mouseenter', () => {
-                exportBtn.style.background = '#45a049';
-            });
-            exportBtn.addEventListener('mouseleave', () => {
-                exportBtn.style.background = '#4CAF50';
-            });
-            exportBtn.addEventListener('click', () => {
-                this.exportOssFiles();
-            });
-            
-            // 插入到导入按钮之后
-            if (importBtn && importBtn.parentNode) {
-                importBtn.parentNode.insertBefore(exportBtn, importBtn.nextSibling);
-            } else {
-                batchToolbar.appendChild(exportBtn);
-            }
+        if (exportBtn && exportBtn.parentNode) {
+            exportBtn.parentNode.removeChild(exportBtn);
         }
-        
-        if (!newBtn) {
-            newBtn = document.createElement('button');
-            newBtn.id = 'oss-batch-new-btn';
-            newBtn.textContent = '➕ 新建';
-            newBtn.title = '上传新文件到OSS';
-            newBtn.style.cssText = `
-                padding: 6px 12px !important;
-                background: #FF9800 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 12px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                margin-left: 8px !important;
-            `;
-            newBtn.addEventListener('mouseenter', () => {
-                newBtn.style.background = '#F57C00';
-            });
-            newBtn.addEventListener('mouseleave', () => {
-                newBtn.style.background = '#FF9800';
-            });
-            newBtn.addEventListener('click', () => {
-                this.uploadFileToOss();
-            });
-            
-            // 插入到导出按钮之后
-            if (exportBtn && exportBtn.parentNode) {
-                exportBtn.parentNode.insertBefore(newBtn, exportBtn.nextSibling);
-            } else {
-                batchToolbar.appendChild(newBtn);
-            }
-        }
-        
-        // 显示按钮
-        importBtn.style.display = 'block';
-        exportBtn.style.display = 'block';
-        newBtn.style.display = 'block';
-        
-        // 更新导出按钮的启用状态（根据选中数量）
-        const hasSelection = this.selectedFileNames.size > 0;
-        exportBtn.disabled = !hasSelection;
-        if (hasSelection) {
-            exportBtn.style.opacity = '1';
-            exportBtn.style.cursor = 'pointer';
-        } else {
-            exportBtn.style.opacity = '0.5';
-            exportBtn.style.cursor = 'not-allowed';
+        if (newBtn && newBtn.parentNode) {
+            newBtn.parentNode.removeChild(newBtn);
         }
     }
     
@@ -8206,9 +8093,16 @@ class PetManager {
         const exportBtn = batchToolbar.querySelector('#oss-batch-export-btn');
         const newBtn = batchToolbar.querySelector('#oss-batch-new-btn');
         
-        if (importBtn) importBtn.style.display = 'none';
-        if (exportBtn) exportBtn.style.display = 'none';
-        if (newBtn) newBtn.style.display = 'none';
+        // 移除导入、导出和新建按钮
+        if (importBtn && importBtn.parentNode) {
+            importBtn.parentNode.removeChild(importBtn);
+        }
+        if (exportBtn && exportBtn.parentNode) {
+            exportBtn.parentNode.removeChild(exportBtn);
+        }
+        if (newBtn && newBtn.parentNode) {
+            newBtn.parentNode.removeChild(newBtn);
+        }
     }
     
     // 导入OSS文件（从ZIP文件导入）

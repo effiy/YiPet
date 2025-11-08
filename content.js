@@ -6883,6 +6883,13 @@ class PetManager {
                     return;
                 }
                 
+                // 如果正在切换，忽略点击
+                if (fileItem.classList.contains('switching')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
                 // 批量模式下，点击切换选中状态
                 if (this.batchMode) {
                     checkbox.checked = !checkbox.checked;
@@ -6890,9 +6897,9 @@ class PetManager {
                     return;
                 }
                 
-                // 非批量模式下，选择文件（设置当前文件）
+                // 如果点击的是当前文件，不执行操作（但仍添加视觉反馈）
                 if (file.name === this.currentFile) {
-                    // 如果点击的是当前文件，添加轻微反馈提示
+                    // 添加轻微反馈提示这是当前文件
                     fileItem.classList.add('clicked');
                     setTimeout(() => {
                         fileItem.classList.remove('clicked');
@@ -6903,30 +6910,43 @@ class PetManager {
                 // 立即添加点击反馈
                 fileItem.classList.add('clicked');
                 
-                // 设置当前文件
-                this.currentFile = file.name;
+                // 防止重复点击：快速禁用
+                fileItem.style.pointerEvents = 'none';
                 
-                // 更新所有文件项的active状态
-                const allFileItems = ossFileList.querySelectorAll('.oss-file-item');
-                allFileItems.forEach(item => {
-                    item.classList.remove('active');
-                    if (item.dataset.fileName === file.name) {
-                        item.classList.add('active');
-                    }
-                });
-                
-                // 复制链接到剪贴板
                 try {
-                    await navigator.clipboard.writeText(file.url);
-                    this.showNotification('链接已复制到剪贴板', 'success');
+                    // 设置当前文件
+                    this.currentFile = file.name;
+                    
+                    // 更新所有文件项的active状态
+                    const allFileItems = ossFileList.querySelectorAll('.oss-file-item');
+                    allFileItems.forEach(item => {
+                        item.classList.remove('active');
+                        if (item.dataset.fileName === file.name) {
+                            item.classList.add('active');
+                        }
+                    });
+                    
+                    // 添加切换状态
+                    fileItem.classList.add('switching');
+                    
+                    // 复制链接到剪贴板
+                    try {
+                        await navigator.clipboard.writeText(file.url);
+                        this.showNotification('链接已复制到剪贴板', 'success');
+                    } catch (error) {
+                        console.error('复制失败:', error);
+                    }
                 } catch (error) {
-                    console.error('复制失败:', error);
+                    console.error('切换文件失败:', error);
+                    // 移除加载状态
+                    fileItem.classList.remove('switching', 'clicked');
+                } finally {
+                    // 恢复交互（延迟一点，避免过快重复点击）
+                    setTimeout(() => {
+                        fileItem.style.pointerEvents = '';
+                        fileItem.classList.remove('clicked', 'switching');
+                    }, 300);
                 }
-                
-                // 移除点击反馈
-                setTimeout(() => {
-                    fileItem.classList.remove('clicked');
-                }, 300);
             });
             
             ossFileList.appendChild(fileItem);
@@ -16964,6 +16984,31 @@ ${messageContent}`;
                     display: block !important;
                     height: 20px !important;
                     flex-shrink: 0 !important;
+                }
+                .oss-file-item.switching {
+                    cursor: wait !important;
+                    opacity: 0.8 !important;
+                    pointer-events: none !important;
+                    position: relative !important;
+                    background: ${mainColor}10 !important;
+                    border-color: ${mainColor}40 !important;
+                }
+                .oss-file-item.switching::after {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: 50% !important;
+                    left: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    width: 16px !important;
+                    height: 16px !important;
+                    border: 2px solid ${mainColor} !important;
+                    border-top-color: transparent !important;
+                    border-radius: 50% !important;
+                    animation: oss-file-switching-spin 0.6s linear infinite !important;
+                }
+                @keyframes oss-file-switching-spin {
+                    0% { transform: translate(-50%, -50%) rotate(0deg) !important; }
+                    100% { transform: translate(-50%, -50%) rotate(360deg) !important; }
                 }
             `;
             document.head.appendChild(style);

@@ -430,6 +430,27 @@ class PetManager {
         try {
             console.log('处理OSS文件点击:', file);
             
+            // 检查文件对象是否有效
+            if (!file) {
+                console.error('文件对象为空');
+                this.showNotification('文件信息无效', 'error');
+                return;
+            }
+            
+            // 确保文件有url字段，如果没有则使用name生成
+            if (!file.url && file.name) {
+                // 如果文件对象没有url，尝试从name生成
+                // 这里假设url格式为：baseUrl + name，但实际应该由后端提供
+                console.warn('文件对象缺少url字段，使用name作为标识');
+                file.url = file.name;
+            }
+            
+            if (!file.url) {
+                console.error('文件对象缺少url和name字段');
+                this.showNotification('文件信息不完整', 'error');
+                return;
+            }
+            
             // 确保聊天窗口已打开
             if (!this.chatWindow || !this.isChatOpen) {
                 await this.openChatWindow();
@@ -444,12 +465,13 @@ class PetManager {
             
             if (!session) {
                 // 创建新会话
+                // OSS文件会话：pageTitle使用文件名，pageDescription和pageContent为空
                 session = this.createSessionObject(sessionId, {
                     url: file.url,
                     title: file.name || 'OSS文件',
                     pageTitle: file.name || 'OSS文件',
-                    pageDescription: file.description || '',
-                    pageContent: ''
+                    pageDescription: '', // OSS文件会话的pageDescription应该为空
+                    pageContent: '' // OSS文件会话的pageContent应该为空
                 });
                 this.sessions[sessionId] = session;
                 
@@ -481,7 +503,18 @@ class PetManager {
                     size_human: file.size_human || '',
                     last_modified_str: file.last_modified_str || ''
                 };
+                // 确保OSS文件会话的pageTitle、pageDescription和pageContent正确
+                session.pageTitle = file.name || 'OSS文件';
+                session.pageDescription = ''; // OSS文件会话的pageDescription应该为空
+                session.pageContent = ''; // OSS文件会话的pageContent应该为空
             }
+            
+            // 检查当前是否显示OSS文件列表
+            const ossFileList = this.sessionSidebar?.querySelector('.oss-file-list');
+            const isOssFileListVisible = ossFileList && ossFileList.style.display !== 'none';
+            
+            // 设置当前文件（用于高亮显示）
+            this.currentFile = file.name;
             
             // 激活会话
             await this.activateSession(sessionId, {
@@ -489,8 +522,35 @@ class PetManager {
                 updateConsistency: false, // OSS文件会话不需要更新页面一致性
                 updateUI: true,
                 syncToBackend: false,
-                skipBackendFetch: true
+                skipBackendFetch: true,
+                keepOssFileListView: isOssFileListVisible // 如果当前显示OSS文件列表，保持该视图
             });
+            
+            // 确保会话信息已更新（在激活会话后）
+            const activatedSession = this.sessions[sessionId];
+            if (activatedSession) {
+                activatedSession._isOssFileSession = true;
+                activatedSession._ossFileInfo = {
+                    name: file.name || '',
+                    url: file.url || '',
+                    description: file.description || '',
+                    tags: file.tags || [],
+                    isImage: file.isImage || false,
+                    size: file.size || 0,
+                    size_human: file.size_human || '',
+                    last_modified_str: file.last_modified_str || ''
+                };
+                // 确保OSS文件会话的pageTitle、pageDescription和pageContent正确
+                activatedSession.pageTitle = file.name || 'OSS文件';
+                activatedSession.pageDescription = ''; // OSS文件会话的pageDescription应该为空
+                activatedSession.pageContent = ''; // OSS文件会话的pageContent应该为空
+            }
+            
+            // 如果当前显示的是OSS文件列表，更新OSS文件列表的active状态，并确保保持OSS文件列表视图
+            if (isOssFileListVisible) {
+                // 更新OSS文件列表的active状态（在激活会话后，确保currentSessionId已设置）
+                await this.updateOssFileSidebar(false);
+            }
             
             console.log('OSS文件会话已创建并激活:', sessionId);
         } catch (error) {
@@ -2052,6 +2112,19 @@ class PetManager {
         
         const session = this.sessions[sessionId];
         
+        // OSS文件会话不应该更新URL、pageTitle、pageDescription和pageContent
+        // 这些信息应该保持为OSS文件的信息
+        if (session._isOssFileSession) {
+            console.log(`更新会话页面信息 ${sessionId}：OSS文件会话，跳过页面信息更新`);
+            // OSS文件会话的页面信息不应该被更新，只更新访问时间
+            const now = Date.now();
+            Object.assign(session, {
+                updatedAt: now,
+                lastAccessTime: now
+            });
+            return true;
+        }
+        
         // 关键检查：只有当会话URL和页面URL匹配时，才更新页面信息
         // 这样可以防止意外修改不同URL的会话数据
         if (session.url !== pageInfo.url) {
@@ -2081,11 +2154,15 @@ class PetManager {
             updateSidebar = true, 
             updateTitle = true, 
             loadMessages = false,
-            highlightSessionId = null 
+            highlightSessionId = null,
+            keepOssFileListView = false // 是否保持OSS文件列表视图（不切换到会话列表）
         } = options;
         
         if (updateSidebar && this.sessionSidebar) {
-            await this.updateSessionSidebar();
+            // 如果指定保持OSS文件列表视图，则不更新侧边栏（避免切换到会话列表）
+            if (!keepOssFileListView) {
+                await this.updateSessionSidebar();
+            }
         }
         
         if (updateTitle) {
@@ -2205,7 +2282,8 @@ class PetManager {
             updateConsistency = true,
             updateUI = true,
             syncToBackend = true,
-            skipBackendFetch = false // 是否跳过从后端获取数据（用于新创建的空白会话）
+            skipBackendFetch = false, // 是否跳过从后端获取数据（用于新创建的空白会话）
+            keepOssFileListView = false // 是否保持OSS文件列表视图（不切换到会话列表）
         } = options;
         
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
@@ -2264,8 +2342,14 @@ class PetManager {
                         existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
                         existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
                         existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
+                        
+                        // 如果是OSS文件会话，恢复OSS文件信息
+                        if (fullSession._isOssFileSession && fullSession._ossFileInfo) {
+                            existingSession._isOssFileSession = true;
+                            existingSession._ossFileInfo = fullSession._ossFileInfo;
+                        }
                     } else {
-                        // 如果本地不存在，直接使用后端数据
+                        // 如果本地不存在，直接使用后端数据（包括OSS文件信息）
                         this.sessions[sessionId] = fullSession;
                     }
                     
@@ -2321,7 +2405,8 @@ class PetManager {
             await this.updateSessionUI({
                 updateSidebar: true,
                 updateTitle: true,
-                loadMessages: this.isChatOpen
+                loadMessages: this.isChatOpen,
+                keepOssFileListView: keepOssFileListView // 传递保持OSS文件列表视图的选项
             });
         }
     }
@@ -2675,6 +2760,12 @@ class PetManager {
                         lastAccessTime: backendSession.lastAccessTime || Date.now()
                     };
                     
+                    // 如果是OSS文件会话，恢复OSS文件信息
+                    if (backendSession._isOssFileSession && backendSession._ossFileInfo) {
+                        localSession._isOssFileSession = true;
+                        localSession._ossFileInfo = backendSession._ossFileInfo;
+                    }
+                    
                     backendSessionsMap[sessionId] = localSession;
                 });
                 
@@ -2718,7 +2809,10 @@ class PetManager {
                                 // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
                                 pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                     ? localSession.pageContent
-                                    : (backendSession.pageContent || '')
+                                    : (backendSession.pageContent || ''),
+                                // 保留OSS文件会话信息（优先使用后端的，如果后端没有则使用本地的）
+                                _isOssFileSession: backendSession._isOssFileSession || localSession._isOssFileSession || false,
+                                _ossFileInfo: backendSession._ossFileInfo || localSession._ossFileInfo || null
                             };
                         } else {
                             this.sessions[sessionId] = {
@@ -2728,7 +2822,10 @@ class PetManager {
                                 pageDescription: localSession.pageDescription || backendSession.pageDescription,
                                 pageContent: localSession.pageContent || backendSession.pageContent,
                                 messages: localMessages,
-                                tags: finalTags
+                                tags: finalTags,
+                                // 保留OSS文件会话信息（优先使用本地的，如果本地没有则使用后端的）
+                                _isOssFileSession: localSession._isOssFileSession || backendSession._isOssFileSession || false,
+                                _ossFileInfo: localSession._ossFileInfo || backendSession._ossFileInfo || null
                             };
                         }
                     }
@@ -3140,11 +3237,27 @@ class PetManager {
             }
             
             // 构建请求数据
+            // 如果是OSS文件会话，url应该使用OSS文件的url，而不是session.url（可能被更新为当前页面URL）
+            const sessionUrl = (session._isOssFileSession && session._ossFileInfo?.url) 
+                ? session._ossFileInfo.url 
+                : (session.url || '');
+            
+            // 如果是OSS文件会话，pageTitle应该使用OSS文件的名称，pageDescription和pageContent应该为空
+            let pageTitle = session.pageTitle || '';
+            let pageDescription = session.pageDescription || '';
+            let pageContent = '';
+            
+            if (session._isOssFileSession && session._ossFileInfo) {
+                pageTitle = session._ossFileInfo.name || 'OSS文件';
+                pageDescription = ''; // OSS文件会话的pageDescription应该为空
+                pageContent = ''; // OSS文件会话的pageContent应该为空
+            }
+            
             const sessionData = {
                 id: session.id || sessionId,
-                url: session.url || '',
-                pageTitle: session.pageTitle || '',
-                pageDescription: session.pageDescription || '',
+                url: sessionUrl,
+                pageTitle: pageTitle,
+                pageDescription: pageDescription,
                 messages: session.messages || [],
                 tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
@@ -3152,9 +3265,15 @@ class PetManager {
                 lastAccessTime: session.lastAccessTime || Date.now()
             };
             
-            // 只有在手动保存页面上下文时才包含 pageContent 字段
+            // 只有在手动保存页面上下文时才包含 pageContent 字段（但OSS文件会话始终为空）
             if (includePageContent) {
-                sessionData.pageContent = session.pageContent || '';
+                sessionData.pageContent = pageContent;
+            }
+            
+            // 如果是OSS文件会话，包含OSS文件信息
+            if (session._isOssFileSession && session._ossFileInfo) {
+                sessionData._isOssFileSession = true;
+                sessionData._ossFileInfo = session._ossFileInfo;
             }
             
             // 使用API管理器
@@ -3183,7 +3302,12 @@ class PetManager {
                                     // 优先保留本地的 pageTitle（如果本地有内容）
                                     pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
                                         ? localSession.pageTitle
-                                        : (updatedSession.pageTitle || localSession.pageTitle || '')
+                                        : (updatedSession.pageTitle || localSession.pageTitle || ''),
+                                    // 保留OSS文件会话信息（优先使用后端的，如果后端没有则使用本地的）
+                                    _isOssFileSession: updatedSession._isOssFileSession !== undefined 
+                                        ? updatedSession._isOssFileSession 
+                                        : (localSession._isOssFileSession || false),
+                                    _ossFileInfo: updatedSession._ossFileInfo || localSession._ossFileInfo || null
                                 };
                             }
                         }
@@ -3933,6 +4057,11 @@ class PetManager {
     // 获取筛选后的会话列表
     _getFilteredSessions() {
         let allSessions = this._getSessionsFromLocal();
+        
+        // 排除OSS文件会话
+        allSessions = allSessions.filter(session => {
+            return !session._isOssFileSession;
+        });
         
         // 应用标签过滤（与updateSessionSidebar中的逻辑一致）
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
@@ -5737,6 +5866,11 @@ class PetManager {
         // 第一次页面加载时的调用已在 loadSessionsFromBackend 中处理
         allSessions = this._getSessionsFromLocal();
         
+        // 排除OSS文件会话
+        allSessions = allSessions.filter(session => {
+            return !session._isOssFileSession;
+        });
+        
         // 应用标签过滤
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
             allSessions = allSessions.filter(session => {
@@ -6485,8 +6619,26 @@ class PetManager {
             fileItem.className = 'oss-file-item';
             fileItem.dataset.fileName = file.name;
             
-            // 添加选中状态类
-            if (file.name === this.currentFile) {
+            // 添加选中状态类：检查当前会话是否是该OSS文件的会话
+            // 如果当前会话是OSS文件会话，且文件URL对应的会话ID与当前会话ID匹配，则设置为active
+            let isActive = false;
+            if (this.currentSessionId) {
+                const currentSession = this.sessions[this.currentSessionId];
+                if (currentSession && currentSession._isOssFileSession && currentSession._ossFileInfo) {
+                    // 当前会话是OSS文件会话，检查文件URL是否匹配
+                    if (currentSession._ossFileInfo.url === file.url) {
+                        isActive = true;
+                        fileItem.classList.add('active');
+                        this.currentFile = file.name; // 同步更新currentFile
+                    }
+                } else if (file.name === this.currentFile) {
+                    // 兼容旧逻辑：如果currentFile已设置，也设置为active
+                    isActive = true;
+                    fileItem.classList.add('active');
+                }
+            } else if (file.name === this.currentFile) {
+                // 兼容旧逻辑：如果currentFile已设置，也设置为active
+                isActive = true;
                 fileItem.classList.add('active');
             }
             
@@ -6495,14 +6647,15 @@ class PetManager {
                 fileItem.classList.add('selected');
             }
             
+            // 设置基础样式，active状态使用不同的背景色和边框
             fileItem.style.cssText = `
                 padding: 12px !important;
                 margin-bottom: 6px !important;
                 border-radius: 8px !important;
                 cursor: pointer !important;
                 transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                background: #f9fafb !important;
-                border: 1px solid transparent !important;
+                background: ${isActive ? '#e0e7ff' : '#f9fafb'} !important;
+                border: 1px solid ${isActive ? '#6366f1' : 'transparent'} !important;
                 display: flex !important;
                 align-items: flex-start !important;
                 gap: 8px !important;
@@ -7052,8 +7205,18 @@ class PetManager {
                     return;
                 }
                 
-                // 如果点击的是当前文件，不执行操作（但仍添加视觉反馈）
-                if (file.name === this.currentFile) {
+                // 检查当前会话是否是该OSS文件的会话
+                // 确保文件有url字段，如果没有则使用name
+                const fileUrl = file.url || file.name || '';
+                if (!fileUrl) {
+                    console.error('文件对象缺少url和name字段');
+                    return;
+                }
+                const fileSessionId = await this.generateSessionId(fileUrl);
+                const isCurrentFileSession = this.currentSessionId === fileSessionId;
+                
+                // 如果点击的是当前文件的会话，不执行操作（但仍添加视觉反馈）
+                if (isCurrentFileSession) {
                     // 添加轻微反馈提示这是当前文件
                     fileItem.classList.add('clicked');
                     setTimeout(() => {
@@ -7069,30 +7232,38 @@ class PetManager {
                 fileItem.style.pointerEvents = 'none';
                 
                 try {
-                    // 设置当前文件
-                    this.currentFile = file.name;
-                    
                     // 更新所有文件项的active状态
                     const allFileItems = ossFileList.querySelectorAll('.oss-file-item');
                     allFileItems.forEach(item => {
                         item.classList.remove('active');
-                        if (item.dataset.fileName === file.name) {
-                            item.classList.add('active');
-                        }
                     });
                     
                     // 添加切换状态
                     fileItem.classList.add('switching');
                     
-                    // 复制链接到剪贴板
-                    try {
-                        await navigator.clipboard.writeText(file.url);
-                        this.showNotification('链接已复制到剪贴板', 'success');
-                    } catch (error) {
-                        console.error('复制失败:', error);
-                    }
+                    // 调用handleOssFileClick处理OSS文件点击，创建会话并打开聊天窗口
+                    await this.handleOssFileClick(file);
+                    
+                    // 设置当前文件
+                    this.currentFile = file.name;
+                    
+                    // 更新当前文件项的active状态
+                    const allFileItemsAfter = ossFileList.querySelectorAll('.oss-file-item');
+                    allFileItemsAfter.forEach(item => {
+                        if (item.dataset.fileName === file.name) {
+                            item.classList.add('active');
+                            // 更新样式以显示高亮
+                            item.style.background = '#e0e7ff';
+                            item.style.border = '1px solid #6366f1';
+                        } else {
+                            // 确保其他文件项不是active状态
+                            item.classList.remove('active');
+                            item.style.background = '#f9fafb';
+                            item.style.border = '1px solid transparent';
+                        }
+                    });
                 } catch (error) {
-                    console.error('切换文件失败:', error);
+                    console.error('处理OSS文件点击失败:', error);
                     // 移除加载状态
                     fileItem.classList.remove('switching', 'clicked');
                 } finally {

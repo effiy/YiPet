@@ -379,6 +379,84 @@ class OssApiManager {
     }
     
     /**
+     * 下载文件
+     * @param {string} objectName - 文件对象名
+     * @param {string} filename - 下载时的文件名（可选，默认使用 objectName）
+     * @returns {Promise<void>}
+     */
+    async downloadFile(objectName, filename = null) {
+        if (!objectName) {
+            throw new Error('文件对象名无效');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/oss/download/${encodeURIComponent(objectName)}`;
+            
+            // 使用 fetch 获取文件
+            const response = await fetch(url, {
+                method: 'GET',
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            // 获取文件 blob
+            const blob = await response.blob();
+            
+            // 确定文件名
+            const downloadFilename = filename || objectName.split('/').pop() || 'download';
+            
+            // 创建下载链接
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = downloadFilename;
+            link.style.display = 'none';
+            
+            // 触发下载
+            document.body.appendChild(link);
+            link.click();
+            
+            // 清理
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
+            
+            console.log('文件下载成功:', downloadFilename);
+        } catch (error) {
+            console.error('下载文件失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * 获取文件下载 URL（用于直接访问或预览）
+     * @param {string} objectName - 文件对象名
+     * @param {number} expires - URL 过期时间（秒，默认 3600）
+     * @returns {Promise<string>} 下载 URL
+     */
+    async getDownloadUrl(objectName, expires = 3600) {
+        if (!objectName) {
+            throw new Error('文件对象名无效');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/oss/download-url/${encodeURIComponent(objectName)}?expires=${expires}`;
+            const result = await this._request(url, { method: 'GET' });
+            
+            if (result.code === 200 && result.data && result.data.url) {
+                return result.data.url;
+            } else {
+                throw new Error(result.message || '获取下载 URL 失败');
+            }
+        } catch (error) {
+            console.error('获取下载 URL 失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
      * 清除缓存
      */
     clearCache() {

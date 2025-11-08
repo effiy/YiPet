@@ -5748,6 +5748,84 @@ class PetManager {
     }
 
     // 打开OSS文件标签编辑器
+    /**
+     * 下载 OSS 文件
+     * @param {string} objectName - 文件对象名
+     */
+    async downloadOssFile(objectName) {
+        try {
+            // 显示下载中提示
+            this.showNotification('正在下载文件...', 'info');
+            
+            // 从文件列表中获取文件对象
+            let file = null;
+            if (this.ossFileManager) {
+                const files = this.ossFileManager.getAllFiles();
+                file = files.find(f => f.name === objectName);
+            }
+            
+            // 获取文件 URL
+            let fileUrl = null;
+            if (file && file.url) {
+                fileUrl = file.url;
+            } else {
+                // 如果没有找到文件对象或没有 URL，尝试使用 objectName 作为 URL
+                console.warn('未找到文件对象或文件缺少 URL，使用 objectName:', objectName);
+                fileUrl = objectName;
+            }
+            
+            if (!fileUrl) {
+                this.showNotification('文件 URL 不存在', 'error');
+                return;
+            }
+            
+            // 确定文件名
+            const fileName = file?.name || objectName.split('/').pop() || 'download';
+            const downloadFilename = fileName.split('/').pop() || 'download';
+            
+            // 直接创建下载链接，避免 CORS 问题
+            // 方法1: 尝试使用 download 属性（对于同域或设置了 CORS 的文件可能有效）
+            const link = document.createElement('a');
+            link.href = fileUrl;
+            link.download = downloadFilename;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.style.display = 'none';
+            
+            // 添加到 DOM 并触发点击
+            document.body.appendChild(link);
+            link.click();
+            
+            // 延迟清理，确保下载已开始
+            setTimeout(() => {
+                document.body.removeChild(link);
+            }, 100);
+            
+            // 如果 download 属性不生效（跨域情况），尝试在新窗口打开
+            // 这会让浏览器处理下载，虽然可能不是直接下载而是打开
+            // 但至少可以让用户访问文件
+            
+            this.showNotification('文件下载已开始', 'success');
+            console.log('文件下载已开始:', downloadFilename, fileUrl);
+        } catch (error) {
+            console.error('下载文件失败:', error);
+            // 如果直接下载失败，尝试在新窗口打开 URL
+            try {
+                const file = this.ossFileManager?.getAllFiles().find(f => f.name === objectName);
+                const fileUrl = file?.url || objectName;
+                if (fileUrl) {
+                    window.open(fileUrl, '_blank');
+                    this.showNotification('已在新窗口打开文件', 'info');
+                } else {
+                    this.showNotification('文件下载失败: ' + (error.message || '未知错误'), 'error');
+                }
+            } catch (fallbackError) {
+                console.error('备用下载方案也失败:', fallbackError);
+                this.showNotification('文件下载失败: ' + (error.message || '未知错误'), 'error');
+            }
+        }
+    }
+    
     async openOssFileTagEditor(objectName, currentTags = []) {
         if (!this.ossApi || !this.ossApi.isEnabled()) {
             this.showNotification('OSS API未启用', 'error');
@@ -7000,6 +7078,37 @@ class PetManager {
                 this.openOssFileTagEditor(file.name, file.tags || []);
             });
             
+            // 下载按钮
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'oss-file-download-btn';
+            downloadBtn.innerHTML = '⬇️';
+            downloadBtn.title = '下载文件';
+            downloadBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停时增加不透明度
+            downloadBtn.addEventListener('mouseenter', () => {
+                downloadBtn.style.opacity = '1';
+            });
+            downloadBtn.addEventListener('mouseleave', () => {
+                downloadBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止下载按钮点击事件冒泡到 fileItem
+            downloadBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.downloadOssFile(file.name);
+            });
+            
             // 创建按钮容器
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -7010,6 +7119,7 @@ class PetManager {
                 transition: opacity 0.2s ease !important;
                 flex-shrink: 0 !important;
             `;
+            buttonContainer.appendChild(downloadBtn);
             buttonContainer.appendChild(tagBtn);
             
             // 鼠标悬停在文件项上时显示按钮

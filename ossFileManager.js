@@ -252,6 +252,47 @@ class OssFileManager {
     }
     
     /**
+     * 下载文件
+     * @param {string} objectName - 文件对象名
+     * @param {string} filename - 下载时的文件名（可选）
+     * @returns {Promise<boolean>} 是否下载成功
+     */
+    async downloadFile(objectName, filename = null) {
+        if (!this.ossApi || !this.enableBackendSync) {
+            console.warn('OSS API 未启用，无法下载文件');
+            return false;
+        }
+        
+        try {
+            await this.ossApi.downloadFile(objectName, filename);
+            return true;
+        } catch (error) {
+            console.error('下载文件失败:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * 获取文件下载 URL
+     * @param {string} objectName - 文件对象名
+     * @param {number} expires - URL 过期时间（秒，默认 3600）
+     * @returns {Promise<string|null>} 下载 URL，失败返回 null
+     */
+    async getDownloadUrl(objectName, expires = 3600) {
+        if (!this.ossApi || !this.enableBackendSync) {
+            console.warn('OSS API 未启用，无法获取下载 URL');
+            return null;
+        }
+        
+        try {
+            return await this.ossApi.getDownloadUrl(objectName, expires);
+        } catch (error) {
+            console.error('获取下载 URL 失败:', error);
+            return null;
+        }
+    }
+    
+    /**
      * 清空文件列表
      */
     async clearAllFiles() {

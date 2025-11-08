@@ -5470,10 +5470,10 @@ class PetManager {
             z-index: 10000 !important;
         `;
         
-        // 点击背景关闭（自动保存）
+        // 点击背景关闭（仅关闭，不进行任何操作）
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                this.closeOssTagManager(true);
+                this.closeOssTagManagerOnly();
             }
         });
 
@@ -5510,7 +5510,7 @@ class PetManager {
         const closeBtn = document.createElement('button');
         closeBtn.className = 'oss-tag-manager-close';
         closeBtn.innerHTML = '✕';
-        closeBtn.title = '关闭并保存（ESC）';
+        closeBtn.title = '关闭（ESC）';
         closeBtn.style.cssText = `
             background: none !important;
             border: none !important;
@@ -5629,7 +5629,7 @@ class PetManager {
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'oss-tag-manager-cancel';
         cancelBtn.textContent = '取消';
-        cancelBtn.title = '取消更改，不保存';
+        cancelBtn.title = '关闭';
         cancelBtn.style.cssText = `
             padding: 10px 20px !important;
             background: #f0f0f0 !important;
@@ -5646,7 +5646,7 @@ class PetManager {
         cancelBtn.addEventListener('mouseleave', () => {
             cancelBtn.style.background = '#f0f0f0';
         });
-        cancelBtn.addEventListener('click', () => this.closeOssTagManager(false));
+        cancelBtn.addEventListener('click', () => this.closeOssTagManagerOnly());
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'oss-tag-manager-save';
@@ -5869,16 +5869,16 @@ class PetManager {
             modal._originalTags = [...tags]; // 保存原始标签，用于取消时恢复
         }
 
-        // 添加关闭事件（自动保存）
+        // 添加关闭事件（仅关闭，不进行任何操作）
         const closeBtn = modal.querySelector('.oss-tag-manager-close');
         if (closeBtn) {
-            closeBtn.onclick = () => this.closeOssTagManager(true);
+            closeBtn.onclick = () => this.closeOssTagManagerOnly();
         }
         
-        // 添加取消事件（不保存）
+        // 添加取消事件（仅关闭，不进行任何操作）
         const cancelBtn = modal.querySelector('.oss-tag-manager-cancel');
         if (cancelBtn) {
-            cancelBtn.onclick = () => this.closeOssTagManager(false);
+            cancelBtn.onclick = () => this.closeOssTagManagerOnly();
         }
 
         // 添加保存事件
@@ -5925,10 +5925,10 @@ class PetManager {
             tagInput.focus();
         }
 
-        // ESC 键关闭（自动保存）
+        // ESC 键关闭（仅关闭，不进行任何操作）
         const escHandler = (e) => {
             if (e.key === 'Escape') {
-                this.closeOssTagManager(true);
+                this.closeOssTagManagerOnly();
                 document.removeEventListener('keydown', escHandler);
             }
         };
@@ -6001,6 +6001,23 @@ class PetManager {
             console.error('保存标签失败:', error);
             this.showNotification('保存标签失败: ' + error.message, 'error');
         }
+    }
+
+    // 关闭OSS标签管理器（仅关闭，不进行任何操作）
+    closeOssTagManagerOnly() {
+        const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
+        if (!modal) return;
+
+        // 关闭弹窗
+        modal.style.display = 'none';
+        const tagInput = modal.querySelector('.oss-tag-manager-input');
+        if (tagInput) {
+            tagInput.value = '';
+        }
+        
+        // 清理数据
+        delete modal._currentTags;
+        delete modal._originalTags;
     }
 
     // 关闭OSS标签管理器
@@ -22883,9 +22900,9 @@ ${messageContent}`;
             const objectName = fileInfo.url || fileInfo.name;
             const previewId = `oss-preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             fileInfoHtml += `
-                <div style="margin-bottom: 12px;">
+                <div style="margin-bottom: 12px;" data-oss-preview-section data-oss-object-name="${this.escapeHtml(objectName)}">
                     <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
-                    <div id="${previewId}" style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
+                    <div id="${previewId}" data-oss-preview-container style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
                         <div style="padding: 40px; text-align: center; color: #9ca3af; font-size: 14px;">正在加载图片...</div>
                     </div>
                 </div>
@@ -23115,6 +23132,34 @@ ${messageContent}`;
 
         // 如果是OSS文件会话，使用OSS文件信息更新欢迎消息
         if (isOssFileSession && ossFileInfo) {
+            // 获取当前欢迎消息中的图片预览容器（如果存在）
+            const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+            let existingPreviewInfo = null;
+            let needReloadImage = true;
+            
+            if (messageText) {
+                // 查找现有的图片预览容器
+                const previewSection = messageText.querySelector('[data-oss-preview-section]');
+                if (previewSection) {
+                    const existingPreviewContainer = previewSection.querySelector('[data-oss-preview-container]');
+                    const existingObjectName = previewSection.getAttribute('data-oss-object-name');
+                    const existingImg = existingPreviewContainer ? existingPreviewContainer.querySelector('img') : null;
+                    
+                    // 检查是否是同一个文件
+                    const currentObjectName = ossFileInfo.url || ossFileInfo.name;
+                    if (existingImg && existingObjectName === currentObjectName && ossFileInfo.isImage) {
+                        // 是同一个文件，保存现有图片信息以便后续恢复
+                        needReloadImage = false;
+                        existingPreviewInfo = {
+                            src: existingImg.src,
+                            alt: existingImg.alt,
+                            style: existingImg.style.cssText
+                        };
+                        console.log('检测到相同OSS文件，保留现有图片预览，不重新加载');
+                    }
+                }
+            }
+            
             // 构建OSS文件信息显示内容
             let fileInfoHtml = `
                 <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)); border-radius: 12px; border-left: 3px solid #4ECDC4;">
@@ -23134,76 +23179,102 @@ ${messageContent}`;
                 const objectName = ossFileInfo.url || ossFileInfo.name;
                 const previewId = `oss-preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 fileInfoHtml += `
-                    <div style="margin-bottom: 12px;">
+                    <div style="margin-bottom: 12px;" data-oss-preview-section data-oss-object-name="${this.escapeHtml(objectName)}">
                         <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
-                        <div id="${previewId}" style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
+                        <div id="${previewId}" data-oss-preview-container style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
                             <div style="padding: 40px; text-align: center; color: #9ca3af; font-size: 14px;">正在加载图片...</div>
                         </div>
                     </div>
                 `;
                 
-                // 异步加载图片（在 DOM 更新后）
-                setTimeout(async () => {
-                    const previewContainer = document.getElementById(previewId);
-                    if (!previewContainer) {
-                        return;
-                    }
-                    
-                    try {
-                        let downloadUrl = null;
-                        const objectNameValue = objectName;
-                        
-                        // 如果对象名看起来像是一个完整的URL（包含 http:// 或 https://），直接使用
-                        if (objectNameValue.startsWith('http://') || objectNameValue.startsWith('https://')) {
-                            downloadUrl = objectNameValue;
-                            console.log('检测到完整URL，直接使用:', downloadUrl);
-                        } else {
-                            // 否则，通过OSS API获取下载URL
-                            if (!this.ossApi || !this.ossApi.isEnabled()) {
-                                throw new Error('OSS API未启用，无法获取图片下载URL');
-                            }
-                            
-                            console.log('正在通过OSS API获取下载URL（欢迎消息），对象名:', objectNameValue);
-                            downloadUrl = await this.ossApi.getDownloadUrl(objectNameValue, 3600);
-                            
-                            if (!downloadUrl) {
-                                throw new Error('获取下载URL失败，返回为空');
-                            }
-                            
-                            console.log('成功获取OSS图片下载URL（欢迎消息）:', downloadUrl);
+                // 只有在需要重新加载图片时才执行异步加载
+                if (needReloadImage) {
+                    // 异步加载图片（在 DOM 更新后）
+                    setTimeout(async () => {
+                        const previewContainer = document.getElementById(previewId);
+                        if (!previewContainer) {
+                            return;
                         }
                         
-                        // 创建图片元素
-                        const img = document.createElement('img');
-                        img.src = downloadUrl;
-                        img.alt = this.escapeHtml(ossFileInfo.name || '图片预览');
-                        img.style.cssText = 'max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto; cursor: pointer;';
-                        
-                        // 图片加载成功处理
-                        img.addEventListener('load', () => {
-                            console.log('OSS图片加载成功（欢迎消息）:', downloadUrl);
-                        });
-                        
-                        // 图片加载错误处理
-                        img.addEventListener('error', () => {
-                            console.warn('OSS图片加载失败（欢迎消息）:', downloadUrl);
-                            previewContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">图片加载失败</div>';
-                        });
-                        
-                        // 点击查看大图
-                        img.addEventListener('click', () => {
-                            this.showImagePreview(downloadUrl);
-                        });
-                        
-                        // 更新容器内容
-                        previewContainer.innerHTML = '';
-                        previewContainer.appendChild(img);
-                        
-                    } catch (error) {
-                        console.error('获取OSS图片下载URL失败（欢迎消息）:', error);
-                        previewContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444;">无法加载图片预览：${this.escapeHtml(error.message || '未知错误')}</div>`;
+                        try {
+                            let downloadUrl = null;
+                            const objectNameValue = objectName;
+                            
+                            // 如果对象名看起来像是一个完整的URL（包含 http:// 或 https://），直接使用
+                            if (objectNameValue.startsWith('http://') || objectNameValue.startsWith('https://')) {
+                                downloadUrl = objectNameValue;
+                                console.log('检测到完整URL，直接使用:', downloadUrl);
+                            } else {
+                                // 否则，通过OSS API获取下载URL
+                                if (!this.ossApi || !this.ossApi.isEnabled()) {
+                                    throw new Error('OSS API未启用，无法获取图片下载URL');
+                                }
+                                
+                                console.log('正在通过OSS API获取下载URL（欢迎消息），对象名:', objectNameValue);
+                                downloadUrl = await this.ossApi.getDownloadUrl(objectNameValue, 3600);
+                                
+                                if (!downloadUrl) {
+                                    throw new Error('获取下载URL失败，返回为空');
+                                }
+                                
+                                console.log('成功获取OSS图片下载URL（欢迎消息）:', downloadUrl);
+                            }
+                            
+                            // 创建图片元素
+                            const img = document.createElement('img');
+                            img.src = downloadUrl;
+                            img.alt = this.escapeHtml(ossFileInfo.name || '图片预览');
+                            img.style.cssText = 'max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto; cursor: pointer;';
+                            
+                            // 图片加载成功处理
+                            img.addEventListener('load', () => {
+                                console.log('OSS图片加载成功（欢迎消息）:', downloadUrl);
+                            });
+                            
+                            // 图片加载错误处理
+                            img.addEventListener('error', () => {
+                                console.warn('OSS图片加载失败（欢迎消息）:', downloadUrl);
+                                previewContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">图片加载失败</div>';
+                            });
+                            
+                            // 点击查看大图
+                            img.addEventListener('click', () => {
+                                this.showImagePreview(downloadUrl);
+                            });
+                            
+                            // 更新容器内容
+                            previewContainer.innerHTML = '';
+                            previewContainer.appendChild(img);
+                            
+                        } catch (error) {
+                            console.error('获取OSS图片下载URL失败（欢迎消息）:', error);
+                            previewContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444;">无法加载图片预览：${this.escapeHtml(error.message || '未知错误')}</div>`;
+                        }
+                    }, 0);
+                } else if (existingPreviewInfo) {
+                    // 保留现有图片预览，在DOM更新后恢复图片
+                    setTimeout(() => {
+                        const newPreviewSection = messageText.querySelector('[data-oss-preview-section]');
+                        const newPreviewContainer = newPreviewSection ? newPreviewSection.querySelector('[data-oss-preview-container]') : null;
+                        if (newPreviewContainer && existingPreviewInfo) {
+                            // 恢复图片元素
+                            const img = document.createElement('img');
+                            img.src = existingPreviewInfo.src;
+                            img.alt = existingPreviewInfo.alt;
+                            img.style.cssText = existingPreviewInfo.style;
+                            
+                            // 重新绑定点击事件
+                            img.addEventListener('click', () => {
+                                this.showImagePreview(existingPreviewInfo.src);
+                            });
+                            
+                            // 更新容器内容
+                            newPreviewContainer.innerHTML = '';
+                            newPreviewContainer.appendChild(img);
+                            console.log('已恢复现有图片预览，无需重新加载');
+                        }
+                    }, 0);
                 }
-            }, 0);
             }
             
             // 如果有描述，显示描述（在图片预览之后）
@@ -23314,7 +23385,7 @@ ${messageContent}`;
             }
             
             // 更新欢迎消息的内容
-            const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+            // messageText 已在上面声明，这里直接使用
             if (messageText) {
                 messageText.innerHTML = fileInfoHtml;
                 // 更新原始HTML

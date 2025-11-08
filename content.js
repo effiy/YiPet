@@ -4099,6 +4099,16 @@ class PetManager {
             return !session._isOssFileSession;
         });
         
+        // 排除与文件列表中具有相同url的会话
+        if (this.ossFileManager) {
+            const files = this.ossFileManager.getAllFiles();
+            const fileUrls = new Set(files.map(file => file.url).filter(url => url));
+            allSessions = allSessions.filter(session => {
+                const sessionUrl = session.url;
+                return !sessionUrl || !fileUrls.has(sessionUrl);
+            });
+        }
+        
         // 应用标签过滤（与updateSessionSidebar中的逻辑一致）
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
             allSessions = allSessions.filter(session => {
@@ -5909,6 +5919,16 @@ class PetManager {
         allSessions = allSessions.filter(session => {
             return !session._isOssFileSession;
         });
+        
+        // 排除与文件列表中具有相同url的会话
+        if (this.ossFileManager) {
+            const files = this.ossFileManager.getAllFiles();
+            const fileUrls = new Set(files.map(file => file.url).filter(url => url));
+            allSessions = allSessions.filter(session => {
+                const sessionUrl = session.url;
+                return !sessionUrl || !fileUrls.has(sessionUrl);
+            });
+        }
         
         // 应用标签过滤
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {

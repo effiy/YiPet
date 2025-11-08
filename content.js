@@ -6966,17 +6966,92 @@ class PetManager {
                 e.stopPropagation();
             });
             
-            // 文件图标
+            // 创建预览头像（在文件项最左边）
+            const previewAvatar = document.createElement('div');
+            previewAvatar.className = 'oss-file-preview-avatar';
+            previewAvatar.style.cssText = `
+                width: 40px !important;
+                height: 40px !important;
+                border-radius: 8px !important;
+                flex-shrink: 0 !important;
+                margin-right: 8px !important;
+                cursor: pointer !important;
+                background: #e5e7eb !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow: hidden !important;
+                position: relative !important;
+                transition: all 0.2s ease !important;
+            `;
+            
+            // 判断文件类型并设置预览头像
+            const fileName = file.name || '';
+            const ext = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+            const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext);
+            
+            // 如果是图片，尝试加载预览图
+            if (isImage && file.url) {
+                const img = document.createElement('img');
+                img.style.cssText = `
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: cover !important;
+                `;
+                img.alt = fileName;
+                
+                // 直接使用file.url加载预览图
+                img.src = file.url;
+                img.onerror = () => {
+                    // 如果加载失败，显示默认图标
+                    previewAvatar.innerHTML = '🖼️';
+                    previewAvatar.style.fontSize = '20px';
+                };
+                
+                previewAvatar.appendChild(img);
+            } else {
+                // 非图片文件，显示默认图标
+                const iconMap = {
+                    '.pdf': '📄',
+                    '.doc': '📝',
+                    '.docx': '📝',
+                    '.zip': '📦',
+                    '.rar': '📦',
+                    '.7z': '📦',
+                };
+                previewAvatar.innerHTML = iconMap[ext] || '📄';
+                previewAvatar.style.fontSize = '20px';
+            }
+            
+            // 预览头像悬停效果
+            previewAvatar.addEventListener('mouseenter', () => {
+                previewAvatar.style.transform = 'scale(1.05)';
+                previewAvatar.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+            });
+            previewAvatar.addEventListener('mouseleave', () => {
+                previewAvatar.style.transform = 'scale(1)';
+                previewAvatar.style.boxShadow = 'none';
+            });
+            
+            // 点击预览头像，预览文件URL内容
+            previewAvatar.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (file.url) {
+                    // 直接使用文件的url在新标签页打开预览
+                    window.open(file.url, '_blank');
+                }
+            });
+            
+            // 文件图标（保留原有逻辑，但不再使用）
             const fileIcon = document.createElement('span');
             fileIcon.style.cssText = `
                 font-size: 20px !important;
                 flex-shrink: 0 !important;
+                display: none !important;
             `;
             
             // 判断文件类型并设置图标
-            const fileName = file.name || '';
-            const ext = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
-            if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext)) {
+            if (isImage) {
                 fileIcon.textContent = '🖼️';
             } else if (['.pdf'].includes(ext)) {
                 fileIcon.textContent = '📄';
@@ -6997,13 +7072,16 @@ class PetManager {
                 flex-direction: column !important;
             `;
             
-            // 创建文件项内部容器（包含复选框和内容）
+            // 创建文件项内部容器（包含预览头像、复选框和内容）
             const itemInner = document.createElement('div');
             itemInner.style.cssText = `
                 display: flex !important;
                 align-items: flex-start !important;
                 width: 100% !important;
             `;
+            
+            // 添加预览头像（在最左边）
+            itemInner.appendChild(previewAvatar);
             
             // 添加复选框
             itemInner.appendChild(checkbox);

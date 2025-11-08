@@ -459,19 +459,137 @@ class PetManager {
             // 生成基于文件URL的会话ID
             const sessionId = await this.generateSessionId(file.url);
             
-            // 检查是否已存在该会话
+            // 加载所有会话（包括从后端加载）
             await this.loadAllSessions();
+            
+            // 检查会话列表中是否有URL匹配的会话
+            let matchedSession = null;
+            let matchedSessionId = null;
+            
+            // 首先检查本地会话
+            for (const [sid, session] of Object.entries(this.sessions)) {
+                if (session && session.url === file.url) {
+                    matchedSession = session;
+                    matchedSessionId = sid;
+                    break;
+                }
+            }
+            
+            // 如果本地没有找到，尝试从后端加载会话列表并查找
+            if (!matchedSession && this.sessionApi && this.sessionApi.isEnabled()) {
+                try {
+                    console.log('本地未找到匹配会话，尝试从后端查找:', file.url);
+                    const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
+                    
+                    // 在后端会话列表中查找URL匹配的会话
+                    for (const backendSession of backendSessions) {
+                        if (backendSession.url === file.url) {
+                            const backendSessionId = backendSession.id || backendSession.conversation_id;
+                            if (backendSessionId) {
+                                // 找到匹配的会话，从后端加载完整数据
+                                console.log('在后端找到匹配的会话，正在加载完整数据:', backendSessionId);
+                                try {
+                                    const fullSession = await this.sessionApi.getSession(backendSessionId, true);
+                                    if (fullSession) {
+                                        // 将后端会话数据合并到本地
+                                        this.sessions[backendSessionId] = {
+                                            id: backendSessionId,
+                                            url: fullSession.url || backendSession.url || file.url,
+                                            pageTitle: fullSession.pageTitle || fullSession.title || file.name || 'OSS文件',
+                                            pageDescription: fullSession.pageDescription || '',
+                                            pageContent: fullSession.pageContent || '',
+                                            messages: fullSession.messages || [],
+                                            tags: fullSession.tags || [],
+                                            createdAt: fullSession.createdAt || Date.now(),
+                                            updatedAt: fullSession.updatedAt || Date.now(),
+                                            lastAccessTime: fullSession.lastAccessTime || Date.now(),
+                                            _isOssFileSession: true,
+                                            _ossFileInfo: {
+                                                name: file.name || '',
+                                                url: file.url || '',
+                                                description: file.description || '',
+                                                tags: file.tags || [],
+                                                isImage: file.isImage || false,
+                                                size: file.size || 0,
+                                                size_human: file.size_human || '',
+                                                last_modified_str: file.last_modified_str || ''
+                                            }
+                                        };
+                                        matchedSession = this.sessions[backendSessionId];
+                                        matchedSessionId = backendSessionId;
+                                        console.log('已从后端加载匹配会话的完整数据:', backendSessionId);
+                                        break;
+                                    }
+                                } catch (error) {
+                                    console.warn('从后端加载会话数据失败:', error);
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn('从后端获取会话列表失败:', error);
+                }
+            }
+            
+            // 如果找到了匹配的会话，使用该会话
+            if (matchedSession && matchedSessionId) {
+                console.log('找到URL匹配的会话，使用该会话:', matchedSessionId);
+                
+                // 更新OSS文件信息
+                matchedSession._isOssFileSession = true;
+                matchedSession._ossFileInfo = {
+                    name: file.name || '',
+                    url: file.url || '',
+                    description: file.description || '',
+                    tags: file.tags || [],
+                    isImage: file.isImage || false,
+                    size: file.size || 0,
+                    size_human: file.size_human || '',
+                    last_modified_str: file.last_modified_str || ''
+                };
+                
+                // 保存到本地
+                await this.saveAllSessions(false, false);
+                
+                // 检查当前是否显示OSS文件列表
+                const ossFileList = this.sessionSidebar?.querySelector('.oss-file-list');
+                const isOssFileListVisible = ossFileList && ossFileList.style.display !== 'none';
+                
+                // 设置当前文件（用于高亮显示）
+                this.currentFile = file.name;
+                
+                // 激活会话（不跳过后端获取，因为我们已经从后端加载了数据）
+                await this.activateSession(matchedSessionId, {
+                    saveCurrent: false,
+                    updateConsistency: false, // OSS文件会话不需要更新页面一致性
+                    updateUI: true,
+                    syncToBackend: false,
+                    skipBackendFetch: false, // 不跳过，确保获取最新数据
+                    keepOssFileListView: isOssFileListVisible // 如果当前显示OSS文件列表，保持该视图
+                });
+                
+                // 如果当前显示的是OSS文件列表，更新OSS文件列表的active状态
+                if (isOssFileListVisible) {
+                    await this.updateOssFileSidebar(false);
+                }
+                
+                console.log('OSS文件会话已激活（使用匹配的会话）:', matchedSessionId);
+                return;
+            }
+            
+            // 如果没有找到匹配的会话，使用原有的逻辑（基于文件URL生成会话ID）
             let session = this.sessions[sessionId];
             
             if (!session) {
                 // 创建新会话
-                // OSS文件会话：pageTitle使用文件名，pageDescription和pageContent为空
+                // OSS文件会话：pageTitle使用文件名，pageDescription为空
+                // pageContent初始为空，后续可以通过手动保存等方式填充
                 session = this.createSessionObject(sessionId, {
                     url: file.url,
                     title: file.name || 'OSS文件',
                     pageTitle: file.name || 'OSS文件',
                     pageDescription: '', // OSS文件会话的pageDescription应该为空
-                    pageContent: '' // OSS文件会话的pageContent应该为空
+                    pageContent: '' // OSS文件会话的pageContent初始为空，后续可以填充
                 });
                 this.sessions[sessionId] = session;
                 
@@ -503,10 +621,12 @@ class PetManager {
                     size_human: file.size_human || '',
                     last_modified_str: file.last_modified_str || ''
                 };
-                // 确保OSS文件会话的pageTitle、pageDescription和pageContent正确
+                // 确保OSS文件会话的pageTitle、pageDescription正确
+                // pageContent保留已有内容，如果为空则保持为空
                 session.pageTitle = file.name || 'OSS文件';
                 session.pageDescription = ''; // OSS文件会话的pageDescription应该为空
-                session.pageContent = ''; // OSS文件会话的pageContent应该为空
+                // pageContent保留已有内容，不强制清空
+                // session.pageContent = session.pageContent || '';
             }
             
             // 检查当前是否显示OSS文件列表
@@ -540,10 +660,12 @@ class PetManager {
                     size_human: file.size_human || '',
                     last_modified_str: file.last_modified_str || ''
                 };
-                // 确保OSS文件会话的pageTitle、pageDescription和pageContent正确
+                // 确保OSS文件会话的pageTitle、pageDescription正确
+                // pageContent保留已有内容，如果为空则保持为空
                 activatedSession.pageTitle = file.name || 'OSS文件';
                 activatedSession.pageDescription = ''; // OSS文件会话的pageDescription应该为空
-                activatedSession.pageContent = ''; // OSS文件会话的pageContent应该为空
+                // pageContent保留已有内容，不强制清空
+                // activatedSession.pageContent = activatedSession.pageContent || '';
             }
             
             // 如果当前显示的是OSS文件列表，更新OSS文件列表的active状态，并确保保持OSS文件列表视图
@@ -3277,15 +3399,17 @@ class PetManager {
                 ? session._ossFileInfo.url 
                 : (session.url || '');
             
-            // 如果是OSS文件会话，pageTitle应该使用OSS文件的名称，pageDescription和pageContent应该为空
+            // 如果是OSS文件会话，pageTitle应该使用OSS文件的名称，pageDescription应该为空
+            // 但pageContent应该保留会话中保存的内容
             let pageTitle = session.pageTitle || '';
             let pageDescription = session.pageDescription || '';
-            let pageContent = '';
+            let pageContent = session.pageContent || '';
             
             if (session._isOssFileSession && session._ossFileInfo) {
                 pageTitle = session._ossFileInfo.name || 'OSS文件';
                 pageDescription = ''; // OSS文件会话的pageDescription应该为空
-                pageContent = ''; // OSS文件会话的pageContent应该为空
+                // OSS文件会话的pageContent应该保留会话中保存的内容，而不是设置为空
+                // pageContent = session.pageContent || '';
             }
             
             const sessionData = {
@@ -3300,8 +3424,10 @@ class PetManager {
                 lastAccessTime: session.lastAccessTime || Date.now()
             };
             
-            // 只有在手动保存页面上下文时才包含 pageContent 字段（但OSS文件会话始终为空）
-            if (includePageContent) {
+            // 包含 pageContent 字段的情况：
+            // 1. 手动保存页面上下文时（includePageContent = true）
+            // 2. OSS文件会话中有pageContent时（即使includePageContent = false，也应该保存）
+            if (includePageContent || (session._isOssFileSession && pageContent && pageContent.trim() !== '')) {
                 sessionData.pageContent = pageContent;
             }
             

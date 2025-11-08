@@ -22771,33 +22771,8 @@ ${messageContent}`;
             imageContainer.appendChild(errorMsg);
         };
 
-        // 根据屏幕尺寸优化图片加载
-        // 获取屏幕尺寸，动态调整图片大小和质量
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        
-        // 计算合适的预览尺寸（不超过屏幕的90%）
-        const maxWidth = Math.min(screenWidth * 0.9, 1920); // 最大不超过1920px
-        const maxHeight = Math.min(screenHeight * 0.85, 1080); // 最大不超过1080px
-        
-        // 根据屏幕尺寸决定质量
-        // 大屏幕使用较高质量，小屏幕使用较低质量以加快加载
-        let quality = 85;
-        if (screenWidth < 768) {
-            quality = 75; // 移动设备使用较低质量
-        } else if (screenWidth < 1440) {
-            quality = 80; // 中等屏幕
-        }
-        
-        // 使用OSS图片处理优化预览图
-        const optimizedUrl = this.generateOssImageProcessUrl(imageUrl, {
-            width: maxWidth,
-            height: maxHeight,
-            quality: quality,
-            keepAspectRatio: true
-        });
-        
-        img.src = optimizedUrl;
+        // 直接使用OSS文件的原始地址进行预览
+        img.src = imageUrl;
         imageContainer.appendChild(img);
 
         // 创建标题栏（显示文件名）

@@ -6216,6 +6216,9 @@ class PetManager {
             return;
         }
         
+        // 确保视图模式状态正确
+        this.ossFileListVisible = false;
+        
         // 隐藏OSS文件列表和OSS标签筛选器
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         if (ossFileList) {
@@ -6986,6 +6989,9 @@ class PetManager {
             console.log('侧边栏未创建，跳过更新');
             return;
         }
+        
+        // 确保视图模式状态正确
+        this.ossFileListVisible = true;
         
         // 隐藏会话列表相关元素
         const sessionList = this.sessionSidebar.querySelector('.session-list');
@@ -7923,9 +7929,13 @@ class PetManager {
         if (mode === 'oss') {
             this.ossFileListVisible = true;
             await this.updateOssFileSidebar();
+            // 确保视图模式状态与列表数据一致
+            this.applyViewMode();
         } else {
             this.ossFileListVisible = false;
-            this.updateSessionSidebar();
+            await this.updateSessionSidebar();
+            // 确保视图模式状态与列表数据一致
+            this.applyViewMode();
         }
     }
     

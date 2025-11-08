@@ -4009,6 +4009,488 @@ class PetManager {
         return content;
     }
 
+    // 解析markdown内容，提取页面信息和聊天记录
+    _parseMarkdownContent(markdownContent) {
+        const result = {
+            pageTitle: '',
+            url: '',
+            pageDescription: '',
+            pageContent: '',
+            tags: [],
+            messages: [],
+            createdAt: null,
+            updatedAt: null
+        };
+        
+        if (!markdownContent || typeof markdownContent !== 'string') {
+            return result;
+        }
+        
+        // 分割内容：页面信息和聊天记录
+        const chatRecordIndex = markdownContent.indexOf('# 聊天记录');
+        const pageInfoContent = chatRecordIndex >= 0 
+            ? markdownContent.substring(0, chatRecordIndex).trim()
+            : markdownContent.trim();
+        const chatContent = chatRecordIndex >= 0 
+            ? markdownContent.substring(chatRecordIndex).trim()
+            : '';
+        
+        // 解析页面信息部分
+        // 提取标题（第一行的 # 标题）
+        const titleMatch = pageInfoContent.match(/^#\s+(.+?)$/m);
+        if (titleMatch) {
+            result.pageTitle = titleMatch[1].trim();
+        }
+        
+        // 提取创建时间
+        const createdAtMatch = pageInfoContent.match(/\*\*创建时间\*\*:\s*(.+?)$/m);
+        if (createdAtMatch) {
+            try {
+                result.createdAt = new Date(createdAtMatch[1].trim()).getTime();
+            } catch (e) {
+                // 忽略解析错误
+            }
+        }
+        
+        // 提取更新时间
+        const updatedAtMatch = pageInfoContent.match(/\*\*更新时间\*\*:\s*(.+?)$/m);
+        if (updatedAtMatch) {
+            try {
+                result.updatedAt = new Date(updatedAtMatch[1].trim()).getTime();
+            } catch (e) {
+                // 忽略解析错误
+            }
+        }
+        
+        // 提取URL
+        const urlMatch = pageInfoContent.match(/\*\*URL\*\*:\s*(.+?)$/m);
+        if (urlMatch) {
+            result.url = urlMatch[1].trim();
+        }
+        
+        // 提取页面描述
+        const descMatch = pageInfoContent.match(/\*\*页面描述\*\*:\s*(.+?)$/m);
+        if (descMatch) {
+            result.pageDescription = descMatch[1].trim();
+        }
+        
+        // 提取标签
+        const tagsMatch = pageInfoContent.match(/\*\*标签\*\*:\s*(.+?)$/m);
+        if (tagsMatch) {
+            result.tags = tagsMatch[1].split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+        }
+        
+        // 提取页面内容（## 页面内容 之后的内容）
+        const pageContentMatch = pageInfoContent.match(/##\s+页面内容\s*\n\n(.+?)(?:\n\n#|$)/s);
+        if (pageContentMatch) {
+            result.pageContent = pageContentMatch[1].trim();
+        } else {
+            // 如果没有明确的页面内容标记，尝试提取所有非元信息的内容
+            const lines = pageInfoContent.split('\n');
+            let inPageContent = false;
+            let pageContentLines = [];
+            for (const line of lines) {
+                if (line.startsWith('## 页面内容')) {
+                    inPageContent = true;
+                    continue;
+                }
+                if (inPageContent && !line.match(/^\*\*/)) {
+                    pageContentLines.push(line);
+                }
+            }
+            if (pageContentLines.length > 0) {
+                result.pageContent = pageContentLines.join('\n').trim();
+            }
+        }
+        
+        // 解析聊天记录部分
+        if (chatContent) {
+            // 使用正则表达式匹配每个消息
+            const messagePattern = /##\s+消息\s+\d+\s*\n\n\*\*角色\*\*:\s*(.+?)\s*\n\n(?:\*\*时间\*\*:\s*(.+?)\s*\n\n)?\*\*内容\*\*:\s*\n\n(.+?)\n\n---/gs;
+            let messageMatch;
+            while ((messageMatch = messagePattern.exec(chatContent)) !== null) {
+                const role = messageMatch[1].trim();
+                const timestamp = messageMatch[2] ? new Date(messageMatch[2].trim()).getTime() : Date.now();
+                const content = messageMatch[3].trim();
+                
+                // 将角色映射为type（user或pet）
+                const type = role.toLowerCase().includes('user') || role.toLowerCase().includes('用户') ? 'user' : 'pet';
+                
+                result.messages.push({
+                    type: type,
+                    role: role,
+                    content: content,
+                    timestamp: timestamp
+                });
+            }
+        }
+        
+        return result;
+    }
+    
+    // 根据标签和标题查找会话
+    _findSessionByTagsAndTitle(tags, title) {
+        const allSessions = this._getSessionsFromLocal();
+        
+        // 将标签数组转换为字符串用于比较（排序后比较，确保顺序一致）
+        const normalizedTags = [...tags].sort().join(',');
+        
+        for (const session of allSessions) {
+            const sessionTags = session.tags || [];
+            const sessionNormalizedTags = [...sessionTags].sort().join(',');
+            
+            // 比较标签和标题
+            if (sessionNormalizedTags === normalizedTags && 
+                session.pageTitle === title) {
+                return session;
+            }
+        }
+        
+        return null;
+    }
+    
+    // 导入会话从ZIP文件
+    async importSessionsFromZip(file) {
+        try {
+            // 显示加载提示
+            this.showNotification('正在准备导入...', 'info');
+            
+            // 加载JSZip库（在页面上下文中）
+            await this._loadJSZip();
+            
+            // 读取文件为base64
+            const fileReader = new FileReader();
+            const fileData = await new Promise((resolve, reject) => {
+                fileReader.onload = (e) => resolve(e.target.result);
+                fileReader.onerror = (e) => reject(new Error('读取文件失败'));
+                fileReader.readAsDataURL(file);
+            });
+            
+            // 提取base64数据（去掉data:application/zip;base64,前缀）
+            const base64Data = fileData.split(',')[1];
+            
+            if (!base64Data) {
+                throw new Error('无法读取文件数据');
+            }
+            
+            // 在页面上下文中执行导入逻辑
+            this.showNotification('正在解析ZIP文件...', 'info');
+            
+            return new Promise((resolve, reject) => {
+                // 创建数据容器
+                const dataContainer = document.createElement('div');
+                dataContainer.id = '__jszip_import_data__';
+                dataContainer.style.display = 'none';
+                dataContainer.setAttribute('data-import', base64Data);
+                (document.head || document.documentElement).appendChild(dataContainer);
+                
+                // 加载外部导入脚本
+                const importScriptUrl = chrome.runtime.getURL('import-sessions.js');
+                const importScript = document.createElement('script');
+                importScript.src = importScriptUrl;
+                importScript.charset = 'UTF-8';
+                importScript.async = false;
+                
+                // 监听导入结果
+                const handleSuccess = async (event) => {
+                    window.removeEventListener('jszip-import-success', handleSuccess);
+                    window.removeEventListener('jszip-import-error', handleError);
+                    
+                    // 清理
+                    if (importScript.parentNode) {
+                        importScript.parentNode.removeChild(importScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    
+                    try {
+                        const importData = event.detail.importData;
+                        if (!importData || importData.length === 0) {
+                            throw new Error('没有找到可导入的会话');
+                        }
+                        
+                        this.showNotification(`正在导入 ${importData.length} 个会话...`, 'info');
+                        
+                        // 处理每个导入的会话
+                        let createdCount = 0;
+                        let updatedCount = 0;
+                        let errorCount = 0;
+                        // 记录已处理的会话ID，用于后续同步
+                        const processedSessionIds = [];
+                        
+                        for (let i = 0; i < importData.length; i++) {
+                            const item = importData[i];
+                            let processedSessionId = null;
+                            
+                            try {
+                                // 解析markdown内容
+                                const parsed = this._parseMarkdownContent(item.pageContent);
+                                
+                                // 使用导入的标签（如果markdown中没有标签，使用目录结构中的标签）
+                                let tags = parsed.tags.length > 0 ? parsed.tags : item.tags;
+                                
+                                // 过滤掉"未分类"标签，根目录和"未分类"目录不需要创建标签
+                                tags = tags.filter(tag => tag !== '未分类');
+                                
+                                // 使用导入的标题（如果markdown中没有标题，使用文件名）
+                                const title = parsed.pageTitle || item.title;
+                                
+                                // 查找是否存在相同的会话（根据标签和标题）
+                                const existingSession = this._findSessionByTagsAndTitle(tags, title);
+                                
+                                if (existingSession) {
+                                    // 更新现有会话
+                                    const sessionId = existingSession.id;
+                                    const session = this.sessions[sessionId];
+                                    
+                                    if (session) {
+                                        // 更新会话信息
+                                        session.pageTitle = title;
+                                        session.pageDescription = parsed.pageDescription || session.pageDescription || '';
+                                        // 用新文件里面的内容覆盖原来会话的页面上下文内容
+                                        session.pageContent = parsed.pageContent || item.pageContent || '';
+                                        session.tags = tags;
+                                        
+                                        // 生成唯一的随机URL（参考手动创建会话的方式）
+                                        if (!parsed.url && !session.url) {
+                                            const timestamp = Date.now();
+                                            const randomStr = Math.random().toString(36).substring(2, 11); // 9位随机字符串
+                                            let uniqueUrl = `import-session://${timestamp}-${randomStr}`;
+                                            
+                                            // 确保URL唯一：检查是否已存在相同URL的会话
+                                            let urlAttempts = 0;
+                                            while (Object.values(this.sessions).some(s => s && s.url === uniqueUrl) && urlAttempts < 10) {
+                                                const newTimestamp = Date.now();
+                                                const newRandomStr = Math.random().toString(36).substring(2, 11);
+                                                uniqueUrl = `import-session://${newTimestamp}-${newRandomStr}`;
+                                                urlAttempts++;
+                                            }
+                                            session.url = uniqueUrl;
+                                        } else {
+                                            session.url = parsed.url || session.url;
+                                        }
+                                        
+                                        // 更新消息（如果导入的内容中有消息）
+                                        if (parsed.messages && parsed.messages.length > 0) {
+                                            session.messages = parsed.messages.map(msg => ({
+                                                type: msg.type,
+                                                content: msg.content,
+                                                timestamp: msg.timestamp || Date.now()
+                                            }));
+                                        }
+                                        
+                                        session.updatedAt = parsed.updatedAt || Date.now();
+                                        
+                                        // 确保会话ID正确设置
+                                        if (!session.id) {
+                                            session.id = sessionId;
+                                        }
+                                        
+                                        // 确保更新后的会话被保存到 this.sessions
+                                        this.sessions[sessionId] = session;
+                                        
+                                        // 记录已处理的会话ID
+                                        processedSessionId = sessionId;
+                                        
+                                        updatedCount++;
+                                    }
+                                } else {
+                                    // 创建新会话
+                                    // 生成唯一的会话ID（使用标题和标签生成唯一标识）
+                                    const tagsStr = tags.length > 0 ? tags.join('_') : 'no_tags';
+                                    const uniqueId = `import_${title}_${tagsStr}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                                    const sessionId = await this.generateSessionId(uniqueId);
+                                    
+                                    // 检查会话ID是否已存在，如果存在则重新生成
+                                    let finalSessionId = sessionId;
+                                    let attempts = 0;
+                                    while (this.sessions[finalSessionId] && attempts < 10) {
+                                        const newTagsStr = tags.length > 0 ? tags.join('_') : 'no_tags';
+                                        const newUniqueId = `import_${title}_${newTagsStr}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                                        finalSessionId = await this.generateSessionId(newUniqueId);
+                                        attempts++;
+                                    }
+                                    
+                                    // 生成唯一的随机URL（参考手动创建会话的方式）
+                                    let uniqueUrl;
+                                    if (!parsed.url) {
+                                        const timestamp = Date.now();
+                                        const randomStr = Math.random().toString(36).substring(2, 11); // 9位随机字符串
+                                        uniqueUrl = `import-session://${timestamp}-${randomStr}`;
+                                        
+                                        // 确保URL唯一：检查是否已存在相同URL的会话
+                                        let urlAttempts = 0;
+                                        while (Object.values(this.sessions).some(s => s && s.url === uniqueUrl) && urlAttempts < 10) {
+                                            const newTimestamp = Date.now();
+                                            const newRandomStr = Math.random().toString(36).substring(2, 11);
+                                            uniqueUrl = `import-session://${newTimestamp}-${newRandomStr}`;
+                                            urlAttempts++;
+                                        }
+                                    } else {
+                                        uniqueUrl = parsed.url;
+                                    }
+                                    
+                                    const pageInfo = {
+                                        url: uniqueUrl,
+                                        title: title,
+                                        pageTitle: title,
+                                        description: parsed.pageDescription || '',
+                                        pageDescription: parsed.pageDescription || '',
+                                        // 优先使用解析出的页面内容，如果没有则使用原始导入内容
+                                        content: parsed.pageContent || item.pageContent || '',
+                                        pageContent: parsed.pageContent || item.pageContent || ''
+                                    };
+                                    
+                                    // 使用createSessionObject创建会话对象
+                                    const newSession = this.createSessionObject(finalSessionId, pageInfo);
+                                    newSession.tags = tags;
+                                    newSession.messages = parsed.messages && parsed.messages.length > 0 
+                                        ? parsed.messages.map(msg => ({
+                                            type: msg.type,
+                                            content: msg.content,
+                                            timestamp: msg.timestamp || Date.now()
+                                        }))
+                                        : [];
+                                    newSession.createdAt = parsed.createdAt || Date.now();
+                                    newSession.updatedAt = parsed.updatedAt || Date.now();
+                                    
+                                    // 保存会话到本地
+                                    this.sessions[finalSessionId] = newSession;
+                                    
+                                    // 记录已处理的会话ID
+                                    processedSessionId = finalSessionId;
+                                    
+                                    createdCount++;
+                                }
+                                
+                                // 将已处理的会话ID添加到数组中
+                                if (processedSessionId) {
+                                    processedSessionIds.push(processedSessionId);
+                                }
+                                
+                                // 同步到后端（批量处理，每10个会话同步一次）
+                                if ((i + 1) % 10 === 0 || (i + 1) === importData.length) {
+                                    // 保存所有会话到本地
+                                    await this.saveAllSessions(true, false);
+                                    
+                                    // 批量同步到后端
+                                    if (this.sessionApi && this.sessionApi.isEnabled()) {
+                                        // 使用记录的会话ID进行同步，确保使用更新后的数据
+                                        const sessionsToSync = processedSessionIds.slice(Math.max(0, processedSessionIds.length - 10));
+                                        
+                                        // 同步每个会话，确保包含 pageContent
+                                        for (const syncSessionId of sessionsToSync) {
+                                            try {
+                                                // 确保会话存在且包含更新后的 pageContent
+                                                const sessionToSync = this.sessions[syncSessionId];
+                                                if (sessionToSync) {
+                                                    await this.syncSessionToBackend(syncSessionId, true, true);
+                                                }
+                                            } catch (error) {
+                                                console.warn(`同步会话 ${syncSessionId} 失败:`, error);
+                                            }
+                                        }
+                                        
+                                        // 清空已处理的会话ID列表（只保留最后10个，用于下一批）
+                                        if (processedSessionIds.length > 10) {
+                                            processedSessionIds.splice(0, processedSessionIds.length - 10);
+                                        }
+                                    }
+                                }
+                                
+                                // 更新进度提示（每10个会话更新一次）
+                                if ((i + 1) % 10 === 0 || (i + 1) === importData.length) {
+                                    this.showNotification(`已处理 ${i + 1}/${importData.length} 个会话...`, 'info');
+                                }
+                            } catch (error) {
+                                console.error(`导入会话失败 [${item.title}]:`, error);
+                                errorCount++;
+                            }
+                        }
+                        
+                        // 刷新会话列表：从后端重新请求会话列表
+                        if (this.sessionApi && this.sessionApi.isEnabled()) {
+                            try {
+                                this.showNotification('正在刷新会话列表...', 'info');
+                                // 强制刷新后端会话列表（跳过缓存）
+                                await this.loadSessionsFromBackend(true);
+                                // 重新加载所有会话（包括本地存储的会话）
+                                await this.loadAllSessions();
+                                console.log('会话列表已从后端刷新');
+                            } catch (error) {
+                                console.warn('刷新会话列表失败:', error);
+                                // 即使刷新失败，也继续更新UI（使用本地数据）
+                            }
+                        } else {
+                            // 如果没有后端API，只重新加载本地会话
+                            await this.loadAllSessions();
+                        }
+                        
+                        // 刷新会话列表UI
+                        await this.updateSessionUI({ updateSidebar: true });
+                        
+                        // 显示导入结果
+                        let resultMsg = `导入完成：创建 ${createdCount} 个，更新 ${updatedCount} 个`;
+                        if (errorCount > 0) {
+                            resultMsg += `，失败 ${errorCount} 个`;
+                        }
+                        this.showNotification(resultMsg, 'success');
+                        
+                        resolve({
+                            created: createdCount,
+                            updated: updatedCount,
+                            errors: errorCount,
+                            total: importData.length
+                        });
+                    } catch (error) {
+                        console.error('处理导入数据失败:', error);
+                        reject(error);
+                    }
+                };
+                
+                const handleError = (event) => {
+                    window.removeEventListener('jszip-import-success', handleSuccess);
+                    window.removeEventListener('jszip-import-error', handleError);
+                    
+                    // 清理
+                    if (importScript.parentNode) {
+                        importScript.parentNode.removeChild(importScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    
+                    const errorMsg = event.detail && event.detail.error ? event.detail.error : '导入失败';
+                    reject(new Error(errorMsg));
+                };
+                
+                window.addEventListener('jszip-import-success', handleSuccess);
+                window.addEventListener('jszip-import-error', handleError);
+                
+                // 注入脚本
+                (document.head || document.documentElement).appendChild(importScript);
+                
+                // 设置超时
+                setTimeout(() => {
+                    window.removeEventListener('jszip-import-success', handleSuccess);
+                    window.removeEventListener('jszip-import-error', handleError);
+                    if (importScript.parentNode) {
+                        importScript.parentNode.removeChild(importScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    reject(new Error('导入超时'));
+                }, 60000); // 导入可能需要更长时间，设置为60秒
+            });
+        } catch (error) {
+            console.error('导入会话失败:', error);
+            this.showNotification('导入失败: ' + error.message, 'error');
+            throw error;
+        }
+    }
+    
     // 导出会话为ZIP文件（使用页面上下文中的JSZip）
     async exportSessionsToZip() {
         try {
@@ -5004,6 +5486,7 @@ class PetManager {
     updateBatchToolbar() {
         const selectedCount = document.getElementById('selected-count');
         const batchDeleteBtn = document.getElementById('batch-delete-btn');
+        const selectAllBtn = document.getElementById('select-all-btn');
         
         if (selectedCount) {
             const count = this.selectedSessionIds.size;
@@ -5031,6 +5514,62 @@ class PetManager {
                 batchDeleteBtn.style.cursor = 'not-allowed';
             }
         }
+        
+        // 更新全选按钮状态
+        if (selectAllBtn) {
+            const filteredSessions = this._getFilteredSessions();
+            const allSelected = filteredSessions.length > 0 && 
+                               filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+            
+            if (allSelected) {
+                selectAllBtn.textContent = '取消全选';
+                selectAllBtn.style.background = '#f3f4f6';
+                selectAllBtn.style.color = '#6b7280';
+            } else {
+                selectAllBtn.textContent = '全选';
+                selectAllBtn.style.background = '#ffffff';
+                selectAllBtn.style.color = '#374151';
+            }
+        }
+    }
+    
+    // 切换全选/取消全选
+    toggleSelectAll() {
+        const filteredSessions = this._getFilteredSessions();
+        const allSelected = filteredSessions.length > 0 && 
+                           filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+        
+        if (allSelected) {
+            // 取消全选：只取消当前显示的会话
+            filteredSessions.forEach(session => {
+                this.selectedSessionIds.delete(session.id);
+            });
+        } else {
+            // 全选：选中所有当前显示的会话
+            filteredSessions.forEach(session => {
+                this.selectedSessionIds.add(session.id);
+            });
+        }
+        
+        // 更新所有复选框状态
+        const checkboxes = document.querySelectorAll('.session-checkbox');
+        checkboxes.forEach(checkbox => {
+            const sessionId = checkbox.dataset.sessionId;
+            checkbox.checked = this.selectedSessionIds.has(sessionId);
+            
+            // 更新会话项的选中状态类
+            const sessionItem = checkbox.closest('.session-item');
+            if (sessionItem) {
+                if (this.selectedSessionIds.has(sessionId)) {
+                    sessionItem.classList.add('selected');
+                } else {
+                    sessionItem.classList.remove('selected');
+                }
+            }
+        });
+        
+        // 更新批量工具栏
+        this.updateBatchToolbar();
     }
     
     // 批量删除会话
@@ -13962,9 +14501,87 @@ ${messageContent}`;
             }
         });
         
+        // 创建导入按钮
+        const importBtn = document.createElement('button');
+        importBtn.innerHTML = '📤';
+        importBtn.title = '导入会话（从ZIP文件）';
+        importBtn.style.cssText = `
+            width: 24px !important;
+            height: 24px !important;
+            border-radius: 4px !important;
+            background: #3b82f6 !important;
+            color: white !important;
+            border: none !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 14px !important;
+            transition: background 0.15s ease !important;
+            flex-shrink: 0 !important;
+            margin-right: 6px !important;
+            padding: 0 !important;
+        `;
+        
+        // 导入按钮悬停效果
+        importBtn.addEventListener('mouseenter', () => {
+            importBtn.style.background = '#2563eb';
+        });
+        importBtn.addEventListener('mouseleave', () => {
+            importBtn.style.background = '#3b82f6';
+        });
+        
+        // 导入按钮点击事件
+        importBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 创建文件输入元素
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.zip';
+            fileInput.style.display = 'none';
+            
+            fileInput.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (!file) {
+                    return;
+                }
+                
+                // 禁用按钮，防止重复点击
+                importBtn.disabled = true;
+                importBtn.style.opacity = '0.6';
+                importBtn.style.cursor = 'wait';
+                
+                try {
+                    await this.importSessionsFromZip(file);
+                } catch (error) {
+                    console.error('导入会话失败:', error);
+                    this.showNotification('导入会话失败: ' + error.message, 'error');
+                } finally {
+                    // 恢复按钮状态
+                    setTimeout(() => {
+                        importBtn.disabled = false;
+                        importBtn.style.opacity = '1';
+                        importBtn.style.cursor = 'pointer';
+                    }, 500);
+                    
+                    // 清理文件输入
+                    if (fileInput.parentNode) {
+                        fileInput.parentNode.removeChild(fileInput);
+                    }
+                }
+            });
+            
+            // 添加到页面并触发点击
+            document.body.appendChild(fileInput);
+            fileInput.click();
+        });
+        
         sidebarHeader.appendChild(searchContainer);
         sidebarHeader.appendChild(batchModeBtn);
         sidebarHeader.appendChild(exportBtn);
+        sidebarHeader.appendChild(importBtn);
         sidebarHeader.appendChild(addSessionBtn);
         this.sessionSidebar.appendChild(sidebarHeader);
         
@@ -13998,6 +14615,41 @@ ${messageContent}`;
             transition: color 0.2s ease !important;
             text-align: left !important;
         `;
+        
+        // 全选按钮
+        const selectAllBtn = document.createElement('button');
+        selectAllBtn.id = 'select-all-btn';
+        selectAllBtn.textContent = '全选';
+        selectAllBtn.style.cssText = `
+            padding: 4px 10px !important;
+            border-radius: 4px !important;
+            background: #ffffff !important;
+            color: #374151 !important;
+            border: 1px solid #e5e7eb !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+            flex-shrink: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        `;
+        
+        selectAllBtn.addEventListener('mouseenter', () => {
+            selectAllBtn.style.background = '#f9fafb';
+            selectAllBtn.style.borderColor = '#d1d5db';
+        });
+        
+        selectAllBtn.addEventListener('mouseleave', () => {
+            selectAllBtn.style.background = '#ffffff';
+            selectAllBtn.style.borderColor = '#e5e7eb';
+        });
+        
+        // 全选按钮点击事件
+        selectAllBtn.addEventListener('click', () => {
+            this.toggleSelectAll();
+        });
         
         // 批量删除按钮
         const batchDeleteBtn = document.createElement('button');
@@ -14145,6 +14797,7 @@ ${messageContent}`;
         });
         
         batchToolbar.appendChild(selectedCount);
+        batchToolbar.appendChild(selectAllBtn);
         batchToolbar.appendChild(batchDeleteBtn);
         batchToolbar.appendChild(cancelBatchBtn);
         this.sessionSidebar.appendChild(batchToolbar);

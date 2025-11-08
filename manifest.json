@@ -40,7 +40,8 @@
         "preview-mermaid.js",
         "jszip.min.js",
         "load-jszip.js",
-        "export-sessions.js"
+        "export-sessions.js",
+        "import-sessions.js"
       ],
       "matches": ["<all_urls>"]
     }

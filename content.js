@@ -4971,8 +4971,71 @@ class PetManager {
             // 加载JSZip库（在页面上下文中）
             await this._loadJSZip();
             
-            // 获取筛选后的会话列表
-            const sessions = this._getFilteredSessions();
+            // 判断当前是否在 OSS 文件模式下
+            const sessionList = this.sessionSidebar?.querySelector('.session-list');
+            const ossFileList = this.sessionSidebar?.querySelector('.oss-file-list');
+            const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
+            
+            let sessions = [];
+            
+            // 如果在 OSS 文件模式下，导出与 OSS 文件列表中具有相同 URL 的会话
+            if (isFileListMode) {
+                // 获取 OSS 文件列表（从 /oss/files/ 接口）
+                if (!this.ossApi || !this.ossApi.isEnabled()) {
+                    this.showNotification('OSS API未启用，无法导出', 'error');
+                    return;
+                }
+                
+                this.showNotification('正在获取 OSS 文件列表...', 'info');
+                let ossFiles = [];
+                try {
+                    // 强制刷新，获取最新的文件列表
+                    ossFiles = await this.ossApi.getFilesList({ forceRefresh: true });
+                } catch (error) {
+                    console.warn('获取 OSS 文件列表失败，尝试使用本地缓存:', error);
+                    // 如果 API 请求失败，尝试使用本地文件管理器
+                    if (this.ossFileManager) {
+                        ossFiles = this.ossFileManager.getAllFiles();
+                    }
+                }
+                
+                if (!Array.isArray(ossFiles) || ossFiles.length === 0) {
+                    this.showNotification('OSS 文件列表为空，没有可导出的会话', 'error');
+                    return;
+                }
+                
+                // 提取 OSS 文件列表中的 URL
+                const ossFileUrls = new Set();
+                ossFiles.forEach(file => {
+                    if (file.url) {
+                        ossFileUrls.add(file.url);
+                    }
+                });
+                
+                if (ossFileUrls.size === 0) {
+                    this.showNotification('OSS 文件列表中没有有效的 URL，没有可导出的会话', 'error');
+                    return;
+                }
+                
+                // 获取所有会话列表
+                const allSessionsRaw = this._getSessionsFromLocal();
+                
+                // 排除 OSS 文件会话（保持与 _getFilteredSessions 的一致性）
+                const allSessions = allSessionsRaw.filter(session => {
+                    return !session._isOssFileSession;
+                });
+                
+                // 筛选出 URL 与 OSS 文件列表中 URL 相同的会话
+                sessions = allSessions.filter(session => {
+                    const sessionUrl = session.url;
+                    return sessionUrl && ossFileUrls.has(sessionUrl);
+                });
+                
+                console.log(`OSS 文件模式下，找到 ${sessions.length} 个匹配的会话（共 ${allSessions.length} 个会话，${ossFileUrls.size} 个 OSS 文件 URL）`);
+            } else {
+                // 非 OSS 文件模式，使用原来的逻辑
+                sessions = this._getFilteredSessions();
+            }
             
             if (sessions.length === 0) {
                 this.showNotification('没有可导出的会话', 'error');
@@ -8240,12 +8303,36 @@ class PetManager {
             const zip = new JSZipLib();
             
             const fileNames = Array.from(this.selectedFileNames);
+            
+            // 获取所有文件信息（包括标签）
+            const allFiles = this.ossFileManager ? this.ossFileManager.getAllFiles() : [];
+            const fileMap = new Map();
+            allFiles.forEach(file => {
+                if (file.name) {
+                    fileMap.set(file.name, file);
+                }
+            });
+            
+            // 清理路径中的非法字符
+            const sanitizePath = (path) => {
+                return path.replace(/[<>:"|?*\x00-\x1f]/g, '_').trim();
+            };
+            
+            // 用于跟踪已使用的文件路径，避免文件名冲突
+            const usedPaths = new Map();
+            
             let successCount = 0;
             let failCount = 0;
             
             // 下载并添加到ZIP
             for (const fileName of fileNames) {
                 try {
+                    // 获取文件信息（包括标签）
+                    const fileInfo = fileMap.get(fileName);
+                    const tags = fileInfo && fileInfo.tags && Array.isArray(fileInfo.tags) && fileInfo.tags.length > 0
+                        ? fileInfo.tags
+                        : ['未分类'];
+                    
                     // 获取文件下载URL
                     const downloadUrl = await this.ossApi.getDownloadUrl(fileName, 3600);
                     
@@ -8261,8 +8348,35 @@ class PetManager {
                     
                     const blob = await response.blob();
                     
-                    // 添加到ZIP
-                    zip.file(fileName, blob);
+                    // 根据标签构建目录路径（参考会话导出功能）
+                    let filePath = '';
+                    tags.forEach(tag => {
+                        const sanitizedTag = sanitizePath(tag);
+                        filePath += sanitizedTag + '/';
+                    });
+                    
+                    // 获取文件名（去掉路径，只保留文件名）
+                    const baseFileName = sanitizePath(fileName.split('/').pop() || fileName);
+                    let finalFileName = baseFileName;
+                    let fullPath = filePath + finalFileName;
+                    
+                    // 处理文件名冲突：如果路径已存在，添加序号
+                    if (usedPaths.has(fullPath)) {
+                        const nameWithoutExt = baseFileName.substring(0, baseFileName.lastIndexOf('.')) || baseFileName;
+                        const ext = baseFileName.substring(baseFileName.lastIndexOf('.')) || '';
+                        let counter = 1;
+                        do {
+                            finalFileName = nameWithoutExt + '_' + counter + ext;
+                            fullPath = filePath + finalFileName;
+                            counter++;
+                        } while (usedPaths.has(fullPath));
+                    }
+                    
+                    // 记录已使用的路径
+                    usedPaths.set(fullPath, true);
+                    
+                    // 添加到ZIP（使用带标签目录的路径）
+                    zip.file(fullPath, blob);
                     successCount++;
                 } catch (error) {
                     console.error(`导出文件 ${fileName} 失败:`, error);

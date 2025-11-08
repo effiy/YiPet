@@ -7778,6 +7778,361 @@ class PetManager {
                 selectAllBtn.style.color = '#374151';
             }
         }
+        
+        // OSS文件视图下，更新导入、导出、新建按钮的显示状态
+        if (isFileListMode) {
+            this.updateOssFileBatchButtons();
+        } else {
+            this.hideOssFileBatchButtons();
+        }
+    }
+    
+    // 更新OSS文件视图下的批量操作按钮（导入、导出、新建）
+    updateOssFileBatchButtons() {
+        const batchToolbar = document.getElementById('batch-toolbar');
+        if (!batchToolbar) return;
+        
+        // 检查是否已存在OSS文件专用按钮
+        let importBtn = batchToolbar.querySelector('#oss-batch-import-btn');
+        let exportBtn = batchToolbar.querySelector('#oss-batch-export-btn');
+        let newBtn = batchToolbar.querySelector('#oss-batch-new-btn');
+        
+        // 如果不存在，创建按钮
+        if (!importBtn) {
+            importBtn = document.createElement('button');
+            importBtn.id = 'oss-batch-import-btn';
+            importBtn.textContent = '📥 导入';
+            importBtn.title = '导入OSS文件';
+            importBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #2196F3 !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 6px !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                font-weight: 500 !important;
+                transition: background 0.2s ease !important;
+                margin-left: 8px !important;
+            `;
+            importBtn.addEventListener('mouseenter', () => {
+                importBtn.style.background = '#1976D2';
+            });
+            importBtn.addEventListener('mouseleave', () => {
+                importBtn.style.background = '#2196F3';
+            });
+            importBtn.addEventListener('click', () => {
+                this.importOssFiles();
+            });
+            
+            // 插入到批量工具栏中（在删除按钮之前）
+            const batchDeleteBtn = document.getElementById('batch-delete-btn');
+            if (batchDeleteBtn && batchDeleteBtn.parentNode) {
+                batchDeleteBtn.parentNode.insertBefore(importBtn, batchDeleteBtn);
+            } else {
+                batchToolbar.appendChild(importBtn);
+            }
+        }
+        
+        if (!exportBtn) {
+            exportBtn = document.createElement('button');
+            exportBtn.id = 'oss-batch-export-btn';
+            exportBtn.textContent = '📤 导出';
+            exportBtn.title = '导出选中的OSS文件';
+            exportBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #4CAF50 !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 6px !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                font-weight: 500 !important;
+                transition: background 0.2s ease !important;
+                margin-left: 8px !important;
+            `;
+            exportBtn.addEventListener('mouseenter', () => {
+                exportBtn.style.background = '#45a049';
+            });
+            exportBtn.addEventListener('mouseleave', () => {
+                exportBtn.style.background = '#4CAF50';
+            });
+            exportBtn.addEventListener('click', () => {
+                this.exportOssFiles();
+            });
+            
+            // 插入到导入按钮之后
+            if (importBtn && importBtn.parentNode) {
+                importBtn.parentNode.insertBefore(exportBtn, importBtn.nextSibling);
+            } else {
+                batchToolbar.appendChild(exportBtn);
+            }
+        }
+        
+        if (!newBtn) {
+            newBtn = document.createElement('button');
+            newBtn.id = 'oss-batch-new-btn';
+            newBtn.textContent = '➕ 新建';
+            newBtn.title = '上传新文件到OSS';
+            newBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #FF9800 !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 6px !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                font-weight: 500 !important;
+                transition: background 0.2s ease !important;
+                margin-left: 8px !important;
+            `;
+            newBtn.addEventListener('mouseenter', () => {
+                newBtn.style.background = '#F57C00';
+            });
+            newBtn.addEventListener('mouseleave', () => {
+                newBtn.style.background = '#FF9800';
+            });
+            newBtn.addEventListener('click', () => {
+                this.uploadFileToOss();
+            });
+            
+            // 插入到导出按钮之后
+            if (exportBtn && exportBtn.parentNode) {
+                exportBtn.parentNode.insertBefore(newBtn, exportBtn.nextSibling);
+            } else {
+                batchToolbar.appendChild(newBtn);
+            }
+        }
+        
+        // 显示按钮
+        importBtn.style.display = 'block';
+        exportBtn.style.display = 'block';
+        newBtn.style.display = 'block';
+        
+        // 更新导出按钮的启用状态（根据选中数量）
+        const hasSelection = this.selectedFileNames.size > 0;
+        exportBtn.disabled = !hasSelection;
+        if (hasSelection) {
+            exportBtn.style.opacity = '1';
+            exportBtn.style.cursor = 'pointer';
+        } else {
+            exportBtn.style.opacity = '0.5';
+            exportBtn.style.cursor = 'not-allowed';
+        }
+    }
+    
+    // 隐藏OSS文件视图下的批量操作按钮
+    hideOssFileBatchButtons() {
+        const batchToolbar = document.getElementById('batch-toolbar');
+        if (!batchToolbar) return;
+        
+        const importBtn = batchToolbar.querySelector('#oss-batch-import-btn');
+        const exportBtn = batchToolbar.querySelector('#oss-batch-export-btn');
+        const newBtn = batchToolbar.querySelector('#oss-batch-new-btn');
+        
+        if (importBtn) importBtn.style.display = 'none';
+        if (exportBtn) exportBtn.style.display = 'none';
+        if (newBtn) newBtn.style.display = 'none';
+    }
+    
+    // 导入OSS文件（从ZIP文件导入）
+    async importOssFiles() {
+        if (!this.ossApi || !this.ossApi.isEnabled()) {
+            this.showNotification('OSS API未启用', 'error');
+            return;
+        }
+        
+        // 创建文件选择器
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.zip';
+        fileInput.style.display = 'none';
+        
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                if (fileInput.parentNode) {
+                    fileInput.parentNode.removeChild(fileInput);
+                }
+                return;
+            }
+            
+            try {
+                this.showNotification('正在解析ZIP文件...', 'info');
+                
+                // 加载JSZip库
+                await this._loadJSZip();
+                
+                // 读取文件为ArrayBuffer
+                const arrayBuffer = await file.arrayBuffer();
+                
+                // 解析ZIP文件
+                const JSZipLib = window.JSZip || JSZip;
+                const zip = await JSZipLib.loadAsync(arrayBuffer);
+                
+                // 收集所有文件
+                const filesToUpload = [];
+                zip.forEach((relativePath, zipEntry) => {
+                    // 跳过目录
+                    if (zipEntry.dir) return;
+                    
+                    // 跳过隐藏文件
+                    if (relativePath.includes('._') || relativePath.startsWith('.')) return;
+                    
+                    filesToUpload.push({
+                        path: relativePath,
+                        entry: zipEntry
+                    });
+                });
+                
+                if (filesToUpload.length === 0) {
+                    this.showNotification('ZIP文件中没有找到可导入的文件', 'error');
+                    return;
+                }
+                
+                this.showNotification(`正在上传 ${filesToUpload.length} 个文件...`, 'info');
+                
+                // 上传文件
+                let successCount = 0;
+                let failCount = 0;
+                
+                for (const fileInfo of filesToUpload) {
+                    try {
+                        // 读取文件内容
+                        const fileData = await fileInfo.entry.async('blob');
+                        
+                        // 创建File对象
+                        const fileToUpload = new File([fileData], fileInfo.path.split('/').pop(), {
+                            type: fileData.type || 'application/octet-stream'
+                        });
+                        
+                        // 获取目录路径（去掉文件名）
+                        const directory = fileInfo.path.includes('/') 
+                            ? fileInfo.path.substring(0, fileInfo.path.lastIndexOf('/'))
+                            : '';
+                        
+                        // 上传文件
+                        await this.ossApi.uploadFile(fileToUpload, directory);
+                        successCount++;
+                    } catch (error) {
+                        console.error(`上传文件 ${fileInfo.path} 失败:`, error);
+                        failCount++;
+                    }
+                }
+                
+                // 刷新文件列表
+                if (this.ossFileManager) {
+                    await this.ossFileManager.refreshFiles(true);
+                }
+                await this.updateOssFileSidebar(true);
+                
+                // 显示结果
+                if (failCount === 0) {
+                    this.showNotification(`成功导入 ${successCount} 个文件`, 'success');
+                } else {
+                    this.showNotification(`导入完成：成功 ${successCount} 个，失败 ${failCount} 个`, 'error');
+                }
+            } catch (error) {
+                console.error('导入OSS文件失败:', error);
+                this.showNotification('导入失败: ' + (error.message || '未知错误'), 'error');
+            } finally {
+                fileInput.value = '';
+                if (fileInput.parentNode) {
+                    fileInput.parentNode.removeChild(fileInput);
+                }
+            }
+        });
+        
+        // 添加到页面并触发点击
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    }
+    
+    // 导出选中的OSS文件
+    async exportOssFiles() {
+        if (this.selectedFileNames.size === 0) {
+            this.showNotification('请先选择要导出的文件', 'error');
+            return;
+        }
+        
+        if (!this.ossApi || !this.ossApi.isEnabled()) {
+            this.showNotification('OSS API未启用', 'error');
+            return;
+        }
+        
+        try {
+            this.showNotification('正在准备导出...', 'info');
+            
+            // 加载JSZip库
+            await this._loadJSZip();
+            
+            const JSZipLib = window.JSZip || JSZip;
+            const zip = new JSZipLib();
+            
+            const fileNames = Array.from(this.selectedFileNames);
+            let successCount = 0;
+            let failCount = 0;
+            
+            // 下载并添加到ZIP
+            for (const fileName of fileNames) {
+                try {
+                    // 获取文件下载URL
+                    const downloadUrl = await this.ossApi.getDownloadUrl(fileName, 3600);
+                    
+                    if (!downloadUrl) {
+                        throw new Error('无法获取文件下载URL');
+                    }
+                    
+                    // 下载文件
+                    const response = await fetch(downloadUrl);
+                    if (!response.ok) {
+                        throw new Error(`下载失败: ${response.status}`);
+                    }
+                    
+                    const blob = await response.blob();
+                    
+                    // 添加到ZIP
+                    zip.file(fileName, blob);
+                    successCount++;
+                } catch (error) {
+                    console.error(`导出文件 ${fileName} 失败:`, error);
+                    failCount++;
+                }
+            }
+            
+            if (successCount === 0) {
+                this.showNotification('没有成功导出任何文件', 'error');
+                return;
+            }
+            
+            // 生成ZIP文件
+            this.showNotification('正在生成ZIP文件...', 'info');
+            const zipBlob = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+            
+            // 触发下载
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `OSS文件导出_${new Date().toISOString().slice(0, 10)}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // 显示结果
+            if (failCount === 0) {
+                this.showNotification(`成功导出 ${successCount} 个文件`, 'success');
+            } else {
+                this.showNotification(`导出完成：成功 ${successCount} 个，失败 ${failCount} 个`, 'error');
+            }
+        } catch (error) {
+            console.error('导出OSS文件失败:', error);
+            this.showNotification('导出失败: ' + (error.message || '未知错误'), 'error');
+        }
     }
     
     // 切换全选/取消全选

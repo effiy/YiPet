@@ -4002,6 +4002,7 @@ class PetManager {
             const fragment = document.createDocumentFragment();
             const petMessages = []; // 保存所有宠物消息，用于后续添加按钮
             const userMessages = []; // 保存所有用户消息，用于后续添加按钮
+            let isFirstPetMessage = true; // 标记是否是第一条宠物消息
             
             for (const msg of session.messages) {
                 // 验证消息格式
@@ -4012,6 +4013,11 @@ class PetManager {
                 
                 // 使用消息保存的时间戳（如果有）
                 const timestamp = msg.timestamp || null;
+                
+                if (msg.type === 'pet') {
+                    isFirstPetMessage = false;
+                }
+                
                 const msgEl = this.createMessageElement(msg.content, msg.type, null, timestamp);
                 fragment.appendChild(msgEl);
                 
@@ -4103,6 +4109,7 @@ class PetManager {
                         console.error('为用户消息添加按钮时出错:', error);
                     }
                 }
+                
                 
                 // 确保滚动到底部
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -7209,38 +7216,6 @@ class PetManager {
                 contentInner.appendChild(tagsContainer);
             }
             
-            // 文件URL（可点击复制）
-            const fileUrl = document.createElement('div');
-            fileUrl.className = 'oss-file-url';
-            fileUrl.textContent = file.url || '';
-            fileUrl.style.cssText = `
-                font-size: 10px !important;
-                color: #667eea !important;
-                word-break: break-all !important;
-                font-family: 'Consolas', 'Monaco', monospace !important;
-                margin-top: 4px !important;
-                cursor: pointer !important;
-                opacity: 0.7 !important;
-                transition: opacity 0.2s ease !important;
-            `;
-            fileUrl.setAttribute('title', '点击复制链接');
-            fileUrl.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                try {
-                    await navigator.clipboard.writeText(file.url);
-                    this.showNotification('链接已复制到剪贴板', 'success');
-                } catch (error) {
-                    console.error('复制失败:', error);
-                }
-            });
-            fileUrl.addEventListener('mouseenter', () => {
-                fileUrl.style.opacity = '1';
-            });
-            fileUrl.addEventListener('mouseleave', () => {
-                fileUrl.style.opacity = '0.7';
-            });
-            contentInner.appendChild(fileUrl);
-            
             contentWrapper.appendChild(contentInner);
             itemInner.appendChild(contentWrapper);
             fileItem.appendChild(itemInner);
@@ -7425,10 +7400,6 @@ class PetManager {
             
             // 触摸事件（移动设备）
             fileItem.addEventListener('touchstart', (e) => {
-                // 如果点击的是文件URL，不触发长按
-                if (e.target.closest('.oss-file-url')) {
-                    return;
-                }
                 startLongPress(e);
             }, { passive: true });
             
@@ -7446,10 +7417,6 @@ class PetManager {
             
             // 鼠标事件（桌面设备）
             fileItem.addEventListener('mousedown', (e) => {
-                // 如果点击的是文件URL，不触发长按
-                if (e.target.closest('.oss-file-url')) {
-                    return;
-                }
                 startLongPress(e);
             });
             
@@ -7471,11 +7438,6 @@ class PetManager {
             fileItem.addEventListener('click', async (e) => {
                 // 如果点击的是复选框，不执行切换操作
                 if (e.target.type === 'checkbox' || e.target.closest('.oss-file-checkbox')) {
-                    return;
-                }
-                
-                // 如果点击的是文件URL，不执行此操作（URL有自己的点击事件）
-                if (e.target.closest('.oss-file-url')) {
                     return;
                 }
                 
@@ -12094,6 +12056,7 @@ ${pageContent || '无内容'}
                                 
                                 // 添加动作按钮（包括设置按钮）
                                 await this.addActionButtonsToMessage(message);
+                                
                             }
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         }
@@ -12164,6 +12127,7 @@ ${pageContent || '无内容'}
                             
                             // 添加动作按钮（包括设置按钮）
                             await this.addActionButtonsToMessage(message);
+                            
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         } else if (isAbortError && message) {
                             // 请求被取消，移除消息
@@ -12725,6 +12689,7 @@ ${pageContent || '无内容'}
                                 
                                 // 添加动作按钮（包括设置按钮）
                                 await this.addActionButtonsToMessage(message);
+                                
                             }
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         }
@@ -20008,6 +19973,7 @@ ${messageContent}`;
         return div.innerHTML;
     }
 
+
     // 为 Mermaid 图表添加复制和下载按钮
     addMermaidActions(mermaidDiv, svgContent, mermaidSourceCode) {
         if (!mermaidDiv) return;
@@ -22141,24 +22107,89 @@ ${messageContent}`;
                 </div>
         `;
         
-        // 如果有描述，显示描述
+        // 如果是图片，显示图片预览（紧挨着文件地址下面，使用占位符，稍后异步加载）
+        if (fileInfo.isImage && (fileInfo.url || fileInfo.name)) {
+            const objectName = fileInfo.url || fileInfo.name;
+            const previewId = `oss-preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            fileInfoHtml += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
+                    <div id="${previewId}" style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
+                        <div style="padding: 40px; text-align: center; color: #9ca3af; font-size: 14px;">正在加载图片...</div>
+                    </div>
+                </div>
+            `;
+            
+            // 异步加载图片（在 DOM 更新后）
+            setTimeout(async () => {
+                const previewContainer = document.getElementById(previewId);
+                if (!previewContainer) {
+                    return;
+                }
+                
+                try {
+                    let downloadUrl = null;
+                    const objectNameValue = objectName;
+                    
+                    // 如果对象名看起来像是一个完整的URL（包含 http:// 或 https://），直接使用
+                    if (objectNameValue.startsWith('http://') || objectNameValue.startsWith('https://')) {
+                        downloadUrl = objectNameValue;
+                        console.log('检测到完整URL，直接使用:', downloadUrl);
+                    } else {
+                        // 否则，通过OSS API获取下载URL
+                        if (!this.ossApi || !this.ossApi.isEnabled()) {
+                            throw new Error('OSS API未启用，无法获取图片下载URL');
+                        }
+                        
+                        console.log('正在通过OSS API获取下载URL（创建欢迎消息），对象名:', objectNameValue);
+                        downloadUrl = await this.ossApi.getDownloadUrl(objectNameValue, 3600);
+                        
+                        if (!downloadUrl) {
+                            throw new Error('获取下载URL失败，返回为空');
+                        }
+                        
+                        console.log('成功获取OSS图片下载URL（创建欢迎消息）:', downloadUrl);
+                    }
+                    
+                    // 创建图片元素
+                    const img = document.createElement('img');
+                    img.src = downloadUrl;
+                    img.alt = this.escapeHtml(fileInfo.name || '图片预览');
+                    img.style.cssText = 'max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto; cursor: pointer;';
+                    
+                    // 图片加载成功处理
+                    img.addEventListener('load', () => {
+                        console.log('OSS图片加载成功（创建欢迎消息）:', downloadUrl);
+                    });
+                    
+                    // 图片加载错误处理
+                    img.addEventListener('error', () => {
+                        console.warn('OSS图片加载失败（创建欢迎消息）:', downloadUrl);
+                        previewContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">图片加载失败</div>';
+                    });
+                    
+                    // 点击查看大图
+                    img.addEventListener('click', () => {
+                        this.showImagePreview(downloadUrl);
+                    });
+                    
+                    // 更新容器内容
+                    previewContainer.innerHTML = '';
+                    previewContainer.appendChild(img);
+                    
+                } catch (error) {
+                    console.error('获取OSS图片下载URL失败（创建欢迎消息）:', error);
+                    previewContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444;">无法加载图片预览：${this.escapeHtml(error.message || '未知错误')}</div>`;
+                }
+            }, 0);
+        }
+        
+        // 如果有描述，显示描述（在图片预览之后）
         if (fileInfo.description && fileInfo.description.trim()) {
             fileInfoHtml += `
                 <div style="margin-bottom: 12px;">
                     <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 文件描述</div>
                     <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(fileInfo.description)}</div>
-                </div>
-            `;
-        }
-        
-        // 如果是图片，显示图片预览
-        if (fileInfo.isImage && fileInfo.url) {
-            fileInfoHtml += `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
-                    <div style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
-                        <img src="${this.escapeHtml(fileInfo.url)}" alt="${this.escapeHtml(fileInfo.name)}" style="max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'padding: 20px; text-align: center; color: #9ca3af;\\'>图片加载失败</div>'">
-                    </div>
                 </div>
             `;
         }
@@ -22327,24 +22358,89 @@ ${messageContent}`;
                     </div>
             `;
             
-            // 如果有描述，显示描述
+            // 如果是图片，显示图片预览（紧挨着文件地址下面，使用占位符，稍后异步加载）
+            if (ossFileInfo.isImage && (ossFileInfo.url || ossFileInfo.name)) {
+                const objectName = ossFileInfo.url || ossFileInfo.name;
+                const previewId = `oss-preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                fileInfoHtml += `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
+                        <div id="${previewId}" style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
+                            <div style="padding: 40px; text-align: center; color: #9ca3af; font-size: 14px;">正在加载图片...</div>
+                        </div>
+                    </div>
+                `;
+                
+                // 异步加载图片（在 DOM 更新后）
+                setTimeout(async () => {
+                    const previewContainer = document.getElementById(previewId);
+                    if (!previewContainer) {
+                        return;
+                    }
+                    
+                    try {
+                        let downloadUrl = null;
+                        const objectNameValue = objectName;
+                        
+                        // 如果对象名看起来像是一个完整的URL（包含 http:// 或 https://），直接使用
+                        if (objectNameValue.startsWith('http://') || objectNameValue.startsWith('https://')) {
+                            downloadUrl = objectNameValue;
+                            console.log('检测到完整URL，直接使用:', downloadUrl);
+                        } else {
+                            // 否则，通过OSS API获取下载URL
+                            if (!this.ossApi || !this.ossApi.isEnabled()) {
+                                throw new Error('OSS API未启用，无法获取图片下载URL');
+                            }
+                            
+                            console.log('正在通过OSS API获取下载URL（欢迎消息），对象名:', objectNameValue);
+                            downloadUrl = await this.ossApi.getDownloadUrl(objectNameValue, 3600);
+                            
+                            if (!downloadUrl) {
+                                throw new Error('获取下载URL失败，返回为空');
+                            }
+                            
+                            console.log('成功获取OSS图片下载URL（欢迎消息）:', downloadUrl);
+                        }
+                        
+                        // 创建图片元素
+                        const img = document.createElement('img');
+                        img.src = downloadUrl;
+                        img.alt = this.escapeHtml(ossFileInfo.name || '图片预览');
+                        img.style.cssText = 'max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto; cursor: pointer;';
+                        
+                        // 图片加载成功处理
+                        img.addEventListener('load', () => {
+                            console.log('OSS图片加载成功（欢迎消息）:', downloadUrl);
+                        });
+                        
+                        // 图片加载错误处理
+                        img.addEventListener('error', () => {
+                            console.warn('OSS图片加载失败（欢迎消息）:', downloadUrl);
+                            previewContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">图片加载失败</div>';
+                        });
+                        
+                        // 点击查看大图
+                        img.addEventListener('click', () => {
+                            this.showImagePreview(downloadUrl);
+                        });
+                        
+                        // 更新容器内容
+                        previewContainer.innerHTML = '';
+                        previewContainer.appendChild(img);
+                        
+                    } catch (error) {
+                        console.error('获取OSS图片下载URL失败（欢迎消息）:', error);
+                        previewContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444;">无法加载图片预览：${this.escapeHtml(error.message || '未知错误')}</div>`;
+                }
+            }, 0);
+            }
+            
+            // 如果有描述，显示描述（在图片预览之后）
             if (ossFileInfo.description && ossFileInfo.description.trim()) {
                 fileInfoHtml += `
                     <div style="margin-bottom: 12px;">
                         <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 文件描述</div>
                         <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(ossFileInfo.description)}</div>
-                    </div>
-                `;
-            }
-            
-            // 如果是图片，显示图片预览
-            if (ossFileInfo.isImage && ossFileInfo.url) {
-                fileInfoHtml += `
-                    <div style="margin-bottom: 12px;">
-                        <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
-                        <div style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
-                            <img src="${this.escapeHtml(ossFileInfo.url)}" alt="${this.escapeHtml(ossFileInfo.name)}" style="max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'padding: 20px; text-align: center; color: #9ca3af;\\'>图片加载失败</div>'">
-                        </div>
                     </div>
                 `;
             }

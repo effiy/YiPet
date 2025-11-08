@@ -5521,7 +5521,16 @@ class PetManager {
             console.warn('加载OSS文件列表失败:', error);
         }
         
-        const files = this.ossFileManager ? this.ossFileManager.getAllFiles() : [];
+        let files = this.ossFileManager ? this.ossFileManager.getAllFiles() : [];
+        
+        // 根据搜索关键词过滤文件（搜索文件名）
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            files = files.filter(file => {
+                const fileName = (file.name || '').toLowerCase();
+                return fileName.includes(filterKeyword);
+            });
+        }
         
         // 清空列表
         ossFileList.innerHTML = '';
@@ -5534,7 +5543,7 @@ class PetManager {
                 color: #9ca3af !important;
                 font-size: 12px !important;
             `;
-            emptyMsg.textContent = '暂无文件';
+            emptyMsg.textContent = this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '' ? '未找到匹配的文件' : '暂无文件';
             ossFileList.appendChild(emptyMsg);
             return;
         }
@@ -14631,7 +14640,12 @@ ${messageContent}`;
             sidebarTitle.value = '';
             this.sessionTitleFilter = '';
             updateClearButton();
-            this.updateSessionSidebar();
+            // 根据当前模式决定更新哪个列表
+            if (this.ossFileListVisible) {
+                this.updateOssFileSidebar();
+            } else {
+                this.updateSessionSidebar();
+            }
             sidebarTitle.focus();
         });
         
@@ -14657,7 +14671,7 @@ ${messageContent}`;
             searchIcon.style.opacity = sidebarTitle.value.trim() !== '' ? '0.3' : '0.5';
         });
         
-        // 输入框输入事件，实时过滤会话列表（添加防抖）
+        // 输入框输入事件，实时过滤会话列表或OSS文件列表（添加防抖）
         let searchDebounceTimer = null;
         sidebarTitle.addEventListener('input', (e) => {
             const value = e.target.value.trim();
@@ -14671,7 +14685,12 @@ ${messageContent}`;
             
             // 防抖处理：300ms后执行过滤
             searchDebounceTimer = setTimeout(() => {
-                this.updateSessionSidebar();
+                // 根据当前模式决定更新哪个列表
+                if (this.ossFileListVisible) {
+                    this.updateOssFileSidebar();
+                } else {
+                    this.updateSessionSidebar();
+                }
             }, 300);
         });
         
@@ -14686,7 +14705,12 @@ ${messageContent}`;
                 sidebarTitle.value = '';
                 this.sessionTitleFilter = '';
                 updateClearButton();
-                this.updateSessionSidebar();
+                // 根据当前模式决定更新哪个列表
+                if (this.ossFileListVisible) {
+                    this.updateOssFileSidebar();
+                } else {
+                    this.updateSessionSidebar();
+                }
                 e.stopPropagation();
             }
         });

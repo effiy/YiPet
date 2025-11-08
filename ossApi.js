@@ -238,6 +238,147 @@ class OssApiManager {
     }
     
     /**
+     * 获取文件的标签
+     * @param {string} objectName - 文件对象名
+     * @returns {Promise<Array>} 标签列表
+     */
+    async getFileTags(objectName) {
+        if (!objectName) {
+            throw new Error('文件对象名无效');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/oss/tags/${encodeURIComponent(objectName)}`;
+            const result = await this._request(url, { method: 'GET' });
+            
+            if (result.code === 200) {
+                return result.data.tags || [];
+            } else {
+                throw new Error(result.message || '获取标签失败');
+            }
+        } catch (error) {
+            console.error('获取文件标签失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * 设置文件的标签
+     * @param {string} objectName - 文件对象名
+     * @param {Array<string>} tags - 标签列表
+     * @returns {Promise<Object>} 设置结果
+     */
+    async setFileTags(objectName, tags) {
+        if (!objectName) {
+            throw new Error('文件对象名无效');
+        }
+        
+        if (!Array.isArray(tags)) {
+            throw new Error('标签必须是数组');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/oss/tags`;
+            const result = await this._request(url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    object_name: objectName,
+                    tags: tags
+                })
+            });
+            
+            if (result.code === 200) {
+                // 清除列表缓存，因为标签可能影响显示
+                this.cache.filesList = null;
+                this.cache.filesListTimestamp = 0;
+                
+                return result;
+            } else {
+                throw new Error(result.message || '设置标签失败');
+            }
+        } catch (error) {
+            console.error('设置文件标签失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * 获取所有标签列表（带统计）
+     * @returns {Promise<Array>} 标签列表，每个标签包含name和count
+     */
+    async getAllTags() {
+        try {
+            const url = `${this.baseUrl}/oss/tags`;
+            const result = await this._request(url, { method: 'GET' });
+            
+            if (result.code === 200) {
+                return result.data || [];
+            } else {
+                throw new Error(result.message || '获取标签列表失败');
+            }
+        } catch (error) {
+            console.error('获取所有标签失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * 获取文件列表（支持标签筛选）
+     * @param {Object} options - 查询选项
+     * @param {string} options.directory - 目录路径
+     * @param {number} options.max_keys - 最大返回数量
+     * @param {Array<string>} options.tags - 标签筛选（可选）
+     * @param {boolean} options.forceRefresh - 强制刷新缓存
+     * @returns {Promise<Array>} 文件列表
+     */
+    async getFilesList(options = {}) {
+        const { directory = '', max_keys = 100, tags = null, forceRefresh = false } = options;
+        const now = Date.now();
+        
+        // 检查缓存（如果有标签筛选，不使用缓存）
+        if (!forceRefresh && !tags && 
+            this.cache.filesList && 
+            (now - this.cache.filesListTimestamp) < this.cache.CACHE_DURATION) {
+            this.stats.cacheHits++;
+            return this.cache.filesList;
+        }
+        
+        this.stats.cacheMisses++;
+        
+        try {
+            let url = `${this.baseUrl}/oss/files?max_keys=${max_keys}`;
+            if (directory) {
+                url += `&directory=${encodeURIComponent(directory)}`;
+            }
+            if (tags && Array.isArray(tags) && tags.length > 0) {
+                url += `&tags=${encodeURIComponent(tags.join(','))}`;
+            }
+            
+            const result = await this._request(url, { method: 'GET' });
+            
+            if (result.code === 200 && Array.isArray(result.data)) {
+                // 更新缓存（仅在没有标签筛选时）
+                if (!tags) {
+                    this.cache.filesList = result.data;
+                    this.cache.filesListTimestamp = now;
+                }
+                
+                return result.data;
+            } else {
+                throw new Error(result.message || '返回数据格式错误');
+            }
+        } catch (error) {
+            console.warn('获取文件列表失败:', error.message);
+            // 如果请求失败，返回缓存的数据（如果有且没有标签筛选）
+            if (!tags && this.cache.filesList) {
+                console.log('使用缓存的文件列表');
+                return this.cache.filesList;
+            }
+            throw error;
+        }
+    }
+    
+    /**
      * 清除缓存
      */
     clearCache() {

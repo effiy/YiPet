@@ -163,15 +163,23 @@ class PetManager {
         this.SESSION_SAVE_THROTTLE = 1000; // 会话保存节流时间（毫秒）
         
         // 标签过滤相关
-        this.selectedFilterTags = []; // 选中的过滤标签
-        this.tagFilterReverse = false; // 是否反向过滤
-        this.tagFilterExpanded = false; // 标签列表是否展开
-        this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量
+        this.selectedFilterTags = []; // 选中的过滤标签（会话）
+        this.tagFilterReverse = false; // 是否反向过滤（会话）
+        this.tagFilterExpanded = false; // 标签列表是否展开（会话）
+        this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量（会话）
+        
+        // OSS文件标签过滤相关
+        this.selectedOssFilterTags = []; // 选中的OSS文件过滤标签
+        this.ossTagFilterReverse = false; // 是否反向过滤OSS文件
+        this.ossTagFilterExpanded = false; // OSS标签列表是否展开
+        this.ossTagFilterVisibleCount = 8; // 折叠时显示的OSS标签数量
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         
         // 批量操作相关
         this.batchMode = false; // 是否处于批量选择模式
         this.selectedSessionIds = new Set(); // 选中的会话ID集合
+        this.selectedFileNames = new Set(); // 选中的文件名称集合
+        this.currentFile = null; // 当前选中的文件
         
         // 会话API管理器
         this.sessionApi = null;
@@ -3856,13 +3864,46 @@ class PetManager {
             allSessions = allSessions.filter(session => {
                 const sessionTitle = this._getSessionDisplayTitle(session);
                 const sessionUrl = (session.url || '').toLowerCase();
-                // 模糊匹配：标题或网址包含关键词（不区分大小写）
                 return sessionTitle.toLowerCase().includes(filterKeyword) || 
                        sessionUrl.includes(filterKeyword);
             });
         }
         
         return allSessions;
+    }
+    
+    // 获取筛选后的文件列表
+    _getFilteredFiles() {
+        let files = this.ossFileManager ? this.ossFileManager.getAllFiles() : [];
+        
+        // 根据搜索关键词过滤文件（搜索文件名）
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            files = files.filter(file => {
+                const fileName = (file.name || '').toLowerCase();
+                return fileName.includes(filterKeyword);
+            });
+        }
+        
+        // 应用标签过滤（如果后端没有筛选，则在前端筛选）
+        if (this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0) {
+            files = files.filter(file => {
+                const fileTags = file.tags || [];
+                const hasSelectedTags = this.selectedOssFilterTags.some(selectedTag => 
+                    fileTags.includes(selectedTag)
+                );
+                
+                if (this.ossTagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的文件
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的文件
+                    return hasSelectedTags;
+                }
+            });
+        }
+        
+        return files;
     }
 
     // 日期处理辅助函数
@@ -4801,16 +4842,711 @@ class PetManager {
         });
     }
 
+    // 创建OSS标签筛选器
+    async createOssTagFilter() {
+        if (!this.sessionSidebar) return;
+        
+        // 检查是否已存在
+        let ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
+        if (ossTagFilterContainer) {
+            return;
+        }
+        
+        // 创建OSS标签筛选器容器
+        ossTagFilterContainer = document.createElement('div');
+        ossTagFilterContainer.className = 'oss-tag-filter-container';
+        ossTagFilterContainer.style.cssText = `
+            padding: 8px 12px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #ffffff !important;
+            max-height: 180px !important;
+            overflow-y: auto !important;
+        `;
+
+        // 过滤器标题行（包含标题、清除按钮和反向开关）
+        const filterHeader = document.createElement('div');
+        filterHeader.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 6px !important;
+        `;
+
+        const filterTitle = document.createElement('div');
+        filterTitle.style.cssText = `
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            color: #9ca3af !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        `;
+        filterTitle.textContent = '文件标签筛选';
+
+        // 右侧操作区（反向过滤开关 + 清除按钮）
+        const filterActions = document.createElement('div');
+        filterActions.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        `;
+
+        // 反向过滤开关
+        const reverseFilterBtn = document.createElement('button');
+        reverseFilterBtn.className = 'oss-tag-filter-reverse';
+        reverseFilterBtn.title = '反向过滤';
+        reverseFilterBtn.innerHTML = '⇄';
+        reverseFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.ossTagFilterReverse ? '#667eea' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.ossTagFilterReverse ? '1' : '0.6'} !important;
+        `;
+        reverseFilterBtn.addEventListener('click', () => {
+            this.ossTagFilterReverse = !this.ossTagFilterReverse;
+            reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#667eea' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.ossTagFilterReverse ? '1' : '0.6';
+            this.updateOssTagFilterUI();
+            this.updateOssFileSidebar();
+        });
+
+        // 清除按钮
+        const clearFilterBtn = document.createElement('button');
+        clearFilterBtn.className = 'oss-tag-filter-clear';
+        clearFilterBtn.textContent = '×';
+        clearFilterBtn.title = '清除筛选';
+        clearFilterBtn.style.cssText = `
+            font-size: 16px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 0 !important;
+            width: 18px !important;
+            height: 18px !important;
+            line-height: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.6 !important;
+        `;
+        clearFilterBtn.addEventListener('click', () => {
+            if (this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0) {
+                this.selectedOssFilterTags = [];
+                this.updateOssTagFilterUI();
+                this.updateOssFileSidebar();
+            }
+        });
+
+        filterActions.appendChild(reverseFilterBtn);
+        filterActions.appendChild(clearFilterBtn);
+        filterHeader.appendChild(filterTitle);
+        filterHeader.appendChild(filterActions);
+
+        // 标签列表容器
+        const tagFilterList = document.createElement('div');
+        tagFilterList.className = 'oss-tag-filter-list';
+        tagFilterList.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+        `;
+
+        ossTagFilterContainer.appendChild(filterHeader);
+        ossTagFilterContainer.appendChild(tagFilterList);
+
+        // 插入到侧边栏顶部（在文件列表之前）
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        if (ossFileList) {
+            this.sessionSidebar.insertBefore(ossTagFilterContainer, ossFileList);
+        } else {
+            this.sessionSidebar.appendChild(ossTagFilterContainer);
+        }
+        
+        // 初始化标签列表
+        await this.updateOssTagFilterUI();
+    }
+
+    // 更新OSS标签筛选器UI
+    async updateOssTagFilterUI() {
+        if (!this.sessionSidebar) return;
+        
+        const tagFilterList = this.sessionSidebar.querySelector('.oss-tag-filter-list');
+        if (!tagFilterList) return;
+        
+        // 清空现有标签
+        tagFilterList.innerHTML = '';
+        
+        // 从后端获取所有标签
+        let allTags = [];
+        try {
+            if (this.ossApi && this.ossApi.isEnabled()) {
+                const tagsData = await this.ossApi.getAllTags();
+                allTags = tagsData.map(item => item.name || item);
+            }
+        } catch (error) {
+            console.warn('获取OSS标签列表失败:', error);
+        }
+        
+        if (allTags.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无标签';
+            emptyMsg.style.cssText = `
+                font-size: 11px !important;
+                color: #9ca3af !important;
+                padding: 8px !important;
+            `;
+            tagFilterList.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 创建标签按钮
+        allTags.forEach(tag => {
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'oss-tag-filter-item';
+            tagBtn.textContent = tag;
+            const isSelected = this.selectedOssFilterTags && this.selectedOssFilterTags.includes(tag);
+            
+            tagBtn.style.cssText = `
+                padding: 3px 8px !important;
+                border-radius: 10px !important;
+                border: 1px solid ${isSelected ? '#667eea' : '#e5e7eb'} !important;
+                background: ${isSelected ? '#667eea' : '#f9fafb'} !important;
+                color: ${isSelected ? 'white' : '#6b7280'} !important;
+                font-size: 10px !important;
+                font-weight: ${isSelected ? '500' : '400'} !important;
+                cursor: pointer !important;
+                transition: all 0.15s ease !important;
+                white-space: nowrap !important;
+                line-height: 1.4 !important;
+            `;
+            
+            tagBtn.addEventListener('click', () => {
+                if (!this.selectedOssFilterTags) {
+                    this.selectedOssFilterTags = [];
+                }
+                
+                const index = this.selectedOssFilterTags.indexOf(tag);
+                if (index > -1) {
+                    this.selectedOssFilterTags.splice(index, 1);
+                } else {
+                    this.selectedOssFilterTags.push(tag);
+                }
+                
+                this.updateOssTagFilterUI();
+                this.updateOssFileSidebar();
+            });
+            
+            tagFilterList.appendChild(tagBtn);
+        });
+    }
+
+    // 确保OSS标签管理UI存在
+    ensureOssTagManagerUi() {
+        if (!this.chatWindow) return;
+        if (this.chatWindow.querySelector('#pet-oss-tag-manager')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'pet-oss-tag-manager';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 10000 !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeOssTagManager();
+            }
+        });
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
+            width: 90% !important;
+            max-width: 500px !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+        `;
+
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 20px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '管理标签';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'oss-tag-manager-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // 输入区域
+        const inputGroup = document.createElement('div');
+        inputGroup.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            margin-bottom: 20px !important;
+        `;
+
+        const tagInput = document.createElement('input');
+        tagInput.className = 'oss-tag-manager-input';
+        tagInput.type = 'text';
+        tagInput.placeholder = '输入标签名称，按回车添加';
+        tagInput.style.cssText = `
+            flex: 1 !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        
+        // 输入法组合状态跟踪（用于处理中文输入）
+        tagInput._isComposing = false;
+        tagInput.addEventListener('compositionstart', () => {
+            tagInput._isComposing = true;
+        });
+        tagInput.addEventListener('compositionend', () => {
+            tagInput._isComposing = false;
+        });
+        
+        tagInput.addEventListener('focus', () => {
+            tagInput.style.borderColor = '#4CAF50';
+        });
+        tagInput.addEventListener('blur', () => {
+            tagInput.style.borderColor = '#e0e0e0';
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加';
+        addBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.background = '#45a049';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.background = '#4CAF50';
+        });
+        addBtn.addEventListener('click', () => {
+            const objectName = modal.dataset.objectName;
+            if (objectName) {
+                this.addOssTagFromInput(objectName);
+            }
+        });
+
+        inputGroup.appendChild(tagInput);
+        inputGroup.appendChild(addBtn);
+
+        // 标签列表
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'oss-tag-manager-tags';
+        tagsContainer.style.cssText = `
+            min-height: 100px !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            margin-bottom: 20px !important;
+            padding: 12px !important;
+            background: #f8f9fa !important;
+            border-radius: 6px !important;
+        `;
+
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 10px !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #f0f0f0 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: background 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#e0e0e0';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#f0f0f0';
+        });
+        cancelBtn.addEventListener('click', () => this.closeOssTagManager());
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'oss-tag-manager-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#1976D2';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#2196F3';
+        });
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+
+        panel.appendChild(header);
+        panel.appendChild(inputGroup);
+        panel.appendChild(tagsContainer);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        this.chatWindow.appendChild(modal);
+    }
+
+    // 加载标签到OSS标签管理器
+    loadOssTagsIntoManager(objectName, tags) {
+        const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
+        if (!modal) return;
+
+        const tagsContainer = modal.querySelector('.oss-tag-manager-tags');
+        if (!tagsContainer) return;
+
+        tagsContainer.innerHTML = '';
+
+        if (!tags || tags.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无标签';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+                font-size: 14px !important;
+            `;
+            tagsContainer.appendChild(emptyMsg);
+            return;
+        }
+
+        tags.forEach((tag, index) => {
+            const tagItem = document.createElement('div');
+            tagItem.style.cssText = `
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                background: #4CAF50 !important;
+                color: white !important;
+                padding: 6px 12px !important;
+                border-radius: 20px !important;
+                margin: 4px !important;
+                font-size: 13px !important;
+            `;
+
+            const tagText = document.createElement('span');
+            tagText.textContent = tag;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '✕';
+            removeBtn.style.cssText = `
+                background: rgba(255, 255, 255, 0.3) !important;
+                border: none !important;
+                color: white !important;
+                width: 18px !important;
+                height: 18px !important;
+                border-radius: 50% !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 !important;
+                transition: background 0.2s ease !important;
+            `;
+            removeBtn.addEventListener('mouseenter', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.5)';
+            });
+            removeBtn.addEventListener('mouseleave', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+            });
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const objectName = modal.dataset.objectName;
+                if (objectName) {
+                    this.removeOssTag(objectName, index);
+                }
+            });
+
+            tagItem.appendChild(tagText);
+            tagItem.appendChild(removeBtn);
+            tagsContainer.appendChild(tagItem);
+        });
+    }
+
+    // 打开OSS文件标签编辑器
+    async openOssFileTagEditor(objectName, currentTags = []) {
+        if (!this.ossApi || !this.ossApi.isEnabled()) {
+            this.showNotification('OSS API未启用', 'error');
+            return;
+        }
+
+        // 确保UI存在
+        this.ensureOssTagManagerUi();
+        const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
+        if (!modal) {
+            console.error('OSS标签管理弹窗未找到');
+            return;
+        }
+
+        // 显示弹窗
+        modal.style.display = 'flex';
+        modal.dataset.objectName = objectName;
+
+        // 加载当前标签（从后端获取最新标签）
+        try {
+            const latestTags = await this.ossApi.getFileTags(objectName);
+            this.loadOssTagsIntoManager(objectName, latestTags);
+            // 保存到modal的临时数据中
+            modal._currentTags = latestTags;
+        } catch (error) {
+            console.warn('获取文件标签失败，使用传入的标签:', error);
+            this.loadOssTagsIntoManager(objectName, currentTags);
+            modal._currentTags = currentTags || [];
+        }
+
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.oss-tag-manager-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeOssTagManager();
+        }
+
+        // 添加保存事件
+        const saveBtn = modal.querySelector('.oss-tag-manager-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveOssTags(objectName);
+        }
+
+        // 添加输入框回车事件（兼容中文输入法）
+        const tagInput = modal.querySelector('.oss-tag-manager-input');
+        if (tagInput) {
+            // 确保输入法组合状态已初始化
+            if (tagInput._isComposing === undefined) {
+                tagInput._isComposing = false;
+                tagInput.addEventListener('compositionstart', () => {
+                    tagInput._isComposing = true;
+                });
+                tagInput.addEventListener('compositionend', () => {
+                    tagInput._isComposing = false;
+                });
+            }
+            
+            // 添加回车键事件处理
+            const existingHandler = tagInput._enterKeyHandler;
+            if (existingHandler) {
+                tagInput.removeEventListener('keydown', existingHandler);
+            }
+            
+            const enterKeyHandler = (e) => {
+                // 如果在输入法组合过程中，忽略回车键
+                if (tagInput._isComposing) {
+                    return;
+                }
+                
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addOssTagFromInput(objectName);
+                }
+            };
+            
+            tagInput._enterKeyHandler = enterKeyHandler;
+            tagInput.addEventListener('keydown', enterKeyHandler);
+            
+            tagInput.focus();
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeOssTagManager();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    // 从输入框添加OSS标签
+    addOssTagFromInput(objectName) {
+        const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
+        if (!modal) return;
+
+        const tagInput = modal.querySelector('.oss-tag-manager-input');
+        if (!tagInput) return;
+
+        const tagName = tagInput.value.trim();
+        if (!tagName) return;
+
+        // 获取当前标签列表
+        if (!modal._currentTags) {
+            modal._currentTags = [];
+        }
+
+        // 检查标签是否已存在
+        if (modal._currentTags.includes(tagName)) {
+            tagInput.value = '';
+            tagInput.focus();
+            return;
+        }
+
+        // 添加标签
+        modal._currentTags.push(tagName);
+        tagInput.value = '';
+        tagInput.focus();
+
+        // 重新加载标签列表
+        this.loadOssTagsIntoManager(objectName, modal._currentTags);
+    }
+
+    // 删除OSS标签
+    removeOssTag(objectName, index) {
+        const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
+        if (!modal || !modal._currentTags) return;
+
+        modal._currentTags.splice(index, 1);
+        this.loadOssTagsIntoManager(objectName, modal._currentTags);
+    }
+
+    // 保存OSS标签
+    async saveOssTags(objectName) {
+        const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
+        if (!modal || !modal._currentTags) {
+            console.warn('无法保存标签：数据不存在');
+            return;
+        }
+
+        try {
+            await this.ossApi.setFileTags(objectName, modal._currentTags);
+            this.showNotification('标签保存成功', 'success');
+            
+            // 刷新文件列表和标签筛选器
+            await this.updateOssFileSidebar(true);
+            await this.updateOssTagFilterUI();
+            
+            // 关闭弹窗
+            this.closeOssTagManager();
+        } catch (error) {
+            console.error('保存标签失败:', error);
+            this.showNotification('保存标签失败: ' + error.message, 'error');
+        }
+    }
+
+    // 关闭OSS标签管理器（自动保存）
+    async closeOssTagManager() {
+        const modal = this.chatWindow?.querySelector('#pet-oss-tag-manager');
+        if (!modal) return;
+
+        const objectName = modal.dataset.objectName;
+        if (objectName && modal._currentTags) {
+            try {
+                await this.ossApi.setFileTags(objectName, modal._currentTags);
+                // 刷新文件列表和标签筛选器
+                await this.updateOssFileSidebar(true);
+                await this.updateOssTagFilterUI();
+            } catch (error) {
+                console.error('自动保存标签失败:', error);
+            }
+        }
+
+        modal.style.display = 'none';
+        const tagInput = modal.querySelector('.oss-tag-manager-input');
+        if (tagInput) {
+            tagInput.value = '';
+        }
+        delete modal._currentTags;
+    }
+
     async updateSessionSidebar(forceRefresh = false, skipBackendRefresh = false) {
         if (!this.sessionSidebar) {
             console.log('会话侧边栏未创建，跳过更新');
             return;
         }
         
-        // 隐藏OSS文件列表
+        // 隐藏OSS文件列表和OSS标签筛选器
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         if (ossFileList) {
             ossFileList.style.display = 'none';
+        }
+        const ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
+        if (ossTagFilterContainer) {
+            ossTagFilterContainer.style.display = 'none';
         }
         
         // 显示会话列表相关元素
@@ -5486,8 +6222,20 @@ class PetManager {
         if (tagFilterContainer) {
             tagFilterContainer.style.display = 'none';
         }
-        if (batchToolbar) {
+        // 批量工具栏在批量模式下显示
+        if (batchToolbar && this.batchMode) {
+            batchToolbar.style.display = 'flex';
+        } else if (batchToolbar) {
             batchToolbar.style.display = 'none';
+        }
+        
+        // 显示OSS标签筛选器（如果存在）
+        const ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
+        if (ossTagFilterContainer) {
+            ossTagFilterContainer.style.display = 'block';
+        } else {
+            // 创建OSS标签筛选器
+            await this.createOssTagFilter();
         }
         
         // 获取或创建OSS文件列表容器
@@ -5512,10 +6260,13 @@ class PetManager {
             searchInput.placeholder = '搜索文件...';
         }
         
-        // 加载文件列表
+        // 加载文件列表（支持标签筛选）
         try {
             if (this.ossFileManager && this.ossApi) {
-                await this.ossFileManager.loadBackendFiles(forceRefresh);
+                const filterTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0 
+                    ? this.selectedOssFilterTags 
+                    : null;
+                await this.ossFileManager.loadBackendFiles(forceRefresh, filterTags);
             }
         } catch (error) {
             console.warn('加载OSS文件列表失败:', error);
@@ -5529,6 +6280,24 @@ class PetManager {
             files = files.filter(file => {
                 const fileName = (file.name || '').toLowerCase();
                 return fileName.includes(filterKeyword);
+            });
+        }
+        
+        // 应用标签过滤（如果后端没有筛选，则在前端筛选）
+        if (this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0) {
+            files = files.filter(file => {
+                const fileTags = file.tags || [];
+                const hasSelectedTags = this.selectedOssFilterTags.some(selectedTag => 
+                    fileTags.includes(selectedTag)
+                );
+                
+                if (this.ossTagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的文件
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的文件
+                    return hasSelectedTags;
+                }
             });
         }
         
@@ -5559,6 +6328,18 @@ class PetManager {
         for (const file of sortedFiles) {
             const fileItem = document.createElement('div');
             fileItem.className = 'oss-file-item';
+            fileItem.dataset.fileName = file.name;
+            
+            // 添加选中状态类
+            if (file.name === this.currentFile) {
+                fileItem.classList.add('active');
+            }
+            
+            // 批量模式下添加选中状态类
+            if (this.batchMode && this.selectedFileNames.has(file.name)) {
+                fileItem.classList.add('selected');
+            }
+            
             fileItem.style.cssText = `
                 padding: 12px !important;
                 margin-bottom: 6px !important;
@@ -5573,6 +6354,39 @@ class PetManager {
                 position: relative !important;
                 user-select: none !important;
             `;
+            
+            // 创建复选框（仅在批量模式下显示）
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'oss-file-checkbox';
+            checkbox.dataset.fileName = file.name;
+            checkbox.checked = this.selectedFileNames.has(file.name);
+            checkbox.style.cssText = `
+                width: 16px !important;
+                height: 16px !important;
+                cursor: pointer !important;
+                margin-right: 8px !important;
+                flex-shrink: 0 !important;
+                display: ${this.batchMode ? 'block' : 'none'} !important;
+            `;
+            
+            checkbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const fileName = e.target.dataset.fileName;
+                if (e.target.checked) {
+                    this.selectedFileNames.add(fileName);
+                    fileItem.classList.add('selected');
+                } else {
+                    this.selectedFileNames.delete(fileName);
+                    fileItem.classList.remove('selected');
+                }
+                this.updateBatchToolbar();
+            });
+            
+            // 阻止复选框点击事件冒泡
+            checkbox.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
             
             // 文件图标
             const fileIcon = document.createElement('span');
@@ -5596,30 +6410,128 @@ class PetManager {
                 fileIcon.textContent = '📄';
             }
             
-            // 文件信息容器
-            const fileInfo = document.createElement('div');
-            fileInfo.style.cssText = `
+            // 创建内容容器
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
                 flex: 1 !important;
                 min-width: 0 !important;
                 display: flex !important;
                 flex-direction: column !important;
             `;
             
+            // 创建文件项内部容器（包含复选框和内容）
+            const itemInner = document.createElement('div');
+            itemInner.style.cssText = `
+                display: flex !important;
+                align-items: flex-start !important;
+                width: 100% !important;
+            `;
+            
+            // 添加复选框
+            itemInner.appendChild(checkbox);
+            
+            // 创建内容包装器（包含文件名和标签）
+            const contentInner = document.createElement('div');
+            contentInner.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
+            `;
+            
+            // 创建文件名行容器（文件名和按钮在同一行）
+            const titleRow = document.createElement('div');
+            titleRow.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 8px !important;
+                width: 100% !important;
+            `;
+            
             // 文件名
             const fileNameDiv = document.createElement('div');
             fileNameDiv.className = 'oss-file-name';
-            fileNameDiv.textContent = fileName;
+            
+            // 根据侧边栏宽度动态计算文件名最大显示长度
+            const availableWidth = Math.max(100, this.sidebarWidth - 60);
+            const maxChars = Math.floor(availableWidth / 7);
+            const fileNameMaxLength = Math.max(15, Math.min(50, maxChars));
+            
+            const displayFileName = fileName.length > fileNameMaxLength 
+                ? fileName.substring(0, fileNameMaxLength) + '...' 
+                : fileName;
+            
+            fileNameDiv.textContent = displayFileName;
+            if (fileName.length > fileNameMaxLength) {
+                fileNameDiv.setAttribute('title', fileName);
+            }
             fileNameDiv.style.cssText = `
                 font-size: 13px !important;
                 font-weight: 500 !important;
                 color: #374151 !important;
-                margin-bottom: 4px !important;
+                margin-bottom: 0 !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
-                max-width: 100% !important;
+                flex: 1 !important;
+                min-width: 0 !important;
             `;
-            fileNameDiv.setAttribute('title', fileName);
+            
+            // 标签管理按钮
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'oss-file-tag-btn';
+            tagBtn.innerHTML = '🏷️';
+            tagBtn.title = '管理标签';
+            tagBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停时增加不透明度
+            tagBtn.addEventListener('mouseenter', () => {
+                tagBtn.style.opacity = '1';
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                tagBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止标签按钮点击事件冒泡到 fileItem
+            tagBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openOssFileTagEditor(file.name, file.tags || []);
+            });
+            
+            // 创建按钮容器
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 2px !important;
+                opacity: 0 !important;
+                transition: opacity 0.2s ease !important;
+                flex-shrink: 0 !important;
+            `;
+            buttonContainer.appendChild(tagBtn);
+            
+            // 鼠标悬停在文件项上时显示按钮
+            fileItem.addEventListener('mouseenter', () => {
+                buttonContainer.style.opacity = '1';
+            });
+            fileItem.addEventListener('mouseleave', () => {
+                buttonContainer.style.opacity = '0';
+            });
+            
+            // 将文件名和按钮容器添加到标题行
+            titleRow.appendChild(fileNameDiv);
+            titleRow.appendChild(buttonContainer);
+            
+            contentInner.appendChild(titleRow);
             
             // 文件元信息
             const fileMeta = document.createElement('div');
@@ -5627,11 +6539,72 @@ class PetManager {
             fileMeta.style.cssText = `
                 font-size: 11px !important;
                 color: #9ca3af !important;
-                margin-bottom: 4px !important;
+                margin-top: 4px !important;
+                margin-bottom: 0 !important;
             `;
             const sizeText = file.size_human || `${(file.size / 1024 / 1024).toFixed(2)}MB`;
             const timeText = file.last_modified_str || '未知时间';
             fileMeta.textContent = `📊 ${sizeText} | 📅 ${timeText}`;
+            contentInner.appendChild(fileMeta);
+            
+            // 文件标签显示（在元信息下面一行）
+            const tags = file.tags || [];
+            if (tags.length > 0) {
+                const tagsContainer = document.createElement('div');
+                tagsContainer.className = 'oss-file-tags';
+                tagsContainer.style.cssText = `
+                    display: flex !important;
+                    flex-wrap: wrap !important;
+                    gap: 4px !important;
+                    margin-top: 4px !important;
+                    margin-bottom: 0 !important;
+                `;
+                
+                // 最多显示3个标签，超出部分显示"+N"
+                const maxVisibleTags = 3;
+                const visibleTags = tags.slice(0, maxVisibleTags);
+                const remainingCount = tags.length - maxVisibleTags;
+                
+                visibleTags.forEach((tag) => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'oss-file-tag-item';
+                    tagElement.textContent = tag;
+                    tagElement.style.cssText = `
+                        display: inline-block !important;
+                        background: #4CAF50 !important;
+                        color: white !important;
+                        padding: 2px 6px !important;
+                        border-radius: 10px !important;
+                        font-size: 11px !important;
+                        line-height: 1.4 !important;
+                        white-space: nowrap !important;
+                        max-width: 80px !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                    `;
+                    tagElement.setAttribute('title', tag);
+                    tagsContainer.appendChild(tagElement);
+                });
+                
+                if (remainingCount > 0) {
+                    const moreTag = document.createElement('span');
+                    moreTag.className = 'oss-file-tag-more';
+                    moreTag.textContent = `+${remainingCount}`;
+                    moreTag.style.cssText = `
+                        display: inline-block !important;
+                        background: #999 !important;
+                        color: white !important;
+                        padding: 2px 6px !important;
+                        border-radius: 10px !important;
+                        font-size: 11px !important;
+                        line-height: 1.4 !important;
+                    `;
+                    moreTag.setAttribute('title', `还有 ${remainingCount} 个标签`);
+                    tagsContainer.appendChild(moreTag);
+                }
+                
+                contentInner.appendChild(tagsContainer);
+            }
             
             // 文件URL（可点击复制）
             const fileUrl = document.createElement('div');
@@ -5663,10 +6636,11 @@ class PetManager {
             fileUrl.addEventListener('mouseleave', () => {
                 fileUrl.style.opacity = '0.7';
             });
+            contentInner.appendChild(fileUrl);
             
-            fileInfo.appendChild(fileNameDiv);
-            fileInfo.appendChild(fileMeta);
-            fileInfo.appendChild(fileUrl);
+            contentWrapper.appendChild(contentInner);
+            itemInner.appendChild(contentWrapper);
+            fileItem.appendChild(itemInner);
             
             // 长按删除相关变量
             let longPressTimer = null;
@@ -5890,8 +6864,13 @@ class PetManager {
                 endLongPress();
             });
             
-            // 点击文件项复制链接（如果点击的不是URL区域）
+            // 点击文件项选择文件或切换选中状态
             fileItem.addEventListener('click', async (e) => {
+                // 如果点击的是复选框，不执行切换操作
+                if (e.target.type === 'checkbox' || e.target.closest('.oss-file-checkbox')) {
+                    return;
+                }
+                
                 // 如果点击的是文件URL，不执行此操作（URL有自己的点击事件）
                 if (e.target.closest('.oss-file-url')) {
                     return;
@@ -5904,17 +6883,51 @@ class PetManager {
                     return;
                 }
                 
-                // 点击文件项复制链接
+                // 批量模式下，点击切换选中状态
+                if (this.batchMode) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                    return;
+                }
+                
+                // 非批量模式下，选择文件（设置当前文件）
+                if (file.name === this.currentFile) {
+                    // 如果点击的是当前文件，添加轻微反馈提示
+                    fileItem.classList.add('clicked');
+                    setTimeout(() => {
+                        fileItem.classList.remove('clicked');
+                    }, 150);
+                    return;
+                }
+                
+                // 立即添加点击反馈
+                fileItem.classList.add('clicked');
+                
+                // 设置当前文件
+                this.currentFile = file.name;
+                
+                // 更新所有文件项的active状态
+                const allFileItems = ossFileList.querySelectorAll('.oss-file-item');
+                allFileItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.dataset.fileName === file.name) {
+                        item.classList.add('active');
+                    }
+                });
+                
+                // 复制链接到剪贴板
                 try {
                     await navigator.clipboard.writeText(file.url);
                     this.showNotification('链接已复制到剪贴板', 'success');
                 } catch (error) {
                     console.error('复制失败:', error);
                 }
+                
+                // 移除点击反馈
+                setTimeout(() => {
+                    fileItem.classList.remove('clicked');
+                }, 300);
             });
-            
-            fileItem.appendChild(fileIcon);
-            fileItem.appendChild(fileInfo);
             
             ossFileList.appendChild(fileItem);
         }
@@ -5926,6 +6939,7 @@ class PetManager {
     enterBatchMode() {
         this.batchMode = true;
         this.selectedSessionIds.clear();
+        this.selectedFileNames.clear();
         
         // 显示批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');
@@ -5948,8 +6962,14 @@ class PetManager {
             batchModeBtn.style.borderColor = '#059669 !important';
         }
         
-        // 更新会话列表，显示复选框
-        this.updateSessionSidebar();
+        // 更新会话列表或文件列表，显示复选框
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        if (sessionList && sessionList.style.display !== 'none') {
+            this.updateSessionSidebar();
+        } else if (ossFileList && ossFileList.style.display !== 'none') {
+            this.updateOssFileSidebar();
+        }
         
         // 更新批量工具栏状态
         setTimeout(() => {
@@ -5964,6 +6984,7 @@ class PetManager {
     exitBatchMode() {
         this.batchMode = false;
         this.selectedSessionIds.clear();
+        this.selectedFileNames.clear();
         
         // 隐藏批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');
@@ -5986,8 +7007,14 @@ class PetManager {
             batchModeBtn.style.transform = 'translateY(0)';
             batchModeBtn.style.boxShadow = 'none !important';
         }
-        // 更新会话列表，隐藏复选框
-        this.updateSessionSidebar();
+        // 更新会话列表或文件列表，隐藏复选框
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        if (sessionList && sessionList.style.display !== 'none') {
+            this.updateSessionSidebar();
+        } else if (ossFileList && ossFileList.style.display !== 'none') {
+            this.updateOssFileSidebar();
+        }
         
         // 显示通知
         this.showNotification('已退出批量选择模式', 'info');
@@ -5999,8 +7026,14 @@ class PetManager {
         const batchDeleteBtn = document.getElementById('batch-delete-btn');
         const selectAllBtn = document.getElementById('select-all-btn');
         
+        // 判断当前显示的是会话列表还是文件列表
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
+        
+        const count = isFileListMode ? this.selectedFileNames.size : this.selectedSessionIds.size;
+        
         if (selectedCount) {
-            const count = this.selectedSessionIds.size;
             selectedCount.textContent = `已选择 ${count} 个`;
             
             // 根据选中数量更新样式
@@ -6014,7 +7047,7 @@ class PetManager {
         }
         
         if (batchDeleteBtn) {
-            const hasSelection = this.selectedSessionIds.size > 0;
+            const hasSelection = count > 0;
             batchDeleteBtn.disabled = !hasSelection;
             
             if (hasSelection) {
@@ -6028,9 +7061,16 @@ class PetManager {
         
         // 更新全选按钮状态
         if (selectAllBtn) {
-            const filteredSessions = this._getFilteredSessions();
-            const allSelected = filteredSessions.length > 0 && 
-                               filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+            let allSelected = false;
+            if (isFileListMode) {
+                const filteredFiles = this._getFilteredFiles();
+                allSelected = filteredFiles.length > 0 && 
+                             filteredFiles.every(file => this.selectedFileNames.has(file.name));
+            } else {
+                const filteredSessions = this._getFilteredSessions();
+                allSelected = filteredSessions.length > 0 && 
+                             filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+            }
             
             if (allSelected) {
                 selectAllBtn.textContent = '取消全选';
@@ -6046,108 +7086,209 @@ class PetManager {
     
     // 切换全选/取消全选
     toggleSelectAll() {
-        const filteredSessions = this._getFilteredSessions();
-        const allSelected = filteredSessions.length > 0 && 
-                           filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
         
-        if (allSelected) {
-            // 取消全选：只取消当前显示的会话
-            filteredSessions.forEach(session => {
-                this.selectedSessionIds.delete(session.id);
+        if (isFileListMode) {
+            // 文件列表模式
+            const filteredFiles = this._getFilteredFiles();
+            const allSelected = filteredFiles.length > 0 && 
+                               filteredFiles.every(file => this.selectedFileNames.has(file.name));
+            
+            if (allSelected) {
+                // 取消全选：只取消当前显示的文件
+                filteredFiles.forEach(file => {
+                    this.selectedFileNames.delete(file.name);
+                });
+            } else {
+                // 全选：选中所有当前显示的文件
+                filteredFiles.forEach(file => {
+                    this.selectedFileNames.add(file.name);
+                });
+            }
+            
+            // 更新所有复选框状态
+            const checkboxes = document.querySelectorAll('.oss-file-checkbox');
+            checkboxes.forEach(checkbox => {
+                const fileName = checkbox.dataset.fileName;
+                checkbox.checked = this.selectedFileNames.has(fileName);
+                
+                // 更新文件项的选中状态类
+                const fileItem = checkbox.closest('.oss-file-item');
+                if (fileItem) {
+                    if (this.selectedFileNames.has(fileName)) {
+                        fileItem.classList.add('selected');
+                    } else {
+                        fileItem.classList.remove('selected');
+                    }
+                }
             });
         } else {
-            // 全选：选中所有当前显示的会话
-            filteredSessions.forEach(session => {
-                this.selectedSessionIds.add(session.id);
+            // 会话列表模式
+            const filteredSessions = this._getFilteredSessions();
+            const allSelected = filteredSessions.length > 0 && 
+                               filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+            
+            if (allSelected) {
+                // 取消全选：只取消当前显示的会话
+                filteredSessions.forEach(session => {
+                    this.selectedSessionIds.delete(session.id);
+                });
+            } else {
+                // 全选：选中所有当前显示的会话
+                filteredSessions.forEach(session => {
+                    this.selectedSessionIds.add(session.id);
+                });
+            }
+            
+            // 更新所有复选框状态
+            const checkboxes = document.querySelectorAll('.session-checkbox');
+            checkboxes.forEach(checkbox => {
+                const sessionId = checkbox.dataset.sessionId;
+                checkbox.checked = this.selectedSessionIds.has(sessionId);
+                
+                // 更新会话项的选中状态类
+                const sessionItem = checkbox.closest('.session-item');
+                if (sessionItem) {
+                    if (this.selectedSessionIds.has(sessionId)) {
+                        sessionItem.classList.add('selected');
+                    } else {
+                        sessionItem.classList.remove('selected');
+                    }
+                }
             });
         }
-        
-        // 更新所有复选框状态
-        const checkboxes = document.querySelectorAll('.session-checkbox');
-        checkboxes.forEach(checkbox => {
-            const sessionId = checkbox.dataset.sessionId;
-            checkbox.checked = this.selectedSessionIds.has(sessionId);
-            
-            // 更新会话项的选中状态类
-            const sessionItem = checkbox.closest('.session-item');
-            if (sessionItem) {
-                if (this.selectedSessionIds.has(sessionId)) {
-                    sessionItem.classList.add('selected');
-                } else {
-                    sessionItem.classList.remove('selected');
-                }
-            }
-        });
         
         // 更新批量工具栏
         this.updateBatchToolbar();
     }
     
-    // 批量删除会话
+    // 批量删除（支持会话和文件）
     async batchDeleteSessions() {
-        if (this.selectedSessionIds.size === 0) {
-            this.showNotification('请先选择要删除的会话', 'error');
-            return;
-        }
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
         
-        const count = this.selectedSessionIds.size;
-        const confirmMessage = `确定要删除选中的 ${count} 个会话吗？此操作不可撤销。`;
-        if (!confirm(confirmMessage)) {
-            return;
-        }
-        
-        const sessionIds = Array.from(this.selectedSessionIds);
-        
-        try {
-            // 从本地删除
-            sessionIds.forEach(sessionId => {
-                if (this.sessions[sessionId]) {
-                    delete this.sessions[sessionId];
-                }
-                // 如果删除的是当前会话，清空当前会话ID
-                if (sessionId === this.currentSessionId) {
-                    this.currentSessionId = null;
-                    this.hasAutoCreatedSessionForPage = false;
-                }
-            });
-            
-            // 保存本地更改
-            if (this.sessionManager) {
-                // 使用 SessionManager 批量删除
-                for (const sessionId of sessionIds) {
-                    await this.sessionManager.deleteSession(sessionId);
-                }
-            } else {
-                // 保存到本地存储
-                await this.saveAllSessions(true);
+        if (isFileListMode) {
+            // 批量删除文件
+            if (this.selectedFileNames.size === 0) {
+                this.showNotification('请先选择要删除的文件', 'error');
+                return;
             }
             
-            // 从后端删除（如果启用了后端同步）
-            if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                try {
-                    await this.sessionApi.deleteSessions(sessionIds);
-                    console.log('批量删除会话已同步到后端:', sessionIds);
-                } catch (error) {
-                    console.warn('从后端批量删除会话失败:', error);
-                    // 即使后端删除失败，也继续执行，因为本地已删除
-                }
+            const count = this.selectedFileNames.size;
+            const confirmMessage = `确定要删除选中的 ${count} 个文件吗？此操作不可撤销。`;
+            if (!confirm(confirmMessage)) {
+                return;
             }
             
-            // 清空选中状态
-            this.selectedSessionIds.clear();
+            const fileNames = Array.from(this.selectedFileNames);
             
-            // 退出批量模式
-            this.exitBatchMode();
+            try {
+                // 从后端删除文件
+                if (this.ossFileManager && this.ossApi) {
+                    let successCount = 0;
+                    let failCount = 0;
+                    
+                    for (const fileName of fileNames) {
+                        try {
+                            await this.ossFileManager.deleteFile(fileName);
+                            successCount++;
+                        } catch (error) {
+                            console.error(`删除文件 ${fileName} 失败:`, error);
+                            failCount++;
+                        }
+                    }
+                    
+                    // 清空选中状态
+                    this.selectedFileNames.clear();
+                    
+                    // 退出批量模式
+                    this.exitBatchMode();
+                    
+                    // 刷新文件列表
+                    await this.updateOssFileSidebar(true);
+                    
+                    // 显示成功通知
+                    if (failCount === 0) {
+                        this.showNotification(`已成功删除 ${successCount} 个文件`, 'success');
+                    } else {
+                        this.showNotification(`已删除 ${successCount} 个文件，${failCount} 个失败`, 'error');
+                    }
+                } else {
+                    this.showNotification('文件管理器未初始化', 'error');
+                }
+            } catch (error) {
+                console.error('批量删除文件失败:', error);
+                this.showNotification('批量删除文件失败: ' + error.message, 'error');
+            }
+        } else {
+            // 批量删除会话
+            if (this.selectedSessionIds.size === 0) {
+                this.showNotification('请先选择要删除的会话', 'error');
+                return;
+            }
             
-            // 刷新会话列表
-            await this.updateSessionSidebar(true);
+            const count = this.selectedSessionIds.size;
+            const confirmMessage = `确定要删除选中的 ${count} 个会话吗？此操作不可撤销。`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
             
-            // 显示成功通知
-            this.showNotification(`已成功删除 ${count} 个会话`, 'success');
+            const sessionIds = Array.from(this.selectedSessionIds);
             
-        } catch (error) {
-            console.error('批量删除会话失败:', error);
-            this.showNotification('批量删除会话失败: ' + error.message, 'error');
+            try {
+                // 从本地删除
+                sessionIds.forEach(sessionId => {
+                    if (this.sessions[sessionId]) {
+                        delete this.sessions[sessionId];
+                    }
+                    // 如果删除的是当前会话，清空当前会话ID
+                    if (sessionId === this.currentSessionId) {
+                        this.currentSessionId = null;
+                        this.hasAutoCreatedSessionForPage = false;
+                    }
+                });
+                
+                // 保存本地更改
+                if (this.sessionManager) {
+                    // 使用 SessionManager 批量删除
+                    for (const sessionId of sessionIds) {
+                        await this.sessionManager.deleteSession(sessionId);
+                    }
+                } else {
+                    // 保存到本地存储
+                    await this.saveAllSessions(true);
+                }
+                
+                // 从后端删除（如果启用了后端同步）
+                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                    try {
+                        await this.sessionApi.deleteSessions(sessionIds);
+                        console.log('批量删除会话已同步到后端:', sessionIds);
+                    } catch (error) {
+                        console.warn('从后端批量删除会话失败:', error);
+                        // 即使后端删除失败，也继续执行，因为本地已删除
+                    }
+                }
+                
+                // 清空选中状态
+                this.selectedSessionIds.clear();
+                
+                // 退出批量模式
+                this.exitBatchMode();
+                
+                // 刷新会话列表
+                await this.updateSessionSidebar(true);
+                
+                // 显示成功通知
+                this.showNotification(`已成功删除 ${count} 个会话`, 'success');
+                
+            } catch (error) {
+                console.error('批量删除会话失败:', error);
+                this.showNotification('批量删除会话失败: ' + error.message, 'error');
+            }
         }
     }
 

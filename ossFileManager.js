@@ -82,31 +82,36 @@ class OssFileManager {
     
     /**
      * 从后端加载文件列表
+     * @param {boolean} forceRefresh - 是否强制刷新
+     * @param {Array<string>} tags - 标签筛选（可选）
      */
-    async loadBackendFiles(forceRefresh = false) {
+    async loadBackendFiles(forceRefresh = false, tags = null) {
         if (!this.ossApi || !this.enableBackendSync) {
             return;
         }
         
         const now = Date.now();
         
-        // 如果不是强制刷新，且距离上次加载时间太短，则跳过
-        if (!forceRefresh && (now - this.lastFileListLoadTime) < this.FILE_LIST_RELOAD_INTERVAL) {
+        // 如果不是强制刷新，且距离上次加载时间太短，则跳过（有标签筛选时总是刷新）
+        if (!forceRefresh && !tags && (now - this.lastFileListLoadTime) < this.FILE_LIST_RELOAD_INTERVAL) {
             return;
         }
         
         try {
             const files = await this.ossApi.getFilesList({
                 directory: this.currentDirectory,
-                forceRefresh: forceRefresh
+                forceRefresh: forceRefresh,
+                tags: tags
             });
             
             if (Array.isArray(files)) {
                 this.files = files;
                 this.lastFileListLoadTime = now;
                 
-                // 保存到本地存储
-                await this.saveLocalFiles();
+                // 保存到本地存储（仅在没有标签筛选时）
+                if (!tags) {
+                    await this.saveLocalFiles();
+                }
                 
                 console.log('文件列表已从后端加载，共', files.length, '个文件');
             }
@@ -193,11 +198,15 @@ class OssFileManager {
     
     /**
      * 刷新文件列表（从后端重新加载）
+     * @param {boolean} forceRefresh - 是否强制刷新
+     * @param {Array<string>} tags - 标签筛选（可选）
      */
-    async refreshFiles(forceRefresh = false) {
+    async refreshFiles(forceRefresh = false, tags = null) {
         if (this.ossApi && this.enableBackendSync) {
-            await this.loadBackendFiles(forceRefresh);
-            await this.saveLocalFiles(true);
+            await this.loadBackendFiles(forceRefresh, tags);
+            if (!tags) {
+                await this.saveLocalFiles(true);
+            }
         }
     }
     

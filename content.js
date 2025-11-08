@@ -7381,7 +7381,7 @@ class PetManager {
             const editBtn = document.createElement('button');
             editBtn.className = 'oss-file-edit-btn';
             editBtn.innerHTML = '✏️';
-            editBtn.title = '编辑标题';
+            editBtn.title = '编辑文件信息';
             editBtn.style.cssText = `
                 background: none !important;
                 border: none !important;
@@ -9427,6 +9427,72 @@ class PetManager {
         }
     }
     
+    // 获取 OSS 文件的自定义描述
+    getOssFileDescription(fileName) {
+        if (!fileName) return null;
+        
+        // 从本地存储获取自定义描述
+        const storageKey = 'petOssFileDescriptions';
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    const descriptions = JSON.parse(stored);
+                    return descriptions[fileName] || null;
+                }
+            } else {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    const descriptions = JSON.parse(stored);
+                    return descriptions[fileName] || null;
+                }
+            }
+        } catch (error) {
+            console.error('获取文件描述失败:', error);
+        }
+        return null;
+    }
+    
+    // 保存 OSS 文件的自定义描述
+    async saveOssFileDescription(fileName, description) {
+        if (!fileName) return;
+        
+        const storageKey = 'petOssFileDescriptions';
+        try {
+            let descriptions = {};
+            
+            // 从本地存储读取现有描述
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    descriptions = JSON.parse(stored);
+                }
+            } else {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    descriptions = JSON.parse(stored);
+                }
+            }
+            
+            // 更新描述
+            if (description && description.trim()) {
+                descriptions[fileName] = description.trim();
+            } else {
+                // 如果描述为空，删除该文件的描述
+                delete descriptions[fileName];
+            }
+            
+            // 保存到本地存储
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                localStorage.setItem(storageKey, JSON.stringify(descriptions));
+            } else {
+                localStorage.setItem(storageKey, JSON.stringify(descriptions));
+            }
+        } catch (error) {
+            console.error('保存文件描述失败:', error);
+        }
+    }
+    
     // 编辑 OSS 文件标题
     async editOssFileTitle(fileName) {
         if (!fileName) {
@@ -9434,15 +9500,16 @@ class PetManager {
             return;
         }
 
-        // 获取当前标题
+        // 获取当前标题和描述
         const currentTitle = this.getOssFileTitle(fileName) || fileName;
+        const currentDescription = this.getOssFileDescription(fileName) || '';
         
         // 打开编辑对话框
-        this.openOssFileTitleEditor(fileName, currentTitle);
+        this.openOssFileTitleEditor(fileName, currentTitle, currentDescription);
     }
     
     // 打开 OSS 文件标题编辑对话框
-    openOssFileTitleEditor(fileName, originalTitle) {
+    openOssFileTitleEditor(fileName, originalTitle, originalDescription = '') {
         // 确保对话框UI存在
         this.ensureOssFileTitleEditorUi();
         
@@ -9458,9 +9525,14 @@ class PetManager {
 
         // 填充当前值
         const titleInput = modal.querySelector('.oss-file-editor-title-input');
+        const descriptionInput = modal.querySelector('.oss-file-editor-description-input');
         
         if (titleInput) {
             titleInput.value = originalTitle;
+        }
+        
+        if (descriptionInput) {
+            descriptionInput.value = originalDescription;
         }
 
         // 聚焦到标题输入框
@@ -9549,7 +9621,7 @@ class PetManager {
         `;
         
         const title = document.createElement('h3');
-        title.textContent = '编辑文件标题';
+        title.textContent = '编辑文件信息';
         title.style.cssText = `
             margin: 0 !important;
             font-size: 20px !important;
@@ -9639,6 +9711,60 @@ class PetManager {
         titleGroup.appendChild(titleLabel);
         titleGroup.appendChild(titleInput);
 
+        // 描述输入区域
+        const descriptionGroup = document.createElement('div');
+        descriptionGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+
+        const descriptionLabel = document.createElement('label');
+        descriptionLabel.textContent = '文件描述';
+        descriptionLabel.style.cssText = `
+            display: block !important;
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+        `;
+
+        const descriptionInput = document.createElement('textarea');
+        descriptionInput.className = 'oss-file-editor-description-input';
+        descriptionInput.placeholder = '请输入文件描述（可选）';
+        descriptionInput.rows = 4;
+        descriptionInput.style.cssText = `
+            width: 100% !important;
+            padding: 12px 14px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 15px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+            box-sizing: border-box !important;
+            resize: vertical !important;
+            font-family: inherit !important;
+        `;
+        
+        descriptionInput.addEventListener('focus', () => {
+            descriptionInput.style.borderColor = '#4CAF50';
+        });
+        descriptionInput.addEventListener('blur', () => {
+            descriptionInput.style.borderColor = '#e0e0e0';
+        });
+        
+        // Ctrl/Cmd + Enter 保存
+        descriptionInput.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                const fileName = modal.dataset.fileName;
+                if (fileName) {
+                    this.saveOssFileTitleInfo(fileName);
+                }
+            }
+        });
+
+        descriptionGroup.appendChild(descriptionLabel);
+        descriptionGroup.appendChild(descriptionInput);
+
         // 按钮区域
         const buttonGroup = document.createElement('div');
         buttonGroup.style.cssText = `
@@ -9695,6 +9821,7 @@ class PetManager {
 
         panel.appendChild(header);
         panel.appendChild(titleGroup);
+        panel.appendChild(descriptionGroup);
         panel.appendChild(buttonGroup);
         modal.appendChild(panel);
         document.body.appendChild(modal);
@@ -9721,6 +9848,7 @@ class PetManager {
         }
 
         const titleInput = modal.querySelector('.oss-file-editor-title-input');
+        const descriptionInput = modal.querySelector('.oss-file-editor-description-input');
         
         if (!titleInput) {
             console.error('标题输入框未找到');
@@ -9728,6 +9856,7 @@ class PetManager {
         }
 
         const newTitle = titleInput.value.trim();
+        const newDescription = descriptionInput ? descriptionInput.value.trim() : '';
         
         // 如果标题为空，使用原文件名
         const finalTitle = newTitle || fileName;
@@ -9739,19 +9868,22 @@ class PetManager {
             // 保存标题到本地存储
             await this.saveOssFileTitle(fileName, finalTitle === originalFileName ? '' : finalTitle);
             
+            // 保存描述到本地存储
+            await this.saveOssFileDescription(fileName, newDescription);
+            
             // 更新UI显示
             await this.updateOssFileSidebar(true);
             
-            console.log('文件标题已更新:', { fileName, title: finalTitle });
+            console.log('文件信息已更新:', { fileName, title: finalTitle, description: newDescription });
             
             // 关闭对话框
             this.closeOssFileTitleEditor();
             
             // 显示成功提示
-            this.showNotification('文件标题已更新', 'success');
+            this.showNotification('文件信息已更新', 'success');
         } catch (error) {
-            console.error('更新文件标题失败:', error);
-            alert('更新标题失败，请重试');
+            console.error('更新文件信息失败:', error);
+            alert('更新信息失败，请重试');
         }
     }
 

@@ -2747,6 +2747,11 @@ class PetManager {
                     const sessionId = backendSession.id || backendSession.conversation_id;
                     if (!sessionId) return;
                     
+                    // 跳过OSS文件会话，不在会话列表中显示
+                    if (backendSession._isOssFileSession) {
+                        return;
+                    }
+                    
                     const localSession = {
                         id: sessionId,
                         url: backendSession.url || '',
@@ -2760,18 +2765,19 @@ class PetManager {
                         lastAccessTime: backendSession.lastAccessTime || Date.now()
                     };
                     
-                    // 如果是OSS文件会话，恢复OSS文件信息
-                    if (backendSession._isOssFileSession && backendSession._ossFileInfo) {
-                        localSession._isOssFileSession = true;
-                        localSession._ossFileInfo = backendSession._ossFileInfo;
-                    }
-                    
                     backendSessionsMap[sessionId] = localSession;
                 });
                 
                 // 合并策略
                 for (const [sessionId, backendSession] of Object.entries(backendSessionsMap)) {
                     const localSession = this.sessions[sessionId];
+                    
+                    // 如果本地会话是OSS文件会话且不是当前会话，跳过合并（不在会话列表中显示）
+                    if (localSession && localSession._isOssFileSession && localSession.id !== this.currentSessionId) {
+                        // 删除本地存储中的OSS文件会话（除非是当前会话）
+                        delete this.sessions[sessionId];
+                        continue;
+                    }
                     
                     if (!localSession) {
                         this.sessions[sessionId] = backendSession;
@@ -2831,10 +2837,16 @@ class PetManager {
                     }
                 }
                 
-                // 去重
+                // 去重，同时过滤掉OSS文件会话（除非是当前会话）
                 const deduplicatedSessions = {};
                 for (const [sessionId, session] of Object.entries(this.sessions)) {
                     if (!session || !session.id) continue;
+                    
+                    // 跳过OSS文件会话（除非是当前会话）
+                    if (session._isOssFileSession && session.id !== this.currentSessionId) {
+                        continue;
+                    }
+                    
                     const id = session.id;
                     if (!deduplicatedSessions[id]) {
                         deduplicatedSessions[id] = session;
@@ -2929,6 +2941,11 @@ class PetManager {
                     const sessionId = backendSession.id || backendSession.conversation_id;
                     if (!sessionId) return;
                     
+                    // 跳过OSS文件会话，不在会话列表中显示
+                    if (backendSession._isOssFileSession) {
+                        return;
+                    }
+                    
                     // 将后端会话数据转换为本地格式
                     // 注意：后端列表API不返回messages字段，需要单独获取
                     const localSession = {
@@ -3005,6 +3022,13 @@ class PetManager {
                 // 关键：始终保留本地的消息，除非后端有更多消息
                 for (const [sessionId, backendSession] of Object.entries(backendSessions)) {
                     const localSession = this.sessions[sessionId];
+                    
+                    // 如果本地会话是OSS文件会话且不是当前会话，跳过合并（不在会话列表中显示）
+                    if (localSession && localSession._isOssFileSession && localSession.id !== this.currentSessionId) {
+                        // 删除本地存储中的OSS文件会话（除非是当前会话）
+                        delete this.sessions[sessionId];
+                        continue;
+                    }
                     
                     if (!localSession) {
                         // 本地没有，直接使用后端数据（已包含完整的messages）
@@ -3125,6 +3149,11 @@ class PetManager {
                     for (const [sessionId, localSession] of Object.entries(result.petChatSessions)) {
                         if (!localSession || !localSession.id) continue;
                         
+                        // 跳过OSS文件会话，不在会话列表中显示（除非是当前会话）
+                        if (localSession._isOssFileSession && localSession.id !== this.currentSessionId) {
+                            continue;
+                        }
+                        
                         // 使用会话的 id 作为 key（而不是 sessionId，因为可能有不同）
                         const id = localSession.id;
                         if (!this.sessions[id]) {
@@ -3142,10 +3171,16 @@ class PetManager {
                         }
                     }
                     
-                    // 最后进行一次去重，确保每个 id 只有一个会话
+                    // 最后进行一次去重，确保每个 id 只有一个会话，同时过滤掉OSS文件会话（除非是当前会话）
                     const deduplicatedSessions = {};
                     for (const [key, session] of Object.entries(this.sessions)) {
                         if (!session || !session.id) continue;
+                        
+                        // 跳过OSS文件会话（除非是当前会话）
+                        if (session._isOssFileSession && session.id !== this.currentSessionId) {
+                            continue;
+                        }
+                        
                         const id = session.id;
                         if (!deduplicatedSessions[id]) {
                             deduplicatedSessions[id] = session;
@@ -4000,7 +4035,8 @@ class PetManager {
         const allSessions = this._getSessionsFromLocal();
         const tagSet = new Set();
         
-        allSessions.forEach(session => {
+        // 排除OSS文件会话
+        allSessions.filter(session => !session._isOssFileSession).forEach(session => {
             if (session.tags && Array.isArray(session.tags)) {
                 session.tags.forEach(tag => {
                     if (tag && tag.trim()) {
@@ -5852,6 +5888,9 @@ class PetManager {
         // 更新标签过滤器UI
         this.updateTagFilterUI();
         
+        // 更新视图切换按钮状态
+        this.applyViewMode();
+        
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         if (!sessionList) {
             console.log('会话列表容器未找到，跳过更新');
@@ -7279,6 +7318,61 @@ class PetManager {
         }
         
         console.log('OSS文件列表已更新，显示', sortedFiles.length, '个文件');
+        
+        // 更新视图切换按钮状态
+        this.applyViewMode();
+    }
+    
+    // 设置视图模式（会话列表或OSS文件列表）
+    async setViewMode(mode) {
+        if (mode === 'oss') {
+            this.ossFileListVisible = true;
+            await this.updateOssFileSidebar();
+        } else {
+            this.ossFileListVisible = false;
+            this.updateSessionSidebar();
+        }
+    }
+    
+    // 应用视图模式样式（参考上下文弹框的applyContextPreviewMode）
+    applyViewMode() {
+        if (!this.sessionSidebar) return;
+        
+        const btnSession = this.sessionSidebar.querySelector('#view-toggle-session');
+        const btnOss = this.sessionSidebar.querySelector('#view-toggle-oss');
+        
+        if (!btnSession || !btnOss) return;
+        
+        // 获取当前主题色（用于激活态）
+        const currentColor = this.colors[this.colorIndex];
+        const currentMainColor = this.getMainColorFromGradient(currentColor);
+        
+        // 重置按钮样式
+        const resetBtn = (b) => {
+            if (!b) return;
+            b.style.background = 'transparent';
+            b.style.color = '#6b7280';
+            b.style.border = 'none';
+        };
+        
+        // 激活按钮样式
+        const activateBtn = (b) => {
+            if (!b) return;
+            b.style.background = currentMainColor;
+            b.style.color = '#fff';
+            b.style.border = 'none';
+        };
+        
+        // 重置所有按钮
+        resetBtn(btnSession);
+        resetBtn(btnOss);
+        
+        // 激活当前模式的按钮
+        if (this.ossFileListVisible) {
+            activateBtn(btnOss);
+        } else {
+            activateBtn(btnSession);
+        }
     }
     
     // 进入批量选择模式
@@ -16659,82 +16753,53 @@ ${messageContent}`;
         });
         
         // 创建OSS文件列表切换按钮
-        const ossToggleBtn = document.createElement('button');
-        ossToggleBtn.innerHTML = '📦 OSS';
-        ossToggleBtn.title = '切换到OSS文件列表';
-        ossToggleBtn.id = 'oss-toggle-btn';
-        ossToggleBtn.style.cssText = `
-            padding: 4px 10px !important;
-            cursor: pointer !important;
-            font-size: 12px !important;
-            color: white !important;
-            font-weight: 500 !important;
-            transition: all 0.2s ease !important;
+        // 创建视图切换按钮组（参考上下文弹框的样式）
+        const viewToggleGroup = document.createElement('div');
+        viewToggleGroup.style.cssText = `
             display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 4px !important;
-            user-select: none !important;
-            border-radius: 4px !important;
-            background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
-            border: 1px solid #7c3aed !important;
+            gap: 6px !important;
+            background: rgba(0, 0, 0, 0.04) !important;
+            border: 1px solid rgba(0, 0, 0, 0.08) !important;
+            border-radius: 8px !important;
+            padding: 4px !important;
             flex-shrink: 0 !important;
-            white-space: nowrap !important;
         `;
         
-        // OSS切换按钮悬停效果
-        ossToggleBtn.addEventListener('mouseenter', function() {
-            if (this.classList.contains('oss-mode-active')) {
-                this.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
-                this.style.transform = 'translateY(-1px)';
-                this.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.3) !important';
-            } else {
-                this.style.background = 'linear-gradient(135deg, #7c3aed, #6d28d9) !important';
-                this.style.transform = 'translateY(-1px)';
-                this.style.boxShadow = '0 2px 8px rgba(139, 92, 246, 0.3) !important';
-            }
-        });
-        ossToggleBtn.addEventListener('mouseleave', function() {
-            if (this.classList.contains('oss-mode-active')) {
-                this.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
-                this.style.transform = 'translateY(0)';
-                this.style.boxShadow = 'none !important';
-            } else {
-                this.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed) !important';
-                this.style.transform = 'translateY(0)';
-                this.style.boxShadow = 'none !important';
-            }
-        });
+        // 创建按钮的辅助函数（参考上下文弹框的makeModeBtn）
+        const makeViewToggleBtn = (id, label, mode) => {
+            const btn = document.createElement('button');
+            btn.id = id;
+            btn.textContent = label;
+            btn.setAttribute('data-view-mode', mode);
+            btn.style.cssText = `
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 6px !important;
+                border: none !important;
+                background: transparent !important;
+                color: #6b7280 !important;
+                cursor: pointer !important;
+                transition: all 0.12s ease !important;
+                font-weight: 500 !important;
+                white-space: nowrap !important;
+            `;
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                await this.setViewMode(mode);
+            });
+            return btn;
+        };
         
-        // OSS切换按钮点击事件
-        ossToggleBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            this.ossFileListVisible = !this.ossFileListVisible;
-            
-            if (this.ossFileListVisible) {
-                ossToggleBtn.classList.add('oss-mode-active');
-                ossToggleBtn.title = '切换到会话列表';
-                ossToggleBtn.innerHTML = '💬 会话';
-                ossToggleBtn.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5) !important';
-                ossToggleBtn.style.borderColor = '#4f46e5 !important';
-                // 切换到OSS文件列表
-                await this.updateOssFileSidebar();
-            } else {
-                ossToggleBtn.classList.remove('oss-mode-active');
-                ossToggleBtn.title = '切换到OSS文件列表';
-                ossToggleBtn.innerHTML = '📦 OSS';
-                ossToggleBtn.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed) !important';
-                ossToggleBtn.style.borderColor = '#7c3aed !important';
-                // 切换回会话列表
-                this.updateSessionSidebar();
-            }
-        });
+        const btnSession = makeViewToggleBtn('view-toggle-session', '💬', 'session');
+        const btnOss = makeViewToggleBtn('view-toggle-oss', '📦', 'oss');
         
-        // 第一行：搜索输入框 + OSS切换按钮
+        viewToggleGroup.appendChild(btnSession);
+        viewToggleGroup.appendChild(btnOss);
+        
+        // 第一行：搜索输入框 + 视图切换按钮组
         firstRow.appendChild(searchContainer);
-        firstRow.appendChild(ossToggleBtn);
+        firstRow.appendChild(viewToggleGroup);
         
         // 组装左侧按钮组
         leftButtonGroup.appendChild(batchModeBtn);
@@ -16749,6 +16814,9 @@ ${messageContent}`;
         sidebarHeader.appendChild(firstRow);
         sidebarHeader.appendChild(secondRow);
         this.sessionSidebar.appendChild(sidebarHeader);
+        
+        // 初始化视图切换按钮状态
+        this.applyViewMode();
         
         // 创建批量操作工具栏容器（初始隐藏）
         const batchToolbar = document.createElement('div');
@@ -21625,6 +21693,165 @@ ${messageContent}`;
         // 获取当前会话的更新后的页面信息
         const session = this.sessions[this.currentSessionId];
         if (!session) {
+            return;
+        }
+
+        // 检查是否是OSS文件会话
+        const isOssFileSession = session && session._isOssFileSession;
+        const ossFileInfo = session && session._ossFileInfo ? session._ossFileInfo : null;
+
+        // 如果是OSS文件会话，使用OSS文件信息更新欢迎消息
+        if (isOssFileSession && ossFileInfo) {
+            // 构建OSS文件信息显示内容
+            let fileInfoHtml = `
+                <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)); border-radius: 12px; border-left: 3px solid #4ECDC4;">
+                    <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 20px;">📄</span>
+                        <span style="font-weight: 600; font-size: 15px; color: #374151;">${this.escapeHtml(ossFileInfo.name || 'OSS文件')}</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🔗 文件地址</div>
+                        <a href="${ossFileInfo.url}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(ossFileInfo.url)}</a>
+                    </div>
+            `;
+            
+            // 如果有描述，显示描述
+            if (ossFileInfo.description && ossFileInfo.description.trim()) {
+                fileInfoHtml += `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 文件描述</div>
+                        <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(ossFileInfo.description)}</div>
+                    </div>
+                `;
+            }
+            
+            // 如果是图片，显示图片预览
+            if (ossFileInfo.isImage && ossFileInfo.url) {
+                fileInfoHtml += `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
+                        <div style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
+                            <img src="${this.escapeHtml(ossFileInfo.url)}" alt="${this.escapeHtml(ossFileInfo.name)}" style="max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'padding: 20px; text-align: center; color: #9ca3af;\\'>图片加载失败</div>'">
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 显示文件元信息（大小、修改时间等）
+            if (ossFileInfo.size_human || ossFileInfo.last_modified_str) {
+                fileInfoHtml += `
+                    <div style="margin-bottom: 0; padding-top: 12px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                        <div style="font-size: 12px; color: #6B7280; display: flex; gap: 16px; flex-wrap: wrap;">
+                            ${ossFileInfo.size_human ? `<span>📊 大小: ${this.escapeHtml(ossFileInfo.size_human)}</span>` : ''}
+                            ${ossFileInfo.last_modified_str ? `<span>📅 修改时间: ${this.escapeHtml(ossFileInfo.last_modified_str)}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            fileInfoHtml += `</div>`;
+            
+            // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
+            const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+            
+            // 根据检查结果决定是否添加手动保存会话按钮
+            if (shouldShowSaveButton) {
+                fileInfoHtml += `
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                        <button id="pet-manual-save-session-btn" class="pet-manual-save-btn" style="
+                            position: relative !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            gap: 8px !important;
+                            width: 100% !important;
+                            padding: 10px 20px !important;
+                            background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+                            color: white !important;
+                            border: none !important;
+                            border-radius: 10px !important;
+                            font-size: 14px !important;
+                            font-weight: 600 !important;
+                            cursor: pointer !important;
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                            box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+                            overflow: hidden !important;
+                            user-select: none !important;
+                        ">
+                            <span class="save-btn-icon" style="
+                                display: inline-flex !important;
+                                align-items: center !important;
+                                justify-content: center !important;
+                                font-size: 16px !important;
+                                transition: transform 0.3s ease !important;
+                            ">💾</span>
+                            <span class="save-btn-text">保存会话</span>
+                            <span class="save-btn-loader" style="
+                                display: none !important;
+                                position: absolute !important;
+                                width: 16px !important;
+                                height: 16px !important;
+                                border: 2px solid rgba(255, 255, 255, 0.3) !important;
+                                border-top-color: white !important;
+                                border-radius: 50% !important;
+                                animation: spin 0.8s linear infinite !important;
+                            "></span>
+                        </button>
+                        <style>
+                            @keyframes spin {
+                                to { transform: rotate(360deg); }
+                            }
+                            .pet-manual-save-btn:hover:not(:disabled) {
+                                transform: translateY(-2px) !important;
+                                box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+                            }
+                            .pet-manual-save-btn:active:not(:disabled) {
+                                transform: translateY(0) !important;
+                                box-shadow: 0 1px 4px rgba(78, 205, 196, 0.2) !important;
+                            }
+                            .pet-manual-save-btn:disabled {
+                                opacity: 0.7 !important;
+                                cursor: not-allowed !important;
+                                transform: none !important;
+                            }
+                            .pet-manual-save-btn.loading .save-btn-icon,
+                            .pet-manual-save-btn.loading .save-btn-text {
+                                opacity: 0 !important;
+                            }
+                            .pet-manual-save-btn.loading .save-btn-loader {
+                                display: block !important;
+                            }
+                            .pet-manual-save-btn.success {
+                                background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+                                box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+                            }
+                            .pet-manual-save-btn.error {
+                                background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+                                box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
+                            }
+                        </style>
+                    </div>
+                `;
+            }
+            
+            // 更新欢迎消息的内容
+            const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+            if (messageText) {
+                messageText.innerHTML = fileInfoHtml;
+                // 更新原始HTML
+                messageText.setAttribute('data-original-text', fileInfoHtml);
+                
+                // 重新绑定手动保存按钮的点击事件（innerHTML 会移除所有事件监听器，所以直接绑定即可）
+                const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', () => {
+                        this.handleManualSaveSession(saveBtn);
+                    });
+                }
+            }
+            
+            console.log('OSS文件欢迎消息已刷新');
             return;
         }
 

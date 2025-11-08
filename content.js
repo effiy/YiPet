@@ -5424,10 +5424,20 @@ class PetManager {
             opacity: 0.6 !important;
         `;
         clearFilterBtn.addEventListener('click', () => {
-            if (this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0) {
+            const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
+            const hasReverseFilter = this.ossTagFilterReverse;
+            
+            // 如果有选中的标签或启用了反向过滤，则清除筛选
+            if (hasSelectedTags || hasReverseFilter) {
+                // 清除选中的标签
                 this.selectedOssFilterTags = [];
+                // 重置反向过滤状态
+                this.ossTagFilterReverse = false;
+                
+                // 更新UI
                 this.updateOssTagFilterUI();
-                this.updateOssFileSidebar();
+                // 强制刷新文件列表（清除筛选后重新加载所有文件）
+                this.updateOssFileSidebar(true);
             }
         });
 
@@ -5463,6 +5473,23 @@ class PetManager {
     // 更新OSS标签筛选器UI
     async updateOssTagFilterUI() {
         if (!this.sessionSidebar) return;
+        
+        // 更新反向过滤按钮状态
+        const reverseFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-reverse');
+        if (reverseFilterBtn) {
+            reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#667eea' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.ossTagFilterReverse ? '1' : '0.6';
+        }
+        
+        // 更新清除按钮显示状态（如果有选中的标签或启用了反向过滤，则显示为可用状态）
+        const clearFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-clear');
+        if (clearFilterBtn) {
+            const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse;
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
+            clearFilterBtn.style.pointerEvents = hasActiveFilter ? 'auto' : 'none';
+        }
         
         const tagFilterList = this.sessionSidebar.querySelector('.oss-tag-filter-list');
         if (!tagFilterList) return;

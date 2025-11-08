@@ -289,6 +289,7 @@ class PetManager {
     }
 
     setupMessageListener() {
+        // 监听chrome.runtime消息
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.log('收到消息:', request);
 
@@ -347,6 +348,14 @@ class PetManager {
                     });
                     break;
 
+                case 'ossFileClick':
+                    // 处理OSS文件点击
+                    this.handleOssFileClick(request.file).catch(error => {
+                        console.error('处理OSS文件点击失败:', error);
+                    });
+                    sendResponse({ success: true });
+                    break;
+
                 case 'getFullPageText':
                     const text = this.getFullPageText();
                     sendResponse({ text: text });
@@ -403,6 +412,91 @@ class PetManager {
                     sendResponse({ success: false, error: 'Unknown action' });
             }
         });
+        
+        // 监听window.postMessage消息（用于OSS文件点击）
+        window.addEventListener('message', (event) => {
+            // 验证消息来源（可选，根据实际需求调整）
+            if (event.data && event.data.type === 'ossFileClick' && event.data.file) {
+                console.log('收到OSS文件点击消息:', event.data.file);
+                this.handleOssFileClick(event.data.file).catch(error => {
+                    console.error('处理OSS文件点击失败:', error);
+                });
+            }
+        });
+    }
+    
+    // 处理OSS文件点击，创建会话并打开聊天窗口
+    async handleOssFileClick(file) {
+        try {
+            console.log('处理OSS文件点击:', file);
+            
+            // 确保聊天窗口已打开
+            if (!this.chatWindow || !this.isChatOpen) {
+                await this.openChatWindow();
+            }
+            
+            // 生成基于文件URL的会话ID
+            const sessionId = await this.generateSessionId(file.url);
+            
+            // 检查是否已存在该会话
+            await this.loadAllSessions();
+            let session = this.sessions[sessionId];
+            
+            if (!session) {
+                // 创建新会话
+                session = this.createSessionObject(sessionId, {
+                    url: file.url,
+                    title: file.name || 'OSS文件',
+                    pageTitle: file.name || 'OSS文件',
+                    pageDescription: file.description || '',
+                    pageContent: ''
+                });
+                this.sessions[sessionId] = session;
+                
+                // 标记为OSS文件会话
+                session._isOssFileSession = true;
+                session._ossFileInfo = {
+                    name: file.name || '',
+                    url: file.url || '',
+                    description: file.description || '',
+                    tags: file.tags || [],
+                    isImage: file.isImage || false,
+                    size: file.size || 0,
+                    size_human: file.size_human || '',
+                    last_modified_str: file.last_modified_str || ''
+                };
+                
+                // 保存会话到本地
+                await this.saveAllSessions(false, false);
+            } else {
+                // 更新现有会话的OSS文件信息
+                session._isOssFileSession = true;
+                session._ossFileInfo = {
+                    name: file.name || '',
+                    url: file.url || '',
+                    description: file.description || '',
+                    tags: file.tags || [],
+                    isImage: file.isImage || false,
+                    size: file.size || 0,
+                    size_human: file.size_human || '',
+                    last_modified_str: file.last_modified_str || ''
+                };
+            }
+            
+            // 激活会话
+            await this.activateSession(sessionId, {
+                saveCurrent: false,
+                updateConsistency: false, // OSS文件会话不需要更新页面一致性
+                updateUI: true,
+                syncToBackend: false,
+                skipBackendFetch: true
+            });
+            
+            console.log('OSS文件会话已创建并激活:', sessionId);
+        } catch (error) {
+            console.error('处理OSS文件点击失败:', error);
+            this.showNotification('打开OSS文件会话失败，请重试', 'error');
+        }
     }
 
     createPet() {
@@ -21016,6 +21110,16 @@ ${messageContent}`;
     //   - url: 页面URL
     //   - description: 页面描述（可选）
     async createWelcomeMessage(messagesContainer, pageInfo = null) {
+        // 检查是否是OSS文件会话
+        const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
+        const isOssFileSession = session && session._isOssFileSession;
+        const ossFileInfo = session && session._ossFileInfo ? session._ossFileInfo : null;
+        
+        // 如果是OSS文件会话，使用OSS文件信息
+        if (isOssFileSession && ossFileInfo) {
+            return await this.createOssFileWelcomeMessage(messagesContainer, ossFileInfo);
+        }
+        
         // 如果没有提供页面信息，使用当前页面信息或会话信息
         if (!pageInfo) {
             // 优先使用当前会话的页面信息，如果没有则使用当前页面信息
@@ -21168,6 +21272,164 @@ ${messageContent}`;
             }
         }
 
+        return welcomeMessage;
+    }
+    
+    // 创建OSS文件欢迎消息
+    async createOssFileWelcomeMessage(messagesContainer, fileInfo) {
+        // 构建OSS文件信息显示内容
+        let fileInfoHtml = `
+            <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)); border-radius: 12px; border-left: 3px solid #4ECDC4;">
+                <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 20px;">📄</span>
+                    <span style="font-weight: 600; font-size: 15px; color: #374151;">${this.escapeHtml(fileInfo.name || 'OSS文件')}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🔗 文件地址</div>
+                    <a href="${fileInfo.url}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(fileInfo.url)}</a>
+                </div>
+        `;
+        
+        // 如果有描述，显示描述
+        if (fileInfo.description && fileInfo.description.trim()) {
+            fileInfoHtml += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 文件描述</div>
+                    <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(fileInfo.description)}</div>
+                </div>
+            `;
+        }
+        
+        // 如果是图片，显示图片预览
+        if (fileInfo.isImage && fileInfo.url) {
+            fileInfoHtml += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 500;">🖼️ 图片预览</div>
+                    <div style="border-radius: 8px; overflow: hidden; background: #f3f4f6; padding: 8px; display: inline-block; max-width: 100%;">
+                        <img src="${this.escapeHtml(fileInfo.url)}" alt="${this.escapeHtml(fileInfo.name)}" style="max-width: 100%; max-height: 400px; border-radius: 4px; object-fit: contain; display: block; margin: 0 auto;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'padding: 20px; text-align: center; color: #9ca3af;\\'>图片加载失败</div>'">
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 显示文件元信息（大小、修改时间等）
+        if (fileInfo.size_human || fileInfo.last_modified_str) {
+            fileInfoHtml += `
+                <div style="margin-bottom: 0; padding-top: 12px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                    <div style="font-size: 12px; color: #6B7280; display: flex; gap: 16px; flex-wrap: wrap;">
+                        ${fileInfo.size_human ? `<span>📊 大小: ${this.escapeHtml(fileInfo.size_human)}</span>` : ''}
+                        ${fileInfo.last_modified_str ? `<span>📅 修改时间: ${this.escapeHtml(fileInfo.last_modified_str)}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        fileInfoHtml += `</div>`;
+        
+        // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
+        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        
+        // 根据检查结果决定是否添加手动保存会话按钮
+        if (shouldShowSaveButton) {
+            fileInfoHtml += `
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                    <button id="pet-manual-save-session-btn" class="pet-manual-save-btn" style="
+                        position: relative !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        gap: 8px !important;
+                        width: 100% !important;
+                        padding: 10px 20px !important;
+                        background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+                        color: white !important;
+                        border: none !important;
+                        border-radius: 10px !important;
+                        font-size: 14px !important;
+                        font-weight: 600 !important;
+                        cursor: pointer !important;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+                        overflow: hidden !important;
+                        user-select: none !important;
+                    ">
+                        <span class="save-btn-icon" style="
+                            display: inline-flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            font-size: 16px !important;
+                            transition: transform 0.3s ease !important;
+                        ">💾</span>
+                        <span class="save-btn-text">保存会话</span>
+                        <span class="save-btn-loader" style="
+                            display: none !important;
+                            position: absolute !important;
+                            width: 16px !important;
+                            height: 16px !important;
+                            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+                            border-top-color: white !important;
+                            border-radius: 50% !important;
+                            animation: spin 0.8s linear infinite !important;
+                        "></span>
+                    </button>
+                    <style>
+                        @keyframes spin {
+                            to { transform: rotate(360deg); }
+                        }
+                        .pet-manual-save-btn:hover:not(:disabled) {
+                            transform: translateY(-2px) !important;
+                            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+                        }
+                        .pet-manual-save-btn:active:not(:disabled) {
+                            transform: translateY(0) !important;
+                            box-shadow: 0 1px 4px rgba(78, 205, 196, 0.2) !important;
+                        }
+                        .pet-manual-save-btn:disabled {
+                            opacity: 0.7 !important;
+                            cursor: not-allowed !important;
+                            transform: none !important;
+                        }
+                        .pet-manual-save-btn.loading .save-btn-icon,
+                        .pet-manual-save-btn.loading .save-btn-text {
+                            opacity: 0 !important;
+                        }
+                        .pet-manual-save-btn.loading .save-btn-loader {
+                            display: block !important;
+                        }
+                        .pet-manual-save-btn.success {
+                            background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+                            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+                        }
+                        .pet-manual-save-btn.error {
+                            background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+                            box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
+                        }
+                    </style>
+                </div>
+            `;
+        }
+        
+        // 创建欢迎消息元素
+        const welcomeMessage = this.createMessageElement('', 'pet');
+        welcomeMessage.setAttribute('data-welcome-message', 'true');
+        messagesContainer.appendChild(welcomeMessage);
+        
+        const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+        if (messageText) {
+            messageText.innerHTML = fileInfoHtml;
+            // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
+            messageText.setAttribute('data-original-text', fileInfoHtml);
+            
+            // 绑定手动保存按钮的点击事件
+            const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => {
+                    this.handleManualSaveSession(saveBtn);
+                });
+            }
+        }
+        
         return welcomeMessage;
     }
 

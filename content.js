@@ -5533,6 +5533,67 @@ class PetManager {
         delete modal._currentTags;
     }
 
+    // 上传文件到OSS
+    async uploadFileToOss() {
+        if (!this.ossApi || !this.ossApi.isEnabled()) {
+            this.showNotification('OSS API未启用', 'error');
+            return;
+        }
+
+        // 创建文件选择器
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = false; // 单文件上传
+        fileInput.style.display = 'none';
+
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                // 用户取消选择
+                if (fileInput.parentNode) {
+                    fileInput.parentNode.removeChild(fileInput);
+                }
+                return;
+            }
+
+            try {
+                // 显示上传中提示
+                this.showNotification('正在上传文件...', 'info');
+
+                // 获取当前目录
+                const directory = this.currentOssDirectory || '';
+
+                // 上传文件
+                const result = await this.ossApi.uploadFile(file, directory);
+
+                if (result && result.code === 200) {
+                    this.showNotification('文件上传成功', 'success');
+                    
+                    // 刷新文件列表
+                    if (this.ossFileManager) {
+                        await this.ossFileManager.refreshFiles(true);
+                    }
+                    await this.updateOssFileSidebar(true);
+                } else {
+                    throw new Error(result?.message || '上传失败');
+                }
+            } catch (error) {
+                console.error('上传文件失败:', error);
+                this.showNotification('上传文件失败: ' + (error.message || '未知错误'), 'error');
+            } finally {
+                // 清理文件选择器
+                fileInput.value = '';
+                if (fileInput.parentNode) {
+                    fileInput.parentNode.removeChild(fileInput);
+                }
+            }
+        });
+
+        // 添加到页面并触发点击
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    }
+
     async updateSessionSidebar(forceRefresh = false, skipBackendRefresh = false) {
         if (!this.sessionSidebar) {
             console.log('会话侧边栏未创建，跳过更新');
@@ -16219,10 +16280,16 @@ ${messageContent}`;
             this.style.boxShadow = 'none !important';
         });
         
-        // 按钮点击事件：创建空白新会话
+        // 按钮点击事件：创建空白新会话或上传文件到OSS
         addSessionBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
+            
+            // 如果在OSS文件视图下，触发文件上传
+            if (this.ossFileListVisible) {
+                await this.uploadFileToOss();
+                return;
+            }
             
             // 禁用按钮，防止重复点击
             addSessionBtn.disabled = true;

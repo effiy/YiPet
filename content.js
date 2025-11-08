@@ -5008,7 +5008,7 @@ class PetManager {
                     return;
                 }
                 
-                // 提取 OSS 文件列表中的 URL
+                // 提取 OSS 文件列表中的 URL（从 /oss/files/ 接口返回的完整列表）
                 const ossFileUrls = new Set();
                 ossFiles.forEach(file => {
                     if (file.url) {
@@ -5021,6 +5021,22 @@ class PetManager {
                     return;
                 }
                 
+                // 获取筛选后的 OSS 文件列表（应用了标签筛选、搜索等）
+                const filteredOssFiles = this._getFilteredFiles();
+                
+                // 提取筛选后的 OSS 文件列表中的 URL
+                const filteredOssFileUrls = new Set();
+                filteredOssFiles.forEach(file => {
+                    if (file.url) {
+                        filteredOssFileUrls.add(file.url);
+                    }
+                });
+                
+                if (filteredOssFileUrls.size === 0) {
+                    this.showNotification('筛选后的 OSS 文件列表为空，没有可导出的会话', 'error');
+                    return;
+                }
+                
                 // 获取所有会话列表
                 const allSessionsRaw = this._getSessionsFromLocal();
                 
@@ -5029,13 +5045,14 @@ class PetManager {
                     return !session._isOssFileSession;
                 });
                 
-                // 筛选出 URL 与 OSS 文件列表中 URL 相同的会话
+                // 筛选出 URL 同时存在于 OSS 文件列表和筛选后的 OSS 文件列表中的会话
                 sessions = allSessions.filter(session => {
                     const sessionUrl = session.url;
-                    return sessionUrl && ossFileUrls.has(sessionUrl);
+                    // 必须同时满足：在 OSS 文件列表中，且在筛选后的 OSS 文件列表中
+                    return sessionUrl && ossFileUrls.has(sessionUrl) && filteredOssFileUrls.has(sessionUrl);
                 });
                 
-                console.log(`OSS 文件模式下，找到 ${sessions.length} 个匹配的会话（共 ${allSessions.length} 个会话，${ossFileUrls.size} 个 OSS 文件 URL）`);
+                console.log(`OSS 文件模式下，找到 ${sessions.length} 个匹配的会话（共 ${allSessions.length} 个会话，${ossFileUrls.size} 个 OSS 文件 URL，${filteredOssFileUrls.size} 个筛选后的 OSS 文件 URL）`);
             } else {
                 // 非 OSS 文件模式，使用原来的逻辑
                 sessions = this._getFilteredSessions();

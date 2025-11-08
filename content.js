@@ -7201,15 +7201,37 @@ class PetManager {
                     previewAvatar.style.background = '#f3f4f6';
                 };
                 
-                // 使用OSS图片处理生成缩略图（96x96，质量70，支持高DPI屏幕）
-                // 实际显示为48x48，但使用96x96可以支持2x高DPI屏幕
+                // 使用OSS图片处理生成极致优化的缩略图（48x48，质量40，WebP格式）
+                // 极致节省流量：尺寸匹配显示大小，低质量，WebP格式压缩
                 const thumbnailUrl = this.generateOssImageProcessUrl(file.url, {
-                    width: 96,
-                    height: 96,
-                    quality: 70,
+                    width: 48,
+                    height: 48,
+                    quality: 40,
+                    format: 'webp',
                     keepAspectRatio: true
                 });
-                img.src = thumbnailUrl;
+                
+                // 使用懒加载：只在图片进入视口时加载（极致节省流量）
+                if ('IntersectionObserver' in window) {
+                    // 支持 Intersection Observer，使用懒加载
+                    const imageObserver = new IntersectionObserver((entries, observer) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                // 图片进入视口，开始加载
+                                img.src = thumbnailUrl;
+                                observer.unobserve(entry.target);
+                            }
+                        });
+                    }, {
+                        rootMargin: '50px' // 提前50px开始加载，提升用户体验
+                    });
+                    
+                    // 先不设置src，等进入视口再加载
+                    imageObserver.observe(previewAvatar);
+                } else {
+                    // 不支持 Intersection Observer，直接加载（降级方案）
+                    img.src = thumbnailUrl;
+                }
                 
                 previewAvatar.appendChild(img);
             } else {

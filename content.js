@@ -6368,12 +6368,12 @@ class PetManager {
         // 创建文件选择器
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
-        fileInput.multiple = false; // 单文件上传
+        fileInput.multiple = true; // 支持多文件上传
         fileInput.style.display = 'none';
 
         fileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (!file) {
+            const files = Array.from(event.target.files);
+            if (!files || files.length === 0) {
                 // 用户取消选择
                 if (fileInput.parentNode) {
                     fileInput.parentNode.removeChild(fileInput);
@@ -6382,25 +6382,66 @@ class PetManager {
             }
 
             try {
-                // 显示上传中提示
-                this.showNotification('正在上传文件...', 'info');
-
                 // 获取当前目录
                 const directory = this.currentOssDirectory || '';
 
-                // 上传文件
-                const result = await this.ossApi.uploadFile(file, directory);
+                // 显示上传中提示
+                if (files.length === 1) {
+                    this.showNotification('正在上传文件...', 'info');
+                } else {
+                    this.showNotification(`正在上传 ${files.length} 个文件...`, 'info');
+                }
 
-                if (result && result.code === 200) {
-                    this.showNotification('文件上传成功', 'success');
-                    
-                    // 刷新文件列表
+                let successCount = 0;
+                let failCount = 0;
+                const errors = [];
+
+                // 逐个上传文件
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    try {
+                        // 上传文件
+                        const result = await this.ossApi.uploadFile(file, directory);
+
+                        if (result && result.code === 200) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                            errors.push(`${file.name}: ${result?.message || '上传失败'}`);
+                        }
+                    } catch (error) {
+                        console.error(`上传文件 ${file.name} 失败:`, error);
+                        failCount++;
+                        errors.push(`${file.name}: ${error.message || '未知错误'}`);
+                    }
+                }
+
+                // 显示上传结果
+                if (successCount > 0 && failCount === 0) {
+                    // 全部成功
+                    if (files.length === 1) {
+                        this.showNotification('文件上传成功', 'success');
+                    } else {
+                        this.showNotification(`成功上传 ${successCount} 个文件`, 'success');
+                    }
+                } else if (successCount > 0 && failCount > 0) {
+                    // 部分成功
+                    this.showNotification(`成功上传 ${successCount} 个文件，${failCount} 个失败`, 'error');
+                    console.warn('上传失败的文件:', errors);
+                } else {
+                    // 全部失败
+                    this.showNotification(`上传失败: ${errors[0] || '未知错误'}`, 'error');
+                    if (errors.length > 1) {
+                        console.error('所有文件上传失败:', errors);
+                    }
+                }
+                
+                // 如果有成功上传的文件，刷新文件列表
+                if (successCount > 0) {
                     if (this.ossFileManager) {
                         await this.ossFileManager.refreshFiles(true);
                     }
                     await this.updateOssFileSidebar(true);
-                } else {
-                    throw new Error(result?.message || '上传失败');
                 }
             } catch (error) {
                 console.error('上传文件失败:', error);

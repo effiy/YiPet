@@ -127,7 +127,14 @@ if (typeof getCenterPosition === 'undefined') {
     };
 }
 
-class PetManager {
+// 防止重复声明 PetManager
+(function() {
+    'use strict';
+    if (typeof window.PetManager !== 'undefined') {
+        return; // 如果已经存在，直接返回
+    }
+    
+    class PetManager {
     constructor() {
         this.pet = null;
         this.isVisible = PET_CONFIG.pet.defaultVisible;
@@ -10883,6 +10890,7 @@ class PetManager {
 
         // 输入区域
         const inputGroup = document.createElement('div');
+        inputGroup.className = 'tag-manager-input-group';
         inputGroup.style.cssText = `
             display: flex !important;
             gap: 8px !important;
@@ -11437,7 +11445,65 @@ class PetManager {
 
             } catch (error) {
                 console.error('智能生成标签失败:', error);
-                alert(`生成标签失败：${error.message || '未知错误'}`);
+                
+                // 使用非阻塞的错误提示，避免阻塞弹框交互
+                const errorMessage = error.message || '未知错误';
+                const errorText = errorMessage.includes('Failed to fetch') 
+                    ? '网络连接失败，请检查网络后重试' 
+                    : `生成标签失败：${errorMessage}`;
+                
+                // 在弹框内显示错误提示，而不是使用 alert（alert 会阻塞）
+                const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+                if (modal) {
+                    // 移除已存在的错误提示
+                    const existingError = modal.querySelector('.tag-error-message');
+                    if (existingError) {
+                        existingError.remove();
+                    }
+                    
+                    // 创建错误提示元素
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'tag-error-message';
+                    errorDiv.textContent = errorText;
+                    errorDiv.style.cssText = `
+                        padding: 10px 15px !important;
+                        margin: 10px 0 !important;
+                        background: #ffebee !important;
+                        color: #c62828 !important;
+                        border: 1px solid #ef5350 !important;
+                        border-radius: 6px !important;
+                        font-size: 13px !important;
+                        animation: fadeIn 0.3s ease !important;
+                    `;
+                    
+                    // 插入到输入组下方
+                    const inputGroup = modal.querySelector('.tag-manager-input-group');
+                    if (inputGroup && inputGroup.parentNode) {
+                        // 插入到输入组和标签容器之间
+                        const tagsContainer = modal.querySelector('.tag-manager-tags');
+                        if (tagsContainer && tagsContainer.parentNode) {
+                            tagsContainer.parentNode.insertBefore(errorDiv, tagsContainer);
+                        } else {
+                            inputGroup.parentNode.insertBefore(errorDiv, inputGroup.nextSibling);
+                        }
+                        
+                        // 3秒后自动移除错误提示
+                        setTimeout(() => {
+                            if (errorDiv.parentNode) {
+                                errorDiv.style.opacity = '0';
+                                errorDiv.style.transition = 'opacity 0.3s ease';
+                                setTimeout(() => {
+                                    if (errorDiv.parentNode) {
+                                        errorDiv.remove();
+                                    }
+                                }, 300);
+                            }
+                        }, 3000);
+                    }
+                } else {
+                    // 如果弹框不存在，使用 alert 作为后备方案
+                    alert(errorText);
+                }
             } finally {
                 // 恢复按钮状态
                 if (buttonElement) {
@@ -11446,9 +11512,25 @@ class PetManager {
                     buttonElement.style.cursor = 'pointer';
                     buttonElement.textContent = '✨ 智能生成';
                 }
+                
                 // 确保恢复原始会话ID（即使出错）
                 if (this.currentSessionId !== originalSessionId) {
                     this.currentSessionId = originalSessionId;
+                }
+                
+                // 确保弹框本身没有被禁用（防止其他按钮失效）
+                const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+                if (modal) {
+                    modal.style.pointerEvents = 'auto';
+                    // 确保所有按钮都是可用的
+                    const allButtons = modal.querySelectorAll('button');
+                    allButtons.forEach(btn => {
+                        if (btn !== buttonElement) {
+                            btn.disabled = false;
+                            btn.style.pointerEvents = 'auto';
+                            btn.style.cursor = 'pointer';
+                        }
+                    });
                 }
             }
         }
@@ -25573,10 +25655,17 @@ ${messageContent}`;
         }, 3000);
     }
 
-}
+} // 结束 PetManager 类
+    
+    // 将 PetManager 赋值给 window，防止重复声明
+    window.PetManager = PetManager;
+})(); // 结束立即执行函数
 
-// 初始化宠物管理器
-const petManager = new PetManager();
+// 初始化宠物管理器（防止重复初始化）
+if (typeof window.petManager === 'undefined') {
+    window.petManager = new window.PetManager();
+}
+const petManager = window.petManager;
 
 // 页面卸载时清理资源
 window.addEventListener('beforeunload', () => {

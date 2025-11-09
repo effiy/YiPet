@@ -3856,7 +3856,7 @@ if (typeof getCenterPosition === 'undefined') {
         return processedMessages;
     }
     
-    async syncSessionToBackend(sessionId, immediate = false, includePageContent = false) {
+    async syncSessionToBackend(sessionId, immediate = false, includePageContent = false, processImages = false) {
         try {
             if (!PET_CONFIG.api.syncSessionsToBackend) {
                 return;
@@ -3896,9 +3896,13 @@ if (typeof getCenterPosition === 'undefined') {
             }
             
             // 处理消息中的 base64 图片（在上传到 OSS 后替换为 URL）
+            // 只有在 processImages 为 true 时才处理（即用户发送图片消息时）
             let messages = session.messages || [];
-            if (messages.length > 0) {
+            if (processImages && messages.length > 0) {
                 messages = await this.processBase64ImagesInMessages(messages);
+                // 将处理后的消息（包含 OSS URL）更新回本地会话
+                // 这样本地会话中的 imageDataUrl 也会是 OSS URL，而不是 base64
+                this.sessions[sessionId].messages = messages;
             }
             
             const sessionData = {
@@ -24017,8 +24021,9 @@ ${messageContent}`;
             await this.saveCurrentSession(false, false);
             
             // 调用 session/save 接口保存会话
+            // 传入 processImages: true，表示需要处理图片上传
             if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                await this.syncSessionToBackend(this.currentSessionId, true);
+                await this.syncSessionToBackend(this.currentSessionId, true, false, true);
                 console.log('图片消息会话已保存到后端:', this.currentSessionId);
             } else {
                 console.warn('无法保存会话：缺少会话ID、API管理器或同步配置');

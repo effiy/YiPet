@@ -3399,15 +3399,23 @@ class PetManager {
                 ? session._ossFileInfo.url 
                 : (session.url || '');
             
-            // 如果是OSS文件会话，pageTitle应该使用OSS文件的名称，pageDescription应该为空
-            // 但pageContent应该保留会话中保存的内容
+            // 如果是OSS文件会话，优先使用已更新的 pageTitle 和 pageDescription
+            // 如果未更新，则使用 OSS 文件的名称作为默认值
+            // pageContent应该保留会话中保存的内容
             let pageTitle = session.pageTitle || '';
             let pageDescription = session.pageDescription || '';
             let pageContent = session.pageContent || '';
             
             if (session._isOssFileSession && session._ossFileInfo) {
-                pageTitle = session._ossFileInfo.name || 'OSS文件';
-                pageDescription = ''; // OSS文件会话的pageDescription应该为空
+                // 直接使用 session.pageTitle 和 session.pageDescription
+                // 这些值在 saveOssFileTitleInfo 中已经被更新为编辑后的标题和描述
+                // 如果它们为空，则使用 OSS 文件信息中的默认值
+                if (!pageTitle) {
+                    pageTitle = session._ossFileInfo.name || 'OSS文件';
+                }
+                // pageDescription 已经在上面从 session.pageDescription 获取
+                // 如果用户在 OSS 文件列表中编辑了描述，session.pageDescription 会被更新
+                // 如果未编辑，pageDescription 可能为空字符串，这是正常的
                 // OSS文件会话的pageContent应该保留会话中保存的内容，而不是设置为空
                 // pageContent = session.pageContent || '';
             }
@@ -6096,7 +6104,51 @@ class PetManager {
         }
 
         try {
+            // 保存文件标签到后端
             await this.ossApi.setFileTags(objectName, modal._currentTags);
+            
+            // 找到所有与该文件关联的会话并更新标签
+            const matchedSessionIds = this._findSessionsByOssFile(objectName);
+            const updatedSessionIds = [];
+            
+            for (const sessionId of matchedSessionIds) {
+                const session = this.sessions[sessionId];
+                if (session) {
+                    // 更新会话的标签
+                    session.tags = [...modal._currentTags];
+                    
+                    // 更新 OSS 文件信息中的标签
+                    if (session._ossFileInfo) {
+                        session._ossFileInfo.tags = [...modal._currentTags];
+                    }
+                    
+                    // 更新会话时间戳
+                    session.updatedAt = Date.now();
+                    
+                    updatedSessionIds.push(sessionId);
+                    console.log('已更新关联会话的标签:', sessionId, { tags: modal._currentTags });
+                }
+            }
+            
+            // 保存所有更新的会话
+            if (updatedSessionIds.length > 0) {
+                // 保存到本地
+                await this.saveAllSessions(false, false);
+                
+                // 同步到后端（异步，不阻塞）
+                for (const sessionId of updatedSessionIds) {
+                    this.syncSessionToBackend(sessionId, false).catch(err => {
+                        console.warn('同步会话到后端失败:', sessionId, err);
+                    });
+                }
+                
+                // 如果当前会话是其中之一，更新UI显示
+                if (updatedSessionIds.includes(this.currentSessionId)) {
+                    // 更新侧边栏显示
+                    await this.updateSessionSidebar();
+                }
+            }
+            
             this.showNotification('标签保存成功', 'success');
             
             // 更新原始标签为当前标签，避免关闭时重复保存
@@ -6147,7 +6199,51 @@ class PetManager {
                 
                 if (hasChanges) {
                     try {
+                        // 保存文件标签到后端
                         await this.ossApi.setFileTags(objectName, modal._currentTags);
+                        
+                        // 找到所有与该文件关联的会话并更新标签
+                        const matchedSessionIds = this._findSessionsByOssFile(objectName);
+                        const updatedSessionIds = [];
+                        
+                        for (const sessionId of matchedSessionIds) {
+                            const session = this.sessions[sessionId];
+                            if (session) {
+                                // 更新会话的标签
+                                session.tags = [...modal._currentTags];
+                                
+                                // 更新 OSS 文件信息中的标签
+                                if (session._ossFileInfo) {
+                                    session._ossFileInfo.tags = [...modal._currentTags];
+                                }
+                                
+                                // 更新会话时间戳
+                                session.updatedAt = Date.now();
+                                
+                                updatedSessionIds.push(sessionId);
+                                console.log('已更新关联会话的标签:', sessionId, { tags: modal._currentTags });
+                            }
+                        }
+                        
+                        // 保存所有更新的会话
+                        if (updatedSessionIds.length > 0) {
+                            // 保存到本地
+                            await this.saveAllSessions(false, false);
+                            
+                            // 同步到后端（异步，不阻塞）
+                            for (const sessionId of updatedSessionIds) {
+                                this.syncSessionToBackend(sessionId, false).catch(err => {
+                                    console.warn('同步会话到后端失败:', sessionId, err);
+                                });
+                            }
+                            
+                            // 如果当前会话是其中之一，更新UI显示
+                            if (updatedSessionIds.includes(this.currentSessionId)) {
+                                // 更新侧边栏显示
+                                await this.updateSessionSidebar();
+                            }
+                        }
+                        
                         this.showNotification('标签已保存', 'success');
                         // 刷新文件列表和标签筛选器
                         await this.updateOssFileSidebar(true);
@@ -6195,6 +6291,54 @@ class PetManager {
         const originalSorted = [...originalTags].sort().join(',');
         
         return currentSorted !== originalSorted;
+    }
+    
+    // 查找与OSS文件关联的所有会话
+    // @param {string} objectName - 文件对象名
+    // @returns {Array<string>} 关联的会话ID数组
+    _findSessionsByOssFile(objectName) {
+        if (!objectName) {
+            return [];
+        }
+        
+        const matchedSessionIds = [];
+        
+        // 获取文件对象（用于匹配）
+        let fileObject = null;
+        let fileUrl = null;
+        if (this.ossFileManager) {
+            const allFiles = this.ossFileManager.getAllFiles();
+            fileObject = allFiles.find(file => file.name === objectName);
+            if (fileObject) {
+                fileUrl = fileObject.url;
+            }
+        }
+        
+        // 遍历所有会话，找到关联的会话
+        for (const sessionId in this.sessions) {
+            const session = this.sessions[sessionId];
+            if (session && session._isOssFileSession && session._ossFileInfo) {
+                // 优先使用 URL 匹配（最可靠）
+                let isMatch = false;
+                if (fileUrl && session._ossFileInfo.url) {
+                    isMatch = session._ossFileInfo.url === fileUrl;
+                } else {
+                    // 如果 URL 不可用，使用原始文件名匹配
+                    const sessionUrl = session._ossFileInfo.url || '';
+                    const sessionName = session._ossFileInfo.name || '';
+                    // 检查 URL 是否包含文件名，或者原始名称是否匹配
+                    isMatch = sessionUrl.includes(objectName) || 
+                             (sessionName === objectName) ||
+                             (fileObject && sessionUrl === fileObject.url);
+                }
+                
+                if (isMatch) {
+                    matchedSessionIds.push(sessionId);
+                }
+            }
+        }
+        
+        return matchedSessionIds;
     }
 
     // 上传文件到OSS
@@ -8386,7 +8530,25 @@ class PetManager {
             for (const fileName of fileNames) {
                 try {
                     // 获取文件信息（包括标签）
-                    const fileInfo = fileMap.get(fileName);
+                    let fileInfo = fileMap.get(fileName);
+                    
+                    // 如果文件信息中没有标签，尝试从后端API获取
+                    if (!fileInfo || !fileInfo.tags || !Array.isArray(fileInfo.tags) || fileInfo.tags.length === 0) {
+                        try {
+                            const fileTags = await this.ossApi.getFileTags(fileName);
+                            if (fileTags && Array.isArray(fileTags) && fileTags.length > 0) {
+                                if (!fileInfo) {
+                                    fileInfo = { name: fileName, tags: fileTags };
+                                } else {
+                                    fileInfo.tags = fileTags;
+                                }
+                            }
+                        } catch (error) {
+                            console.warn(`获取文件 ${fileName} 的标签失败:`, error);
+                        }
+                    }
+                    
+                    // 获取标签数组，如果没有标签则使用"未分类"（参考会话导出功能）
                     const tags = fileInfo && fileInfo.tags && Array.isArray(fileInfo.tags) && fileInfo.tags.length > 0
                         ? fileInfo.tags
                         : ['未分类'];
@@ -8407,6 +8569,7 @@ class PetManager {
                     const blob = await response.blob();
                     
                     // 根据标签构建目录路径（参考会话导出功能）
+                    // 按标签顺序建立目录层次，每个标签作为一层目录
                     let filePath = '';
                     tags.forEach(tag => {
                         const sanitizedTag = sanitizePath(tag);
@@ -9959,10 +10122,96 @@ class PetManager {
             // 保存描述到本地存储
             await this.saveOssFileDescription(fileName, newDescription);
             
+            // 保存文件信息到后端
+            if (this.ossApi && this.ossApi.isEnabled()) {
+                try {
+                    await this.ossApi.updateFileInfo(fileName, {
+                        title: finalTitle === originalFileName ? '' : finalTitle,
+                        description: newDescription
+                    });
+                    console.log('文件信息已保存到后端:', { fileName, title: finalTitle, description: newDescription });
+                } catch (error) {
+                    console.warn('保存文件信息到后端失败:', error);
+                    // 不阻塞后续操作，继续更新会话
+                }
+            }
+            
+            // 找到所有与该文件关联的会话并更新
+            const matchedSessionIds = this._findSessionsByOssFile(fileName);
+            const updatedSessionIds = [];
+            
+            for (const sessionId of matchedSessionIds) {
+                const session = this.sessions[sessionId];
+                if (session) {
+                    // 更新会话的标题和描述
+                    session.pageTitle = finalTitle;
+                    session.pageDescription = newDescription;
+                    
+                    // 更新 OSS 文件信息
+                    if (session._ossFileInfo) {
+                        session._ossFileInfo.name = finalTitle;
+                        session._ossFileInfo.description = newDescription;
+                    }
+                    
+                    // 更新会话时间戳
+                    session.updatedAt = Date.now();
+                    
+                    updatedSessionIds.push(sessionId);
+                    console.log('已更新关联会话:', sessionId, { title: finalTitle, description: newDescription });
+                }
+            }
+            
+            // 保存所有更新的会话
+            if (updatedSessionIds.length > 0) {
+                // 保存到本地
+                await this.saveAllSessions(false, false);
+                
+                // 同步到后端（异步，不阻塞）
+                for (const sessionId of updatedSessionIds) {
+                    this.syncSessionToBackend(sessionId, false).catch(err => {
+                        console.warn('同步会话到后端失败:', sessionId, err);
+                    });
+                }
+                
+                // 如果当前会话是其中之一，更新UI显示
+                if (updatedSessionIds.includes(this.currentSessionId)) {
+                    // 更新聊天窗口标题
+                    this.updateChatHeaderTitle();
+                    
+                    // 重新渲染欢迎消息（如果存在）
+                    const messagesContainer = this.chatWindow?.querySelector('.pet-messages') || 
+                                            this.chatWindow?.querySelector('#pet-chat-messages');
+                    if (messagesContainer) {
+                        // 检查是否有欢迎消息（支持两种选择器）
+                        const welcomeMessage = messagesContainer.querySelector('.pet-welcome-message') ||
+                                              messagesContainer.querySelector('[data-welcome-message]');
+                        if (welcomeMessage) {
+                            // 删除旧的欢迎消息
+                            welcomeMessage.remove();
+                            
+                            // 重新创建欢迎消息
+                            const session = this.sessions[this.currentSessionId];
+                            if (session && session._isOssFileSession && session._ossFileInfo) {
+                                // 创建新的欢迎消息
+                                const newWelcomeMessage = await this.createOssFileWelcomeMessage(messagesContainer, session._ossFileInfo);
+                                
+                                // 确保欢迎消息在开头（如果消息容器中有其他消息）
+                                if (newWelcomeMessage && messagesContainer.firstChild !== newWelcomeMessage) {
+                                    messagesContainer.insertBefore(newWelcomeMessage, messagesContainer.firstChild);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 更新侧边栏显示
+                    await this.updateSessionSidebar();
+                }
+            }
+            
             // 更新UI显示
             await this.updateOssFileSidebar(true);
             
-            console.log('文件信息已更新:', { fileName, title: finalTitle, description: newDescription });
+            console.log('文件信息已更新:', { fileName, title: finalTitle, description: newDescription, updatedSessions: updatedSessionIds.length });
             
             // 关闭对话框
             this.closeOssFileTitleEditor();

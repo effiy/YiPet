@@ -323,6 +323,45 @@ class OssApiManager {
     }
     
     /**
+     * 更新文件信息（标题、描述等）
+     * @param {string} objectName - 文件对象名
+     * @param {Object} fileInfo - 文件信息对象
+     * @param {string} fileInfo.title - 文件标题（可选）
+     * @param {string} fileInfo.description - 文件描述（可选）
+     * @returns {Promise<Object>} 更新结果
+     */
+    async updateFileInfo(objectName, fileInfo = {}) {
+        if (!objectName) {
+            throw new Error('文件对象名无效');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/oss/file/info`;
+            const result = await this._request(url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    object_name: objectName,
+                    title: fileInfo.title || '',
+                    description: fileInfo.description || ''
+                })
+            });
+            
+            if (result.code === 200) {
+                // 清除列表缓存，因为文件信息可能影响显示
+                this.cache.filesList = null;
+                this.cache.filesListTimestamp = 0;
+                
+                return result;
+            } else {
+                throw new Error(result.message || '更新文件信息失败');
+            }
+        } catch (error) {
+            console.error('更新文件信息失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
      * 获取文件列表（支持标签筛选）
      * @param {Object} options - 查询选项
      * @param {string} options.directory - 目录路径

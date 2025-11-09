@@ -202,7 +202,8 @@ if (typeof getCenterPosition === 'undefined') {
         this.ossFileManager = null;
         this.ossFileListVisible = false; // OSS文件列表是否可见
         this.currentOssDirectory = ''; // 当前OSS目录
-        this.ossImagePreviewEnabled = false; // OSS图片预览开关（默认关闭）
+        this.ossImagePreviewEnabled = false; // OSS图片预览开关（默认关闭，用于标签模块的批量控制）
+        this.ossFilePreviewStates = {}; // 每个文件的预览开关状态 { fileName: true/false }
 
         this.init();
     }
@@ -245,6 +246,7 @@ if (typeof getCenterPosition === 'undefined') {
         
         this.loadState(); // 加载保存的状态
         this.loadOssImagePreviewState(); // 加载OSS图片预览开关状态
+        this.loadOssFilePreviewStates(); // 加载每个文件的预览开关状态
         this.setupMessageListener();
         this.createPet();
         
@@ -1128,6 +1130,45 @@ if (typeof getCenterPosition === 'undefined') {
         } catch (error) {
             console.log('保存OSS图片预览开关状态失败:', error);
         }
+    }
+
+    // 加载每个文件的预览开关状态
+    loadOssFilePreviewStates() {
+        try {
+            chrome.storage.local.get(['ossFilePreviewStates'], (result) => {
+                if (result.ossFilePreviewStates && typeof result.ossFilePreviewStates === 'object') {
+                    this.ossFilePreviewStates = result.ossFilePreviewStates;
+                } else {
+                    this.ossFilePreviewStates = {};
+                }
+                console.log('每个文件的预览开关状态已加载:', this.ossFilePreviewStates);
+            });
+        } catch (error) {
+            console.log('加载每个文件的预览开关状态失败:', error);
+            this.ossFilePreviewStates = {};
+        }
+    }
+
+    // 保存每个文件的预览开关状态
+    saveOssFilePreviewStates() {
+        try {
+            chrome.storage.local.set({ ossFilePreviewStates: this.ossFilePreviewStates }, () => {
+                console.log('每个文件的预览开关状态已保存:', this.ossFilePreviewStates);
+            });
+        } catch (error) {
+            console.log('保存每个文件的预览开关状态失败:', error);
+        }
+    }
+
+    // 获取文件的预览开关状态（如果未设置，默认返回false）
+    getFilePreviewEnabled(fileName) {
+        return this.ossFilePreviewStates[fileName] === true;
+    }
+
+    // 设置文件的预览开关状态
+    setFilePreviewEnabled(fileName, enabled) {
+        this.ossFilePreviewStates[fileName] = enabled === true;
+        this.saveOssFilePreviewStates();
     }
 
     // 验证位置是否在当前窗口范围内
@@ -5721,7 +5762,7 @@ if (typeof getCenterPosition === 'undefined') {
                 if (filterActions) {
                     previewToggleBtn = document.createElement('button');
                     previewToggleBtn.className = 'oss-image-preview-toggle';
-                    previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭图片预览' : '开启图片预览';
+                    previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
                     previewToggleBtn.innerHTML = '🖼️';
                     previewToggleBtn.style.cssText = `
                         font-size: 14px !important;
@@ -5739,8 +5780,30 @@ if (typeof getCenterPosition === 'undefined') {
                         this.ossImagePreviewEnabled = !this.ossImagePreviewEnabled;
                         previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
                         previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
-                        previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭图片预览' : '开启图片预览';
+                        previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
                         this.saveOssImagePreviewState();
+                        
+                        // 批量设置所有文件的预览开关状态
+                        if (this.ossFileManager) {
+                            const allFiles = this.ossFileManager.getAllFiles();
+                            allFiles.forEach(file => {
+                                this.setFilePreviewEnabled(file.name, this.ossImagePreviewEnabled);
+                            });
+                        }
+                        
+                        // 更新所有文件项的预览开关按钮状态
+                        const allFilePreviewBtns = this.sessionSidebar.querySelectorAll('.oss-file-preview-toggle');
+                        allFilePreviewBtns.forEach(btn => {
+                            const fileName = btn.dataset.fileName;
+                            if (fileName) {
+                                const filePreviewEnabled = this.getFilePreviewEnabled(fileName);
+                                btn.style.color = filePreviewEnabled ? '#667eea' : '#9ca3af';
+                                btn.style.opacity = filePreviewEnabled ? '1' : '0.6';
+                                btn.title = filePreviewEnabled ? '关闭此文件预览' : '开启此文件预览';
+                            }
+                        });
+                        
+                        // 重新渲染文件列表以应用预览开关状态
                         this.updateOssFileSidebar();
                     });
                     const reverseFilterBtn = filterActions.querySelector('.oss-tag-filter-reverse');
@@ -5754,7 +5817,7 @@ if (typeof getCenterPosition === 'undefined') {
                 // 如果已存在，更新状态
                 previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
                 previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
-                previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭图片预览' : '开启图片预览';
+                previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
             }
             return;
         }
@@ -5800,7 +5863,7 @@ if (typeof getCenterPosition === 'undefined') {
         // 图片预览开关
         const previewToggleBtn = document.createElement('button');
         previewToggleBtn.className = 'oss-image-preview-toggle';
-        previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭图片预览' : '开启图片预览';
+        previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
         previewToggleBtn.innerHTML = this.ossImagePreviewEnabled ? '🖼️' : '🖼️';
         previewToggleBtn.style.cssText = `
             font-size: 14px !important;
@@ -5818,8 +5881,29 @@ if (typeof getCenterPosition === 'undefined') {
             this.ossImagePreviewEnabled = !this.ossImagePreviewEnabled;
             previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
             previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
-            previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭图片预览' : '开启图片预览';
+            previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
             this.saveOssImagePreviewState();
+            
+            // 批量设置所有文件的预览开关状态
+            if (this.ossFileManager) {
+                const allFiles = this.ossFileManager.getAllFiles();
+                allFiles.forEach(file => {
+                    this.setFilePreviewEnabled(file.name, this.ossImagePreviewEnabled);
+                });
+            }
+            
+            // 更新所有文件项的预览开关按钮状态和预览头像
+            const allFilePreviewBtns = this.sessionSidebar.querySelectorAll('.oss-file-preview-toggle');
+            allFilePreviewBtns.forEach(btn => {
+                const fileName = btn.dataset.fileName;
+                if (fileName) {
+                    const filePreviewEnabled = this.getFilePreviewEnabled(fileName);
+                    btn.style.color = filePreviewEnabled ? '#667eea' : '#9ca3af';
+                    btn.style.opacity = filePreviewEnabled ? '1' : '0.6';
+                    btn.title = filePreviewEnabled ? '关闭此文件预览' : '开启此文件预览';
+                }
+            });
+            
             // 重新渲染文件列表以应用预览开关状态
             this.updateOssFileSidebar();
         });
@@ -5928,7 +6012,7 @@ if (typeof getCenterPosition === 'undefined') {
         if (previewToggleBtn) {
             previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
             previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
-            previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭图片预览' : '开启图片预览';
+            previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
         }
         
         // 更新反向过滤按钮状态
@@ -7901,8 +7985,9 @@ if (typeof getCenterPosition === 'undefined') {
             const ext = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
             const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext);
             
-            // 如果是图片且预览开关已开启，尝试加载预览图
-            if (isImage && file.url && this.ossImagePreviewEnabled) {
+            // 如果是图片且该文件的预览开关已开启，尝试加载预览图
+            const filePreviewEnabled = this.getFilePreviewEnabled(file.name);
+            if (isImage && file.url && filePreviewEnabled) {
                 // 添加加载状态指示器
                 const loadingIndicator = document.createElement('div');
                 loadingIndicator.style.cssText = `
@@ -8191,6 +8276,123 @@ if (typeof getCenterPosition === 'undefined') {
                 this.editOssFileTitle(file.name);
             });
             
+            // 预览图片开关按钮（与标签模块保持一致，但只控制当前文件）
+            const previewToggleBtn = document.createElement('button');
+            previewToggleBtn.className = 'oss-file-preview-toggle';
+            previewToggleBtn.dataset.fileName = file.name; // 存储文件名以便识别
+            previewToggleBtn.innerHTML = '🖼️';
+            const currentFilePreviewEnabled = this.getFilePreviewEnabled(file.name);
+            previewToggleBtn.title = currentFilePreviewEnabled ? '关闭此文件预览' : '开启此文件预览';
+            previewToggleBtn.style.cssText = `
+                font-size: 14px !important;
+                color: ${currentFilePreviewEnabled ? '#667eea' : '#9ca3af'} !important;
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                border-radius: 3px !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                opacity: ${currentFilePreviewEnabled ? '1' : '0.6'} !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停效果
+            previewToggleBtn.addEventListener('mouseenter', () => {
+                previewToggleBtn.style.opacity = '1';
+            });
+            previewToggleBtn.addEventListener('mouseleave', () => {
+                const currentFilePreviewEnabled = this.getFilePreviewEnabled(file.name);
+                previewToggleBtn.style.opacity = currentFilePreviewEnabled ? '1' : '0.6';
+            });
+            
+            // 阻止预览开关按钮点击事件冒泡到 fileItem
+            previewToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const currentFilePreviewEnabled = this.getFilePreviewEnabled(file.name);
+                const newState = !currentFilePreviewEnabled;
+                this.setFilePreviewEnabled(file.name, newState);
+                
+                // 更新当前按钮状态
+                previewToggleBtn.style.color = newState ? '#667eea' : '#9ca3af';
+                previewToggleBtn.style.opacity = newState ? '1' : '0.6';
+                previewToggleBtn.title = newState ? '关闭此文件预览' : '开启此文件预览';
+                
+                // 只更新当前文件的预览头像，不重新渲染整个列表
+                const previewAvatar = fileItem.querySelector('.oss-file-preview-avatar');
+                if (previewAvatar && isImage && file.url) {
+                    if (newState) {
+                        // 开启预览：加载预览图
+                        previewAvatar.innerHTML = '';
+                        const loadingIndicator = document.createElement('div');
+                        loadingIndicator.style.cssText = `
+                            position: absolute !important;
+                            top: 50% !important;
+                            left: 50% !important;
+                            transform: translate(-50%, -50%) !important;
+                            width: 16px !important;
+                            height: 16px !important;
+                            border: 2px solid #d1d5db !important;
+                            border-top-color: #6366f1 !important;
+                            border-radius: 50% !important;
+                            animation: spin 0.6s linear infinite !important;
+                        `;
+                        previewAvatar.appendChild(loadingIndicator);
+                        
+                        const img = document.createElement('img');
+                        img.style.cssText = `
+                            width: 100% !important;
+                            height: 100% !important;
+                            object-fit: cover !important;
+                            opacity: 0 !important;
+                            transition: opacity 0.3s ease !important;
+                        `;
+                        img.alt = file.name;
+                        
+                        img.onload = () => {
+                            loadingIndicator.style.display = 'none';
+                            img.style.opacity = '1';
+                        };
+                        
+                        img.onerror = () => {
+                            loadingIndicator.style.display = 'none';
+                            previewAvatar.innerHTML = '🖼️';
+                            previewAvatar.style.fontSize = '20px';
+                            previewAvatar.style.background = '#f3f4f6';
+                        };
+                        
+                        const thumbnailUrl = this.generateOssImageProcessUrl(file.url, {
+                            width: 48,
+                            height: 48,
+                            quality: 40,
+                            format: 'webp',
+                            keepAspectRatio: true
+                        });
+                        
+                        if ('IntersectionObserver' in window) {
+                            const imageObserver = new IntersectionObserver((entries, observer) => {
+                                entries.forEach(entry => {
+                                    if (entry.isIntersecting) {
+                                        img.src = thumbnailUrl;
+                                        observer.unobserve(entry.target);
+                                    }
+                                });
+                            }, { rootMargin: '50px' });
+                            imageObserver.observe(previewAvatar);
+                        } else {
+                            img.src = thumbnailUrl;
+                        }
+                        
+                        previewAvatar.appendChild(img);
+                    } else {
+                        // 关闭预览：显示默认图标
+                        previewAvatar.innerHTML = '🖼️';
+                        previewAvatar.style.fontSize = '20px';
+                        previewAvatar.style.background = 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)';
+                    }
+                }
+            });
+            
             // 创建按钮容器
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -8201,6 +8403,7 @@ if (typeof getCenterPosition === 'undefined') {
                 transition: opacity 0.2s ease !important;
                 flex-shrink: 0 !important;
             `;
+            buttonContainer.appendChild(previewToggleBtn);
             buttonContainer.appendChild(editBtn);
             buttonContainer.appendChild(tagBtn);
             

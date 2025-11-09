@@ -1685,6 +1685,64 @@ if (typeof getCenterPosition === 'undefined') {
         return { images, videos, cleanedText };
     }
 
+    // 从消息 DOM 元素找到对应的消息对象
+    findMessageObjectByDiv(messageDiv) {
+        if (!messageDiv || !this.currentSessionId || !this.sessions[this.currentSessionId]) {
+            return null;
+        }
+
+        const session = this.sessions[this.currentSessionId];
+        if (!session.messages || !Array.isArray(session.messages)) {
+            return null;
+        }
+
+        // 获取消息内容（文本和图片）
+        const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
+        const messageBubble = isUserMessage 
+            ? messageDiv.querySelector('[data-message-type="user-bubble"]')
+            : messageDiv.querySelector('[data-message-type="pet-bubble"]');
+        
+        if (!messageBubble) {
+            return null;
+        }
+
+        // 获取消息文本内容
+        const messageContent = messageBubble.getAttribute('data-original-text') || 
+                              messageBubble.innerText || 
+                              messageBubble.textContent || '';
+        
+        // 获取消息类型
+        const messageType = isUserMessage ? 'user' : 'pet';
+
+        // 在会话消息列表中查找匹配的消息对象
+        // 优先匹配内容和类型，如果有多条匹配，选择最近的一条
+        for (let i = session.messages.length - 1; i >= 0; i--) {
+            const msg = session.messages[i];
+            if (msg.type === messageType) {
+                // 比较消息内容（去除首尾空白）
+                const msgContent = (msg.content || '').trim();
+                const divContent = messageContent.trim();
+                
+                // 如果内容匹配，返回该消息对象
+                if (msgContent === divContent || 
+                    (msgContent && divContent && msgContent.includes(divContent)) ||
+                    (divContent && msgContent && divContent.includes(msgContent))) {
+                    return msg;
+                }
+            }
+        }
+
+        // 如果找不到完全匹配的，返回最后一条同类型的消息
+        for (let i = session.messages.length - 1; i >= 0; i--) {
+            const msg = session.messages[i];
+            if (msg.type === messageType) {
+                return msg;
+            }
+        }
+
+        return null;
+    }
+
     // 构建 prompt 请求 payload，自动包含会话 ID
     buildPromptPayload(fromSystem, fromUser, model = null, options = {}) {
         const payload = {
@@ -1707,6 +1765,38 @@ if (typeof getCenterPosition === 'undefined') {
             
             // 合并从 fromUser 提取的图片和 options 中提供的图片
             const allImages = [...images];
+            
+            // 获取 imageDataUrl：优先使用 options 中提供的
+            // 如果 options 中没有提供，且 options.messageDiv 存在，则从对应的消息对象中获取
+            let imageDataUrl = options.imageDataUrl || null;
+            if (!imageDataUrl && options.messageDiv) {
+                const messageObj = this.findMessageObjectByDiv(options.messageDiv);
+                if (messageObj && messageObj.imageDataUrl) {
+                    imageDataUrl = messageObj.imageDataUrl;
+                }
+            }
+            // 如果仍然没有获取到，且没有指定 messageDiv，则从当前会话消息中获取（向后兼容）
+            if (!imageDataUrl && !options.messageDiv && this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const session = this.sessions[this.currentSessionId];
+                if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
+                    // 从后往前查找最后一条用户消息的 imageDataUrl
+                    for (let i = session.messages.length - 1; i >= 0; i--) {
+                        const msg = session.messages[i];
+                        if (msg.type === 'user' && msg.imageDataUrl) {
+                            imageDataUrl = msg.imageDataUrl;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 如果从会话中获取到了 imageDataUrl，追加到图片列表中
+            if (imageDataUrl && typeof imageDataUrl === 'string') {
+                if (!allImages.includes(imageDataUrl)) {
+                    allImages.push(imageDataUrl);
+                }
+            }
+            
             if (options.images && Array.isArray(options.images)) {
                 options.images.forEach(img => {
                     if (!allImages.includes(img)) {
@@ -1809,7 +1899,7 @@ if (typeof getCenterPosition === 'undefined') {
             // 调用 API，使用配置中的 URL
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
 
-            // 使用统一的 payload 构建函数，自动包含会话 ID
+            // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl（如果是 qwen3-vl 模型）
             const payload = this.buildPromptPayload(
                 '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
                 userMessage,
@@ -2013,10 +2103,11 @@ if (typeof getCenterPosition === 'undefined') {
                 userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
             }
 
-            // 使用统一的 payload 构建函数，自动包含会话 ID
+            // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl（如果是 qwen3-vl 模型）
             const payload = this.buildPromptPayload(
                 '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
-                userMessage
+                userMessage,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
             );
             
             // 调用 API，使用配置中的 URL
@@ -14082,10 +14173,12 @@ ${pageContent || '无内容'}
                         this.skipSessionListRefresh = true;
                         
                         // 使用统一的 payload 构建函数，自动包含会话 ID
+                        // 传递 messageDiv，以便从对应的消息对象中获取 imageDataUrl
                         const payload = this.buildPromptPayload(
                             roleInfo.systemPrompt,
                             fromUser,
-                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
+                            { messageDiv: messageDiv }
                         );
                         
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -14425,10 +14518,12 @@ ${pageContent || '无内容'}
                             this.skipSessionListRefresh = true;
                             
                             // 使用统一的 payload 构建函数，自动包含会话 ID
+                            // 传递 messageDiv，以便从对应的消息对象中获取 imageDataUrl
                             const payload = this.buildPromptPayload(
                                 systemPrompt,
                                 fromUser,
-                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
+                                { messageDiv: messageDiv }
                             );
                             
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -14820,10 +14915,12 @@ ${pageContent || '无内容'}
                             }
                             
                             // 使用统一的 payload 构建函数，自动包含会话 ID
+                            // 传递 messageDiv，以便从对应的消息对象中获取 imageDataUrl
                             const payload = this.buildPromptPayload(
                                 roleInfo.systemPrompt,
                                 fromUser,
-                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
+                                { messageDiv: messageDiv }
                             );
                             
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -15181,10 +15278,12 @@ ${pageContent || '无内容'}
                     const abortController = new AbortController();
                     
                     // 使用统一的 payload 构建函数，自动包含会话 ID
+                    // 传递 messageDiv，以便从对应的消息对象中获取 imageDataUrl
                     const payload = this.buildPromptPayload(
                         systemPrompt,
                         fromUser,
-                        this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                        this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
+                        { messageDiv: messageDiv }
                     );
                     
                     const response = await fetch(PET_CONFIG.api.promptUrl, {

@@ -4085,8 +4085,54 @@ if (typeof getCenterPosition === 'undefined') {
                     // 渲染用户消息（使用 Markdown 渲染，与 pet 消息一致）
                     const userBubble = msgEl.querySelector('[data-message-type="user-bubble"]');
                     if (userBubble) {
-                        userBubble.innerHTML = this.renderMarkdown(msg.content);
-                        userBubble.setAttribute('data-original-text', msg.content);
+                        // 如果有图片，先添加图片元素
+                        if (imageDataUrl) {
+                            const imageContainer = document.createElement('div');
+                            imageContainer.style.cssText = `
+                                margin-bottom: ${msg.content ? '8px' : '0'} !important;
+                                border-radius: 8px !important;
+                                overflow: hidden !important;
+                            `;
+
+                            const img = document.createElement('img');
+                            img.src = imageDataUrl;
+                            img.style.cssText = `
+                                max-width: 100% !important;
+                                max-height: 300px !important;
+                                border-radius: 8px !important;
+                                display: block !important;
+                                cursor: pointer !important;
+                            `;
+
+                            // 点击查看大图
+                            img.addEventListener('click', () => {
+                                this.showImagePreview(imageDataUrl);
+                            });
+
+                            imageContainer.appendChild(img);
+                            userBubble.innerHTML = '';
+                            userBubble.appendChild(imageContainer);
+                        } else {
+                            userBubble.innerHTML = '';
+                        }
+                        
+                        // 如果有文本内容，添加文本
+                        if (msg.content) {
+                            const displayText = this.renderMarkdown(msg.content);
+                            if (imageDataUrl) {
+                                // 如果已经添加了图片，则追加文本
+                                const textSpan = document.createElement('span');
+                                textSpan.innerHTML = displayText;
+                                userBubble.appendChild(textSpan);
+                            } else {
+                                userBubble.innerHTML = displayText;
+                            }
+                        } else if (imageDataUrl) {
+                            // 如果没有文本只有图片，保持容器为空
+                            userBubble.style.padding = '0';
+                        }
+                        
+                        userBubble.setAttribute('data-original-text', msg.content || '');
                         userBubble.classList.add('markdown-content');
                         
                         // 处理可能的 Mermaid 图表

@@ -4173,11 +4173,27 @@ class PetManager {
     // 更新会话侧边栏
     // 收集所有会话的标签
     getAllTags() {
-        const allSessions = this._getSessionsFromLocal();
-        const tagSet = new Set();
+        // 使用与updateSessionSidebar相同的过滤逻辑，确保只从当前可见的会话中提取标签
+        let allSessions = this._getSessionsFromLocal();
         
         // 排除OSS文件会话
-        allSessions.filter(session => !session._isOssFileSession).forEach(session => {
+        allSessions = allSessions.filter(session => {
+            return !session._isOssFileSession;
+        });
+        
+        // 排除与文件列表中具有相同url的会话
+        if (this.ossFileManager) {
+            const files = this.ossFileManager.getAllFiles();
+            const fileUrls = new Set(files.map(file => file.url).filter(url => url));
+            allSessions = allSessions.filter(session => {
+                const sessionUrl = session.url;
+                return !sessionUrl || !fileUrls.has(sessionUrl);
+            });
+        }
+        
+        // 从过滤后的会话中提取标签
+        const tagSet = new Set();
+        allSessions.forEach(session => {
             if (session.tags && Array.isArray(session.tags)) {
                 session.tags.forEach(tag => {
                     if (tag && tag.trim()) {
@@ -4253,8 +4269,9 @@ class PetManager {
         // 应用标签过滤（与updateSessionSidebar中的逻辑一致）
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
             allSessions = allSessions.filter(session => {
-                const sessionTags = session.tags || [];
-                const hasSelectedTags = this.selectedFilterTags.some(selectedTag => 
+                const sessionTags = (session.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const normalizedSelectedTags = this.selectedFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
                     sessionTags.includes(selectedTag)
                 );
                 
@@ -6475,8 +6492,9 @@ class PetManager {
         // 应用标签过滤
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
             allSessions = allSessions.filter(session => {
-                const sessionTags = session.tags || [];
-                const hasSelectedTags = this.selectedFilterTags.some(selectedTag => 
+                const sessionTags = (session.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const normalizedSelectedTags = this.selectedFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
                     sessionTags.includes(selectedTag)
                 );
                 
@@ -6765,10 +6783,13 @@ class PetManager {
                     margin-bottom: 0 !important;
                 `;
                 
+                // 规范化标签（trim处理，与getAllTags保持一致）
+                const normalizedTags = tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                
                 // 最多显示3个标签，超出部分显示"+N"
                 const maxVisibleTags = 3;
-                const visibleTags = tags.slice(0, maxVisibleTags);
-                const remainingCount = tags.length - maxVisibleTags;
+                const visibleTags = normalizedTags.slice(0, maxVisibleTags);
+                const remainingCount = normalizedTags.length - maxVisibleTags;
                 
                 visibleTags.forEach((tag) => {
                     const tagElement = document.createElement('span');
@@ -11401,6 +11422,14 @@ class PetManager {
 
         try {
             const session = this.sessions[sessionId];
+            // 规范化标签（trim处理，去重，过滤空标签）
+            if (session.tags && Array.isArray(session.tags)) {
+                const normalizedTags = session.tags
+                    .map(tag => tag ? tag.trim() : '')
+                    .filter(tag => tag.length > 0);
+                // 去重
+                session.tags = [...new Set(normalizedTags)];
+            }
             session.updatedAt = Date.now();
 
             // 保存会话到本地
@@ -11440,6 +11469,14 @@ class PetManager {
             if (sessionId && this.sessions[sessionId]) {
                 try {
                     const session = this.sessions[sessionId];
+                    // 规范化标签（trim处理，去重，过滤空标签）
+                    if (session.tags && Array.isArray(session.tags)) {
+                        const normalizedTags = session.tags
+                            .map(tag => tag ? tag.trim() : '')
+                            .filter(tag => tag.length > 0);
+                        // 去重
+                        session.tags = [...new Set(normalizedTags)];
+                    }
                     session.updatedAt = Date.now();
                     await this.saveAllSessions(false, true);
                     

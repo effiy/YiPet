@@ -90,6 +90,7 @@ if (typeof PET_CONFIG === 'undefined') {
             default: 'qwen3',
             models: [
                 { id: 'qwen3', name: 'Qwen3', icon: '🤖' },
+                { id: 'qwen3-vl', name: 'Qwen3-VL', icon: '👁️' },
                 { id: 'qwq', name: 'QWQ', icon: '💬' },
                 { id: 'gpt-oss', name: 'GPT-OSS', icon: '✨' }
             ]

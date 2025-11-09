@@ -144,6 +144,11 @@ const PET_CONFIG = {
         icon: "🤖",
       },
       {
+        id: "qwen3-vl",
+        name: "Qwen3-VL",
+        icon: "👁️",
+      },
+      {
         id: "qwq",
         name: "QWQ",
         icon: "💬",

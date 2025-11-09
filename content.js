@@ -245,6 +245,20 @@ if (typeof getCenterPosition === 'undefined') {
         this.loadState(); // 加载保存的状态
         this.setupMessageListener();
         this.createPet();
+        
+        // 延迟检查并更新宠物显示状态，确保状态加载完成后样式正确
+        setTimeout(() => {
+            if (this.pet) {
+                console.log('延迟检查：更新宠物样式，可见性:', this.isVisible);
+                this.updatePetStyle();
+                // 如果宠物已创建但还没有添加到页面，尝试再次添加
+                if (!this.pet.parentNode) {
+                    console.log('延迟检查：宠物未添加到页面，尝试重新添加');
+                    this.addPetToPage();
+                }
+            }
+        }, 500);
+        
         // 启动定期同步，确保状态一致性
         this.startPeriodicSync();
 
@@ -693,10 +707,14 @@ if (typeof getCenterPosition === 'undefined') {
         // 防止重复创建
         if (document.getElementById('minimal-pet')) {
             console.log('宠物已存在，跳过创建');
+            // 如果宠物已存在，确保样式是最新的
+            this.pet = document.getElementById('minimal-pet');
+            this.updatePetStyle();
             return;
         }
 
         console.log('开始创建宠物...');
+        console.log('当前可见性状态:', this.isVisible);
 
         // 创建宠物容器
         this.pet = document.createElement('div');
@@ -712,6 +730,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.addInteractions();
 
         console.log('宠物创建成功！');
+        console.log('宠物显示状态:', this.isVisible ? '显示' : '隐藏');
     }
 
     addPetToPage() {
@@ -723,19 +742,31 @@ if (typeof getCenterPosition === 'undefined') {
             console.log('直接添加到 body');
             document.body.appendChild(this.pet);
             console.log('宠物已添加到页面');
+            // 确保样式已更新
+            this.updatePetStyle();
         } else {
             console.log('body 不存在，等待 DOMContentLoaded');
             // 如果body还没有加载，等待DOM加载完成
-            document.addEventListener('DOMContentLoaded', () => {
+            const handleDOMReady = () => {
                 console.log('DOMContentLoaded 事件触发');
                 if (document.body && this.pet) {
                     console.log('现在添加到 body');
                     document.body.appendChild(this.pet);
                     console.log('宠物已添加到页面（延迟）');
+                    // 确保样式已更新
+                    this.updatePetStyle();
                 } else {
                     console.log('DOMContentLoaded 后仍然无法添加宠物');
                 }
-            });
+            };
+            
+            // 检查是否已经加载完成
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', handleDOMReady);
+            } else {
+                // 如果已经加载完成，直接执行
+                setTimeout(handleDOMReady, 0);
+            }
         }
     }
 
@@ -958,9 +989,16 @@ if (typeof getCenterPosition === 'undefined') {
                     // 位置也使用全局状态，但会进行边界检查
                     this.position = this.validatePosition(state.position || getPetDefaultPosition());
                     console.log('宠物全局状态已恢复:', state);
+                    console.log('宠物可见性:', this.isVisible);
 
-                    // 更新宠物样式
+                    // 更新宠物样式（如果宠物已创建）
                     this.updatePetStyle();
+                    
+                    // 如果宠物已创建但还没有添加到页面，尝试再次添加
+                    if (this.pet && !this.pet.parentNode) {
+                        console.log('宠物已创建但未添加到页面，尝试重新添加');
+                        this.addPetToPage();
+                    }
                 } else {
                     // 如果全局状态不存在，尝试从localStorage加载
                     this.loadStateFromLocalStorage();
@@ -1019,6 +1057,17 @@ if (typeof getCenterPosition === 'undefined') {
 
                 this.position = state.position || getPetDefaultPosition();
                 console.log('宠物本地状态已恢复:', state);
+                console.log('宠物可见性:', this.isVisible);
+                
+                // 更新宠物样式（如果宠物已创建）
+                this.updatePetStyle();
+                
+                // 如果宠物已创建但还没有添加到页面，尝试再次添加
+                if (this.pet && !this.pet.parentNode) {
+                    console.log('宠物已创建但未添加到页面，尝试重新添加');
+                    this.addPetToPage();
+                }
+                
                 return true;
             }
         } catch (error) {
@@ -13925,8 +13974,15 @@ ${pageContent || '无内容'}
                 newButton.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     
-                    // 获取当前消息的内容
-                    const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                    // 获取当前消息的内容（根据消息类型选择正确的元素）
+                    let messageBubble = null;
+                    if (isUserMessage) {
+                        // 用户消息：从 user-bubble 获取内容
+                        messageBubble = messageDiv.querySelector('[data-message-type="user-bubble"]');
+                    } else {
+                        // 宠物消息：从 pet-bubble 获取内容
+                        messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                    }
                     let messageContent = '';
                     if (messageBubble) {
                         // 优先使用 data-original-text（原始文本），如果没有则使用文本内容
@@ -13950,10 +14006,21 @@ ${pageContent || '无内容'}
                         };
                     }
                     
+                    // 检查页面上下文开关状态
+                    let includeContext = true; // 默认包含上下文
+                    const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
+                    if (contextSwitch) {
+                        includeContext = contextSwitch.checked;
+                    }
+                    
                     // 构建 fromUser：以当前消息内容为主，包含会话上下文
                     const baseMessageContent = messageContent.trim() || '无内容';
                     let fromUser = baseMessageContent;
                     
+                    // 如果没有开启页面上下文，直接使用消息内容
+                    if (!includeContext) {
+                        fromUser = baseMessageContent;
+                    } else {
                     // 获取会话上下文，添加相关的上下文信息
                     const context = this.buildConversationContext();
                     
@@ -13975,6 +14042,7 @@ ${pageContent || '无内容'}
                     // 如果有页面内容且角色提示词包含页面内容，也添加页面内容
                     if (context.pageContent && roleInfo.userPrompt && roleInfo.userPrompt.includes('页面内容')) {
                         fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
+                        }
                     }
                     
                     // 获取消息容器
@@ -14276,8 +14344,15 @@ ${pageContent || '无内容'}
                         const originalIcon = newButton.innerHTML;
                         const originalTitle = newButton.title;
                         
-                        // 获取当前消息的内容
-                        const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                        // 获取当前消息的内容（根据消息类型选择正确的元素）
+                        let messageBubble = null;
+                        if (isUserMessage) {
+                            // 用户消息：从 user-bubble 获取内容
+                            messageBubble = messageDiv.querySelector('[data-message-type="user-bubble"]');
+                        } else {
+                            // 宠物消息：从 pet-bubble 获取内容
+                            messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                        }
                         let messageContent = '';
                         if (messageBubble) {
                             // 优先使用 data-original-text（原始文本），如果没有则使用文本内容
@@ -14290,10 +14365,21 @@ ${pageContent || '无内容'}
                         const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
                         const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
                         
+                        // 检查页面上下文开关状态
+                        let includeContext = true; // 默认包含上下文
+                        const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
+                        if (contextSwitch) {
+                            includeContext = contextSwitch.checked;
+                        }
+                        
                         // 构建 fromUser：以当前消息内容为主，包含会话上下文
                         const baseMessageContent = messageContent.trim() || '无内容';
                         let fromUser = baseMessageContent;
                         
+                        // 如果没有开启页面上下文，直接使用消息内容
+                        if (!includeContext) {
+                            fromUser = baseMessageContent;
+                        } else {
                         // 获取会话上下文，添加相关的上下文信息
                         const context = this.buildConversationContext();
                         
@@ -14315,6 +14401,7 @@ ${pageContent || '无内容'}
                         // 如果有页面内容，也添加页面内容
                         if (context.pageContent) {
                             fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
+                            }
                         }
                         
                         // 创建新的消息
@@ -14664,10 +14751,21 @@ ${pageContent || '无内容'}
                             };
                         }
                         
+                        // 检查页面上下文开关状态
+                        let includeContext = true; // 默认包含上下文
+                        const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
+                        if (contextSwitch) {
+                            includeContext = contextSwitch.checked;
+                        }
+                        
                         // 构建 fromUser：以当前消息内容为主，包含会话上下文
                         const baseMessageContent = messageContent.trim() || '无内容';
                         let fromUser = baseMessageContent;
                         
+                        // 如果没有开启页面上下文，直接使用消息内容
+                        if (!includeContext) {
+                            fromUser = baseMessageContent;
+                        } else {
                         // 获取会话上下文，添加相关的上下文信息
                         const context = this.buildConversationContext();
                         
@@ -14689,6 +14787,7 @@ ${pageContent || '无内容'}
                         // 如果有页面内容且角色提示词包含页面内容，也添加页面内容
                         if (context.pageContent && roleInfo.userPrompt && roleInfo.userPrompt.includes('页面内容')) {
                             fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
+                            }
                         }
                         
                         const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
@@ -14999,7 +15098,15 @@ ${pageContent || '无内容'}
                 const originalIcon = button.innerHTML;
                 const originalTitle = button.title;
                 
-                const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                // 获取当前消息的内容（根据消息类型选择正确的元素）
+                let messageBubble = null;
+                if (isUserMessage) {
+                    // 用户消息：从 user-bubble 获取内容
+                    messageBubble = messageDiv.querySelector('[data-message-type="user-bubble"]');
+                } else {
+                    // 宠物消息：从 pet-bubble 获取内容
+                    messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                }
                 let messageContent = '';
                 if (messageBubble) {
                     messageContent = messageBubble.getAttribute('data-original-text') || 
@@ -15011,10 +15118,21 @@ ${pageContent || '无内容'}
                 const roleIcon = this.getRoleIcon(config, configsRaw) || '🙂';
                 const systemPrompt = (config.prompt && config.prompt.trim()) ? config.prompt.trim() : '';
                 
+                // 检查页面上下文开关状态
+                let includeContext = true; // 默认包含上下文
+                const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
+                if (contextSwitch) {
+                    includeContext = contextSwitch.checked;
+                }
+                
                 // 构建 fromUser：以当前消息内容为主，包含会话上下文
                 const baseMessageContent = messageContent.trim() || '无内容';
                 let fromUser = baseMessageContent;
                 
+                // 如果没有开启页面上下文，直接使用消息内容
+                if (!includeContext) {
+                    fromUser = baseMessageContent;
+                } else {
                 // 获取会话上下文，添加相关的上下文信息
                 const context = this.buildConversationContext();
                 
@@ -15036,6 +15154,7 @@ ${pageContent || '无内容'}
                 // 如果有页面内容，也添加页面内容
                 if (context.pageContent) {
                     fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
+                    }
                 }
                 
                 const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
@@ -25869,12 +25988,11 @@ ${messageContent}`;
 if (typeof window.petManager === 'undefined') {
     window.petManager = new window.PetManager();
 }
-const petManager = window.petManager;
 
 // 页面卸载时清理资源
 window.addEventListener('beforeunload', () => {
-    if (petManager) {
-        petManager.cleanup();
+    if (window.petManager) {
+        window.petManager.cleanup();
     }
 });
 

@@ -1574,6 +1574,68 @@ if (typeof getCenterPosition === 'undefined') {
         return fullContent;
     }
 
+    // 从文本中提取图片和视频 URL
+    extractMediaUrls(text) {
+        const images = [];
+        const videos = [];
+        let cleanedText = text || '';
+        
+        if (!text || typeof text !== 'string') {
+            return { images, videos, cleanedText };
+        }
+        
+        // 提取 data URL 格式的图片（data:image/...）
+        const dataImageRegex = /data:image\/[^;]+;base64,[^\s"'<>]+/gi;
+        const dataImageMatches = text.match(dataImageRegex);
+        if (dataImageMatches) {
+            images.push(...dataImageMatches);
+            // 从文本中移除这些 data URL
+            dataImageMatches.forEach(url => {
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 提取普通 URL 格式的图片（http:// 或 https:// 结尾是图片扩展名）
+        const imageUrlRegex = /https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s"'<>]*)?/gi;
+        const imageUrlMatches = text.match(imageUrlRegex);
+        if (imageUrlMatches) {
+            imageUrlMatches.forEach(url => {
+                if (!images.includes(url)) {
+                    images.push(url);
+                }
+                // 从文本中移除这些 URL
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 提取视频 URL（http:// 或 https:// 结尾是视频扩展名）
+        const videoUrlRegex = /https?:\/\/[^\s"'<>]+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?[^\s"'<>]*)?/gi;
+        const videoUrlMatches = text.match(videoUrlRegex);
+        if (videoUrlMatches) {
+            videos.push(...videoUrlMatches);
+            // 从文本中移除这些 URL
+            videoUrlMatches.forEach(url => {
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 提取 data URL 格式的视频（data:video/...）
+        const dataVideoRegex = /data:video\/[^;]+;base64,[^\s"'<>]+/gi;
+        const dataVideoMatches = text.match(dataVideoRegex);
+        if (dataVideoMatches) {
+            videos.push(...dataVideoMatches);
+            // 从文本中移除这些 data URL
+            dataVideoMatches.forEach(url => {
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 清理多余的空白字符
+        cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+        
+        return { images, videos, cleanedText };
+    }
+
     // 构建 prompt 请求 payload，自动包含会话 ID
     buildPromptPayload(fromSystem, fromUser, model = null, options = {}) {
         const payload = {
@@ -1582,10 +1644,51 @@ if (typeof getCenterPosition === 'undefined') {
         };
         
         // 添加模型名称（如果提供）
-        if (model) {
-            payload.model = model;
-        } else if (this.currentModel) {
-            payload.model = this.currentModel;
+        const modelName = model || this.currentModel;
+        if (modelName) {
+            payload.model = modelName;
+        }
+        
+        // 当模型是 qwen3-vl 时，从 fromUser 中提取图片和视频
+        if (modelName === 'qwen3-vl' && fromUser && typeof fromUser === 'string') {
+            const { images, videos, cleanedText } = this.extractMediaUrls(fromUser);
+            
+            // 更新 fromUser 为清理后的文本
+            payload.fromUser = cleanedText || '';
+            
+            // 合并从 fromUser 提取的图片和 options 中提供的图片
+            const allImages = [...images];
+            if (options.images && Array.isArray(options.images)) {
+                options.images.forEach(img => {
+                    if (!allImages.includes(img)) {
+                        allImages.push(img);
+                    }
+                });
+            }
+            if (allImages.length > 0) {
+                payload.images = allImages;
+            }
+            
+            // 合并从 fromUser 提取的视频和 options 中提供的视频
+            const allVideos = [...videos];
+            if (options.videos && Array.isArray(options.videos)) {
+                options.videos.forEach(video => {
+                    if (!allVideos.includes(video)) {
+                        allVideos.push(video);
+                    }
+                });
+            }
+            if (allVideos.length > 0) {
+                payload.videos = allVideos;
+            }
+        } else {
+            // 如果模型不是 qwen3-vl，直接使用 options 中的 images/videos（如果有）
+            if (options.images !== undefined) {
+                payload.images = options.images;
+            }
+            if (options.videos !== undefined) {
+                payload.videos = options.videos;
+            }
         }
         
         // 添加会话 ID（conversation_id）- 使用当前会话 ID
@@ -1596,11 +1699,6 @@ if (typeof getCenterPosition === 'undefined') {
         // 添加用户 ID（如果配置了）
         if (options.user_id) {
             payload.user_id = options.user_id;
-        }
-        
-        // 添加其他选项
-        if (options.images !== undefined) {
-            payload.images = options.images;
         }
         
         return payload;

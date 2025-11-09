@@ -3561,7 +3561,7 @@ if (typeof getCenterPosition === 'undefined') {
     }
 
     // 直接添加消息到当前会话对象（实时保存，确保消息与会话一一对应）
-    async addMessageToSession(type, content, timestamp = null, syncToBackend = true) {
+    async addMessageToSession(type, content, timestamp = null, syncToBackend = true, imageDataUrl = null) {
         if (!this.currentSessionId) {
             console.warn('没有当前会话，无法添加消息');
             return;
@@ -3580,18 +3580,26 @@ if (typeof getCenterPosition === 'undefined') {
             session.messages = [];
         }
         
-        // 验证消息内容
-        if (!content || typeof content !== 'string' || !content.trim()) {
-            console.warn('消息内容为空或无效，跳过保存');
+        // 验证消息内容：必须有文本内容或图片数据
+        const hasTextContent = content && typeof content === 'string' && content.trim();
+        const hasImage = imageDataUrl && typeof imageDataUrl === 'string';
+        
+        if (!hasTextContent && !hasImage) {
+            console.warn('消息内容为空或无效（既无文本也无图片），跳过保存');
             return;
         }
         
         // 创建消息对象
         const message = {
             type: type, // 'user' 或 'pet'
-            content: content.trim(), // 去除首尾空白
+            content: hasTextContent ? content.trim() : '', // 去除首尾空白，如果没有文本则为空字符串
             timestamp: timestamp || Date.now()
         };
+        
+        // 如果有图片数据，添加到消息对象中
+        if (hasImage) {
+            message.imageDataUrl = imageDataUrl;
+        }
         
         // 检查是否重复（避免重复保存相同的消息）
         // 如果最后一条消息的类型和内容都相同，可能是重复添加，跳过
@@ -3599,8 +3607,10 @@ if (typeof getCenterPosition === 'undefined') {
         if (lastMessage && 
             lastMessage.type === message.type && 
             lastMessage.content === message.content &&
+            lastMessage.imageDataUrl === message.imageDataUrl &&
             (Date.now() - lastMessage.timestamp) < 1000) { // 1秒内的相同消息视为重复
-            console.log('检测到重复消息，跳过保存:', message.content.substring(0, 30));
+            const previewText = hasTextContent ? message.content.substring(0, 30) : (hasImage ? '[图片]' : '');
+            console.log('检测到重复消息，跳过保存:', previewText);
             return;
         }
         
@@ -3614,8 +3624,9 @@ if (typeof getCenterPosition === 'undefined') {
         session.messages.push(message);
         session.updatedAt = Date.now();
         
+        const previewText = hasTextContent ? message.content.substring(0, 50) : (hasImage ? '[图片消息]' : '');
         console.log(`消息已添加到会话 ${this.currentSessionId} (${session.messages.length} 条):`, 
-            message.type, message.content.substring(0, 50));
+            message.type, previewText);
         
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
         // addMessageToSession 不再自动保存，保存逻辑由 prompt 接口调用后统一处理
@@ -3655,13 +3666,27 @@ if (typeof getCenterPosition === 'undefined') {
                     const petBubble = msgEl.querySelector('[data-message-type="pet-bubble"]');
                     
                     if (userBubble) {
-                        const content = userBubble.textContent || userBubble.getAttribute('data-original-text') || '';
-                        if (content.trim()) {
-                            messages.push({
+                        // 提取文本内容（优先使用 data-original-text，如果没有则使用 textContent）
+                        const content = userBubble.getAttribute('data-original-text') || userBubble.textContent || '';
+                        
+                        // 查找图片元素（如果有）
+                        const imgElement = userBubble.querySelector('img');
+                        const imageDataUrl = imgElement ? imgElement.src : null;
+                        
+                        // 如果有文本内容或图片，则保存消息
+                        if (content.trim() || imageDataUrl) {
+                            const message = {
                                 type: 'user',
-                                content: content,
+                                content: content.trim() || '', // 即使为空字符串也保存
                                 timestamp: this.getMessageTimestamp(msgEl)
-                            });
+                            };
+                            
+                            // 如果有图片，添加到消息对象中
+                            if (imageDataUrl) {
+                                message.imageDataUrl = imageDataUrl;
+                            }
+                            
+                            messages.push(message);
                         }
                     } else if (petBubble) {
                         // 跳过欢迎消息（第一条宠物消息）
@@ -3682,12 +3707,13 @@ if (typeof getCenterPosition === 'undefined') {
                 // 检查消息是否真的发生了变化（比较消息数量和内容）
                 const existingMessages = session.messages || [];
                 
-                // 深度比较消息数组
+                // 深度比较消息数组（包括图片消息）
                 const messagesEqual = (msgs1, msgs2) => {
                     if (msgs1.length !== msgs2.length) return false;
                     for (let i = 0; i < msgs1.length; i++) {
                         if (msgs1[i].type !== msgs2[i].type || 
-                            msgs1[i].content !== msgs2[i].content) {
+                            msgs1[i].content !== msgs2[i].content ||
+                            msgs1[i].imageDataUrl !== msgs2[i].imageDataUrl) {
                             return false;
                         }
                     }
@@ -4021,8 +4047,8 @@ if (typeof getCenterPosition === 'undefined') {
             let isFirstPetMessage = true; // 标记是否是第一条宠物消息
             
             for (const msg of session.messages) {
-                // 验证消息格式
-                if (!msg || !msg.type || !msg.content) {
+                // 验证消息格式：必须有类型，并且有内容或图片
+                if (!msg || !msg.type || (!msg.content && !msg.imageDataUrl)) {
                     console.warn('跳过无效消息:', msg);
                     continue;
                 }
@@ -4030,11 +4056,14 @@ if (typeof getCenterPosition === 'undefined') {
                 // 使用消息保存的时间戳（如果有）
                 const timestamp = msg.timestamp || null;
                 
+                // 获取图片数据（如果有）
+                const imageDataUrl = msg.imageDataUrl || null;
+                
                 if (msg.type === 'pet') {
                     isFirstPetMessage = false;
                 }
                 
-                const msgEl = this.createMessageElement(msg.content, msg.type, null, timestamp);
+                const msgEl = this.createMessageElement(msg.content || '', msg.type, imageDataUrl, timestamp);
                 fragment.appendChild(msgEl);
                 
                 // 如果是宠物消息，渲染 Markdown
@@ -23115,17 +23144,47 @@ ${messageContent}`;
     }
 
     // 发送图片消息
-    sendImageMessage(imageDataUrl) {
+    async sendImageMessage(imageDataUrl) {
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
         if (!messagesContainer) return;
+
+        // 确保有当前会话（如果没有，先初始化会话）
+        if (!this.currentSessionId) {
+            await this.initSession();
+            // 更新聊天窗口标题
+            this.updateChatHeaderTitle();
+        }
 
         // 添加用户消息（带图片）
         const userMessage = this.createMessageElement('', 'user', imageDataUrl);
         messagesContainer.appendChild(userMessage);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
         
+        // 添加用户消息到会话（注意：已移除自动保存，仅在保存时同步）
+        await this.addMessageToSession('user', '', null, false, imageDataUrl);
+        
         // 为用户消息添加操作按钮（包括机器人按钮）
-        this.addActionButtonsToMessage(userMessage);
+        await this.addActionButtonsToMessage(userMessage);
+
+        // 调用 session/save 保存会话到后端
+        try {
+            // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
+            await this.saveCurrentSession(false, false);
+            
+            // 调用 session/save 接口保存会话
+            if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                await this.syncSessionToBackend(this.currentSessionId, true);
+                console.log('图片消息会话已保存到后端:', this.currentSessionId);
+            } else {
+                console.warn('无法保存会话：缺少会话ID、API管理器或同步配置');
+            }
+        } catch (error) {
+            console.error('保存图片消息会话失败:', error);
+            // 显示错误提示（可选）
+            const errorMessage = this.createMessageElement('保存会话时发生错误，请稍后再试。😔', 'pet');
+            messagesContainer.appendChild(errorMessage);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
 
         // 播放思考动画
         this.playChatAnimation();

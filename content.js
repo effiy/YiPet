@@ -24025,6 +24025,37 @@ ${messageContent}`;
             if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
                 await this.syncSessionToBackend(this.currentSessionId, true, false, true);
                 console.log('图片消息会话已保存到后端:', this.currentSessionId);
+                
+                // 保存成功后，通过会话接口刷新该会话内容
+                try {
+                    const refreshedSession = await this.sessionApi.getSession(this.currentSessionId, true);
+                    if (refreshedSession && this.sessions[this.currentSessionId]) {
+                        // 更新本地会话数据，保留本地的最新消息（可能包含未同步的数据）
+                        const localSession = this.sessions[this.currentSessionId];
+                        this.sessions[this.currentSessionId] = {
+                            ...refreshedSession,
+                            // 如果本地消息更新，保留本地消息
+                            messages: localSession.messages?.length > refreshedSession.messages?.length
+                                ? localSession.messages
+                                : refreshedSession.messages,
+                            // 优先保留本地的 pageContent（如果本地有内容）
+                            pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
+                                ? localSession.pageContent
+                                : (refreshedSession.pageContent || localSession.pageContent || ''),
+                            // 优先保留本地的 pageTitle（如果本地有内容）
+                            pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
+                                ? localSession.pageTitle
+                                : (refreshedSession.pageTitle || localSession.pageTitle || ''),
+                            // 保留OSS文件会话信息
+                            _isOssFileSession: localSession._isOssFileSession,
+                            _ossFileInfo: localSession._ossFileInfo
+                        };
+                        console.log('会话内容已从后端刷新:', this.currentSessionId);
+                    }
+                } catch (refreshError) {
+                    console.warn('刷新会话内容失败:', refreshError);
+                    // 刷新失败不影响主流程，只记录警告
+                }
             } else {
                 console.warn('无法保存会话：缺少会话ID、API管理器或同步配置');
             }
@@ -24036,34 +24067,7 @@ ${messageContent}`;
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // 播放思考动画
-        this.playChatAnimation();
-
-        // 生成宠物响应
-        setTimeout(() => {
-            const replies = [
-                '哇！这张图片好有趣啊！✨',
-                '看起来很棒呢！😊',
-                '这是我见过的最特别的图片！🌟',
-                '太有意思了！💕',
-                '我真的很喜欢这张图！💖',
-                '这真是太棒了！🎉'
-            ];
-            const reply = replies[Math.floor(Math.random() * replies.length)];
-            const petMessage = this.createMessageElement(reply, 'pet');
-            messagesContainer.appendChild(petMessage);
-            // 添加 try again 按钮（仅当不是第一条消息时）
-            const petMessages = Array.from(messagesContainer.children).filter(
-                child => child.querySelector('[data-message-type="pet-bubble"]')
-            );
-            if (petMessages.length > 1) {
-                const tryAgainContainer = petMessage.querySelector('[data-try-again-button-container]');
-                if (tryAgainContainer) {
-                    this.addTryAgainButton(tryAgainContainer, petMessage);
-                }
-            }
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }, PET_CONFIG.chatWindow.message.thinkingDelay.min + Math.random() * (PET_CONFIG.chatWindow.message.thinkingDelay.max - PET_CONFIG.chatWindow.message.thinkingDelay.min));
+        // 图片消息不再自动回复
     }
 
     // 显示图片预览

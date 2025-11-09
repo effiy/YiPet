@@ -3699,6 +3699,163 @@ if (typeof getCenterPosition === 'undefined') {
     }
     
     // 同步会话到YiAi后端（使用API管理器，支持批量保存）
+    /**
+     * 将 base64 图片上传到 OSS 并返回 URL
+     * @param {string} base64Data - base64 图片数据（可以是 data:image/png;base64,xxx 格式或纯 base64 字符串）
+     * @returns {Promise<string|null>} 返回 OSS URL，如果上传失败则返回 null
+     */
+    async uploadBase64ImageToOss(base64Data) {
+        if (!base64Data || typeof base64Data !== 'string') {
+            return null;
+        }
+        
+        // 检查是否是 data:image 格式
+        const dataImageMatch = base64Data.match(/^data:image\/([^;]+);base64,(.+)$/);
+        if (!dataImageMatch) {
+            // 如果不是 data:image 格式，尝试作为纯 base64 处理
+            if (!base64Data.match(/^[A-Za-z0-9+/=]+$/)) {
+                console.warn('无效的 base64 图片数据');
+                return null;
+            }
+        }
+        
+        try {
+            // 提取 MIME 类型和 base64 数据
+            let mimeType = 'image/png';
+            let base64String = base64Data;
+            
+            if (dataImageMatch) {
+                mimeType = `image/${dataImageMatch[1]}`;
+                base64String = dataImageMatch[2];
+            }
+            
+            // 将 base64 字符串解码为二进制数据
+            const binaryString = atob(base64String);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            // 根据 MIME 类型确定文件扩展名
+            const extensionMap = {
+                'image/png': 'png',
+                'image/jpeg': 'jpg',
+                'image/jpg': 'jpg',
+                'image/gif': 'gif',
+                'image/webp': 'webp',
+                'image/svg+xml': 'svg'
+            };
+            const extension = extensionMap[mimeType] || 'png';
+            
+            // 创建 Blob 对象
+            const blob = new Blob([bytes], { type: mimeType });
+            
+            // 生成文件名（使用时间戳和随机数）
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(2, 9);
+            const fileName = `${timestamp}_${random}.${extension}`;
+            
+            // 将 Blob 转换为 File 对象
+            const file = new File([blob], fileName, { type: mimeType });
+            
+            // 检查 OSS API 是否可用
+            if (!this.ossApi || !this.ossApi.isEnabled()) {
+                console.warn('OSS API 未启用，无法上传图片');
+                return null;
+            }
+            
+            // 上传到 OSS（使用 chat-images 目录）
+            const result = await this.ossApi.uploadFile(file, 'chat-images');
+            
+            if (result && result.code === 200 && result.data) {
+                // 检查返回的数据结构，可能包含 url 或 object_name
+                let ossUrl = result.data.url;
+                if (!ossUrl && result.data.object_name) {
+                    // 如果没有直接返回 URL，尝试获取下载 URL
+                    try {
+                        ossUrl = await this.ossApi.getDownloadUrl(result.data.object_name);
+                    } catch (error) {
+                        console.warn('获取 OSS 下载 URL 失败:', error);
+                    }
+                }
+                
+                if (ossUrl) {
+                    console.log('Base64 图片已上传到 OSS:', ossUrl);
+                    return ossUrl;
+                } else {
+                    console.warn('上传图片到 OSS 成功，但未获取到 URL:', result);
+                    return null;
+                }
+            } else {
+                console.warn('上传图片到 OSS 失败:', result);
+                return null;
+            }
+        } catch (error) {
+            console.error('上传 base64 图片到 OSS 时出错:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * 处理消息中的 base64 图片，将其上传到 OSS 并替换为 URL
+     * @param {Array} messages - 消息数组
+     * @returns {Promise<Array>} 处理后的消息数组
+     */
+    async processBase64ImagesInMessages(messages) {
+        if (!Array.isArray(messages) || messages.length === 0) {
+            return messages;
+        }
+        
+        const processedMessages = [];
+        
+        for (const message of messages) {
+            const processedMessage = { ...message };
+            let hasBase64Image = false;
+            
+            // 检查 imageDataUrl 字段中的 base64 图片
+            if (message.imageDataUrl && typeof message.imageDataUrl === 'string') {
+                if (message.imageDataUrl.startsWith('data:image/')) {
+                    hasBase64Image = true;
+                    const ossUrl = await this.uploadBase64ImageToOss(message.imageDataUrl);
+                    if (ossUrl) {
+                        processedMessage.imageDataUrl = ossUrl;
+                        console.log('已将 imageDataUrl 中的 base64 图片替换为 OSS URL');
+                    } else {
+                        console.warn('上传 imageDataUrl 中的 base64 图片失败，保留原始数据');
+                    }
+                }
+            }
+            
+            // 检查 content 字段中的 base64 图片（data:image/png;base64,xxx 格式）
+            if (message.content && typeof message.content === 'string') {
+                const dataImageRegex = /data:image\/[^;]+;base64,[^\s"'<>]+/gi;
+                const matches = message.content.match(dataImageRegex);
+                
+                if (matches && matches.length > 0) {
+                    hasBase64Image = true;
+                    let processedContent = message.content;
+                    
+                    // 替换所有匹配的 base64 图片
+                    for (const match of matches) {
+                        const ossUrl = await this.uploadBase64ImageToOss(match);
+                        if (ossUrl) {
+                            processedContent = processedContent.replace(match, ossUrl);
+                            console.log('已将 content 中的 base64 图片替换为 OSS URL');
+                        } else {
+                            console.warn('上传 content 中的 base64 图片失败，保留原始数据');
+                        }
+                    }
+                    
+                    processedMessage.content = processedContent;
+                }
+            }
+            
+            processedMessages.push(processedMessage);
+        }
+        
+        return processedMessages;
+    }
+    
     async syncSessionToBackend(sessionId, immediate = false, includePageContent = false) {
         try {
             if (!PET_CONFIG.api.syncSessionsToBackend) {
@@ -3738,12 +3895,18 @@ if (typeof getCenterPosition === 'undefined') {
                 // pageContent = session.pageContent || '';
             }
             
+            // 处理消息中的 base64 图片（在上传到 OSS 后替换为 URL）
+            let messages = session.messages || [];
+            if (messages.length > 0) {
+                messages = await this.processBase64ImagesInMessages(messages);
+            }
+            
             const sessionData = {
                 id: session.id || sessionId,
                 url: sessionUrl,
                 pageTitle: pageTitle,
                 pageDescription: pageDescription,
-                messages: session.messages || [],
+                messages: messages,
                 tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),

@@ -2565,6 +2565,22 @@ if (typeof getCenterPosition === 'undefined') {
             return true;
         }
         
+        // 空白会话不应该更新URL、pageTitle、pageDescription和pageContent
+        // 这些信息应该保持为创建时的信息
+        const isBlankSession = session._isBlankSession || 
+                              !session.url || 
+                              session.url.startsWith('blank-session://');
+        if (isBlankSession) {
+            console.log(`更新会话页面信息 ${sessionId}：空白会话，跳过页面信息更新`);
+            // 空白会话的页面信息不应该被更新，只更新访问时间
+            const now = Date.now();
+            Object.assign(session, {
+                updatedAt: now,
+                lastAccessTime: now
+            });
+            return true;
+        }
+        
         // 关键检查：只有当会话URL和页面URL匹配时，才更新页面信息
         // 这样可以防止意外修改不同URL的会话数据
         if (session.url !== pageInfo.url) {
@@ -2675,7 +2691,8 @@ if (typeof getCenterPosition === 'undefined') {
             createdAt: now,
             updatedAt: now,
             lastAccessTime: now,
-            _isBlankSession: true // 标记为空白会话，用于后续处理
+            _isBlankSession: true, // 标记为空白会话，用于后续处理
+            _originalUrl: finalUrl // 保存原始URL，防止被意外更新
         };
         
         // 保存新会话到本地存储（仅内存，不自动保存）
@@ -3192,9 +3209,11 @@ if (typeof getCenterPosition === 'undefined') {
                         return;
                     }
                     
+                    const sessionUrl = backendSession.url || '';
+                    const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
                     const localSession = {
                         id: sessionId,
-                        url: backendSession.url || '',
+                        url: sessionUrl,
                         pageTitle: backendSession.pageTitle || backendSession.title || '',
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
@@ -3204,6 +3223,12 @@ if (typeof getCenterPosition === 'undefined') {
                         updatedAt: backendSession.updatedAt || Date.now(),
                         lastAccessTime: backendSession.lastAccessTime || Date.now()
                     };
+                    
+                    // 如果是空白会话，保存原始URL和标记
+                    if (isBlankSession) {
+                        localSession._isBlankSession = true;
+                        localSession._originalUrl = sessionUrl; // 保存原始URL，防止被意外更新
+                    }
                     
                     backendSessionsMap[sessionId] = localSession;
                 });
@@ -3388,9 +3413,11 @@ if (typeof getCenterPosition === 'undefined') {
                     
                     // 将后端会话数据转换为本地格式
                     // 注意：后端列表API不返回messages字段，需要单独获取
+                    const sessionUrl = backendSession.url || '';
+                    const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
                     const localSession = {
                         id: sessionId,
-                        url: backendSession.url || '',
+                        url: sessionUrl,
                         pageTitle: backendSession.pageTitle || backendSession.title || '',
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
@@ -3400,6 +3427,12 @@ if (typeof getCenterPosition === 'undefined') {
                         updatedAt: backendSession.updatedAt || backendSession.updated_time || Date.now(),
                         lastAccessTime: backendSession.lastAccessTime || backendSession.last_access_time || Date.now()
                     };
+                    
+                    // 如果是空白会话，保存原始URL和标记
+                    if (isBlankSession) {
+                        localSession._isBlankSession = true;
+                        localSession._originalUrl = sessionUrl; // 保存原始URL，防止被意外更新
+                    }
                     
                     // 如果后端会话没有消息，但后端有message_count且大于0，需要获取完整数据
                     const messageCount = backendSession.message_count || 0;
@@ -3869,10 +3902,29 @@ if (typeof getCenterPosition === 'undefined') {
             }
             
             // 构建请求数据
+            // 检查是否为空白会话
+            const isBlankSession = session._isBlankSession || 
+                                  !session.url || 
+                                  session.url.startsWith('blank-session://');
+            
             // 如果是OSS文件会话，url应该使用OSS文件的url，而不是session.url（可能被更新为当前页面URL）
-            const sessionUrl = (session._isOssFileSession && session._ossFileInfo?.url) 
-                ? session._ossFileInfo.url 
-                : (session.url || '');
+            // 如果是空白会话，应该保持使用原始的blank-session://URL，而不是当前页面URL
+            let sessionUrl = '';
+            if (session._isOssFileSession && session._ossFileInfo?.url) {
+                sessionUrl = session._ossFileInfo.url;
+            } else if (isBlankSession) {
+                // 对于空白会话，优先使用保存的原始URL，防止被意外更新为当前页面URL
+                if (session._originalUrl && session._originalUrl.startsWith('blank-session://')) {
+                    sessionUrl = session._originalUrl;
+                } else if (session.url && session.url.startsWith('blank-session://')) {
+                    sessionUrl = session.url;
+                } else {
+                    // 如果URL已经被更新，使用创建时的URL或重新生成一个blank-session://URL
+                    sessionUrl = session._originalUrl || `blank-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                }
+            } else {
+                sessionUrl = session.url || '';
+            }
             
             // 如果是OSS文件会话，优先使用已更新的 pageTitle 和 pageDescription
             // 如果未更新，则使用 OSS 文件的名称作为默认值
@@ -26599,6 +26651,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

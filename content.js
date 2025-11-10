@@ -58,7 +58,7 @@ if (typeof PET_CONFIG === 'undefined') {
         pet: {
             defaultSize: 180,
             defaultColorIndex: 0,
-            defaultVisible: true,
+            defaultVisible: false,
             colors: [
                 'linear-gradient(135deg, #ff6b6b, #ff8e8e)',
                 'linear-gradient(135deg, #4ecdc4, #44a08d)',

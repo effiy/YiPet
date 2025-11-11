@@ -58,7 +58,7 @@ if (typeof PET_CONFIG === 'undefined') {
         pet: {
             defaultSize: 180,
             defaultColorIndex: 0,
-            defaultVisible: true,
+            defaultVisible: false,
             colors: [
                 'linear-gradient(135deg, #ff6b6b, #ff8e8e)',
                 'linear-gradient(135deg, #4ecdc4, #44a08d)',
@@ -1838,36 +1838,66 @@ if (typeof getCenterPosition === 'undefined') {
             // 合并从 fromUser 提取的图片和 options 中提供的图片
             const allImages = [...images];
             
-            // 获取 imageDataUrl：优先使用 options 中提供的
-            // 如果 options 中没有提供，且 options.messageDiv 存在，则从对应的消息对象中获取
-            let imageDataUrl = options.imageDataUrl || null;
-            if (!imageDataUrl && options.messageDiv) {
-                const messageObj = this.findMessageObjectByDiv(options.messageDiv);
-                if (messageObj && messageObj.imageDataUrl) {
-                    imageDataUrl = messageObj.imageDataUrl;
+            // 获取图片：优先使用 options 中提供的
+            // 如果 options 中没有提供，且 options.messageDiv 存在，则从 DOM 元素中直接提取图片
+            let imageDataUrls = [];
+            if (options.imageDataUrl) {
+                // 如果提供了单个图片，转换为数组
+                imageDataUrls = Array.isArray(options.imageDataUrl) ? options.imageDataUrl : [options.imageDataUrl];
+            }
+            
+            if (imageDataUrls.length === 0 && options.messageDiv) {
+                // 优先从 DOM 元素中直接查找图片（更准确）
+                const userBubble = options.messageDiv.querySelector('[data-message-type="user-bubble"]');
+                if (userBubble) {
+                    // 查找用户消息中的所有 img 标签
+                    const imgElements = userBubble.querySelectorAll('img');
+                    imgElements.forEach(img => {
+                        if (img.src && !imageDataUrls.includes(img.src)) {
+                            imageDataUrls.push(img.src);
+                        }
+                    });
+                }
+                
+                // 如果从 DOM 中没有找到，尝试从消息对象中获取（作为备选方案）
+                if (imageDataUrls.length === 0) {
+                    const messageObj = this.findMessageObjectByDiv(options.messageDiv);
+                    if (messageObj && messageObj.imageDataUrl) {
+                        const imgUrl = messageObj.imageDataUrl;
+                        if (typeof imgUrl === 'string') {
+                            imageDataUrls.push(imgUrl);
+                        } else if (Array.isArray(imgUrl)) {
+                            imageDataUrls = imgUrl;
+                        }
+                    }
                 }
             }
             // 如果仍然没有获取到，且没有指定 messageDiv，则从当前会话消息中获取（向后兼容）
-            if (!imageDataUrl && !options.messageDiv && this.currentSessionId && this.sessions[this.currentSessionId]) {
+            if (imageDataUrls.length === 0 && !options.messageDiv && this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
                 if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
                     // 从后往前查找最后一条用户消息的 imageDataUrl
                     for (let i = session.messages.length - 1; i >= 0; i--) {
                         const msg = session.messages[i];
                         if (msg.type === 'user' && msg.imageDataUrl) {
-                            imageDataUrl = msg.imageDataUrl;
+                            const imgUrl = msg.imageDataUrl;
+                            if (typeof imgUrl === 'string') {
+                                imageDataUrls.push(imgUrl);
+                            } else if (Array.isArray(imgUrl)) {
+                                imageDataUrls = imgUrl;
+                            }
                             break;
                         }
                     }
                 }
             }
             
-            // 如果从会话中获取到了 imageDataUrl，追加到图片列表中
-            if (imageDataUrl && typeof imageDataUrl === 'string') {
-                if (!allImages.includes(imageDataUrl)) {
-                    allImages.push(imageDataUrl);
+            // 将从消息中获取到的图片追加到图片列表中
+            imageDataUrls.forEach(imgUrl => {
+                if (imgUrl && typeof imgUrl === 'string' && !allImages.includes(imgUrl)) {
+                    allImages.push(imgUrl);
                 }
-            }
+            });
             
             if (options.images && Array.isArray(options.images)) {
                 options.images.forEach(img => {
@@ -14014,6 +14044,29 @@ ${pageContent || '无内容'}
                     // 构建包含会话上下文的 fromUser 参数（会使用会话保存的页面上下文）
                     const fromUser = this.buildFromUserWithContext(baseUserPrompt, roleLabel);
                     
+                    // 找到按钮所在的消息元素（向上查找包含用户消息的元素）
+                    let userMessageDiv = null;
+                    let currentElement = button;
+                    while (currentElement && currentElement !== messagesContainer) {
+                        // 检查当前元素是否包含 user-bubble
+                        if (currentElement.querySelector) {
+                            const userBubble = currentElement.querySelector('[data-message-type="user-bubble"]');
+                            if (userBubble) {
+                                userMessageDiv = currentElement;
+                                break;
+                            }
+                        }
+                        // 如果当前元素有 data-message-id 属性，也检查它是否包含 user-bubble（消息元素有该属性）
+                        if (currentElement.hasAttribute && currentElement.hasAttribute('data-message-id')) {
+                            const userBubble = currentElement.querySelector('[data-message-type="user-bubble"]');
+                            if (userBubble) {
+                                userMessageDiv = currentElement;
+                                break;
+                            }
+                        }
+                        currentElement = currentElement.parentElement;
+                    }
+                    
                     // 创建新的消息（按钮操作生成的消息）
                     const message = this.createMessageElement('', 'pet');
                     message.setAttribute('data-button-action', 'true'); // 标记为按钮操作生成
@@ -14048,10 +14101,12 @@ ${pageContent || '无内容'}
                         this.skipSessionListRefresh = true;
                         
                         // 使用统一的 payload 构建函数，自动包含会话 ID
+                        // 如果找到了用户消息元素，将其传递给 buildPromptPayload，以便从正确的消息中提取图片
                         const payload = this.buildPromptPayload(
                             systemPrompt,
                             fromUser,
-                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
+                            { messageDiv: userMessageDiv }
                         );
                         
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -16387,6 +16442,29 @@ ${pageContent || '无内容'}
             // 构建包含会话上下文的 fromUser 参数（会使用会话保存的页面上下文）
             const fromUser = this.buildFromUserWithContext(roleInfo.userPrompt, roleInfo.label);
 
+            // 找到按钮所在的消息元素（向上查找包含用户消息的元素）
+            let userMessageDiv = null;
+            let currentElement = iconEl;
+            while (currentElement && currentElement !== messagesContainer) {
+                // 检查当前元素是否包含 user-bubble
+                if (currentElement.querySelector) {
+                    const userBubble = currentElement.querySelector('[data-message-type="user-bubble"]');
+                    if (userBubble) {
+                        userMessageDiv = currentElement;
+                        break;
+                    }
+                }
+                // 如果当前元素有 data-message-id 属性，也检查它是否包含 user-bubble（消息元素有该属性）
+                if (currentElement.hasAttribute && currentElement.hasAttribute('data-message-id')) {
+                    const userBubble = currentElement.querySelector('[data-message-type="user-bubble"]');
+                    if (userBubble) {
+                        userMessageDiv = currentElement;
+                        break;
+                    }
+                }
+                currentElement = currentElement.parentElement;
+            }
+
             // 创建新的消息（按钮操作生成的消息）
             const message = this.createMessageElement('', 'pet');
             message.setAttribute('data-button-action', 'true'); // 标记为按钮操作生成
@@ -16416,10 +16494,12 @@ ${pageContent || '无内容'}
                 this.skipSessionListRefresh = true;
                 
                 // 使用统一的 payload 构建函数，自动包含会话 ID
+                // 如果找到了用户消息元素，将其传递给 buildPromptPayload，以便从正确的消息中提取图片
                 const payload = this.buildPromptPayload(
                     roleInfo.systemPrompt,
                     fromUser,
-                    this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                    this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
+                    { messageDiv: userMessageDiv }
                 );
                 
                 const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -26651,6 +26731,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

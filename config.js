@@ -19,7 +19,7 @@ const PET_CONFIG = {
     defaultColorIndex: 0,
 
     // 默认可见性
-    defaultVisible: true,
+    defaultVisible: false,
 
     // 颜色主题配置
     colors: [
@@ -216,3 +216,4 @@ if (typeof module !== "undefined" && module.exports) {
   window.getPetDefaultPosition = getPetDefaultPosition;
   window.getChatWindowDefaultPosition = getChatWindowDefaultPosition;
 }
+

@@ -216,3 +216,4 @@ if (typeof module !== "undefined" && module.exports) {
   window.getPetDefaultPosition = getPetDefaultPosition;
   window.getChatWindowDefaultPosition = getChatWindowDefaultPosition;
 }
+

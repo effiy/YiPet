@@ -16120,10 +16120,36 @@ ${pageContent || '无内容'}
             actionsContainer.appendChild(button);
         }
         
-        // 添加企微机器人按钮
+        // 添加企微机器人按钮（参考角色按钮去重逻辑）
         const robotConfigs = await this.getWeWorkRobotConfigs();
+        // 检查容器中已存在的机器人按钮ID，避免重复添加
+        // 需要同时检查 actionsContainer 和 copyButtonContainer（用户消息时按钮会移动到 copyButtonContainer）
+        const existingRobotIds = new Set();
+        const existingRobotButtons = actionsContainer.querySelectorAll('[data-robot-id]');
+        existingRobotButtons.forEach(btn => {
+            const robotId = btn.getAttribute('data-robot-id');
+            if (robotId) {
+                existingRobotIds.add(robotId);
+            }
+        });
+        // 如果是用户消息，还需要检查 copyButtonContainer 中是否已有按钮
+        if (isUserMessage && copyButtonContainer) {
+            const existingButtonsInCopyContainer = copyButtonContainer.querySelectorAll('[data-robot-id]');
+            existingButtonsInCopyContainer.forEach(btn => {
+                const robotId = btn.getAttribute('data-robot-id');
+                if (robotId) {
+                    existingRobotIds.add(robotId);
+                }
+            });
+        }
+        
         for (const robotConfig of robotConfigs) {
             if (!robotConfig || !robotConfig.webhookUrl) continue;
+            
+            // 如果已存在相同ID的按钮，跳过（去重）
+            if (existingRobotIds.has(robotConfig.id)) {
+                continue;
+            }
             
             const robotButton = document.createElement('span');
             robotButton.setAttribute('data-robot-id', robotConfig.id);
@@ -26731,6 +26757,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

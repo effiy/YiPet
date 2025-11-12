@@ -8017,6 +8017,37 @@ if (typeof getCenterPosition === 'undefined') {
                 this.openTagManager(session.id);
             });
             
+            // 创建副本按钮
+            const duplicateBtn = document.createElement('button');
+            duplicateBtn.className = 'session-duplicate-btn';
+            duplicateBtn.innerHTML = '📋';
+            duplicateBtn.title = '创建副本';
+            duplicateBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停时增加不透明度
+            duplicateBtn.addEventListener('mouseenter', () => {
+                duplicateBtn.style.opacity = '1';
+            });
+            duplicateBtn.addEventListener('mouseleave', () => {
+                duplicateBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止副本按钮点击事件冒泡到 sessionItem
+            duplicateBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.duplicateSession(session.id);
+            });
+            
             // 创建按钮容器
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -8032,6 +8063,7 @@ if (typeof getCenterPosition === 'undefined') {
                 buttonContainer.appendChild(editBtn);
             }
             buttonContainer.appendChild(tagBtn);
+            buttonContainer.appendChild(duplicateBtn);
             
             // 鼠标悬停在会话项上时显示按钮
             sessionItem.addEventListener('mouseenter', () => {
@@ -10364,6 +10396,84 @@ if (typeof getCenterPosition === 'undefined') {
         await this.updateSessionUI({ updateSidebar: true });
         
         console.log('会话已删除:', sessionId);
+    }
+
+    // 创建会话副本
+    async duplicateSession(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            this.showNotification('会话不存在', 'error');
+            return;
+        }
+        
+        const sourceSession = this.sessions[sessionId];
+        
+        try {
+            // 生成新的会话ID（基于时间戳和随机数）
+            const newSessionId = await this.generateSessionId(`duplicate_${Date.now()}_${Math.random()}`);
+            
+            // 生成新的URL（添加副本标识）
+            const newUrl = sourceSession.url ? `${sourceSession.url}#duplicate_${Date.now()}` : '';
+            
+            // 创建会话副本，复制所有数据，但messages为空数组
+            const now = Date.now();
+            const duplicatedSession = {
+                id: newSessionId,
+                url: newUrl,
+                pageTitle: sourceSession.pageTitle ? `${sourceSession.pageTitle} (副本)` : '新会话 (副本)',
+                pageDescription: sourceSession.pageDescription || '',
+                pageContent: sourceSession.pageContent || '',
+                messages: [], // messages为空数组
+                tags: sourceSession.tags ? [...sourceSession.tags] : [],
+                createdAt: now,
+                updatedAt: now,
+                lastAccessTime: now
+            };
+            
+            // 直接调用接口保存副本
+            if (this.sessionApi) {
+                try {
+                    await this.sessionApi.saveSession(duplicatedSession);
+                    console.log('会话副本已保存到后端:', newSessionId);
+                    
+                    // 立即将副本添加到本地sessions，确保即使后端加载失败也能显示
+                    this.sessions[newSessionId] = duplicatedSession;
+                    
+                    // 保存后更新会话列表（从后端重新加载）
+                    if (PET_CONFIG.api.syncSessionsToBackend) {
+                        try {
+                            await this.loadSessionsFromBackend(true);
+                        } catch (loadError) {
+                            console.warn('从后端加载会话列表失败，使用本地数据:', loadError);
+                            // 即使后端加载失败，也保存本地数据并更新UI
+                            await this.saveAllSessions(true, false);
+                        }
+                    } else {
+                        // 如果没有启用后端同步，保存本地数据
+                        await this.saveAllSessions(true, false);
+                    }
+                    
+                    // 刷新侧边栏UI
+                    await this.updateSessionUI({ updateSidebar: true });
+                    
+                    this.showNotification('会话副本已创建', 'success');
+                } catch (error) {
+                    console.error('保存会话副本到后端失败:', error);
+                    this.showNotification('创建副本失败: ' + error.message, 'error');
+                }
+            } else {
+                // 如果没有sessionApi，只保存到本地
+                this.sessions[newSessionId] = duplicatedSession;
+                await this.saveAllSessions(true);
+                
+                // 更新侧边栏
+                await this.updateSessionUI({ updateSidebar: true });
+                
+                this.showNotification('会话副本已创建', 'success');
+            }
+        } catch (error) {
+            console.error('创建会话副本失败:', error);
+            this.showNotification('创建副本失败: ' + error.message, 'error');
+        }
     }
 
     // 加载侧边栏宽度

@@ -25967,7 +25967,7 @@ ${messageContent}`;
             pageInfoHtml += `
                 <div style="margin-bottom: 0;">
                     <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 页面描述</div>
-                    <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(pageInfo.description)}</div>
+                    <div class="markdown-content" style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.renderMarkdown(pageInfo.description)}</div>
                 </div>
             `;
         }
@@ -26650,7 +26650,7 @@ ${messageContent}`;
             pageInfoHtml += `
                 <div style="margin-bottom: 0;">
                     <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📝 页面描述</div>
-                    <div style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.escapeHtml(pageInfo.description)}</div>
+                    <div class="markdown-content" style="font-size: 13px; color: #4B5563; line-height: 1.5;">${this.renderMarkdown(pageInfo.description)}</div>
                 </div>
             `;
         }

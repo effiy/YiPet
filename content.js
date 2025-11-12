@@ -5683,6 +5683,16 @@ if (typeof getCenterPosition === 'undefined') {
             // 在页面上下文中执行导入逻辑
             this.showNotification('正在解析ZIP文件...', 'info');
             
+            // 根据文件大小动态计算超时时间（最小5分钟，每MB增加1分钟，最大30分钟）
+            const fileSizeMB = file.size / (1024 * 1024);
+            const baseTimeout = 5 * 60 * 1000; // 5分钟基础超时
+            const sizeBasedTimeout = Math.min(fileSizeMB * 60 * 1000, 25 * 60 * 1000); // 每MB增加1分钟，最多25分钟
+            const timeoutDuration = Math.max(baseTimeout + sizeBasedTimeout, 5 * 60 * 1000); // 最少5分钟
+            const maxTimeout = 30 * 60 * 1000; // 最多30分钟
+            const finalTimeout = Math.min(timeoutDuration, maxTimeout);
+            
+            console.log(`导入超时时间设置为: ${Math.round(finalTimeout / 1000)}秒 (文件大小: ${fileSizeMB.toFixed(2)}MB)`);
+            
             return new Promise((resolve, reject) => {
                 // 创建数据容器
                 const dataContainer = document.createElement('div');
@@ -5698,18 +5708,30 @@ if (typeof getCenterPosition === 'undefined') {
                 importScript.charset = 'UTF-8';
                 importScript.async = false;
                 
-                // 监听导入结果
-                const handleSuccess = async (event) => {
+                // 超时定时器引用
+                let timeoutTimer = null;
+                
+                // 清理函数
+                const cleanup = () => {
+                    if (timeoutTimer) {
+                        clearTimeout(timeoutTimer);
+                        timeoutTimer = null;
+                    }
                     window.removeEventListener('jszip-import-success', handleSuccess);
                     window.removeEventListener('jszip-import-error', handleError);
                     
-                    // 清理
+                    // 清理DOM元素
                     if (importScript.parentNode) {
                         importScript.parentNode.removeChild(importScript);
                     }
                     if (dataContainer.parentNode) {
                         dataContainer.parentNode.removeChild(dataContainer);
                     }
+                };
+                
+                // 监听导入结果
+                const handleSuccess = async (event) => {
+                    cleanup();
                     
                     try {
                         const importData = event.detail.importData;
@@ -5961,16 +5983,7 @@ if (typeof getCenterPosition === 'undefined') {
                 };
                 
                 const handleError = (event) => {
-                    window.removeEventListener('jszip-import-success', handleSuccess);
-                    window.removeEventListener('jszip-import-error', handleError);
-                    
-                    // 清理
-                    if (importScript.parentNode) {
-                        importScript.parentNode.removeChild(importScript);
-                    }
-                    if (dataContainer.parentNode) {
-                        dataContainer.parentNode.removeChild(dataContainer);
-                    }
+                    cleanup();
                     
                     const errorMsg = event.detail && event.detail.error ? event.detail.error : '导入失败';
                     reject(new Error(errorMsg));
@@ -5982,18 +5995,12 @@ if (typeof getCenterPosition === 'undefined') {
                 // 注入脚本
                 (document.head || document.documentElement).appendChild(importScript);
                 
-                // 设置超时
-                setTimeout(() => {
-                    window.removeEventListener('jszip-import-success', handleSuccess);
-                    window.removeEventListener('jszip-import-error', handleError);
-                    if (importScript.parentNode) {
-                        importScript.parentNode.removeChild(importScript);
-                    }
-                    if (dataContainer.parentNode) {
-                        dataContainer.parentNode.removeChild(dataContainer);
-                    }
-                    reject(new Error('导入超时'));
-                }, 60000); // 导入可能需要更长时间，设置为60秒
+                // 设置超时（根据文件大小动态调整）
+                timeoutTimer = setTimeout(() => {
+                    cleanup();
+                    const timeoutMinutes = Math.round(finalTimeout / 60000);
+                    reject(new Error(`导入超时（已等待 ${timeoutMinutes} 分钟）。如果文件很大，请尝试分批导入较小的文件。`));
+                }, finalTimeout);
             });
         } catch (error) {
             console.error('导入会话失败:', error);

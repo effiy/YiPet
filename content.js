@@ -6834,7 +6834,7 @@ if (typeof getCenterPosition === 'undefined') {
             border-radius: 12px !important;
             padding: 24px !important;
             width: 90% !important;
-            max-width: 500px !important;
+            max-width: 800px !important;
             max-height: 80vh !important;
             overflow-y: auto !important;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
@@ -12304,7 +12304,7 @@ if (typeof getCenterPosition === 'undefined') {
             border-radius: 12px !important;
             padding: 24px !important;
             width: 90% !important;
-            max-width: 500px !important;
+            max-width: 800px !important;
             max-height: 80vh !important;
             overflow-y: auto !important;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
@@ -12461,6 +12461,63 @@ if (typeof getCenterPosition === 'undefined') {
         inputGroup.appendChild(addBtn);
         inputGroup.appendChild(smartGenerateBtn);
 
+        // 快捷标签按钮容器
+        const quickTagsContainer = document.createElement('div');
+        quickTagsContainer.className = 'tag-manager-quick-tags';
+        quickTagsContainer.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            margin-bottom: 20px !important;
+        `;
+
+        // 快捷标签列表
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        
+        quickTags.forEach(tagName => {
+            const quickTagBtn = document.createElement('button');
+            quickTagBtn.textContent = tagName;
+            quickTagBtn.className = 'tag-manager-quick-tag-btn';
+            quickTagBtn.dataset.tagName = tagName;
+            quickTagBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #f0f0f0 !important;
+                color: #333 !important;
+                border: 1px solid #d0d0d0 !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 13px !important;
+                transition: all 0.2s ease !important;
+            `;
+            quickTagBtn.addEventListener('mouseenter', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#e0e0e0';
+                quickTagBtn.style.borderColor = '#4CAF50';
+            });
+            quickTagBtn.addEventListener('mouseleave', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#f0f0f0';
+                quickTagBtn.style.borderColor = '#d0d0d0';
+            });
+            quickTagBtn.addEventListener('click', () => {
+                // 如果标签已添加，不执行操作
+                if (quickTagBtn.style.cursor === 'not-allowed') {
+                    return;
+                }
+                const sessionId = modal.dataset.sessionId;
+                if (sessionId) {
+                    this.addQuickTag(sessionId, tagName);
+                }
+            });
+            quickTagsContainer.appendChild(quickTagBtn);
+        });
+
         // 标签列表
         const tagsContainer = document.createElement('div');
         tagsContainer.className = 'tag-manager-tags';
@@ -12528,6 +12585,7 @@ if (typeof getCenterPosition === 'undefined') {
 
         panel.appendChild(header);
         panel.appendChild(inputGroup);
+        panel.appendChild(quickTagsContainer);
         panel.appendChild(tagsContainer);
         panel.appendChild(footer);
         modal.appendChild(panel);
@@ -12609,6 +12667,26 @@ if (typeof getCenterPosition === 'undefined') {
             tagItem.appendChild(removeBtn);
             tagsContainer.appendChild(tagItem);
         });
+
+        // 更新快捷标签按钮状态
+        const quickTagButtons = modal.querySelectorAll('.tag-manager-quick-tag-btn');
+        quickTagButtons.forEach(btn => {
+            const tagName = btn.dataset.tagName;
+            const isAdded = tags && tags.includes(tagName);
+            if (isAdded) {
+                btn.style.background = '#4CAF50';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#4CAF50';
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+            } else {
+                btn.style.background = '#f0f0f0';
+                btn.style.color = '#333';
+                btn.style.borderColor = '#d0d0d0';
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            }
+        });
     }
 
     // 从输入框添加标签
@@ -12640,6 +12718,30 @@ if (typeof getCenterPosition === 'undefined') {
         session.tags.push(tagName);
         tagInput.value = '';
         tagInput.focus();
+
+        // 重新加载标签列表
+        this.loadTagsIntoManager(sessionId, session.tags);
+    }
+
+    // 添加快捷标签
+    addQuickTag(sessionId, tagName) {
+        const modal = this.chatWindow?.querySelector('#pet-tag-manager');
+        if (!modal) return;
+
+        const session = this.sessions[sessionId];
+        if (!session) return;
+
+        if (!session.tags) {
+            session.tags = [];
+        }
+
+        // 检查标签是否已存在
+        if (session.tags.includes(tagName)) {
+            return;
+        }
+
+        // 添加标签
+        session.tags.push(tagName);
 
         // 重新加载标签列表
         this.loadTagsIntoManager(sessionId, session.tags);

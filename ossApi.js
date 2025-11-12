@@ -133,9 +133,9 @@ class OssApiManager {
         this.stats.cacheMisses++;
         
         try {
-            let url = `${this.baseUrl}/oss/files?max_keys=${max_keys}`;
+            let url = `${this.baseUrl}/oss/files`;
             if (directory) {
-                url += `&directory=${encodeURIComponent(directory)}`;
+                url += `?directory=${encodeURIComponent(directory)}`;
             }
             
             const result = await this._request(url, { method: 'GET' });
@@ -385,12 +385,16 @@ class OssApiManager {
         this.stats.cacheMisses++;
         
         try {
-            let url = `${this.baseUrl}/oss/files?max_keys=${max_keys}`;
+            let url = `${this.baseUrl}/oss/files`;
+            const params = [];
             if (directory) {
-                url += `&directory=${encodeURIComponent(directory)}`;
+                params.push(`directory=${encodeURIComponent(directory)}`);
             }
             if (tags && Array.isArray(tags) && tags.length > 0) {
-                url += `&tags=${encodeURIComponent(tags.join(','))}`;
+                params.push(`tags=${encodeURIComponent(tags.join(','))}`);
+            }
+            if (params.length > 0) {
+                url += `?${params.join('&')}`;
             }
             
             const result = await this._request(url, { method: 'GET' });

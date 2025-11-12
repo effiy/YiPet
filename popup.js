@@ -4,6 +4,21 @@
 
 (function() {
     try {
+        // 检查 chrome.storage 是否可用
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.runtime) {
+            return;
+        }
+        
+        // 检查扩展上下文是否有效
+        try {
+            if (!chrome.runtime.id) {
+                return;
+            }
+        } catch (error) {
+            // 扩展上下文已失效
+            return;
+        }
+        
         const keyName = 'petDevMode';
         const defaultEnabled = false;
         const original = {
@@ -20,29 +35,42 @@
             console.debug = noop;
             console.warn = noop;
         };
+        
         chrome.storage.sync.get([keyName], (res) => {
+            if (chrome.runtime.lastError) {
+                // 忽略错误，使用默认值
+                muteIfNeeded(defaultEnabled);
+                return;
+            }
             const enabled = res[keyName];
             muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
         });
+        
         chrome.storage.onChanged.addListener((changes, namespace) => {
-            if (namespace !== 'sync') return;
-            if (changes[keyName]) {
-                const enabled = changes[keyName].newValue;
-                if (enabled) {
-                    console.log = original.log;
-                    console.info = original.info;
-                    console.debug = original.debug;
-                    console.warn = original.warn;
-                } else {
-                    const noop = () => {};
-                    console.log = noop;
-                    console.info = noop;
-                    console.debug = noop;
-                    console.warn = noop;
+            try {
+                if (namespace !== 'sync') return;
+                if (changes[keyName]) {
+                    const enabled = changes[keyName].newValue;
+                    if (enabled) {
+                        console.log = original.log;
+                        console.info = original.info;
+                        console.debug = original.debug;
+                        console.warn = original.warn;
+                    } else {
+                        const noop = () => {};
+                        console.log = noop;
+                        console.info = noop;
+                        console.debug = noop;
+                        console.warn = noop;
+                    }
                 }
+            } catch (error) {
+                // 静默处理错误
             }
         });
-    } catch (e) {}
+    } catch (e) {
+        // 静默处理初始化错误
+    }
 })();
 
 class PopupController {
@@ -186,7 +214,65 @@ class PopupController {
     
     async loadGlobalState() {
         return new Promise((resolve) => {
-            chrome.storage.sync.get(['petGlobalState'], (result) => {
+            // 检查 chrome.storage 是否可用
+            const isChromeStorageAvailable = () => {
+                try {
+                    return typeof chrome !== 'undefined' && 
+                           chrome.storage && 
+                           chrome.storage.local && 
+                           chrome.runtime && 
+                           chrome.runtime.id;
+                } catch (error) {
+                    return false;
+                }
+            };
+            
+            if (!isChromeStorageAvailable()) {
+                console.debug('扩展上下文已失效，从localStorage加载');
+                try {
+                    const localValue = localStorage.getItem('petGlobalState');
+                    if (localValue) {
+                        const state = JSON.parse(localValue);
+                        resolve({
+                            visible: state.visible !== undefined ? state.visible : false,
+                            color: state.color !== undefined ? state.color : 0,
+                            size: state.size !== undefined ? state.size : 180,
+                            position: state.position || getPetDefaultPosition()
+                        });
+                    } else {
+                        resolve(null);
+                    }
+                } catch (error) {
+                    console.warn('从localStorage加载失败:', error);
+                    resolve(null);
+                }
+                return;
+            }
+            
+            // 优先从 local 存储加载
+            chrome.storage.local.get(['petGlobalState'], (result) => {
+                if (chrome.runtime.lastError) {
+                    console.debug('从chrome.storage.local加载失败，尝试localStorage');
+                    try {
+                        const localValue = localStorage.getItem('petGlobalState');
+                        if (localValue) {
+                            const state = JSON.parse(localValue);
+                            resolve({
+                                visible: state.visible !== undefined ? state.visible : false,
+                                color: state.color !== undefined ? state.color : 0,
+                                size: state.size !== undefined ? state.size : 180,
+                                position: state.position || getPetDefaultPosition()
+                            });
+                        } else {
+                            resolve(null);
+                        }
+                    } catch (error) {
+                        console.warn('从localStorage加载失败:', error);
+                        resolve(null);
+                    }
+                    return;
+                }
+                
                 if (result.petGlobalState) {
                     const state = result.petGlobalState;
                     resolve({
@@ -196,14 +282,49 @@ class PopupController {
                         position: state.position || getPetDefaultPosition()
                     });
                 } else {
-                    resolve(null);
+                    // 如果 local 中没有，尝试从 sync 加载（兼容旧版本）
+                    chrome.storage.sync.get(['petGlobalState'], (syncResult) => {
+                        if (chrome.runtime.lastError) {
+                            console.debug('从chrome.storage.sync加载失败，尝试localStorage');
+                            try {
+                                const localValue = localStorage.getItem('petGlobalState');
+                                if (localValue) {
+                                    const state = JSON.parse(localValue);
+                                    resolve({
+                                        visible: state.visible !== undefined ? state.visible : false,
+                                        color: state.color !== undefined ? state.color : 0,
+                                        size: state.size !== undefined ? state.size : 180,
+                                        position: state.position || getPetDefaultPosition()
+                                    });
+                                } else {
+                                    resolve(null);
+                                }
+                            } catch (error) {
+                                console.warn('从localStorage加载失败:', error);
+                                resolve(null);
+                            }
+                            return;
+                        }
+                        
+                        if (syncResult.petGlobalState) {
+                            const state = syncResult.petGlobalState;
+                            resolve({
+                                visible: state.visible !== undefined ? state.visible : false,
+                                color: state.color !== undefined ? state.color : 0,
+                                size: state.size !== undefined ? state.size : 180,
+                                position: state.position || getPetDefaultPosition()
+                            });
+                        } else {
+                            resolve(null);
+                        }
+                    });
                 }
             });
         });
     }
     
     async updateGlobalState() {
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             const globalState = {
                 visible: this.petStatus.visible,
                 color: this.petStatus.color,
@@ -212,21 +333,145 @@ class PopupController {
                 timestamp: Date.now()
             };
             
-            // 使用 chrome.storage.local 避免写入配额限制
-            chrome.storage.local.set({ petGlobalState: globalState }, () => {
-                if (chrome.runtime.lastError) {
-                    console.warn('保存全局状态失败:', chrome.runtime.lastError.message);
-                    // 降级到localStorage
-                    try {
-                        localStorage.setItem('petState', JSON.stringify(globalState));
-                    } catch (error) {
-                        console.error('保存到localStorage也失败:', error);
+            // 检查 chrome.storage 是否可用
+            const isChromeStorageAvailable = () => {
+                try {
+                    return typeof chrome !== 'undefined' && 
+                           chrome.storage && 
+                           chrome.storage.local && 
+                           chrome.runtime && 
+                           chrome.runtime.id;
+                } catch (error) {
+                    return false;
+                }
+            };
+            
+            // 检查是否是扩展上下文失效错误
+            const isContextInvalidatedError = (error) => {
+                if (!error) return false;
+                const errorMsg = (error.message || error.toString() || '').toLowerCase();
+                return errorMsg.includes('extension context invalidated') ||
+                       errorMsg.includes('context invalidated');
+            };
+            
+            // 检查是否是配额错误
+            const isQuotaError = (error) => {
+                if (!error) return false;
+                const errorMsg = error.message || error.toString();
+                return errorMsg.includes('QUOTA_BYTES') || 
+                       errorMsg.includes('quota exceeded') ||
+                       errorMsg.includes('MAX_WRITE_OPERATIONS') ||
+                       errorMsg.includes('QUOTA_BYTES_PER_HOUR');
+            };
+            
+            // 如果 chrome.storage 不可用，直接使用 localStorage
+            if (!isChromeStorageAvailable()) {
+                console.debug('扩展上下文已失效，使用localStorage保存');
+                try {
+                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                    resolve();
+                } catch (localError) {
+                    console.error('保存到localStorage失败:', localError);
+                    resolve();
+                }
+                return;
+            }
+            
+            try {
+                // 使用 chrome.storage.local 避免写入配额限制
+                chrome.storage.local.set({ petGlobalState: globalState }, async () => {
+                    if (chrome.runtime.lastError) {
+                        const error = chrome.runtime.lastError;
+                        const errorMsg = error.message || error.toString();
+                        
+                        // 检查是否是扩展上下文失效错误
+                        if (isContextInvalidatedError(error)) {
+                            console.debug('扩展上下文已失效，使用localStorage保存');
+                            try {
+                                localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                            } catch (localError) {
+                                console.error('保存到localStorage失败:', localError);
+                            }
+                            resolve();
+                            return;
+                        }
+                        
+                        console.warn('保存全局状态失败:', errorMsg);
+                        
+                        // 检查是否是配额错误
+                        if (isQuotaError(error)) {
+                            console.warn('存储配额超出，尝试清理旧数据...');
+                            // 尝试清理一些旧数据
+                            try {
+                                // 清理OSS文件列表（可以重新加载）
+                                chrome.storage.local.remove('petOssFiles', () => {
+                                    // 重试保存
+                                    chrome.storage.local.set({ petGlobalState: globalState }, (retryError) => {
+                                        if (chrome.runtime.lastError) {
+                                            const retryErr = chrome.runtime.lastError;
+                                            if (isContextInvalidatedError(retryErr)) {
+                                                console.debug('扩展上下文已失效，使用localStorage保存');
+                                                try {
+                                                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                                                } catch (localError) {
+                                                    console.error('保存到localStorage失败:', localError);
+                                                }
+                                            } else if (isQuotaError(retryErr)) {
+                                                console.warn('清理后仍然配额不足，降级到localStorage');
+                                                try {
+                                                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                                                } catch (localError) {
+                                                    console.error('保存到localStorage也失败:', localError);
+                                                }
+                                            }
+                                        }
+                                        resolve();
+                                    });
+                                });
+                            } catch (cleanupError) {
+                                console.error('清理存储失败:', cleanupError);
+                                // 降级到localStorage
+                                try {
+                                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                                } catch (localError) {
+                                    console.error('保存到localStorage也失败:', localError);
+                                }
+                                resolve();
+                            }
+                        } else {
+                            // 其他错误，直接降级到localStorage
+                            try {
+                                localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                            } catch (localError) {
+                                console.error('保存到localStorage也失败:', localError);
+                            }
+                            resolve();
+                        }
+                    } else {
+                        console.log('全局状态已更新到local存储:', globalState);
+                        // 同时保存到 localStorage 作为备份
+                        try {
+                            localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                        } catch (localError) {
+                            console.debug('保存到localStorage备份失败（可忽略）:', localError);
+                        }
+                        resolve();
                     }
+                });
+            } catch (error) {
+                // 捕获外层错误
+                if (isContextInvalidatedError(error)) {
+                    console.debug('扩展上下文已失效，使用localStorage保存');
                 } else {
-                    console.log('全局状态已更新到local存储:', globalState);
+                    console.warn('保存全局状态异常:', error.message);
+                }
+                try {
+                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
+                } catch (localError) {
+                    console.error('保存到localStorage失败:', localError);
                 }
                 resolve();
-            });
+            }
         });
     }
     
@@ -516,24 +761,36 @@ class PopupController {
     
     startStatusSync() {
         // 监听Chrome存储变化，实现跨页面同步
-        chrome.storage.onChanged.addListener((changes, namespace) => {
-            if (namespace === 'sync' && changes.petGlobalState) {
-                const newState = changes.petGlobalState.newValue;
-                if (newState) {
-                    // 更新本地状态（所有属性都同步）
-                    this.petStatus.visible = newState.visible !== undefined ? newState.visible : this.petStatus.visible;
-                    this.petStatus.color = newState.color !== undefined ? newState.color : this.petStatus.color;
-                    this.petStatus.size = newState.size !== undefined ? newState.size : this.petStatus.size;
-                    // 位置也进行跨页面同步
-                    if (newState.position) {
-                        this.petStatus.position = newState.position;
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+                chrome.storage.onChanged.addListener((changes, namespace) => {
+                    try {
+                        // 监听 local 和 sync 存储的变化
+                        if ((namespace === 'local' || namespace === 'sync') && changes.petGlobalState) {
+                            const newState = changes.petGlobalState.newValue;
+                            if (newState) {
+                                // 更新本地状态（所有属性都同步）
+                                this.petStatus.visible = newState.visible !== undefined ? newState.visible : this.petStatus.visible;
+                                this.petStatus.color = newState.color !== undefined ? newState.color : this.petStatus.color;
+                                this.petStatus.size = newState.size !== undefined ? newState.size : this.petStatus.size;
+                                // 位置也进行跨页面同步
+                                if (newState.position) {
+                                    this.petStatus.position = newState.position;
+                                }
+                                
+                                console.log('收到全局状态更新 (', namespace, '):', newState);
+                                this.updateUI();
+                            }
+                        }
+                    } catch (error) {
+                        // 静默处理监听器错误，避免打断用户
+                        console.debug('存储变化监听器错误:', error);
                     }
-                    
-                    console.log('收到全局状态更新:', newState);
-                    this.updateUI();
-                }
+                });
             }
-        });
+        } catch (error) {
+            console.debug('无法设置存储变化监听器:', error);
+        }
         
         // 每5秒同步一次状态（作为备用）
         this.statusSyncInterval = setInterval(async () => {
@@ -551,7 +808,7 @@ class PopupController {
                 }
             } catch (error) {
                 // 静默处理同步错误
-                console.log('状态同步失败:', error);
+                console.debug('状态同步失败:', error);
             }
         }, 5000);
     }

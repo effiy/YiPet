@@ -150,16 +150,58 @@ class SessionManager {
      * 从本地存储加载会话
      */
     async loadLocalSessions() {
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             if (typeof chrome !== 'undefined' && chrome.storage) {
-                chrome.storage.local.get([this.storageKey], (result) => {
-                    if (result[this.storageKey]) {
-                        this.sessions = result[this.storageKey];
-                    } else {
-                        this.sessions = {};
-                    }
+                // 使用StorageHelper处理错误
+                if (typeof window.StorageHelper !== 'undefined') {
+                    const stored = await window.StorageHelper.get(this.storageKey);
+                    this.sessions = stored || {};
                     resolve();
-                });
+                } else {
+                    // 降级到原始方法
+                    try {
+                        // 检查chrome.storage是否可用
+                        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.runtime || !chrome.runtime.id) {
+                            throw new Error('Extension context invalidated');
+                        }
+                        chrome.storage.local.get([this.storageKey], (result) => {
+                            if (chrome.runtime.lastError) {
+                                const error = chrome.runtime.lastError;
+                                const errorMsg = error.message || error.toString();
+                                if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
+                                    console.warn('扩展上下文已失效，从localStorage加载');
+                                } else {
+                                    console.warn('从chrome.storage.local加载失败，尝试localStorage:', errorMsg);
+                                }
+                                try {
+                                    const stored = localStorage.getItem(this.storageKey);
+                                    this.sessions = stored ? JSON.parse(stored) : {};
+                                } catch (localError) {
+                                    console.error('从localStorage加载也失败:', localError);
+                                    this.sessions = {};
+                                }
+                            } else {
+                                this.sessions = result[this.storageKey] || {};
+                            }
+                            resolve();
+                        });
+                    } catch (error) {
+                        const errorMsg = error.message || error.toString();
+                        if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
+                            console.warn('扩展上下文已失效，从localStorage加载');
+                        } else {
+                            console.warn('chrome.storage不可用，从localStorage加载:', errorMsg);
+                        }
+                        try {
+                            const stored = localStorage.getItem(this.storageKey);
+                            this.sessions = stored ? JSON.parse(stored) : {};
+                        } catch (localError) {
+                            console.error('从localStorage加载也失败:', localError);
+                            this.sessions = {};
+                        }
+                        resolve();
+                    }
+                }
             } else {
                 // 非 Chrome 环境，使用 localStorage
                 try {
@@ -226,11 +268,55 @@ class SessionManager {
     async _doSaveLocalSessions() {
         this.lastSessionSaveTime = Date.now();
         
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             if (typeof chrome !== 'undefined' && chrome.storage) {
-                chrome.storage.local.set({ [this.storageKey]: this.sessions }, () => {
+                // 使用StorageHelper处理配额错误
+                if (typeof window.StorageHelper !== 'undefined') {
+                    const result = await window.StorageHelper.set(this.storageKey, this.sessions);
+                    if (!result.success) {
+                        console.error('保存本地会话失败:', result.error);
+                    }
                     resolve();
-                });
+                } else {
+                    // 降级到原始方法
+                    try {
+                        // 检查chrome.storage是否可用
+                        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.runtime || !chrome.runtime.id) {
+                            throw new Error('Extension context invalidated');
+                        }
+                        chrome.storage.local.set({ [this.storageKey]: this.sessions }, () => {
+                            if (chrome.runtime.lastError) {
+                                const error = chrome.runtime.lastError;
+                                const errorMsg = error.message || error.toString();
+                                if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
+                                    console.warn('扩展上下文已失效，降级到localStorage');
+                                } else {
+                                    console.error('保存本地会话失败:', errorMsg);
+                                }
+                                // 降级到localStorage
+                                try {
+                                    localStorage.setItem(this.storageKey, JSON.stringify(this.sessions));
+                                } catch (localError) {
+                                    console.error('保存到localStorage也失败:', localError);
+                                }
+                            }
+                            resolve();
+                        });
+                    } catch (error) {
+                        const errorMsg = error.message || error.toString();
+                        if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
+                            console.warn('扩展上下文已失效，降级到localStorage');
+                        } else {
+                            console.error('chrome.storage不可用，降级到localStorage:', errorMsg);
+                        }
+                        try {
+                            localStorage.setItem(this.storageKey, JSON.stringify(this.sessions));
+                        } catch (localError) {
+                            console.error('保存到localStorage也失败:', localError);
+                        }
+                        resolve();
+                    }
+                }
             } else {
                 // 非 Chrome 环境，使用 localStorage
                 try {

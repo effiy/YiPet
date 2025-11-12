@@ -207,6 +207,13 @@ if (typeof getCenterPosition === 'undefined') {
         this.ossImagePreviewEnabled = false; // OSS图片预览开关（默认关闭，用于标签模块的批量控制）
         this.ossFilePreviewStates = {}; // 每个文件的预览开关状态 { fileName: true/false }
 
+        // 状态保存节流相关
+        this.lastStateSaveTime = 0; // 上次保存状态的时间
+        this.STATE_SAVE_THROTTLE = 2000; // 状态保存节流时间（毫秒），避免超过chrome.storage.sync的写入限制
+        this.stateSaveTimer = null; // 状态保存防抖定时器
+        this.pendingStateUpdate = null; // 待保存的状态数据
+        this.useLocalStorage = false; // 是否使用localStorage作为降级方案（当遇到配额错误时）
+
         this.init();
     }
 
@@ -926,123 +933,189 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
 
+    // 保存状态（带节流机制，避免超过写入配额）
     saveState() {
-        try {
-            const state = {
-                visible: this.isVisible,
-                color: this.colorIndex,
-                size: this.size,
-                position: this.position,
-                model: this.currentModel,
-                timestamp: Date.now()
-            };
+        this._saveStateInternal(true);
+    }
 
-            // 使用Chrome存储API保存全局状态
-            chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
-                console.log('宠物全局状态已保存:', state);
+    // 同步当前状态到全局状态（带节流机制）
+    syncToGlobalState() {
+        this._saveStateInternal(false);
+    }
+
+    // 内部保存状态方法，统一处理节流和错误处理
+    _saveStateInternal(includeLocalStorage = false) {
+        const now = Date.now();
+        const state = {
+            visible: this.isVisible,
+            color: this.colorIndex,
+            size: this.size,
+            position: this.position,
+            model: this.currentModel,
+            timestamp: now
+        };
+
+        // 保存待更新的状态
+        this.pendingStateUpdate = state;
+
+        // 如果距离上次保存时间太短，使用防抖延迟保存
+        const timeSinceLastSave = now - this.lastStateSaveTime;
+        if (timeSinceLastSave < this.STATE_SAVE_THROTTLE) {
+            // 清除之前的定时器
+            if (this.stateSaveTimer) {
+                clearTimeout(this.stateSaveTimer);
+            }
+            // 设置新的延迟保存
+            this.stateSaveTimer = setTimeout(() => {
+                this._doSaveState(includeLocalStorage);
+            }, this.STATE_SAVE_THROTTLE - timeSinceLastSave);
+            return;
+        }
+
+        // 立即保存
+        this._doSaveState(includeLocalStorage);
+    }
+
+    // 执行实际保存操作
+    _doSaveState(includeLocalStorage = false) {
+        if (!this.pendingStateUpdate) {
+            return;
+        }
+
+        const state = this.pendingStateUpdate;
+        this.lastStateSaveTime = Date.now();
+        this.pendingStateUpdate = null;
+
+        if (this.stateSaveTimer) {
+            clearTimeout(this.stateSaveTimer);
+            this.stateSaveTimer = null;
+        }
+
+        try {
+            // 如果之前遇到配额错误，使用localStorage
+            if (this.useLocalStorage) {
+                localStorage.setItem('petState', JSON.stringify(state));
+                if (includeLocalStorage) {
+                    localStorage.setItem('petState', JSON.stringify(state));
+                }
+                return;
+            }
+
+            // 优先使用 chrome.storage.local（没有写入次数限制）
+            // 对于需要跨设备同步的数据，可以考虑使用 sync，但需要更严格的节流
+            chrome.storage.local.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
+                if (chrome.runtime.lastError) {
+                    const error = chrome.runtime.lastError.message;
+                    console.warn('保存状态到chrome.storage.local失败:', error);
+                    
+                    // 如果遇到配额错误，降级到localStorage
+                    if (error.includes('MAX_WRITE_OPERATIONS_PER_HOUR') || 
+                        error.includes('QUOTA_BYTES_PER_HOUR')) {
+                        console.warn('遇到存储配额限制，降级到localStorage');
+                        this.useLocalStorage = true;
+                        localStorage.setItem('petState', JSON.stringify(state));
+                    }
+                } else {
+                    console.log('宠物全局状态已保存到local存储:', state);
+                }
             });
 
             // 同时保存到localStorage作为备用
-            localStorage.setItem('petState', JSON.stringify(state));
+            if (includeLocalStorage) {
+                try {
+                    localStorage.setItem('petState', JSON.stringify(state));
+                } catch (error) {
+                    console.warn('保存到localStorage失败:', error);
+                }
+            }
         } catch (error) {
             console.log('保存状态失败:', error);
-        }
-    }
-
-    // 同步当前状态到全局状态
-    syncToGlobalState() {
-        try {
-            const state = {
-                visible: this.isVisible,
-                color: this.colorIndex,
-                size: this.size,
-                position: this.position,
-                model: this.currentModel,
-                timestamp: Date.now()
-            };
-
-            chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
-                console.log('状态已同步到全局:', state);
-            });
-        } catch (error) {
-            console.log('同步到全局状态失败:', error);
+            // 降级到localStorage
+            try {
+                localStorage.setItem('petState', JSON.stringify(state));
+            } catch (e) {
+                console.error('保存到localStorage也失败:', e);
+            }
         }
     }
 
     loadState() {
         try {
-            // 首先尝试从Chrome存储API加载全局状态
-            chrome.storage.sync.get([PET_CONFIG.storage.keys.globalState], (result) => {
-                if (result[PET_CONFIG.storage.keys.globalState]) {
-                    const state = result[PET_CONFIG.storage.keys.globalState];
-                    this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
-                    this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
-
-                    // 检查并迁移旧的大小值（从 60 升级到 180）
-                    if (state.size && state.size < 100) {
-                        // 旧版本的大小范围是 40-120，小于 100 的可能是旧版本
-                        this.size = PET_CONFIG.pet.defaultSize;
-                        // 更新存储中的值
-                        const updatedState = { ...state, size: this.size };
-                        chrome.storage.sync.set({ [PET_CONFIG.storage.keys.globalState]: updatedState }, () => {
-                            console.log('已更新旧版本大小值到新默认值');
-                        });
-                    } else {
-                        this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
-                    }
-
-                    this.currentModel = state.model !== undefined ? state.model : ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
-                    // 位置也使用全局状态，但会进行边界检查
-                    this.position = this.validatePosition(state.position || getPetDefaultPosition());
-                    console.log('宠物全局状态已恢复:', state);
-                    console.log('宠物可见性:', this.isVisible);
-
-                    // 更新宠物样式（如果宠物已创建）
-                    this.updatePetStyle();
-                    
-                    // 如果宠物已创建但还没有添加到页面，尝试再次添加
-                    if (this.pet && !this.pet.parentNode) {
-                        console.log('宠物已创建但未添加到页面，尝试重新添加');
-                        this.addPetToPage();
-                    }
+            // 首先尝试从chrome.storage.local加载（新版本使用local）
+            chrome.storage.local.get([PET_CONFIG.storage.keys.globalState], (result) => {
+                let state = result[PET_CONFIG.storage.keys.globalState];
+                
+                // 如果local中没有，尝试从sync加载（兼容旧版本）
+                if (!state) {
+                    chrome.storage.sync.get([PET_CONFIG.storage.keys.globalState], (syncResult) => {
+                        if (syncResult[PET_CONFIG.storage.keys.globalState]) {
+                            state = syncResult[PET_CONFIG.storage.keys.globalState];
+                            // 迁移到local存储
+                            chrome.storage.local.set({ [PET_CONFIG.storage.keys.globalState]: state }, () => {
+                                console.log('已从sync迁移到local存储');
+                            });
+                        }
+                        this._applyLoadedState(state);
+                    });
                 } else {
-                    // 如果全局状态不存在，尝试从localStorage加载
-                    this.loadStateFromLocalStorage();
+                    this._applyLoadedState(state);
                 }
             });
-
-            // 监听存储变化，实现跨页面同步
-            chrome.storage.onChanged.addListener((changes, namespace) => {
-                if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.globalState]) {
-                    const newState = changes[PET_CONFIG.storage.keys.globalState].newValue;
-                    if (newState) {
-                        this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
-                        this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
-
-                        // 检查并迁移旧的大小值
-                        if (newState.size && newState.size < 100) {
-                            // 旧版本的大小值，使用新默认值
-                            this.size = PET_CONFIG.pet.defaultSize;
-                        } else {
-                            this.size = newState.size !== undefined ? newState.size : this.size;
+            
+            // 同时尝试从localStorage加载（作为备用）
+            try {
+                const localState = localStorage.getItem('petState');
+                if (localState) {
+                    const state = JSON.parse(localState);
+                    // 如果chrome.storage中没有数据，使用localStorage的数据
+                    chrome.storage.local.get([PET_CONFIG.storage.keys.globalState], (result) => {
+                        if (!result[PET_CONFIG.storage.keys.globalState] && state) {
+                            this._applyLoadedState(state);
                         }
-
-                        this.currentModel = newState.model !== undefined ? newState.model : this.currentModel;
-                        // 位置也进行跨页面同步，但会进行边界检查
-                        if (newState.position) {
-                            this.position = this.validatePosition(newState.position);
-                        }
-                        console.log('收到全局状态更新:', newState);
-                        this.updatePetStyle();
-                        this.updateChatModelSelector(); // 更新聊天窗口中的模型选择器
-                    }
+                    });
                 }
-            });
-
-            return true;
+            } catch (error) {
+                console.warn('从localStorage加载状态失败:', error);
+            }
         } catch (error) {
-            console.log('恢复状态失败:', error);
-            return this.loadStateFromLocalStorage();
+            console.log('加载状态失败:', error);
+        }
+    }
+
+    // 应用加载的状态数据
+    _applyLoadedState(state) {
+        if (!state) {
+            return;
+        }
+
+        this.isVisible = state.visible !== undefined ? state.visible : PET_CONFIG.pet.defaultVisible;
+        this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex;
+
+        // 检查并迁移旧的大小值（从 60 升级到 180）
+        if (state.size && state.size < 100) {
+            // 旧版本的大小范围是 40-120，小于 100 的可能是旧版本
+            this.size = PET_CONFIG.pet.defaultSize;
+            // 更新存储中的值（使用节流保存）
+            const updatedState = { ...state, size: this.size };
+            this.pendingStateUpdate = updatedState;
+            setTimeout(() => this._doSaveState(false), this.STATE_SAVE_THROTTLE);
+        } else {
+            this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
+        }
+
+        this.currentModel = state.model !== undefined ? state.model : ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
+        // 位置也使用全局状态，但会进行边界检查
+        this.position = this.validatePosition(state.position || getPetDefaultPosition());
+        console.log('宠物全局状态已恢复:', state);
+        console.log('宠物可见性:', this.isVisible);
+
+        // 更新宠物样式（如果宠物已创建）
+        this.updatePetStyle();
+        
+        // 如果宠物已创建但还没有添加到页面，尝试再次添加
+        if (this.pet && !this.pet.parentNode) {
+            console.log('宠物已创建但未添加到页面，尝试重新添加');
+            this.addPetToPage();
         }
     }
 
@@ -22130,9 +22203,13 @@ ${messageContent}`;
                 timestamp: Date.now()
             };
 
-            // 保存到chrome.storage.sync以实现跨页面同步
-            chrome.storage.sync.set({ [PET_CONFIG.storage.keys.chatWindowState]: state }, () => {
-                console.log('聊天窗口状态已保存到全局存储:', state);
+            // 保存到chrome.storage.local避免写入配额限制
+            chrome.storage.local.set({ [PET_CONFIG.storage.keys.chatWindowState]: state }, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn('保存聊天窗口状态失败:', chrome.runtime.lastError.message);
+                } else {
+                    console.log('聊天窗口状态已保存到local存储:', state);
+                }
             });
 
             // 同时保存到localStorage作为备用
@@ -22167,7 +22244,8 @@ ${messageContent}`;
 
             // 监听存储变化，实现跨页面同步
             chrome.storage.onChanged.addListener((changes, namespace) => {
-                if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.chatWindowState]) {
+                // 监听 local 存储的变化（新版本使用 local 避免写入配额限制）
+                if (namespace === 'local' && changes[PET_CONFIG.storage.keys.chatWindowState]) {
                     const newState = changes[PET_CONFIG.storage.keys.chatWindowState].newValue;
                     if (newState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
                         this.restoreChatWindowState(newState);
@@ -22175,7 +22253,18 @@ ${messageContent}`;
                         // 更新聊天窗口样式（如果已经创建）
                         if (this.chatWindow) {
                             this.updateChatWindowStyle();
-                            console.log('聊天窗口状态已从全局存储更新:', newState);
+                            console.log('聊天窗口状态已从local存储更新:', newState);
+                        }
+                    }
+                }
+                // 兼容旧版本的 sync 存储
+                if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.chatWindowState]) {
+                    const newState = changes[PET_CONFIG.storage.keys.chatWindowState].newValue;
+                    if (newState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
+                        this.restoreChatWindowState(newState);
+                        if (this.chatWindow) {
+                            this.updateChatWindowStyle();
+                            console.log('聊天窗口状态已从sync存储更新（兼容旧版本）:', newState);
                         }
                     }
                 }

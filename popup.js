@@ -212,8 +212,19 @@ class PopupController {
                 timestamp: Date.now()
             };
             
-            chrome.storage.sync.set({ petGlobalState: globalState }, () => {
-                console.log('全局状态已更新:', globalState);
+            // 使用 chrome.storage.local 避免写入配额限制
+            chrome.storage.local.set({ petGlobalState: globalState }, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn('保存全局状态失败:', chrome.runtime.lastError.message);
+                    // 降级到localStorage
+                    try {
+                        localStorage.setItem('petState', JSON.stringify(globalState));
+                    } catch (error) {
+                        console.error('保存到localStorage也失败:', error);
+                    }
+                } else {
+                    console.log('全局状态已更新到local存储:', globalState);
+                }
                 resolve();
             });
         });

@@ -337,7 +337,8 @@ chrome.action.onClicked.addListener((tab) => {
 
 // 监听存储变化
 chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'sync') {
+    // 监听 local 存储的变化（新版本使用 local 避免写入配额限制）
+    if (namespace === 'local') {
         if (changes.petSettings) {
             console.log('宠物设置已更新');
             
@@ -366,6 +367,19 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
                     }
                 });
             });
+        }
+    }
+    
+    // 兼容旧版本的 sync 存储
+    if (namespace === 'sync') {
+        if (changes.petSettings) {
+            console.log('宠物设置已更新（sync）');
+            executeInAllTabs('settingsUpdated', changes.petSettings.newValue);
+        }
+        
+        if (changes.petGlobalState) {
+            console.log('宠物全局状态已更新（sync，兼容旧版本）');
+            executeInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
         }
     }
 });

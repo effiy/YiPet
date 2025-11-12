@@ -7809,18 +7809,25 @@ if (typeof getCenterPosition === 'undefined') {
             return;
         }
         
-        // 按更新时间排序会话（最新更新的在前，与接口排序一致）
-        // 这样可以确保列表与接口返回的顺序一致
+        // 按文件名排序会话（使用显示标题进行排序）
         const sortedSessions = allSessions.sort((a, b) => {
+            const aTitle = this._getSessionDisplayTitle(a) || '';
+            const bTitle = this._getSessionDisplayTitle(b) || '';
+            
+            // 按文件名（标题）排序（不区分大小写）
+            const titleCompare = aTitle.localeCompare(bTitle, 'zh-CN', { numeric: true, sensitivity: 'base' });
+            if (titleCompare !== 0) {
+                return titleCompare;
+            }
+            
+            // 如果文件名相同，按更新时间排序（最新更新的在前）
             const aUpdated = a.updatedAt || a.createdAt || 0;
             const bUpdated = b.updatedAt || b.createdAt || 0;
-            
-            // 首先按更新时间排序（最新更新的在前）
             if (aUpdated !== bUpdated) {
                 return bUpdated - aUpdated;
             }
             
-            // 如果更新时间相同，按会话ID排序（确保完全稳定）
+            // 如果更新时间也相同，按会话ID排序（确保完全稳定）
             const aId = a.id || '';
             const bId = b.id || '';
             return aId.localeCompare(bId);

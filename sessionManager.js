@@ -542,11 +542,29 @@ class SessionManager {
             }
         }
         
-        // 转换为数组并按更新时间排序
+        // 转换为数组并按文件名排序
         return Array.from(sessionMap.values()).sort((a, b) => {
+            // 获取会话的显示标题（文件名）
+            const aTitle = (a.pageTitle || '').trim();
+            const bTitle = (b.pageTitle || '').trim();
+            
+            // 按文件名排序（不区分大小写，支持中文和数字）
+            const titleCompare = aTitle.localeCompare(bTitle, 'zh-CN', { numeric: true, sensitivity: 'base' });
+            if (titleCompare !== 0) {
+                return titleCompare;
+            }
+            
+            // 如果文件名相同，按更新时间排序（最新更新的在前）
             const aTime = a.updatedAt || a.createdAt || 0;
             const bTime = b.updatedAt || b.createdAt || 0;
-            return bTime - aTime;
+            if (aTime !== bTime) {
+                return bTime - aTime;
+            }
+            
+            // 如果更新时间也相同，按会话ID排序（确保完全稳定）
+            const aId = a.id || '';
+            const bId = b.id || '';
+            return aId.localeCompare(bId);
         });
     }
     

@@ -530,6 +530,7 @@ if (typeof getCenterPosition === 'undefined') {
         // 标签过滤相关
         this.selectedFilterTags = []; // 选中的过滤标签（会话）
         this.tagFilterReverse = false; // 是否反向过滤（会话）
+        this.tagFilterNoTags = false; // 是否筛选无标签的会话
         this.tagFilterExpanded = false; // 标签列表是否展开（会话）
         this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量（会话）
         
@@ -5277,6 +5278,15 @@ if (typeof getCenterPosition === 'undefined') {
             });
         }
         
+        // 应用无标签筛选
+        if (this.tagFilterNoTags) {
+            allSessions = allSessions.filter(session => {
+                const sessionTags = session.tags || [];
+                const hasTags = sessionTags.length > 0 && sessionTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的会话
+            });
+        }
+        
         // 应用标签过滤（与updateSessionSidebar中的逻辑一致）
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
             allSessions = allSessions.filter(session => {
@@ -6244,12 +6254,20 @@ if (typeof getCenterPosition === 'undefined') {
             reverseFilterBtn.style.opacity = this.tagFilterReverse ? '1' : '0.6';
         }
         
-        // 更新清除按钮显示状态（如果有选中的标签才显示为可用状态）
+        // 更新无标签筛选按钮状态
+        const noTagsFilterBtn = this.sessionSidebar.querySelector('.tag-filter-no-tags');
+        if (noTagsFilterBtn) {
+            noTagsFilterBtn.style.color = this.tagFilterNoTags ? '#4CAF50' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.tagFilterNoTags ? '1' : '0.6';
+        }
+        
+        // 更新清除按钮显示状态（如果有选中的标签或启用了无标签筛选才显示为可用状态）
         const clearFilterBtn = this.sessionSidebar.querySelector('.tag-filter-clear');
         if (clearFilterBtn) {
             const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
-            clearFilterBtn.style.opacity = hasSelectedTags ? '0.8' : '0.4';
-            clearFilterBtn.style.cursor = hasSelectedTags ? 'pointer' : 'default';
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
         }
         
         const tagFilterList = this.sessionSidebar.querySelector('.tag-filter-list');
@@ -7668,6 +7686,15 @@ if (typeof getCenterPosition === 'undefined') {
             allSessions = allSessions.filter(session => {
                 const sessionUrl = session.url;
                 return !sessionUrl || !fileUrls.has(sessionUrl);
+            });
+        }
+        
+        // 应用无标签筛选
+        if (this.tagFilterNoTags) {
+            allSessions = allSessions.filter(session => {
+                const sessionTags = session.tags || [];
+                const hasTags = sessionTags.length > 0 && sessionTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的会话
             });
         }
         
@@ -20619,6 +20646,41 @@ ${messageContent}`;
             this.updateSessionSidebar();
         });
 
+        // 无标签筛选开关（简化版，使用图标）
+        const noTagsFilterBtn = document.createElement('button');
+        noTagsFilterBtn.className = 'tag-filter-no-tags';
+        noTagsFilterBtn.title = '筛选无标签';
+        noTagsFilterBtn.innerHTML = '∅';
+        noTagsFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.tagFilterNoTags ? '#4CAF50' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.tagFilterNoTags ? '1' : '0.6'} !important;
+        `;
+        noTagsFilterBtn.addEventListener('mouseenter', () => {
+            noTagsFilterBtn.style.opacity = '1';
+            noTagsFilterBtn.style.background = '#f3f4f6';
+        });
+        noTagsFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.tagFilterNoTags) {
+                noTagsFilterBtn.style.opacity = '0.6';
+            }
+            noTagsFilterBtn.style.background = 'none';
+        });
+        noTagsFilterBtn.addEventListener('click', () => {
+            this.tagFilterNoTags = !this.tagFilterNoTags;
+            noTagsFilterBtn.style.color = this.tagFilterNoTags ? '#4CAF50' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.tagFilterNoTags ? '1' : '0.6';
+            this.updateTagFilterUI();
+            this.updateSessionSidebar();
+        });
+
         // 清除按钮（简化版）
         const clearFilterBtn = document.createElement('button');
         clearFilterBtn.className = 'tag-filter-clear';
@@ -20643,7 +20705,8 @@ ${messageContent}`;
         `;
         clearFilterBtn.addEventListener('mouseenter', () => {
             const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
-            if (hasSelectedTags) {
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
+            if (hasActiveFilter) {
                 clearFilterBtn.style.color = '#ef4444';
                 clearFilterBtn.style.opacity = '1';
                 clearFilterBtn.style.background = '#fee2e2';
@@ -20653,19 +20716,24 @@ ${messageContent}`;
         });
         clearFilterBtn.addEventListener('mouseleave', () => {
             const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
             clearFilterBtn.style.color = '#9ca3af';
-            clearFilterBtn.style.opacity = hasSelectedTags ? '0.8' : '0.4';
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
             clearFilterBtn.style.background = 'none';
         });
         clearFilterBtn.addEventListener('click', () => {
-            if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
+            const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
+            if (hasActiveFilter) {
                 this.selectedFilterTags = [];
+                this.tagFilterNoTags = false;
                 this.updateTagFilterUI();
                 this.updateSessionSidebar();
             }
         });
 
         filterActions.appendChild(reverseFilterBtn);
+        filterActions.appendChild(noTagsFilterBtn);
         filterActions.appendChild(clearFilterBtn);
         filterHeader.appendChild(filterTitle);
         filterHeader.appendChild(filterActions);

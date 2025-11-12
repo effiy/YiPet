@@ -5022,16 +5022,21 @@ if (typeof getCenterPosition === 'undefined') {
                                 margin-bottom: ${msg.content ? '8px' : '0'} !important;
                                 border-radius: 8px !important;
                                 overflow: hidden !important;
+                                max-width: 100% !important;
+                                width: 100% !important;
                             `;
 
                             const img = document.createElement('img');
                             img.src = imageDataUrl;
                             img.style.cssText = `
                                 max-width: 100% !important;
+                                width: 100% !important;
+                                height: auto !important;
                                 max-height: 300px !important;
                                 border-radius: 8px !important;
                                 display: block !important;
                                 cursor: pointer !important;
+                                object-fit: contain !important;
                             `;
 
                             // 点击查看大图
@@ -24268,6 +24273,7 @@ ${messageContent}`;
             -webkit-user-select: text !important;
             -moz-user-select: text !important;
             -ms-user-select: text !important;
+            overflow: hidden !important;
         `;
 
         // 为宠物消息和用户消息添加 Markdown 样式
@@ -24305,16 +24311,21 @@ ${messageContent}`;
                 margin-bottom: ${text ? '8px' : '0'} !important;
                 border-radius: 8px !important;
                 overflow: hidden !important;
+                max-width: 100% !important;
+                width: 100% !important;
             `;
 
             const img = document.createElement('img');
             img.src = imageDataUrl;
             img.style.cssText = `
                 max-width: 100% !important;
+                width: 100% !important;
+                height: auto !important;
                 max-height: 300px !important;
                 border-radius: 8px !important;
                 display: block !important;
                 cursor: pointer !important;
+                object-fit: contain !important;
             `;
 
             // 点击查看大图

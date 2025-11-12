@@ -8017,6 +8017,37 @@ if (typeof getCenterPosition === 'undefined') {
                 this.openTagManager(session.id);
             });
             
+            // 创建复制按钮
+            const duplicateBtn = document.createElement('button');
+            duplicateBtn.className = 'session-duplicate-btn';
+            duplicateBtn.innerHTML = '📋';
+            duplicateBtn.title = '复制会话';
+            duplicateBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停时增加不透明度
+            duplicateBtn.addEventListener('mouseenter', () => {
+                duplicateBtn.style.opacity = '1';
+            });
+            duplicateBtn.addEventListener('mouseleave', () => {
+                duplicateBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止复制按钮点击事件冒泡到 sessionItem
+            duplicateBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.duplicateSession(session.id);
+            });
+            
             // 创建按钮容器
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -8032,6 +8063,7 @@ if (typeof getCenterPosition === 'undefined') {
                 buttonContainer.appendChild(editBtn);
             }
             buttonContainer.appendChild(tagBtn);
+            buttonContainer.appendChild(duplicateBtn);
             
             // 鼠标悬停在会话项上时显示按钮
             sessionItem.addEventListener('mouseenter', () => {
@@ -10364,6 +10396,90 @@ if (typeof getCenterPosition === 'undefined') {
         await this.updateSessionUI({ updateSidebar: true });
         
         console.log('会话已删除:', sessionId);
+    }
+    
+    /**
+     * 复制会话（创建会话副本）
+     * @param {string} sessionId - 要复制的会话ID
+     */
+    async duplicateSession(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            this.showNotification('会话不存在', 'error');
+            return;
+        }
+        
+        try {
+            // 显示复制中提示
+            this.showNotification('正在复制会话...', 'info');
+            
+            // 使用 SessionManager 复制会话
+            let newSessionId;
+            if (this.sessionManager) {
+                // 获取源会话数据
+                const sourceSession = this.sessions[sessionId];
+                // 传递源会话数据给 sessionManager，确保能够正确复制
+                newSessionId = await this.sessionManager.duplicateSession(sessionId, sourceSession);
+                // 确保新会话也被添加到 content.js 的 sessions 中
+                const newSession = this.sessionManager.getSession(newSessionId);
+                if (newSession) {
+                    this.sessions[newSessionId] = newSession;
+                }
+            } else {
+                // 如果没有 SessionManager，手动复制
+                const sourceSession = this.sessions[sessionId];
+                if (!sourceSession) {
+                    throw new Error('源会话不存在');
+                }
+                
+                // 生成新的会话ID
+                const md5Func = typeof md5 !== 'undefined' ? md5 : 
+                               (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
+                if (!md5Func) {
+                    throw new Error('MD5函数未找到');
+                }
+                newSessionId = md5Func(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                
+                // 创建会话副本
+                const now = Date.now();
+                const duplicatedSession = {
+                    id: newSessionId,
+                    url: sourceSession.url || '',
+                    pageTitle: sourceSession.pageTitle ? `${sourceSession.pageTitle} (副本)` : '新会话 (副本)',
+                    pageDescription: sourceSession.pageDescription || '',
+                    pageContent: sourceSession.pageContent || '',
+                    messages: sourceSession.messages ? JSON.parse(JSON.stringify(sourceSession.messages)) : [],
+                    tags: sourceSession.tags ? [...sourceSession.tags] : [],
+                    createdAt: now,
+                    updatedAt: now,
+                    lastAccessTime: now
+                };
+                
+                // 保存新会话
+                this.sessions[newSessionId] = duplicatedSession;
+                await this.saveAllSessions(true);
+                
+                // 如果启用后端同步，同步到后端
+                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                    try {
+                        await this.sessionApi.saveSession(duplicatedSession);
+                        console.log('会话副本已同步到后端:', newSessionId);
+                    } catch (error) {
+                        console.warn('同步会话副本到后端失败:', error);
+                    }
+                }
+            }
+            
+            // 刷新会话列表
+            await this.updateSessionUI({ updateSidebar: true });
+            
+            // 显示成功提示
+            this.showNotification('会话已复制', 'success');
+            
+            console.log('会话已复制:', sessionId, '->', newSessionId);
+        } catch (error) {
+            console.error('复制会话失败:', error);
+            this.showNotification('复制会话失败: ' + error.message, 'error');
+        }
     }
 
     // 加载侧边栏宽度
@@ -13746,7 +13862,7 @@ if (typeof getCenterPosition === 'undefined') {
             display: none !important;
             align-items: center !important;
             justify-content: center !important;
-            z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 1} !important;
+            z-index: 10002 !important;
             pointer-events: none !important;
         `;
 
@@ -14061,6 +14177,12 @@ if (typeof getCenterPosition === 'undefined') {
         this.updateContextEditorPosition(); // 复用位置更新函数
         this.updateMessagePreview();
         
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        
         // 默认并排模式
         this._messageEditorMode = this._messageEditorMode || 'split';
         this.applyMessageEditorMode();
@@ -14094,6 +14216,12 @@ if (typeof getCenterPosition === 'undefined') {
     closeMessageEditor() {
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor') : null;
         if (overlay) overlay.style.display = 'none';
+        
+        // 显示折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
         
         this._editingMessageElement = null;
         this._editingMessageSender = null;

@@ -588,6 +588,51 @@ class SessionManager {
     }
     
     /**
+     * 复制会话（创建会话副本）
+     * @param {string} sourceSessionId - 源会话ID
+     * @param {Object} sourceSessionData - 可选的源会话数据（如果提供，将使用此数据而不是从 sessions 中读取）
+     * @returns {Promise<string>} 新会话ID
+     */
+    async duplicateSession(sourceSessionId, sourceSessionData = null) {
+        await this.initialize();
+        
+        // 如果提供了源会话数据，使用它；否则从 sessions 中读取
+        let sourceSession = sourceSessionData || this.sessions[sourceSessionId];
+        if (!sourceSession) {
+            throw new Error('源会话不存在');
+        }
+        
+        // 生成新的会话ID（基于时间戳和随机数）
+        const newSessionId = await this.generateSessionId();
+        
+        // 创建会话副本，复制所有数据
+        const now = Date.now();
+        const duplicatedSession = {
+            id: newSessionId,
+            url: sourceSession.url || '',
+            pageTitle: sourceSession.pageTitle ? `${sourceSession.pageTitle} (副本)` : '新会话 (副本)',
+            pageDescription: sourceSession.pageDescription || '',
+            pageContent: sourceSession.pageContent || '',
+            messages: sourceSession.messages ? JSON.parse(JSON.stringify(sourceSession.messages)) : [],
+            tags: sourceSession.tags ? [...sourceSession.tags] : [],
+            createdAt: now,
+            updatedAt: now,
+            lastAccessTime: now
+        };
+        
+        // 保存新会话
+        this.sessions[newSessionId] = duplicatedSession;
+        await this.saveSession(newSessionId, true);
+        
+        // 如果启用后端同步，同步到后端
+        if (this.enableBackendSync && this.sessionApi) {
+            await this.syncSessionToBackend(newSessionId, true);
+        }
+        
+        return newSessionId;
+    }
+    
+    /**
      * 更新会话页面信息
      */
     updateSessionPageInfo(sessionId, pageInfo = null) {

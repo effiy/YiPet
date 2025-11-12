@@ -158,6 +158,26 @@ const PET_CONFIG = {
         name: "GPT-OSS",
         icon: "✨",
       },
+      {
+        id: "minicpm-v",
+        name: "MiniCPM-V",
+        icon: "🖼️",
+      },
+      {
+        id: "deepseek-r1:32b",
+        name: "DeepSeek-R1:32B",
+        icon: "🧠",
+      },
+      {
+        id: "deepseek-r1",
+        name: "DeepSeek-R1",
+        icon: "🧠",
+      },
+      {
+        id: "qwen3:32b",
+        name: "Qwen3:32B",
+        icon: "🚀",
+      },
     ],
   },
 };

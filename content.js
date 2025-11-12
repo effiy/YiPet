@@ -537,6 +537,7 @@ if (typeof getCenterPosition === 'undefined') {
         // OSS文件标签过滤相关
         this.selectedOssFilterTags = []; // 选中的OSS文件过滤标签
         this.ossTagFilterReverse = false; // 是否反向过滤OSS文件
+        this.ossTagFilterNoTags = false; // 是否筛选无标签的OSS文件
         this.ossTagFilterExpanded = false; // OSS标签列表是否展开
         this.ossTagFilterVisibleCount = 8; // 折叠时显示的OSS标签数量
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
@@ -5333,6 +5334,15 @@ if (typeof getCenterPosition === 'undefined') {
             });
         }
         
+        // 应用无标签筛选
+        if (this.ossTagFilterNoTags) {
+            files = files.filter(file => {
+                const fileTags = file.tags || [];
+                const hasTags = fileTags.length > 0 && fileTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的文件
+            });
+        }
+        
         // 应用标签过滤（如果后端没有筛选，则在前端筛选）
         if (this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0) {
             files = files.filter(file => {
@@ -6576,6 +6586,41 @@ if (typeof getCenterPosition === 'undefined') {
             this.updateOssFileSidebar();
         });
 
+        // 无标签筛选开关（简化版，使用图标）
+        const noTagsFilterBtn = document.createElement('button');
+        noTagsFilterBtn.className = 'oss-tag-filter-no-tags';
+        noTagsFilterBtn.title = '筛选无标签';
+        noTagsFilterBtn.innerHTML = '∅';
+        noTagsFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.ossTagFilterNoTags ? '#667eea' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.ossTagFilterNoTags ? '1' : '0.6'} !important;
+        `;
+        noTagsFilterBtn.addEventListener('mouseenter', () => {
+            noTagsFilterBtn.style.opacity = '1';
+            noTagsFilterBtn.style.background = '#f3f4f6';
+        });
+        noTagsFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.ossTagFilterNoTags) {
+                noTagsFilterBtn.style.opacity = '0.6';
+            }
+            noTagsFilterBtn.style.background = 'none';
+        });
+        noTagsFilterBtn.addEventListener('click', () => {
+            this.ossTagFilterNoTags = !this.ossTagFilterNoTags;
+            noTagsFilterBtn.style.color = this.ossTagFilterNoTags ? '#667eea' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.ossTagFilterNoTags ? '1' : '0.6';
+            this.updateOssTagFilterUI();
+            this.updateOssFileSidebar();
+        });
+
         // 清除按钮
         const clearFilterBtn = document.createElement('button');
         clearFilterBtn.className = 'oss-tag-filter-clear';
@@ -6601,13 +6646,16 @@ if (typeof getCenterPosition === 'undefined') {
         clearFilterBtn.addEventListener('click', () => {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
             const hasReverseFilter = this.ossTagFilterReverse;
+            const hasActiveFilter = hasSelectedTags || hasReverseFilter || this.ossTagFilterNoTags;
             
-            // 如果有选中的标签或启用了反向过滤，则清除筛选
-            if (hasSelectedTags || hasReverseFilter) {
+            // 如果有选中的标签、启用了反向过滤或启用了无标签筛选，则清除筛选
+            if (hasActiveFilter) {
                 // 清除选中的标签
                 this.selectedOssFilterTags = [];
                 // 重置反向过滤状态
                 this.ossTagFilterReverse = false;
+                // 重置无标签筛选状态
+                this.ossTagFilterNoTags = false;
                 
                 // 更新UI
                 this.updateOssTagFilterUI();
@@ -6618,6 +6666,7 @@ if (typeof getCenterPosition === 'undefined') {
 
         filterActions.appendChild(previewToggleBtn);
         filterActions.appendChild(reverseFilterBtn);
+        filterActions.appendChild(noTagsFilterBtn);
         filterActions.appendChild(clearFilterBtn);
         filterHeader.appendChild(filterTitle);
         filterHeader.appendChild(filterActions);
@@ -6665,11 +6714,18 @@ if (typeof getCenterPosition === 'undefined') {
             reverseFilterBtn.style.opacity = this.ossTagFilterReverse ? '1' : '0.6';
         }
         
-        // 更新清除按钮显示状态（如果有选中的标签或启用了反向过滤，则显示为可用状态）
+        // 更新无标签筛选按钮状态
+        const noTagsFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-no-tags');
+        if (noTagsFilterBtn) {
+            noTagsFilterBtn.style.color = this.ossTagFilterNoTags ? '#667eea' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.ossTagFilterNoTags ? '1' : '0.6';
+        }
+        
+        // 更新清除按钮显示状态（如果有选中的标签、启用了反向过滤或启用了无标签筛选，则显示为可用状态）
         const clearFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-clear');
         if (clearFilterBtn) {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
-            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse;
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags;
             clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
             clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
             clearFilterBtn.style.pointerEvents = hasActiveFilter ? 'auto' : 'none';
@@ -8484,6 +8540,15 @@ if (typeof getCenterPosition === 'undefined') {
             files = files.filter(file => {
                 const fileName = (file.name || '').toLowerCase();
                 return fileName.includes(filterKeyword);
+            });
+        }
+        
+        // 应用无标签筛选
+        if (this.ossTagFilterNoTags) {
+            files = files.filter(file => {
+                const fileTags = file.tags || [];
+                const hasTags = fileTags.length > 0 && fileTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的文件
             });
         }
         

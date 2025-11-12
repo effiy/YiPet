@@ -22695,12 +22695,33 @@ ${messageContent}`;
             backdrop-filter: blur(4px) !important;
         `;
 
-        // 创建下载按钮
+        // 创建下载 SVG 按钮
         const downloadButton = document.createElement('button');
         downloadButton.className = 'mermaid-download-button';
         downloadButton.title = '下载 SVG';
         downloadButton.innerHTML = '💾';
         downloadButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            border-radius: 4px !important;
+            width: 28px !important;
+            height: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.8 !important;
+            backdrop-filter: blur(4px) !important;
+        `;
+
+        // 创建下载 PNG 按钮
+        const downloadPngButton = document.createElement('button');
+        downloadPngButton.className = 'mermaid-download-png-button';
+        downloadPngButton.title = '下载 PNG';
+        downloadPngButton.innerHTML = '🖼️';
+        downloadPngButton.style.cssText = `
             background: rgba(255, 255, 255, 0.2) !important;
             border: none !important;
             border-radius: 4px !important;
@@ -22838,7 +22859,7 @@ ${messageContent}`;
             }
         });
 
-        // 下载按钮点击事件
+        // 下载 SVG 按钮点击事件
         downloadButton.addEventListener('click', async (e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -22876,6 +22897,338 @@ ${messageContent}`;
                 setTimeout(() => {
                     downloadButton.innerHTML = '💾';
                     downloadButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                }, 1000);
+            }
+        });
+
+        // 将 SVG 转换为 PNG 的辅助函数
+        const svgToPng = (svgString) => {
+            return new Promise((resolve, reject) => {
+                // 方法1: 优先尝试直接从 DOM 中的 SVG 元素绘制（最可靠，已渲染好的元素）
+                const svgElementInDom = mermaidDiv.querySelector('svg');
+                if (svgElementInDom) {
+                    try {
+                        // 获取 SVG 的实际尺寸
+                        const bbox = svgElementInDom.getBBox();
+                        let width = bbox.width || 800;
+                        let height = bbox.height || 600;
+                        
+                        // 如果 bbox 无效，尝试从属性获取
+                        if (width <= 0 || height <= 0) {
+                            width = parseFloat(svgElementInDom.getAttribute('width')) || 
+                                   parseFloat(svgElementInDom.getAttribute('viewBox')?.split(/\s+/)[2]) || 800;
+                            height = parseFloat(svgElementInDom.getAttribute('height')) || 
+                                    parseFloat(svgElementInDom.getAttribute('viewBox')?.split(/\s+/)[3]) || 600;
+                        }
+                        
+                        // 确保宽高有效
+                        if (width <= 0 || height <= 0 || !isFinite(width) || !isFinite(height)) {
+                            width = 800;
+                            height = 600;
+                        }
+                        
+                        // 创建 Canvas
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const scale = 2; // 提高清晰度
+                        
+                        canvas.width = width * scale;
+                        canvas.height = height * scale;
+                        
+                        // 设置白色背景
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        
+                        // 将 SVG 序列化为字符串并创建 data URI
+                        const clone = svgElementInDom.cloneNode(true);
+                        if (!clone.getAttribute('xmlns')) {
+                            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                        }
+                        // 确保有明确的宽高
+                        if (!clone.getAttribute('width')) {
+                            clone.setAttribute('width', width.toString());
+                        }
+                        if (!clone.getAttribute('height')) {
+                            clone.setAttribute('height', height.toString());
+                        }
+                        
+                        const clonedSvgString = new XMLSerializer().serializeToString(clone);
+                        const svgDataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(clonedSvgString);
+                        
+                        // 创建图片并绘制
+                        const img = new Image();
+                        img.onload = () => {
+                            try {
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                canvas.toBlob((blob) => {
+                                    if (blob) {
+                                        resolve(blob);
+                                    } else {
+                                        // 如果 DOM 方法失败，回退到字符串方法
+                                        tryStringMethod(svgString, width, height, resolve, reject);
+                                    }
+                                }, 'image/png');
+                            } catch (error) {
+                                // 如果 DOM 方法失败，回退到字符串方法
+                                tryStringMethod(svgString, width, height, resolve, reject);
+                            }
+                        };
+                        img.onerror = () => {
+                            // 如果 DOM 方法失败，回退到字符串方法
+                            tryStringMethod(svgString, width, height, resolve, reject);
+                        };
+                        img.src = svgDataUri;
+                        return; // 成功启动 DOM 方法，退出
+                    } catch (error) {
+                        // DOM 方法出错，继续尝试字符串方法
+                        console.warn('从 DOM 绘制 SVG 失败，尝试字符串方法:', error);
+                    }
+                }
+                
+                // 方法2: 使用 SVG 字符串（备选方案）
+                tryStringMethod(svgString, null, null, resolve, reject);
+            });
+            
+            // 辅助函数：尝试使用 SVG 字符串方法
+            function tryStringMethod(svgString, preferredWidth, preferredHeight, resolve, reject) {
+                try {
+                    // 确保 SVG 字符串不为空
+                    if (!svgString || typeof svgString !== 'string') {
+                        reject(new Error('SVG 内容为空或无效'));
+                        return;
+                    }
+
+                    // 解析 SVG 字符串以获取尺寸信息
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+                    
+                    // 检查解析错误
+                    const parserError = svgDoc.querySelector('parsererror');
+                    if (parserError) {
+                        reject(new Error('SVG 格式错误: ' + parserError.textContent));
+                        return;
+                    }
+                    
+                    const svgElement = svgDoc.documentElement;
+                    
+                    // 确保 SVG 有正确的命名空间
+                    if (!svgElement.getAttribute('xmlns')) {
+                        svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                    }
+                    
+                    // 获取 SVG 的宽高
+                    let width = preferredWidth || svgElement.getAttribute('width');
+                    let height = preferredHeight || svgElement.getAttribute('height');
+                    
+                    // 如果没有明确的宽高，尝试从 viewBox 获取
+                    if (!width || !height) {
+                        const viewBox = svgElement.getAttribute('viewBox');
+                        if (viewBox) {
+                            const parts = viewBox.split(/\s+/);
+                            if (parts.length >= 4) {
+                                width = parts[2];
+                                height = parts[3];
+                            }
+                        }
+                    }
+                    
+                    // 如果还是没有，使用默认值或从实际渲染的元素获取
+                    if (!width || !height || width === '0' || height === '0') {
+                        const svgElementInDom = mermaidDiv.querySelector('svg');
+                        if (svgElementInDom) {
+                            try {
+                                const bbox = svgElementInDom.getBBox();
+                                width = bbox.width || '800';
+                                height = bbox.height || '600';
+                            } catch (e) {
+                                width = '800';
+                                height = '600';
+                            }
+                        } else {
+                            width = '800';
+                            height = '600';
+                        }
+                    }
+                    
+                    // 移除单位（px, em 等），只保留数字
+                    width = parseFloat(width) || 800;
+                    height = parseFloat(height) || 600;
+                    
+                    // 确保宽高有效
+                    if (width <= 0 || height <= 0 || !isFinite(width) || !isFinite(height)) {
+                        width = 800;
+                        height = 600;
+                    }
+                    
+                    // 重新序列化 SVG，确保格式正确
+                    const serializer = new XMLSerializer();
+                    let finalSvgString = serializer.serializeToString(svgElement);
+                    
+                    // 如果 SVG 没有明确的宽高，在加载前设置
+                    if (!svgElement.getAttribute('width') || !svgElement.getAttribute('height')) {
+                        finalSvgString = finalSvgString.replace(
+                            /<svg([^>]*)>/,
+                            `<svg$1 width="${width}" height="${height}">`
+                        );
+                    }
+                    
+                    // 使用 data URI
+                    const svgDataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(finalSvgString);
+                    
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    
+                    // 设置超时处理
+                    const timeout = setTimeout(() => {
+                        reject(new Error('加载 SVG 超时'));
+                    }, 10000); // 10秒超时
+                    
+                    img.onload = () => {
+                        clearTimeout(timeout);
+                        try {
+                            // 创建 Canvas
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            
+                            // 设置 Canvas 尺寸（可以设置缩放比例，默认 2x 提高清晰度）
+                            const scale = 2;
+                            // 使用实际图片尺寸或解析的尺寸
+                            const finalWidth = (img.width && img.width > 0) ? img.width : width;
+                            const finalHeight = (img.height && img.height > 0) ? img.height : height;
+                            
+                            canvas.width = finalWidth * scale;
+                            canvas.height = finalHeight * scale;
+                            
+                            // 设置白色背景（PNG 需要背景色）
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            
+                            // 绘制图片到 Canvas
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            
+                            // 转换为 PNG
+                            canvas.toBlob((blob) => {
+                                if (blob) {
+                                    resolve(blob);
+                                } else {
+                                    reject(new Error('Canvas 转换失败'));
+                                }
+                            }, 'image/png');
+                        } catch (error) {
+                            reject(new Error('处理图片时出错: ' + error.message));
+                        }
+                    };
+                    
+                    img.onerror = () => {
+                        clearTimeout(timeout);
+                        // 最后尝试使用 Blob URL
+                        try {
+                            const svgBlob = new Blob([finalSvgString], { type: 'image/svg+xml;charset=utf-8' });
+                            const svgUrl = URL.createObjectURL(svgBlob);
+                            
+                            const img2 = new Image();
+                            img2.crossOrigin = 'anonymous';
+                            
+                            const timeout2 = setTimeout(() => {
+                                URL.revokeObjectURL(svgUrl);
+                                reject(new Error('加载 SVG 超时（使用 Blob URL）'));
+                            }, 10000);
+                            
+                            img2.onload = () => {
+                                clearTimeout(timeout2);
+                                try {
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
+                                    const scale = 2;
+                                    const finalWidth = (img2.width && img2.width > 0) ? img2.width : width;
+                                    const finalHeight = (img2.height && img2.height > 0) ? img2.height : height;
+                                    
+                                    canvas.width = finalWidth * scale;
+                                    canvas.height = finalHeight * scale;
+                                    
+                                    ctx.fillStyle = '#ffffff';
+                                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                    ctx.drawImage(img2, 0, 0, canvas.width, canvas.height);
+                                    
+                                    canvas.toBlob((blob) => {
+                                        URL.revokeObjectURL(svgUrl);
+                                        if (blob) {
+                                            resolve(blob);
+                                        } else {
+                                            reject(new Error('Canvas 转换失败'));
+                                        }
+                                    }, 'image/png');
+                                } catch (error) {
+                                    URL.revokeObjectURL(svgUrl);
+                                    reject(new Error('处理图片时出错: ' + error.message));
+                                }
+                            };
+                            
+                            img2.onerror = () => {
+                                clearTimeout(timeout2);
+                                URL.revokeObjectURL(svgUrl);
+                                reject(new Error('加载 SVG 图片失败：可能是 SVG 格式问题或包含无法加载的外部资源。请确保 SVG 不包含外部图片链接。'));
+                            };
+                            
+                            img2.src = svgUrl;
+                        } catch (error) {
+                            reject(new Error('加载 SVG 图片失败: ' + error.message));
+                        }
+                    };
+                    
+                    img.src = svgDataUri;
+                } catch (error) {
+                    reject(new Error('处理 SVG 时出错: ' + error.message));
+                }
+            }
+        };
+
+        // 下载 PNG 按钮点击事件
+        downloadPngButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            try {
+                const svg = await getSvgContent();
+
+                if (svg) {
+                    // 显示加载状态
+                    downloadPngButton.innerHTML = '⏳';
+                    downloadPngButton.style.cursor = 'wait';
+                    
+                    // 转换为 PNG
+                    const pngBlob = await svgToPng(svg);
+                    
+                    // 创建下载链接
+                    const url = URL.createObjectURL(pngBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `mermaid-diagram-${Date.now()}.png`;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    // 显示成功提示
+                    downloadPngButton.innerHTML = '✓';
+                    downloadPngButton.style.background = 'rgba(76, 175, 80, 0.3) !important';
+                    downloadPngButton.style.cursor = 'pointer';
+                    setTimeout(() => {
+                        downloadPngButton.innerHTML = '🖼️';
+                        downloadPngButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                    }, 1000);
+                } else {
+                    throw new Error('无法获取 SVG 内容');
+                }
+            } catch (error) {
+                console.error('下载 PNG 失败:', error);
+                downloadPngButton.innerHTML = '✗';
+                downloadPngButton.style.background = 'rgba(244, 67, 54, 0.3) !important';
+                downloadPngButton.style.cursor = 'pointer';
+                setTimeout(() => {
+                    downloadPngButton.innerHTML = '🖼️';
+                    downloadPngButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
                 }, 1000);
             }
         });
@@ -23091,6 +23444,7 @@ ${messageContent}`;
 
         actionsContainer.appendChild(copyButton);
         actionsContainer.appendChild(downloadButton);
+        actionsContainer.appendChild(downloadPngButton);
         actionsContainer.appendChild(editButton);
         mermaidDiv.appendChild(actionsContainer);
 
@@ -23115,6 +23469,17 @@ ${messageContent}`;
             downloadButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
             downloadButton.style.transform = 'scale(1)';
             downloadButton.style.opacity = '0.8';
+        });
+
+        downloadPngButton.addEventListener('mouseenter', () => {
+            downloadPngButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
+            downloadPngButton.style.transform = 'scale(1.1)';
+            downloadPngButton.style.opacity = '1';
+        });
+        downloadPngButton.addEventListener('mouseleave', () => {
+            downloadPngButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+            downloadPngButton.style.transform = 'scale(1)';
+            downloadPngButton.style.opacity = '0.8';
         });
 
         editButton.addEventListener('mouseenter', () => {

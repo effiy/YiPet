@@ -24418,6 +24418,34 @@ ${messageContent}`;
             }
         });
 
+        // 创建全屏按钮
+        const fullscreenButton = document.createElement('button');
+        fullscreenButton.className = 'mermaid-fullscreen-button';
+        fullscreenButton.title = '全屏查看';
+        fullscreenButton.innerHTML = '⛶';
+        fullscreenButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            border-radius: 4px !important;
+            width: 28px !important;
+            height: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.8 !important;
+            backdrop-filter: blur(4px) !important;
+        `;
+
+        // 全屏按钮点击事件
+        fullscreenButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            this.openMermaidFullscreen(mermaidDiv, mermaidSourceCode);
+        });
+
         // 悬停显示按钮
         mermaidDiv.addEventListener('mouseenter', () => {
             actionsContainer.style.opacity = '1';
@@ -24430,6 +24458,7 @@ ${messageContent}`;
         actionsContainer.appendChild(downloadButton);
         actionsContainer.appendChild(downloadPngButton);
         actionsContainer.appendChild(editButton);
+        actionsContainer.appendChild(fullscreenButton);
         mermaidDiv.appendChild(actionsContainer);
 
         // 按钮悬停效果
@@ -24476,6 +24505,388 @@ ${messageContent}`;
             editButton.style.transform = 'scale(1)';
             editButton.style.opacity = '0.8';
         });
+
+        fullscreenButton.addEventListener('mouseenter', () => {
+            fullscreenButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
+            fullscreenButton.style.transform = 'scale(1.1)';
+            fullscreenButton.style.opacity = '1';
+        });
+        fullscreenButton.addEventListener('mouseleave', () => {
+            fullscreenButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+            fullscreenButton.style.transform = 'scale(1)';
+            fullscreenButton.style.opacity = '0.8';
+        });
+    }
+
+    // 打开 Mermaid 图表全屏查看
+    openMermaidFullscreen(mermaidDiv, mermaidSourceCode) {
+        // 检查是否已经存在全屏容器
+        const existingFullscreen = document.getElementById('mermaid-fullscreen-container');
+        if (existingFullscreen) {
+            existingFullscreen.remove();
+        }
+
+        // 获取聊天窗口
+        const chatWindow = document.getElementById('pet-chat-window');
+        if (!chatWindow) {
+            console.error('找不到聊天窗口');
+            return;
+        }
+
+        // 获取聊天窗口的位置和尺寸
+        const chatRect = chatWindow.getBoundingClientRect();
+
+        // 创建全屏容器
+        const fullscreenContainer = document.createElement('div');
+        fullscreenContainer.id = 'mermaid-fullscreen-container';
+        // 使用比聊天窗口更高的 z-index（聊天窗口是 2147483648）
+        const fullscreenZIndex = 2147483649;
+        fullscreenContainer.style.cssText = `
+            position: fixed !important;
+            top: ${chatRect.top}px !important;
+            left: ${chatRect.left}px !important;
+            width: ${chatRect.width}px !important;
+            height: ${chatRect.height}px !important;
+            background: rgba(0, 0, 0, 0.95) !important;
+            z-index: ${fullscreenZIndex} !important;
+            display: flex !important;
+            flex-direction: column !important;
+            border-radius: 8px !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+        `;
+
+        // 创建头部栏（包含关闭按钮）
+        const headerBar = document.createElement('div');
+        headerBar.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 10px 15px !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+            flex-shrink: 0 !important;
+        `;
+
+        const title = document.createElement('div');
+        title.textContent = 'Mermaid 图表全屏查看';
+        title.style.cssText = `
+            color: white !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+        `;
+
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '✕';
+        closeButton.title = '关闭全屏';
+        closeButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            color: white !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 4px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeButton.addEventListener('click', () => {
+            fullscreenContainer.remove();
+        });
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
+        });
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+        });
+
+        headerBar.appendChild(title);
+        headerBar.appendChild(closeButton);
+
+        // 创建内容区域
+        const contentArea = document.createElement('div');
+        contentArea.style.cssText = `
+            flex: 1 !important;
+            overflow: hidden !important;
+            display: flex !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            padding: 0 !important;
+            position: relative !important;
+        `;
+
+        // 克隆 mermaid 图表
+        const clonedMermaid = mermaidDiv.cloneNode(true);
+        clonedMermaid.style.cssText = `
+            width: 100% !important;
+            height: 100% !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            padding: 20px !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+        `;
+
+        // 移除克隆元素中的操作按钮
+        const clonedActions = clonedMermaid.querySelector('.mermaid-actions');
+        if (clonedActions) {
+            clonedActions.remove();
+        }
+
+        // 调整 SVG 样式使其自适应
+        const adjustSvgSize = () => {
+            const svg = clonedMermaid.querySelector('svg');
+            if (svg) {
+                svg.style.cssText = `
+                    width: 100% !important;
+                    height: 100% !important;
+                    max-width: 100% !important;
+                    max-height: 100% !important;
+                `;
+                // 确保 SVG 有 viewBox 属性以便自适应
+                if (!svg.getAttribute('viewBox') && svg.getAttribute('width') && svg.getAttribute('height')) {
+                    const width = svg.getAttribute('width');
+                    const height = svg.getAttribute('height');
+                    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+                    svg.removeAttribute('width');
+                    svg.removeAttribute('height');
+                }
+            }
+        };
+
+        contentArea.appendChild(clonedMermaid);
+
+        // 组装全屏容器
+        fullscreenContainer.appendChild(headerBar);
+        fullscreenContainer.appendChild(contentArea);
+
+        // 添加到页面
+        document.body.appendChild(fullscreenContainer);
+
+        // 添加四个角的拖拽调整大小功能
+        this.addResizeHandles(fullscreenContainer, chatWindow);
+
+        // 重新渲染 mermaid（如果需要）
+        const clonedMermaidId = clonedMermaid.id || `mermaid-fullscreen-${Date.now()}`;
+        clonedMermaid.id = clonedMermaidId;
+        
+        // 如果克隆的图表还没有渲染，需要重新渲染
+        if (!clonedMermaid.querySelector('svg')) {
+            const mermaidContent = mermaidSourceCode || clonedMermaid.getAttribute('data-mermaid-source') || clonedMermaid.textContent || '';
+            if (mermaidContent.trim()) {
+                clonedMermaid.textContent = mermaidContent;
+                clonedMermaid.className = 'mermaid';
+                
+                // 使用注入脚本重新渲染
+                const renderIdContainer = document.createElement('div');
+                renderIdContainer.id = `__mermaid_render_id_container__${clonedMermaidId}`;
+                renderIdContainer.setAttribute('data-mermaid-id', clonedMermaidId);
+                renderIdContainer.style.display = 'none';
+                document.body.appendChild(renderIdContainer);
+
+                const handleRender = (event) => {
+                    if (event.detail.id === clonedMermaidId) {
+                        window.removeEventListener('mermaid-rendered', handleRender);
+                        renderIdContainer.remove();
+                        // 渲染完成后调整 SVG 大小
+                        setTimeout(() => {
+                            adjustSvgSize();
+                        }, 100);
+                    }
+                };
+                window.addEventListener('mermaid-rendered', handleRender);
+
+                setTimeout(() => {
+                    const renderScript = document.createElement('script');
+                    renderScript.src = chrome.runtime.getURL('render-mermaid.js');
+                    renderScript.onload = () => {
+                        if (renderScript.parentNode) {
+                            renderScript.parentNode.removeChild(renderScript);
+                        }
+                    };
+                    document.documentElement.appendChild(renderScript);
+                }, 100);
+            }
+        } else {
+            // 如果已经有 SVG，立即调整大小
+            setTimeout(() => {
+                adjustSvgSize();
+            }, 100);
+        }
+
+        // 监听窗口大小变化和容器大小变化，自适应调整图表
+        const resizeObserver = new ResizeObserver(() => {
+            adjustSvgSize();
+        });
+        resizeObserver.observe(fullscreenContainer);
+        resizeObserver.observe(contentArea);
+        
+        // 当全屏容器被移除时，清理观察者
+        const originalRemove = fullscreenContainer.remove.bind(fullscreenContainer);
+        fullscreenContainer.remove = function() {
+            resizeObserver.disconnect();
+            originalRemove();
+        };
+    }
+
+    // 添加四个角的拖拽调整大小功能
+    addResizeHandles(container, chatWindow) {
+        const handles = ['nw', 'ne', 'sw', 'se']; // 四个角：左上、右上、左下、右下
+        const handleSize = 12;
+        let isResizing = false;
+        let resizeHandle = null;
+        let startX = 0;
+        let startY = 0;
+        let startWidth = 0;
+        let startHeight = 0;
+        let startLeft = 0;
+        let startTop = 0;
+
+        handles.forEach(position => {
+            const handle = document.createElement('div');
+            handle.className = `resize-handle resize-handle-${position}`;
+            handle.style.cssText = `
+                position: absolute !important;
+                width: ${handleSize}px !important;
+                height: ${handleSize}px !important;
+                background: rgba(255, 255, 255, 0.3) !important;
+                border: 2px solid rgba(255, 255, 255, 0.6) !important;
+                border-radius: 2px !important;
+                cursor: ${this.getResizeCursor(position)} !important;
+                z-index: 1000 !important;
+                transition: all 0.2s ease !important;
+            `;
+
+            // 设置位置
+            switch(position) {
+                case 'nw': // 左上
+                    handle.style.top = '0';
+                    handle.style.left = '0';
+                    break;
+                case 'ne': // 右上
+                    handle.style.top = '0';
+                    handle.style.right = '0';
+                    break;
+                case 'sw': // 左下
+                    handle.style.bottom = '0';
+                    handle.style.left = '0';
+                    break;
+                case 'se': // 右下
+                    handle.style.bottom = '0';
+                    handle.style.right = '0';
+                    break;
+            }
+
+            // 鼠标悬停效果
+            handle.addEventListener('mouseenter', () => {
+                handle.style.background = 'rgba(255, 255, 255, 0.5) !important';
+                handle.style.borderColor = 'rgba(255, 255, 255, 0.9) !important';
+                handle.style.transform = 'scale(1.2)';
+            });
+            handle.addEventListener('mouseleave', () => {
+                if (!isResizing) {
+                    handle.style.background = 'rgba(255, 255, 255, 0.3) !important';
+                    handle.style.borderColor = 'rgba(255, 255, 255, 0.6) !important';
+                    handle.style.transform = 'scale(1)';
+                }
+            });
+
+            // 鼠标按下开始调整大小
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isResizing = true;
+                resizeHandle = position;
+                startX = e.clientX;
+                startY = e.clientY;
+                const rect = container.getBoundingClientRect();
+                startWidth = rect.width;
+                startHeight = rect.height;
+                startLeft = rect.left;
+                startTop = rect.top;
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            });
+
+            container.appendChild(handle);
+        });
+
+        const handleMouseMove = (e) => {
+            if (!isResizing || !resizeHandle) return;
+
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            const chatRect = chatWindow.getBoundingClientRect();
+            const minWidth = 300;
+            const minHeight = 200;
+            const maxWidth = window.innerWidth;
+            const maxHeight = window.innerHeight;
+
+            let newWidth = startWidth;
+            let newHeight = startHeight;
+            let newLeft = startLeft;
+            let newTop = startTop;
+
+            switch(resizeHandle) {
+                case 'nw': // 左上角
+                    newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth - deltaX));
+                    newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight - deltaY));
+                    newLeft = startLeft + (startWidth - newWidth);
+                    newTop = startTop + (startHeight - newHeight);
+                    break;
+                case 'ne': // 右上角
+                    newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX));
+                    newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight - deltaY));
+                    newTop = startTop + (startHeight - newHeight);
+                    break;
+                case 'sw': // 左下角
+                    newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth - deltaX));
+                    newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight + deltaY));
+                    newLeft = startLeft + (startWidth - newWidth);
+                    break;
+                case 'se': // 右下角
+                    newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX));
+                    newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight + deltaY));
+                    break;
+            }
+
+            // 确保不超出窗口边界
+            newLeft = Math.max(0, Math.min(window.innerWidth - newWidth, newLeft));
+            newTop = Math.max(0, Math.min(window.innerHeight - newHeight, newTop));
+
+            container.style.width = `${newWidth}px`;
+            container.style.height = `${newHeight}px`;
+            container.style.left = `${newLeft}px`;
+            container.style.top = `${newTop}px`;
+            
+            // 调整大小后，触发图表自适应（ResizeObserver 会自动处理，这里可以添加防抖优化）
+        };
+
+        const handleMouseUp = () => {
+            isResizing = false;
+            resizeHandle = null;
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }
+
+    // 获取调整大小的光标样式
+    getResizeCursor(position) {
+        switch(position) {
+            case 'nw': return 'nw-resize';
+            case 'ne': return 'ne-resize';
+            case 'sw': return 'sw-resize';
+            case 'se': return 'se-resize';
+            default: return 'default';
+        }
     }
 
     // 创建消息元素

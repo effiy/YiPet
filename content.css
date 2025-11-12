@@ -519,7 +519,8 @@
 
 .mermaid-copy-button,
 .mermaid-download-button,
-.mermaid-edit-button {
+.mermaid-edit-button,
+.mermaid-fullscreen-button {
     background: rgba(255, 255, 255, 0.2) !important;
     border: none !important;
     border-radius: 4px !important;
@@ -539,7 +540,8 @@
 
 .mermaid-copy-button:hover,
 .mermaid-download-button:hover,
-.mermaid-edit-button:hover {
+.mermaid-edit-button:hover,
+.mermaid-fullscreen-button:hover {
     background: rgba(255, 255, 255, 0.3) !important;
     transform: scale(1.1) !important;
     opacity: 1 !important;
@@ -547,8 +549,59 @@
 
 .mermaid-copy-button:active,
 .mermaid-download-button:active,
-.mermaid-edit-button:active {
+.mermaid-edit-button:active,
+.mermaid-fullscreen-button:active {
     transform: scale(0.95) !important;
+}
+
+/* 全屏容器样式 */
+#mermaid-fullscreen-container {
+    position: fixed !important;
+    z-index: 2147483649 !important;
+    background: rgba(0, 0, 0, 0.95) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 全屏容器内的 Mermaid 图表样式 */
+#mermaid-fullscreen-container .mermaid {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+}
+
+#mermaid-fullscreen-container .mermaid svg {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+}
+
+/* 调整大小手柄样式 */
+.resize-handle {
+    position: absolute !important;
+    width: 12px !important;
+    height: 12px !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+    border: 2px solid rgba(255, 255, 255, 0.6) !important;
+    border-radius: 2px !important;
+    z-index: 1000 !important;
+    transition: all 0.2s ease !important;
+}
+
+.resize-handle:hover {
+    background: rgba(255, 255, 255, 0.5) !important;
+    border-color: rgba(255, 255, 255, 0.9) !important;
+    transform: scale(1.2) !important;
 }
 
 /* 复制按钮样式 */

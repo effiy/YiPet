@@ -9403,6 +9403,17 @@ if (typeof getCenterPosition === 'undefined') {
                         // 触发删除（异步执行，删除完成后清除状态）
                         try {
                             if (this.ossFileManager) {
+                                // 获取文件名用于提示
+                                const fileName = file.name || '未命名文件';
+                                
+                                // 确认删除
+                                const confirmDelete = confirm(`确定要删除文件"${fileName}"吗？`);
+                                if (!confirmDelete) {
+                                    // 用户取消删除，清除长按状态
+                                    clearLongPress();
+                                    return;
+                                }
+                                
                                 await this.ossFileManager.deleteFile(file.name);
                                 this.showNotification('文件已删除', 'success');
                                 // 刷新列表

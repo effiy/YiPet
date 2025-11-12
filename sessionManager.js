@@ -8,7 +8,7 @@ class SessionManager {
     constructor(options = {}) {
         // 配置选项
         this.sessionApi = options.sessionApi || null; // SessionApiManager 实例
-        this.storageKey = options.storageKey || 'petChatSessions'; // 本地存储键
+        this.storageKey = options.storageKey || 'petSessions'; // 本地存储键
         this.enableBackendSync = options.enableBackendSync || false; // 是否启用后端同步
         
         // 会话数据
@@ -203,7 +203,8 @@ class SessionManager {
                     }
                 }
             } else {
-                // 非 Chrome 环境，使用 localStorage
+                // 非 Chrome 环境
+                // 使用 localStorage
                 try {
                     const stored = localStorage.getItem(this.storageKey);
                     if (stored) {
@@ -284,7 +285,7 @@ class SessionManager {
                         if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.runtime || !chrome.runtime.id) {
                             throw new Error('Extension context invalidated');
                         }
-                        chrome.storage.local.set({ [this.storageKey]: this.sessions }, () => {
+                        chrome.storage.local.set({ [this.storageKey]: this.sessions }, async () => {
                             if (chrome.runtime.lastError) {
                                 const error = chrome.runtime.lastError;
                                 const errorMsg = error.message || error.toString();
@@ -318,14 +319,14 @@ class SessionManager {
                     }
                 }
             } else {
-                // 非 Chrome 环境，使用 localStorage
+                // 非 Chrome 环境
+                // 使用 localStorage
                 try {
                     localStorage.setItem(this.storageKey, JSON.stringify(this.sessions));
-                    resolve();
                 } catch (error) {
                     console.error('保存本地会话失败:', error);
-                    resolve();
                 }
+                resolve();
             }
         });
     }

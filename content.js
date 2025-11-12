@@ -154,6 +154,7 @@ if (typeof window.StorageHelper === 'undefined') {
             const errorMsg = error.message || error.toString();
             return errorMsg.includes('QUOTA_BYTES') || 
                    errorMsg.includes('quota exceeded') ||
+                   errorMsg.includes('QuotaExceededError') ||
                    errorMsg.includes('MAX_WRITE_OPERATIONS') ||
                    errorMsg.includes('QUOTA_BYTES_PER_HOUR');
         },
@@ -169,6 +170,7 @@ if (typeof window.StorageHelper === 'undefined') {
                    errorMsg.includes('receiving end does not exist') ||
                    errorMsg.includes('could not establish connection');
         },
+        
         
         // 清理旧数据以释放空间
         async cleanupOldData() {
@@ -206,76 +208,32 @@ if (typeof window.StorageHelper === 'undefined') {
                 // 按优先级清理数据
                 const cleanupKeys = [
                     'petOssFiles', // OSS文件列表（可以重新加载）
-                    'petChatSessions', // 会话数据（保留最近的，删除旧的）
                 ];
                 
                 for (const key of cleanupKeys) {
                     if (allData[key]) {
-                        if (key === 'petChatSessions') {
-                            // 清理会话：保留最近50个会话，删除旧的
-                            const sessions = allData[key];
-                            if (typeof sessions === 'object') {
-                                const sessionArray = Object.values(sessions);
-                                if (sessionArray.length > 50) {
-                                    // 按更新时间排序，保留最新的50个
-                                    sessionArray.sort((a, b) => {
-                                        const aTime = (a.updatedAt || a.createdAt || 0);
-                                        const bTime = (b.updatedAt || b.createdAt || 0);
-                                        return bTime - aTime;
-                                    });
-                                    
-                                    const keepSessions = {};
-                                    sessionArray.slice(0, 50).forEach(session => {
-                                        if (session && session.id) {
-                                            keepSessions[session.id] = session;
-                                        }
-                                    });
-                                    
-                                    // 删除旧会话
-                                    if (this.isChromeStorageAvailable()) {
-                                        await new Promise((resolve) => {
-                                            try {
-                                                chrome.storage.local.set({ [key]: keepSessions }, () => {
-                                                    if (chrome.runtime.lastError && this.isContextInvalidatedError(chrome.runtime.lastError)) {
-                                                        console.debug('扩展已重新加载，跳过清理');
-                                                    }
-                                                    resolve();
-                                                });
-                                            } catch (error) {
-                                                if (this.isContextInvalidatedError(error)) {
-                                                    console.debug('扩展已重新加载，跳过清理');
-                                                }
-                                                resolve();
-                                            }
-                                        });
-                                    }
-                                    
-                                    console.log(`已清理旧会话，保留最新50个`);
-                                }
-                            }
-                        } else {
-                            // 其他数据直接清空
-                            if (this.isChromeStorageAvailable()) {
-                                await new Promise((resolve) => {
-                                    try {
-                                        chrome.storage.local.remove(key, () => {
-                                            if (chrome.runtime.lastError && this.isContextInvalidatedError(chrome.runtime.lastError)) {
-                                                console.debug('扩展已重新加载，跳过清理');
-                                            }
-                                            resolve();
-                                        });
-                                    } catch (error) {
-                                        if (this.isContextInvalidatedError(error)) {
+                        // 其他数据直接清空
+                        if (this.isChromeStorageAvailable()) {
+                            await new Promise((resolve) => {
+                                try {
+                                    chrome.storage.local.remove(key, () => {
+                                        if (chrome.runtime.lastError && this.isContextInvalidatedError(chrome.runtime.lastError)) {
                                             console.debug('扩展已重新加载，跳过清理');
                                         }
                                         resolve();
+                                    });
+                                } catch (error) {
+                                    if (this.isContextInvalidatedError(error)) {
+                                        console.debug('扩展已重新加载，跳过清理');
                                     }
-                                });
-                                console.log(`已清理存储键: ${key}`);
-                            }
+                                    resolve();
+                                }
+                            });
+                            console.log(`已清理存储键: ${key}`);
                         }
                     }
                 }
+                
             } catch (error) {
                 console.error('清理存储数据失败:', error);
             }
@@ -284,7 +242,7 @@ if (typeof window.StorageHelper === 'undefined') {
         // 安全的存储设置函数
         async set(key, value, options = {}) {
             return new Promise(async (resolve) => {
-                // 首先检查chrome.storage是否可用
+                // 其他键可以降级到 localStorage
                 if (!this.isChromeStorageAvailable()) {
                     console.debug('扩展已重新加载，自动使用localStorage');
                     try {
@@ -304,6 +262,7 @@ if (typeof window.StorageHelper === 'undefined') {
                             
                             // 检查是否是上下文失效错误
                             if (this.isContextInvalidatedError(error)) {
+                                // 其他键可以降级到 localStorage
                                 console.debug('扩展已重新加载，自动使用localStorage');
                                 try {
                                     localStorage.setItem(key, JSON.stringify(value));
@@ -320,6 +279,7 @@ if (typeof window.StorageHelper === 'undefined') {
                                 
                                 // 检查chrome.storage是否仍然可用
                                 if (!this.isChromeStorageAvailable()) {
+                                    // 其他键可以降级到 localStorage
                                     console.debug('扩展已重新加载，自动使用localStorage');
                                     try {
                                         localStorage.setItem(key, JSON.stringify(value));
@@ -335,6 +295,7 @@ if (typeof window.StorageHelper === 'undefined') {
                                 
                                 // 再次检查chrome.storage是否可用
                                 if (!this.isChromeStorageAvailable()) {
+                                    // 其他键可以降级到 localStorage
                                     console.debug('扩展已重新加载，自动使用localStorage');
                                     try {
                                         localStorage.setItem(key, JSON.stringify(value));
@@ -346,7 +307,7 @@ if (typeof window.StorageHelper === 'undefined') {
                                 }
                                 
                                 // 重试保存
-                                chrome.storage.local.set({ [key]: value }, (retryError) => {
+                                chrome.storage.local.set({ [key]: value }, async (retryError) => {
                                     if (chrome.runtime.lastError) {
                                         const retryErr = chrome.runtime.lastError;
                                         if (this.isContextInvalidatedError(retryErr)) {
@@ -358,6 +319,7 @@ if (typeof window.StorageHelper === 'undefined') {
                                                 resolve({ success: false, error: localError.message });
                                             }
                                         } else if (this.isQuotaError(retryErr)) {
+                                            // 其他键可以降级到 localStorage
                                             console.warn('清理后仍配额不足，已降级到localStorage');
                                             try {
                                                 localStorage.setItem(key, JSON.stringify(value));
@@ -374,7 +336,8 @@ if (typeof window.StorageHelper === 'undefined') {
                                     }
                                 });
                             } else {
-                                // 其他错误 - 尝试降级到localStorage
+                                // 其他错误
+                                // 其他键可以降级到 localStorage
                                 console.debug('存储操作已降级到localStorage');
                                 try {
                                     localStorage.setItem(key, JSON.stringify(value));
@@ -396,7 +359,7 @@ if (typeof window.StorageHelper === 'undefined') {
                                                 errorMsg.includes('invalidated');
                     
                     if (isContextInvalidated) {
-                        // 上下文失效是正常情况（扩展重新加载），使用调试日志而不是警告
+                        // 其他键可以降级到 localStorage
                         console.debug('扩展已重新加载，自动使用localStorage');
                         try {
                             localStorage.setItem(key, JSON.stringify(value));
@@ -406,13 +369,12 @@ if (typeof window.StorageHelper === 'undefined') {
                             resolve({ success: false, error: '存储失败' });
                         }
                     } else {
-                        // 其他错误也尝试降级到localStorage，避免打扰用户
+                        // 其他键可以降级到 localStorage
                         console.debug('存储操作已降级到localStorage:', error.message);
                         try {
                             localStorage.setItem(key, JSON.stringify(value));
                             resolve({ success: true, fallback: 'localStorage' });
                         } catch (localError) {
-                            // 只有在所有方法都失败时才报错
                             console.error('存储失败（chrome.storage和localStorage都不可用）:', error.message);
                             resolve({ success: false, error: error.message || '存储失败' });
                         }
@@ -4110,80 +4072,15 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
 
-    // 加载所有会话（先从后端加载，然后从本地存储加载）
+    // 加载所有会话（从后端加载）
     async loadAllSessions() {
-        // 先从后端加载会话列表
+        // 从后端加载会话列表
         await this.loadSessionsFromBackend();
         
-        // 然后从本地存储加载（作为补充，因为本地可能有一些未同步的临时会话）
-        return new Promise((resolve) => {
-            chrome.storage.local.get(['petChatSessions'], (result) => {
-                if (result.petChatSessions) {
-                    // 合并本地存储的会话（如果后端没有）
-                    if (!this.sessions) {
-                        this.sessions = {};
-                    }
-                    
-                    // 将本地存储的会话合并进来（如果后端没有对应的会话）
-                    for (const [sessionId, localSession] of Object.entries(result.petChatSessions)) {
-                        if (!localSession || !localSession.id) continue;
-                        
-                        // 跳过OSS文件会话，不在会话列表中显示（除非是当前会话）
-                        if (localSession._isOssFileSession && localSession.id !== this.currentSessionId) {
-                            continue;
-                        }
-                        
-                        // 使用会话的 id 作为 key（而不是 sessionId，因为可能有不同）
-                        const id = localSession.id;
-                        if (!this.sessions[id]) {
-                            this.sessions[id] = localSession;
-                        } else {
-                            // 如果两端都有，使用更更新的版本
-                            const backendSession = this.sessions[id];
-                            const localUpdatedAt = localSession.updatedAt || 0;
-                            const backendUpdatedAt = backendSession.updatedAt || 0;
-                            
-                            if (localUpdatedAt > backendUpdatedAt) {
-                                // 本地更新，使用本地数据
-                                this.sessions[id] = localSession;
-                            }
-                        }
-                    }
-                    
-                    // 最后进行一次去重，确保每个 id 只有一个会话，同时过滤掉OSS文件会话（除非是当前会话）
-                    const deduplicatedSessions = {};
-                    for (const [key, session] of Object.entries(this.sessions)) {
-                        if (!session || !session.id) continue;
-                        
-                        // 跳过OSS文件会话（除非是当前会话）
-                        if (session._isOssFileSession && session.id !== this.currentSessionId) {
-                            continue;
-                        }
-                        
-                        const id = session.id;
-                        if (!deduplicatedSessions[id]) {
-                            deduplicatedSessions[id] = session;
-                        } else {
-                            const existingUpdatedAt = deduplicatedSessions[id].updatedAt || 0;
-                            const currentUpdatedAt = session.updatedAt || 0;
-                            if (currentUpdatedAt > existingUpdatedAt) {
-                                deduplicatedSessions[id] = session;
-                            }
-                        }
-                    }
-                    this.sessions = {};
-                    for (const session of Object.values(deduplicatedSessions)) {
-                        if (session && session.id) {
-                            this.sessions[session.id] = session;
-                        }
-                    }
-                } else if (!this.sessions) {
-                    // 如果本地存储也没有，初始化空对象
-                    this.sessions = {};
-                }
-                resolve();
-            });
-        });
+        // 如果后端没有加载到会话，初始化空对象
+        if (!this.sessions) {
+            this.sessions = {};
+        }
     }
 
     // 保存所有会话（带节流优化）
@@ -4222,39 +4119,15 @@ if (typeof getCenterPosition === 'undefined') {
     // 实际执行保存操作
     async _doSaveAllSessions(syncToBackend = true) {
         this.lastSessionSaveTime = Date.now();
-        return new Promise(async (resolve) => {
-            // 使用StorageHelper处理配额错误
-            if (typeof window.StorageHelper !== 'undefined') {
-                const result = await window.StorageHelper.set('petChatSessions', this.sessions);
-                if (!result.success) {
-                    console.error('保存会话失败:', result.error);
-                }
-            } else {
-                // 降级到原始方法
-                chrome.storage.local.set({ petChatSessions: this.sessions }, () => {
-                    if (chrome.runtime.lastError) {
-                        const error = chrome.runtime.lastError;
-                        console.error('保存会话失败:', error.message);
-                        // 降级到localStorage
-                        try {
-                            localStorage.setItem('petChatSessions', JSON.stringify(this.sessions));
-                        } catch (localError) {
-                            console.error('保存到localStorage也失败:', localError);
-                        }
-                    }
-                });
-            }
-            
-            // 保存到本地存储后，异步同步到后端（使用队列批量保存，不阻塞保存流程）
-            // 只有在允许同步且启用后端同步时，才同步到后端
-            if (syncToBackend && PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
-                // 使用队列批量保存，提高性能
-                this.syncSessionToBackend(this.currentSessionId, false).catch(err => {
-                    console.warn('同步会话到后端失败:', err);
-                });
-            }
-            resolve();
-        });
+        
+        // 异步同步到后端（使用队列批量保存，不阻塞保存流程）
+        // 只有在允许同步且启用后端同步时，才同步到后端
+        if (syncToBackend && PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
+            // 使用队列批量保存，提高性能
+            this.syncSessionToBackend(this.currentSessionId, false).catch(err => {
+                console.warn('同步会话到后端失败:', err);
+            });
+        }
     }
     
     // 同步会话到YiAi后端（使用API管理器，支持批量保存）

@@ -10433,7 +10433,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.applySidebarCollapsedState();
         this.saveSidebarCollapsed();
         
-        // 更新折叠按钮图标
+        // 更新折叠按钮图标和位置
         const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
         if (toggleBtn) {
             const icon = toggleBtn.querySelector('.toggle-icon');
@@ -10441,6 +10441,15 @@ if (typeof getCenterPosition === 'undefined') {
                 icon.textContent = this.sidebarCollapsed ? '▶' : '◀';
             }
             toggleBtn.title = this.sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏';
+            // 更新按钮位置：折叠时在左侧边缘，展开时在侧边栏右边缘
+            // 使用 translateX(14px) 让按钮完全在侧边栏外面
+            if (this.sidebarCollapsed) {
+                toggleBtn.style.left = '0px';
+            } else {
+                toggleBtn.style.left = `${this.sidebarWidth}px`;
+            }
+            // 确保 transform 样式正确
+            toggleBtn.style.transform = 'translateY(-50%) translateX(14px)';
         }
     }
 
@@ -10486,6 +10495,19 @@ if (typeof getCenterPosition === 'undefined') {
         } else {
             inputContainer.style.setProperty('display', 'flex', 'important');
         }
+        
+        // 更新折叠按钮位置
+        const toggleBtn = this.chatWindow.querySelector('#input-container-toggle-btn');
+        if (toggleBtn) {
+            setTimeout(() => {
+                const inputHeight = inputContainer.offsetHeight || 160;
+                if (this.inputContainerCollapsed) {
+                    toggleBtn.style.bottom = '0px';
+                } else {
+                    toggleBtn.style.bottom = `${inputHeight}px`;
+                }
+            }, 50);
+        }
     }
 
     // 切换输入框容器折叠状态
@@ -10494,7 +10516,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.applyInputContainerCollapsedState();
         this.saveInputContainerCollapsed();
         
-        // 更新折叠按钮图标
+        // 更新折叠按钮图标和位置
         const toggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (toggleBtn) {
             const icon = toggleBtn.querySelector('.toggle-icon');
@@ -10502,6 +10524,18 @@ if (typeof getCenterPosition === 'undefined') {
                 icon.textContent = this.inputContainerCollapsed ? '▲' : '▼';
             }
             toggleBtn.title = this.inputContainerCollapsed ? '展开输入框' : '折叠输入框';
+            // 更新按钮位置：根据输入框是否折叠调整位置
+            const inputContainer = this.chatWindow?.querySelector('.chat-input-container');
+            if (inputContainer) {
+                if (this.inputContainerCollapsed) {
+                    // 输入框折叠时，按钮在底部
+                    toggleBtn.style.bottom = '0px';
+                } else {
+                    // 输入框展开时，按钮在输入框上方
+                    const inputHeight = inputContainer.offsetHeight || 160;
+                    toggleBtn.style.bottom = `${inputHeight}px`;
+                }
+            }
         }
     }
 
@@ -10567,6 +10601,14 @@ if (typeof getCenterPosition === 'undefined') {
                 this.sidebarWidth = newWidth;
                 if (this.sessionSidebar) {
                     this.sessionSidebar.style.setProperty('width', `${newWidth}px`, 'important');
+                }
+                
+                // 更新折叠按钮位置（参考输入框折叠按钮的实现方式）
+                const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+                if (toggleBtn && !this.sidebarCollapsed) {
+                    toggleBtn.style.left = `${newWidth}px`;
+                    // 确保 transform 样式正确，按钮完全在外面
+                    toggleBtn.style.transform = 'translateY(-50%) translateX(14px)';
                 }
             };
             
@@ -19835,73 +19877,82 @@ ${messageContent}`;
         `;
         headerTitle.appendChild(titleContent);
 
-        // 创建折叠侧边栏按钮
-        const toggleSidebarBtn = document.createElement('button');
+        // 创建折叠侧边栏按钮（将放在侧边栏右侧垂直居中位置，参考输入框折叠按钮的样式）
+        let toggleSidebarBtn = document.createElement('button');
         toggleSidebarBtn.id = 'sidebar-toggle-btn';
         toggleSidebarBtn.innerHTML = '<span class="toggle-icon">◀</span>';
         toggleSidebarBtn.title = '折叠侧边栏';
         toggleSidebarBtn.style.cssText = `
-            background: none !important;
-            border: none !important;
-            color: white !important;
-            font-size: 16px !important;
+            position: absolute !important;
+            top: 50% !important;
+            transform: translateY(-50%) translateX(14px) !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+            border: 1px solid #e5e7eb !important;
+            color: #374151 !important;
+            font-size: 14px !important;
             cursor: pointer !important;
-            padding: 5px !important;
+            padding: 0 !important;
             border-radius: 50% !important;
-            width: 30px !important;
-            height: 30px !important;
+            width: 28px !important;
+            height: 28px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            transition: background 0.3s ease !important;
-            margin-left: 8px !important;
+            transition: all 0.3s ease !important;
+            z-index: 10001 !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
         `;
         toggleSidebarBtn.addEventListener('click', (e) => {
             e.stopPropagation(); // 阻止事件冒泡，避免触发拖拽
             this.toggleSidebar();
         });
         toggleSidebarBtn.addEventListener('mouseenter', () => {
-            toggleSidebarBtn.style.background = 'rgba(255,255,255,0.2)';
+            toggleSidebarBtn.style.background = 'rgba(255, 255, 255, 1)';
+            toggleSidebarBtn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
         });
         toggleSidebarBtn.addEventListener('mouseleave', () => {
-            toggleSidebarBtn.style.background = 'none';
+            toggleSidebarBtn.style.background = 'rgba(255, 255, 255, 0.9)';
+            toggleSidebarBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
         });
 
-        // 创建折叠输入框容器按钮
-        const toggleInputContainerBtn = document.createElement('button');
+        // 创建折叠输入框容器按钮（将放在输入框上方水平居中位置）
+        let toggleInputContainerBtn = document.createElement('button');
         toggleInputContainerBtn.id = 'input-container-toggle-btn';
         toggleInputContainerBtn.innerHTML = '<span class="toggle-icon">▼</span>';
         toggleInputContainerBtn.title = '折叠输入框';
         toggleInputContainerBtn.style.cssText = `
-            background: none !important;
-            border: none !important;
-            color: white !important;
-            font-size: 16px !important;
+            position: absolute !important;
+            bottom: 100% !important;
+            left: 50% !important;
+            transform: translateX(-50%) translateY(-8px) !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+            border: 1px solid #e5e7eb !important;
+            color: #374151 !important;
+            font-size: 14px !important;
             cursor: pointer !important;
-            padding: 5px !important;
+            padding: 0 !important;
             border-radius: 50% !important;
-            width: 30px !important;
-            height: 30px !important;
+            width: 28px !important;
+            height: 28px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            transition: background 0.3s ease !important;
-            margin-left: 4px !important;
+            transition: all 0.3s ease !important;
+            z-index: 10000 !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
         `;
         toggleInputContainerBtn.addEventListener('click', (e) => {
             e.stopPropagation(); // 阻止事件冒泡，避免触发拖拽
             this.toggleInputContainer();
         });
         toggleInputContainerBtn.addEventListener('mouseenter', () => {
-            toggleInputContainerBtn.style.background = 'rgba(255,255,255,0.2)';
+            toggleInputContainerBtn.style.background = 'rgba(255, 255, 255, 1)';
+            toggleInputContainerBtn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
         });
         toggleInputContainerBtn.addEventListener('mouseleave', () => {
-            toggleInputContainerBtn.style.background = 'none';
+            toggleInputContainerBtn.style.background = 'rgba(255, 255, 255, 0.9)';
+            toggleInputContainerBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
         });
-
-        // 将折叠按钮添加到标题容器中
-        headerTitle.appendChild(toggleSidebarBtn);
-        headerTitle.appendChild(toggleInputContainerBtn);
 
         // 创建关闭按钮（保持在右侧）
         const closeBtn = document.createElement('button');
@@ -19939,6 +19990,7 @@ ${messageContent}`;
             flex: 1 !important;
             overflow: hidden !important;
             background: linear-gradient(135deg, #f8f9fa, #ffffff) !important;
+            position: relative !important;
         `;
 
         // 创建会话侧边栏
@@ -21180,17 +21232,75 @@ ${messageContent}`;
         mainContentContainer.appendChild(this.sessionSidebar);
         mainContentContainer.appendChild(messagesContainer);
         
+        // 将侧边栏折叠按钮添加到主容器（定位在侧边栏右侧）
+        // 确保按钮存在：如果找不到，使用之前创建的按钮变量
+        if (!toggleSidebarBtn) {
+            toggleSidebarBtn = this.chatWindow.querySelector('#sidebar-toggle-btn');
+        }
+        if (toggleSidebarBtn && mainContentContainer) {
+            // 更新按钮定位函数（参考输入框折叠按钮的实现方式）
+            const updateSidebarToggleBtnPosition = () => {
+                // 根据折叠状态设置按钮位置：折叠时在左侧边缘，展开时在侧边栏右边缘
+                // 使用 translateX(14px) 让按钮完全在侧边栏外面
+                const buttonLeft = this.sidebarCollapsed ? '0px' : `${this.sidebarWidth}px`;
+                toggleSidebarBtn.style.left = buttonLeft;
+            };
+            
+            // 设置按钮基础样式（参考输入框折叠按钮）
+            toggleSidebarBtn.style.cssText = `
+                position: absolute !important;
+                top: 50% !important;
+                transform: translateY(-50%) translateX(14px) !important;
+                background: rgba(255, 255, 255, 0.9) !important;
+                border: 1px solid #e5e7eb !important;
+                color: #374151 !important;
+                font-size: 14px !important;
+                cursor: pointer !important;
+                padding: 0 !important;
+                border-radius: 50% !important;
+                width: 28px !important;
+                height: 28px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.3s ease !important;
+                z-index: 10001 !important;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+            `;
+            
+            // 确保按钮没有被重复添加
+            if (!toggleSidebarBtn.parentNode) {
+                mainContentContainer.appendChild(toggleSidebarBtn);
+            } else if (toggleSidebarBtn.parentNode !== mainContentContainer) {
+                // 如果按钮在其他位置，先移除再添加
+                toggleSidebarBtn.parentNode.removeChild(toggleSidebarBtn);
+                mainContentContainer.appendChild(toggleSidebarBtn);
+            }
+            
+            // 延迟更新位置，确保侧边栏已渲染
+            setTimeout(() => {
+                updateSidebarToggleBtnPosition();
+            }, 100);
+            
+            // 监听侧边栏宽度变化（使用ResizeObserver）
+            if (window.ResizeObserver && this.sessionSidebar) {
+                const resizeObserver = new ResizeObserver(() => {
+                    updateSidebarToggleBtnPosition();
+                });
+                resizeObserver.observe(this.sessionSidebar);
+            }
+        }
+        
         // 应用侧边栏折叠状态
         this.applySidebarCollapsedState();
         
         // 更新折叠按钮图标（根据当前状态）
-        const toggleBtn = this.chatWindow.querySelector('#sidebar-toggle-btn');
-        if (toggleBtn) {
-            const icon = toggleBtn.querySelector('.toggle-icon');
+        if (toggleSidebarBtn) {
+            const icon = toggleSidebarBtn.querySelector('.toggle-icon');
             if (icon) {
                 icon.textContent = this.sidebarCollapsed ? '▶' : '◀';
             }
-            toggleBtn.title = this.sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏';
+            toggleSidebarBtn.title = this.sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏';
         }
 
         // 统一的 AbortController，用于终止所有正在进行的请求
@@ -21664,7 +21774,6 @@ ${messageContent}`;
             updateInputState();
             // 更新消息容器的底部padding
             setTimeout(() => {
-                const inputContainer = this.chatWindow.querySelector('.chat-input-container');
                 const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
                 if (inputContainer && messagesContainer) {
                     const inputHeight = inputContainer.offsetHeight || 160;
@@ -22259,6 +22368,61 @@ ${messageContent}`;
         this.chatWindow.appendChild(chatHeader);
         this.chatWindow.appendChild(mainContentContainer);
         this.chatWindow.appendChild(inputContainer);
+        
+        // 将输入框折叠按钮添加到聊天窗口（定位在输入框容器上方）
+        // 如果按钮还没有被添加到 DOM，则通过 querySelector 查找
+        if (!toggleInputContainerBtn.parentNode) {
+            const existingBtn = this.chatWindow.querySelector('#input-container-toggle-btn');
+            if (existingBtn) {
+                toggleInputContainerBtn = existingBtn;
+            }
+        }
+        if (toggleInputContainerBtn && this.chatWindow) {
+            // 更新按钮定位，相对于chatWindow
+            const updateInputToggleBtnPosition = () => {
+                const inputHeight = inputContainer.offsetHeight || 160;
+                if (this.inputContainerCollapsed) {
+                    toggleInputContainerBtn.style.bottom = '0px';
+                } else {
+                    toggleInputContainerBtn.style.bottom = `${inputHeight}px`;
+                }
+            };
+            
+            toggleInputContainerBtn.style.cssText = `
+                position: absolute !important;
+                left: 50% !important;
+                transform: translateX(-50%) translateY(-8px) !important;
+                background: rgba(255, 255, 255, 0.9) !important;
+                border: 1px solid #e5e7eb !important;
+                color: #374151 !important;
+                font-size: 14px !important;
+                cursor: pointer !important;
+                padding: 0 !important;
+                border-radius: 50% !important;
+                width: 28px !important;
+                height: 28px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.3s ease !important;
+                z-index: 10001 !important;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+            `;
+            this.chatWindow.appendChild(toggleInputContainerBtn);
+            
+            // 延迟更新位置，确保输入框已渲染
+            setTimeout(() => {
+                updateInputToggleBtnPosition();
+            }, 100);
+            
+            // 监听输入框高度变化（使用ResizeObserver）
+            if (window.ResizeObserver) {
+                const resizeObserver = new ResizeObserver(() => {
+                    updateInputToggleBtnPosition();
+                });
+                resizeObserver.observe(inputContainer);
+            }
+        }
 		this.chatWindow.appendChild(resizeHandleTL);
 		this.chatWindow.appendChild(resizeHandleTR);
 		this.chatWindow.appendChild(resizeHandleBL);

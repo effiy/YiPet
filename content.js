@@ -17671,6 +17671,13 @@ ${pageContent || '无内容'}
         }
 
         overlay.style.display = 'flex';
+        
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        
         // 直接渲染当前配置（不再强制补齐默认项，便于"删除"生效）
         this.renderRoleSettingsList();
         if (editId) {
@@ -17684,6 +17691,12 @@ ${pageContent || '无内容'}
         if (!this.chatWindow) return;
         const overlay = this.chatWindow.querySelector('#pet-role-settings');
         if (overlay) overlay.style.display = 'none';
+        
+        // 显示折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
     }
 
     // 打开企微机器人设置模态框

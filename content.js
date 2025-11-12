@@ -19617,8 +19617,8 @@ ${messageContent}`;
         }
 
         try {
-            // 获取当前网页内容
-            const pageContent = this.getPageContentAsMarkdown();
+            // 获取当前网页渲染后的 HTML 内容并转换为 Markdown
+            const pageContent = this.getRenderedHTMLAsMarkdown();
             
             // 更新编辑器内容
             textarea.value = pageContent || '';
@@ -19643,6 +19643,121 @@ ${messageContent}`;
         } catch (error) {
             console.error('拉取网页上下文失败:', error);
             throw error;
+        }
+    }
+
+    /**
+     * 获取当前网页渲染后的 HTML 内容并转换为 Markdown
+     * 该方法专门用于刷新按钮功能，确保获取最新的渲染内容
+     */
+    getRenderedHTMLAsMarkdown() {
+        try {
+            // 检查 Turndown 是否可用
+            if (typeof TurndownService === 'undefined') {
+                console.warn('Turndown 未加载，返回纯文本内容');
+                return this.getFullPageText();
+            }
+
+            // 定义需要排除的选择器
+            const excludeSelectors = [
+                'script', 'style', 'noscript', 'iframe', 'embed', 'object',
+                'svg', 'canvas', 'video', 'audio',
+                '.ad', '.advertisement', '.ads', '.advertisement-container',
+                '[class*="ad-"]', '[class*="banner"]', '[class*="promo"]',
+                '[id*="ad-"]', '[id*="banner"]', '[id*="promo"]',
+                'nav', 'header', 'footer', 'aside',
+                '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
+                '.header', '.footer', '.comment', '.comments', '.social-share',
+                '.related-posts', '.related', '.widget', '.sidebar-widget'
+            ];
+
+            // 定义主要正文内容选择器（优先级从高到低）
+            const contentSelectors = [
+                'article',
+                'main',
+                '[role="main"]',
+                '[role="article"]',
+                '.post-content', '.entry-content', '.article-content',
+                '.post-body', '.article-body', '.text-content',
+                '.content', '.main-content', '.page-content',
+                '.article', '.blog-post', '.entry', '.post',
+                '#content', '#main-content', '#main',
+                '.content-area', '.content-wrapper',
+                '.text-wrapper', '.text-container'
+            ];
+
+            // 尝试从主要内容区域获取渲染后的 HTML
+            let mainContent = null;
+            for (const selector of contentSelectors) {
+                const element = document.querySelector(selector);
+                if (element && element.textContent.trim().length > 100) {
+                    mainContent = element;
+                    break;
+                }
+            }
+
+            // 如果没有找到主要内容区域，使用 body（但排除导航、侧边栏等）
+            if (!mainContent) {
+                mainContent = document.body;
+            }
+
+            // 深度克隆内容，保留所有渲染后的属性和状态
+            const cloned = mainContent.cloneNode(true);
+
+            // 移除不需要的元素
+            excludeSelectors.forEach(sel => {
+                try {
+                    const elements = cloned.querySelectorAll(sel);
+                    elements.forEach(el => {
+                        if (el && el.parentNode) {
+                            el.parentNode.removeChild(el);
+                        }
+                    });
+                } catch (e) {
+                    console.warn('移除元素失败:', sel, e);
+                }
+            });
+
+            // 配置 Turndown 服务
+            const turndownService = new TurndownService({
+                headingStyle: 'atx',
+                hr: '---',
+                bulletListMarker: '-',
+                codeBlockStyle: 'fenced',
+                fence: '```',
+                emDelimiter: '_',
+                strongDelimiter: '**',
+                linkStyle: 'inlined',
+                linkReferenceStyle: 'full',
+                preformattedCode: true
+            });
+
+            // 添加自定义规则，更好地处理特殊元素
+            turndownService.addRule('preserveLineBreaks', {
+                filter: ['br'],
+                replacement: () => '\n'
+            });
+
+            // 转换为 Markdown
+            let markdown = turndownService.turndown(cloned);
+
+            // 清理多余的空行（保留双空行用于段落分隔）
+            markdown = markdown
+                .replace(/\n{4,}/g, '\n\n\n')  // 最多保留三个换行（两个空行）
+                .trim();
+
+            // 如果 Markdown 内容太短或为空，尝试获取纯文本
+            if (!markdown || markdown.trim().length < 50) {
+                console.warn('Markdown 内容过短，尝试获取纯文本');
+                const textContent = cloned.textContent || cloned.innerText || '';
+                return textContent.trim();
+            }
+
+            return markdown;
+        } catch (error) {
+            console.error('将渲染后的 HTML 转换为 Markdown 时出错:', error);
+            // 出错时返回纯文本
+            return this.getFullPageText();
         }
     }
 

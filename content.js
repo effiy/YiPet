@@ -13640,6 +13640,11 @@ if (typeof getCenterPosition === 'undefined') {
         // 默认并排模式
         this._contextPreviewMode = this._contextPreviewMode || 'split';
         this.applyContextPreviewMode();
+        // 隐藏折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
         // 键盘快捷键：Esc 关闭，Ctrl+S / Cmd+S 保存
         this._contextKeydownHandler = (e) => {
             if (e.key === 'Escape') {
@@ -13661,6 +13666,12 @@ if (typeof getCenterPosition === 'undefined') {
     closeContextEditor() {
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
         if (overlay) overlay.style.display = 'none';
+        
+        // 显示折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
         
         if (this._contextKeydownHandler) {
             document.removeEventListener('keydown', this._contextKeydownHandler, { capture: true });
@@ -19899,7 +19910,7 @@ ${messageContent}`;
             align-items: center !important;
             justify-content: center !important;
             transition: all 0.3s ease !important;
-            z-index: 10001 !important;
+            z-index: 5 !important;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
         `;
         toggleSidebarBtn.addEventListener('click', (e) => {
@@ -19938,7 +19949,7 @@ ${messageContent}`;
             align-items: center !important;
             justify-content: center !important;
             transition: all 0.3s ease !important;
-            z-index: 10000 !important;
+            z-index: 5 !important;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
         `;
         toggleInputContainerBtn.addEventListener('click', (e) => {

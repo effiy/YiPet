@@ -15420,6 +15420,19 @@ ${pageContent || '无内容'}
                     return;
                 }
                 
+                const trimmedContent = messageContent.trim();
+                const contentLength = trimmedContent.length;
+                
+                // 检查内容长度限制（4000字符）
+                const MAX_CONTENT_LENGTH = 4000;
+                if (contentLength > MAX_CONTENT_LENGTH) {
+                    this.showNotification(
+                        `消息内容过长（${contentLength} 字符），超过限制（${MAX_CONTENT_LENGTH} 字符），无法发送到企微机器人`,
+                        'error'
+                    );
+                    return;
+                }
+                
                 // 显示发送状态
                 const originalIcon = robotButton.innerHTML;
                 robotButton.innerHTML = '⏳';
@@ -15427,7 +15440,29 @@ ${pageContent || '无内容'}
                 robotButton.style.cursor = 'default';
                 
                 try {
-                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, messageContent.trim());
+                    let finalContent = '';
+                    
+                    // 检查是否是 markdown 格式
+                    if (this.isMarkdownFormat(trimmedContent)) {
+                        // 已经是 markdown 格式，直接使用
+                        finalContent = trimmedContent;
+                        console.log(`[企微机器人] 内容已是 markdown 格式，长度: ${finalContent.length}`);
+                    } else {
+                        // 不是 markdown 格式，转换为 markdown
+                        console.log('[企微机器人] 内容不是 markdown 格式，转换为 markdown...');
+                        finalContent = await this.convertToMarkdown(trimmedContent);
+                        console.log(`[企微机器人] 转换后长度: ${finalContent.length}`);
+                    }
+                    
+                    // 确保不超过 4096 字符限制（企业微信机器人的硬性限制）
+                    const MAX_MARKDOWN_LENGTH = 4096;
+                    if (finalContent.length > MAX_MARKDOWN_LENGTH) {
+                        console.warn(`[企微机器人] 转换后长度 ${finalContent.length} 超过 ${MAX_MARKDOWN_LENGTH}，进行截断`);
+                        finalContent = this.limitMarkdownLength(finalContent, MAX_MARKDOWN_LENGTH);
+                    }
+                    
+                    // 发送到企微机器人
+                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
                     robotButton.innerHTML = '✓';
                     robotButton.style.color = '#4caf50';
                     this.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
@@ -17153,6 +17188,16 @@ ${pageContent || '无内容'}
                 const trimmedContent = messageContent.trim();
                 const contentLength = trimmedContent.length;
                 
+                // 检查内容长度限制（4000字符）
+                const MAX_CONTENT_LENGTH = 4000;
+                if (contentLength > MAX_CONTENT_LENGTH) {
+                    this.showNotification(
+                        `消息内容过长（${contentLength} 字符），超过限制（${MAX_CONTENT_LENGTH} 字符），无法发送到企微机器人`,
+                        'error'
+                    );
+                    return;
+                }
+                
                 // 显示发送状态
                 const originalIcon = robotButton.innerHTML;
                 robotButton.innerHTML = '⏳';
@@ -17162,31 +17207,23 @@ ${pageContent || '无内容'}
                 try {
                     let finalContent = '';
                     
-                    // 优化：如果内容不超过 4000 字符，直接使用（无需精简处理）
-                    if (contentLength <= 4000) {
-                        console.log(`[企微机器人] 内容长度 ${contentLength} <= 4000，直接使用`);
-                        
-                        // 检查是否是 markdown 格式
-                        if (this.isMarkdownFormat(trimmedContent)) {
-                            // 已经是 markdown 格式，直接使用
-                            finalContent = trimmedContent;
-                        } else {
-                            // 不是 markdown 格式，转换为 markdown（但不精简）
-                            console.log('[企微机器人] 内容不是 markdown 格式，转换为 markdown...');
-                            finalContent = await this.convertToMarkdown(trimmedContent);
-                            console.log(`[企微机器人] 转换后长度: ${finalContent.length}`);
-                        }
-                        
-                        // 确保不超过 4096 字符限制（安全边界）
-                        if (finalContent.length > 4096) {
-                            console.warn(`[企微机器人] 转换后长度 ${finalContent.length} 超过 4096，进行截断`);
-                            finalContent = this.limitMarkdownLength(finalContent, 4096);
-                        }
+                    // 检查是否是 markdown 格式
+                    if (this.isMarkdownFormat(trimmedContent)) {
+                        // 已经是 markdown 格式，直接使用
+                        finalContent = trimmedContent;
+                        console.log(`[企微机器人] 内容已是 markdown 格式，长度: ${finalContent.length}`);
                     } else {
-                        // 内容超过 4000 字符，需要精简处理
-                        console.log(`[企微机器人] 内容长度 ${contentLength} > 4000，进行精简处理`);
-                        const processedContent = await this.processMessageForRobot(trimmedContent);
-                        finalContent = this.limitMarkdownLength(processedContent, 4096);
+                        // 不是 markdown 格式，转换为 markdown
+                        console.log('[企微机器人] 内容不是 markdown 格式，转换为 markdown...');
+                        finalContent = await this.convertToMarkdown(trimmedContent);
+                        console.log(`[企微机器人] 转换后长度: ${finalContent.length}`);
+                    }
+                    
+                    // 确保不超过 4096 字符限制（企业微信机器人的硬性限制）
+                    const MAX_MARKDOWN_LENGTH = 4096;
+                    if (finalContent.length > MAX_MARKDOWN_LENGTH) {
+                        console.warn(`[企微机器人] 转换后长度 ${finalContent.length} 超过 ${MAX_MARKDOWN_LENGTH}，进行截断`);
+                        finalContent = this.limitMarkdownLength(finalContent, MAX_MARKDOWN_LENGTH);
                     }
                     
                     // 发送到企微机器人

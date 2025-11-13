@@ -2741,8 +2741,22 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
 
+    // 预加载 html2canvas 库（用于导出聊天记录功能）
+    // 注意：html2canvas 现在通过 manifest.json 的 content_scripts 自动加载
+    preloadHtml2Canvas() {
+        // html2canvas 已经通过 content_scripts 加载，这个方法保留用于向后兼容
+        if (typeof html2canvas !== 'undefined') {
+            console.log('html2canvas 已加载');
+        } else {
+            console.warn('html2canvas 未加载，请检查扩展配置');
+        }
+    }
+
     // 打开聊天窗口
     async openChatWindow() {
+        // 预加载 html2canvas 库（用于导出功能）
+        this.preloadHtml2Canvas();
+        
         if (this.chatWindow) {
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
@@ -2767,6 +2781,11 @@ if (typeof getCenterPosition === 'undefined') {
                 await this.loadAllSessions(); // 确保数据已加载
                 await this.updateSessionSidebar();
             }
+            
+            // 在欢迎消息的角色按钮右边添加导出聊天记录按钮
+            setTimeout(() => {
+                this.addExportChatButtonToWelcome();
+            }, 300);
             
             return;
         }
@@ -3193,6 +3212,11 @@ if (typeof getCenterPosition === 'undefined') {
             
             // 更新聊天窗口标题
             this.updateChatHeaderTitle();
+            
+            // 在欢迎消息的角色按钮右边添加导出聊天记录按钮
+            setTimeout(() => {
+                this.addExportChatButtonToWelcome();
+            }, 300);
         }
         
         // 显示成功通知
@@ -4966,6 +4990,9 @@ if (typeof getCenterPosition === 'undefined') {
             }
             // 刷新角色按钮（确保显示最新的角色列表）
             await this.refreshWelcomeActionButtons();
+            
+            // 在角色按钮右边添加导出聊天记录按钮
+            this.addExportChatButtonToWelcome();
         }, 150);
         
         // 加载会话消息（确保消息顺序和内容正确）
@@ -5102,6 +5129,11 @@ if (typeof getCenterPosition === 'undefined') {
                             this.addCopyButton(copyButtonContainer, petBubble);
                         }
                         
+                        // 为宠物消息添加导出按钮
+                        if (copyButtonContainer) {
+                            this.addExportButtonForMessage(copyButtonContainer, petMsg, 'pet');
+                        }
+                        
                         // 添加重试按钮（仅当不是第一条消息时）
                         // 检查是否是第一条宠物消息
                         const allPetMessages = Array.from(messagesContainer.children).filter(
@@ -5131,6 +5163,12 @@ if (typeof getCenterPosition === 'undefined') {
                     try {
                         // 添加动作按钮（包括机器人按钮）
                         await this.addActionButtonsToMessage(userMsg);
+                        
+                        // 为用户消息添加导出按钮
+                        const copyButtonContainer = userMsg.querySelector('[data-copy-button-container]');
+                        if (copyButtonContainer) {
+                            this.addExportButtonForMessage(copyButtonContainer, userMsg, 'user');
+                        }
                     } catch (error) {
                         console.error('为用户消息添加按钮时出错:', error);
                     }
@@ -25117,6 +25155,9 @@ ${messageContent}`;
                 this.addCopyButton(copyButtonContainer, messageText);
             }
 
+            // 为宠物消息添加导出图片按钮
+            this.addExportButtonForMessage(copyButtonContainer, messageDiv, 'pet');
+
             // 为消息元素添加标识，用于后续判断是否是第一个消息
             messageDiv.setAttribute('data-message-id', Date.now().toString());
         } else {
@@ -25158,6 +25199,9 @@ ${messageContent}`;
 
             // 为用户消息添加删除和编辑按钮
             this.addDeleteButtonForUserMessage(copyButtonContainer, messageText);
+            
+            // 为用户消息添加导出图片按钮（在编辑按钮后面）
+            this.addExportButtonForMessage(copyButtonContainer, messageDiv, 'user');
             
             // 同步时间容器与气泡的宽度和位置，确保精确对齐
             const syncTimeContainerAlignment = () => {
@@ -25220,6 +25264,154 @@ ${messageContent}`;
         messageDiv.appendChild(content);
 
         return messageDiv;
+    }
+
+    // 为消息添加导出图片按钮
+    addExportButtonForMessage(buttonContainer, messageDiv, messageType) {
+        if (!buttonContainer || !messageDiv) {
+            return;
+        }
+
+        // 检查是否已经存在导出按钮
+        if (buttonContainer.querySelector('.export-message-button')) {
+            return;
+        }
+
+        // 创建导出按钮
+        const exportBtn = document.createElement('button');
+        exportBtn.className = 'export-message-button';
+        // 使用 SVG 图标替代 emoji，更专业美观
+        exportBtn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        `;
+        exportBtn.title = '导出消息为图片';
+        exportBtn.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            border-radius: 50% !important;
+            width: 22px !important;
+            height: 22px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            color: currentColor !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.8 !important;
+            flex-shrink: 0 !important;
+            margin-left: 4px !important;
+            padding: 0 !important;
+        `;
+
+        // 悬停效果
+        exportBtn.addEventListener('mouseenter', function() {
+            this.style.background = 'rgba(59, 130, 246, 0.3) !important';
+            this.style.transform = 'scale(1.1)';
+            this.style.opacity = '1';
+        });
+
+        exportBtn.addEventListener('mouseleave', function() {
+            this.style.background = 'rgba(255, 255, 255, 0.2) !important';
+            this.style.transform = 'scale(1)';
+            this.style.opacity = '0.8';
+        });
+
+        // 点击事件
+        exportBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // 调用导出函数
+            if (window.exportSingleMessageToPNG) {
+                await window.exportSingleMessageToPNG(messageDiv, messageType);
+            } else {
+                console.error('导出函数未加载');
+                this.showNotification('导出功能未加载，请刷新页面后重试', 'error');
+            }
+        });
+
+        // 将按钮添加到容器中（在编辑按钮后面）
+        buttonContainer.appendChild(exportBtn);
+    }
+
+    // 在欢迎消息的角色按钮右边添加导出聊天记录按钮
+    addExportChatButtonToWelcome() {
+        const welcomeActionsContainer = this.chatWindow?.querySelector('#pet-welcome-actions');
+        if (!welcomeActionsContainer) {
+            // 如果容器不存在，稍后重试
+            setTimeout(() => this.addExportChatButtonToWelcome(), 200);
+            return;
+        }
+
+        // 检查是否已经存在导出按钮
+        if (welcomeActionsContainer.querySelector('.export-chat-button')) {
+            return;
+        }
+
+        // 创建导出聊天记录按钮
+        const exportChatBtn = document.createElement('button');
+        exportChatBtn.className = 'export-chat-button';
+        // 使用 SVG 图标替代 emoji，更专业美观
+        exportChatBtn.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        `;
+        exportChatBtn.title = '导出聊天记录为图片';
+        exportChatBtn.style.cssText = `
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none !important;
+            border-radius: 50% !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            color: currentColor !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.8 !important;
+            flex-shrink: 0 !important;
+            padding: 0 !important;
+        `;
+
+        // 悬停效果
+        exportChatBtn.addEventListener('mouseenter', function() {
+            this.style.background = 'rgba(59, 130, 246, 0.3) !important';
+            this.style.transform = 'scale(1.1)';
+            this.style.opacity = '1';
+        });
+
+        exportChatBtn.addEventListener('mouseleave', function() {
+            this.style.background = 'rgba(255, 255, 255, 0.2) !important';
+            this.style.transform = 'scale(1)';
+            this.style.opacity = '0.8';
+        });
+
+        // 点击事件
+        exportChatBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+            const sessionName = this.chatWindow.querySelector('#pet-chat-header-title-text')?.textContent || '聊天记录';
+            
+            if (messagesContainer && window.exportChatToPNG) {
+                await window.exportChatToPNG(messagesContainer, sessionName);
+            } else {
+                console.error('无法导出聊天记录：找不到消息容器或导出函数');
+                this.showNotification('导出功能未加载，请刷新页面后重试', 'error');
+            }
+        });
+
+        // 将按钮添加到角色按钮的右边
+        welcomeActionsContainer.appendChild(exportChatBtn);
     }
 
     // 创建打字指示器（有趣的等待动画）
@@ -25446,7 +25638,11 @@ ${messageContent}`;
     _updateTryAgainButtonState(button, state) {
         const states = {
             idle: {
-                icon: '🔄',
+                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                    <path d="M23 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
                 opacity: '0.7',
                 cursor: 'pointer',
                 color: ''
@@ -25458,13 +25654,18 @@ ${messageContent}`;
                 color: ''
             },
             success: {
-                icon: '✓',
+                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                    <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
                 opacity: '0.7',
                 cursor: 'pointer',
                 color: '#4caf50'
             },
             error: {
-                icon: '✕',
+                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>`,
                 opacity: '0.7',
                 cursor: 'pointer',
                 color: '#f44336'
@@ -25625,13 +25826,13 @@ ${messageContent}`;
             background: transparent !important;
             border: none !important;
             cursor: pointer !important;
-            font-size: 16px !important;
             padding: 4px 8px !important;
             opacity: 0.7 !important;
             transition: opacity 0.2s ease, color 0.2s ease !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            color: currentColor !important;
         `;
 
         // 初始化按钮状态
@@ -25811,7 +26012,13 @@ ${messageContent}`;
         // 创建重新发送按钮
         const resendButton = document.createElement('button');
         resendButton.className = 'resend-button';
-        resendButton.innerHTML = '📤';
+        // 使用 SVG 图标替代 emoji，更专业美观
+        resendButton.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+        `;
         resendButton.setAttribute('title', '重新发送 prompt 请求');
 
         // 设置按钮样式（与 try again 按钮保持一致）
@@ -25819,15 +26026,13 @@ ${messageContent}`;
             background: transparent !important;
             border: none !important;
             cursor: pointer !important;
-            font-size: 16px !important;
             padding: 4px 8px !important;
             opacity: 0.7 !important;
-            transition: opacity 0.2s ease !important;
+            transition: opacity 0.2s ease, color 0.2s ease !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif !important;
-            line-height: 1 !important;
+            color: currentColor !important;
             min-width: 24px !important;
             min-height: 24px !important;
         `;
@@ -25882,7 +26087,14 @@ ${messageContent}`;
                 }
 
                 // 更新按钮状态
-                resendButton.innerHTML = '⏳';
+                resendButton.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416" opacity="0.3">
+                            <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416;0 31.416" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416;-31.416" repeatCount="indefinite"/>
+                        </circle>
+                    </svg>
+                `;
                 resendButton.style.opacity = '0.6';
                 resendButton.style.cursor = 'not-allowed';
                 resendButton.style.color = '';
@@ -25987,11 +26199,20 @@ ${messageContent}`;
                 }
 
                 // 恢复按钮状态
-                resendButton.innerHTML = '✓';
+                resendButton.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                        <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                `;
                 resendButton.style.color = '#4caf50';
                 
                 setTimeout(() => {
-                    resendButton.innerHTML = '📤';
+                    resendButton.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                            <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        </svg>
+                    `;
                     resendButton.style.color = '';
                     resendButton.style.opacity = '0.7';
                     resendButton.style.cursor = 'pointer';
@@ -26015,11 +26236,21 @@ ${messageContent}`;
                 }
 
                 // 恢复按钮状态
-                resendButton.innerHTML = '✕';
+                resendButton.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                `;
                 resendButton.style.color = '#f44336';
                 
                 setTimeout(() => {
-                    resendButton.innerHTML = '📤';
+                    resendButton.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                            <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        </svg>
+                    `;
                     resendButton.style.color = '';
                     resendButton.style.opacity = '0.7';
                     resendButton.style.cursor = 'pointer';
@@ -28840,6 +29071,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

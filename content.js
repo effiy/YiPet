@@ -2782,10 +2782,6 @@ if (typeof getCenterPosition === 'undefined') {
                 await this.updateSessionSidebar();
             }
             
-            // 在欢迎消息的角色按钮右边添加导出聊天记录按钮
-            setTimeout(() => {
-                this.addExportChatButtonToWelcome();
-            }, 300);
             
             return;
         }
@@ -3213,10 +3209,6 @@ if (typeof getCenterPosition === 'undefined') {
             // 更新聊天窗口标题
             this.updateChatHeaderTitle();
             
-            // 在欢迎消息的角色按钮右边添加导出聊天记录按钮
-            setTimeout(() => {
-                this.addExportChatButtonToWelcome();
-            }, 300);
         }
         
         // 显示成功通知
@@ -4991,8 +4983,6 @@ if (typeof getCenterPosition === 'undefined') {
             // 刷新角色按钮（确保显示最新的角色列表）
             await this.refreshWelcomeActionButtons();
             
-            // 在角色按钮右边添加导出聊天记录按钮
-            this.addExportChatButtonToWelcome();
         }, 150);
         
         // 加载会话消息（确保消息顺序和内容正确）
@@ -25338,122 +25328,6 @@ ${messageContent}`;
         buttonContainer.appendChild(exportBtn);
     }
 
-    // 在第一个聊天消息下添加导出聊天记录按钮
-    addExportChatButtonToWelcome() {
-        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
-        if (!messagesContainer) {
-            // 如果容器不存在，稍后重试
-            setTimeout(() => this.addExportChatButtonToWelcome(), 200);
-            return;
-        }
-
-        // 全局检查：如果已经存在导出按钮，直接返回（避免重复添加）
-        if (messagesContainer.querySelector('.export-chat-button')) {
-            return;
-        }
-
-        // 查找第一个非欢迎消息（第一个实际的聊天消息）
-        const allMessages = Array.from(messagesContainer.children);
-        let firstChatMessage = null;
-        
-        for (const message of allMessages) {
-            // 跳过欢迎消息和打字指示器
-            if (message.hasAttribute('data-welcome-message') || 
-                message.hasAttribute('data-typing-indicator')) {
-                continue;
-            }
-            
-            // 查找第一个包含用户消息或宠物消息的元素
-            const userBubble = message.querySelector('[data-message-type="user-bubble"]');
-            const petBubble = message.querySelector('[data-message-type="pet-bubble"]');
-            
-            if (userBubble || petBubble) {
-                firstChatMessage = message;
-                break;
-            }
-        }
-
-        // 如果没有找到第一个聊天消息，稍后重试
-        if (!firstChatMessage) {
-            setTimeout(() => this.addExportChatButtonToWelcome(), 200);
-            return;
-        }
-
-        // 查找按钮容器（pet 消息和 user 消息都有 data-copy-button-container）
-        let buttonContainer = firstChatMessage.querySelector('[data-copy-button-container]');
-        
-        if (!buttonContainer) {
-            // 如果仍然没有容器，稍后重试（等待消息完全渲染）
-            setTimeout(() => this.addExportChatButtonToWelcome(), 200);
-            return;
-        }
-
-        // 再次检查按钮容器中是否已经存在导出按钮
-        if (buttonContainer.querySelector('.export-chat-button')) {
-            return;
-        }
-
-        // 创建导出聊天记录按钮
-        const exportChatBtn = document.createElement('button');
-        exportChatBtn.className = 'export-chat-button';
-        // 使用 SVG 图标替代 emoji，更专业美观
-        exportChatBtn.innerHTML = `
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        `;
-        exportChatBtn.title = '导出聊天记录为图片';
-        exportChatBtn.style.cssText = `
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: none !important;
-            border-radius: 50% !important;
-            width: 32px !important;
-            height: 32px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            color: currentColor !important;
-            transition: all 0.2s ease !important;
-            opacity: 0.8 !important;
-            flex-shrink: 0 !important;
-            padding: 0 !important;
-        `;
-
-        // 悬停效果
-        exportChatBtn.addEventListener('mouseenter', function() {
-            this.style.background = 'rgba(59, 130, 246, 0.3) !important';
-            this.style.transform = 'scale(1.1)';
-            this.style.opacity = '1';
-        });
-
-        exportChatBtn.addEventListener('mouseleave', function() {
-            this.style.background = 'rgba(255, 255, 255, 0.2) !important';
-            this.style.transform = 'scale(1)';
-            this.style.opacity = '0.8';
-        });
-
-        // 点击事件
-        exportChatBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
-            const sessionName = this.chatWindow.querySelector('#pet-chat-header-title-text')?.textContent || '聊天记录';
-            
-            if (messagesContainer && window.exportChatToPNG) {
-                await window.exportChatToPNG(messagesContainer, sessionName);
-            } else {
-                console.error('无法导出聊天记录：找不到消息容器或导出函数');
-                this.showNotification('导出功能未加载，请刷新页面后重试', 'error');
-            }
-        });
-
-        // 将按钮添加到第一个聊天消息的按钮容器中
-        buttonContainer.appendChild(exportChatBtn);
-    }
 
     // 创建打字指示器（有趣的等待动画）
     createTypingIndicator() {

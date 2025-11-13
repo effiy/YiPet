@@ -7237,6 +7237,12 @@ if (typeof getCenterPosition === 'undefined') {
         // 显示弹窗
         modal.style.display = 'flex';
         modal.dataset.objectName = objectName;
+        
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
 
         // 加载当前标签（从后端获取最新标签）
         try {
@@ -7438,6 +7444,13 @@ if (typeof getCenterPosition === 'undefined') {
 
         // 关闭弹窗
         modal.style.display = 'none';
+        
+        // 显示折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+        
         const tagInput = modal.querySelector('.oss-tag-manager-input');
         if (tagInput) {
             tagInput.value = '';
@@ -7533,6 +7546,13 @@ if (typeof getCenterPosition === 'undefined') {
 
         // 关闭弹窗
         modal.style.display = 'none';
+        
+        // 显示折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+        
         const tagInput = modal.querySelector('.oss-tag-manager-input');
         if (tagInput) {
             tagInput.value = '';
@@ -12410,6 +12430,12 @@ if (typeof getCenterPosition === 'undefined') {
         // 显示弹窗
         modal.style.display = 'flex';
         modal.dataset.sessionId = sessionId;
+        
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
 
         // 加载当前标签
         this.loadTagsIntoManager(sessionId, currentTags);
@@ -13390,6 +13416,13 @@ if (typeof getCenterPosition === 'undefined') {
             }
             
             modal.style.display = 'none';
+            
+            // 显示折叠按钮
+            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+            if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+            if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+            
             const tagInput = modal.querySelector('.tag-manager-input');
             if (tagInput) {
                 tagInput.value = '';
@@ -17117,6 +17150,9 @@ ${pageContent || '无内容'}
                     return;
                 }
                 
+                const trimmedContent = messageContent.trim();
+                const contentLength = trimmedContent.length;
+                
                 // 显示发送状态
                 const originalIcon = robotButton.innerHTML;
                 robotButton.innerHTML = '⏳';
@@ -17124,14 +17160,37 @@ ${pageContent || '无内容'}
                 robotButton.style.cursor = 'default';
                 
                 try {
-                    // 先调用 prompt 接口处理消息内容
-                    const processedContent = await this.processMessageForRobot(messageContent.trim());
+                    let finalContent = '';
                     
-                    // 限制字数不超过 4096（企微机器人 markdown.content 的最大长度限制）
-                    const limitedContent = this.limitMarkdownLength(processedContent, 4096);
+                    // 优化：如果内容不超过 4000 字符，直接使用（无需精简处理）
+                    if (contentLength <= 4000) {
+                        console.log(`[企微机器人] 内容长度 ${contentLength} <= 4000，直接使用`);
+                        
+                        // 检查是否是 markdown 格式
+                        if (this.isMarkdownFormat(trimmedContent)) {
+                            // 已经是 markdown 格式，直接使用
+                            finalContent = trimmedContent;
+                        } else {
+                            // 不是 markdown 格式，转换为 markdown（但不精简）
+                            console.log('[企微机器人] 内容不是 markdown 格式，转换为 markdown...');
+                            finalContent = await this.convertToMarkdown(trimmedContent);
+                            console.log(`[企微机器人] 转换后长度: ${finalContent.length}`);
+                        }
+                        
+                        // 确保不超过 4096 字符限制（安全边界）
+                        if (finalContent.length > 4096) {
+                            console.warn(`[企微机器人] 转换后长度 ${finalContent.length} 超过 4096，进行截断`);
+                            finalContent = this.limitMarkdownLength(finalContent, 4096);
+                        }
+                    } else {
+                        // 内容超过 4000 字符，需要精简处理
+                        console.log(`[企微机器人] 内容长度 ${contentLength} > 4000，进行精简处理`);
+                        const processedContent = await this.processMessageForRobot(trimmedContent);
+                        finalContent = this.limitMarkdownLength(processedContent, 4096);
+                    }
                     
                     // 发送到企微机器人
-                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, limitedContent);
+                    await this.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
                     robotButton.innerHTML = '✓';
                     robotButton.style.color = '#4caf50';
                     this.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
@@ -18054,6 +18113,13 @@ ${pageContent || '无内容'}
         }
 
         overlay.style.display = 'flex';
+        
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        
         this.renderWeWorkRobotSettingsList();
         if (editId) {
             this.renderWeWorkRobotSettingsForm(editId);
@@ -18066,6 +18132,12 @@ ${pageContent || '无内容'}
         if (!this.chatWindow) return;
         const overlay = this.chatWindow.querySelector('#pet-wework-robot-settings');
         if (overlay) overlay.style.display = 'none';
+        
+        // 显示折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
     }
 
     async renderWeWorkRobotSettingsList() {

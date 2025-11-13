@@ -25338,17 +25338,58 @@ ${messageContent}`;
         buttonContainer.appendChild(exportBtn);
     }
 
-    // 在欢迎消息的角色按钮右边添加导出聊天记录按钮
+    // 在第一个聊天消息下添加导出聊天记录按钮
     addExportChatButtonToWelcome() {
-        const welcomeActionsContainer = this.chatWindow?.querySelector('#pet-welcome-actions');
-        if (!welcomeActionsContainer) {
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        if (!messagesContainer) {
             // 如果容器不存在，稍后重试
             setTimeout(() => this.addExportChatButtonToWelcome(), 200);
             return;
         }
 
-        // 检查是否已经存在导出按钮
-        if (welcomeActionsContainer.querySelector('.export-chat-button')) {
+        // 全局检查：如果已经存在导出按钮，直接返回（避免重复添加）
+        if (messagesContainer.querySelector('.export-chat-button')) {
+            return;
+        }
+
+        // 查找第一个非欢迎消息（第一个实际的聊天消息）
+        const allMessages = Array.from(messagesContainer.children);
+        let firstChatMessage = null;
+        
+        for (const message of allMessages) {
+            // 跳过欢迎消息和打字指示器
+            if (message.hasAttribute('data-welcome-message') || 
+                message.hasAttribute('data-typing-indicator')) {
+                continue;
+            }
+            
+            // 查找第一个包含用户消息或宠物消息的元素
+            const userBubble = message.querySelector('[data-message-type="user-bubble"]');
+            const petBubble = message.querySelector('[data-message-type="pet-bubble"]');
+            
+            if (userBubble || petBubble) {
+                firstChatMessage = message;
+                break;
+            }
+        }
+
+        // 如果没有找到第一个聊天消息，稍后重试
+        if (!firstChatMessage) {
+            setTimeout(() => this.addExportChatButtonToWelcome(), 200);
+            return;
+        }
+
+        // 查找按钮容器（pet 消息和 user 消息都有 data-copy-button-container）
+        let buttonContainer = firstChatMessage.querySelector('[data-copy-button-container]');
+        
+        if (!buttonContainer) {
+            // 如果仍然没有容器，稍后重试（等待消息完全渲染）
+            setTimeout(() => this.addExportChatButtonToWelcome(), 200);
+            return;
+        }
+
+        // 再次检查按钮容器中是否已经存在导出按钮
+        if (buttonContainer.querySelector('.export-chat-button')) {
             return;
         }
 
@@ -25410,8 +25451,8 @@ ${messageContent}`;
             }
         });
 
-        // 将按钮添加到角色按钮的右边
-        welcomeActionsContainer.appendChild(exportChatBtn);
+        // 将按钮添加到第一个聊天消息的按钮容器中
+        buttonContainer.appendChild(exportChatBtn);
     }
 
     // 创建打字指示器（有趣的等待动画）

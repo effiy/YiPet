@@ -80,31 +80,17 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             top: 0 !important;
             width: 1200px !important;
             background: white !important;
-            padding: 40px !important;
+            padding: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
             box-sizing: border-box !important;
         `;
-
-        // 创建标题（更大的字体以匹配高清晰度）
-        const title = document.createElement('div');
-        title.style.cssText = `
-            font-size: 32px !important;
-            font-weight: 600 !important;
-            color: #1f2937 !important;
-            margin-bottom: 25px !important;
-            text-align: center !important;
-            padding-bottom: 20px !important;
-            border-bottom: 3px solid #e5e7eb !important;
-        `;
-        title.textContent = sessionName;
-        exportContainer.appendChild(title);
 
         // 克隆消息内容
         const messagesClone = messagesContainer.cloneNode(true);
         messagesClone.style.cssText = `
             max-height: none !important;
             overflow: visible !important;
-            padding: 25px 0 !important;
+            padding: 0 !important;
             background: transparent !important;
         `;
 
@@ -112,6 +98,12 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
         const messageElements = Array.from(messagesClone.children);
         
         messageElements.forEach((messageDiv, index) => {
+            // 移除 pet-avatar
+            const petAvatar = messageDiv.querySelector('[data-message-type="pet-avatar"]');
+            if (petAvatar) {
+                petAvatar.remove();
+            }
+            
             // 确保消息div可见（增加间距以适应高清晰度）
             messageDiv.style.opacity = '1';
             messageDiv.style.display = 'flex';
@@ -146,45 +138,35 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             }
             
             if (petBubble) {
-                // 宠物消息样式
+                // 宠物消息样式 - 铺满宽度
                 messageDiv.style.flexDirection = 'row';
                 messageDiv.style.justifyContent = 'flex-start';
                 messageDiv.style.alignItems = 'flex-start';
-                messageDiv.style.gap = '10px';
+                messageDiv.style.gap = '0';
                 
                 // 保留原有样式，只增强关键属性
                 const currentStyle = petBubble.getAttribute('style') || '';
                 petBubble.style.cssText = currentStyle;
-                petBubble.style.maxWidth = '70%';
+                petBubble.style.maxWidth = '100%';
+                petBubble.style.width = '100%';
                 petBubble.style.wordWrap = 'break-word';
                 petBubble.style.overflowWrap = 'break-word';
                 petBubble.style.whiteSpace = 'pre-wrap';
-                
-                // 确保图标可见（如果有）
-                const icon = messageDiv.querySelector('span[style*="font-size: 32px"], span[style*="font-size: 30px"]');
-                if (icon) {
-                    icon.style.flexShrink = '0';
-                }
             } else if (userBubble) {
-                // 用户消息样式
-                messageDiv.style.flexDirection = 'row-reverse';
+                // 用户消息样式 - 铺满宽度
+                messageDiv.style.flexDirection = 'row';
                 messageDiv.style.justifyContent = 'flex-start';
                 messageDiv.style.alignItems = 'flex-start';
-                messageDiv.style.gap = '10px';
+                messageDiv.style.gap = '0';
                 
                 // 保留原有样式，只增强关键属性
                 const currentStyle = userBubble.getAttribute('style') || '';
                 userBubble.style.cssText = currentStyle;
-                userBubble.style.maxWidth = '70%';
+                userBubble.style.maxWidth = '100%';
+                userBubble.style.width = '100%';
                 userBubble.style.wordWrap = 'break-word';
                 userBubble.style.overflowWrap = 'break-word';
                 userBubble.style.whiteSpace = 'pre-wrap';
-                
-                // 确保图标可见（如果有）
-                const icon = messageDiv.querySelector('span[style*="font-size: 32px"], span[style*="font-size: 30px"]');
-                if (icon) {
-                    icon.style.flexShrink = '0';
-                }
             }
             
             // 处理图片
@@ -212,19 +194,6 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
         });
 
         exportContainer.appendChild(messagesClone);
-
-        // 添加底部时间戳（增大字体以匹配高清晰度）
-        const timestamp = document.createElement('div');
-        timestamp.style.cssText = `
-            margin-top: 25px !important;
-            padding-top: 20px !important;
-            border-top: 2px solid #e5e7eb !important;
-            text-align: center !important;
-            font-size: 14px !important;
-            color: #6b7280 !important;
-        `;
-        timestamp.textContent = `导出时间：${new Date().toLocaleString('zh-CN')}`;
-        exportContainer.appendChild(timestamp);
 
         // 临时添加到页面
         document.body.appendChild(exportContainer);
@@ -416,7 +385,7 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             top: 0 !important;
             width: 1200px !important;
             background: white !important;
-            padding: 40px !important;
+            padding: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
             box-sizing: border-box !important;
         `;
@@ -437,6 +406,12 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
 
         // 克隆消息元素
         const messageClone = messageElement.cloneNode(true);
+        
+        // 移除 pet-avatar
+        const petAvatar = messageClone.querySelector('[data-message-type="pet-avatar"]');
+        if (petAvatar) {
+            petAvatar.remove();
+        }
         
         // 清理克隆元素中的按钮和操作元素
         const buttonsToRemove = messageClone.querySelectorAll('.edit-button, .delete-button, .resend-button, .copy-button, .export-message-button, [data-copy-button-container], [data-try-again-button-container]');
@@ -464,10 +439,11 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         const bubble = petBubble || userBubble;
 
         if (bubble) {
-            // 保留原有样式，只增强关键属性
+            // 保留原有样式，只增强关键属性 - 铺满宽度
             const currentStyle = bubble.getAttribute('style') || '';
             bubble.style.cssText = currentStyle;
             bubble.style.maxWidth = '100%';
+            bubble.style.width = '100%';
             bubble.style.wordWrap = 'break-word';
             bubble.style.overflowWrap = 'break-word';
             bubble.style.whiteSpace = 'pre-wrap';

@@ -1,7 +1,7 @@
 // 导出聊天记录为高清 PNG 图片
 
 /**
- * 复制元素的计算样式
+ * 复制元素的计算样式（特别是行间距相关）
  * @param {HTMLElement} source - 源元素
  * @param {HTMLElement} target - 目标元素
  */
@@ -30,6 +30,60 @@ function copyComputedStyles(source, target) {
             // 忽略设置失败的属性
         }
     });
+}
+
+/**
+ * 递归复制所有子元素的样式，特别是行间距相关的样式
+ * @param {HTMLElement} sourceElement - 源元素
+ * @param {HTMLElement} targetElement - 目标元素
+ */
+function copyAllElementStyles(sourceElement, targetElement) {
+    if (!sourceElement || !targetElement) return;
+    
+    // 复制当前元素的样式
+    const sourceStyle = window.getComputedStyle(sourceElement);
+    const spacingStyles = [
+        'line-height', 'font-size', 'font-family', 'font-weight',
+        'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+        'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+        'letter-spacing', 'word-spacing', 'color'
+    ];
+    
+    spacingStyles.forEach(prop => {
+        try {
+            const value = sourceStyle.getPropertyValue(prop);
+            // 只复制有意义的非零值
+            if (value && 
+                value !== 'normal' && 
+                value !== '0px' && 
+                value !== '0' && 
+                value !== 'none' &&
+                !value.includes('rgba(0, 0, 0, 0)')) {
+                targetElement.style.setProperty(prop, value, 'important');
+            }
+        } catch (e) {
+            // 忽略设置失败的属性
+        }
+    });
+    
+    // 递归处理所有子元素
+    const sourceChildren = Array.from(sourceElement.children);
+    const targetChildren = Array.from(targetElement.children);
+    
+    for (let i = 0; i < Math.min(sourceChildren.length, targetChildren.length); i++) {
+        copyAllElementStyles(sourceChildren[i], targetChildren[i]);
+    }
+    
+    // 处理文本节点（如果有直接文本内容）
+    if (sourceElement.childNodes.length > 0) {
+        const sourceTextNodes = Array.from(sourceElement.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+        const targetTextNodes = Array.from(targetElement.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+        
+        // 确保文本节点的样式一致
+        if (sourceTextNodes.length > 0 && targetTextNodes.length > 0) {
+            // 文本节点的样式继承自父元素，所以不需要单独处理
+        }
+    }
 }
 
 /**
@@ -81,117 +135,108 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             width: 1200px !important;
             background: white !important;
             padding: 0 !important;
+            margin: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
             box-sizing: border-box !important;
         `;
 
         // 克隆消息内容
         const messagesClone = messagesContainer.cloneNode(true);
+        
+        // 获取原始容器的计算样式
+        const originalStyle = window.getComputedStyle(messagesContainer);
+        
         messagesClone.style.cssText = `
             max-height: none !important;
             overflow: visible !important;
             padding: 0 !important;
+            margin: 0 !important;
             background: transparent !important;
+            width: 100% !important;
         `;
 
         // 获取所有消息div（不依赖 data-message-type 属性）
         const messageElements = Array.from(messagesClone.children);
         
+        // 创建一个新的容器来存放只包含 markdown-content 的元素
+        const contentOnlyContainer = document.createElement('div');
+        contentOnlyContainer.style.cssText = `
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+        `;
+        
         messageElements.forEach((messageDiv, index) => {
-            // 移除 pet-avatar
-            const petAvatar = messageDiv.querySelector('[data-message-type="pet-avatar"]');
-            if (petAvatar) {
-                petAvatar.remove();
+            // 获取原始消息元素（用于复制样式）
+            const originalMessageDiv = messagesContainer.children[index];
+            
+            // 查找 markdown-content 元素
+            const markdownContent = messageDiv.querySelector('.markdown-content');
+            
+            if (!markdownContent) {
+                // 如果没有 markdown-content，跳过这条消息
+                return;
             }
             
-            // 确保消息div可见（增加间距以适应高清晰度）
-            messageDiv.style.opacity = '1';
-            messageDiv.style.display = 'flex';
-            messageDiv.style.marginBottom = '20px';
-            messageDiv.style.width = '100%';
-            messageDiv.style.boxSizing = 'border-box';
+            // 克隆 markdown-content 元素
+            const markdownClone = markdownContent.cloneNode(true);
             
-            // 查找宠物消息气泡和用户消息气泡（通过 style 或 className 识别）
-            const petBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
-            const userBubble = messageDiv.querySelector('[data-message-type="user-bubble"]');
+            // 获取原始 markdown-content 的计算样式
+            const originalMarkdownStyle = window.getComputedStyle(markdownContent);
             
-            // 如果找不到带属性的，尝试通过其他方式识别
-            let bubbleElement = petBubble || userBubble;
-            if (!bubbleElement) {
-                // 查找包含样式的气泡元素
-                const allDivs = messageDiv.querySelectorAll('div');
-                for (let div of allDivs) {
-                    const style = div.getAttribute('style') || '';
-                    if (style.includes('background') && style.includes('padding') && style.includes('border-radius')) {
-                        bubbleElement = div;
-                        // 通过样式特征判断是宠物还是用户消息
-                        if (messageDiv.style.justifyContent === 'flex-end' || 
-                            style.includes('f093fb') || 
-                            style.includes('f5576c')) {
-                            userBubble = div;
-                        } else {
-                            petBubble = div;
-                        }
-                        break;
-                    }
+            // 创建一个容器来包装 markdown-content
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-sizing: border-box !important;
+            `;
+            
+            // 保留原始的间距（如果是第一条消息则不加间距）
+            if (index > 0) {
+                const originalMsgStyle = originalMessageDiv ? window.getComputedStyle(originalMessageDiv) : null;
+                if (originalMsgStyle && originalMsgStyle.marginTop) {
+                    contentWrapper.style.marginTop = originalMsgStyle.marginTop;
+                } else {
+                    contentWrapper.style.marginTop = '16px';
                 }
             }
             
-            if (petBubble) {
-                // 宠物消息样式 - 铺满宽度
-                messageDiv.style.flexDirection = 'row';
-                messageDiv.style.justifyContent = 'flex-start';
-                messageDiv.style.alignItems = 'flex-start';
-                messageDiv.style.gap = '0';
-                
-                // 保留原有样式，只增强关键属性
-                const currentStyle = petBubble.getAttribute('style') || '';
-                petBubble.style.cssText = currentStyle;
-                petBubble.style.maxWidth = '100%';
-                petBubble.style.width = '100%';
-                petBubble.style.wordWrap = 'break-word';
-                petBubble.style.overflowWrap = 'break-word';
-                petBubble.style.whiteSpace = 'pre-wrap';
-            } else if (userBubble) {
-                // 用户消息样式 - 铺满宽度
-                messageDiv.style.flexDirection = 'row';
-                messageDiv.style.justifyContent = 'flex-start';
-                messageDiv.style.alignItems = 'flex-start';
-                messageDiv.style.gap = '0';
-                
-                // 保留原有样式，只增强关键属性
-                const currentStyle = userBubble.getAttribute('style') || '';
-                userBubble.style.cssText = currentStyle;
-                userBubble.style.maxWidth = '100%';
-                userBubble.style.width = '100%';
-                userBubble.style.wordWrap = 'break-word';
-                userBubble.style.overflowWrap = 'break-word';
-                userBubble.style.whiteSpace = 'pre-wrap';
-            }
+            // 递归复制原始 markdown-content 及其所有子元素的样式
+            copyAllElementStyles(markdownContent, markdownClone);
+            
+            // 设置必要的样式
+            markdownClone.style.setProperty('width', '100%', 'important');
+            markdownClone.style.setProperty('max-width', '100%', 'important');
+            markdownClone.style.setProperty('word-wrap', 'break-word', 'important');
+            markdownClone.style.setProperty('overflow-wrap', 'break-word', 'important');
+            markdownClone.style.setProperty('white-space', 'pre-wrap', 'important');
             
             // 处理图片
-            const images = messageDiv.querySelectorAll('img');
+            const images = markdownClone.querySelectorAll('img');
             images.forEach(img => {
                 img.style.maxWidth = '100%';
                 img.style.height = 'auto';
                 img.style.display = 'block';
             });
             
-            // 处理 Markdown 渲染的内容（增加字体大小以获得更清晰的渲染）
-            const markdownContent = messageDiv.querySelector('.markdown-content');
-            if (markdownContent) {
-                markdownContent.style.fontSize = '16px';
-                markdownContent.style.lineHeight = '1.6';
-                markdownContent.style.color = 'inherit';
-            }
-            
             // 移除可能影响显示的动画和过渡效果
-            const allElements = messageDiv.querySelectorAll('*');
+            const allElements = markdownClone.querySelectorAll('*');
             allElements.forEach(el => {
                 el.style.animation = 'none';
                 el.style.transition = 'none';
             });
+            
+            // 将 markdown-content 添加到包装容器
+            contentWrapper.appendChild(markdownClone);
+            contentOnlyContainer.appendChild(contentWrapper);
         });
+        
+        // 用只包含 markdown-content 的容器替换原来的消息容器
+        messagesClone.innerHTML = '';
+        messagesClone.appendChild(contentOnlyContainer);
 
         exportContainer.appendChild(messagesClone);
 
@@ -201,6 +246,21 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
         // 等待更长时间确保所有样式和图片加载完成
         await new Promise(resolve => setTimeout(resolve, 800));
 
+        // 等待所有图片加载完成
+        const images = exportContainer.querySelectorAll('img');
+        await Promise.all(Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve) => {
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 3000); // 超时保护
+            });
+        }));
+
+        // 获取实际内容高度，确保完整包含所有内容
+        const contentHeight = messagesClone.scrollHeight;
+        const contentWidth = 1200;
+
         // 使用 html2canvas 生成图片（超高清设置）
         const canvas = await html2canvas(exportContainer, {
             scale: 5, // 5倍缩放，获得超高清图片（6000px 宽度）
@@ -208,9 +268,10 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
-            windowWidth: 1200,
-            width: 1200,
-            height: exportContainer.scrollHeight,
+            windowWidth: contentWidth,
+            windowHeight: contentHeight,
+            width: contentWidth,
+            height: contentHeight,
             imageTimeout: 0,
             removeContainer: false,
             foreignObjectRendering: false,
@@ -386,12 +447,20 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             width: 1200px !important;
             background: white !important;
             padding: 0 !important;
+            margin: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
             box-sizing: border-box !important;
         `;
 
-        // 在克隆前收集 iframe 信息，以便替换为占位符
-        const originalIframes = Array.from(messageElement.querySelectorAll('iframe'));
+        // 查找 markdown-content 元素
+        const markdownContent = messageElement.querySelector('.markdown-content');
+        
+        if (!markdownContent) {
+            throw new Error('未找到 markdown-content 元素');
+        }
+        
+        // 在克隆前收集 markdown-content 内的 iframe 信息，以便替换为占位符
+        const originalIframes = Array.from(markdownContent.querySelectorAll('iframe'));
         const iframeInfos = originalIframes.map((iframe, index) => {
             const rect = iframe.getBoundingClientRect();
             const computedStyle = window.getComputedStyle(iframe);
@@ -403,77 +472,47 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
                 dataset: { ...iframe.dataset }
             };
         });
-
-        // 克隆消息元素
-        const messageClone = messageElement.cloneNode(true);
         
-        // 移除 pet-avatar
-        const petAvatar = messageClone.querySelector('[data-message-type="pet-avatar"]');
-        if (petAvatar) {
-            petAvatar.remove();
-        }
+        // 克隆 markdown-content 元素
+        const markdownClone = markdownContent.cloneNode(true);
         
-        // 清理克隆元素中的按钮和操作元素
-        const buttonsToRemove = messageClone.querySelectorAll('.edit-button, .delete-button, .resend-button, .copy-button, .export-message-button, [data-copy-button-container], [data-try-again-button-container]');
-        buttonsToRemove.forEach(btn => {
-            const container = btn.closest('[data-copy-button-container], [data-try-again-button-container]');
-            if (container) {
-                container.remove();
-            } else {
-                btn.remove();
-            }
-        });
-
-        // 调整消息样式
+        // 创建一个容器来包装 markdown-content
+        const messageClone = document.createElement('div');
         messageClone.style.cssText = `
-            display: flex !important;
-            margin-bottom: 0 !important;
             width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
             box-sizing: border-box !important;
             opacity: 1 !important;
         `;
-
-        // 查找消息气泡
-        const petBubble = messageClone.querySelector('[data-message-type="pet-bubble"]');
-        const userBubble = messageClone.querySelector('[data-message-type="user-bubble"]');
-        const bubble = petBubble || userBubble;
-
-        if (bubble) {
-            // 保留原有样式，只增强关键属性 - 铺满宽度
-            const currentStyle = bubble.getAttribute('style') || '';
-            bubble.style.cssText = currentStyle;
-            bubble.style.maxWidth = '100%';
-            bubble.style.width = '100%';
-            bubble.style.wordWrap = 'break-word';
-            bubble.style.overflowWrap = 'break-word';
-            bubble.style.whiteSpace = 'pre-wrap';
-        }
-
+        
+        // 递归复制原始 markdown-content 及其所有子元素的样式
+        copyAllElementStyles(markdownContent, markdownClone);
+        
+        // 设置必要的样式
+        markdownClone.style.setProperty('width', '100%', 'important');
+        markdownClone.style.setProperty('max-width', '100%', 'important');
+        markdownClone.style.setProperty('word-wrap', 'break-word', 'important');
+        markdownClone.style.setProperty('overflow-wrap', 'break-word', 'important');
+        markdownClone.style.setProperty('white-space', 'pre-wrap', 'important');
+        
         // 处理图片
-        const images = messageClone.querySelectorAll('img');
+        const images = markdownClone.querySelectorAll('img');
         images.forEach(img => {
             img.style.maxWidth = '100%';
             img.style.height = 'auto';
             img.style.display = 'block';
         });
-
-        // 处理 Markdown 渲染的内容
-        const markdownContent = messageClone.querySelector('.markdown-content');
-        if (markdownContent) {
-            markdownContent.style.fontSize = '16px';
-            markdownContent.style.lineHeight = '1.6';
-            markdownContent.style.color = 'inherit';
-        }
-
+        
         // 移除可能影响显示的动画和过渡效果
-        const allElements = messageClone.querySelectorAll('*');
+        const allElements = markdownClone.querySelectorAll('*');
         allElements.forEach(el => {
             el.style.animation = 'none';
             el.style.transition = 'none';
         });
-
+        
         // 替换克隆中的 iframe，避免 html2canvas 在处理 iframe 时抛出错误
-        const clonedIframes = messageClone.querySelectorAll('iframe');
+        const clonedIframes = markdownClone.querySelectorAll('iframe');
         clonedIframes.forEach((iframe, idx) => {
             const info = iframeInfos[idx] || { width: 200, height: 150, title: '' };
             const placeholderWidth = Math.max(Number.isFinite(info.width) ? info.width : 200, 50);
@@ -503,7 +542,9 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
                 iframe.remove();
             }
         });
-
+        
+        // 将 markdown-content 添加到容器
+        messageClone.appendChild(markdownClone);
         exportContainer.appendChild(messageClone);
 
         // 将临时容器添加到 DOM（html2canvas 需要元素在 DOM 中）
@@ -512,6 +553,21 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         // 等待更长时间确保所有样式和图片加载完成
         await new Promise(resolve => setTimeout(resolve, 800));
 
+        // 等待所有图片加载完成
+        const imagesToLoad = exportContainer.querySelectorAll('img');
+        await Promise.all(Array.from(imagesToLoad).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve) => {
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 3000); // 超时保护
+            });
+        }));
+
+        // 获取实际内容高度，确保完整包含所有内容
+        const contentHeight = messageClone.scrollHeight;
+        const contentWidth = 1200;
+
         // 使用 html2canvas 生成图片（超高清设置）
         const canvas = await html2canvas(exportContainer, {
             scale: 5, // 5倍缩放，获得超高清图片（6000px 宽度）
@@ -519,9 +575,10 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
-            windowWidth: 1200,
-            width: 1200,
-            height: exportContainer.scrollHeight,
+            windowWidth: contentWidth,
+            windowHeight: contentHeight,
+            width: contentWidth,
+            height: contentHeight,
             imageTimeout: 0,
             removeContainer: false,
             foreignObjectRendering: false,

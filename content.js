@@ -7595,8 +7595,9 @@ if (typeof getCenterPosition === 'undefined') {
             background: rgba(0, 0, 0, 0.4) !important;
             backdrop-filter: blur(2px) !important;
             display: none !important;
-            align-items: center !important;
+            align-items: flex-start !important;
             justify-content: center !important;
+            padding-top: 60px !important;
             z-index: ${PET_CONFIG.ui.zIndex.modal} !important;
             opacity: 0 !important;
             transition: opacity 0.2s ease !important;
@@ -7615,9 +7616,8 @@ if (typeof getCenterPosition === 'undefined') {
             background: white !important;
             border-radius: 16px !important;
             padding: 0 !important;
-            width: 90% !important;
-            max-width: 700px !important;
-            max-height: 85% !important;
+            width: 1165px !important;
+            height: 720px !important;
             overflow: hidden !important;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
             display: flex !important;

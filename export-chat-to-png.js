@@ -134,7 +134,7 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             top: 0 !important;
             width: 750px !important;
             background: white !important;
-            padding: 20px !important;
+            padding: 0 !important;
             margin: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif !important;
             box-sizing: border-box !important;
@@ -191,16 +191,14 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             contentWrapper.style.cssText = `
                 width: 100% !important;
                 margin: 0 !important;
-                padding: 16px !important;
+                padding: 0 !important;
                 box-sizing: border-box !important;
-                background: #f8f9fa !important;
-                border-radius: 12px !important;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+                background: transparent !important;
             `;
             
             // 保留原始的间距（如果是第一条消息则不加间距）
             if (index > 0) {
-                contentWrapper.style.marginTop = '20px';
+                contentWrapper.style.marginTop = '16px';
             }
             
             // 递归复制原始 markdown-content 及其所有子元素的样式
@@ -540,7 +538,7 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             top: 0 !important;
             width: 750px !important;
             background: white !important;
-            padding: 20px !important;
+            padding: 0 !important;
             margin: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif !important;
             box-sizing: border-box !important;
@@ -576,12 +574,10 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         messageClone.style.cssText = `
             width: 100% !important;
             margin: 0 !important;
-            padding: 16px !important;
+            padding: 0 !important;
             box-sizing: border-box !important;
             opacity: 1 !important;
-            background: #f8f9fa !important;
-            border-radius: 12px !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+            background: transparent !important;
         `;
         
         // 递归复制原始 markdown-content 及其所有子元素的样式

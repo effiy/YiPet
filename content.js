@@ -564,6 +564,9 @@ if (typeof getCenterPosition === 'undefined') {
         this.currentOssDirectory = ''; // 当前OSS目录
         this.ossImagePreviewEnabled = false; // OSS图片预览开关（默认关闭，用于标签模块的批量控制）
         this.ossFilePreviewStates = {}; // 每个文件的预览开关状态 { fileName: true/false }
+        
+        // FAQ API管理器
+        this.faqApi = null;
 
         // 状态保存节流相关
         this.lastStateSaveTime = 0; // 上次保存状态的时间
@@ -609,6 +612,14 @@ if (typeof getCenterPosition === 'undefined') {
             }
         } else {
             console.log('OSS API管理器未启用');
+        }
+        
+        // 初始化FAQ API管理器
+        if (typeof FaqApiManager !== 'undefined') {
+            this.faqApi = new FaqApiManager('https://api.effiy.cn/mongodb', true);
+            console.log('FAQ API管理器已初始化');
+        } else {
+            console.log('FAQ API管理器未启用');
         }
         
         this.loadState(); // 加载保存的状态
@@ -8400,14 +8411,26 @@ if (typeof getCenterPosition === 'undefined') {
         const faqsContainer = modal.querySelector('.faq-manager-faqs');
         if (!faqsContainer) return;
 
-        // 从存储加载常见问题
+        // 从API加载常见问题
         let faqs = [];
         try {
-            const result = await chrome.storage.local.get(['petFaqs']);
-            faqs = result.petFaqs || [];
+            if (this.faqApi && this.faqApi.isEnabled()) {
+                faqs = await this.faqApi.getFaqs();
+            } else {
+                // 降级方案：从本地存储加载
+                const result = await chrome.storage.local.get(['petFaqs']);
+                faqs = result.petFaqs || [];
+            }
         } catch (error) {
             console.error('加载常见问题失败:', error);
-            faqs = [];
+            // 如果API失败，尝试从本地存储加载作为降级方案
+            try {
+                const result = await chrome.storage.local.get(['petFaqs']);
+                faqs = result.petFaqs || [];
+            } catch (localError) {
+                console.error('从本地存储加载常见问题也失败:', localError);
+                faqs = [];
+            }
         }
 
         // 确保每个常见问题都有tags字段
@@ -8484,7 +8507,8 @@ if (typeof getCenterPosition === 'undefined') {
 
         // 使用原始索引（用于编辑和删除）
         filteredFaqs.forEach((faq) => {
-            const originalIndex = modal._currentFaqs.findIndex(f => f.text === faq.text && JSON.stringify(f.tags || []) === JSON.stringify(faq.tags || []));
+            // 使用文本匹配
+            let originalIndex = modal._currentFaqs.findIndex(f => f.text === faq.text);
             const index = originalIndex >= 0 ? originalIndex : 0;
             const faqItem = document.createElement('div');
             faqItem.style.cssText = `
@@ -8708,7 +8732,7 @@ if (typeof getCenterPosition === 'undefined') {
     }
 
     // 从输入框添加常见问题
-    addFaqFromInput() {
+    async addFaqFromInput() {
         const modal = this.chatWindow?.querySelector('#pet-faq-manager');
         if (!modal) return;
 
@@ -8733,23 +8757,43 @@ if (typeof getCenterPosition === 'undefined') {
             return;
         }
 
-        // 添加到列表（确保有tags字段）
-        modal._currentFaqs.push({ text, tags: [] });
-        
-        // 保存到存储
-        this.saveFaqs(modal._currentFaqs);
-        
-        // 重新加载显示
-        this.loadFaqsIntoManager();
-        
-        // 更新标签过滤器UI
-        this.updateFaqTagFilterUI();
+        try {
+            // 使用API创建常见问题
+            if (this.faqApi && this.faqApi.isEnabled()) {
+                const newFaq = await this.faqApi.createFaq({ text, tags: [] });
+                // 清除GET请求缓存，确保下次加载获取最新数据
+                if (this.faqApi.clearGetCache) {
+                    this.faqApi.clearGetCache();
+                }
+                // 立即将新添加的常见问题添加到列表中（优化用户体验）
+                if (newFaq && !modal._currentFaqs.some(faq => faq.text === newFaq.text)) {
+                    modal._currentFaqs.push(newFaq);
+                }
+                // 重新加载显示（确保数据一致性）
+                await this.loadFaqsIntoManager();
+                // 更新标签过滤器UI
+                this.updateFaqTagFilterUI();
+                this.showNotification('常见问题已添加', 'success');
+            } else {
+                // 降级方案：添加到列表并保存到本地存储
+                const newFaq = { text, tags: [] };
+                modal._currentFaqs.push(newFaq);
+                await this.saveFaqs(modal._currentFaqs);
+                // 重新加载显示
+                await this.loadFaqsIntoManager();
+                // 更新标签过滤器UI
+                this.updateFaqTagFilterUI();
+                this.showNotification('常见问题已添加', 'success');
+            }
+        } catch (error) {
+            console.error('添加常见问题失败:', error);
+            this.showNotification('添加失败，请重试', 'error');
+            return;
+        }
         
         // 清空输入框
         faqInput.value = '';
         faqInput.focus();
-        
-        this.showNotification('常见问题已添加', 'success');
     }
 
     // 打开常见问题标签管理器
@@ -9108,8 +9152,13 @@ if (typeof getCenterPosition === 'undefined') {
                 removeBtn.style.color = '#94a3b8';
             });
             removeBtn.addEventListener('click', () => {
-                tagModal._currentTags.splice(index, 1);
-                this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+                // 根据标签值删除，避免索引错位问题
+                const tagValue = tag.trim();
+                const currentIndex = tagModal._currentTags.findIndex(t => t && t.trim() === tagValue);
+                if (currentIndex !== -1) {
+                    tagModal._currentTags.splice(currentIndex, 1);
+                    this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+                }
             });
 
             tagElement.appendChild(tagText);
@@ -9135,8 +9184,11 @@ if (typeof getCenterPosition === 'undefined') {
             tagModal._currentTags = [];
         }
 
-        // 检查是否已存在
-        if (tagModal._currentTags.includes(tagText)) {
+        // 检查是否已存在（不区分大小写）
+        const tagExists = tagModal._currentTags.some(tag => 
+            tag && tag.trim().toLowerCase() === tagText.toLowerCase()
+        );
+        if (tagExists) {
             this.showNotification('标签已存在', 'warning');
             return;
         }
@@ -9161,22 +9213,52 @@ if (typeof getCenterPosition === 'undefined') {
         const faq = modal._currentFaqs[faqIndex];
         if (!faq) return;
 
-        // 更新标签
-        faq.tags = tagModal._currentTags ? [...tagModal._currentTags] : [];
+        // 更新标签（过滤空标签并去除首尾空格）
+        const newTags = (tagModal._currentTags || [])
+            .map(tag => tag ? tag.trim() : '')
+            .filter(tag => tag.length > 0);
+        faq.tags = newTags;
 
-        // 保存到存储
-        await this.saveFaqs(modal._currentFaqs);
-
-        // 重新加载显示
-        await this.loadFaqsIntoManager();
-
-        // 更新标签过滤器UI
-        this.updateFaqTagFilterUI();
-
-        // 关闭标签管理器
-        this.closeFaqTagManager();
-
-        this.showNotification('标签已保存', 'success');
+        try {
+            // 使用API保存常见问题标签
+            if (this.faqApi && this.faqApi.isEnabled()) {
+                // 使用列表对应的key来更新，key会在payload中传递
+                await this.faqApi.updateFaq(faq.key || faq.text, {
+                    text: faq.text,
+                    tags: newTags
+                });
+                
+                // 清除GET请求缓存，确保下次加载获取最新数据
+                if (this.faqApi.clearGetCache) {
+                    this.faqApi.clearGetCache();
+                }
+                // 立即更新本地数据（优化用户体验）
+                const targetFaq = modal._currentFaqs.find(f => f.text === faq.text);
+                if (targetFaq) {
+                    targetFaq.tags = newTags;
+                }
+                // 重新加载显示（确保数据一致性）
+                await this.loadFaqsIntoManager();
+                // 更新标签过滤器UI
+                this.updateFaqTagFilterUI();
+                // 关闭标签管理器
+                this.closeFaqTagManager();
+                this.showNotification('标签已保存', 'success');
+            } else {
+                // 降级方案：保存到本地存储
+                await this.saveFaqs(modal._currentFaqs);
+                // 重新加载显示
+                await this.loadFaqsIntoManager();
+                // 更新标签过滤器UI
+                this.updateFaqTagFilterUI();
+                // 关闭标签管理器
+                this.closeFaqTagManager();
+                this.showNotification('标签已保存', 'success');
+            }
+        } catch (error) {
+            console.error('保存标签失败:', error);
+            this.showNotification('保存失败，请重试', 'error');
+        }
     }
 
     // 关闭常见问题标签管理器
@@ -9201,22 +9283,43 @@ if (typeof getCenterPosition === 'undefined') {
         const modal = this.chatWindow?.querySelector('#pet-faq-manager');
         if (!modal || !modal._currentFaqs) return;
 
+        const faq = modal._currentFaqs[index];
+        if (!faq) return;
+
         if (!confirm('确定要删除这个常见问题吗？')) {
             return;
         }
 
-        modal._currentFaqs.splice(index, 1);
-        
-        // 保存到存储
-        await this.saveFaqs(modal._currentFaqs);
-        
-        // 重新加载显示
-        await this.loadFaqsIntoManager();
-        
-        // 更新标签过滤器UI
-        this.updateFaqTagFilterUI();
-        
-        this.showNotification('常见问题已删除', 'success');
+        try {
+            // 使用API删除常见问题
+            if (this.faqApi && this.faqApi.isEnabled()) {
+                // 使用列表对应的key来删除
+                await this.faqApi.deleteFaq(faq.key);
+                // 清除GET请求缓存，确保下次加载获取最新数据
+                if (this.faqApi.clearGetCache) {
+                    this.faqApi.clearGetCache();
+                }
+                // 立即从列表中删除（优化用户体验）
+                modal._currentFaqs.splice(index, 1);
+                // 重新加载显示（确保数据一致性）
+                await this.loadFaqsIntoManager();
+                // 更新标签过滤器UI
+                this.updateFaqTagFilterUI();
+                this.showNotification('常见问题已删除', 'success');
+            } else {
+                // 降级方案：从列表中删除并保存到本地存储
+                modal._currentFaqs.splice(index, 1);
+                await this.saveFaqs(modal._currentFaqs);
+                // 重新加载显示
+                await this.loadFaqsIntoManager();
+                // 更新标签过滤器UI
+                this.updateFaqTagFilterUI();
+                this.showNotification('常见问题已删除', 'success');
+            }
+        } catch (error) {
+            console.error('删除常见问题失败:', error);
+            this.showNotification('删除失败，请重试', 'error');
+        }
     }
 
     // 编辑常见问题
@@ -9580,17 +9683,34 @@ if (typeof getCenterPosition === 'undefined') {
             }
 
             try {
-                // 更新常见问题
-                modal._currentFaqs[index].text = text;
+                const faq = modal._currentFaqs[index];
                 
-                // 保存到存储
-                await this.saveFaqs(modal._currentFaqs);
-                
-                // 重新加载显示
-                await this.loadFaqsIntoManager();
-                
-                closeEditModal();
-                this.showNotification('常见问题已更新', 'success');
+                // 使用API更新常见问题
+                if (this.faqApi && this.faqApi.isEnabled()) {
+                    // 使用列表对应的key来更新，key会在payload中传递
+                    await this.faqApi.updateFaq(faq.key || faq.text, {
+                        text: text,
+                        tags: faq.tags || []
+                    });
+                    // 清除GET请求缓存，确保下次加载获取最新数据
+                    if (this.faqApi.clearGetCache) {
+                        this.faqApi.clearGetCache();
+                    }
+                    // 立即更新本地数据（优化用户体验）
+                    modal._currentFaqs[index].text = text;
+                    // 重新加载显示（确保数据一致性）
+                    await this.loadFaqsIntoManager();
+                    closeEditModal();
+                    this.showNotification('常见问题已更新', 'success');
+                } else {
+                    // 降级方案：更新本地数据并保存到本地存储
+                    modal._currentFaqs[index].text = text;
+                    await this.saveFaqs(modal._currentFaqs);
+                    // 重新加载显示
+                    await this.loadFaqsIntoManager();
+                    closeEditModal();
+                    this.showNotification('常见问题已更新', 'success');
+                }
             } catch (error) {
                 console.error('保存常见问题失败:', error);
                 this.showNotification('保存失败，请重试', 'error');
@@ -9673,12 +9793,12 @@ if (typeof getCenterPosition === 'undefined') {
         this.showNotification('已追加到输入框', 'success');
     }
 
-    // 保存常见问题到存储
+    // 保存常见问题到存储（降级方案，用于API不可用时）
     async saveFaqs(faqs) {
         try {
             await chrome.storage.local.set({ petFaqs: faqs });
         } catch (error) {
-            console.error('保存常见问题失败:', error);
+            console.error('保存常见问题到本地存储失败:', error);
             this.showNotification('保存常见问题失败', 'error');
         }
     }

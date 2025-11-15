@@ -133,12 +133,15 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             left: -9999px !important;
             top: 0 !important;
             width: 750px !important;
+            max-width: 750px !important;
             background: white !important;
-            padding: 0 !important;
+            padding: 20px !important;
             margin: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif !important;
             box-sizing: border-box !important;
             line-height: 1.8 !important;
+            overflow-x: hidden !important;
+            overflow-y: visible !important;
         `;
 
         // 克隆消息内容
@@ -163,9 +166,13 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
         const contentOnlyContainer = document.createElement('div');
         contentOnlyContainer.style.cssText = `
             width: 100% !important;
+            max-width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
             background: transparent !important;
+            box-sizing: border-box !important;
+            overflow-x: hidden !important;
+            overflow-y: visible !important;
         `;
         
         messageElements.forEach((messageDiv, index) => {
@@ -190,10 +197,13 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             const contentWrapper = document.createElement('div');
             contentWrapper.style.cssText = `
                 width: 100% !important;
+                max-width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 box-sizing: border-box !important;
                 background: transparent !important;
+                overflow-x: hidden !important;
+                overflow-y: visible !important;
             `;
             
             // 保留原始的间距（如果是第一条消息则不加间距）
@@ -209,10 +219,14 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             markdownClone.style.setProperty('max-width', '100%', 'important');
             markdownClone.style.setProperty('word-wrap', 'break-word', 'important');
             markdownClone.style.setProperty('overflow-wrap', 'break-word', 'important');
+            markdownClone.style.setProperty('word-break', 'break-word', 'important');
             markdownClone.style.setProperty('white-space', 'pre-wrap', 'important');
             markdownClone.style.setProperty('font-size', '16px', 'important');
             markdownClone.style.setProperty('line-height', '1.8', 'important');
             markdownClone.style.setProperty('color', '#333', 'important');
+            markdownClone.style.setProperty('box-sizing', 'border-box', 'important');
+            markdownClone.style.setProperty('overflow-x', 'hidden', 'important');
+            markdownClone.style.setProperty('overflow-y', 'visible', 'important');
             
             // 优化标题样式
             const headings = markdownClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
@@ -251,9 +265,14 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
                 pre.style.setProperty('padding', '16px', 'important');
                 pre.style.setProperty('border-radius', '8px', 'important');
                 pre.style.setProperty('overflow-x', 'auto', 'important');
+                pre.style.setProperty('overflow-y', 'visible', 'important');
                 pre.style.setProperty('margin', '1em 0', 'important');
                 pre.style.setProperty('font-size', '14px', 'important');
                 pre.style.setProperty('line-height', '1.6', 'important');
+                pre.style.setProperty('max-width', '100%', 'important');
+                pre.style.setProperty('box-sizing', 'border-box', 'important');
+                pre.style.setProperty('word-wrap', 'break-word', 'important');
+                pre.style.setProperty('white-space', 'pre-wrap', 'important');
             });
             
             const inlineCodes = markdownClone.querySelectorAll('code:not(pre code)');
@@ -269,9 +288,13 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             const tables = markdownClone.querySelectorAll('table');
             tables.forEach(table => {
                 table.style.setProperty('width', '100%', 'important');
+                table.style.setProperty('max-width', '100%', 'important');
                 table.style.setProperty('border-collapse', 'collapse', 'important');
                 table.style.setProperty('margin', '1em 0', 'important');
                 table.style.setProperty('font-size', '14px', 'important');
+                table.style.setProperty('box-sizing', 'border-box', 'important');
+                table.style.setProperty('table-layout', 'auto', 'important');
+                table.style.setProperty('word-wrap', 'break-word', 'important');
             });
             
             const tableCells = markdownClone.querySelectorAll('th, td');
@@ -279,6 +302,11 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
                 cell.style.setProperty('border', '1px solid #e2e8f0', 'important');
                 cell.style.setProperty('padding', '10px', 'important');
                 cell.style.setProperty('text-align', 'left', 'important');
+                cell.style.setProperty('word-wrap', 'break-word', 'important');
+                cell.style.setProperty('overflow-wrap', 'break-word', 'important');
+                cell.style.setProperty('word-break', 'break-word', 'important');
+                cell.style.setProperty('max-width', '0', 'important');
+                cell.style.setProperty('box-sizing', 'border-box', 'important');
             });
             
             const tableHeaders = markdownClone.querySelectorAll('th');
@@ -314,11 +342,21 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
                 link.style.setProperty('text-decoration', 'underline', 'important');
             });
             
-            // 移除可能影响显示的动画和过渡效果
+            // 移除可能影响显示的动画和过渡效果，并确保所有元素都有正确的盒模型
             const allElements = markdownClone.querySelectorAll('*');
             allElements.forEach(el => {
                 el.style.animation = 'none';
                 el.style.transition = 'none';
+                // 确保所有元素都使用 border-box，防止 padding 导致溢出
+                if (!el.style.boxSizing) {
+                    el.style.setProperty('box-sizing', 'border-box', 'important');
+                }
+                // 确保文本元素能够正确换行
+                if (['P', 'SPAN', 'DIV', 'LI', 'TD', 'TH', 'A', 'STRONG', 'EM', 'CODE'].includes(el.tagName)) {
+                    el.style.setProperty('word-wrap', 'break-word', 'important');
+                    el.style.setProperty('overflow-wrap', 'break-word', 'important');
+                    el.style.setProperty('word-break', 'break-word', 'important');
+                }
             });
             
             // 将 markdown-content 添加到包装容器
@@ -537,12 +575,15 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             left: -9999px !important;
             top: 0 !important;
             width: 750px !important;
+            max-width: 750px !important;
             background: white !important;
-            padding: 0 !important;
+            padding: 20px !important;
             margin: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif !important;
             box-sizing: border-box !important;
             line-height: 1.8 !important;
+            overflow-x: hidden !important;
+            overflow-y: visible !important;
         `;
 
         // 查找 markdown-content 元素
@@ -573,11 +614,14 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         const messageClone = document.createElement('div');
         messageClone.style.cssText = `
             width: 100% !important;
+            max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             box-sizing: border-box !important;
             opacity: 1 !important;
             background: transparent !important;
+            overflow-x: hidden !important;
+            overflow-y: visible !important;
         `;
         
         // 递归复制原始 markdown-content 及其所有子元素的样式
@@ -588,10 +632,14 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         markdownClone.style.setProperty('max-width', '100%', 'important');
         markdownClone.style.setProperty('word-wrap', 'break-word', 'important');
         markdownClone.style.setProperty('overflow-wrap', 'break-word', 'important');
+        markdownClone.style.setProperty('word-break', 'break-word', 'important');
         markdownClone.style.setProperty('white-space', 'pre-wrap', 'important');
         markdownClone.style.setProperty('font-size', '16px', 'important');
         markdownClone.style.setProperty('line-height', '1.8', 'important');
         markdownClone.style.setProperty('color', '#333', 'important');
+        markdownClone.style.setProperty('box-sizing', 'border-box', 'important');
+        markdownClone.style.setProperty('overflow-x', 'hidden', 'important');
+        markdownClone.style.setProperty('overflow-y', 'visible', 'important');
         
         // 优化标题样式
         const headings = markdownClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
@@ -630,9 +678,14 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             pre.style.setProperty('padding', '16px', 'important');
             pre.style.setProperty('border-radius', '8px', 'important');
             pre.style.setProperty('overflow-x', 'auto', 'important');
+            pre.style.setProperty('overflow-y', 'visible', 'important');
             pre.style.setProperty('margin', '1em 0', 'important');
             pre.style.setProperty('font-size', '14px', 'important');
             pre.style.setProperty('line-height', '1.6', 'important');
+            pre.style.setProperty('max-width', '100%', 'important');
+            pre.style.setProperty('box-sizing', 'border-box', 'important');
+            pre.style.setProperty('word-wrap', 'break-word', 'important');
+            pre.style.setProperty('white-space', 'pre-wrap', 'important');
         });
         
         const inlineCodes = markdownClone.querySelectorAll('code:not(pre code)');
@@ -648,9 +701,13 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         const tables = markdownClone.querySelectorAll('table');
         tables.forEach(table => {
             table.style.setProperty('width', '100%', 'important');
+            table.style.setProperty('max-width', '100%', 'important');
             table.style.setProperty('border-collapse', 'collapse', 'important');
             table.style.setProperty('margin', '1em 0', 'important');
             table.style.setProperty('font-size', '14px', 'important');
+            table.style.setProperty('box-sizing', 'border-box', 'important');
+            table.style.setProperty('table-layout', 'auto', 'important');
+            table.style.setProperty('word-wrap', 'break-word', 'important');
         });
         
         const tableCells = markdownClone.querySelectorAll('th, td');
@@ -658,6 +715,11 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             cell.style.setProperty('border', '1px solid #e2e8f0', 'important');
             cell.style.setProperty('padding', '10px', 'important');
             cell.style.setProperty('text-align', 'left', 'important');
+            cell.style.setProperty('word-wrap', 'break-word', 'important');
+            cell.style.setProperty('overflow-wrap', 'break-word', 'important');
+            cell.style.setProperty('word-break', 'break-word', 'important');
+            cell.style.setProperty('max-width', '0', 'important');
+            cell.style.setProperty('box-sizing', 'border-box', 'important');
         });
         
         const tableHeaders = markdownClone.querySelectorAll('th');
@@ -693,11 +755,21 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             link.style.setProperty('text-decoration', 'underline', 'important');
         });
         
-        // 移除可能影响显示的动画和过渡效果
+        // 移除可能影响显示的动画和过渡效果，并确保所有元素都有正确的盒模型
         const allElements = markdownClone.querySelectorAll('*');
         allElements.forEach(el => {
             el.style.animation = 'none';
             el.style.transition = 'none';
+            // 确保所有元素都使用 border-box，防止 padding 导致溢出
+            if (!el.style.boxSizing) {
+                el.style.setProperty('box-sizing', 'border-box', 'important');
+            }
+            // 确保文本元素能够正确换行
+            if (['P', 'SPAN', 'DIV', 'LI', 'TD', 'TH', 'A', 'STRONG', 'EM', 'CODE'].includes(el.tagName)) {
+                el.style.setProperty('word-wrap', 'break-word', 'important');
+                el.style.setProperty('overflow-wrap', 'break-word', 'important');
+                el.style.setProperty('word-break', 'break-word', 'important');
+            }
         });
         
         // 替换克隆中的 iframe，避免 html2canvas 在处理 iframe 时抛出错误

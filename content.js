@@ -6324,9 +6324,9 @@ if (typeof getCenterPosition === 'undefined') {
         
         if (allTags.length === 0) {
             // 如果没有标签，隐藏展开/收起按钮
-            const expandToggleContainer = this.sessionSidebar.querySelector('.tag-filter-expand-toggle');
-            if (expandToggleContainer) {
-                expandToggleContainer.style.display = 'none';
+            const expandToggleBtn = this.sessionSidebar.querySelector('.tag-filter-expand-btn');
+            if (expandToggleBtn) {
+                expandToggleBtn.style.display = 'none';
             }
             return;
         }
@@ -6353,19 +6353,19 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 更新展开/折叠按钮
-        const expandToggleContainer = this.sessionSidebar.querySelector('.tag-filter-expand-toggle');
-        const expandToggleBtn = expandToggleContainer?.querySelector('.tag-filter-expand-btn');
-        if (expandToggleContainer && expandToggleBtn) {
+        const expandToggleBtn = this.sessionSidebar.querySelector('.tag-filter-expand-btn');
+        if (expandToggleBtn) {
             if (hasMoreTags || this.tagFilterExpanded) {
-                expandToggleContainer.style.display = 'block';
-                if (hasMoreTags) {
-                    const remainingCount = allTags.length - visibleTags.length;
-                    expandToggleBtn.textContent = this.tagFilterExpanded ? '收起' : `展开 ${remainingCount} 个`;
+                expandToggleBtn.style.display = 'block';
+                if (this.tagFilterExpanded) {
+                    expandToggleBtn.innerHTML = '▲';
+                    expandToggleBtn.title = '收起标签';
                 } else {
-                    expandToggleBtn.textContent = '收起';
+                    expandToggleBtn.innerHTML = '▼';
+                    expandToggleBtn.title = '展开标签';
                 }
             } else {
-                expandToggleContainer.style.display = 'none';
+                expandToggleBtn.style.display = 'none';
             }
         }
         
@@ -21317,6 +21317,37 @@ ${messageContent}`;
             this.updateSessionSidebar();
         });
 
+        // 展开/收起按钮（类似筛选无标签按钮的样式）
+        const expandToggleBtn = document.createElement('button');
+        expandToggleBtn.className = 'tag-filter-expand-btn';
+        expandToggleBtn.title = '展开标签';
+        expandToggleBtn.innerHTML = '▼';
+        expandToggleBtn.style.cssText = `
+            font-size: 10px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: 0.6 !important;
+            display: none !important;
+        `;
+        expandToggleBtn.addEventListener('mouseenter', () => {
+            expandToggleBtn.style.opacity = '1';
+            expandToggleBtn.style.background = '#f3f4f6';
+        });
+        expandToggleBtn.addEventListener('mouseleave', () => {
+            expandToggleBtn.style.opacity = '0.6';
+            expandToggleBtn.style.background = 'none';
+        });
+        expandToggleBtn.addEventListener('click', () => {
+            this.tagFilterExpanded = !this.tagFilterExpanded;
+            this.updateTagFilterUI();
+        });
+
         // 清除按钮（简化版）
         const clearFilterBtn = document.createElement('button');
         clearFilterBtn.className = 'tag-filter-clear';
@@ -21370,6 +21401,7 @@ ${messageContent}`;
 
         filterActions.appendChild(reverseFilterBtn);
         filterActions.appendChild(noTagsFilterBtn);
+        filterActions.appendChild(expandToggleBtn);
         filterActions.appendChild(clearFilterBtn);
         filterHeader.appendChild(filterTitle);
         filterHeader.appendChild(filterActions);
@@ -21385,47 +21417,6 @@ ${messageContent}`;
 
         tagFilterContainer.appendChild(filterHeader);
         tagFilterContainer.appendChild(tagFilterList);
-
-        // 展开/收起按钮容器
-        const expandToggleContainer = document.createElement('div');
-        expandToggleContainer.className = 'tag-filter-expand-toggle';
-        expandToggleContainer.style.cssText = `
-            display: none !important;
-            margin-top: 4px !important;
-            text-align: center !important;
-        `;
-
-        const expandToggleBtn = document.createElement('button');
-        expandToggleBtn.className = 'tag-filter-expand-btn';
-        expandToggleBtn.textContent = '展开';
-        expandToggleBtn.style.cssText = `
-            font-size: 10px !important;
-            color: #9ca3af !important;
-            background: none !important;
-            border: none !important;
-            cursor: pointer !important;
-            padding: 2px 6px !important;
-            border-radius: 4px !important;
-            transition: all 0.2s ease !important;
-            opacity: 0.7 !important;
-        `;
-        expandToggleBtn.addEventListener('mouseenter', () => {
-            expandToggleBtn.style.opacity = '1';
-            expandToggleBtn.style.color = '#4CAF50';
-            expandToggleBtn.style.background = '#f0fdf4';
-        });
-        expandToggleBtn.addEventListener('mouseleave', () => {
-            expandToggleBtn.style.opacity = '0.7';
-            expandToggleBtn.style.color = '#9ca3af';
-            expandToggleBtn.style.background = 'none';
-        });
-        expandToggleBtn.addEventListener('click', () => {
-            this.tagFilterExpanded = !this.tagFilterExpanded;
-            this.updateTagFilterUI();
-        });
-
-        expandToggleContainer.appendChild(expandToggleBtn);
-        tagFilterContainer.appendChild(expandToggleContainer);
 
         // 初始化标签过滤器状态
         if (this.selectedFilterTags === undefined) {

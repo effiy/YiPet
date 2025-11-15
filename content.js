@@ -7682,6 +7682,295 @@ if (typeof getCenterPosition === 'undefined') {
         header.appendChild(title);
         header.appendChild(closeBtn);
 
+        // 搜索和过滤区域
+        const searchFilterGroup = document.createElement('div');
+        searchFilterGroup.style.cssText = `
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 12px !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #fafbfc !important;
+        `;
+
+        // 搜索输入框
+        const searchContainer = document.createElement('div');
+        searchContainer.style.cssText = `
+            position: relative !important;
+            display: flex !important;
+            align-items: center !important;
+        `;
+
+        const searchIcon = document.createElement('span');
+        searchIcon.textContent = '🔍';
+        searchIcon.style.cssText = `
+            position: absolute !important;
+            left: 12px !important;
+            font-size: 14px !important;
+            pointer-events: none !important;
+            z-index: 1 !important;
+            opacity: 0.5 !important;
+        `;
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'faq-search-input';
+        searchInput.placeholder = '搜索常见问题...';
+        searchInput.style.cssText = `
+            width: 100% !important;
+            padding: 10px 32px 10px 36px !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            background: white !important;
+            color: #1e293b !important;
+            box-sizing: border-box !important;
+        `;
+
+        const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+        searchInput.addEventListener('focus', () => {
+            searchInput.style.borderColor = mainColor;
+            searchInput.style.boxShadow = `0 0 0 3px ${mainColor}20`;
+            searchIcon.style.opacity = '0.7';
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.style.borderColor = '#e2e8f0';
+            searchInput.style.boxShadow = 'none';
+            searchIcon.style.opacity = '0.5';
+        });
+
+        // 清除搜索按钮
+        const clearSearchBtn = document.createElement('button');
+        clearSearchBtn.innerHTML = '✕';
+        clearSearchBtn.type = 'button';
+        clearSearchBtn.style.cssText = `
+            position: absolute !important;
+            right: 8px !important;
+            width: 20px !important;
+            height: 20px !important;
+            border: none !important;
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+            border-radius: 50% !important;
+            cursor: pointer !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 12px !important;
+            padding: 0 !important;
+            transition: all 0.2s ease !important;
+            z-index: 2 !important;
+            line-height: 1 !important;
+        `;
+
+        const updateClearSearchBtn = () => {
+            if (searchInput.value.trim() !== '') {
+                clearSearchBtn.style.display = 'flex';
+            } else {
+                clearSearchBtn.style.display = 'none';
+            }
+        };
+
+        clearSearchBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            searchInput.value = '';
+            updateClearSearchBtn();
+            this.faqSearchFilter = '';
+            this.loadFaqsIntoManager();
+            searchInput.focus();
+        });
+
+        clearSearchBtn.addEventListener('mouseenter', () => {
+            clearSearchBtn.style.background = '#d1d5db';
+            clearSearchBtn.style.transform = 'scale(1.1)';
+        });
+        clearSearchBtn.addEventListener('mouseleave', () => {
+            clearSearchBtn.style.background = '#e5e7eb';
+            clearSearchBtn.style.transform = 'scale(1)';
+        });
+
+        // 搜索输入事件（防抖）
+        let searchDebounceTimer = null;
+        searchInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            this.faqSearchFilter = value;
+            updateClearSearchBtn();
+            
+            if (searchDebounceTimer) {
+                clearTimeout(searchDebounceTimer);
+            }
+            
+            searchDebounceTimer = setTimeout(() => {
+                this.loadFaqsIntoManager();
+            }, 300);
+        });
+
+        searchContainer.appendChild(searchIcon);
+        searchContainer.appendChild(searchInput);
+        searchContainer.appendChild(clearSearchBtn);
+
+        // 标签过滤区域
+        const tagFilterContainer = document.createElement('div');
+        tagFilterContainer.className = 'faq-tag-filter-container';
+        tagFilterContainer.style.cssText = `
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+        `;
+
+        const tagFilterHeader = document.createElement('div');
+        tagFilterHeader.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 8px !important;
+        `;
+
+        const tagFilterTitle = document.createElement('span');
+        tagFilterTitle.textContent = '🏷️ 标签过滤';
+        tagFilterTitle.style.cssText = `
+            font-size: 12px !important;
+            color: #64748b !important;
+            font-weight: 500 !important;
+        `;
+
+        const tagFilterActions = document.createElement('div');
+        tagFilterActions.style.cssText = `
+            display: flex !important;
+            gap: 6px !important;
+            align-items: center !important;
+        `;
+
+        // 反向过滤按钮
+        const reverseFilterBtn = document.createElement('button');
+        reverseFilterBtn.innerHTML = '🔄';
+        reverseFilterBtn.title = '反向过滤';
+        reverseFilterBtn.style.cssText = `
+            width: 24px !important;
+            height: 24px !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 4px !important;
+            background: white !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            padding: 0 !important;
+        `;
+
+        // 无标签过滤按钮
+        const noTagsFilterBtn = document.createElement('button');
+        noTagsFilterBtn.innerHTML = '📭';
+        noTagsFilterBtn.title = '显示无标签问题';
+        noTagsFilterBtn.style.cssText = `
+            width: 24px !important;
+            height: 24px !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 4px !important;
+            background: white !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            padding: 0 !important;
+        `;
+
+        // 清除过滤按钮
+        const clearFilterBtn = document.createElement('button');
+        clearFilterBtn.innerHTML = '✕';
+        clearFilterBtn.title = '清除过滤';
+        clearFilterBtn.style.cssText = `
+            width: 24px !important;
+            height: 24px !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 4px !important;
+            background: white !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            padding: 0 !important;
+        `;
+
+        // 初始化过滤状态
+        if (!this.faqSelectedFilterTags) {
+            this.faqSelectedFilterTags = [];
+        }
+        if (this.faqTagFilterReverse === undefined) {
+            this.faqTagFilterReverse = false;
+        }
+        if (this.faqTagFilterNoTags === undefined) {
+            this.faqTagFilterNoTags = false;
+        }
+
+        const updateTagFilterButtons = () => {
+            reverseFilterBtn.style.color = this.faqTagFilterReverse ? '#4CAF50' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.faqTagFilterReverse ? '1' : '0.6';
+            noTagsFilterBtn.style.color = this.faqTagFilterNoTags ? '#4CAF50' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.faqTagFilterNoTags ? '1' : '0.6';
+            const hasActiveFilter = (this.faqSelectedFilterTags && this.faqSelectedFilterTags.length > 0) || this.faqTagFilterNoTags;
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
+        };
+
+        reverseFilterBtn.addEventListener('click', () => {
+            this.faqTagFilterReverse = !this.faqTagFilterReverse;
+            updateTagFilterButtons();
+            this.loadFaqsIntoManager();
+        });
+
+        noTagsFilterBtn.addEventListener('click', () => {
+            this.faqTagFilterNoTags = !this.faqTagFilterNoTags;
+            updateTagFilterButtons();
+            this.loadFaqsIntoManager();
+        });
+
+        clearFilterBtn.addEventListener('click', () => {
+            this.faqSelectedFilterTags = [];
+            this.faqTagFilterReverse = false;
+            this.faqTagFilterNoTags = false;
+            updateTagFilterButtons();
+            this.updateFaqTagFilterUI();
+            this.loadFaqsIntoManager();
+        });
+
+        tagFilterActions.appendChild(reverseFilterBtn);
+        tagFilterActions.appendChild(noTagsFilterBtn);
+        tagFilterActions.appendChild(clearFilterBtn);
+
+        tagFilterHeader.appendChild(tagFilterTitle);
+        tagFilterHeader.appendChild(tagFilterActions);
+
+        // 标签列表
+        const tagFilterList = document.createElement('div');
+        tagFilterList.className = 'faq-tag-filter-list';
+        tagFilterList.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            max-height: 80px !important;
+            overflow-y: auto !important;
+        `;
+
+        tagFilterContainer.appendChild(tagFilterHeader);
+        tagFilterContainer.appendChild(tagFilterList);
+
+        // 存储引用以便后续更新
+        modal._tagFilterList = tagFilterList;
+        modal._updateTagFilterButtons = updateTagFilterButtons;
+
+        searchFilterGroup.appendChild(searchContainer);
+        searchFilterGroup.appendChild(tagFilterContainer);
+
         // 输入区域
         const inputGroup = document.createElement('div');
         inputGroup.style.cssText = `
@@ -7721,7 +8010,6 @@ if (typeof getCenterPosition === 'undefined') {
             faqInput._isComposing = false;
         });
         
-        const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
         faqInput.addEventListener('focus', () => {
             faqInput.style.borderColor = mainColor;
             faqInput.style.boxShadow = `0 0 0 3px ${mainColor}20`;
@@ -7805,6 +8093,7 @@ if (typeof getCenterPosition === 'undefined') {
         footer.appendChild(cancelBtn);
 
         panel.appendChild(header);
+        panel.appendChild(searchFilterGroup);
         panel.appendChild(inputGroup);
         panel.appendChild(faqsContainer);
         panel.appendChild(footer);
@@ -7874,6 +8163,19 @@ if (typeof getCenterPosition === 'undefined') {
         const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
         if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+
+        // 初始化搜索框
+        const searchInput = modal.querySelector('.faq-search-input');
+        if (searchInput) {
+            searchInput.value = this.faqSearchFilter || '';
+            const clearSearchBtn = searchInput.parentElement.querySelector('button[type="button"]');
+            if (clearSearchBtn && searchInput.value.trim() !== '') {
+                clearSearchBtn.style.display = 'flex';
+            }
+        }
+
+        // 更新标签过滤器UI
+        this.updateFaqTagFilterUI();
 
         // 加载常见问题
         await this.loadFaqsIntoManager();
@@ -7979,6 +8281,117 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
 
+    // 获取所有常见问题的标签
+    getAllFaqTags() {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal || !modal._currentFaqs) return [];
+        
+        const allTags = new Set();
+        modal._currentFaqs.forEach(faq => {
+            if (faq.tags && Array.isArray(faq.tags)) {
+                faq.tags.forEach(tag => {
+                    const trimmedTag = tag ? tag.trim() : '';
+                    if (trimmedTag) {
+                        allTags.add(trimmedTag);
+                    }
+                });
+            }
+        });
+        
+        return Array.from(allTags).sort();
+    }
+
+    // 更新常见问题标签过滤器UI
+    updateFaqTagFilterUI() {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal) return;
+        
+        const tagFilterList = modal._tagFilterList;
+        if (!tagFilterList) return;
+        
+        // 清空现有标签
+        tagFilterList.innerHTML = '';
+        
+        // 获取所有标签
+        const allTags = this.getAllFaqTags();
+        
+        if (allTags.length === 0) {
+            return;
+        }
+        
+        // 初始化过滤状态
+        if (!this.faqSelectedFilterTags) {
+            this.faqSelectedFilterTags = [];
+        }
+        
+        // 创建标签按钮
+        allTags.forEach(tag => {
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'faq-tag-filter-item';
+            tagBtn.textContent = tag;
+            const isSelected = this.faqSelectedFilterTags && this.faqSelectedFilterTags.includes(tag);
+            
+            tagBtn.style.cssText = `
+                padding: 3px 8px !important;
+                border-radius: 10px !important;
+                border: 1px solid ${isSelected ? '#4CAF50' : '#e5e7eb'} !important;
+                background: ${isSelected ? '#4CAF50' : '#f9fafb'} !important;
+                color: ${isSelected ? 'white' : '#6b7280'} !important;
+                font-size: 10px !important;
+                font-weight: ${isSelected ? '500' : '400'} !important;
+                cursor: pointer !important;
+                transition: all 0.15s ease !important;
+                white-space: nowrap !important;
+                line-height: 1.4 !important;
+            `;
+            
+            tagBtn.addEventListener('mouseenter', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#4CAF50';
+                    tagBtn.style.background = '#f0fdf4';
+                    tagBtn.style.color = '#4CAF50';
+                } else {
+                    tagBtn.style.opacity = '0.9';
+                }
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#e5e7eb';
+                    tagBtn.style.background = '#f9fafb';
+                    tagBtn.style.color = '#6b7280';
+                } else {
+                    tagBtn.style.opacity = '1';
+                }
+            });
+            tagBtn.addEventListener('click', () => {
+                if (!this.faqSelectedFilterTags) {
+                    this.faqSelectedFilterTags = [];
+                }
+                
+                const index = this.faqSelectedFilterTags.indexOf(tag);
+                if (index > -1) {
+                    // 取消选中
+                    this.faqSelectedFilterTags.splice(index, 1);
+                } else {
+                    // 选中
+                    this.faqSelectedFilterTags.push(tag);
+                }
+                
+                // 更新所有标签按钮（确保状态一致）
+                this.updateFaqTagFilterUI();
+                // 更新常见问题列表（应用过滤）
+                this.loadFaqsIntoManager();
+            });
+            
+            tagFilterList.appendChild(tagBtn);
+        });
+        
+        // 更新按钮状态
+        if (modal._updateTagFilterButtons) {
+            modal._updateTagFilterButtons();
+        }
+    }
+
     // 加载常见问题到管理器
     async loadFaqsIntoManager() {
         const modal = this.chatWindow?.querySelector('#pet-faq-manager');
@@ -7997,14 +8410,65 @@ if (typeof getCenterPosition === 'undefined') {
             faqs = [];
         }
 
+        // 确保每个常见问题都有tags字段
+        faqs = faqs.map(faq => {
+            if (!faq.tags || !Array.isArray(faq.tags)) {
+                faq.tags = [];
+            }
+            return faq;
+        });
+
         // 保存到modal的临时数据中
         modal._currentFaqs = faqs.map(faq => ({ ...faq })); // 使用副本，避免引用问题
 
+        // 应用搜索过滤
+        let filteredFaqs = [...modal._currentFaqs];
+        if (this.faqSearchFilter && this.faqSearchFilter.trim() !== '') {
+            const searchKeyword = this.faqSearchFilter.trim().toLowerCase();
+            filteredFaqs = filteredFaqs.filter(faq => {
+                const faqText = (faq.text || '').toLowerCase();
+                const faqTags = (faq.tags || []).join(' ').toLowerCase();
+                return faqText.includes(searchKeyword) || faqTags.includes(searchKeyword);
+            });
+        }
+
+        // 应用无标签筛选
+        if (this.faqTagFilterNoTags) {
+            filteredFaqs = filteredFaqs.filter(faq => {
+                const faqTags = faq.tags || [];
+                const hasTags = faqTags.length > 0 && faqTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的问题
+            });
+        }
+
+        // 应用标签过滤
+        if (this.faqSelectedFilterTags && this.faqSelectedFilterTags.length > 0) {
+            filteredFaqs = filteredFaqs.filter(faq => {
+                const faqTags = (faq.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const normalizedSelectedTags = this.faqSelectedFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
+                    faqTags.includes(selectedTag)
+                );
+                
+                if (this.faqTagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的问题
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的问题
+                    return hasSelectedTags;
+                }
+            });
+        }
+
         faqsContainer.innerHTML = '';
 
-        if (!faqs || faqs.length === 0) {
+        if (!filteredFaqs || filteredFaqs.length === 0) {
             const emptyMsg = document.createElement('div');
-            emptyMsg.innerHTML = '💡<br>暂无常见问题<br><span style="font-size: 12px; color: #94a3b8;">使用 Ctrl+Enter 或 Shift+Enter 添加</span>';
+            if (modal._currentFaqs.length === 0) {
+                emptyMsg.innerHTML = '💡<br>暂无常见问题<br><span style="font-size: 12px; color: #94a3b8;">使用 Ctrl+Enter 或 Shift+Enter 添加</span>';
+            } else {
+                emptyMsg.innerHTML = '🔍<br>没有找到匹配的常见问题<br><span style="font-size: 12px; color: #94a3b8;">尝试调整搜索条件或标签过滤</span>';
+            }
             emptyMsg.style.cssText = `
                 text-align: center !important;
                 color: #64748b !important;
@@ -8018,7 +8482,10 @@ if (typeof getCenterPosition === 'undefined') {
 
         const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
 
-        faqs.forEach((faq, index) => {
+        // 使用原始索引（用于编辑和删除）
+        filteredFaqs.forEach((faq) => {
+            const originalIndex = modal._currentFaqs.findIndex(f => f.text === faq.text && JSON.stringify(f.tags || []) === JSON.stringify(faq.tags || []));
+            const index = originalIndex >= 0 ? originalIndex : 0;
             const faqItem = document.createElement('div');
             faqItem.style.cssText = `
                 display: flex !important;
@@ -8045,16 +8512,54 @@ if (typeof getCenterPosition === 'undefined') {
                 faqItem.style.boxShadow = 'none';
             });
 
+            const faqContent = document.createElement('div');
+            faqContent.style.cssText = `
+                flex: 1 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 8px !important;
+                padding-right: 8px !important;
+            `;
+
             const faqText = document.createElement('div');
             faqText.textContent = faq.text;
             faqText.style.cssText = `
-                flex: 1 !important;
                 font-size: 14px !important;
                 color: #1e293b !important;
                 line-height: 1.6 !important;
                 word-break: break-word !important;
-                padding-right: 8px !important;
             `;
+
+            // 标签显示
+            const faqTagsContainer = document.createElement('div');
+            faqTagsContainer.style.cssText = `
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 4px !important;
+            `;
+
+            if (faq.tags && faq.tags.length > 0) {
+                faq.tags.forEach(tag => {
+                    if (tag && tag.trim()) {
+                        const tagElement = document.createElement('span');
+                        tagElement.textContent = tag.trim();
+                        tagElement.style.cssText = `
+                            padding: 2px 6px !important;
+                            background: #f1f5f9 !important;
+                            color: #475569 !important;
+                            border-radius: 4px !important;
+                            font-size: 10px !important;
+                            border: 1px solid #e2e8f0 !important;
+                        `;
+                        faqTagsContainer.appendChild(tagElement);
+                    }
+                });
+            }
+
+            faqContent.appendChild(faqText);
+            if (faqTagsContainer.children.length > 0) {
+                faqContent.appendChild(faqTagsContainer);
+            }
 
             const faqActions = document.createElement('div');
             faqActions.style.cssText = `
@@ -8158,11 +8663,44 @@ if (typeof getCenterPosition === 'undefined') {
                 this.removeFaq(index);
             });
 
+            // 标签管理按钮
+            const tagManageBtn = document.createElement('button');
+            tagManageBtn.innerHTML = '🏷️';
+            tagManageBtn.title = '管理标签';
+            tagManageBtn.style.cssText = `
+                width: 32px !important;
+                height: 32px !important;
+                border-radius: 6px !important;
+                background: white !important;
+                border: 1px solid #e2e8f0 !important;
+                cursor: pointer !important;
+                font-size: 14px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.2s ease !important;
+            `;
+            tagManageBtn.addEventListener('mouseenter', () => {
+                tagManageBtn.style.background = '#f1f5f9';
+                tagManageBtn.style.borderColor = '#cbd5e1';
+                tagManageBtn.style.transform = 'scale(1.05)';
+            });
+            tagManageBtn.addEventListener('mouseleave', () => {
+                tagManageBtn.style.background = 'white';
+                tagManageBtn.style.borderColor = '#e2e8f0';
+                tagManageBtn.style.transform = 'scale(1)';
+            });
+            tagManageBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openFaqTagManager(index);
+            });
+
             faqActions.appendChild(useBtn);
+            faqActions.appendChild(tagManageBtn);
             faqActions.appendChild(editBtn);
             faqActions.appendChild(removeBtn);
 
-            faqItem.appendChild(faqText);
+            faqItem.appendChild(faqContent);
             faqItem.appendChild(faqActions);
 
             faqsContainer.appendChild(faqItem);
@@ -8195,8 +8733,8 @@ if (typeof getCenterPosition === 'undefined') {
             return;
         }
 
-        // 添加到列表
-        modal._currentFaqs.push({ text });
+        // 添加到列表（确保有tags字段）
+        modal._currentFaqs.push({ text, tags: [] });
         
         // 保存到存储
         this.saveFaqs(modal._currentFaqs);
@@ -8204,11 +8742,458 @@ if (typeof getCenterPosition === 'undefined') {
         // 重新加载显示
         this.loadFaqsIntoManager();
         
+        // 更新标签过滤器UI
+        this.updateFaqTagFilterUI();
+        
         // 清空输入框
         faqInput.value = '';
         faqInput.focus();
         
         this.showNotification('常见问题已添加', 'success');
+    }
+
+    // 打开常见问题标签管理器
+    openFaqTagManager(faqIndex) {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal || !modal._currentFaqs) return;
+
+        const faq = modal._currentFaqs[faqIndex];
+        if (!faq) return;
+
+        const currentTags = faq.tags || [];
+
+        // 创建标签管理弹窗
+        this.ensureFaqTagManagerUi();
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (!tagModal) {
+            console.error('常见问题标签管理弹窗未找到');
+            return;
+        }
+
+        // 显示弹窗
+        tagModal.style.setProperty('display', 'flex', 'important');
+        tagModal.style.setProperty('opacity', '1', 'important');
+        tagModal.dataset.faqIndex = faqIndex;
+
+        // 加载当前标签
+        this.loadFaqTagsIntoManager(faqIndex, currentTags);
+
+        // 添加关闭事件
+        const closeBtn = tagModal.querySelector('.faq-tag-manager-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeFaqTagManager();
+        }
+
+        // 添加保存事件
+        const saveBtn = tagModal.querySelector('.faq-tag-manager-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveFaqTags(faqIndex);
+        }
+
+        // 添加输入框回车事件
+        const tagInput = tagModal.querySelector('.faq-tag-manager-input');
+        if (tagInput) {
+            if (tagInput._isComposing === undefined) {
+                tagInput._isComposing = false;
+                tagInput.addEventListener('compositionstart', () => {
+                    tagInput._isComposing = true;
+                });
+                tagInput.addEventListener('compositionend', () => {
+                    tagInput._isComposing = false;
+                });
+            }
+
+            const existingHandler = tagInput._enterKeyHandler;
+            if (existingHandler) {
+                tagInput.removeEventListener('keydown', existingHandler);
+            }
+
+            const enterKeyHandler = (e) => {
+                if (tagInput._isComposing) {
+                    return;
+                }
+
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+                    e.preventDefault();
+                    this.addFaqTagFromInput(faqIndex);
+                }
+            };
+
+            tagInput._enterKeyHandler = enterKeyHandler;
+            tagInput.addEventListener('keydown', enterKeyHandler);
+            tagInput.focus();
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeFaqTagManager();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        tagModal._escHandler = escHandler;
+    }
+
+    // 确保常见问题标签管理器UI存在
+    ensureFaqTagManagerUi() {
+        if (!this.chatWindow) return;
+        if (this.chatWindow.querySelector('#pet-faq-tag-manager')) return;
+
+        const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+
+        const modal = document.createElement('div');
+        modal.id = 'pet-faq-tag-manager';
+        modal.style.cssText = `
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.4) !important;
+            backdrop-filter: blur(2px) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: ${PET_CONFIG.ui.zIndex.modal + 1} !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeFaqTagManager();
+            }
+        });
+
+        const panel = document.createElement('div');
+        panel.className = 'faq-tag-manager-panel';
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 16px !important;
+            padding: 0 !important;
+            width: 90% !important;
+            max-width: 500px !important;
+            max-height: 80% !important;
+            overflow: hidden !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            transform: scale(0.95) !important;
+            transition: transform 0.2s ease !important;
+        `;
+
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = '🏷️ 管理标签';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #1e293b !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'faq-tag-manager-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: rgba(0, 0, 0, 0.05) !important;
+            border: none !important;
+            font-size: 20px !important;
+            cursor: pointer !important;
+            color: #64748b !important;
+            padding: 0 !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(0, 0, 0, 0.1)';
+            closeBtn.style.color = '#1e293b';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(0, 0, 0, 0.05)';
+            closeBtn.style.color = '#64748b';
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // 内容区域
+        const content = document.createElement('div');
+        content.style.cssText = `
+            padding: 24px !important;
+            overflow-y: auto !important;
+            flex: 1 !important;
+            min-height: 0 !important;
+        `;
+
+        // 输入区域
+        const inputGroup = document.createElement('div');
+        inputGroup.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            margin-bottom: 16px !important;
+        `;
+
+        const tagInput = document.createElement('input');
+        tagInput.type = 'text';
+        tagInput.className = 'faq-tag-manager-input';
+        tagInput.placeholder = '输入标签，按 Ctrl+Enter 添加';
+        tagInput.style.cssText = `
+            flex: 1 !important;
+            padding: 10px 14px !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+        `;
+
+        tagInput.addEventListener('focus', () => {
+            tagInput.style.borderColor = mainColor;
+            tagInput.style.boxShadow = `0 0 0 3px ${mainColor}20`;
+        });
+        tagInput.addEventListener('blur', () => {
+            tagInput.style.borderColor = '#e2e8f0';
+            tagInput.style.boxShadow = 'none';
+        });
+
+        inputGroup.appendChild(tagInput);
+
+        // 标签列表
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'faq-tag-manager-tags';
+        tagsContainer.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            min-height: 40px !important;
+        `;
+
+        content.appendChild(inputGroup);
+        content.appendChild(tagsContainer);
+
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 10px !important;
+            padding: 16px 24px !important;
+            border-top: 1px solid #e5e7eb !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: white !important;
+            color: #64748b !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('click', () => this.closeFaqTagManager());
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'faq-tag-manager-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: ${mainColor} !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.opacity = '0.9';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.opacity = '1';
+        });
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+
+        panel.appendChild(header);
+        panel.appendChild(content);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        this.chatWindow.appendChild(modal);
+    }
+
+    // 加载常见问题标签到管理器
+    loadFaqTagsIntoManager(faqIndex, tags) {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (!tagModal) return;
+
+        const tagsContainer = tagModal.querySelector('.faq-tag-manager-tags');
+        if (!tagsContainer) return;
+
+        tagsContainer.innerHTML = '';
+
+        // 保存当前标签到modal
+        tagModal._currentTags = tags ? [...tags] : [];
+
+        if (!tags || tags.length === 0) {
+            return;
+        }
+
+        tags.forEach((tag, index) => {
+            if (!tag || !tag.trim()) return;
+
+            const tagElement = document.createElement('div');
+            tagElement.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                padding: 6px 12px !important;
+                background: #f1f5f9 !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 6px !important;
+                font-size: 12px !important;
+                color: #475569 !important;
+            `;
+
+            const tagText = document.createElement('span');
+            tagText.textContent = tag.trim();
+            tagText.style.cssText = `
+                flex: 1 !important;
+            `;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '✕';
+            removeBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                color: #94a3b8 !important;
+                cursor: pointer !important;
+                font-size: 14px !important;
+                padding: 0 !important;
+                width: 18px !important;
+                height: 18px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 3px !important;
+                transition: all 0.2s ease !important;
+            `;
+            removeBtn.addEventListener('mouseenter', () => {
+                removeBtn.style.background = '#fee2e2';
+                removeBtn.style.color = '#dc2626';
+            });
+            removeBtn.addEventListener('mouseleave', () => {
+                removeBtn.style.background = 'none';
+                removeBtn.style.color = '#94a3b8';
+            });
+            removeBtn.addEventListener('click', () => {
+                tagModal._currentTags.splice(index, 1);
+                this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+            });
+
+            tagElement.appendChild(tagText);
+            tagElement.appendChild(removeBtn);
+            tagsContainer.appendChild(tagElement);
+        });
+    }
+
+    // 从输入框添加常见问题标签
+    addFaqTagFromInput(faqIndex) {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (!tagModal) return;
+
+        const tagInput = tagModal.querySelector('.faq-tag-manager-input');
+        if (!tagInput) return;
+
+        const tagText = tagInput.value.trim();
+        if (!tagText) {
+            return;
+        }
+
+        if (!tagModal._currentTags) {
+            tagModal._currentTags = [];
+        }
+
+        // 检查是否已存在
+        if (tagModal._currentTags.includes(tagText)) {
+            this.showNotification('标签已存在', 'warning');
+            return;
+        }
+
+        // 添加到列表
+        tagModal._currentTags.push(tagText);
+
+        // 重新加载显示
+        this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+
+        // 清空输入框
+        tagInput.value = '';
+        tagInput.focus();
+    }
+
+    // 保存常见问题标签
+    async saveFaqTags(faqIndex) {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!tagModal || !modal || !modal._currentFaqs) return;
+
+        const faq = modal._currentFaqs[faqIndex];
+        if (!faq) return;
+
+        // 更新标签
+        faq.tags = tagModal._currentTags ? [...tagModal._currentTags] : [];
+
+        // 保存到存储
+        await this.saveFaqs(modal._currentFaqs);
+
+        // 重新加载显示
+        await this.loadFaqsIntoManager();
+
+        // 更新标签过滤器UI
+        this.updateFaqTagFilterUI();
+
+        // 关闭标签管理器
+        this.closeFaqTagManager();
+
+        this.showNotification('标签已保存', 'success');
+    }
+
+    // 关闭常见问题标签管理器
+    closeFaqTagManager() {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (!tagModal) return;
+
+        // 移除ESC监听器
+        if (tagModal._escHandler) {
+            document.removeEventListener('keydown', tagModal._escHandler);
+            delete tagModal._escHandler;
+        }
+
+        tagModal.style.setProperty('opacity', '0', 'important');
+        setTimeout(() => {
+            tagModal.style.setProperty('display', 'none', 'important');
+        }, 200);
     }
 
     // 删除常见问题
@@ -8227,6 +9212,9 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 重新加载显示
         await this.loadFaqsIntoManager();
+        
+        // 更新标签过滤器UI
+        this.updateFaqTagFilterUI();
         
         this.showNotification('常见问题已删除', 'success');
     }

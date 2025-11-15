@@ -6515,8 +6515,6 @@ if (typeof getCenterPosition === 'undefined') {
             padding: 8px 12px !important;
             border-bottom: 1px solid #e5e7eb !important;
             background: #ffffff !important;
-            max-height: 180px !important;
-            overflow-y: auto !important;
         `;
 
         // 过滤器标题行（包含标题、清除按钮和反向开关）
@@ -21221,8 +21219,6 @@ ${messageContent}`;
             padding: 8px 12px !important;
             border-bottom: 1px solid #e5e7eb !important;
             background: #ffffff !important;
-            max-height: 180px !important;
-            overflow-y: auto !important;
         `;
 
         // 过滤器标题行（包含标题、清除按钮和反向开关）

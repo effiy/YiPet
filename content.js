@@ -10617,7 +10617,14 @@ if (typeof getCenterPosition === 'undefined') {
         if (toggleBtn) {
             const icon = toggleBtn.querySelector('.toggle-icon');
             if (icon) {
-                icon.textContent = this.sidebarCollapsed ? '▶' : '◀';
+                // 添加淡出效果
+                icon.style.opacity = '0.3';
+                icon.style.transform = 'scale(0.8)';
+                setTimeout(() => {
+                    icon.textContent = this.sidebarCollapsed ? '▶' : '◀';
+                    icon.style.opacity = '1';
+                    icon.style.transform = 'scale(1)';
+                }, 125);
             }
             toggleBtn.title = this.sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏';
             // 更新按钮位置：折叠时在左侧边缘，展开时在侧边栏右边缘
@@ -10627,8 +10634,20 @@ if (typeof getCenterPosition === 'undefined') {
             } else {
                 toggleBtn.style.left = `${this.sidebarWidth}px`;
             }
-            // 确保 transform 样式正确
-            toggleBtn.style.transform = 'translateY(-50%) translateX(14px)';
+            // 确保基础 transform 样式正确（保留scale用于hover效果）
+            const currentTransform = toggleBtn.style.transform;
+            const baseTransform = 'translateY(-50%) translateX(14px)';
+            if (!currentTransform.includes('scale')) {
+                toggleBtn.style.transform = baseTransform;
+            } else {
+                // 如果当前有scale，保留scale值
+                const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
+                if (scaleMatch) {
+                    toggleBtn.style.transform = `${baseTransform} ${scaleMatch[0]}`;
+                } else {
+                    toggleBtn.style.transform = baseTransform;
+                }
+            }
         }
     }
 
@@ -10700,7 +10719,14 @@ if (typeof getCenterPosition === 'undefined') {
         if (toggleBtn) {
             const icon = toggleBtn.querySelector('.toggle-icon');
             if (icon) {
-                icon.textContent = this.inputContainerCollapsed ? '▲' : '▼';
+                // 添加淡出效果
+                icon.style.opacity = '0.3';
+                icon.style.transform = 'scale(0.8)';
+                setTimeout(() => {
+                    icon.textContent = this.inputContainerCollapsed ? '▲' : '▼';
+                    icon.style.opacity = '1';
+                    icon.style.transform = 'scale(1)';
+                }, 125);
             }
             toggleBtn.title = this.inputContainerCollapsed ? '展开输入框' : '折叠输入框';
             // 更新按钮位置：根据输入框是否折叠调整位置
@@ -10713,6 +10739,20 @@ if (typeof getCenterPosition === 'undefined') {
                     // 输入框展开时，按钮在输入框上方
                     const inputHeight = inputContainer.offsetHeight || 160;
                     toggleBtn.style.bottom = `${inputHeight}px`;
+                }
+            }
+            // 确保基础 transform 样式正确（保留scale用于hover效果）
+            const currentTransform = toggleBtn.style.transform;
+            const baseTransform = 'translateX(-50%) translateY(-8px)';
+            if (!currentTransform.includes('scale')) {
+                toggleBtn.style.transform = baseTransform;
+            } else {
+                // 如果当前有scale，保留scale值
+                const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
+                if (scaleMatch) {
+                    toggleBtn.style.transform = `${baseTransform} ${scaleMatch[0]}`;
+                } else {
+                    toggleBtn.style.transform = baseTransform;
                 }
             }
         }
@@ -10786,8 +10826,19 @@ if (typeof getCenterPosition === 'undefined') {
                 const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
                 if (toggleBtn && !this.sidebarCollapsed) {
                     toggleBtn.style.left = `${newWidth}px`;
-                    // 确保 transform 样式正确，按钮完全在外面
-                    toggleBtn.style.transform = 'translateY(-50%) translateX(14px)';
+                    // 确保 transform 样式正确，按钮完全在外面（保留scale用于hover效果）
+                    const currentTransform = toggleBtn.style.transform;
+                    const baseTransform = 'translateY(-50%) translateX(14px)';
+                    if (!currentTransform.includes('scale')) {
+                        toggleBtn.style.transform = baseTransform;
+                    } else {
+                        const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
+                        if (scaleMatch) {
+                            toggleBtn.style.transform = `${baseTransform} ${scaleMatch[0]}`;
+                        } else {
+                            toggleBtn.style.transform = baseTransform;
+                        }
+                    }
                 }
             };
             
@@ -20305,33 +20356,64 @@ ${messageContent}`;
             position: absolute !important;
             top: 50% !important;
             transform: translateY(-50%) translateX(14px) !important;
-            background: rgba(255, 255, 255, 0.9) !important;
-            border: 1px solid #e5e7eb !important;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85)) !important;
+            border: 1px solid rgba(229, 231, 235, 0.8) !important;
             color: #374151 !important;
             font-size: 14px !important;
             cursor: pointer !important;
             padding: 0 !important;
             border-radius: 50% !important;
-            width: 28px !important;
-            height: 28px !important;
+            width: 32px !important;
+            height: 32px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            transition: all 0.3s ease !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
             z-index: 5 !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+            backdrop-filter: blur(8px) !important;
+            -webkit-backdrop-filter: blur(8px) !important;
+            opacity: 0.9 !important;
         `;
+        const sidebarIcon = toggleSidebarBtn.querySelector('.toggle-icon');
+        if (sidebarIcon) {
+            sidebarIcon.style.cssText = `
+                display: inline-block !important;
+                transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            `;
+        }
         toggleSidebarBtn.addEventListener('click', (e) => {
             e.stopPropagation(); // 阻止事件冒泡，避免触发拖拽
+            // 添加点击动画反馈
+            toggleSidebarBtn.style.transform = 'translateY(-50%) translateX(14px) scale(0.9)';
+            setTimeout(() => {
+                toggleSidebarBtn.style.transform = 'translateY(-50%) translateX(14px) scale(1)';
+            }, 150);
             this.toggleSidebar();
         });
         toggleSidebarBtn.addEventListener('mouseenter', () => {
-            toggleSidebarBtn.style.background = 'rgba(255, 255, 255, 1)';
-            toggleSidebarBtn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+            toggleSidebarBtn.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(249, 250, 251, 0.95))';
+            toggleSidebarBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)';
+            toggleSidebarBtn.style.transform = 'translateY(-50%) translateX(14px) scale(1.1)';
+            toggleSidebarBtn.style.opacity = '1';
+            if (sidebarIcon) {
+                sidebarIcon.style.transform = 'scale(1.15)';
+            }
         });
         toggleSidebarBtn.addEventListener('mouseleave', () => {
-            toggleSidebarBtn.style.background = 'rgba(255, 255, 255, 0.9)';
-            toggleSidebarBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+            toggleSidebarBtn.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85))';
+            toggleSidebarBtn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06)';
+            toggleSidebarBtn.style.transform = 'translateY(-50%) translateX(14px) scale(1)';
+            toggleSidebarBtn.style.opacity = '0.9';
+            if (sidebarIcon) {
+                sidebarIcon.style.transform = 'scale(1)';
+            }
+        });
+        toggleSidebarBtn.addEventListener('mousedown', () => {
+            toggleSidebarBtn.style.transform = 'translateY(-50%) translateX(14px) scale(0.95)';
+        });
+        toggleSidebarBtn.addEventListener('mouseup', () => {
+            toggleSidebarBtn.style.transform = 'translateY(-50%) translateX(14px) scale(1.1)';
         });
 
         // 创建折叠输入框容器按钮（将放在输入框上方水平居中位置）
@@ -20344,33 +20426,64 @@ ${messageContent}`;
             bottom: 100% !important;
             left: 50% !important;
             transform: translateX(-50%) translateY(-8px) !important;
-            background: rgba(255, 255, 255, 0.9) !important;
-            border: 1px solid #e5e7eb !important;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85)) !important;
+            border: 1px solid rgba(229, 231, 235, 0.8) !important;
             color: #374151 !important;
             font-size: 14px !important;
             cursor: pointer !important;
             padding: 0 !important;
             border-radius: 50% !important;
-            width: 28px !important;
-            height: 28px !important;
+            width: 32px !important;
+            height: 32px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            transition: all 0.3s ease !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
             z-index: 5 !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+            backdrop-filter: blur(8px) !important;
+            -webkit-backdrop-filter: blur(8px) !important;
+            opacity: 0.9 !important;
         `;
+        const inputIcon = toggleInputContainerBtn.querySelector('.toggle-icon');
+        if (inputIcon) {
+            inputIcon.style.cssText = `
+                display: inline-block !important;
+                transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            `;
+        }
         toggleInputContainerBtn.addEventListener('click', (e) => {
             e.stopPropagation(); // 阻止事件冒泡，避免触发拖拽
+            // 添加点击动画反馈
+            toggleInputContainerBtn.style.transform = 'translateX(-50%) translateY(-8px) scale(0.9)';
+            setTimeout(() => {
+                toggleInputContainerBtn.style.transform = 'translateX(-50%) translateY(-8px) scale(1)';
+            }, 150);
             this.toggleInputContainer();
         });
         toggleInputContainerBtn.addEventListener('mouseenter', () => {
-            toggleInputContainerBtn.style.background = 'rgba(255, 255, 255, 1)';
-            toggleInputContainerBtn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+            toggleInputContainerBtn.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(249, 250, 251, 0.95))';
+            toggleInputContainerBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)';
+            toggleInputContainerBtn.style.transform = 'translateX(-50%) translateY(-8px) scale(1.1)';
+            toggleInputContainerBtn.style.opacity = '1';
+            if (inputIcon) {
+                inputIcon.style.transform = 'scale(1.15)';
+            }
         });
         toggleInputContainerBtn.addEventListener('mouseleave', () => {
-            toggleInputContainerBtn.style.background = 'rgba(255, 255, 255, 0.9)';
-            toggleInputContainerBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+            toggleInputContainerBtn.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85))';
+            toggleInputContainerBtn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06)';
+            toggleInputContainerBtn.style.transform = 'translateX(-50%) translateY(-8px) scale(1)';
+            toggleInputContainerBtn.style.opacity = '0.9';
+            if (inputIcon) {
+                inputIcon.style.transform = 'scale(1)';
+            }
+        });
+        toggleInputContainerBtn.addEventListener('mousedown', () => {
+            toggleInputContainerBtn.style.transform = 'translateX(-50%) translateY(-8px) scale(0.95)';
+        });
+        toggleInputContainerBtn.addEventListener('mouseup', () => {
+            toggleInputContainerBtn.style.transform = 'translateX(-50%) translateY(-8px) scale(1.1)';
         });
 
         // 创建关闭按钮（保持在右侧）

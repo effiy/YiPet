@@ -111,6 +111,7 @@ const PET_CONFIG = {
       chatWindow: 2147483648,
       resizeHandle: 20,
       inputContainer: 10,
+      modal: 2147483649, // 弹框层级，确保在所有元素之上
     },
 
     // 圆角半径

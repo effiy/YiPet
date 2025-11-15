@@ -79,7 +79,8 @@ if (typeof PET_CONFIG === 'undefined') {
                 pet: 2147483647,
                 chatWindow: 2147483648,
                 resizeHandle: 20,
-                inputContainer: 10
+                inputContainer: 10,
+                modal: 2147483649 // 弹框层级，确保在所有元素之上
             }
         },
         storage: {
@@ -7574,6 +7575,1152 @@ if (typeof getCenterPosition === 'undefined') {
         const originalSorted = [...originalTags].sort().join(',');
         
         return currentSorted !== originalSorted;
+    }
+
+    // ===== 常见问题管理功能 =====
+    
+    // 确保常见问题管理器UI存在
+    ensureFaqManagerUi() {
+        if (!this.chatWindow) return;
+        if (this.chatWindow.querySelector('#pet-faq-manager')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'pet-faq-manager';
+        modal.style.cssText = `
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.4) !important;
+            backdrop-filter: blur(2px) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: ${PET_CONFIG.ui.zIndex.modal} !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeFaqManagerOnly();
+            }
+        });
+
+        const panel = document.createElement('div');
+        panel.className = 'faq-manager-panel';
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 16px !important;
+            padding: 0 !important;
+            width: 90% !important;
+            max-width: 700px !important;
+            max-height: 85% !important;
+            overflow: hidden !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            transform: scale(0.95) !important;
+            transition: transform 0.2s ease !important;
+        `;
+
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%) !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '💡 常见问题';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #1e293b !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'faq-manager-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.title = '关闭（ESC）';
+        closeBtn.style.cssText = `
+            background: rgba(0, 0, 0, 0.05) !important;
+            border: none !important;
+            font-size: 20px !important;
+            cursor: pointer !important;
+            color: #64748b !important;
+            padding: 0 !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(0, 0, 0, 0.1)';
+            closeBtn.style.color = '#1e293b';
+            closeBtn.style.transform = 'rotate(90deg)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(0, 0, 0, 0.05)';
+            closeBtn.style.color = '#64748b';
+            closeBtn.style.transform = 'rotate(0deg)';
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // 输入区域
+        const inputGroup = document.createElement('div');
+        inputGroup.style.cssText = `
+            display: flex !important;
+            gap: 10px !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #fafbfc !important;
+        `;
+
+        const faqInput = document.createElement('textarea');
+        faqInput.className = 'faq-manager-input';
+        faqInput.placeholder = '输入问题内容，按 Ctrl+Enter 或 Shift+Enter 添加';
+        faqInput.style.cssText = `
+            flex: 1 !important;
+            padding: 12px 16px !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            resize: vertical !important;
+            min-height: 70px !important;
+            max-height: 150px !important;
+            font-family: inherit !important;
+            background: white !important;
+            color: #1e293b !important;
+            line-height: 1.5 !important;
+        `;
+        
+        // 输入法组合状态跟踪（用于处理中文输入）
+        faqInput._isComposing = false;
+        faqInput.addEventListener('compositionstart', () => {
+            faqInput._isComposing = true;
+        });
+        faqInput.addEventListener('compositionend', () => {
+            faqInput._isComposing = false;
+        });
+        
+        const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+        faqInput.addEventListener('focus', () => {
+            faqInput.style.borderColor = mainColor;
+            faqInput.style.boxShadow = `0 0 0 3px ${mainColor}20`;
+        });
+        faqInput.addEventListener('blur', () => {
+            faqInput.style.borderColor = '#e2e8f0';
+            faqInput.style.boxShadow = 'none';
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加';
+        addBtn.style.cssText = `
+            padding: 12px 24px !important;
+            background: ${mainColor} !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            align-self: flex-start !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.transform = 'translateY(-1px)';
+            addBtn.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.transform = 'translateY(0)';
+            addBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+        });
+        addBtn.addEventListener('click', () => {
+            this.addFaqFromInput();
+        });
+
+        inputGroup.appendChild(faqInput);
+        inputGroup.appendChild(addBtn);
+
+        // 常见问题列表
+        const faqsContainer = document.createElement('div');
+        faqsContainer.className = 'faq-manager-faqs';
+        faqsContainer.style.cssText = `
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 16px 24px !important;
+            background: white !important;
+            min-height: 0 !important;
+        `;
+        
+        // 自定义滚动条样式
+        const style = document.createElement('style');
+        style.textContent = `
+            #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar {
+                width: 6px;
+            }
+            #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar-track {
+                background: #f1f5f9;
+                border-radius: 3px;
+            }
+            #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 3px;
+            }
+            #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 10px !important;
+            padding: 16px 24px !important;
+            border-top: 1px solid #e5e7eb !important;
+            background: #fafbfc !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'faq-manager-cancel';
+        cancelBtn.textContent = '关闭';
+        cancelBtn.title = '关闭';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: white !important;
+            color: #64748b !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f1f5f9';
+            cancelBtn.style.borderColor = '#cbd5e1';
+            cancelBtn.style.color = '#475569';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+            cancelBtn.style.borderColor = '#e2e8f0';
+            cancelBtn.style.color = '#64748b';
+        });
+        cancelBtn.addEventListener('click', () => this.closeFaqManagerOnly());
+
+        footer.appendChild(cancelBtn);
+
+        panel.appendChild(header);
+        panel.appendChild(inputGroup);
+        panel.appendChild(faqsContainer);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        this.chatWindow.appendChild(modal);
+    }
+
+    // 打开常见问题管理器
+    async openFaqManager() {
+        // 确保UI存在
+        this.ensureFaqManagerUi();
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal) {
+            console.error('常见问题管理弹窗未找到');
+            return;
+        }
+
+        // 确保 chatWindow 有正确的定位上下文（用于 absolute 定位的弹框）
+        if (this.chatWindow) {
+            const currentPosition = window.getComputedStyle(this.chatWindow).position;
+            if (currentPosition !== 'relative' && currentPosition !== 'absolute' && currentPosition !== 'fixed') {
+                this.chatWindow.style.position = 'relative';
+            }
+        }
+
+        // 计算并设置弹框大小（自适应聊天弹框）
+        const updatePanelSize = () => {
+            const panel = modal.querySelector('.faq-manager-panel');
+            if (!panel || !this.chatWindow) return;
+            
+            const chatRect = this.chatWindow.getBoundingClientRect();
+            const maxWidth = Math.min(700, chatRect.width * 0.85);
+            const maxHeight = Math.min(chatRect.height * 0.85, window.innerHeight * 0.85);
+            
+            panel.style.maxWidth = `${maxWidth}px`;
+            panel.style.maxHeight = `${maxHeight}px`;
+        };
+        
+        updatePanelSize();
+        
+        // 监听窗口大小变化和聊天弹框大小变化
+        const resizeHandler = () => updatePanelSize();
+        window.addEventListener('resize', resizeHandler);
+        modal._resizeHandler = resizeHandler;
+        
+        // 使用 ResizeObserver 监听聊天弹框大小变化
+        if (this.chatWindow && window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver(() => {
+                updatePanelSize();
+            });
+            resizeObserver.observe(this.chatWindow);
+            modal._resizeObserver = resizeObserver;
+        }
+
+        // 显示弹窗（带动画）
+        modal.style.display = 'flex';
+        requestAnimationFrame(() => {
+            modal.style.opacity = '1';
+            const panel = modal.querySelector('.faq-manager-panel');
+            if (panel) {
+                panel.style.transform = 'scale(1)';
+            }
+        });
+        
+        // 隐藏折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+
+        // 加载常见问题
+        await this.loadFaqsIntoManager();
+
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.faq-manager-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeFaqManagerOnly();
+        }
+        
+        // 添加取消事件
+        const cancelBtn = modal.querySelector('.faq-manager-cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeFaqManagerOnly();
+        }
+
+        // 添加输入框回车事件（兼容中文输入法）
+        const faqInput = modal.querySelector('.faq-manager-input');
+        if (faqInput) {
+            // 确保输入法组合状态已初始化
+            if (faqInput._isComposing === undefined) {
+                faqInput._isComposing = false;
+                faqInput.addEventListener('compositionstart', () => {
+                    faqInput._isComposing = true;
+                });
+                faqInput.addEventListener('compositionend', () => {
+                    faqInput._isComposing = false;
+                });
+            }
+            
+            // 添加回车键事件处理（Ctrl+Enter 或 Shift+Enter 添加，Enter 换行）
+            const existingHandler = faqInput._enterKeyHandler;
+            if (existingHandler) {
+                faqInput.removeEventListener('keydown', existingHandler);
+            }
+            
+            const enterKeyHandler = (e) => {
+                // 如果在输入法组合过程中，忽略回车键
+                if (faqInput._isComposing) {
+                    return;
+                }
+                
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+                    e.preventDefault();
+                    this.addFaqFromInput();
+                }
+            };
+            
+            faqInput._enterKeyHandler = enterKeyHandler;
+            faqInput.addEventListener('keydown', enterKeyHandler);
+            
+            faqInput.focus();
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeFaqManagerOnly();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    // 关闭常见问题管理器（仅关闭，不进行任何操作）
+    closeFaqManagerOnly() {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal) return;
+
+        // 移除窗口大小监听
+        if (modal._resizeHandler) {
+            window.removeEventListener('resize', modal._resizeHandler);
+            delete modal._resizeHandler;
+        }
+        
+        // 移除 ResizeObserver
+        if (modal._resizeObserver) {
+            modal._resizeObserver.disconnect();
+            delete modal._resizeObserver;
+        }
+
+        // 关闭动画
+        modal.style.opacity = '0';
+        const panel = modal.querySelector('.faq-manager-panel');
+        if (panel) {
+            panel.style.transform = 'scale(0.95)';
+        }
+        
+        // 延迟隐藏弹窗
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 200);
+        
+        // 显示折叠按钮
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+        
+        const faqInput = modal.querySelector('.faq-manager-input');
+        if (faqInput) {
+            faqInput.value = '';
+        }
+    }
+
+    // 加载常见问题到管理器
+    async loadFaqsIntoManager() {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal) return;
+
+        const faqsContainer = modal.querySelector('.faq-manager-faqs');
+        if (!faqsContainer) return;
+
+        // 从存储加载常见问题
+        let faqs = [];
+        try {
+            const result = await chrome.storage.local.get(['petFaqs']);
+            faqs = result.petFaqs || [];
+        } catch (error) {
+            console.error('加载常见问题失败:', error);
+            faqs = [];
+        }
+
+        // 保存到modal的临时数据中
+        modal._currentFaqs = faqs.map(faq => ({ ...faq })); // 使用副本，避免引用问题
+
+        faqsContainer.innerHTML = '';
+
+        if (!faqs || faqs.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.innerHTML = '💡<br>暂无常见问题<br><span style="font-size: 12px; color: #94a3b8;">点击上方"添加"按钮创建</span>';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #64748b !important;
+                padding: 60px 20px !important;
+                font-size: 14px !important;
+                line-height: 1.8 !important;
+            `;
+            faqsContainer.appendChild(emptyMsg);
+            return;
+        }
+
+        const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+
+        faqs.forEach((faq, index) => {
+            const faqItem = document.createElement('div');
+            faqItem.style.cssText = `
+                display: flex !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+                padding: 16px !important;
+                background: #f8fafc !important;
+                border-radius: 12px !important;
+                margin-bottom: 12px !important;
+                border: 1px solid #e2e8f0 !important;
+                transition: all 0.2s ease !important;
+            `;
+            
+            faqItem.addEventListener('mouseenter', () => {
+                faqItem.style.background = '#f1f5f9';
+                faqItem.style.borderColor = '#cbd5e1';
+                faqItem.style.transform = 'translateY(-1px)';
+                faqItem.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+            });
+            faqItem.addEventListener('mouseleave', () => {
+                faqItem.style.background = '#f8fafc';
+                faqItem.style.borderColor = '#e2e8f0';
+                faqItem.style.transform = 'translateY(0)';
+                faqItem.style.boxShadow = 'none';
+            });
+
+            const faqText = document.createElement('div');
+            faqText.textContent = faq.text;
+            faqText.style.cssText = `
+                flex: 1 !important;
+                font-size: 14px !important;
+                color: #1e293b !important;
+                line-height: 1.6 !important;
+                word-break: break-word !important;
+                padding-right: 8px !important;
+            `;
+
+            const faqActions = document.createElement('div');
+            faqActions.style.cssText = `
+                display: flex !important;
+                gap: 6px !important;
+                flex-shrink: 0 !important;
+                align-items: center !important;
+            `;
+
+            // 使用按钮（点击追加到输入框）
+            const useBtn = document.createElement('button');
+            useBtn.textContent = '使用';
+            useBtn.title = '追加到输入框';
+            useBtn.style.cssText = `
+                padding: 6px 14px !important;
+                border-radius: 6px !important;
+                background: ${mainColor} !important;
+                color: white !important;
+                border: none !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                font-weight: 500 !important;
+                transition: all 0.2s ease !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+            `;
+            useBtn.addEventListener('mouseenter', () => {
+                useBtn.style.transform = 'translateY(-1px)';
+                useBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.15)';
+            });
+            useBtn.addEventListener('mouseleave', () => {
+                useBtn.style.transform = 'translateY(0)';
+                useBtn.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
+            });
+            useBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.useFaq(faq.text);
+            });
+
+            // 编辑按钮
+            const editBtn = document.createElement('button');
+            editBtn.innerHTML = '✏️';
+            editBtn.title = '编辑';
+            editBtn.style.cssText = `
+                width: 32px !important;
+                height: 32px !important;
+                border-radius: 6px !important;
+                background: white !important;
+                border: 1px solid #e2e8f0 !important;
+                cursor: pointer !important;
+                font-size: 14px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.2s ease !important;
+            `;
+            editBtn.addEventListener('mouseenter', () => {
+                editBtn.style.background = '#f1f5f9';
+                editBtn.style.borderColor = '#cbd5e1';
+                editBtn.style.transform = 'scale(1.05)';
+            });
+            editBtn.addEventListener('mouseleave', () => {
+                editBtn.style.background = 'white';
+                editBtn.style.borderColor = '#e2e8f0';
+                editBtn.style.transform = 'scale(1)';
+            });
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.editFaq(index);
+            });
+
+            // 删除按钮
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '✕';
+            removeBtn.title = '删除';
+            removeBtn.style.cssText = `
+                width: 32px !important;
+                height: 32px !important;
+                border-radius: 6px !important;
+                background: white !important;
+                border: 1px solid #fee2e2 !important;
+                color: #dc2626 !important;
+                cursor: pointer !important;
+                font-size: 16px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.2s ease !important;
+            `;
+            removeBtn.addEventListener('mouseenter', () => {
+                removeBtn.style.background = '#fee2e2';
+                removeBtn.style.borderColor = '#fecaca';
+                removeBtn.style.transform = 'scale(1.05)';
+            });
+            removeBtn.addEventListener('mouseleave', () => {
+                removeBtn.style.background = 'white';
+                removeBtn.style.borderColor = '#fee2e2';
+                removeBtn.style.transform = 'scale(1)';
+            });
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeFaq(index);
+            });
+
+            faqActions.appendChild(useBtn);
+            faqActions.appendChild(editBtn);
+            faqActions.appendChild(removeBtn);
+
+            faqItem.appendChild(faqText);
+            faqItem.appendChild(faqActions);
+
+            faqsContainer.appendChild(faqItem);
+        });
+    }
+
+    // 从输入框添加常见问题
+    addFaqFromInput() {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal) return;
+
+        const faqInput = modal.querySelector('.faq-manager-input');
+        if (!faqInput) return;
+
+        const text = faqInput.value.trim();
+        if (!text) {
+            this.showNotification('请输入问题内容', 'warning');
+            return;
+        }
+
+        // 获取当前常见问题列表
+        if (!modal._currentFaqs) {
+            modal._currentFaqs = [];
+        }
+
+        // 检查是否已存在相同内容
+        const exists = modal._currentFaqs.some(faq => faq.text === text);
+        if (exists) {
+            this.showNotification('该问题已存在', 'warning');
+            return;
+        }
+
+        // 添加到列表
+        modal._currentFaqs.push({ text });
+        
+        // 保存到存储
+        this.saveFaqs(modal._currentFaqs);
+        
+        // 重新加载显示
+        this.loadFaqsIntoManager();
+        
+        // 清空输入框
+        faqInput.value = '';
+        faqInput.focus();
+        
+        this.showNotification('常见问题已添加', 'success');
+    }
+
+    // 删除常见问题
+    async removeFaq(index) {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal || !modal._currentFaqs) return;
+
+        if (!confirm('确定要删除这个常见问题吗？')) {
+            return;
+        }
+
+        modal._currentFaqs.splice(index, 1);
+        
+        // 保存到存储
+        await this.saveFaqs(modal._currentFaqs);
+        
+        // 重新加载显示
+        await this.loadFaqsIntoManager();
+        
+        this.showNotification('常见问题已删除', 'success');
+    }
+
+    // 编辑常见问题
+    editFaq(index) {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal || !modal._currentFaqs || !this.chatWindow) return;
+
+        const faq = modal._currentFaqs[index];
+        if (!faq) return;
+
+        const existingText = faq.text;
+        const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+        const MAX_LENGTH = 500; // 最大字符数限制
+
+        // 确保 chatWindow 有正确的定位上下文
+        const currentPosition = window.getComputedStyle(this.chatWindow).position;
+        if (currentPosition !== 'relative' && currentPosition !== 'absolute' && currentPosition !== 'fixed') {
+            this.chatWindow.style.position = 'relative';
+        }
+
+        // 创建编辑对话框 - 添加到 chatWindow 内
+        const editModal = document.createElement('div');
+        editModal.className = 'pet-faq-edit-modal';
+        editModal.style.cssText = `
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            backdrop-filter: blur(4px) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: ${PET_CONFIG.ui.zIndex.modal + 1} !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+
+        // 计算并设置对话框大小（自适应聊天弹框）
+        const updateDialogSize = () => {
+            if (!this.chatWindow) return;
+            const chatRect = this.chatWindow.getBoundingClientRect();
+            const maxWidth = Math.min(560, chatRect.width * 0.85);
+            const maxHeight = Math.min(chatRect.height * 0.85, window.innerHeight * 0.85);
+            dialog.style.maxWidth = `${maxWidth}px`;
+            dialog.style.maxHeight = `${maxHeight}px`;
+        };
+
+        const dialog = document.createElement('div');
+        dialog.className = 'pet-faq-edit-dialog';
+        dialog.style.cssText = `
+            background: white !important;
+            border-radius: 16px !important;
+            padding: 0 !important;
+            width: 90% !important;
+            max-width: 560px !important;
+            max-height: 85% !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+            transform: scale(0.95) !important;
+            transition: transform 0.2s ease !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        `;
+        
+        // 初始化大小
+        updateDialogSize();
+        
+        // 监听窗口大小变化
+        const resizeHandler = () => updateDialogSize();
+        window.addEventListener('resize', resizeHandler);
+        editModal._resizeHandler = resizeHandler;
+
+        // 标题栏
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%) !important;
+        `;
+
+        const dialogTitle = document.createElement('div');
+        dialogTitle.textContent = '✏️ 编辑常见问题';
+        dialogTitle.style.cssText = `
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #1e293b !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.title = '关闭（ESC）';
+        closeBtn.style.cssText = `
+            background: rgba(0, 0, 0, 0.05) !important;
+            border: none !important;
+            font-size: 20px !important;
+            cursor: pointer !important;
+            color: #64748b !important;
+            padding: 0 !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'rgba(0, 0, 0, 0.1)';
+            closeBtn.style.color = '#1e293b';
+            closeBtn.style.transform = 'rotate(90deg)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'rgba(0, 0, 0, 0.05)';
+            closeBtn.style.color = '#64748b';
+            closeBtn.style.transform = 'rotate(0deg)';
+        });
+
+        header.appendChild(dialogTitle);
+        header.appendChild(closeBtn);
+
+        // 内容区域 - 可滚动
+        const content = document.createElement('div');
+        content.style.cssText = `
+            padding: 24px !important;
+            overflow-y: auto !important;
+            flex: 1 !important;
+            min-height: 0 !important;
+        `;
+
+        // 文本输入区域
+        const textareaWrapper = document.createElement('div');
+        textareaWrapper.style.cssText = `
+            position: relative !important;
+            margin-bottom: 12px !important;
+        `;
+
+        const textarea = document.createElement('textarea');
+        textarea.value = existingText;
+        textarea.placeholder = '输入问题内容...';
+        textarea.maxLength = MAX_LENGTH;
+        textarea.style.cssText = `
+            width: 100% !important;
+            min-height: 120px !important;
+            max-height: 200px !important;
+            padding: 12px !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            line-height: 1.5 !important;
+            color: #1e293b !important;
+            resize: vertical !important;
+            font-family: inherit !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+        `;
+
+        // 字符计数
+        const charCount = document.createElement('div');
+        charCount.className = 'pet-faq-edit-char-count';
+        const updateCharCount = () => {
+            const length = textarea.value.length;
+            charCount.textContent = `${length}/${MAX_LENGTH}`;
+            charCount.style.color = length > MAX_LENGTH * 0.9 ? '#ef4444' : '#94a3b8';
+        };
+        updateCharCount();
+        charCount.style.cssText = `
+            position: absolute !important;
+            bottom: 8px !important;
+            right: 12px !important;
+            font-size: 12px !important;
+            color: #94a3b8 !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+            pointer-events: none !important;
+        `;
+
+        textarea.addEventListener('input', updateCharCount);
+        textarea.addEventListener('focus', () => {
+            textarea.style.borderColor = mainColor;
+            textarea.style.boxShadow = `0 0 0 3px ${mainColor}20`;
+        });
+        textarea.addEventListener('blur', () => {
+            textarea.style.borderColor = '#e2e8f0';
+            textarea.style.boxShadow = 'none';
+        });
+
+        // 自动调整高度
+        const adjustTextareaHeight = () => {
+            textarea.style.height = 'auto';
+            const maxHeight = 200; // 与 CSS 中的 max-height 保持一致
+            textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+        };
+        adjustTextareaHeight();
+        textarea.addEventListener('input', adjustTextareaHeight);
+
+        textareaWrapper.appendChild(textarea);
+        textareaWrapper.appendChild(charCount);
+
+        // 提示信息
+        const hint = document.createElement('div');
+        hint.style.cssText = `
+            font-size: 12px !important;
+            color: #64748b !important;
+            margin-bottom: 20px !important;
+            line-height: 1.5 !important;
+        `;
+        hint.innerHTML = '💡 提示：按 <kbd style="padding: 2px 6px; background: #f1f5f9; border-radius: 4px; font-size: 11px;">Ctrl+Enter</kbd> 或 <kbd style="padding: 2px 6px; background: #f1f5f9; border-radius: 4px; font-size: 11px;">Cmd+Enter</kbd> 保存，<kbd style="padding: 2px 6px; background: #f1f5f9; border-radius: 4px; font-size: 11px;">ESC</kbd> 取消';
+
+        content.appendChild(textareaWrapper);
+        content.appendChild(hint);
+
+        // 添加自定义滚动条样式
+        const scrollbarStyleId = 'pet-faq-edit-scrollbar-style';
+        editModal._scrollbarStyleId = scrollbarStyleId; // 存储到 editModal 上以便后续访问
+        let scrollbarStyle = document.getElementById(scrollbarStyleId);
+        if (!scrollbarStyle) {
+            scrollbarStyle = document.createElement('style');
+            scrollbarStyle.id = scrollbarStyleId;
+            scrollbarStyle.textContent = `
+                .pet-faq-edit-dialog .pet-faq-edit-content::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .pet-faq-edit-dialog .pet-faq-edit-content::-webkit-scrollbar-track {
+                    background: #f1f5f9;
+                    border-radius: 3px;
+                }
+                .pet-faq-edit-dialog .pet-faq-edit-content::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 3px;
+                }
+                .pet-faq-edit-dialog .pet-faq-edit-content::-webkit-scrollbar-thumb:hover {
+                    background: #94a3b8;
+                }
+            `;
+            document.head.appendChild(scrollbarStyle);
+        }
+        
+        // 为内容区域添加类名以便样式选择器匹配
+        content.className = 'pet-faq-edit-content';
+
+        // 按钮组
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.cssText = `
+            display: flex !important;
+            gap: 12px !important;
+            justify-content: flex-end !important;
+            padding: 16px 24px !important;
+            border-top: 1px solid #e5e7eb !important;
+            background: #f8fafc !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.className = 'pet-faq-edit-cancel';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            border-radius: 8px !important;
+            background: white !important;
+            color: #64748b !important;
+            border: 1px solid #e2e8f0 !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        `;
+
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f1f5f9';
+            cancelBtn.style.borderColor = '#cbd5e1';
+        });
+
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+            cancelBtn.style.borderColor = '#e2e8f0';
+        });
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = '保存';
+        confirmBtn.className = 'pet-faq-edit-confirm';
+        confirmBtn.style.cssText = `
+            padding: 10px 20px !important;
+            border-radius: 8px !important;
+            background: ${mainColor} !important;
+            color: white !important;
+            border: none !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        `;
+
+        confirmBtn.addEventListener('mouseenter', () => {
+            confirmBtn.style.opacity = '0.9';
+            confirmBtn.style.transform = 'translateY(-1px)';
+            confirmBtn.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+        });
+
+        confirmBtn.addEventListener('mouseleave', () => {
+            confirmBtn.style.opacity = '1';
+            confirmBtn.style.transform = 'translateY(0)';
+            confirmBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+        });
+
+        // 关闭方法
+        const closeEditModal = () => {
+            editModal.style.opacity = '0';
+            dialog.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                if (editModal.parentNode) {
+                    editModal.parentNode.removeChild(editModal);
+                }
+                document.removeEventListener('keydown', keyHandler);
+                // 清理 resize 监听器
+                if (editModal._resizeHandler) {
+                    window.removeEventListener('resize', editModal._resizeHandler);
+                }
+                // 清理样式元素（如果没有其他编辑弹框在使用）
+                const otherEditModals = this.chatWindow?.querySelectorAll('.pet-faq-edit-modal');
+                if (!otherEditModals || otherEditModals.length === 0) {
+                    const styleEl = document.getElementById(editModal._scrollbarStyleId || 'pet-faq-edit-scrollbar-style');
+                    if (styleEl) {
+                        styleEl.remove();
+                    }
+                }
+            }, 200);
+        };
+
+        // 保存逻辑
+        const handleSave = async () => {
+            const text = textarea.value.trim();
+            
+            if (!text) {
+                this.showNotification('请输入问题内容', 'warning');
+                textarea.focus();
+                return;
+            }
+
+            if (text === existingText) {
+                closeEditModal();
+                return;
+            }
+
+            // 检查是否已存在相同内容（排除当前编辑的项）
+            const exists = modal._currentFaqs.some((faq, i) => i !== index && faq.text === text);
+            if (exists) {
+                this.showNotification('该问题已存在', 'warning');
+                textarea.focus();
+                textarea.select();
+                return;
+            }
+
+            try {
+                // 更新常见问题
+                modal._currentFaqs[index].text = text;
+                
+                // 保存到存储
+                await this.saveFaqs(modal._currentFaqs);
+                
+                // 重新加载显示
+                await this.loadFaqsIntoManager();
+                
+                closeEditModal();
+                this.showNotification('常见问题已更新', 'success');
+            } catch (error) {
+                console.error('保存常见问题失败:', error);
+                this.showNotification('保存失败，请重试', 'error');
+            }
+        };
+
+        confirmBtn.addEventListener('click', handleSave);
+        cancelBtn.addEventListener('click', closeEditModal);
+        closeBtn.addEventListener('click', closeEditModal);
+
+        buttonGroup.appendChild(cancelBtn);
+        buttonGroup.appendChild(confirmBtn);
+
+        dialog.appendChild(header);
+        dialog.appendChild(content);
+        dialog.appendChild(buttonGroup);
+
+        editModal.appendChild(dialog);
+
+        // 点击模态框背景关闭
+        editModal.addEventListener('click', (e) => {
+            if (e.target === editModal) {
+                closeEditModal();
+            }
+        });
+
+        // 键盘事件处理
+        let isComposing = false;
+        textarea.addEventListener('compositionstart', () => {
+            isComposing = true;
+        });
+        textarea.addEventListener('compositionend', () => {
+            isComposing = false;
+        });
+
+        const keyHandler = (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeEditModal();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !isComposing) {
+                e.preventDefault();
+                handleSave();
+            }
+        };
+        document.addEventListener('keydown', keyHandler);
+
+        // 添加到 chatWindow 并显示动画
+        this.chatWindow.appendChild(editModal);
+        requestAnimationFrame(() => {
+            editModal.style.opacity = '1';
+            dialog.style.transform = 'scale(1)';
+        });
+
+        // 聚焦并选中文本
+        setTimeout(() => {
+            textarea.focus();
+            textarea.select();
+        }, 100);
+    }
+
+    // 使用常见问题（追加到输入框）
+    useFaq(text) {
+        const messageInput = this.chatWindow?.querySelector('.chat-message-input');
+        if (!messageInput) return;
+
+        const currentValue = messageInput.value.trim();
+        if (currentValue) {
+            messageInput.value = currentValue + '\n' + text;
+        } else {
+            messageInput.value = text;
+        }
+        messageInput.focus();
+        
+        // 触发input事件以更新输入框高度
+        messageInput.dispatchEvent(new Event('input'));
+        
+        // 关闭管理器
+        this.closeFaqManagerOnly();
+        
+        this.showNotification('已追加到输入框', 'success');
+    }
+
+    // 保存常见问题到存储
+    async saveFaqs(faqs) {
+        try {
+            await chrome.storage.local.set({ petFaqs: faqs });
+        } catch (error) {
+            console.error('保存常见问题失败:', error);
+            this.showNotification('保存常见问题失败', 'error');
+        }
     }
     
     // 查找与OSS文件关联的所有会话
@@ -22164,6 +23311,7 @@ ${messageContent}`;
         inputLeftButtonGroup.appendChild(mentionButton);
         inputLeftButtonGroup.appendChild(imageUploadButton);
         rightStatusGroup.appendChild(contextSwitchContainer);
+        
         // 添加：页面上下文预览/编辑按钮
         const contextBtn = document.createElement('button');
         contextBtn.className = 'chat-toolbar-btn';
@@ -22193,11 +23341,48 @@ ${messageContent}`;
         });
         contextBtn.addEventListener('click', () => this.openContextEditor());
         inputLeftButtonGroup.appendChild(contextBtn);
+
+        // ===== 创建常见问题按钮 =====
+        const faqBtn = document.createElement('button');
+        faqBtn.innerHTML = '💡 常见问题';
+        faqBtn.title = '常见问题';
+        faqBtn.style.cssText = `
+            padding: 6px 10px !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+
+        faqBtn.addEventListener('mouseenter', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            faqBtn.style.background = currentMainColor;
+            faqBtn.style.color = 'white';
+            faqBtn.style.borderColor = currentMainColor;
+        });
+
+        faqBtn.addEventListener('mouseleave', () => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            faqBtn.style.background = 'white';
+            faqBtn.style.color = currentMainColor;
+            faqBtn.style.borderColor = currentMainColor;
+        });
+
+        faqBtn.addEventListener('click', () => this.openFaqManager());
+        inputLeftButtonGroup.appendChild(faqBtn);
         // 已移除自定义角色快捷入口
 
         topToolbar.appendChild(inputLeftButtonGroup);
         topToolbar.appendChild(rightStatusGroup);
         inputContainer.appendChild(topToolbar);
+        // ===== 常见问题按钮结束 =====
 
         // 创建输入框容器（暗色主题）
         const inputWrapper = document.createElement('div');

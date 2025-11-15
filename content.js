@@ -2811,7 +2811,9 @@ if (typeof getCenterPosition === 'undefined') {
             isResizing: false,
             resizeType: 'bottom-right', // 默认缩放类型
             dragStart: { x: 0, y: 0 },
-            resizeStart: { x: 0, y: 0, width: 0, height: 0 }
+            resizeStart: { x: 0, y: 0, width: 0, height: 0 },
+            isFullscreen: false,
+            originalState: null // 保存全屏前的原始状态
         };
 
         // 尝试加载保存的聊天窗口状态（会覆盖默认值）
@@ -22550,7 +22552,7 @@ ${messageContent}`;
         `;
 
         // 添加拖拽提示
-        chatHeader.title = '拖拽移动窗口';
+        chatHeader.title = '拖拽移动窗口 | 双击全屏';
 
         const headerTitle = document.createElement('div');
         headerTitle.className = 'chat-header-title';
@@ -25295,24 +25297,92 @@ ${messageContent}`;
     updateChatWindowStyle() {
         if (!this.chatWindow || !this.chatWindowState) return;
 
-        const { x, y, width, height } = this.chatWindowState;
+        const { x, y, width, height, isFullscreen } = this.chatWindowState;
 
-        this.chatWindow.style.cssText = `
-            position: fixed !important;
-            left: ${x}px !important;
-            top: ${y}px !important;
-            width: ${width}px !important;
-            height: ${height}px !important;
-            background: white !important;
-            border-radius: 16px !important;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-            z-index: ${PET_CONFIG.ui.zIndex.chatWindow} !important;
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-            resize: none !important;
-        `;
+        if (isFullscreen) {
+            // 全屏模式：铺满整个视口
+            this.chatWindow.style.cssText = `
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: white !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                z-index: ${PET_CONFIG.ui.zIndex.chatWindow} !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                resize: none !important;
+            `;
+        } else {
+            // 正常模式：使用保存的位置和大小
+            this.chatWindow.style.cssText = `
+                position: fixed !important;
+                left: ${x}px !important;
+                top: ${y}px !important;
+                width: ${width}px !important;
+                height: ${height}px !important;
+                background: white !important;
+                border-radius: 16px !important;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
+                z-index: ${PET_CONFIG.ui.zIndex.chatWindow} !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                resize: none !important;
+            `;
+        }
+    }
+
+    // 切换全屏模式
+    toggleFullscreen() {
+        if (!this.chatWindow || !this.chatWindowState) return;
+
+        if (this.chatWindowState.isFullscreen) {
+            // 退出全屏：恢复原始状态
+            if (this.chatWindowState.originalState) {
+                this.chatWindowState.x = this.chatWindowState.originalState.x;
+                this.chatWindowState.y = this.chatWindowState.originalState.y;
+                this.chatWindowState.width = this.chatWindowState.originalState.width;
+                this.chatWindowState.height = this.chatWindowState.originalState.height;
+                this.chatWindowState.originalState = null;
+            }
+            this.chatWindowState.isFullscreen = false;
+        } else {
+            // 进入全屏：保存当前状态
+            this.chatWindowState.originalState = {
+                x: this.chatWindowState.x,
+                y: this.chatWindowState.y,
+                width: this.chatWindowState.width,
+                height: this.chatWindowState.height
+            };
+            this.chatWindowState.isFullscreen = true;
+        }
+
+        // 更新窗口样式
+        this.updateChatWindowStyle();
+
+        // 更新头部提示文本和样式
+        const header = this.chatWindow.querySelector('.chat-header');
+        if (header) {
+            if (this.chatWindowState.isFullscreen) {
+                header.title = '双击退出全屏';
+                header.style.setProperty('border-radius', '0', 'important');
+            } else {
+                header.title = '拖拽移动窗口 | 双击全屏';
+                header.style.setProperty('border-radius', '16px 16px 0 0', 'important');
+            }
+        }
+
+        // 重新初始化滚动功能
+        this.initializeChatScroll();
+
+        // 更新消息容器的底部padding
+        this.updateMessagesPaddingBottom();
     }
 
     // 从渐变色中提取主色调
@@ -25423,6 +25493,7 @@ ${messageContent}`;
         if (header) {
             header.addEventListener('mousedown', (e) => {
                 if (e.target.closest('button')) return; // 忽略按钮点击
+                if (this.chatWindowState.isFullscreen) return; // 全屏模式下禁用拖拽
 
                 this.chatWindowState.isDragging = true;
                 this.chatWindowState.dragStart = {
@@ -25433,11 +25504,20 @@ ${messageContent}`;
                 header.style.cursor = 'grabbing';
                 e.preventDefault();
             });
+
+            // 双击全屏功能
+            header.addEventListener('dblclick', (e) => {
+                if (e.target.closest('button')) return; // 忽略按钮双击
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleFullscreen();
+            });
         }
 
         // 缩放功能 - 为每个缩放手柄添加事件监听
         resizeHandles.forEach((resizeHandle) => {
             resizeHandle.addEventListener('mousedown', (e) => {
+                if (this.chatWindowState.isFullscreen) return; // 全屏模式下禁用缩放
                 this.chatWindowState.isResizing = true;
 
                 // 根据手柄位置确定缩放类型

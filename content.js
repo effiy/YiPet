@@ -7731,35 +7731,7 @@ if (typeof getCenterPosition === 'undefined') {
             faqInput.style.boxShadow = 'none';
         });
 
-        const addBtn = document.createElement('button');
-        addBtn.textContent = '添加';
-        addBtn.style.cssText = `
-            padding: 12px 24px !important;
-            background: ${mainColor} !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 8px !important;
-            cursor: pointer !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            transition: all 0.2s ease !important;
-            align-self: flex-start !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-        `;
-        addBtn.addEventListener('mouseenter', () => {
-            addBtn.style.transform = 'translateY(-1px)';
-            addBtn.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
-        });
-        addBtn.addEventListener('mouseleave', () => {
-            addBtn.style.transform = 'translateY(0)';
-            addBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-        });
-        addBtn.addEventListener('click', () => {
-            this.addFaqFromInput();
-        });
-
         inputGroup.appendChild(faqInput);
-        inputGroup.appendChild(addBtn);
 
         // 常见问题列表
         const faqsContainer = document.createElement('div');
@@ -8032,7 +8004,7 @@ if (typeof getCenterPosition === 'undefined') {
 
         if (!faqs || faqs.length === 0) {
             const emptyMsg = document.createElement('div');
-            emptyMsg.innerHTML = '💡<br>暂无常见问题<br><span style="font-size: 12px; color: #94a3b8;">点击上方"添加"按钮创建</span>';
+            emptyMsg.innerHTML = '💡<br>暂无常见问题<br><span style="font-size: 12px; color: #94a3b8;">使用 Ctrl+Enter 或 Shift+Enter 添加</span>';
             emptyMsg.style.cssText = `
                 text-align: center !important;
                 color: #64748b !important;

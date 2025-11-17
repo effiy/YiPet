@@ -10361,26 +10361,40 @@ if (typeof getCenterPosition === 'undefined') {
             // 创建页面上下文按钮
             const contextBtn = document.createElement('button');
             contextBtn.className = 'session-context-btn';
-            contextBtn.innerHTML = '📄';
+            contextBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            `;
             contextBtn.title = '页面上下文';
             contextBtn.style.cssText = `
                 background: none !important;
                 border: none !important;
                 cursor: pointer !important;
-                padding: 2px 4px !important;
-                font-size: 12px !important;
+                padding: 4px !important;
                 opacity: 0.6 !important;
-                transition: opacity 0.2s ease !important;
+                transition: all 0.2s ease !important;
                 line-height: 1 !important;
                 flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: inherit !important;
+                border-radius: 4px !important;
             `;
             
-            // 按钮悬停时增加不透明度
+            // 按钮悬停时增加不透明度和背景色
             contextBtn.addEventListener('mouseenter', () => {
                 contextBtn.style.opacity = '1';
+                contextBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
             });
             contextBtn.addEventListener('mouseleave', () => {
                 contextBtn.style.opacity = '0.6';
+                contextBtn.style.background = 'none !important';
             });
             
             // 阻止页面上下文按钮点击事件冒泡到 sessionItem

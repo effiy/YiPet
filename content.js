@@ -10347,6 +10347,46 @@ if (typeof getCenterPosition === 'undefined') {
                 await this.duplicateSession(session.id);
             });
             
+            // 创建页面上下文按钮
+            const contextBtn = document.createElement('button');
+            contextBtn.className = 'session-context-btn';
+            contextBtn.innerHTML = '📄';
+            contextBtn.title = '页面上下文';
+            contextBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停时增加不透明度
+            contextBtn.addEventListener('mouseenter', () => {
+                contextBtn.style.opacity = '1';
+            });
+            contextBtn.addEventListener('mouseleave', () => {
+                contextBtn.style.opacity = '0.6';
+            });
+            
+            // 阻止页面上下文按钮点击事件冒泡到 sessionItem
+            contextBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // 先激活该会话
+                if (session.id !== this.currentSessionId) {
+                    await this.activateSession(session.id);
+                }
+                // 确保聊天窗口已打开
+                if (!this.chatWindow || !this.isChatOpen) {
+                    await this.openChatWindow();
+                }
+                // 打开页面上下文编辑器
+                this.openContextEditor();
+            });
+            
             // 创建按钮容器
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -10363,6 +10403,7 @@ if (typeof getCenterPosition === 'undefined') {
             }
             buttonContainer.appendChild(tagBtn);
             buttonContainer.appendChild(duplicateBtn);
+            buttonContainer.appendChild(contextBtn);
             
             // 鼠标悬停在会话项上时显示按钮
             sessionItem.addEventListener('mouseenter', () => {

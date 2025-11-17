@@ -10319,26 +10319,37 @@ if (typeof getCenterPosition === 'undefined') {
             // 创建副本按钮
             const duplicateBtn = document.createElement('button');
             duplicateBtn.className = 'session-duplicate-btn';
-            duplicateBtn.innerHTML = '📋';
+            duplicateBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+            `;
             duplicateBtn.title = '创建副本';
             duplicateBtn.style.cssText = `
                 background: none !important;
                 border: none !important;
                 cursor: pointer !important;
-                padding: 2px 4px !important;
-                font-size: 12px !important;
+                padding: 4px !important;
                 opacity: 0.6 !important;
-                transition: opacity 0.2s ease !important;
+                transition: all 0.2s ease !important;
                 line-height: 1 !important;
                 flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: inherit !important;
+                border-radius: 4px !important;
             `;
             
-            // 按钮悬停时增加不透明度
+            // 按钮悬停时增加不透明度和背景色
             duplicateBtn.addEventListener('mouseenter', () => {
                 duplicateBtn.style.opacity = '1';
+                duplicateBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
             });
             duplicateBtn.addEventListener('mouseleave', () => {
                 duplicateBtn.style.opacity = '0.6';
+                duplicateBtn.style.background = 'none !important';
             });
             
             // 阻止副本按钮点击事件冒泡到 sessionItem

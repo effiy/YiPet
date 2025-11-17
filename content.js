@@ -534,6 +534,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.tagFilterNoTags = false; // 是否筛选无标签的会话
         this.tagFilterExpanded = false; // 标签列表是否展开（会话）
         this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量（会话）
+        this.tagFilterSearchKeyword = ''; // 标签搜索关键词
         
         // OSS文件标签过滤相关
         this.selectedOssFilterTags = []; // 选中的OSS文件过滤标签
@@ -6318,11 +6319,12 @@ if (typeof getCenterPosition === 'undefined') {
             noTagsFilterBtn.style.opacity = this.tagFilterNoTags ? '1' : '0.6';
         }
         
-        // 更新清除按钮显示状态（如果有选中的标签或启用了无标签筛选才显示为可用状态）
+        // 更新清除按钮显示状态（如果有选中的标签、启用了无标签筛选或有搜索关键词才显示为可用状态）
         const clearFilterBtn = this.sessionSidebar.querySelector('.tag-filter-clear');
         if (clearFilterBtn) {
             const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
-            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
+            const hasSearchKeyword = this.tagFilterSearchKeyword && this.tagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags || hasSearchKeyword;
             clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
             clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
         }
@@ -6336,12 +6338,31 @@ if (typeof getCenterPosition === 'undefined') {
         // 获取所有标签
         const allTags = this.getAllTags();
         
-        if (allTags.length === 0) {
-            // 如果没有标签，隐藏展开/收起按钮
+        // 根据搜索关键词过滤标签
+        let filteredTags = allTags;
+        const searchKeyword = (this.tagFilterSearchKeyword || '').trim().toLowerCase();
+        if (searchKeyword) {
+            filteredTags = allTags.filter(tag => 
+                tag.toLowerCase().includes(searchKeyword)
+            );
+        }
+        
+        if (filteredTags.length === 0) {
+            // 如果没有匹配的标签，显示提示信息
             const expandToggleBtn = this.sessionSidebar.querySelector('.tag-filter-expand-btn');
             if (expandToggleBtn) {
                 expandToggleBtn.style.display = 'none';
             }
+            // 显示"无匹配标签"提示
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = searchKeyword ? '未找到匹配的标签' : '暂无标签';
+            emptyMsg.style.cssText = `
+                padding: 8px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 11px !important;
+            `;
+            tagFilterList.appendChild(emptyMsg);
             return;
         }
         
@@ -6351,25 +6372,28 @@ if (typeof getCenterPosition === 'undefined') {
         let visibleTags;
         let hasMoreTags;
         
-        if (this.tagFilterExpanded) {
-            // 展开状态：显示所有标签
-            visibleTags = allTags;
+        if (this.tagFilterExpanded || searchKeyword) {
+            // 展开状态或有搜索关键词时：显示所有过滤后的标签
+            visibleTags = filteredTags;
             hasMoreTags = false;
         } else {
             // 折叠状态：显示前N个标签，但确保选中的标签也在其中
-            const defaultVisible = allTags.slice(0, this.tagFilterVisibleCount);
+            const defaultVisible = filteredTags.slice(0, this.tagFilterVisibleCount);
             const selectedNotInDefault = selectedTags.filter(tag => !defaultVisible.includes(tag));
             
-            // 保持allTags的原始顺序，但确保选中的标签也在可见列表中
+            // 保持filteredTags的原始顺序，但确保选中的标签也在可见列表中
             const visibleSet = new Set([...defaultVisible, ...selectedNotInDefault]);
-            visibleTags = allTags.filter(tag => visibleSet.has(tag));
-            hasMoreTags = allTags.length > visibleTags.length;
+            visibleTags = filteredTags.filter(tag => visibleSet.has(tag));
+            hasMoreTags = filteredTags.length > visibleTags.length;
         }
         
-        // 更新展开/折叠按钮
+        // 更新展开/折叠按钮（有搜索关键词时隐藏）
         const expandToggleBtn = this.sessionSidebar.querySelector('.tag-filter-expand-btn');
         if (expandToggleBtn) {
-            if (hasMoreTags || this.tagFilterExpanded) {
+            if (searchKeyword) {
+                // 有搜索关键词时隐藏展开/折叠按钮
+                expandToggleBtn.style.display = 'none';
+            } else if (hasMoreTags || this.tagFilterExpanded) {
                 expandToggleBtn.style.display = 'block';
                 if (this.tagFilterExpanded) {
                     expandToggleBtn.innerHTML = '▲';
@@ -23563,24 +23587,15 @@ ${messageContent}`;
             background: #ffffff !important;
         `;
 
-        // 过滤器标题行（包含标题、清除按钮和反向开关）
+        // 过滤器标题行（包含搜索输入框和操作按钮）
         const filterHeader = document.createElement('div');
         filterHeader.style.cssText = `
             display: flex !important;
             justify-content: space-between !important;
             align-items: center !important;
+            gap: 8px !important;
             margin-bottom: 6px !important;
         `;
-
-        const filterTitle = document.createElement('div');
-        filterTitle.style.cssText = `
-            font-size: 11px !important;
-            font-weight: 500 !important;
-            color: #9ca3af !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-        `;
-        filterTitle.textContent = '标签筛选';
 
         // 右侧操作区（反向过滤开关 + 清除按钮）
         const filterActions = document.createElement('div');
@@ -23588,6 +23603,7 @@ ${messageContent}`;
             display: flex !important;
             align-items: center !important;
             gap: 8px !important;
+            flex-shrink: 0 !important;
         `;
 
         // 反向过滤开关（简化版，使用图标）
@@ -23714,7 +23730,8 @@ ${messageContent}`;
         `;
         clearFilterBtn.addEventListener('mouseenter', () => {
             const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
-            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
+            const hasSearchKeyword = this.tagFilterSearchKeyword && this.tagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags || hasSearchKeyword;
             if (hasActiveFilter) {
                 clearFilterBtn.style.color = '#ef4444';
                 clearFilterBtn.style.opacity = '1';
@@ -23725,17 +23742,33 @@ ${messageContent}`;
         });
         clearFilterBtn.addEventListener('mouseleave', () => {
             const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
-            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
+            const hasSearchKeyword = this.tagFilterSearchKeyword && this.tagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags || hasSearchKeyword;
             clearFilterBtn.style.color = '#9ca3af';
             clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
             clearFilterBtn.style.background = 'none';
         });
         clearFilterBtn.addEventListener('click', () => {
             const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
-            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags;
+            const hasSearchKeyword = this.tagFilterSearchKeyword && this.tagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags || hasSearchKeyword;
             if (hasActiveFilter) {
                 this.selectedFilterTags = [];
                 this.tagFilterNoTags = false;
+                this.tagFilterSearchKeyword = '';
+                // 更新搜索输入框的值和清除按钮状态
+                const tagSearchInput = this.sessionSidebar.querySelector('.tag-filter-search');
+                const tagSearchClearBtn = this.sessionSidebar.querySelector('.tag-filter-search-clear');
+                if (tagSearchInput) {
+                    tagSearchInput.value = '';
+                }
+                if (tagSearchClearBtn) {
+                    tagSearchClearBtn.style.display = 'none';
+                }
+                const tagSearchIcon = this.sessionSidebar.querySelector('.tag-filter-search-container span');
+                if (tagSearchIcon && tagSearchIcon.textContent === '🔍') {
+                    tagSearchIcon.style.opacity = '0.5';
+                }
                 this.updateTagFilterUI();
                 this.updateSessionSidebar();
             }
@@ -23745,7 +23778,180 @@ ${messageContent}`;
         filterActions.appendChild(noTagsFilterBtn);
         filterActions.appendChild(expandToggleBtn);
         filterActions.appendChild(clearFilterBtn);
-        filterHeader.appendChild(filterTitle);
+
+        // 创建标签搜索输入框容器（带图标和清除按钮）
+        const tagSearchContainer = document.createElement('div');
+        tagSearchContainer.className = 'tag-filter-search-container';
+        tagSearchContainer.style.cssText = `
+            position: relative !important;
+            flex: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+        `;
+
+        // 搜索图标
+        const tagSearchIcon = document.createElement('span');
+        tagSearchIcon.textContent = '🔍';
+        tagSearchIcon.style.cssText = `
+            position: absolute !important;
+            left: 8px !important;
+            font-size: 12px !important;
+            pointer-events: none !important;
+            z-index: 1 !important;
+            opacity: 0.5 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+
+        // 标签搜索输入框
+        const tagSearchInput = document.createElement('input');
+        tagSearchInput.className = 'tag-filter-search';
+        tagSearchInput.type = 'text';
+        tagSearchInput.placeholder = '搜索标签...';
+        tagSearchInput.value = this.tagFilterSearchKeyword || '';
+        tagSearchInput.style.cssText = `
+            width: 100% !important;
+            font-weight: 400 !important;
+            font-size: 12px !important;
+            color: #374151 !important;
+            padding: 4px 24px 4px 24px !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 6px !important;
+            background: #ffffff !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+            height: 24px !important;
+        `;
+
+        // 添加占位符样式
+        if (!document.getElementById('tag-search-placeholder-style')) {
+            const style = document.createElement('style');
+            style.id = 'tag-search-placeholder-style';
+            style.textContent = `
+                .tag-filter-search::placeholder {
+                    color: #9ca3af !important;
+                    opacity: 1 !important;
+                }
+                .tag-filter-search:focus::placeholder {
+                    color: #d1d5db !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 清除按钮（位于输入框右侧）
+        const tagSearchClearBtn = document.createElement('button');
+        tagSearchClearBtn.innerHTML = '✕';
+        tagSearchClearBtn.type = 'button';
+        tagSearchClearBtn.className = 'tag-filter-search-clear';
+        tagSearchClearBtn.style.cssText = `
+            position: absolute !important;
+            right: 4px !important;
+            width: 16px !important;
+            height: 16px !important;
+            border: none !important;
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+            border-radius: 50% !important;
+            cursor: pointer !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 10px !important;
+            padding: 0 !important;
+            transition: all 0.2s ease !important;
+            z-index: 2 !important;
+            line-height: 1 !important;
+        `;
+
+        // 更新清除按钮显示状态
+        const updateTagSearchClearButton = () => {
+            if (tagSearchInput.value.trim() !== '') {
+                tagSearchClearBtn.style.display = 'flex';
+                tagSearchIcon.style.opacity = '0.3';
+            } else {
+                tagSearchClearBtn.style.display = 'none';
+                tagSearchIcon.style.opacity = '0.5';
+            }
+        };
+
+        // 初始状态
+        updateTagSearchClearButton();
+
+        // 清除按钮点击事件
+        tagSearchClearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            tagSearchInput.value = '';
+            this.tagFilterSearchKeyword = '';
+            updateTagSearchClearButton();
+            this.updateTagFilterUI();
+            tagSearchInput.focus();
+        });
+
+        // 清除按钮悬停效果
+        tagSearchClearBtn.addEventListener('mouseenter', () => {
+            tagSearchClearBtn.style.background = '#d1d5db';
+            tagSearchClearBtn.style.transform = 'scale(1.15)';
+        });
+        tagSearchClearBtn.addEventListener('mouseleave', () => {
+            tagSearchClearBtn.style.background = '#e5e7eb';
+            tagSearchClearBtn.style.transform = 'scale(1)';
+        });
+
+        // 输入框聚焦和失焦样式
+        tagSearchInput.addEventListener('focus', () => {
+            tagSearchInput.style.borderColor = mainColor;
+            tagSearchInput.style.boxShadow = `0 0 0 2px ${mainColor}22`;
+            tagSearchIcon.style.opacity = '0.7';
+        });
+        tagSearchInput.addEventListener('blur', () => {
+            tagSearchInput.style.borderColor = '#e5e7eb';
+            tagSearchInput.style.boxShadow = 'none';
+            tagSearchIcon.style.opacity = tagSearchInput.value.trim() !== '' ? '0.3' : '0.5';
+        });
+
+        // 输入框输入事件，实时过滤标签（添加防抖）
+        let tagSearchDebounceTimer = null;
+        tagSearchInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            this.tagFilterSearchKeyword = value;
+            updateTagSearchClearButton();
+            
+            // 清除之前的定时器
+            if (tagSearchDebounceTimer) {
+                clearTimeout(tagSearchDebounceTimer);
+            }
+            
+            // 防抖处理：300ms后执行过滤
+            tagSearchDebounceTimer = setTimeout(() => {
+                this.updateTagFilterUI();
+            }, 300);
+        });
+
+        // 阻止输入框事件冒泡
+        tagSearchInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // 键盘快捷键：ESC清除输入
+        tagSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && tagSearchInput.value.trim() !== '') {
+                tagSearchInput.value = '';
+                this.tagFilterSearchKeyword = '';
+                updateTagSearchClearButton();
+                this.updateTagFilterUI();
+                e.stopPropagation();
+            }
+        });
+
+        // 组装搜索容器
+        tagSearchContainer.appendChild(tagSearchIcon);
+        tagSearchContainer.appendChild(tagSearchInput);
+        tagSearchContainer.appendChild(tagSearchClearBtn);
+
+        // 将搜索容器和操作按钮添加到标题行
+        filterHeader.appendChild(tagSearchContainer);
         filterHeader.appendChild(filterActions);
 
         // 标签列表容器
@@ -31540,6 +31746,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

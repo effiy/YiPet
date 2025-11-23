@@ -179,6 +179,16 @@ const PET_CONFIG = {
         name: "Qwen3:32B",
         icon: "🚀",
       },
+      {
+        id: "deepseek-ocr",
+        name: "DeepSeek-OCR",
+        icon: "📄",
+      },
+      {
+        id: "qwen3-coder",
+        name: "Qwen3-Coder",
+        icon: "💻",
+      },
     ],
   },
 };

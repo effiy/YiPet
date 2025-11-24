@@ -5264,7 +5264,32 @@ if (typeof getCenterPosition === 'undefined') {
             }
         });
         
-        return Array.from(tagSet).sort();
+        // 优先标签列表（按顺序）
+        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
+        
+        // 分离优先标签和其他标签
+        const allTags = Array.from(tagSet);
+        const priorityTagSet = new Set(priorityTags);
+        const priorityTagList = [];
+        const otherTags = [];
+        
+        // 先添加存在的优先标签（按顺序）
+        priorityTags.forEach(tag => {
+            if (allTags.includes(tag)) {
+                priorityTagList.push(tag);
+            }
+        });
+        
+        // 添加其他标签（按字母顺序）
+        allTags.forEach(tag => {
+            if (!priorityTagSet.has(tag)) {
+                otherTags.push(tag);
+            }
+        });
+        otherTags.sort();
+        
+        // 合并：优先标签在前，其他标签在后
+        return [...priorityTagList, ...otherTags];
     }
 
     // 获取会话的显示标题（用于过滤和显示）

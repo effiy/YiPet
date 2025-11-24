@@ -23651,6 +23651,8 @@ ${messageContent}`;
             padding: 8px 12px !important;
             border-bottom: 1px solid #e5e7eb !important;
             background: #ffffff !important;
+            overflow: visible !important;
+            flex-shrink: 0 !important;
         `;
 
         // 过滤器标题行（包含搜索输入框和操作按钮）
@@ -24027,6 +24029,7 @@ ${messageContent}`;
             display: flex !important;
             flex-wrap: wrap !important;
             gap: 4px !important;
+            overflow: visible !important;
         `;
 
         tagFilterContainer.appendChild(filterHeader);
@@ -24043,12 +24046,23 @@ ${messageContent}`;
             this.tagFilterExpanded = false;
         }
 
-        // 会话列表容器
+        // 创建共同的滚动容器（包含标签列表和会话列表）
+        const scrollableContent = document.createElement('div');
+        scrollableContent.className = 'session-sidebar-scrollable-content';
+        scrollableContent.style.cssText = `
+            flex: 1 !important;
+            overflow-y: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+        `;
+
+        // 会话列表容器（移除独立滚动）
         const sessionList = document.createElement('div');
         sessionList.className = 'session-list';
         sessionList.style.cssText = `
             flex: 1 !important;
-            overflow-y: auto !important;
+            overflow: visible !important;
             padding: 8px 8px 220px 8px !important;
             scroll-padding-bottom: 20px !important;
             box-sizing: border-box !important;
@@ -24230,8 +24244,10 @@ ${messageContent}`;
         }
 
         this.sessionSidebar.appendChild(sidebarHeader);
-        this.sessionSidebar.appendChild(tagFilterContainer);
-        this.sessionSidebar.appendChild(sessionList);
+        // 将标签列表和会话列表都放入滚动容器
+        scrollableContent.appendChild(tagFilterContainer);
+        scrollableContent.appendChild(sessionList);
+        this.sessionSidebar.appendChild(scrollableContent);
         
         // 在所有内容添加完成后，创建拖拽调整边框（确保在最上层）
         this.createSidebarResizer();

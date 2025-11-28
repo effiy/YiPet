@@ -558,6 +558,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.isPageFirstLoad = true; // 标记是否是页面首次加载/刷新
         this.skipSessionListRefresh = false; // 标记是否跳过会话列表刷新（prompt调用后使用）
         this.backendSessionIds = new Set(); // 存储后端会话ID集合，用于判断是否显示保存按钮
+        this.isChatWindowFirstOpen = true; // 标记是否是第一次打开聊天窗口
         
         // OSS文件管理相关属性
         this.ossApi = null;
@@ -2771,6 +2772,30 @@ if (typeof getCenterPosition === 'undefined') {
         // 预加载 html2canvas 库（用于导出功能）
         this.preloadHtml2Canvas();
         
+        // 如果是第一次打开聊天窗口，加载会话列表和文件列表
+        if (this.isChatWindowFirstOpen) {
+            this.isChatWindowFirstOpen = false;
+            console.log('第一次打开聊天窗口，加载会话列表和文件列表...');
+            
+            // 加载会话列表（强制刷新）
+            if (this.sessionApi && this.sessionApi.isEnabled()) {
+                try {
+                    await this.loadSessionsFromBackend(true);
+                } catch (error) {
+                    console.warn('第一次打开聊天窗口时加载会话列表失败:', error);
+                }
+            }
+            
+            // 加载文件列表（如果启用了OSS文件管理）
+            if (this.ossFileManager && this.ossApi) {
+                try {
+                    await this.ossFileManager.loadBackendFiles(false, null);
+                } catch (error) {
+                    console.warn('第一次打开聊天窗口时加载文件列表失败:', error);
+                }
+            }
+        }
+        
         if (this.chatWindow) {
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
@@ -3276,7 +3301,8 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 即使判定为空白会话，也应该尝试从后端获取数据（除非明确指定跳过或新创建）
         // 这样已同步到后端的空白会话也能获取最新数据
-        if (!skipBackendFetch && !isNewSession && this.sessionApi && this.sessionApi.isEnabled()) {
+        // 只有在聊天窗口已经打开过的情况下才调用后端接口，避免页面刷新时自动调用
+        if (!skipBackendFetch && !isNewSession && this.sessionApi && this.sessionApi.isEnabled() && !this.isChatWindowFirstOpen) {
             try {
                 console.log('会话高亮，正在从后端获取完整数据:', sessionId);
                 const fullSession = await this.sessionApi.getSession(sessionId, true); // 强制刷新
@@ -3643,8 +3669,9 @@ if (typeof getCenterPosition === 'undefined') {
             return false;
         }
 
-        // 如果后端列表还没有加载，尝试加载一次
-        if (this.backendSessionIds.size === 0 && this.sessionApi) {
+        // 如果后端列表还没有加载，且聊天窗口已经打开过（不是页面刷新时），才尝试加载
+        // 避免在页面刷新时自动调用后端接口
+        if (this.backendSessionIds.size === 0 && this.sessionApi && !this.isChatWindowFirstOpen) {
             try {
                 // 尝试从后端获取最新的会话列表
                 const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
@@ -3671,18 +3698,14 @@ if (typeof getCenterPosition === 'undefined') {
         try {
             // 使用新的API管理器
             if (this.sessionApi) {
-                // 只在页面首次加载/刷新时调用 getSessionsList，或者强制刷新时
-                const shouldLoadFromBackend = forceRefresh || this.isPageFirstLoad;
-                
-                if (!shouldLoadFromBackend) {
-                    console.log('跳过从后端加载会话列表（非页面刷新）');
+                // 只在强制刷新时调用 getSessionsList，不再在页面首次加载时自动调用
+                // 改为在第一次打开聊天窗口时调用
+                if (!forceRefresh) {
+                    console.log('跳过从后端加载会话列表（等待打开聊天窗口时再加载）');
                     return;
                 }
                 
-                // 标记页面已加载
-                this.isPageFirstLoad = false;
-                
-                console.log('使用API管理器加载会话列表（页面刷新）...');
+                console.log('使用API管理器加载会话列表（强制刷新）...');
                 const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
                 
                 // 更新后端会话ID集合

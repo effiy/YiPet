@@ -40,10 +40,9 @@ class OssFileManager {
         // 加载本地存储的文件列表
         await this.loadLocalFiles();
         
-        // 如果启用后端同步，加载后端文件列表
-        if (this.enableBackendSync && this.ossApi) {
-            await this.loadBackendFiles();
-        }
+        // 不再在初始化时自动加载后端文件列表
+        // 改为在第一次打开聊天窗口时调用 loadBackendFiles()
+        // 这样可以避免页面刷新时自动调用 files 接口
         
         this._initialized = true;
     }

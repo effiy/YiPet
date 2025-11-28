@@ -888,6 +888,34 @@ if (typeof getCenterPosition === 'undefined') {
                     console.log('本地未找到匹配会话，尝试从后端查找:', file.url);
                     const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
                     
+                    // 检查当前页面URL是否在会话列表中，如果是则调用详情接口
+                    const currentPageUrl = window.location.href;
+                    for (const backendSession of backendSessions) {
+                        if (backendSession.url === currentPageUrl) {
+                            const sessionId = backendSession.id || backendSession.conversation_id;
+                            if (sessionId) {
+                                console.log('当前页面URL在会话列表中，正在加载会话详情:', sessionId);
+                                try {
+                                    const sessionDetail = await this.sessionApi.getSession(sessionId, true);
+                                    if (sessionDetail) {
+                                        console.log('会话详情加载成功:', sessionId);
+                                        // 更新本地会话数据
+                                        if (this.sessions && this.sessions[sessionId]) {
+                                            this.sessions[sessionId] = {
+                                                ...this.sessions[sessionId],
+                                                ...sessionDetail,
+                                                id: sessionId
+                                            };
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.warn('加载会话详情失败:', error);
+                                }
+                            }
+                            break; // 找到匹配的会话后退出循环
+                        }
+                    }
+                    
                     // 在后端会话列表中查找URL匹配的会话
                     for (const backendSession of backendSessions) {
                         if (backendSession.url === file.url) {
@@ -3675,6 +3703,35 @@ if (typeof getCenterPosition === 'undefined') {
             try {
                 // 尝试从后端获取最新的会话列表
                 const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
+                
+                // 检查当前页面URL是否在会话列表中，如果是则调用详情接口
+                const currentPageUrl = window.location.href;
+                for (const backendSession of backendSessions) {
+                    if (backendSession.url === currentPageUrl) {
+                        const sessionId = backendSession.id || backendSession.conversation_id;
+                        if (sessionId) {
+                            console.log('当前页面URL在会话列表中，正在加载会话详情:', sessionId);
+                            try {
+                                const sessionDetail = await this.sessionApi.getSession(sessionId, true);
+                                if (sessionDetail) {
+                                    console.log('会话详情加载成功:', sessionId);
+                                    // 更新本地会话数据
+                                    if (this.sessions && this.sessions[sessionId]) {
+                                        this.sessions[sessionId] = {
+                                            ...this.sessions[sessionId],
+                                            ...sessionDetail,
+                                            id: sessionId
+                                        };
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn('加载会话详情失败:', error);
+                            }
+                        }
+                        break; // 找到匹配的会话后退出循环
+                    }
+                }
+                
                 this.backendSessionIds.clear();
                 backendSessions.forEach(backendSession => {
                     const id = backendSession.id || backendSession.conversation_id;
@@ -3707,6 +3764,35 @@ if (typeof getCenterPosition === 'undefined') {
                 
                 console.log('使用API管理器加载会话列表（强制刷新）...');
                 const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
+                
+                // 检查当前页面URL是否在会话列表中，如果是则调用详情接口
+                const currentPageUrl = window.location.href;
+                for (const backendSession of backendSessions) {
+                    if (backendSession.url === currentPageUrl) {
+                        const sessionId = backendSession.id || backendSession.conversation_id;
+                        if (sessionId) {
+                            console.log('当前页面URL在会话列表中，正在加载会话详情:', sessionId);
+                            try {
+                                const sessionDetail = await this.sessionApi.getSession(sessionId, true);
+                                if (sessionDetail) {
+                                    console.log('会话详情加载成功:', sessionId);
+                                    // 可以在这里处理详情数据，比如更新本地会话
+                                    if (this.sessions && this.sessions[sessionId]) {
+                                        // 更新本地会话数据
+                                        this.sessions[sessionId] = {
+                                            ...this.sessions[sessionId],
+                                            ...sessionDetail,
+                                            id: sessionId
+                                        };
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn('加载会话详情失败:', error);
+                            }
+                        }
+                        break; // 找到匹配的会话后退出循环
+                    }
+                }
                 
                 // 更新后端会话ID集合
                 this.backendSessionIds.clear();
@@ -11278,8 +11364,16 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 加载文件列表（支持标签筛选）
+        // 只有在聊天窗口已经打开过的情况下才调用后端接口，避免页面刷新时自动调用
         try {
-            if (this.ossFileManager && this.ossApi) {
+            if (this.ossFileManager && this.ossApi && !this.isChatWindowFirstOpen) {
+                const filterTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0 
+                    ? this.selectedOssFilterTags 
+                    : null;
+                await this.ossFileManager.loadBackendFiles(forceRefresh, filterTags);
+            } else if (this.isChatWindowFirstOpen && forceRefresh) {
+                // 如果是第一次打开聊天窗口且强制刷新，则调用（这种情况在 openChatWindow 中已经处理）
+                // 这里主要是为了兼容其他强制刷新的场景
                 const filterTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0 
                     ? this.selectedOssFilterTags 
                     : null;

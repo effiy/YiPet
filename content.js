@@ -567,6 +567,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.currentOssDirectory = ''; // 当前OSS目录
         this.ossImagePreviewEnabled = false; // OSS图片预览开关（默认关闭，用于标签模块的批量控制）
         this.ossFilePreviewStates = {}; // 每个文件的预览开关状态 { fileName: true/false }
+        this.hasRequestedFiles = false; // 标记是否已经请求过文件列表（用于延迟加载）
         
         // FAQ API管理器
         this.faqApi = null;
@@ -2814,14 +2815,7 @@ if (typeof getCenterPosition === 'undefined') {
                 }
             }
             
-            // 加载文件列表（如果启用了OSS文件管理）
-            if (this.ossFileManager && this.ossApi) {
-                try {
-                    await this.ossFileManager.loadBackendFiles(false, null);
-                } catch (error) {
-                    console.warn('第一次打开聊天窗口时加载文件列表失败:', error);
-                }
-            }
+            // 不再自动加载文件列表，改为在第一次切换文件视图时才请求
         }
         
         if (this.chatWindow) {
@@ -11364,20 +11358,17 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 加载文件列表（支持标签筛选）
-        // 只有在聊天窗口已经打开过的情况下才调用后端接口，避免页面刷新时自动调用
+        // 优化：默认不请求，第一次切换文件视图时才请求
         try {
-            if (this.ossFileManager && this.ossApi && !this.isChatWindowFirstOpen) {
-                const filterTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0 
-                    ? this.selectedOssFilterTags 
-                    : null;
-                await this.ossFileManager.loadBackendFiles(forceRefresh, filterTags);
-            } else if (this.isChatWindowFirstOpen && forceRefresh) {
-                // 如果是第一次打开聊天窗口且强制刷新，则调用（这种情况在 openChatWindow 中已经处理）
-                // 这里主要是为了兼容其他强制刷新的场景
-                const filterTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0 
-                    ? this.selectedOssFilterTags 
-                    : null;
-                await this.ossFileManager.loadBackendFiles(forceRefresh, filterTags);
+            if (this.ossFileManager && this.ossApi) {
+                // 如果是第一次切换文件视图，或者强制刷新，则请求文件列表
+                if (!this.hasRequestedFiles || forceRefresh) {
+                    const filterTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0 
+                        ? this.selectedOssFilterTags 
+                        : null;
+                    await this.ossFileManager.loadBackendFiles(forceRefresh, filterTags);
+                    this.hasRequestedFiles = true; // 标记已请求过
+                }
             }
         } catch (error) {
             console.warn('加载OSS文件列表失败:', error);

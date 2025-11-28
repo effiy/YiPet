@@ -8,7 +8,6 @@ class OssFileManager {
     constructor(options = {}) {
         // 配置选项
         this.ossApi = options.ossApi || null; // OssApiManager 实例
-        this.storageKey = options.storageKey || 'petOssFiles'; // 本地存储键
         this.enableBackendSync = options.enableBackendSync || false; // 是否启用后端同步
         
         // 文件数据
@@ -37,88 +36,11 @@ class OssFileManager {
             return;
         }
         
-        // 加载本地存储的文件列表
-        await this.loadLocalFiles();
-        
         // 不再在初始化时自动加载后端文件列表
         // 改为在第一次打开聊天窗口时调用 loadBackendFiles()
         // 这样可以避免页面刷新时自动调用 files 接口
         
         this._initialized = true;
-    }
-    
-    /**
-     * 从本地存储加载文件列表
-     */
-    async loadLocalFiles() {
-        return new Promise(async (resolve) => {
-            if (typeof chrome !== 'undefined' && chrome.storage) {
-                // 使用StorageHelper处理错误
-                if (typeof window.StorageHelper !== 'undefined') {
-                    const stored = await window.StorageHelper.get(this.storageKey);
-                    this.files = stored || [];
-                    resolve();
-                } else {
-                    // 降级到原始方法
-                    try {
-                        // 检查chrome.storage是否可用
-                        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.runtime || !chrome.runtime.id) {
-                            throw new Error('Extension context invalidated');
-                        }
-                        chrome.storage.local.get([this.storageKey], (result) => {
-                            if (chrome.runtime.lastError) {
-                                const error = chrome.runtime.lastError;
-                                const errorMsg = error.message || error.toString();
-                                if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
-                                    console.warn('扩展上下文已失效，从localStorage加载');
-                                } else {
-                                    console.warn('从chrome.storage.local加载失败，尝试localStorage:', errorMsg);
-                                }
-                                try {
-                                    const stored = localStorage.getItem(this.storageKey);
-                                    this.files = stored ? JSON.parse(stored) : [];
-                                } catch (localError) {
-                                    console.error('从localStorage加载也失败:', localError);
-                                    this.files = [];
-                                }
-                            } else {
-                                this.files = result[this.storageKey] || [];
-                            }
-                            resolve();
-                        });
-                    } catch (error) {
-                        const errorMsg = error.message || error.toString();
-                        if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
-                            console.warn('扩展上下文已失效，从localStorage加载');
-                        } else {
-                            console.warn('chrome.storage不可用，从localStorage加载:', errorMsg);
-                        }
-                        try {
-                            const stored = localStorage.getItem(this.storageKey);
-                            this.files = stored ? JSON.parse(stored) : [];
-                        } catch (localError) {
-                            console.error('从localStorage加载也失败:', localError);
-                            this.files = [];
-                        }
-                        resolve();
-                    }
-                }
-            } else {
-                // 非 Chrome 环境，使用 localStorage
-                try {
-                    const stored = localStorage.getItem(this.storageKey);
-                    if (stored) {
-                        this.files = JSON.parse(stored);
-                    } else {
-                        this.files = [];
-                    }
-                } catch (error) {
-                    console.error('加载本地文件列表失败:', error);
-                    this.files = [];
-                }
-                resolve();
-            }
-        });
     }
     
     /**
@@ -149,114 +71,11 @@ class OssFileManager {
                 this.files = files;
                 this.lastFileListLoadTime = now;
                 
-                // 保存到本地存储（仅在没有标签筛选时）
-                if (!tags) {
-                    await this.saveLocalFiles();
-                }
-                
                 console.log('文件列表已从后端加载，共', files.length, '个文件');
             }
         } catch (error) {
             console.warn('从后端加载文件列表失败:', error);
         }
-    }
-    
-    /**
-     * 保存文件列表到本地存储
-     */
-    async saveLocalFiles(force = false) {
-        const now = Date.now();
-        
-        // 如果不在强制模式下，且距离上次保存时间太短，则延迟保存
-        if (!force && (now - this.lastFileListLoadTime) < this.FILE_LIST_LOAD_THROTTLE) {
-            this.pendingFileListUpdate = true;
-            
-            if (this.fileListUpdateTimer) {
-                clearTimeout(this.fileListUpdateTimer);
-            }
-            
-            return new Promise((resolve) => {
-                this.fileListUpdateTimer = setTimeout(async () => {
-                    this.pendingFileListUpdate = false;
-                    await this._doSaveLocalFiles();
-                    resolve();
-                }, this.FILE_LIST_LOAD_THROTTLE - (now - this.lastFileListLoadTime));
-            });
-        }
-        
-        // 立即保存
-        this.pendingFileListUpdate = false;
-        if (this.fileListUpdateTimer) {
-            clearTimeout(this.fileListUpdateTimer);
-            this.fileListUpdateTimer = null;
-        }
-        return await this._doSaveLocalFiles();
-    }
-    
-    /**
-     * 执行本地保存操作
-     */
-    async _doSaveLocalFiles() {
-        return new Promise(async (resolve) => {
-            if (typeof chrome !== 'undefined' && chrome.storage) {
-                // 使用StorageHelper处理配额错误
-                if (typeof window.StorageHelper !== 'undefined') {
-                    const result = await window.StorageHelper.set(this.storageKey, this.files);
-                    if (!result.success) {
-                        console.error('保存本地文件列表失败:', result.error);
-                    }
-                    resolve();
-                } else {
-                    // 降级到原始方法
-                    try {
-                        // 检查chrome.storage是否可用
-                        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.runtime || !chrome.runtime.id) {
-                            throw new Error('Extension context invalidated');
-                        }
-                        chrome.storage.local.set({ [this.storageKey]: this.files }, () => {
-                            if (chrome.runtime.lastError) {
-                                const error = chrome.runtime.lastError;
-                                const errorMsg = error.message || error.toString();
-                                if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
-                                    console.warn('扩展上下文已失效，降级到localStorage');
-                                } else {
-                                    console.error('保存本地文件列表失败:', errorMsg);
-                                }
-                                // 降级到localStorage
-                                try {
-                                    localStorage.setItem(this.storageKey, JSON.stringify(this.files));
-                                } catch (localError) {
-                                    console.error('保存到localStorage也失败:', localError);
-                                }
-                            }
-                            resolve();
-                        });
-                    } catch (error) {
-                        const errorMsg = error.message || error.toString();
-                        if (errorMsg.includes('Extension context invalidated') || errorMsg.includes('context invalidated')) {
-                            console.warn('扩展上下文已失效，降级到localStorage');
-                        } else {
-                            console.error('chrome.storage不可用，降级到localStorage:', errorMsg);
-                        }
-                        try {
-                            localStorage.setItem(this.storageKey, JSON.stringify(this.files));
-                        } catch (localError) {
-                            console.error('保存到localStorage也失败:', localError);
-                        }
-                        resolve();
-                    }
-                }
-            } else {
-                // 非 Chrome 环境，使用 localStorage
-                try {
-                    localStorage.setItem(this.storageKey, JSON.stringify(this.files));
-                    resolve();
-                } catch (error) {
-                    console.error('保存本地文件列表失败:', error);
-                    resolve();
-                }
-            }
-        });
     }
     
     /**
@@ -289,9 +108,6 @@ class OssFileManager {
     async refreshFiles(forceRefresh = false, tags = null) {
         if (this.ossApi && this.enableBackendSync) {
             await this.loadBackendFiles(forceRefresh, tags);
-            if (!tags) {
-                await this.saveLocalFiles(true);
-            }
         }
     }
     
@@ -310,7 +126,6 @@ class OssFileManager {
             
             // 从本地列表中移除
             this.files = this.files.filter(file => file.name !== objectName);
-            await this.saveLocalFiles(true);
             
             return true;
         } catch (error) {
@@ -382,7 +197,6 @@ class OssFileManager {
      */
     async clearAllFiles() {
         this.files = [];
-        await this.saveLocalFiles(true);
     }
 }
 

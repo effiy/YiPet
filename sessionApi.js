@@ -9,14 +9,6 @@ class SessionApiManager {
         this.baseUrl = baseUrl;
         this.enabled = enabled;
         
-        // 请求缓存
-        this.cache = {
-            sessionsList: null,
-            sessionsListTimestamp: 0,
-            sessionsMap: new Map(), // 单个会话的缓存
-            CACHE_DURATION: 30000, // 缓存30秒
-        };
-        
         // 请求队列
         this.saveQueue = new Map(); // sessionId -> sessionData
         this.saveTimer = null;
@@ -35,8 +27,6 @@ class SessionApiManager {
         // 统计信息
         this.stats = {
             totalRequests: 0,
-            cacheHits: 0,
-            cacheMisses: 0,
             saveCount: 0,
             errorCount: 0,
         };
@@ -119,92 +109,43 @@ class SessionApiManager {
     }
     
     /**
-     * 获取会话列表（带缓存）
+     * 获取会话列表
      * @param {Object} options - 查询选项
-     * @param {boolean} options.forceRefresh - 强制刷新缓存
      * @returns {Promise<Array>} 会话列表
      */
     async getSessionsList(options = {}) {
-        const { forceRefresh = false } = options;
-        const now = Date.now();
-        
-        // 检查缓存
-        if (!forceRefresh && 
-            this.cache.sessionsList && 
-            (now - this.cache.sessionsListTimestamp) < this.cache.CACHE_DURATION) {
-            this.stats.cacheHits++;
-            return this.cache.sessionsList;
-        }
-        
-        this.stats.cacheMisses++;
-        
         try {
             const url = `${this.baseUrl}/session/`;
             const result = await this._request(url, { method: 'GET' });
             
             if (result.success && Array.isArray(result.sessions)) {
-                // 更新缓存
-                this.cache.sessionsList = result.sessions;
-                this.cache.sessionsListTimestamp = now;
-                
                 return result.sessions;
             } else {
                 throw new Error('返回数据格式错误');
             }
         } catch (error) {
             console.warn('获取会话列表失败:', error.message);
-            // 如果请求失败，返回缓存的数据（如果有）
-            if (this.cache.sessionsList) {
-                console.log('使用缓存的会话列表');
-                return this.cache.sessionsList;
-            }
             throw error;
         }
     }
     
     /**
-     * 获取单个会话（带缓存）
+     * 获取单个会话
      * @param {string} sessionId - 会话ID
-     * @param {boolean} forceRefresh - 强制刷新缓存
      * @returns {Promise<Object>} 会话数据
      */
-    async getSession(sessionId, forceRefresh = false) {
-        const cacheKey = `session:${sessionId}`;
-        const cached = this.cache.sessionsMap.get(cacheKey);
-        
-        // 检查缓存
-        if (!forceRefresh && cached && cached.timestamp) {
-            const now = Date.now();
-            if ((now - cached.timestamp) < this.cache.CACHE_DURATION) {
-                this.stats.cacheHits++;
-                return cached.data;
-            }
-        }
-        
-        this.stats.cacheMisses++;
-        
+    async getSession(sessionId) {
         try {
             const url = `${this.baseUrl}/session/${encodeURIComponent(sessionId)}`;
             const result = await this._request(url, { method: 'GET' });
             
             if (result.success && result.data) {
-                // 更新缓存
-                this.cache.sessionsMap.set(cacheKey, {
-                    data: result.data,
-                    timestamp: Date.now(),
-                });
-                
                 return result.data;
             } else {
                 throw new Error('返回数据格式错误');
             }
         } catch (error) {
             console.warn(`获取会话 ${sessionId} 失败:`, error.message);
-            // 如果请求失败，返回缓存的数据（如果有）
-            if (cached && cached.data) {
-                console.log(`使用缓存的会话数据: ${sessionId}`);
-                return cached.data;
-            }
             throw error;
         }
     }
@@ -231,16 +172,6 @@ class SessionApiManager {
             
             this.stats.saveCount++;
             
-            // 更新本地缓存
-            this.cache.sessionsMap.set(`session:${sessionId}`, {
-                data: { ...sessionData, id: sessionId },
-                timestamp: Date.now(),
-            });
-            
-            // 清除列表缓存，因为列表可能已变化
-            this.cache.sessionsList = null;
-            this.cache.sessionsListTimestamp = 0;
-            
             // 返回结果（适配不同的响应格式）
             if (result.success && result.data) {
                 return result;
@@ -260,19 +191,8 @@ class SessionApiManager {
                 };
             }
         } catch (error) {
-            console.warn('保存会话到后端失败，使用本地缓存:', error.message);
-            
-            // 即使后端保存失败，也更新本地缓存
-            this.cache.sessionsMap.set(`session:${sessionId}`, {
-                data: { ...sessionData, id: sessionId },
-                timestamp: Date.now(),
-            });
-            
-            // 清除列表缓存
-            this.cache.sessionsList = null;
-            this.cache.sessionsListTimestamp = 0;
-            
-            // 返回成功结果（即使后端失败）
+            console.warn('保存会话到后端失败:', error.message);
+            throw error;
             return {
                 success: true,
                 data: {
@@ -387,13 +307,6 @@ class SessionApiManager {
             });
             
             if (result.success) {
-                // 从缓存中删除
-                this.cache.sessionsMap.delete(`session:${sessionId}`);
-                
-                // 清除列表缓存，因为列表可能已变化
-                this.cache.sessionsList = null;
-                this.cache.sessionsListTimestamp = 0;
-                
                 return result;
             } else {
                 throw new Error(result.message || '删除失败');
@@ -427,15 +340,6 @@ class SessionApiManager {
             });
             
             if (result.success) {
-                // 从缓存中删除所有已删除的会话
-                sessionIds.forEach(sessionId => {
-                    this.cache.sessionsMap.delete(`session:${sessionId}`);
-                });
-                
-                // 清除列表缓存，因为列表可能已变化
-                this.cache.sessionsList = null;
-                this.cache.sessionsListTimestamp = 0;
-                
                 return result;
             } else {
                 throw new Error(result.message || '批量删除失败');
@@ -476,22 +380,12 @@ class SessionApiManager {
     }
     
     /**
-     * 清除缓存
-     */
-    clearCache() {
-        this.cache.sessionsList = null;
-        this.cache.sessionsListTimestamp = 0;
-        this.cache.sessionsMap.clear();
-    }
-    
-    /**
      * 获取统计信息
      */
     getStats() {
         return {
             ...this.stats,
             queueSize: this.saveQueue.size,
-            cacheSize: this.cache.sessionsMap.size,
             pendingRequests: this.pendingRequests.size,
         };
     }
@@ -502,8 +396,6 @@ class SessionApiManager {
     resetStats() {
         this.stats = {
             totalRequests: 0,
-            cacheHits: 0,
-            cacheMisses: 0,
             saveCount: 0,
             errorCount: 0,
         };

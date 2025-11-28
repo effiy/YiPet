@@ -9,13 +9,6 @@ class OssApiManager {
         this.baseUrl = baseUrl;
         this.enabled = enabled;
         
-        // 请求缓存
-        this.cache = {
-            filesList: null,
-            filesListTimestamp: 0,
-            CACHE_DURATION: 30000, // 缓存30秒
-        };
-        
         // 请求去重
         this.pendingRequests = new Map(); // 去重用
         
@@ -28,8 +21,6 @@ class OssApiManager {
         // 统计信息
         this.stats = {
             totalRequests: 0,
-            cacheHits: 0,
-            cacheMisses: 0,
             errorCount: 0,
         };
     }
@@ -110,55 +101,6 @@ class OssApiManager {
         return requestPromise;
     }
     
-    /**
-     * 获取文件列表（带缓存）
-     * @param {Object} options - 查询选项
-     * @param {string} options.directory - 目录路径
-     * @param {number} options.max_keys - 最大返回数量
-     * @param {boolean} options.forceRefresh - 强制刷新缓存
-     * @returns {Promise<Array>} 文件列表
-     */
-    async getFilesList(options = {}) {
-        const { directory = '', max_keys = 100, forceRefresh = false } = options;
-        const now = Date.now();
-        
-        // 检查缓存
-        if (!forceRefresh && 
-            this.cache.filesList && 
-            (now - this.cache.filesListTimestamp) < this.cache.CACHE_DURATION) {
-            this.stats.cacheHits++;
-            return this.cache.filesList;
-        }
-        
-        this.stats.cacheMisses++;
-        
-        try {
-            let url = `${this.baseUrl}/oss/files`;
-            if (directory) {
-                url += `?directory=${encodeURIComponent(directory)}`;
-            }
-            
-            const result = await this._request(url, { method: 'GET' });
-            
-            if (result.code === 200 && Array.isArray(result.data)) {
-                // 更新缓存
-                this.cache.filesList = result.data;
-                this.cache.filesListTimestamp = now;
-                
-                return result.data;
-            } else {
-                throw new Error(result.message || '返回数据格式错误');
-            }
-        } catch (error) {
-            console.warn('获取文件列表失败:', error.message);
-            // 如果请求失败，返回缓存的数据（如果有）
-            if (this.cache.filesList) {
-                console.log('使用缓存的文件列表');
-                return this.cache.filesList;
-            }
-            throw error;
-        }
-    }
     
     /**
      * 删除文件
@@ -177,10 +119,6 @@ class OssApiManager {
             });
             
             if (result.code === 200) {
-                // 清除列表缓存，因为列表可能已变化
-                this.cache.filesList = null;
-                this.cache.filesListTimestamp = 0;
-                
                 return result;
             } else {
                 throw new Error(result.message || '删除失败');
@@ -223,10 +161,6 @@ class OssApiManager {
             const result = await response.json();
             
             if (result.code === 200) {
-                // 清除列表缓存，因为列表可能已变化
-                this.cache.filesList = null;
-                this.cache.filesListTimestamp = 0;
-                
                 return result;
             } else {
                 throw new Error(result.message || '上传失败');
@@ -288,10 +222,6 @@ class OssApiManager {
             });
             
             if (result.code === 200) {
-                // 清除列表缓存，因为标签可能影响显示
-                this.cache.filesList = null;
-                this.cache.filesListTimestamp = 0;
-                
                 return result;
             } else {
                 throw new Error(result.message || '设置标签失败');
@@ -347,10 +277,6 @@ class OssApiManager {
             });
             
             if (result.code === 200) {
-                // 清除列表缓存，因为文件信息可能影响显示
-                this.cache.filesList = null;
-                this.cache.filesListTimestamp = 0;
-                
                 return result;
             } else {
                 throw new Error(result.message || '更新文件信息失败');
@@ -367,22 +293,10 @@ class OssApiManager {
      * @param {string} options.directory - 目录路径
      * @param {number} options.max_keys - 最大返回数量
      * @param {Array<string>} options.tags - 标签筛选（可选）
-     * @param {boolean} options.forceRefresh - 强制刷新缓存
      * @returns {Promise<Array>} 文件列表
      */
     async getFilesList(options = {}) {
-        const { directory = '', max_keys = 100, tags = null, forceRefresh = false } = options;
-        const now = Date.now();
-        
-        // 检查缓存（如果有标签筛选，不使用缓存）
-        if (!forceRefresh && !tags && 
-            this.cache.filesList && 
-            (now - this.cache.filesListTimestamp) < this.cache.CACHE_DURATION) {
-            this.stats.cacheHits++;
-            return this.cache.filesList;
-        }
-        
-        this.stats.cacheMisses++;
+        const { directory = '', max_keys = 100, tags = null } = options;
         
         try {
             let url = `${this.baseUrl}/oss/files`;
@@ -400,23 +314,12 @@ class OssApiManager {
             const result = await this._request(url, { method: 'GET' });
             
             if (result.code === 200 && Array.isArray(result.data)) {
-                // 更新缓存（仅在没有标签筛选时）
-                if (!tags) {
-                    this.cache.filesList = result.data;
-                    this.cache.filesListTimestamp = now;
-                }
-                
                 return result.data;
             } else {
                 throw new Error(result.message || '返回数据格式错误');
             }
         } catch (error) {
             console.warn('获取文件列表失败:', error.message);
-            // 如果请求失败，返回缓存的数据（如果有且没有标签筛选）
-            if (!tags && this.cache.filesList) {
-                console.log('使用缓存的文件列表');
-                return this.cache.filesList;
-            }
             throw error;
         }
     }
@@ -500,14 +403,6 @@ class OssApiManager {
     }
     
     /**
-     * 清除缓存
-     */
-    clearCache() {
-        this.cache.filesList = null;
-        this.cache.filesListTimestamp = 0;
-    }
-    
-    /**
      * 获取统计信息
      */
     getStats() {
@@ -523,8 +418,6 @@ class OssApiManager {
     resetStats() {
         this.stats = {
             totalRequests: 0,
-            cacheHits: 0,
-            cacheMisses: 0,
             errorCount: 0,
         };
     }

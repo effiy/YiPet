@@ -542,6 +542,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.ossTagFilterNoTags = false; // 是否筛选无标签的OSS文件
         this.ossTagFilterExpanded = false; // OSS标签列表是否展开
         this.ossTagFilterVisibleCount = 8; // 折叠时显示的OSS标签数量
+        this.ossTagFilterSearchKeyword = ''; // OSS标签搜索关键词
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         
         // 批量操作相关
@@ -6580,31 +6581,23 @@ if (typeof getCenterPosition === 'undefined') {
             background: #ffffff !important;
         `;
 
-        // 过滤器标题行（包含标题、清除按钮和反向开关）
+        // 过滤器标题行（包含搜索输入框和操作按钮）
         const filterHeader = document.createElement('div');
         filterHeader.style.cssText = `
             display: flex !important;
             justify-content: space-between !important;
             align-items: center !important;
+            gap: 8px !important;
             margin-bottom: 6px !important;
         `;
 
-        const filterTitle = document.createElement('div');
-        filterTitle.style.cssText = `
-            font-size: 11px !important;
-            font-weight: 500 !important;
-            color: #9ca3af !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-        `;
-        filterTitle.textContent = '文件标签筛选';
-
-        // 右侧操作区（图片预览开关 + 反向过滤开关 + 清除按钮）
+        // 右侧操作区（图片预览开关 + 反向过滤开关 + 无标签筛选 + 展开/折叠 + 清除按钮）
         const filterActions = document.createElement('div');
         filterActions.style.cssText = `
             display: flex !important;
             align-items: center !important;
             gap: 8px !important;
+            flex-shrink: 0 !important;
         `;
 
         // 图片预览开关
@@ -6715,6 +6708,37 @@ if (typeof getCenterPosition === 'undefined') {
             this.updateOssFileSidebar();
         });
 
+        // 展开/收起按钮（类似筛选无标签按钮的样式）
+        const expandToggleBtn = document.createElement('button');
+        expandToggleBtn.className = 'oss-tag-filter-expand-btn';
+        expandToggleBtn.title = '展开标签';
+        expandToggleBtn.innerHTML = '▼';
+        expandToggleBtn.style.cssText = `
+            font-size: 10px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: 0.6 !important;
+            display: none !important;
+        `;
+        expandToggleBtn.addEventListener('mouseenter', () => {
+            expandToggleBtn.style.opacity = '1';
+            expandToggleBtn.style.background = '#f3f4f6';
+        });
+        expandToggleBtn.addEventListener('mouseleave', () => {
+            expandToggleBtn.style.opacity = '0.6';
+            expandToggleBtn.style.background = 'none';
+        });
+        expandToggleBtn.addEventListener('click', () => {
+            this.ossTagFilterExpanded = !this.ossTagFilterExpanded;
+            this.updateOssTagFilterUI();
+        });
+
         // 清除按钮
         const clearFilterBtn = document.createElement('button');
         clearFilterBtn.className = 'oss-tag-filter-clear';
@@ -6737,12 +6761,32 @@ if (typeof getCenterPosition === 'undefined') {
             transition: all 0.2s ease !important;
             opacity: 0.6 !important;
         `;
+        clearFilterBtn.addEventListener('mouseenter', () => {
+            const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
+            const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
+            if (hasActiveFilter) {
+                clearFilterBtn.style.color = '#ef4444';
+                clearFilterBtn.style.opacity = '1';
+                clearFilterBtn.style.background = '#fee2e2';
+            } else {
+                clearFilterBtn.style.opacity = '0.4';
+            }
+        });
+        clearFilterBtn.addEventListener('mouseleave', () => {
+            const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
+            const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
+            clearFilterBtn.style.color = '#9ca3af';
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.background = 'none';
+        });
         clearFilterBtn.addEventListener('click', () => {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
-            const hasReverseFilter = this.ossTagFilterReverse;
-            const hasActiveFilter = hasSelectedTags || hasReverseFilter || this.ossTagFilterNoTags;
+            const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
             
-            // 如果有选中的标签、启用了反向过滤或启用了无标签筛选，则清除筛选
+            // 如果有选中的标签、启用了反向过滤、启用了无标签筛选或有搜索关键词，则清除筛选
             if (hasActiveFilter) {
                 // 清除选中的标签
                 this.selectedOssFilterTags = [];
@@ -6750,6 +6794,21 @@ if (typeof getCenterPosition === 'undefined') {
                 this.ossTagFilterReverse = false;
                 // 重置无标签筛选状态
                 this.ossTagFilterNoTags = false;
+                // 清除搜索关键词
+                this.ossTagFilterSearchKeyword = '';
+                // 更新搜索输入框的值和清除按钮状态
+                const tagSearchInput = this.sessionSidebar.querySelector('.oss-tag-filter-search');
+                const tagSearchClearBtn = this.sessionSidebar.querySelector('.oss-tag-filter-search-clear');
+                if (tagSearchInput) {
+                    tagSearchInput.value = '';
+                }
+                if (tagSearchClearBtn) {
+                    tagSearchClearBtn.style.display = 'none';
+                }
+                const tagSearchIcon = this.sessionSidebar.querySelector('.oss-tag-filter-search-container span');
+                if (tagSearchIcon && tagSearchIcon.textContent === '🔍') {
+                    tagSearchIcon.style.opacity = '0.5';
+                }
                 
                 // 更新UI
                 this.updateOssTagFilterUI();
@@ -6761,8 +6820,183 @@ if (typeof getCenterPosition === 'undefined') {
         filterActions.appendChild(previewToggleBtn);
         filterActions.appendChild(reverseFilterBtn);
         filterActions.appendChild(noTagsFilterBtn);
+        filterActions.appendChild(expandToggleBtn);
         filterActions.appendChild(clearFilterBtn);
-        filterHeader.appendChild(filterTitle);
+
+        // 创建标签搜索输入框容器（带图标和清除按钮）
+        const tagSearchContainer = document.createElement('div');
+        tagSearchContainer.className = 'oss-tag-filter-search-container';
+        tagSearchContainer.style.cssText = `
+            position: relative !important;
+            flex: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+        `;
+
+        // 搜索图标
+        const tagSearchIcon = document.createElement('span');
+        tagSearchIcon.textContent = '🔍';
+        tagSearchIcon.style.cssText = `
+            position: absolute !important;
+            left: 8px !important;
+            font-size: 12px !important;
+            pointer-events: none !important;
+            z-index: 1 !important;
+            opacity: 0.5 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+
+        // 标签搜索输入框
+        const tagSearchInput = document.createElement('input');
+        tagSearchInput.className = 'oss-tag-filter-search';
+        tagSearchInput.type = 'text';
+        tagSearchInput.placeholder = '搜索标签...';
+        tagSearchInput.value = this.ossTagFilterSearchKeyword || '';
+        tagSearchInput.style.cssText = `
+            width: 100% !important;
+            font-weight: 400 !important;
+            font-size: 12px !important;
+            color: #374151 !important;
+            padding: 4px 24px 4px 24px !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 6px !important;
+            background: #ffffff !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+            height: 24px !important;
+        `;
+
+        // 添加占位符样式
+        if (!document.getElementById('oss-tag-search-placeholder-style')) {
+            const style = document.createElement('style');
+            style.id = 'oss-tag-search-placeholder-style';
+            style.textContent = `
+                .oss-tag-filter-search::placeholder {
+                    color: #9ca3af !important;
+                    opacity: 1 !important;
+                }
+                .oss-tag-filter-search:focus::placeholder {
+                    color: #d1d5db !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 清除按钮（位于输入框右侧）
+        const tagSearchClearBtn = document.createElement('button');
+        tagSearchClearBtn.innerHTML = '✕';
+        tagSearchClearBtn.type = 'button';
+        tagSearchClearBtn.className = 'oss-tag-filter-search-clear';
+        tagSearchClearBtn.style.cssText = `
+            position: absolute !important;
+            right: 4px !important;
+            width: 16px !important;
+            height: 16px !important;
+            border: none !important;
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+            border-radius: 50% !important;
+            cursor: pointer !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 10px !important;
+            padding: 0 !important;
+            transition: all 0.2s ease !important;
+            z-index: 2 !important;
+            line-height: 1 !important;
+        `;
+
+        // 更新清除按钮显示状态
+        const updateTagSearchClearButton = () => {
+            if (tagSearchInput.value.trim() !== '') {
+                tagSearchClearBtn.style.display = 'flex';
+                tagSearchIcon.style.opacity = '0.3';
+            } else {
+                tagSearchClearBtn.style.display = 'none';
+                tagSearchIcon.style.opacity = '0.5';
+            }
+        };
+
+        // 初始状态
+        updateTagSearchClearButton();
+
+        // 清除按钮点击事件
+        tagSearchClearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            tagSearchInput.value = '';
+            this.ossTagFilterSearchKeyword = '';
+            updateTagSearchClearButton();
+            this.updateOssTagFilterUI();
+            tagSearchInput.focus();
+        });
+
+        // 清除按钮悬停效果
+        tagSearchClearBtn.addEventListener('mouseenter', () => {
+            tagSearchClearBtn.style.background = '#d1d5db';
+            tagSearchClearBtn.style.transform = 'scale(1.15)';
+        });
+        tagSearchClearBtn.addEventListener('mouseleave', () => {
+            tagSearchClearBtn.style.background = '#e5e7eb';
+            tagSearchClearBtn.style.transform = 'scale(1)';
+        });
+
+        // 输入框聚焦和失焦样式
+        const mainColor = '#667eea';
+        tagSearchInput.addEventListener('focus', () => {
+            tagSearchInput.style.borderColor = mainColor;
+            tagSearchInput.style.boxShadow = `0 0 0 2px ${mainColor}22`;
+            tagSearchIcon.style.opacity = '0.7';
+        });
+        tagSearchInput.addEventListener('blur', () => {
+            tagSearchInput.style.borderColor = '#e5e7eb';
+            tagSearchInput.style.boxShadow = 'none';
+            tagSearchIcon.style.opacity = tagSearchInput.value.trim() !== '' ? '0.3' : '0.5';
+        });
+
+        // 输入框输入事件，实时过滤标签（添加防抖）
+        let tagSearchDebounceTimer = null;
+        tagSearchInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            this.ossTagFilterSearchKeyword = value;
+            updateTagSearchClearButton();
+            
+            // 清除之前的定时器
+            if (tagSearchDebounceTimer) {
+                clearTimeout(tagSearchDebounceTimer);
+            }
+            
+            // 防抖处理：300ms后执行过滤
+            tagSearchDebounceTimer = setTimeout(() => {
+                this.updateOssTagFilterUI();
+            }, 300);
+        });
+
+        // 阻止输入框事件冒泡
+        tagSearchInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // 键盘快捷键：ESC清除输入
+        tagSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && tagSearchInput.value.trim() !== '') {
+                tagSearchInput.value = '';
+                this.ossTagFilterSearchKeyword = '';
+                updateTagSearchClearButton();
+                this.updateOssTagFilterUI();
+                e.stopPropagation();
+            }
+        });
+
+        // 组装搜索容器
+        tagSearchContainer.appendChild(tagSearchIcon);
+        tagSearchContainer.appendChild(tagSearchInput);
+        tagSearchContainer.appendChild(tagSearchClearBtn);
+
+        // 将搜索容器和操作按钮添加到标题行
+        filterHeader.appendChild(tagSearchContainer);
         filterHeader.appendChild(filterActions);
 
         // 标签列表容器
@@ -6815,11 +7049,12 @@ if (typeof getCenterPosition === 'undefined') {
             noTagsFilterBtn.style.opacity = this.ossTagFilterNoTags ? '1' : '0.6';
         }
         
-        // 更新清除按钮显示状态（如果有选中的标签、启用了反向过滤或启用了无标签筛选，则显示为可用状态）
+        // 更新清除按钮显示状态（如果有选中的标签、启用了反向过滤、启用了无标签筛选或有搜索关键词，则显示为可用状态）
         const clearFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-clear');
         if (clearFilterBtn) {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
-            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags;
+            const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
             clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
             clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
             clearFilterBtn.style.pointerEvents = hasActiveFilter ? 'auto' : 'none';
@@ -6842,20 +7077,77 @@ if (typeof getCenterPosition === 'undefined') {
             console.warn('获取OSS标签列表失败:', error);
         }
         
-        if (allTags.length === 0) {
+        // 根据搜索关键词过滤标签
+        let filteredTags = allTags;
+        const searchKeyword = (this.ossTagFilterSearchKeyword || '').trim().toLowerCase();
+        if (searchKeyword) {
+            filteredTags = allTags.filter(tag => 
+                tag.toLowerCase().includes(searchKeyword)
+            );
+        }
+        
+        if (filteredTags.length === 0) {
+            // 如果没有匹配的标签，显示提示信息
+            const expandToggleBtn = this.sessionSidebar.querySelector('.oss-tag-filter-expand-btn');
+            if (expandToggleBtn) {
+                expandToggleBtn.style.display = 'none';
+            }
+            // 显示"无匹配标签"提示
             const emptyMsg = document.createElement('div');
-            emptyMsg.textContent = '暂无标签';
+            emptyMsg.textContent = searchKeyword ? '未找到匹配的标签' : '暂无标签';
             emptyMsg.style.cssText = `
-                font-size: 11px !important;
-                color: #9ca3af !important;
                 padding: 8px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 11px !important;
             `;
             tagFilterList.appendChild(emptyMsg);
             return;
         }
         
+        // 确定要显示的标签（根据折叠状态）
+        // 确保选中的标签始终显示
+        const selectedTags = this.selectedOssFilterTags || [];
+        let visibleTags;
+        let hasMoreTags;
+        
+        if (this.ossTagFilterExpanded || searchKeyword) {
+            // 展开状态或有搜索关键词时：显示所有过滤后的标签
+            visibleTags = filteredTags;
+            hasMoreTags = false;
+        } else {
+            // 折叠状态：显示前N个标签，但确保选中的标签也在其中
+            const defaultVisible = filteredTags.slice(0, this.ossTagFilterVisibleCount);
+            const selectedNotInDefault = selectedTags.filter(tag => !defaultVisible.includes(tag));
+            
+            // 保持filteredTags的原始顺序，但确保选中的标签也在可见列表中
+            const visibleSet = new Set([...defaultVisible, ...selectedNotInDefault]);
+            visibleTags = filteredTags.filter(tag => visibleSet.has(tag));
+            hasMoreTags = filteredTags.length > visibleTags.length;
+        }
+        
+        // 更新展开/折叠按钮（有搜索关键词时隐藏）
+        const expandToggleBtn = this.sessionSidebar.querySelector('.oss-tag-filter-expand-btn');
+        if (expandToggleBtn) {
+            if (searchKeyword) {
+                // 有搜索关键词时隐藏展开/折叠按钮
+                expandToggleBtn.style.display = 'none';
+            } else if (hasMoreTags || this.ossTagFilterExpanded) {
+                expandToggleBtn.style.display = 'block';
+                if (this.ossTagFilterExpanded) {
+                    expandToggleBtn.innerHTML = '▲';
+                    expandToggleBtn.title = '收起标签';
+                } else {
+                    expandToggleBtn.innerHTML = '▼';
+                    expandToggleBtn.title = '展开标签';
+                }
+            } else {
+                expandToggleBtn.style.display = 'none';
+            }
+        }
+        
         // 创建标签按钮
-        allTags.forEach(tag => {
+        visibleTags.forEach(tag => {
             const tagBtn = document.createElement('button');
             tagBtn.className = 'oss-tag-filter-item';
             tagBtn.textContent = tag;

@@ -10318,11 +10318,15 @@ if (typeof getCenterPosition === 'undefined') {
         // 显示会话列表相关元素
         const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
         const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
+        const scrollableContent = this.sessionSidebar.querySelector('.session-sidebar-scrollable-content');
         if (tagFilterContainer) {
             tagFilterContainer.style.display = 'block';
         }
         if (batchToolbar && this.batchMode) {
             batchToolbar.style.display = 'flex';
+        }
+        if (scrollableContent) {
+            scrollableContent.style.display = 'flex';
         }
         
         // 更新搜索框占位符
@@ -11201,12 +11205,16 @@ if (typeof getCenterPosition === 'undefined') {
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
         const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
+        const scrollableContent = this.sessionSidebar.querySelector('.session-sidebar-scrollable-content');
         
         if (sessionList) {
             sessionList.style.display = 'none';
         }
         if (tagFilterContainer) {
             tagFilterContainer.style.display = 'none';
+        }
+        if (scrollableContent) {
+            scrollableContent.style.display = 'none';
         }
         // 批量工具栏在批量模式下显示
         if (batchToolbar && this.batchMode) {

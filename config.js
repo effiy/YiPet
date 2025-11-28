@@ -19,7 +19,7 @@ const PET_CONFIG = {
     defaultColorIndex: 0,
 
     // 默认可见性
-    defaultVisible: false,
+    defaultVisible: true,
 
     // 颜色主题配置
     colors: [

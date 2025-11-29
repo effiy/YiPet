@@ -13530,36 +13530,6 @@ if (typeof getCenterPosition === 'undefined') {
             newsItem.appendChild(newsInfo);
             
             // 操作按钮（参考会话列表中的操作按钮样式和交互）
-            // 复制链接按钮
-            if (item.link) {
-                const copyBtn = document.createElement('button');
-                copyBtn.className = 'news-copy-btn';
-                copyBtn.innerHTML = '📋';
-                copyBtn.title = '复制链接';
-                copyBtn.style.cssText = `
-                    background: none !important;
-                    border: none !important;
-                    cursor: pointer !important;
-                    padding: 2px 4px !important;
-                    font-size: 12px !important;
-                    opacity: 0.6 !important;
-                    transition: opacity 0.2s ease !important;
-                    line-height: 1 !important;
-                    flex-shrink: 0 !important;
-                `;
-                copyBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.copyNewsLink(item.link);
-                });
-                copyBtn.addEventListener('mouseenter', () => {
-                    copyBtn.style.opacity = '1';
-                });
-                copyBtn.addEventListener('mouseleave', () => {
-                    copyBtn.style.opacity = '0.6';
-                });
-                buttonContainer.appendChild(copyBtn);
-            }
-            
             // 在新标签页打开按钮
             if (item.link) {
                 const openBtn = document.createElement('button');
@@ -14117,35 +14087,6 @@ if (typeof getCenterPosition === 'undefined') {
         } catch (error) {
             console.error('处理新闻点击失败:', error);
             this.showNotification('打开新闻会话失败，请重试', 'error');
-        }
-    }
-    
-    // 复制新闻链接
-    async copyNewsLink(url) {
-        try {
-            if (!url) {
-                this.showNotification('链接无效', 'error');
-                return;
-            }
-            
-            await navigator.clipboard.writeText(url);
-            this.showNotification('链接已复制到剪贴板', 'success');
-        } catch (error) {
-            // 降级方案
-            try {
-                const textarea = document.createElement('textarea');
-                textarea.value = url;
-                textarea.style.position = 'fixed';
-                textarea.style.opacity = '0';
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                this.showNotification('链接已复制到剪贴板', 'success');
-            } catch (fallbackError) {
-                console.error('复制链接失败:', fallbackError);
-                this.showNotification('复制链接失败', 'error');
-            }
         }
     }
     

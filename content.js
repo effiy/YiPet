@@ -572,6 +572,11 @@ if (typeof getCenterPosition === 'undefined') {
         this.ossFilePreviewStates = {}; // 每个文件的预览开关状态 { fileName: true/false }
         this.hasRequestedFiles = false; // 标记是否已经请求过文件列表（用于延迟加载）
         
+        // 新闻管理相关属性
+        this.newsManager = null;
+        this.newsListVisible = false; // 新闻列表是否可见
+        this.hasRequestedNews = false; // 标记是否已经请求过新闻列表（用于延迟加载）
+        
         // FAQ API管理器
         this.faqApi = null;
 
@@ -627,6 +632,19 @@ if (typeof getCenterPosition === 'undefined') {
             console.log('FAQ API管理器已初始化');
         } else {
             console.log('FAQ API管理器未启用');
+        }
+        
+        // 初始化新闻管理器
+        if (typeof NewsManager !== 'undefined') {
+            this.newsManager = new NewsManager({
+                apiUrl: 'https://api.effiy.cn/mongodb/',
+                cname: 'rss',
+                enableCache: true
+            });
+            await this.newsManager.initialize();
+            console.log('新闻管理器已初始化');
+        } else {
+            console.log('新闻管理器未启用');
         }
         
         this.loadState(); // 加载保存的状态
@@ -7254,7 +7272,9 @@ if (typeof getCenterPosition === 'undefined') {
      */
     applyDateFilter() {
         // 根据当前模式决定更新哪个列表
-        if (this.ossFileListVisible) {
+        if (this.newsListVisible) {
+            this.updateNewsSidebar();
+        } else if (this.ossFileListVisible) {
             this.updateOssFileSidebar();
         } else {
             this.updateSessionSidebar();
@@ -11093,11 +11113,18 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 确保视图模式状态正确
         this.ossFileListVisible = false;
+        this.newsListVisible = false;
         
         // 隐藏OSS文件列表和OSS标签筛选器
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         if (ossFileList) {
             ossFileList.style.display = 'none';
+        }
+        
+        // 隐藏新闻列表
+        const newsList = this.sessionSidebar.querySelector('.news-list');
+        if (newsList) {
+            newsList.style.display = 'none';
         }
         const ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
         if (ossTagFilterContainer) {
@@ -12024,12 +12051,14 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 确保视图模式状态正确
         this.ossFileListVisible = true;
+        this.newsListVisible = false;
         
         // 隐藏会话列表相关元素
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
         const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
         const scrollableContent = this.sessionSidebar.querySelector('.session-sidebar-scrollable-content');
+        const newsList = this.sessionSidebar.querySelector('.news-list');
         
         if (sessionList) {
             sessionList.style.display = 'none';
@@ -12039,6 +12068,9 @@ if (typeof getCenterPosition === 'undefined') {
         }
         if (scrollableContent) {
             scrollableContent.style.display = 'none';
+        }
+        if (newsList) {
+            newsList.style.display = 'none';
         }
         // 批量工具栏在批量模式下显示
         if (batchToolbar && this.batchMode) {
@@ -13145,15 +13177,336 @@ if (typeof getCenterPosition === 'undefined') {
         this.applyViewMode();
     }
     
-    // 设置视图模式（会话列表或OSS文件列表）
+    // 更新新闻列表侧边栏
+    async updateNewsSidebar(forceRefresh = false) {
+        if (!this.sessionSidebar) {
+            console.log('侧边栏未创建，跳过更新');
+            return;
+        }
+        
+        // 确保视图模式状态正确
+        this.newsListVisible = true;
+        
+        // 隐藏会话列表相关元素
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
+        const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
+        const scrollableContent = this.sessionSidebar.querySelector('.session-sidebar-scrollable-content');
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
+        
+        if (sessionList) {
+            sessionList.style.display = 'none';
+        }
+        if (tagFilterContainer) {
+            tagFilterContainer.style.display = 'none';
+        }
+        if (scrollableContent) {
+            scrollableContent.style.display = 'none';
+        }
+        if (ossFileList) {
+            ossFileList.style.display = 'none';
+        }
+        if (ossTagFilterContainer) {
+            ossTagFilterContainer.style.display = 'none';
+        }
+        // 批量工具栏在批量模式下显示
+        if (batchToolbar && this.batchMode) {
+            batchToolbar.style.display = 'flex';
+        } else if (batchToolbar) {
+            batchToolbar.style.display = 'none';
+        }
+        
+        // 获取或创建新闻列表容器
+        let newsList = this.sessionSidebar.querySelector('.news-list');
+        if (!newsList) {
+            newsList = document.createElement('div');
+            newsList.className = 'news-list';
+            newsList.style.cssText = `
+                flex: 1 !important;
+                overflow-y: auto !important;
+                padding: 8px 8px 220px 8px !important;
+                scroll-padding-bottom: 20px !important;
+                box-sizing: border-box !important;
+            `;
+            this.sessionSidebar.appendChild(newsList);
+        }
+        newsList.style.display = 'block';
+        
+        // 更新搜索框占位符
+        const searchInput = this.sessionSidebar.querySelector('#session-search-input');
+        if (searchInput) {
+            searchInput.placeholder = '搜索新闻...';
+        }
+        
+        // 加载新闻列表
+        // 优化：默认不请求，第一次切换新闻视图时才请求
+        try {
+            if (this.newsManager) {
+                // 如果是第一次切换新闻视图，或者强制刷新，则请求新闻列表
+                if (!this.hasRequestedNews || forceRefresh) {
+                    // 使用今天的日期
+                    const today = new Date();
+                    const dateStr = this.formatDateForNews(today);
+                    const isoDate = `${dateStr},${dateStr}`;
+                    await this.newsManager.loadNews(forceRefresh, isoDate);
+                    this.hasRequestedNews = true; // 标记已请求过
+                }
+            }
+        } catch (error) {
+            console.warn('加载新闻列表失败:', error);
+        }
+        
+        let news = this.newsManager ? this.newsManager.getAllNews() : [];
+        
+        // 根据搜索关键词过滤新闻
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            news = news.filter(item => {
+                const title = (item.title || '').toLowerCase();
+                const description = (item.description || '').toLowerCase();
+                const content = (item.content || '').toLowerCase();
+                return title.includes(filterKeyword) || 
+                       description.includes(filterKeyword) || 
+                       content.includes(filterKeyword);
+            });
+        }
+        
+        // 应用日期区间过滤
+        if (this.dateRangeFilter) {
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                const startDate = this.dateRangeFilter.startDate;
+                const endDate = this.dateRangeFilter.endDate;
+                const startTime = startDate.getTime();
+                const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1;
+                
+                news = news.filter(item => {
+                    const itemTime = this.getNewsTime(item);
+                    return itemTime >= startTime && itemTime <= endTime;
+                });
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                const startDate = this.dateRangeFilter.startDate;
+                const startTime = startDate.getTime();
+                const endTime = startTime + 24 * 60 * 60 * 1000 - 1;
+                
+                news = news.filter(item => {
+                    const itemTime = this.getNewsTime(item);
+                    return itemTime >= startTime && itemTime <= endTime;
+                });
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                const endDate = this.dateRangeFilter.endDate;
+                const endTime = endDate.getTime();
+                
+                news = news.filter(item => {
+                    const itemTime = this.getNewsTime(item);
+                    return itemTime < endTime;
+                });
+            }
+        }
+        
+        // 清空列表
+        newsList.innerHTML = '';
+        
+        if (news.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.cssText = `
+                padding: 20px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 12px !important;
+            `;
+            emptyMsg.textContent = this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '' ? '未找到匹配的新闻' : '暂无新闻';
+            newsList.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 按时间排序（最新的在前）
+        const sortedNews = news.sort((a, b) => {
+            const aTime = this.getNewsTime(a);
+            const bTime = this.getNewsTime(b);
+            return bTime - aTime;
+        });
+        
+        // 创建新闻列表项
+        for (const item of sortedNews) {
+            const newsItem = document.createElement('div');
+            newsItem.className = 'news-item';
+            newsItem.style.cssText = `
+                padding: 12px !important;
+                margin-bottom: 8px !important;
+                background: #ffffff !important;
+                border: 1px solid #e5e7eb !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+            `;
+            
+            // 标题
+            const title = document.createElement('div');
+            title.style.cssText = `
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                color: #111827 !important;
+                margin-bottom: 6px !important;
+                line-height: 1.4 !important;
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important;
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+            `;
+            title.textContent = item.title || '无标题';
+            newsItem.appendChild(title);
+            
+            // 描述
+            if (item.description || item.content) {
+                const description = document.createElement('div');
+                description.style.cssText = `
+                    font-size: 12px !important;
+                    color: #6b7280 !important;
+                    margin-bottom: 8px !important;
+                    line-height: 1.5 !important;
+                    display: -webkit-box !important;
+                    -webkit-line-clamp: 2 !important;
+                    -webkit-box-orient: vertical !important;
+                    overflow: hidden !important;
+                `;
+                description.textContent = item.description || item.content || '';
+                newsItem.appendChild(description);
+            }
+            
+            // 底部信息（时间和来源）
+            const footer = document.createElement('div');
+            footer.style.cssText = `
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                font-size: 11px !important;
+                color: #9ca3af !important;
+                margin-top: 8px !important;
+            `;
+            
+            const time = document.createElement('span');
+            const newsTime = this.getNewsTime(item);
+            if (newsTime) {
+                time.textContent = this.formatNewsTime(newsTime);
+            } else {
+                time.textContent = '';
+            }
+            footer.appendChild(time);
+            
+            if (item.link) {
+                const link = document.createElement('span');
+                link.textContent = '🔗';
+                link.style.cssText = `
+                    cursor: pointer !important;
+                    font-size: 12px !important;
+                `;
+                link.title = '打开链接';
+                footer.appendChild(link);
+            }
+            
+            newsItem.appendChild(footer);
+            
+            // 点击事件
+            newsItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (item.link) {
+                    window.open(item.link, '_blank');
+                }
+            });
+            
+            // 悬停效果
+            newsItem.addEventListener('mouseenter', () => {
+                newsItem.style.background = '#f9fafb !important';
+                newsItem.style.borderColor = '#d1d5db !important';
+                newsItem.style.transform = 'translateY(-1px)';
+                newsItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1) !important';
+            });
+            
+            newsItem.addEventListener('mouseleave', () => {
+                newsItem.style.background = '#ffffff !important';
+                newsItem.style.borderColor = '#e5e7eb !important';
+                newsItem.style.transform = 'translateY(0)';
+                newsItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05) !important';
+            });
+            
+            newsList.appendChild(newsItem);
+        }
+        
+        console.log('新闻列表已更新，显示', sortedNews.length, '条新闻');
+        
+        // 更新视图切换按钮状态
+        this.applyViewMode();
+    }
+    
+    // 格式化日期为 YYYY-MM-DD（用于新闻API）
+    formatDateForNews(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // 获取新闻时间戳
+    getNewsTime(item) {
+        if (item.pubDate) {
+            return new Date(item.pubDate).getTime();
+        }
+        if (item.publishedAt) {
+            return new Date(item.publishedAt).getTime();
+        }
+        if (item.date) {
+            return new Date(item.date).getTime();
+        }
+        if (item.created_at) {
+            return new Date(item.created_at).getTime();
+        }
+        return 0;
+    }
+    
+    // 格式化新闻时间显示
+    formatNewsTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (minutes < 1) {
+            return '刚刚';
+        } else if (minutes < 60) {
+            return `${minutes}分钟前`;
+        } else if (hours < 24) {
+            return `${hours}小时前`;
+        } else if (days < 7) {
+            return `${days}天前`;
+        } else {
+            return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+    }
+    
+    // 设置视图模式（会话列表、OSS文件列表或新闻列表）
     async setViewMode(mode) {
         if (mode === 'oss') {
             this.ossFileListVisible = true;
+            this.newsListVisible = false;
             await this.updateOssFileSidebar();
+            // 确保视图模式状态与列表数据一致
+            this.applyViewMode();
+        } else if (mode === 'news') {
+            this.ossFileListVisible = false;
+            this.newsListVisible = true;
+            await this.updateNewsSidebar();
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
         } else {
             this.ossFileListVisible = false;
+            this.newsListVisible = false;
             await this.updateSessionSidebar();
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
@@ -13166,6 +13519,7 @@ if (typeof getCenterPosition === 'undefined') {
         
         const btnSession = this.sessionSidebar.querySelector('#view-toggle-session');
         const btnOss = this.sessionSidebar.querySelector('#view-toggle-oss');
+        const btnNews = this.sessionSidebar.querySelector('#view-toggle-news');
         
         if (!btnSession || !btnOss) return;
         
@@ -13192,9 +13546,12 @@ if (typeof getCenterPosition === 'undefined') {
         // 重置所有按钮
         resetBtn(btnSession);
         resetBtn(btnOss);
+        if (btnNews) resetBtn(btnNews);
         
         // 激活当前模式的按钮
-        if (this.ossFileListVisible) {
+        if (this.newsListVisible && btnNews) {
+            activateBtn(btnNews);
+        } else if (this.ossFileListVisible) {
             activateBtn(btnOss);
         } else {
             activateBtn(btnSession);
@@ -24200,7 +24557,9 @@ ${messageContent}`;
             this.sessionTitleFilter = '';
             updateClearButton();
             // 根据当前模式决定更新哪个列表
-            if (this.ossFileListVisible) {
+            if (this.newsListVisible) {
+                this.updateNewsSidebar();
+            } else if (this.ossFileListVisible) {
                 this.updateOssFileSidebar();
             } else {
                 this.updateSessionSidebar();
@@ -24245,7 +24604,9 @@ ${messageContent}`;
             // 防抖处理：300ms后执行过滤
             searchDebounceTimer = setTimeout(() => {
                 // 根据当前模式决定更新哪个列表
-                if (this.ossFileListVisible) {
+                if (this.newsListVisible) {
+                    this.updateNewsSidebar();
+                } else if (this.ossFileListVisible) {
                     this.updateOssFileSidebar();
                 } else {
                     this.updateSessionSidebar();
@@ -24587,9 +24948,11 @@ ${messageContent}`;
         
         const btnSession = makeViewToggleBtn('view-toggle-session', '💬', 'session');
         const btnOss = makeViewToggleBtn('view-toggle-oss', '📦', 'oss');
+        const btnNews = makeViewToggleBtn('view-toggle-news', '📰', 'news');
         
         viewToggleGroup.appendChild(btnSession);
         viewToggleGroup.appendChild(btnOss);
+        viewToggleGroup.appendChild(btnNews);
         
         // 第一行：搜索输入框 + 视图切换按钮组
         firstRow.appendChild(searchContainer);

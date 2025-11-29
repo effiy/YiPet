@@ -15547,60 +15547,47 @@ if (typeof getCenterPosition === 'undefined') {
 
             // 构建更新数据
             const updateData = {
-                key: newsKey,
                 tags: tags
             };
+            
+            // 如果有key，使用key；否则尝试使用link
+            if (newsKey) {
+                updateData.key = newsKey;
+            } else if (newsLink) {
+                updateData.link = newsLink;
+            }
 
-            // 如果有key，说明是更新现有新闻
-            if (updateData.key) {
-                // 调用后端API更新
-                const apiUrl = this.newsManager?.apiUrl || 'https://api.effiy.cn/mongodb/';
-                const cname = this.newsManager?.cname || 'rss';
+            // 调用后端API保存标签（无论是否有key）
+            const apiUrl = this.newsManager?.apiUrl || 'https://api.effiy.cn/mongodb/';
+            const cname = this.newsManager?.cname || 'rss';
 
-                const response = await fetch(`${apiUrl}?cname=${cname}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(updateData)
-                });
+            const response = await fetch(`${apiUrl}?cname=${cname}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            if (result.code === 200) {
+                // 更新新闻管理器中的数据
+                if (this.newsManager) {
+                    const allNews = this.newsManager.getAllNews();
+                    const newsIndex = allNews.findIndex(n => 
+                        (newsKey && n.key && n.key === newsKey) || 
+                        (newsLink && n.link && n.link === newsLink)
+                    );
+                    if (newsIndex >= 0) {
+                        allNews[newsIndex].tags = tags;
+                    }
                 }
 
-                const result = await response.json();
-                if (result.code === 200) {
-                    // 更新新闻管理器中的数据
-                    if (this.newsManager) {
-                        const allNews = this.newsManager.getAllNews();
-                        const newsIndex = allNews.findIndex(n => 
-                            (n.key && n.key === updateData.key) || 
-                            (n.link && n.link === newsLink)
-                        );
-                        if (newsIndex >= 0) {
-                            allNews[newsIndex].tags = tags;
-                        }
-                    }
-
-                    // 更新window.currentNews中的数据
-                    if (window.currentNews && Array.isArray(window.currentNews) && index >= 0) {
-                        if (window.currentNews[index]) {
-                            window.currentNews[index].tags = tags;
-                        }
-                    }
-
-                    // 重新渲染新闻列表
-                    await this.updateNewsSidebar(false);
-
-                    this.showNotification('标签已保存', 'success');
-                    this.closeNewsTagManager();
-                } else {
-                    throw new Error(result.message || '保存失败');
-                }
-            } else {
-                // 没有key，暂时只更新本地
                 // 更新window.currentNews中的数据
                 if (window.currentNews && Array.isArray(window.currentNews) && index >= 0) {
                     if (window.currentNews[index]) {
@@ -15611,8 +15598,10 @@ if (typeof getCenterPosition === 'undefined') {
                 // 重新渲染新闻列表
                 await this.updateNewsSidebar(false);
 
-                this.showNotification('标签已更新（本地）', 'success');
+                this.showNotification('标签已保存', 'success');
                 this.closeNewsTagManager();
+            } else {
+                throw new Error(result.message || '保存失败');
             }
         } catch (error) {
             console.error('保存标签失败:', error);

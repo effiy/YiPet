@@ -11393,7 +11393,10 @@ if (typeof getCenterPosition === 'undefined') {
             sessionItem.className = 'session-item';
             sessionItem.dataset.sessionId = session.id;
             
+            // 添加选中状态类：检查当前会话是否是该会话
+            let isActive = false;
             if (session.id === this.currentSessionId) {
+                isActive = true;
                 sessionItem.classList.add('active');
             }
             
@@ -11401,6 +11404,19 @@ if (typeof getCenterPosition === 'undefined') {
             if (this.batchMode && this.selectedSessionIds.has(session.id)) {
                 sessionItem.classList.add('selected');
             }
+            
+            // 设置会话项的基础样式（参考新闻列表）
+            sessionItem.style.cssText = `
+                padding: 12px !important;
+                margin-bottom: 8px !important;
+                background: ${isActive ? '#eff6ff' : '#ffffff'} !important;
+                border: 1px solid ${isActive ? '#3b82f6' : '#e5e7eb'} !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                box-shadow: ${isActive ? '0 2px 4px rgba(59, 130, 246, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.05)'} !important;
+                position: relative !important;
+            `;
             
             // 创建复选框（仅在批量模式下显示）
             const checkbox = document.createElement('input');
@@ -11438,24 +11454,11 @@ if (typeof getCenterPosition === 'undefined') {
             // 获取完整标题和显示标题（使用统一的辅助函数）
             const fullTitle = this._getSessionDisplayTitle(session);
             
-            // 根据侧边栏宽度动态计算标题最大显示长度
-            // 侧边栏宽度减去内边距、编辑按钮等，大约可用宽度为 sidebarWidth - 60
-            const availableWidth = Math.max(100, this.sidebarWidth - 60);
-            // 估算：每个字符大约 7-8px（13px字体），留一些余量
-            const maxChars = Math.floor(availableWidth / 7);
-            const titleMaxLength = Math.max(15, Math.min(50, maxChars)); // 最少15个字符，最多50个字符
-            
-            const displayTitle = fullTitle.length > titleMaxLength 
-                ? fullTitle.substring(0, titleMaxLength) + '...' 
-                : fullTitle;
-            
-            // 创建内容容器
-            const contentWrapper = document.createElement('div');
-            contentWrapper.style.cssText = `
-                flex: 1 !important;
-                min-width: 0 !important;
-                display: flex !important;
-                flex-direction: column !important;
+            // 会话信息容器（参考新闻列表的结构）
+            const sessionInfo = document.createElement('div');
+            sessionInfo.className = 'session-info';
+            sessionInfo.style.cssText = `
+                margin-bottom: ${this.batchMode ? '0' : '8px'} !important;
             `;
             
             // 创建会话项内部容器（包含复选框和内容）
@@ -11464,14 +11467,15 @@ if (typeof getCenterPosition === 'undefined') {
                 display: flex !important;
                 align-items: flex-start !important;
                 width: 100% !important;
+                gap: 8px !important;
             `;
             
             // 添加复选框
             itemInner.appendChild(checkbox);
             
-            // 创建内容包装器（包含标题和标签）
-            const contentInner = document.createElement('div');
-            contentInner.style.cssText = `
+            // 创建内容包装器
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
                 flex: 1 !important;
                 min-width: 0 !important;
             `;
@@ -11484,22 +11488,26 @@ if (typeof getCenterPosition === 'undefined') {
                 justify-content: space-between !important;
                 gap: 8px !important;
                 width: 100% !important;
+                margin-bottom: 6px !important;
             `;
             
+            // 标题
             const titleDiv = document.createElement('div');
             titleDiv.className = 'session-title';
-            titleDiv.textContent = displayTitle;
-            // 如果标题被截断，添加 tooltip 显示完整标题
-            if (fullTitle.length > titleMaxLength) {
-                titleDiv.setAttribute('title', fullTitle);
-            }
-            // 添加文本溢出处理（只添加必要的样式，不覆盖类样式）
-            titleDiv.style.overflow = 'hidden';
-            titleDiv.style.textOverflow = 'ellipsis';
-            titleDiv.style.whiteSpace = 'nowrap';
-            titleDiv.style.flex = '1';
-            titleDiv.style.minWidth = '0';
-            titleDiv.style.marginBottom = '0';
+            titleDiv.textContent = fullTitle;
+            titleDiv.style.cssText = `
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                color: #111827 !important;
+                line-height: 1.4 !important;
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important;
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+            `;
+            titleRow.appendChild(titleDiv);
             
             // 只要不是http开头的网址就会显示编辑标题按钮
             const shouldShowEditBtn = session.url && !session.url.startsWith('http');
@@ -11664,7 +11672,7 @@ if (typeof getCenterPosition === 'undefined') {
                 this.openContextEditor();
             });
             
-            // 创建按钮容器
+            // 创建按钮容器（在标题行中，但默认隐藏，悬停时显示）
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
                 display: flex !important;
@@ -11682,83 +11690,162 @@ if (typeof getCenterPosition === 'undefined') {
             buttonContainer.appendChild(duplicateBtn);
             buttonContainer.appendChild(contextBtn);
             
-            // 鼠标悬停在会话项上时显示按钮
-            sessionItem.addEventListener('mouseenter', () => {
-                buttonContainer.style.opacity = '1';
-            });
-            sessionItem.addEventListener('mouseleave', () => {
-                buttonContainer.style.opacity = '0';
-            });
-            
             // 将标题和按钮容器添加到标题行
-            titleRow.appendChild(titleDiv);
             titleRow.appendChild(buttonContainer);
             
-            contentInner.appendChild(titleRow);
+            // 悬停效果（参考新闻列表）
+            sessionItem.addEventListener('mouseenter', () => {
+                if (!isActive) {
+                    sessionItem.style.background = '#f9fafb !important';
+                    sessionItem.style.borderColor = '#d1d5db !important';
+                    sessionItem.style.transform = 'translateY(-1px)';
+                    sessionItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1) !important';
+                }
+                buttonContainer.style.opacity = '1';
+                footerButtonContainer.style.opacity = '1';
+            });
             
-            // 显示会话标签（在标题下面一行）
+            sessionItem.addEventListener('mouseleave', () => {
+                if (!isActive) {
+                    sessionItem.style.background = '#ffffff !important';
+                    sessionItem.style.borderColor = '#e5e7eb !important';
+                    sessionItem.style.transform = 'translateY(0)';
+                    sessionItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05) !important';
+                }
+                buttonContainer.style.opacity = '0';
+                footerButtonContainer.style.opacity = '0.6';
+            });
+            
+            sessionInfo.appendChild(titleRow);
+            
+            // 描述（如果有pageDescription）
+            if (session.pageDescription && session.pageDescription.trim()) {
+                const description = document.createElement('div');
+                description.style.cssText = `
+                    font-size: 12px !important;
+                    color: #6b7280 !important;
+                    margin-bottom: 8px !important;
+                    line-height: 1.5 !important;
+                    display: -webkit-box !important;
+                    -webkit-line-clamp: 2 !important;
+                    -webkit-box-orient: vertical !important;
+                    overflow: hidden !important;
+                `;
+                description.textContent = session.pageDescription.trim();
+                sessionInfo.appendChild(description);
+            }
+            
+            // 标签区域（参考新闻列表的标签样式）
+            const tagsContainer = document.createElement('div');
+            tagsContainer.className = 'session-tags';
+            tagsContainer.style.cssText = `
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 4px !important;
+                margin-bottom: 8px !important;
+            `;
+            // 如果有标签，显示标签
             const tags = session.tags || [];
             if (tags.length > 0) {
-                const tagsContainer = document.createElement('div');
-                tagsContainer.className = 'session-tags';
-                tagsContainer.style.cssText = `
-                    display: flex !important;
-                    flex-wrap: wrap !important;
-                    gap: 4px !important;
-                    margin-top: 4px !important;
-                    margin-bottom: 0 !important;
-                `;
-                
                 // 规范化标签（trim处理，与getAllTags保持一致）
                 const normalizedTags = tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
                 
-                // 最多显示3个标签，超出部分显示"+N"
-                const maxVisibleTags = 3;
-                const visibleTags = normalizedTags.slice(0, maxVisibleTags);
-                const remainingCount = normalizedTags.length - maxVisibleTags;
-                
-                visibleTags.forEach((tag) => {
+                normalizedTags.forEach(tag => {
                     const tagElement = document.createElement('span');
                     tagElement.className = 'session-tag-item';
                     tagElement.textContent = tag;
+                    // 根据标签内容生成颜色（使用哈希函数确保相同标签颜色一致）
+                    const tagColor = this.getTagColor(tag);
                     tagElement.style.cssText = `
                         display: inline-block !important;
-                        background: #4CAF50 !important;
-                        color: white !important;
-                        padding: 2px 6px !important;
-                        border-radius: 10px !important;
+                        padding: 3px 10px !important;
+                        background: ${tagColor.background} !important;
+                        color: ${tagColor.text} !important;
+                        border-radius: 12px !important;
                         font-size: 11px !important;
-                        line-height: 1.4 !important;
-                        white-space: nowrap !important;
-                        max-width: 80px !important;
-                        overflow: hidden !important;
-                        text-overflow: ellipsis !important;
+                        font-weight: 500 !important;
+                        border: 1px solid ${tagColor.border} !important;
+                        transition: all 0.2s ease !important;
+                        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
                     `;
-                    tagElement.setAttribute('title', tag);
+                    // 添加悬停效果
+                    tagElement.addEventListener('mouseenter', () => {
+                        tagElement.style.transform = 'translateY(-1px)';
+                        tagElement.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                    });
+                    tagElement.addEventListener('mouseleave', () => {
+                        tagElement.style.transform = 'translateY(0)';
+                        tagElement.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    });
                     tagsContainer.appendChild(tagElement);
                 });
+            }
+            sessionInfo.appendChild(tagsContainer);
+            
+            // 底部信息（时间和操作按钮）
+            const footer = document.createElement('div');
+            footer.style.cssText = `
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                font-size: 11px !important;
+                color: #9ca3af !important;
+                margin-top: 8px !important;
+            `;
+            
+            const time = document.createElement('span');
+            const sessionTime = session.updatedAt || session.createdAt || 0;
+            if (sessionTime) {
+                const date = new Date(sessionTime);
+                const now = new Date();
+                const diff = now - date;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor(diff / (1000 * 60));
                 
-                if (remainingCount > 0) {
-                    const moreTag = document.createElement('span');
-                    moreTag.className = 'session-tag-more';
-                    moreTag.textContent = `+${remainingCount}`;
-                    moreTag.style.cssText = `
-                        display: inline-block !important;
-                        background: #999 !important;
-                        color: white !important;
-                        padding: 2px 6px !important;
-                        border-radius: 10px !important;
-                        font-size: 11px !important;
-                        line-height: 1.4 !important;
-                    `;
-                    moreTag.setAttribute('title', `还有 ${remainingCount} 个标签`);
-                    tagsContainer.appendChild(moreTag);
+                if (days > 0) {
+                    time.textContent = `${days}天前`;
+                } else if (hours > 0) {
+                    time.textContent = `${hours}小时前`;
+                } else if (minutes > 0) {
+                    time.textContent = `${minutes}分钟前`;
+                } else {
+                    time.textContent = '刚刚';
                 }
-                
-                contentInner.appendChild(tagsContainer);
+            } else {
+                time.textContent = '';
+            }
+            footer.appendChild(time);
+            
+            // 操作按钮容器（移动到footer中）
+            const footerButtonContainer = document.createElement('div');
+            footerButtonContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+            `;
+            
+            // 编辑按钮（如果存在）
+            if (editBtn) {
+                footerButtonContainer.appendChild(editBtn);
             }
             
-            contentWrapper.appendChild(contentInner);
+            // 标签管理按钮
+            footerButtonContainer.appendChild(tagBtn);
+            
+            // 副本按钮
+            footerButtonContainer.appendChild(duplicateBtn);
+            
+            // 页面上下文按钮
+            footerButtonContainer.appendChild(contextBtn);
+            
+            footer.appendChild(footerButtonContainer);
+            
+            sessionInfo.appendChild(footer);
+            
+            contentWrapper.appendChild(sessionInfo);
             itemInner.appendChild(contentWrapper);
             sessionItem.appendChild(itemInner);
             
@@ -28702,29 +28789,23 @@ ${messageContent}`;
             style.textContent = `
                 .session-item {
                     padding: 12px !important;
-                    margin-bottom: 6px !important;
+                    margin-bottom: 8px !important;
                     border-radius: 8px !important;
                     cursor: pointer !important;
-                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                    background: #f9fafb !important;
-                    border: 1px solid transparent !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    gap: 8px !important;
+                    transition: all 0.2s ease !important;
                     position: relative !important;
                     user-select: none !important;
-                    will-change: transform, background-color, border-color !important;
                 }
-                .session-item:hover:not(.switching) {
-                    background: #f3f4f6 !important;
-                    border-color: #e5e7eb !important;
-                    transform: translateX(2px) !important;
+                .session-item:hover:not(.switching):not(.active) {
+                    background: #f9fafb !important;
+                    border-color: #d1d5db !important;
+                    transform: translateY(-1px) !important;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
                 }
                 .session-item.active {
-                    background: ${mainColor}15 !important;
-                    border-color: ${mainColor} !important;
-                    box-shadow: 0 2px 8px ${mainColor}20 !important;
-                    transform: translateX(4px) !important;
+                    background: #eff6ff !important;
+                    border-color: #3b82f6 !important;
+                    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2) !important;
                 }
                 .session-item.clicked {
                     transform: scale(0.97) translateX(2px) !important;

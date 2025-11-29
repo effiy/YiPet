@@ -7010,6 +7010,29 @@ if (typeof getCenterPosition === 'undefined') {
             const isStart = selectedStart && date.getTime() === selectedStart.getTime();
             const isEnd = selectedEnd && date.getTime() === selectedEnd.getTime();
             
+            // 优化今天的样式
+            let todayStyle = '';
+            if (isToday && !isSelected) {
+                // 今天且未选中：使用浅色背景和边框，字体加粗
+                todayStyle = `
+                    background: ${mainColor}15 !important;
+                    border: 2px solid ${mainColor} !important;
+                    font-weight: 600 !important;
+                    color: ${mainColor} !important;
+                `;
+            } else if (isToday && isSelected) {
+                // 今天且已选中：在选中样式基础上添加特殊标识
+                todayStyle = `
+                    border: 2px solid ${mainColor} !important;
+                    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
+                `;
+            } else if (isToday) {
+                // 今天但不在当前月：保持边框样式
+                todayStyle = `
+                    border: 2px solid ${mainColor}80 !important;
+                `;
+            }
+            
             dayCell.textContent = dayNumber;
             dayCell.style.cssText = `
                 aspect-ratio: 1 !important;
@@ -7023,7 +7046,7 @@ if (typeof getCenterPosition === 'undefined') {
                 position: relative !important;
                 color: ${isCurrentMonth ? '#374151' : '#d1d5db'} !important;
                 background: ${isSelected ? (isStart || isEnd ? mainColor : '#e0e7ff') : 'transparent'} !important;
-                ${isToday ? `border: 2px solid ${mainColor} !important;` : ''}
+                ${todayStyle}
                 ${isStart || isEnd ? `color: #ffffff !important; font-weight: 700 !important;` : ''}
                 ${!isCurrentMonth ? 'opacity: 0.4 !important;' : ''}
             `;

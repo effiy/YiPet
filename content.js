@@ -14257,6 +14257,52 @@ if (typeof getCenterPosition === 'undefined') {
             });
             footerButtonContainer.appendChild(tagBtn);
             
+            // 跳转按钮（在新标签页打开链接）
+            if (item.link) {
+                const linkBtn = document.createElement('button');
+                linkBtn.className = 'news-link-btn';
+                linkBtn.innerHTML = '🔗';
+                linkBtn.title = '在新标签页打开链接';
+                linkBtn.style.cssText = `
+                    background: none !important;
+                    border: none !important;
+                    cursor: pointer !important;
+                    padding: 2px 4px !important;
+                    font-size: 12px !important;
+                    opacity: 0.6 !important;
+                    transition: opacity 0.2s ease !important;
+                    line-height: 1 !important;
+                    flex-shrink: 0 !important;
+                `;
+                linkBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    try {
+                        // 在新标签页中打开链接
+                        await chrome.runtime.sendMessage({
+                            action: 'openLinkInNewTab',
+                            url: item.link
+                        });
+                    } catch (error) {
+                        console.error('打开链接失败:', error);
+                        // 如果消息发送失败，尝试直接使用chrome.tabs API（如果可用）
+                        if (typeof chrome !== 'undefined' && chrome.tabs) {
+                            try {
+                                chrome.tabs.create({ url: item.link });
+                            } catch (tabError) {
+                                console.error('使用chrome.tabs打开链接失败:', tabError);
+                            }
+                        }
+                    }
+                });
+                linkBtn.addEventListener('mouseenter', () => {
+                    linkBtn.style.opacity = '1';
+                });
+                linkBtn.addEventListener('mouseleave', () => {
+                    linkBtn.style.opacity = '0.6';
+                });
+                footerButtonContainer.appendChild(linkBtn);
+            }
+            
             // 上下文按钮（参考会话列表中的上下文按钮）
             const contextBtn = document.createElement('button');
             contextBtn.className = 'news-context-btn';

@@ -156,6 +156,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
             return true; // 保持消息通道开放
             
+        case 'openLinkInNewTab':
+            // 在新标签页中打开链接
+            if (request.url) {
+                try {
+                    chrome.tabs.create({ url: request.url }, (tab) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('打开链接失败:', chrome.runtime.lastError.message);
+                            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                        } else {
+                            console.log('链接已在新标签页打开:', request.url);
+                            sendResponse({ success: true, tabId: tab.id });
+                        }
+                    });
+                } catch (error) {
+                    console.error('打开链接异常:', error);
+                    sendResponse({ success: false, error: error.message || '打开链接失败' });
+                }
+            } else {
+                sendResponse({ success: false, error: 'URL参数缺失' });
+            }
+            return true; // 保持消息通道开放
+            
         default:
             sendResponse({ success: false, error: 'Unknown action' });
     }

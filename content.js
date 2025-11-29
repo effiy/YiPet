@@ -13601,6 +13601,53 @@ if (typeof getCenterPosition === 'undefined') {
             });
             actionsContainer.appendChild(tagBtn);
             
+            // 上下文按钮（参考会话列表中的上下文按钮）
+            const contextBtn = document.createElement('button');
+            contextBtn.className = 'news-context-btn';
+            contextBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            `;
+            contextBtn.title = '页面上下文';
+            contextBtn.style.cssText = `
+                padding: 6px 8px !important;
+                font-size: 11px !important;
+                border: 1px solid #d1d5db !important;
+                border-radius: 4px !important;
+                background: white !important;
+                color: #374151 !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            `;
+            contextBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // 先激活或创建该新闻的会话
+                await this.handleNewsClick(item);
+                // 确保聊天窗口已打开
+                if (!this.chatWindow || !this.isChatOpen) {
+                    await this.openChatWindow();
+                }
+                // 打开页面上下文编辑器
+                this.openContextEditor();
+            });
+            contextBtn.addEventListener('mouseenter', () => {
+                contextBtn.style.background = '#f9fafb';
+                contextBtn.style.borderColor = '#9ca3af';
+            });
+            contextBtn.addEventListener('mouseleave', () => {
+                contextBtn.style.background = 'white';
+                contextBtn.style.borderColor = '#d1d5db';
+            });
+            actionsContainer.appendChild(contextBtn);
+            
             // 删除按钮（长按删除）
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn-danger';

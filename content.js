@@ -14411,63 +14411,72 @@ if (typeof getCenterPosition === 'undefined') {
                 content: content
             };
             
-            // 如果有key，说明是更新现有新闻
+            // 调用后端API保存新闻
+            const apiUrl = this.newsManager?.apiUrl || 'https://api.effiy.cn/mongodb/';
+            const cname = this.newsManager?.cname || 'rss';
+            
+            let response, result;
+            
             if (updateData.key) {
-                // 调用后端API更新
-                const apiUrl = this.newsManager?.apiUrl || 'https://api.effiy.cn/mongodb/';
-                const cname = this.newsManager?.cname || 'rss';
-                
-                const response = await fetch(`${apiUrl}?cname=${cname}`, {
+                // 如果有key，调用PUT接口更新现有新闻
+                response = await fetch(`${apiUrl}?cname=${cname}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(updateData)
                 });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-                
-                const result = await response.json();
-                if (result.code === 200) {
-                    // 更新本地新闻数据
-                    if (originalNews) {
-                        Object.assign(originalNews, updateData);
-                    }
-                    
-                    // 更新新闻管理器中的数据
-                    if (this.newsManager) {
-                        const allNews = this.newsManager.getAllNews();
-                        const newsIndex = allNews.findIndex(n => 
-                            (n.key && n.key === updateData.key) || 
-                            (n.link && n.link === newsLink)
-                        );
-                        if (newsIndex >= 0) {
-                            Object.assign(allNews[newsIndex], updateData);
-                        }
-                    }
-                    
-                    // 重新渲染新闻列表
-                    await this.updateNewsSidebar(false);
-                    
-                    this.showNotification('新闻已保存', 'success');
-                    this.closeNewsEditModal();
-                } else {
-                    throw new Error(result.message || '保存失败');
-                }
             } else {
-                // 没有key，可能是新新闻，暂时只更新本地
+                // 如果没有key，调用POST接口创建新新闻
+                // 从updateData中移除key字段（如果存在但为空）
+                const createData = {...updateData};
+                delete createData.key;
+                
+                response = await fetch(`${apiUrl}?cname=${cname}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(createData)
+                });
+            }
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            result = await response.json();
+            if (result.code === 200) {
+                // 如果是创建新新闻，更新key
+                if (!updateData.key && result.data && result.data.key) {
+                    updateData.key = result.data.key;
+                }
+                
+                // 更新本地新闻数据
                 if (originalNews) {
                     Object.assign(originalNews, updateData);
+                }
+                
+                // 更新新闻管理器中的数据
+                if (this.newsManager) {
+                    const allNews = this.newsManager.getAllNews();
+                    const newsIndex = allNews.findIndex(n => 
+                        (n.key && n.key === updateData.key) || 
+                        (n.link && n.link === newsLink)
+                    );
+                    if (newsIndex >= 0) {
+                        Object.assign(allNews[newsIndex], updateData);
+                    }
                 }
                 
                 // 重新渲染新闻列表
                 await this.updateNewsSidebar(false);
                 
-                this.showNotification('新闻已更新（本地）', 'success');
+                this.showNotification('新闻已保存', 'success');
                 this.closeNewsEditModal();
+            } else {
+                throw new Error(result.msg || result.message || '保存失败');
             }
         } catch (error) {
             console.error('保存新闻失败:', error);

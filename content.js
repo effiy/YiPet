@@ -13470,14 +13470,29 @@ if (typeof getCenterPosition === 'undefined') {
                     const tagElement = document.createElement('span');
                     tagElement.className = 'news-tag';
                     tagElement.textContent = tag;
+                    // 根据标签内容生成颜色（使用哈希函数确保相同标签颜色一致）
+                    const tagColor = this.getTagColor(tag);
                     tagElement.style.cssText = `
                         display: inline-block !important;
-                        padding: 2px 8px !important;
-                        background: #f3f4f6 !important;
-                        color: #374151 !important;
-                        border-radius: 4px !important;
+                        padding: 3px 10px !important;
+                        background: ${tagColor.background} !important;
+                        color: ${tagColor.text} !important;
+                        border-radius: 12px !important;
                         font-size: 11px !important;
+                        font-weight: 500 !important;
+                        border: 1px solid ${tagColor.border} !important;
+                        transition: all 0.2s ease !important;
+                        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
                     `;
+                    // 添加悬停效果
+                    tagElement.addEventListener('mouseenter', () => {
+                        tagElement.style.transform = 'translateY(-1px)';
+                        tagElement.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                    });
+                    tagElement.addEventListener('mouseleave', () => {
+                        tagElement.style.transform = 'translateY(0)';
+                        tagElement.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    });
                     tagsContainer.appendChild(tagElement);
                 });
             }
@@ -15759,6 +15774,44 @@ if (typeof getCenterPosition === 'undefined') {
         } else {
             return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
         }
+    }
+    
+    // 根据标签名称生成颜色（确保相同标签颜色一致）
+    getTagColor(tagName) {
+        // 预定义的配色方案（柔和的渐变色）
+        const colorPalettes = [
+            // 蓝色系
+            { background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', text: '#0369a1', border: '#7dd3fc' },
+            // 绿色系
+            { background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)', text: '#166534', border: '#86efac' },
+            // 紫色系
+            { background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', text: '#6b21a8', border: '#c084fc' },
+            // 粉色系
+            { background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)', text: '#9f1239', border: '#f9a8d4' },
+            // 橙色系
+            { background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)', text: '#9a3412', border: '#fdba74' },
+            // 青色系
+            { background: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)', text: '#164e63', border: '#67e8f9' },
+            // 红色系
+            { background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', text: '#991b1b', border: '#fca5a5' },
+            // 黄色系
+            { background: 'linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)', text: '#854d0e', border: '#fde047' },
+            // 靛蓝色系
+            { background: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)', text: '#3730a3', border: '#a5b4fc' },
+            // 玫瑰色系
+            { background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)', text: '#9f1239', border: '#fda4af' }
+        ];
+        
+        // 使用简单的哈希函数将标签名称映射到颜色索引
+        let hash = 0;
+        for (let i = 0; i < tagName.length; i++) {
+            hash = ((hash << 5) - hash) + tagName.charCodeAt(i);
+            hash = hash & hash; // 转换为32位整数
+        }
+        
+        // 确保索引为正数并在范围内
+        const index = Math.abs(hash) % colorPalettes.length;
+        return colorPalettes[index];
     }
     
     // 设置视图模式（会话列表、OSS文件列表或新闻列表）

@@ -11750,10 +11750,6 @@ if (typeof getCenterPosition === 'undefined') {
             buttonContainer.appendChild(tagBtn);
             buttonContainer.appendChild(duplicateBtn);
             buttonContainer.appendChild(contextBtn);
-            // 如果URL按钮存在，添加到按钮容器
-            if (openUrlBtn) {
-                buttonContainer.appendChild(openUrlBtn);
-            }
             
             // 将标题和按钮容器添加到标题行
             titleRow.appendChild(buttonContainer);
@@ -11905,6 +11901,11 @@ if (typeof getCenterPosition === 'undefined') {
             
             // 页面上下文按钮
             footerButtonContainer.appendChild(contextBtn);
+            
+            // 打开新tab按钮（如果存在）
+            if (openUrlBtn) {
+                footerButtonContainer.appendChild(openUrlBtn);
+            }
             
             footer.appendChild(footerButtonContainer);
             

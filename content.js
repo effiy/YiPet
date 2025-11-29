@@ -11672,6 +11672,67 @@ if (typeof getCenterPosition === 'undefined') {
                 this.openContextEditor();
             });
             
+            // 创建打开URL按钮（如果URL以https://开头）
+            let openUrlBtn = null;
+            if (session.url && session.url.startsWith('https://')) {
+                openUrlBtn = document.createElement('button');
+                openUrlBtn.className = 'session-open-url-btn';
+                openUrlBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                `;
+                openUrlBtn.title = '在新标签页打开';
+                openUrlBtn.style.cssText = `
+                    background: none !important;
+                    border: none !important;
+                    cursor: pointer !important;
+                    padding: 4px !important;
+                    opacity: 0.6 !important;
+                    transition: all 0.2s ease !important;
+                    line-height: 1 !important;
+                    flex-shrink: 0 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    color: inherit !important;
+                    border-radius: 4px !important;
+                `;
+                
+                // 按钮悬停时增加不透明度和背景色
+                openUrlBtn.addEventListener('mouseenter', () => {
+                    openUrlBtn.style.opacity = '1';
+                    openUrlBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+                });
+                openUrlBtn.addEventListener('mouseleave', () => {
+                    openUrlBtn.style.opacity = '0.6';
+                    openUrlBtn.style.background = 'none !important';
+                });
+                
+                // 阻止打开URL按钮点击事件冒泡到 sessionItem
+                openUrlBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    try {
+                        // 通过 background script 在新标签页中打开URL
+                        const response = await chrome.runtime.sendMessage({
+                            action: 'openLinkInNewTab',
+                            url: session.url
+                        });
+                        if (response && response.success) {
+                            console.log('URL已在新标签页打开:', session.url);
+                        } else {
+                            console.error('打开URL失败:', response?.error || '未知错误');
+                        }
+                    } catch (error) {
+                        console.error('打开URL时出错:', error);
+                        // 降级方案：使用 window.open
+                        window.open(session.url, '_blank');
+                    }
+                });
+            }
+            
             // 创建按钮容器（在标题行中，但默认隐藏，悬停时显示）
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -11689,6 +11750,10 @@ if (typeof getCenterPosition === 'undefined') {
             buttonContainer.appendChild(tagBtn);
             buttonContainer.appendChild(duplicateBtn);
             buttonContainer.appendChild(contextBtn);
+            // 如果URL按钮存在，添加到按钮容器
+            if (openUrlBtn) {
+                buttonContainer.appendChild(openUrlBtn);
+            }
             
             // 将标题和按钮容器添加到标题行
             titleRow.appendChild(buttonContainer);

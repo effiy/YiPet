@@ -576,6 +576,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.newsManager = null;
         this.newsListVisible = false; // 新闻列表是否可见
         this.hasRequestedNews = false; // 标记是否已经请求过新闻列表（用于延迟加载）
+        this.lastNewsDateRange = null; // 上次加载新闻的日期区间（用于判断是否需要重新加载）
         
         // FAQ API管理器
         this.faqApi = null;
@@ -6919,14 +6920,16 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 月份切换
         prevMonthBtn.addEventListener('click', () => {
-            const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+            const baseMonth = this.calendarMonth || currentMonth;
+            const newMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() - 1, 1);
             this.calendarMonth = newMonth;
             this.updateCalendarDays(calendarDaysGrid, newMonth);
             this.updateMonthTitle(monthTitle, newMonth);
         });
         
         nextMonthBtn.addEventListener('click', () => {
-            const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+            const baseMonth = this.calendarMonth || currentMonth;
+            const newMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + 1, 1);
             this.calendarMonth = newMonth;
             this.updateCalendarDays(calendarDaysGrid, newMonth);
             this.updateMonthTitle(monthTitle, newMonth);
@@ -13241,16 +13244,56 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 加载新闻列表
         // 优化：默认不请求，第一次切换新闻视图时才请求
+        // 如果有日期筛选，则根据日期区间调用API查询
         try {
             if (this.newsManager) {
-                // 如果是第一次切换新闻视图，或者强制刷新，则请求新闻列表
-                if (!this.hasRequestedNews || forceRefresh) {
-                    // 使用今天的日期
+                let isoDate = null;
+                let shouldLoadNews = false;
+                let currentDateRange = null;
+                
+                // 如果有日期筛选，根据日期筛选器构建日期区间参数
+                if (this.dateRangeFilter) {
+                    if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                        // 有开始和结束日期
+                        const startStr = this.formatDateForNews(this.dateRangeFilter.startDate);
+                        const endStr = this.formatDateForNews(this.dateRangeFilter.endDate);
+                        isoDate = `${startStr},${endStr}`;
+                        currentDateRange = isoDate;
+                    } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                        // 只有开始日期，使用开始日期作为结束日期
+                        const startStr = this.formatDateForNews(this.dateRangeFilter.startDate);
+                        isoDate = `${startStr},${startStr}`;
+                        currentDateRange = isoDate;
+                    } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                        // 只有结束日期，使用结束日期作为开始和结束日期
+                        const endStr = this.formatDateForNews(this.dateRangeFilter.endDate);
+                        isoDate = `${endStr},${endStr}`;
+                        currentDateRange = isoDate;
+                    }
+                    // 如果日期区间改变了，需要重新加载
+                    if (currentDateRange && currentDateRange !== this.lastNewsDateRange) {
+                        shouldLoadNews = true;
+                    }
+                } else {
+                    // 没有日期筛选时，使用今天的日期
                     const today = new Date();
                     const dateStr = this.formatDateForNews(today);
-                    const isoDate = `${dateStr},${dateStr}`;
-                    await this.newsManager.loadNews(forceRefresh, isoDate);
-                    this.hasRequestedNews = true; // 标记已请求过
+                    isoDate = `${dateStr},${dateStr}`;
+                    currentDateRange = isoDate;
+                    // 如果是第一次切换新闻视图，或者强制刷新，或者日期区间改变了，则请求新闻
+                    if (!this.hasRequestedNews || forceRefresh || currentDateRange !== this.lastNewsDateRange) {
+                        shouldLoadNews = true;
+                    }
+                }
+                
+                // 如果需要加载新闻，则调用API
+                if (shouldLoadNews) {
+                    await this.newsManager.loadNews(true, isoDate); // 强制刷新
+                    this.lastNewsDateRange = currentDateRange; // 记录本次加载的日期区间
+                    if (!this.dateRangeFilter) {
+                        // 只有在没有日期筛选时才标记已请求过（避免日期筛选时影响后续加载）
+                        this.hasRequestedNews = true;
+                    }
                 }
             }
         } catch (error) {
@@ -13259,7 +13302,7 @@ if (typeof getCenterPosition === 'undefined') {
         
         let news = this.newsManager ? this.newsManager.getAllNews() : [];
         
-        // 根据搜索关键词过滤新闻
+        // 根据搜索关键词过滤新闻（本地过滤）
         if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
             const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
             news = news.filter(item => {
@@ -13272,37 +13315,7 @@ if (typeof getCenterPosition === 'undefined') {
             });
         }
         
-        // 应用日期区间过滤
-        if (this.dateRangeFilter) {
-            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
-                const startDate = this.dateRangeFilter.startDate;
-                const endDate = this.dateRangeFilter.endDate;
-                const startTime = startDate.getTime();
-                const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1;
-                
-                news = news.filter(item => {
-                    const itemTime = this.getNewsTime(item);
-                    return itemTime >= startTime && itemTime <= endTime;
-                });
-            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
-                const startDate = this.dateRangeFilter.startDate;
-                const startTime = startDate.getTime();
-                const endTime = startTime + 24 * 60 * 60 * 1000 - 1;
-                
-                news = news.filter(item => {
-                    const itemTime = this.getNewsTime(item);
-                    return itemTime >= startTime && itemTime <= endTime;
-                });
-            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
-                const endDate = this.dateRangeFilter.endDate;
-                const endTime = endDate.getTime();
-                
-                news = news.filter(item => {
-                    const itemTime = this.getNewsTime(item);
-                    return itemTime < endTime;
-                });
-            }
-        }
+        // 注意：日期区间过滤已通过API调用实现，不再需要本地过滤
         
         // 清空列表
         newsList.innerHTML = '';

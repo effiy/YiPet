@@ -3189,13 +3189,20 @@ if (typeof getCenterPosition === 'undefined') {
             updateTitle = true, 
             loadMessages = false,
             highlightSessionId = null,
-            keepOssFileListView = false // 是否保持OSS文件列表视图（不切换到会话列表）
+            keepOssFileListView = false, // 是否保持OSS文件列表视图（不切换到会话列表）
+            keepNewsListView = false // 是否保持新闻列表视图（不切换到会话列表）
         } = options;
         
         if (updateSidebar && this.sessionSidebar) {
-            // 如果指定保持OSS文件列表视图，则不更新侧边栏（避免切换到会话列表）
-            if (!keepOssFileListView) {
+            // 如果指定保持OSS文件列表视图或新闻列表视图，则不更新侧边栏（避免切换到会话列表）
+            if (!keepOssFileListView && !keepNewsListView) {
                 await this.updateSessionSidebar();
+            } else if (keepOssFileListView) {
+                // 如果保持OSS文件列表视图，只更新OSS文件列表的active状态
+                await this.updateOssFileSidebar(false);
+            } else if (keepNewsListView) {
+                // 如果保持新闻列表视图，只更新新闻列表的active状态
+                await this.updateNewsSidebar(false);
             }
         }
         
@@ -3319,7 +3326,8 @@ if (typeof getCenterPosition === 'undefined') {
             updateUI = true,
             syncToBackend = true,
             skipBackendFetch = false, // 是否跳过从后端获取数据（用于新创建的空白会话）
-            keepOssFileListView = false // 是否保持OSS文件列表视图（不切换到会话列表）
+            keepOssFileListView = false, // 是否保持OSS文件列表视图（不切换到会话列表）
+            keepNewsListView = false // 是否保持新闻列表视图（不切换到会话列表）
         } = options;
         
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
@@ -3443,7 +3451,8 @@ if (typeof getCenterPosition === 'undefined') {
                 updateSidebar: true,
                 updateTitle: true,
                 loadMessages: this.isChatOpen,
-                keepOssFileListView: keepOssFileListView // 传递保持OSS文件列表视图的选项
+                keepOssFileListView: keepOssFileListView, // 传递保持OSS文件列表视图的选项
+                keepNewsListView: keepNewsListView // 传递保持新闻列表视图的选项
             });
         }
     }
@@ -13354,19 +13363,49 @@ if (typeof getCenterPosition === 'undefined') {
             return bTime - aTime;
         });
         
+        // 保存当前新闻列表（用于长按删除等功能）
+        if (!window.currentNews) {
+            window.currentNews = [];
+        }
+        window.currentNews = sortedNews;
+        
         // 创建新闻列表项
-        for (const item of sortedNews) {
+        for (let index = 0; index < sortedNews.length; index++) {
+            const item = sortedNews[index];
             const newsItem = document.createElement('div');
             newsItem.className = 'news-item';
+            newsItem.setAttribute('data-news-index', index);
+            
+            // 添加选中状态类：检查当前会话是否是该新闻的会话
+            let isActive = false;
+            if (this.currentSessionId) {
+                const currentSession = this.sessions[this.currentSessionId];
+                if (currentSession && currentSession._isNewsSession && currentSession._newsInfo) {
+                    // 当前会话是新闻会话，检查新闻链接是否匹配
+                    if (currentSession._newsInfo.link === item.link) {
+                        isActive = true;
+                        newsItem.classList.add('active');
+                    }
+                }
+            }
+            
             newsItem.style.cssText = `
                 padding: 12px !important;
                 margin-bottom: 8px !important;
-                background: #ffffff !important;
-                border: 1px solid #e5e7eb !important;
+                background: ${isActive ? '#eff6ff' : '#ffffff'} !important;
+                border: 1px solid ${isActive ? '#3b82f6' : '#e5e7eb'} !important;
                 border-radius: 8px !important;
                 cursor: pointer !important;
                 transition: all 0.2s ease !important;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+                box-shadow: ${isActive ? '0 2px 4px rgba(59, 130, 246, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.05)'} !important;
+                position: relative !important;
+            `;
+            
+            // 新闻信息容器
+            const newsInfo = document.createElement('div');
+            newsInfo.className = 'news-info';
+            newsInfo.style.cssText = `
+                margin-bottom: 8px !important;
             `;
             
             // 标题
@@ -13383,7 +13422,7 @@ if (typeof getCenterPosition === 'undefined') {
                 overflow: hidden !important;
             `;
             title.textContent = item.title || '无标题';
-            newsItem.appendChild(title);
+            newsInfo.appendChild(title);
             
             // 描述
             if (item.description || item.content) {
@@ -13399,8 +13438,36 @@ if (typeof getCenterPosition === 'undefined') {
                     overflow: hidden !important;
                 `;
                 description.textContent = item.description || item.content || '';
-                newsItem.appendChild(description);
+                newsInfo.appendChild(description);
             }
+            
+            // 标签区域（预留，后续可以添加标签功能）
+            const tagsContainer = document.createElement('div');
+            tagsContainer.className = 'news-tags';
+            tagsContainer.style.cssText = `
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 4px !important;
+                margin-bottom: 8px !important;
+            `;
+            // 如果有标签，显示标签
+            if (item.tags && Array.isArray(item.tags) && item.tags.length > 0) {
+                item.tags.forEach(tag => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'news-tag';
+                    tagElement.textContent = tag;
+                    tagElement.style.cssText = `
+                        display: inline-block !important;
+                        padding: 2px 8px !important;
+                        background: #f3f4f6 !important;
+                        color: #374151 !important;
+                        border-radius: 4px !important;
+                        font-size: 11px !important;
+                    `;
+                    tagsContainer.appendChild(tagElement);
+                });
+            }
+            newsInfo.appendChild(tagsContainer);
             
             // 底部信息（时间和来源）
             const footer = document.createElement('div');
@@ -13433,16 +13500,365 @@ if (typeof getCenterPosition === 'undefined') {
                 footer.appendChild(link);
             }
             
-            newsItem.appendChild(footer);
+            newsInfo.appendChild(footer);
+            newsItem.appendChild(newsInfo);
             
-            // 点击事件
-            newsItem.addEventListener('click', (e) => {
-                e.preventDefault();
+            // 操作按钮区域（类似OSS文件列表）
+            const actionsContainer = document.createElement('div');
+            actionsContainer.className = 'news-actions';
+            actionsContainer.style.cssText = `
+                display: flex !important;
+                gap: 6px !important;
+                margin-top: 8px !important;
+                padding-top: 8px !important;
+                border-top: 1px solid #e5e7eb !important;
+            `;
+            
+            // 复制链接按钮
+            if (item.link) {
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn-success';
+                copyBtn.textContent = '📋 复制链接';
+                copyBtn.style.cssText = `
+                    flex: 1 !important;
+                    padding: 6px 8px !important;
+                    font-size: 11px !important;
+                    border: none !important;
+                    border-radius: 4px !important;
+                    background: #10b981 !important;
+                    color: white !important;
+                    cursor: pointer !important;
+                    transition: background 0.2s !important;
+                `;
+                copyBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.copyNewsLink(item.link);
+                });
+                copyBtn.addEventListener('mouseenter', () => {
+                    copyBtn.style.background = '#059669';
+                });
+                copyBtn.addEventListener('mouseleave', () => {
+                    copyBtn.style.background = '#10b981';
+                });
+                actionsContainer.appendChild(copyBtn);
+            }
+            
+            // 编辑按钮（预留，后续可以添加编辑功能）
+            const editBtn = document.createElement('button');
+            editBtn.className = 'tag-manager-btn';
+            editBtn.textContent = '✏️ 编辑';
+            editBtn.title = '编辑新闻信息';
+            editBtn.style.cssText = `
+                padding: 6px 8px !important;
+                font-size: 11px !important;
+                border: 1px solid #d1d5db !important;
+                border-radius: 4px !important;
+                background: white !important;
+                color: #374151 !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+            `;
+            editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                
-                if (item.link) {
-                    window.open(item.link, '_blank');
+                this.handleNewsEditButtonClick(item, index);
+            });
+            editBtn.addEventListener('mouseenter', () => {
+                editBtn.style.background = '#f9fafb';
+                editBtn.style.borderColor = '#9ca3af';
+            });
+            editBtn.addEventListener('mouseleave', () => {
+                editBtn.style.background = 'white';
+                editBtn.style.borderColor = '#d1d5db';
+            });
+            actionsContainer.appendChild(editBtn);
+            
+            // 标签管理按钮（预留，后续可以添加标签管理功能）
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'tag-manager-btn';
+            tagBtn.textContent = '🏷️ 标签';
+            tagBtn.title = '管理标签';
+            tagBtn.style.cssText = `
+                padding: 6px 8px !important;
+                font-size: 11px !important;
+                border: 1px solid #d1d5db !important;
+                border-radius: 4px !important;
+                background: white !important;
+                color: #374151 !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+            `;
+            tagBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.handleNewsTagButtonClick(item, index);
+            });
+            tagBtn.addEventListener('mouseenter', () => {
+                tagBtn.style.background = '#f9fafb';
+                tagBtn.style.borderColor = '#9ca3af';
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                tagBtn.style.background = 'white';
+                tagBtn.style.borderColor = '#d1d5db';
+            });
+            actionsContainer.appendChild(tagBtn);
+            
+            // 删除按钮（长按删除）
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-danger';
+            deleteBtn.textContent = '🗑️ 删除';
+            deleteBtn.title = '长按删除';
+            deleteBtn.style.cssText = `
+                padding: 6px 8px !important;
+                font-size: 11px !important;
+                border: none !important;
+                border-radius: 4px !important;
+                background: #ef4444 !important;
+                color: white !important;
+                cursor: pointer !important;
+                transition: background 0.2s !important;
+            `;
+            deleteBtn.addEventListener('mouseenter', () => {
+                deleteBtn.style.background = '#dc2626';
+            });
+            deleteBtn.addEventListener('mouseleave', () => {
+                deleteBtn.style.background = '#ef4444';
+            });
+            actionsContainer.appendChild(deleteBtn);
+            
+            newsItem.appendChild(actionsContainer);
+            
+            // 长按删除相关变量
+            let longPressTimer = null;
+            let longPressProgressTimer = null;
+            let longPressThreshold = 800; // 长按时间阈值（毫秒）
+            let isLongPressing = false;
+            let hasMoved = false;
+            let startX = 0;
+            let startY = 0;
+            let longPressStartTime = 0;
+            const moveThreshold = 10; // 移动阈值，超过此值则取消长按
+            
+            // 创建长按进度指示器
+            const progressBar = document.createElement('div');
+            progressBar.className = 'long-press-progress';
+            progressBar.style.cssText = `
+                position: absolute !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                height: 3px !important;
+                background: rgba(244, 67, 54, 0.8) !important;
+                width: 0% !important;
+                border-radius: 0 0 8px 8px !important;
+                transition: width 0.05s linear !important;
+                z-index: 10 !important;
+            `;
+            newsItem.appendChild(progressBar);
+            
+            // 创建长按提示文本
+            const hintText = document.createElement('div');
+            hintText.className = 'long-press-hint';
+            hintText.textContent = '继续按住以删除';
+            hintText.style.cssText = `
+                position: absolute !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) scale(0) !important;
+                background: rgba(244, 67, 54, 0.95) !important;
+                color: white !important;
+                padding: 6px 12px !important;
+                border-radius: 6px !important;
+                font-size: 12px !important;
+                white-space: nowrap !important;
+                pointer-events: none !important;
+                z-index: 20 !important;
+                opacity: 0 !important;
+                transition: all 0.2s ease !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+            `;
+            newsItem.appendChild(hintText);
+            
+            // 清除长按定时器
+            const clearLongPress = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
                 }
+                if (longPressProgressTimer) {
+                    clearInterval(longPressProgressTimer);
+                    longPressProgressTimer = null;
+                }
+                if (isLongPressing) {
+                    newsItem.classList.remove('long-pressing', 'long-press-start', 
+                        'long-press-stage-1', 'long-press-stage-2', 'long-press-stage-3');
+                    isLongPressing = false;
+                } else {
+                    newsItem.classList.remove('long-press-start', 
+                        'long-press-stage-1', 'long-press-stage-2', 'long-press-stage-3');
+                }
+                hasMoved = false;
+                progressBar.style.width = '0%';
+                hintText.style.opacity = '0';
+                hintText.style.transform = 'translate(-50%, -50%) scale(0)';
+                longPressStartTime = 0;
+            };
+            
+            // 触觉反馈（如果支持）
+            const triggerHapticFeedback = () => {
+                if ('vibrate' in navigator) {
+                    navigator.vibrate(50); // 短震动
+                }
+            };
+            
+            // 开始长按检测
+            const startLongPress = (e) => {
+                // 如果点击的是按钮，不触发长按
+                if (e.target.closest('button')) {
+                    return;
+                }
+                
+                hasMoved = false;
+                startX = e.touches ? e.touches[0].clientX : e.clientX;
+                startY = e.touches ? e.touches[0].clientY : e.clientY;
+                longPressStartTime = Date.now();
+                
+                // 添加开始长按的视觉反馈
+                newsItem.classList.add('long-press-start');
+                
+                // 显示提示文本（延迟一点，避免立即显示）
+                setTimeout(() => {
+                    if (longPressStartTime && !hasMoved) {
+                        hintText.style.opacity = '1';
+                        hintText.style.transform = 'translate(-50%, -50%) scale(1)';
+                    }
+                }, 200);
+                
+                // 开始进度条动画
+                let lastStage = 0;
+                const progressInterval = 50; // 每50ms更新一次
+                longPressProgressTimer = setInterval(() => {
+                    if (hasMoved || !longPressStartTime) {
+                        clearInterval(longPressProgressTimer);
+                        return;
+                    }
+                    
+                    const elapsed = Date.now() - longPressStartTime;
+                    const progress = Math.min((elapsed / longPressThreshold) * 100, 100);
+                    progressBar.style.width = progress + '%';
+                    
+                    // 在不同阶段添加反馈（确保每个阶段只触发一次）
+                    if (progress >= 30 && progress < 35 && lastStage < 1) {
+                        newsItem.classList.add('long-press-stage-1');
+                        lastStage = 1;
+                    } else if (progress >= 60 && progress < 65 && lastStage < 2) {
+                        newsItem.classList.remove('long-press-stage-1');
+                        newsItem.classList.add('long-press-stage-2');
+                        lastStage = 2;
+                        triggerHapticFeedback(); // 中期震动
+                    } else if (progress >= 90 && progress < 95 && lastStage < 3) {
+                        newsItem.classList.remove('long-press-stage-2');
+                        newsItem.classList.add('long-press-stage-3');
+                        lastStage = 3;
+                        triggerHapticFeedback(); // 接近完成时的震动
+                    }
+                    
+                    if (progress >= 100) {
+                        clearInterval(longPressProgressTimer);
+                    }
+                }, progressInterval);
+                
+                longPressTimer = setTimeout(async () => {
+                    if (!hasMoved) {
+                        isLongPressing = true;
+                        newsItem.classList.add('long-pressing');
+                        triggerHapticFeedback(); // 触发删除前的震动
+                        
+                        // 触发删除（异步执行，删除完成后清除状态）
+                        try {
+                            await this.deleteNewsItem(item, index);
+                        } catch (error) {
+                            console.error('删除新闻失败:', error);
+                            this.showNotification('删除新闻失败，请重试', 'error');
+                        } finally {
+                            // 清除长按状态
+                            clearLongPress();
+                        }
+                    }
+                }, longPressThreshold);
+            };
+            
+            // 结束长按检测
+            const endLongPress = () => {
+                clearLongPress();
+            };
+            
+            // 移动检测（取消长按）
+            const handleMove = (e) => {
+                const currentX = e.touches ? e.touches[0].clientX : e.clientX;
+                const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+                const deltaX = Math.abs(currentX - startX);
+                const deltaY = Math.abs(currentY - startY);
+                
+                if (deltaX > moveThreshold || deltaY > moveThreshold) {
+                    hasMoved = true;
+                    clearLongPress();
+                }
+            };
+            
+            // 触摸事件（移动设备）
+            newsItem.addEventListener('touchstart', (e) => {
+                if (!e.target.closest('button')) {
+                    startLongPress(e);
+                }
+            }, { passive: true });
+            
+            newsItem.addEventListener('touchmove', (e) => {
+                handleMove(e);
+            }, { passive: true });
+            
+            newsItem.addEventListener('touchend', () => {
+                endLongPress();
+            }, { passive: true });
+            
+            newsItem.addEventListener('touchcancel', () => {
+                endLongPress();
+            }, { passive: true });
+            
+            // 鼠标事件（桌面设备）
+            newsItem.addEventListener('mousedown', (e) => {
+                if (!e.target.closest('button')) {
+                    startLongPress(e);
+                }
+            });
+            
+            newsItem.addEventListener('mousemove', (e) => {
+                if (longPressTimer) {
+                    handleMove(e);
+                }
+            });
+            
+            newsItem.addEventListener('mouseup', () => {
+                endLongPress();
+            });
+            
+            newsItem.addEventListener('mouseleave', () => {
+                endLongPress();
+            });
+            
+            // 点击事件处理（防止长按过程中触发其他操作）
+            newsItem.addEventListener('click', (e) => {
+                // 如果点击的是按钮或标签区域，不阻止
+                if (e.target.closest('button') || e.target.closest('.news-tags')) {
+                    return;
+                }
+                
+                // 如果正在长按或已移动，阻止点击
+                if (isLongPressing || hasMoved) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                // 处理新闻点击，创建会话并打开聊天窗口
+                this.handleNewsClick(item);
             });
             
             // 悬停效果
@@ -13492,6 +13908,217 @@ if (typeof getCenterPosition === 'undefined') {
             return new Date(item.created_at).getTime();
         }
         return 0;
+    }
+    
+    // 处理新闻点击，创建会话并打开聊天窗口（类似OSS文件）
+    async handleNewsClick(newsItem) {
+        try {
+            if (!newsItem) {
+                console.warn('新闻项无效');
+                return;
+            }
+            
+            // 生成会话ID（基于新闻链接或标题）
+            const newsId = newsItem.link || newsItem.title || `news_${Date.now()}`;
+            const sessionId = await this.generateSessionId(newsId);
+            
+            // 检查是否已存在相同新闻的会话
+            let matchedSessionId = null;
+            for (const [sid, session] of Object.entries(this.sessions)) {
+                if (session._isNewsSession && session._newsInfo && 
+                    session._newsInfo.link === newsItem.link) {
+                    matchedSessionId = sid;
+                    break;
+                }
+            }
+            
+            // 如果找到匹配的会话，直接激活
+            if (matchedSessionId) {
+                // 检查当前是否显示新闻列表
+                const newsList = this.sessionSidebar?.querySelector('.news-list');
+                const isNewsListVisible = newsList && newsList.style.display !== 'none';
+                
+                // 激活会话
+                await this.activateSession(matchedSessionId, {
+                    saveCurrent: false,
+                    updateConsistency: false,
+                    updateUI: true,
+                    syncToBackend: false,
+                    skipBackendFetch: false,
+                    keepNewsListView: isNewsListVisible
+                });
+                
+                // 如果当前显示的是新闻列表，更新新闻列表的active状态
+                if (isNewsListVisible) {
+                    await this.updateNewsSidebar(false);
+                }
+                
+                console.log('新闻会话已激活（使用匹配的会话）:', matchedSessionId);
+                return;
+            }
+            
+            // 如果没有找到匹配的会话，创建新会话
+            let session = this.sessions[sessionId];
+            
+            if (!session) {
+                // 创建新会话
+                session = this.createSessionObject(sessionId, {
+                    url: newsItem.link || '',
+                    title: newsItem.title || '新闻',
+                    pageTitle: newsItem.title || '新闻',
+                    pageDescription: newsItem.description || newsItem.content || '',
+                    pageContent: newsItem.content || newsItem.description || ''
+                });
+                this.sessions[sessionId] = session;
+                
+                // 标记为新闻会话
+                session._isNewsSession = true;
+                session._newsInfo = {
+                    title: newsItem.title || '',
+                    link: newsItem.link || '',
+                    description: newsItem.description || '',
+                    content: newsItem.content || '',
+                    pubDate: newsItem.pubDate || newsItem.publishedAt || null,
+                    tags: newsItem.tags || []
+                };
+                
+                // 保存会话到本地
+                await this.saveAllSessions(false, false);
+            } else {
+                // 更新现有会话的新闻信息
+                session._isNewsSession = true;
+                session._newsInfo = {
+                    title: newsItem.title || '',
+                    link: newsItem.link || '',
+                    description: newsItem.description || '',
+                    content: newsItem.content || '',
+                    pubDate: newsItem.pubDate || newsItem.publishedAt || null,
+                    tags: newsItem.tags || []
+                };
+                session.pageTitle = newsItem.title || '新闻';
+                session.pageDescription = newsItem.description || newsItem.content || '';
+                session.pageContent = newsItem.content || newsItem.description || '';
+            }
+            
+            // 检查当前是否显示新闻列表
+            const newsList = this.sessionSidebar?.querySelector('.news-list');
+            const isNewsListVisible = newsList && newsList.style.display !== 'none';
+            
+            // 激活会话
+            await this.activateSession(sessionId, {
+                saveCurrent: false,
+                updateConsistency: false,
+                updateUI: true,
+                syncToBackend: false,
+                skipBackendFetch: true,
+                keepNewsListView: isNewsListVisible
+            });
+            
+            // 确保会话信息已更新（在激活会话后）
+            const activatedSession = this.sessions[sessionId];
+            if (activatedSession) {
+                activatedSession._isNewsSession = true;
+                activatedSession._newsInfo = {
+                    title: newsItem.title || '',
+                    link: newsItem.link || '',
+                    description: newsItem.description || '',
+                    content: newsItem.content || '',
+                    pubDate: newsItem.pubDate || newsItem.publishedAt || null,
+                    tags: newsItem.tags || []
+                };
+                activatedSession.pageTitle = newsItem.title || '新闻';
+                activatedSession.pageDescription = newsItem.description || newsItem.content || '';
+                activatedSession.pageContent = newsItem.content || newsItem.description || '';
+            }
+            
+            // 如果当前显示的是新闻列表，更新新闻列表的active状态
+            if (isNewsListVisible) {
+                await this.updateNewsSidebar(false);
+            }
+            
+            console.log('新闻会话已创建并激活:', sessionId);
+        } catch (error) {
+            console.error('处理新闻点击失败:', error);
+            this.showNotification('打开新闻会话失败，请重试', 'error');
+        }
+    }
+    
+    // 复制新闻链接
+    async copyNewsLink(url) {
+        try {
+            if (!url) {
+                this.showNotification('链接无效', 'error');
+                return;
+            }
+            
+            await navigator.clipboard.writeText(url);
+            this.showNotification('链接已复制到剪贴板', 'success');
+        } catch (error) {
+            // 降级方案
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = url;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                this.showNotification('链接已复制到剪贴板', 'success');
+            } catch (fallbackError) {
+                console.error('复制链接失败:', fallbackError);
+                this.showNotification('复制链接失败', 'error');
+            }
+        }
+    }
+    
+    // 处理新闻编辑按钮点击
+    handleNewsEditButtonClick(newsItem, index) {
+        // 预留功能：可以打开编辑模态框，编辑新闻信息
+        console.log('编辑新闻:', newsItem, index);
+        this.showNotification('编辑功能开发中', 'info');
+    }
+    
+    // 处理新闻标签按钮点击
+    handleNewsTagButtonClick(newsItem, index) {
+        // 预留功能：可以打开标签管理模态框，管理新闻标签
+        console.log('管理新闻标签:', newsItem, index);
+        this.showNotification('标签管理功能开发中', 'info');
+    }
+    
+    // 删除新闻项
+    async deleteNewsItem(newsItem, index) {
+        try {
+            // 从本地新闻列表中移除
+            if (window.currentNews && Array.isArray(window.currentNews)) {
+                window.currentNews = window.currentNews.filter((item, i) => i !== index);
+            }
+            
+            // 如果新闻管理器存在，也可以从管理器中移除
+            if (this.newsManager) {
+                const allNews = this.newsManager.getAllNews();
+                const updatedNews = allNews.filter((item, i) => {
+                    // 通过链接或标题匹配来删除
+                    if (item.link && newsItem.link && item.link === newsItem.link) {
+                        return false;
+                    }
+                    if (item.title && newsItem.title && item.title === newsItem.title) {
+                        return false;
+                    }
+                    return true;
+                });
+                this.newsManager.news = updatedNews;
+            }
+            
+            // 重新渲染新闻列表
+            await this.updateNewsSidebar(false);
+            
+            this.showNotification('新闻已删除', 'success');
+            console.log('新闻已删除:', newsItem);
+        } catch (error) {
+            console.error('删除新闻失败:', error);
+            throw error;
+        }
     }
     
     // 格式化新闻时间显示

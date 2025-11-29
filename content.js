@@ -15265,7 +15265,23 @@ if (typeof getCenterPosition === 'undefined') {
             });
             removeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.removeNewsTag(newsItem, index, tagIndex);
+                // 从 modal 的 dataset 中获取最新的 newsItem 和 index，避免闭包中的值过时
+                const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
+                if (!modal) return;
+                
+                const newsIndex = modal.dataset.newsIndex;
+                if (newsIndex === undefined) return;
+                
+                // 从 window.currentNews 获取最新的新闻项
+                let currentNewsItem = null;
+                if (window.currentNews && Array.isArray(window.currentNews) && parseInt(newsIndex) >= 0) {
+                    currentNewsItem = window.currentNews[parseInt(newsIndex)];
+                }
+                
+                if (!currentNewsItem) return;
+                
+                // 使用标签值删除，避免索引错位问题
+                this.removeNewsTagByValue(currentNewsItem, parseInt(newsIndex), tag);
             });
 
             tagItem.appendChild(tagText);
@@ -15347,12 +15363,23 @@ if (typeof getCenterPosition === 'undefined') {
         this.loadNewsTagsIntoManager(newsItem, index, newsItem.tags);
     }
 
-    // 删除新闻标签
+    // 删除新闻标签（根据索引）
     removeNewsTag(newsItem, index, tagIndex) {
         if (!newsItem.tags) return;
 
         newsItem.tags.splice(tagIndex, 1);
         this.loadNewsTagsIntoManager(newsItem, index, newsItem.tags);
+    }
+    
+    // 删除新闻标签（根据标签值，更可靠）
+    removeNewsTagByValue(newsItem, index, tagValue) {
+        if (!newsItem || !newsItem.tags) return;
+
+        const tagIndex = newsItem.tags.indexOf(tagValue);
+        if (tagIndex >= 0) {
+            newsItem.tags.splice(tagIndex, 1);
+            this.loadNewsTagsIntoManager(newsItem, index, newsItem.tags);
+        }
     }
 
     // 智能生成新闻标签

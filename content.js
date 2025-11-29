@@ -13436,18 +13436,6 @@ if (typeof getCenterPosition === 'undefined') {
             title.textContent = item.title || '无标题';
             titleRow.appendChild(title);
             
-            // 创建按钮容器（将在后面添加按钮）
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = `
-                display: flex !important;
-                align-items: center !important;
-                gap: 2px !important;
-                opacity: 0 !important;
-                transition: opacity 0.2s ease !important;
-                flex-shrink: 0 !important;
-            `;
-            titleRow.appendChild(buttonContainer);
-            
             newsInfo.appendChild(titleRow);
             
             // 描述
@@ -13515,50 +13503,13 @@ if (typeof getCenterPosition === 'undefined') {
             }
             footer.appendChild(time);
             
-            if (item.link) {
-                const link = document.createElement('span');
-                link.textContent = '🔗';
-                link.style.cssText = `
-                    cursor: pointer !important;
-                    font-size: 12px !important;
-                `;
-                link.title = '打开链接';
-                footer.appendChild(link);
-            }
-            
-            newsInfo.appendChild(footer);
-            newsItem.appendChild(newsInfo);
-            
-            // 操作按钮（参考会话列表中的操作按钮样式和交互）
-            // 在新标签页打开按钮
-            if (item.link) {
-                const openBtn = document.createElement('button');
-                openBtn.className = 'news-open-btn';
-                openBtn.innerHTML = '🔗';
-                openBtn.title = '在新标签页中打开新闻链接';
-                openBtn.style.cssText = `
-                    background: none !important;
-                    border: none !important;
-                    cursor: pointer !important;
-                    padding: 2px 4px !important;
-                    font-size: 12px !important;
-                    opacity: 0.6 !important;
-                    transition: opacity 0.2s ease !important;
-                    line-height: 1 !important;
-                    flex-shrink: 0 !important;
-                `;
-                openBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.openNewsLink(item.link);
-                });
-                openBtn.addEventListener('mouseenter', () => {
-                    openBtn.style.opacity = '1';
-                });
-                openBtn.addEventListener('mouseleave', () => {
-                    openBtn.style.opacity = '0.6';
-                });
-                buttonContainer.appendChild(openBtn);
-            }
+            // 操作按钮容器（移动到footer中）
+            const footerButtonContainer = document.createElement('div');
+            footerButtonContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            `;
             
             // 编辑按钮
             const editBtn = document.createElement('button');
@@ -13586,7 +13537,7 @@ if (typeof getCenterPosition === 'undefined') {
             editBtn.addEventListener('mouseleave', () => {
                 editBtn.style.opacity = '0.6';
             });
-            buttonContainer.appendChild(editBtn);
+            footerButtonContainer.appendChild(editBtn);
             
             // 标签管理按钮
             const tagBtn = document.createElement('button');
@@ -13614,7 +13565,7 @@ if (typeof getCenterPosition === 'undefined') {
             tagBtn.addEventListener('mouseleave', () => {
                 tagBtn.style.opacity = '0.6';
             });
-            buttonContainer.appendChild(tagBtn);
+            footerButtonContainer.appendChild(tagBtn);
             
             // 上下文按钮（参考会话列表中的上下文按钮）
             const contextBtn = document.createElement('button');
@@ -13663,15 +13614,12 @@ if (typeof getCenterPosition === 'undefined') {
                 contextBtn.style.opacity = '0.6';
                 contextBtn.style.background = 'none !important';
             });
-            buttonContainer.appendChild(contextBtn);
+            footerButtonContainer.appendChild(contextBtn);
             
-            // 鼠标悬停在新闻项上时显示按钮
-            newsItem.addEventListener('mouseenter', () => {
-                buttonContainer.style.opacity = '1';
-            });
-            newsItem.addEventListener('mouseleave', () => {
-                buttonContainer.style.opacity = '0';
-            });
+            footer.appendChild(footerButtonContainer);
+            
+            newsInfo.appendChild(footer);
+            newsItem.appendChild(newsInfo);
             
             // 长按删除相关变量
             let longPressTimer = null;

@@ -551,6 +551,15 @@ if (typeof getCenterPosition === 'undefined') {
         this.ossTagFilterExpanded = false; // OSS标签列表是否展开
         this.ossTagFilterVisibleCount = 8; // 折叠时显示的OSS标签数量
         this.ossTagFilterSearchKeyword = ''; // OSS标签搜索关键词
+        
+        // 新闻标签过滤相关
+        this.selectedNewsFilterTags = []; // 选中的新闻过滤标签
+        this.newsTagFilterReverse = false; // 是否反向过滤新闻
+        this.newsTagFilterNoTags = false; // 是否筛选无标签的新闻
+        this.newsTagFilterExpanded = false; // 新闻标签列表是否展开
+        this.newsTagFilterVisibleCount = 8; // 折叠时显示的新闻标签数量
+        this.newsTagFilterSearchKeyword = ''; // 新闻标签搜索关键词
+        
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
         this.calendarCollapsed = false; // 日历是否折叠
@@ -895,7 +904,7 @@ if (typeof getCenterPosition === 'undefined') {
             }
             
             // 生成基于文件URL的会话ID
-            const sessionId = await this.generateSessionId(file.url);
+            let sessionId = await this.generateSessionId(file.url);
             
             // 加载所有会话（包括从后端加载）
             await this.loadAllSessions();
@@ -5400,6 +5409,53 @@ if (typeof getCenterPosition === 'undefined') {
         allSessions.forEach(session => {
             if (session.tags && Array.isArray(session.tags)) {
                 session.tags.forEach(tag => {
+                    if (tag && tag.trim()) {
+                        tagSet.add(tag.trim());
+                    }
+                });
+            }
+        });
+        
+        // 优先标签列表（按顺序）
+        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
+        
+        // 分离优先标签和其他标签
+        const allTags = Array.from(tagSet);
+        const priorityTagSet = new Set(priorityTags);
+        const priorityTagList = [];
+        const otherTags = [];
+        
+        // 先添加存在的优先标签（按顺序）
+        priorityTags.forEach(tag => {
+            if (allTags.includes(tag)) {
+                priorityTagList.push(tag);
+            }
+        });
+        
+        // 添加其他标签（按字母顺序）
+        allTags.forEach(tag => {
+            if (!priorityTagSet.has(tag)) {
+                otherTags.push(tag);
+            }
+        });
+        otherTags.sort();
+        
+        // 合并：优先标签在前，其他标签在后
+        return [...priorityTagList, ...otherTags];
+    }
+
+    // 收集所有新闻的标签
+    getAllNewsTags() {
+        if (!this.newsManager) {
+            return [];
+        }
+        
+        const allNews = this.newsManager.getAllNews();
+        const tagSet = new Set();
+        
+        allNews.forEach(news => {
+            if (news.tags && Array.isArray(news.tags)) {
+                news.tags.forEach(tag => {
                     if (tag && tag.trim()) {
                         tagSet.add(tag.trim());
                     }
@@ -11141,10 +11197,14 @@ if (typeof getCenterPosition === 'undefined') {
             ossFileList.style.display = 'none';
         }
         
-        // 隐藏新闻列表
+        // 隐藏新闻列表和新闻标签过滤器
         const newsList = this.sessionSidebar.querySelector('.news-list');
         if (newsList) {
             newsList.style.display = 'none';
+        }
+        const newsTagFilterContainer = this.sessionSidebar.querySelector('.news-tag-filter-container');
+        if (newsTagFilterContainer) {
+            newsTagFilterContainer.style.display = 'none';
         }
         const ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
         if (ossTagFilterContainer) {
@@ -12091,6 +12151,10 @@ if (typeof getCenterPosition === 'undefined') {
         }
         if (newsList) {
             newsList.style.display = 'none';
+        }
+        const newsTagFilterContainer = this.sessionSidebar.querySelector('.news-tag-filter-container');
+        if (newsTagFilterContainer) {
+            newsTagFilterContainer.style.display = 'none';
         }
         // 批量工具栏在批量模式下显示
         if (batchToolbar && this.batchMode) {
@@ -13197,6 +13261,574 @@ if (typeof getCenterPosition === 'undefined') {
         this.applyViewMode();
     }
     
+    // 更新新闻标签过滤器UI
+    updateNewsTagFilterUI() {
+        if (!this.sessionSidebar) return;
+        
+        // 更新反向过滤按钮状态
+        const reverseFilterBtn = this.sessionSidebar.querySelector('.news-tag-filter-reverse');
+        if (reverseFilterBtn) {
+            reverseFilterBtn.style.color = this.newsTagFilterReverse ? '#4CAF50' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.newsTagFilterReverse ? '1' : '0.6';
+        }
+        
+        // 更新无标签筛选按钮状态
+        const noTagsFilterBtn = this.sessionSidebar.querySelector('.news-tag-filter-no-tags');
+        if (noTagsFilterBtn) {
+            noTagsFilterBtn.style.color = this.newsTagFilterNoTags ? '#4CAF50' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.newsTagFilterNoTags ? '1' : '0.6';
+        }
+        
+        // 更新清除按钮显示状态
+        const clearFilterBtn = this.sessionSidebar.querySelector('.news-tag-filter-clear');
+        if (clearFilterBtn) {
+            const hasSelectedTags = this.selectedNewsFilterTags && this.selectedNewsFilterTags.length > 0;
+            const hasSearchKeyword = this.newsTagFilterSearchKeyword && this.newsTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.newsTagFilterNoTags || hasSearchKeyword;
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
+        }
+        
+        const tagFilterList = this.sessionSidebar.querySelector('.news-tag-filter-list');
+        if (!tagFilterList) return;
+        
+        // 清空现有标签
+        tagFilterList.innerHTML = '';
+        
+        // 获取所有标签
+        const allTags = this.getAllNewsTags();
+        
+        // 根据搜索关键词过滤标签
+        let filteredTags = allTags;
+        const searchKeyword = (this.newsTagFilterSearchKeyword || '').trim().toLowerCase();
+        if (searchKeyword) {
+            filteredTags = allTags.filter(tag => 
+                tag.toLowerCase().includes(searchKeyword)
+            );
+        }
+        
+        if (filteredTags.length === 0) {
+            // 如果没有匹配的标签，显示提示信息
+            const expandToggleBtn = this.sessionSidebar.querySelector('.news-tag-filter-expand-btn');
+            if (expandToggleBtn) {
+                expandToggleBtn.style.display = 'none';
+            }
+            // 显示"无匹配标签"提示
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = searchKeyword ? '未找到匹配的标签' : '暂无标签';
+            emptyMsg.style.cssText = `
+                padding: 8px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 11px !important;
+            `;
+            tagFilterList.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 确定要显示的标签（根据折叠状态）
+        // 确保选中的标签始终显示
+        const selectedTags = this.selectedNewsFilterTags || [];
+        let visibleTags;
+        let hasMoreTags;
+        
+        if (this.newsTagFilterExpanded || searchKeyword) {
+            // 展开状态或有搜索关键词时：显示所有过滤后的标签
+            visibleTags = filteredTags;
+            hasMoreTags = false;
+        } else {
+            // 折叠状态：显示前N个标签，但确保选中的标签也在其中
+            const defaultVisible = filteredTags.slice(0, this.newsTagFilterVisibleCount);
+            const selectedNotInDefault = selectedTags.filter(tag => !defaultVisible.includes(tag));
+            
+            // 保持filteredTags的原始顺序，但确保选中的标签也在可见列表中
+            const visibleSet = new Set([...defaultVisible, ...selectedNotInDefault]);
+            visibleTags = filteredTags.filter(tag => visibleSet.has(tag));
+            hasMoreTags = filteredTags.length > visibleTags.length;
+        }
+        
+        // 更新展开/折叠按钮（有搜索关键词时隐藏）
+        const expandToggleBtn = this.sessionSidebar.querySelector('.news-tag-filter-expand-btn');
+        if (expandToggleBtn) {
+            if (searchKeyword) {
+                // 有搜索关键词时隐藏展开/折叠按钮
+                expandToggleBtn.style.display = 'none';
+            } else if (hasMoreTags || this.newsTagFilterExpanded) {
+                expandToggleBtn.style.display = 'block';
+                if (this.newsTagFilterExpanded) {
+                    expandToggleBtn.innerHTML = '▲';
+                    expandToggleBtn.title = '收起标签';
+                } else {
+                    expandToggleBtn.innerHTML = '▼';
+                    expandToggleBtn.title = '展开标签';
+                }
+            } else {
+                expandToggleBtn.style.display = 'none';
+            }
+        }
+        
+        // 创建标签按钮
+        visibleTags.forEach(tag => {
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'news-tag-filter-item';
+            tagBtn.textContent = tag;
+            const isSelected = this.selectedNewsFilterTags && this.selectedNewsFilterTags.includes(tag);
+            
+            tagBtn.style.cssText = `
+                padding: 3px 8px !important;
+                border-radius: 10px !important;
+                border: 1px solid ${isSelected ? '#4CAF50' : '#e5e7eb'} !important;
+                background: ${isSelected ? '#4CAF50' : '#f9fafb'} !important;
+                color: ${isSelected ? 'white' : '#6b7280'} !important;
+                font-size: 10px !important;
+                font-weight: ${isSelected ? '500' : '400'} !important;
+                cursor: pointer !important;
+                transition: all 0.15s ease !important;
+                white-space: nowrap !important;
+                line-height: 1.4 !important;
+            `;
+            
+            tagBtn.addEventListener('mouseenter', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#4CAF50';
+                    tagBtn.style.background = '#f0fdf4';
+                    tagBtn.style.color = '#4CAF50';
+                } else {
+                    tagBtn.style.opacity = '0.9';
+                }
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#e5e7eb';
+                    tagBtn.style.background = '#f9fafb';
+                    tagBtn.style.color = '#6b7280';
+                } else {
+                    tagBtn.style.opacity = '1';
+                }
+            });
+            tagBtn.addEventListener('click', () => {
+                if (!this.selectedNewsFilterTags) {
+                    this.selectedNewsFilterTags = [];
+                }
+                
+                const index = this.selectedNewsFilterTags.indexOf(tag);
+                if (index > -1) {
+                    // 取消选中
+                    this.selectedNewsFilterTags.splice(index, 1);
+                } else {
+                    // 选中
+                    this.selectedNewsFilterTags.push(tag);
+                }
+                
+                // 更新所有标签按钮（确保状态一致）
+                this.updateNewsTagFilterUI();
+                // 更新新闻列表（应用过滤）
+                this.updateNewsSidebar();
+            });
+            
+            tagFilterList.appendChild(tagBtn);
+        });
+    }
+
+    // 创建新闻标签筛选器
+    createNewsTagFilter() {
+        if (!this.sessionSidebar) return;
+        
+        // 检查是否已存在
+        let newsTagFilterContainer = this.sessionSidebar.querySelector('.news-tag-filter-container');
+        if (newsTagFilterContainer) {
+            // 如果已存在，只更新UI
+            this.updateNewsTagFilterUI();
+            return;
+        }
+        
+        const mainColor = PET_CONFIG?.theme?.primaryColor || '#6366f1';
+        
+        // 创建标签过滤器容器
+        newsTagFilterContainer = document.createElement('div');
+        newsTagFilterContainer.className = 'news-tag-filter-container';
+        newsTagFilterContainer.style.cssText = `
+            padding: 8px 12px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+            flex-shrink: 0 !important;
+        `;
+
+        // 过滤器标题行（包含搜索输入框和操作按钮）
+        const filterHeader = document.createElement('div');
+        filterHeader.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            gap: 8px !important;
+            margin-bottom: 6px !important;
+        `;
+
+        // 右侧操作区（反向过滤开关 + 清除按钮）
+        const filterActions = document.createElement('div');
+        filterActions.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-shrink: 0 !important;
+        `;
+
+        // 反向过滤开关
+        const reverseFilterBtn = document.createElement('button');
+        reverseFilterBtn.className = 'news-tag-filter-reverse';
+        reverseFilterBtn.title = '反向过滤';
+        reverseFilterBtn.innerHTML = '⇄';
+        reverseFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.newsTagFilterReverse ? '#4CAF50' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.newsTagFilterReverse ? '1' : '0.6'} !important;
+        `;
+        reverseFilterBtn.addEventListener('mouseenter', () => {
+            reverseFilterBtn.style.opacity = '1';
+            reverseFilterBtn.style.background = '#f3f4f6';
+        });
+        reverseFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.newsTagFilterReverse) {
+                reverseFilterBtn.style.opacity = '0.6';
+            }
+            reverseFilterBtn.style.background = 'none';
+        });
+        reverseFilterBtn.addEventListener('click', () => {
+            this.newsTagFilterReverse = !this.newsTagFilterReverse;
+            reverseFilterBtn.style.color = this.newsTagFilterReverse ? '#4CAF50' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.newsTagFilterReverse ? '1' : '0.6';
+            this.updateNewsSidebar();
+        });
+
+        // 无标签筛选开关
+        const noTagsFilterBtn = document.createElement('button');
+        noTagsFilterBtn.className = 'news-tag-filter-no-tags';
+        noTagsFilterBtn.title = '筛选无标签';
+        noTagsFilterBtn.innerHTML = '∅';
+        noTagsFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.newsTagFilterNoTags ? '#4CAF50' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.newsTagFilterNoTags ? '1' : '0.6'} !important;
+        `;
+        noTagsFilterBtn.addEventListener('mouseenter', () => {
+            noTagsFilterBtn.style.opacity = '1';
+            noTagsFilterBtn.style.background = '#f3f4f6';
+        });
+        noTagsFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.newsTagFilterNoTags) {
+                noTagsFilterBtn.style.opacity = '0.6';
+            }
+            noTagsFilterBtn.style.background = 'none';
+        });
+        noTagsFilterBtn.addEventListener('click', () => {
+            this.newsTagFilterNoTags = !this.newsTagFilterNoTags;
+            noTagsFilterBtn.style.color = this.newsTagFilterNoTags ? '#4CAF50' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.newsTagFilterNoTags ? '1' : '0.6';
+            this.updateNewsTagFilterUI();
+            this.updateNewsSidebar();
+        });
+
+        // 展开/收起按钮
+        const expandToggleBtn = document.createElement('button');
+        expandToggleBtn.className = 'news-tag-filter-expand-btn';
+        expandToggleBtn.title = '展开标签';
+        expandToggleBtn.innerHTML = '▼';
+        expandToggleBtn.style.cssText = `
+            font-size: 10px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: 0.6 !important;
+            display: none !important;
+        `;
+        expandToggleBtn.addEventListener('mouseenter', () => {
+            expandToggleBtn.style.opacity = '1';
+            expandToggleBtn.style.background = '#f3f4f6';
+        });
+        expandToggleBtn.addEventListener('mouseleave', () => {
+            expandToggleBtn.style.opacity = '0.6';
+            expandToggleBtn.style.background = 'none';
+        });
+        expandToggleBtn.addEventListener('click', () => {
+            this.newsTagFilterExpanded = !this.newsTagFilterExpanded;
+            this.updateNewsTagFilterUI();
+        });
+
+        // 清除按钮
+        const clearFilterBtn = document.createElement('button');
+        clearFilterBtn.className = 'news-tag-filter-clear';
+        clearFilterBtn.textContent = '×';
+        clearFilterBtn.title = '清除筛选';
+        clearFilterBtn.style.cssText = `
+            font-size: 16px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 0 !important;
+            width: 18px !important;
+            height: 18px !important;
+            line-height: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.6 !important;
+        `;
+        clearFilterBtn.addEventListener('mouseenter', () => {
+            const hasSelectedTags = this.selectedNewsFilterTags && this.selectedNewsFilterTags.length > 0;
+            const hasSearchKeyword = this.newsTagFilterSearchKeyword && this.newsTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.newsTagFilterNoTags || hasSearchKeyword;
+            if (hasActiveFilter) {
+                clearFilterBtn.style.color = '#ef4444';
+                clearFilterBtn.style.opacity = '1';
+                clearFilterBtn.style.background = '#fee2e2';
+            } else {
+                clearFilterBtn.style.opacity = '0.4';
+            }
+        });
+        clearFilterBtn.addEventListener('mouseleave', () => {
+            const hasSelectedTags = this.selectedNewsFilterTags && this.selectedNewsFilterTags.length > 0;
+            const hasSearchKeyword = this.newsTagFilterSearchKeyword && this.newsTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.newsTagFilterNoTags || hasSearchKeyword;
+            clearFilterBtn.style.color = '#9ca3af';
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.background = 'none';
+        });
+        clearFilterBtn.addEventListener('click', () => {
+            const hasSelectedTags = this.selectedNewsFilterTags && this.selectedNewsFilterTags.length > 0;
+            const hasSearchKeyword = this.newsTagFilterSearchKeyword && this.newsTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.newsTagFilterNoTags || hasSearchKeyword;
+            if (hasActiveFilter) {
+                this.selectedNewsFilterTags = [];
+                this.newsTagFilterNoTags = false;
+                this.newsTagFilterSearchKeyword = '';
+                // 更新搜索输入框的值和清除按钮状态
+                const tagSearchInput = this.sessionSidebar.querySelector('.news-tag-filter-search');
+                const tagSearchClearBtn = this.sessionSidebar.querySelector('.news-tag-filter-search-clear');
+                if (tagSearchInput) {
+                    tagSearchInput.value = '';
+                }
+                if (tagSearchClearBtn) {
+                    tagSearchClearBtn.style.display = 'none';
+                }
+                const tagSearchIcon = this.sessionSidebar.querySelector('.news-tag-filter-search-container span');
+                if (tagSearchIcon && tagSearchIcon.textContent === '🔍') {
+                    tagSearchIcon.style.opacity = '0.5';
+                }
+                this.updateNewsTagFilterUI();
+                this.updateNewsSidebar();
+            }
+        });
+
+        filterActions.appendChild(reverseFilterBtn);
+        filterActions.appendChild(noTagsFilterBtn);
+        filterActions.appendChild(expandToggleBtn);
+        filterActions.appendChild(clearFilterBtn);
+
+        // 创建标签搜索输入框容器
+        const tagSearchContainer = document.createElement('div');
+        tagSearchContainer.className = 'news-tag-filter-search-container';
+        tagSearchContainer.style.cssText = `
+            position: relative !important;
+            flex: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+        `;
+
+        // 搜索图标
+        const tagSearchIcon = document.createElement('span');
+        tagSearchIcon.textContent = '🔍';
+        tagSearchIcon.style.cssText = `
+            position: absolute !important;
+            left: 8px !important;
+            font-size: 12px !important;
+            pointer-events: none !important;
+            z-index: 1 !important;
+            opacity: 0.5 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+
+        // 标签搜索输入框
+        const tagSearchInput = document.createElement('input');
+        tagSearchInput.className = 'news-tag-filter-search';
+        tagSearchInput.type = 'text';
+        tagSearchInput.placeholder = '搜索标签...';
+        tagSearchInput.value = this.newsTagFilterSearchKeyword || '';
+        tagSearchInput.style.cssText = `
+            width: 100% !important;
+            font-weight: 400 !important;
+            font-size: 12px !important;
+            color: #374151 !important;
+            padding: 4px 24px 4px 24px !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 6px !important;
+            background: #ffffff !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+            height: 24px !important;
+        `;
+
+        // 添加占位符样式
+        if (!document.getElementById('news-tag-search-placeholder-style')) {
+            const style = document.createElement('style');
+            style.id = 'news-tag-search-placeholder-style';
+            style.textContent = `
+                .news-tag-filter-search::placeholder {
+                    color: #9ca3af !important;
+                    opacity: 1 !important;
+                }
+                .news-tag-filter-search:focus::placeholder {
+                    color: #d1d5db !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 清除按钮（位于输入框右侧）
+        const tagSearchClearBtn = document.createElement('button');
+        tagSearchClearBtn.innerHTML = '✕';
+        tagSearchClearBtn.type = 'button';
+        tagSearchClearBtn.className = 'news-tag-filter-search-clear';
+        tagSearchClearBtn.style.cssText = `
+            position: absolute !important;
+            right: 4px !important;
+            width: 16px !important;
+            height: 16px !important;
+            border: none !important;
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+            border-radius: 50% !important;
+            cursor: pointer !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 10px !important;
+            padding: 0 !important;
+            transition: all 0.2s ease !important;
+            z-index: 2 !important;
+            line-height: 1 !important;
+        `;
+
+        // 更新清除按钮显示状态
+        const updateTagSearchClearButton = () => {
+            if (tagSearchInput.value.trim() !== '') {
+                tagSearchClearBtn.style.display = 'flex';
+                tagSearchIcon.style.opacity = '0.3';
+            } else {
+                tagSearchClearBtn.style.display = 'none';
+                tagSearchIcon.style.opacity = '0.5';
+            }
+        };
+
+        // 初始状态
+        updateTagSearchClearButton();
+
+        // 清除按钮点击事件
+        tagSearchClearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            tagSearchInput.value = '';
+            this.newsTagFilterSearchKeyword = '';
+            updateTagSearchClearButton();
+            this.updateNewsTagFilterUI();
+            tagSearchInput.focus();
+        });
+
+        // 清除按钮悬停效果
+        tagSearchClearBtn.addEventListener('mouseenter', () => {
+            tagSearchClearBtn.style.background = '#d1d5db';
+            tagSearchClearBtn.style.transform = 'scale(1.15)';
+        });
+        tagSearchClearBtn.addEventListener('mouseleave', () => {
+            tagSearchClearBtn.style.background = '#e5e7eb';
+            tagSearchClearBtn.style.transform = 'scale(1)';
+        });
+
+        // 输入框聚焦和失焦样式
+        tagSearchInput.addEventListener('focus', () => {
+            tagSearchInput.style.borderColor = mainColor;
+            tagSearchInput.style.boxShadow = `0 0 0 2px ${mainColor}22`;
+            tagSearchIcon.style.opacity = '0.7';
+        });
+        tagSearchInput.addEventListener('blur', () => {
+            tagSearchInput.style.borderColor = '#e5e7eb';
+            tagSearchInput.style.boxShadow = 'none';
+            tagSearchIcon.style.opacity = tagSearchInput.value.trim() !== '' ? '0.3' : '0.5';
+        });
+
+        // 输入框输入事件，实时过滤标签（添加防抖）
+        let tagSearchDebounceTimer = null;
+        tagSearchInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            this.newsTagFilterSearchKeyword = value;
+            updateTagSearchClearButton();
+            
+            // 清除之前的定时器
+            if (tagSearchDebounceTimer) {
+                clearTimeout(tagSearchDebounceTimer);
+            }
+            
+            // 设置新的定时器（防抖）
+            tagSearchDebounceTimer = setTimeout(() => {
+                this.updateNewsTagFilterUI();
+            }, 200);
+        });
+
+        tagSearchContainer.appendChild(tagSearchIcon);
+        tagSearchContainer.appendChild(tagSearchInput);
+        tagSearchContainer.appendChild(tagSearchClearBtn);
+
+        filterHeader.appendChild(tagSearchContainer);
+        filterHeader.appendChild(filterActions);
+
+        // 标签列表容器
+        const tagFilterList = document.createElement('div');
+        tagFilterList.className = 'news-tag-filter-list';
+        tagFilterList.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+            position: relative !important;
+        `;
+
+        newsTagFilterContainer.appendChild(filterHeader);
+        newsTagFilterContainer.appendChild(tagFilterList);
+
+        // 插入到侧边栏顶部（在新闻列表之前）
+        const newsList = this.sessionSidebar.querySelector('.news-list');
+        if (newsList) {
+            this.sessionSidebar.insertBefore(newsTagFilterContainer, newsList);
+        } else {
+            this.sessionSidebar.appendChild(newsTagFilterContainer);
+        }
+
+        // 初始化标签列表
+        this.updateNewsTagFilterUI();
+    }
+
     // 更新新闻列表侧边栏
     async updateNewsSidebar(forceRefresh = false) {
         if (!this.sessionSidebar) {
@@ -13230,6 +13862,12 @@ if (typeof getCenterPosition === 'undefined') {
         if (ossTagFilterContainer) {
             ossTagFilterContainer.style.display = 'none';
         }
+        
+        // 显示新闻标签过滤器
+        let newsTagFilterContainer = this.sessionSidebar.querySelector('.news-tag-filter-container');
+        if (newsTagFilterContainer) {
+            newsTagFilterContainer.style.display = 'block';
+        }
         // 批量工具栏在批量模式下显示
         if (batchToolbar && this.batchMode) {
             batchToolbar.style.display = 'flex';
@@ -13257,6 +13895,15 @@ if (typeof getCenterPosition === 'undefined') {
         const searchInput = this.sessionSidebar.querySelector('#session-search-input');
         if (searchInput) {
             searchInput.placeholder = '搜索新闻...';
+        }
+        
+        // 创建或更新新闻标签过滤器
+        this.createNewsTagFilter();
+        
+        // 显示新闻标签过滤器（重新查询，因为 createNewsTagFilter 可能重新创建了容器）
+        newsTagFilterContainer = this.sessionSidebar.querySelector('.news-tag-filter-container');
+        if (newsTagFilterContainer) {
+            newsTagFilterContainer.style.display = 'block';
         }
         
         // 加载新闻列表
@@ -13335,6 +13982,34 @@ if (typeof getCenterPosition === 'undefined') {
                 return title.includes(filterKeyword) || 
                        description.includes(filterKeyword) || 
                        content.includes(filterKeyword);
+            });
+        }
+        
+        // 应用无标签筛选
+        if (this.newsTagFilterNoTags) {
+            news = news.filter(item => {
+                const itemTags = item.tags || [];
+                const hasTags = itemTags.length > 0 && itemTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的新闻
+            });
+        }
+        
+        // 应用标签过滤
+        if (this.selectedNewsFilterTags && this.selectedNewsFilterTags.length > 0) {
+            news = news.filter(item => {
+                const itemTags = (item.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const normalizedSelectedTags = this.selectedNewsFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
+                    itemTags.includes(selectedTag)
+                );
+                
+                if (this.newsTagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的新闻
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的新闻
+                    return hasSelectedTags;
+                }
             });
         }
         

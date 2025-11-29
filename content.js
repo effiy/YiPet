@@ -15748,25 +15748,22 @@ if (typeof getCenterPosition === 'undefined') {
     // 删除新闻项
     async deleteNewsItem(newsItem, index) {
         try {
+            // 如果新闻管理器存在，先调用接口删除
+            if (this.newsManager) {
+                try {
+                    await this.newsManager.deleteNews(newsItem);
+                } catch (error) {
+                    console.error('调用删除接口失败:', error);
+                    throw new Error(`删除失败: ${error.message || '网络错误'}`);
+                }
+            } else {
+                // 如果没有新闻管理器，直接抛出错误
+                throw new Error('新闻管理器未初始化，无法删除');
+            }
+            
             // 从本地新闻列表中移除
             if (window.currentNews && Array.isArray(window.currentNews)) {
                 window.currentNews = window.currentNews.filter((item, i) => i !== index);
-            }
-            
-            // 如果新闻管理器存在，也可以从管理器中移除
-            if (this.newsManager) {
-                const allNews = this.newsManager.getAllNews();
-                const updatedNews = allNews.filter((item, i) => {
-                    // 通过链接或标题匹配来删除
-                    if (item.link && newsItem.link && item.link === newsItem.link) {
-                        return false;
-                    }
-                    if (item.title && newsItem.title && item.title === newsItem.title) {
-                        return false;
-                    }
-                    return true;
-                });
-                this.newsManager.news = updatedNews;
             }
             
             // 重新渲染新闻列表

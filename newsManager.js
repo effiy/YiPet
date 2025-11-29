@@ -173,6 +173,77 @@ class NewsManager {
     async clearAllNews() {
         this.news = [];
     }
+    
+    /**
+     * 删除新闻
+     * @param {Object} newsItem - 新闻项对象
+     * @returns {Promise<Object>} 删除结果
+     */
+    async deleteNews(newsItem) {
+        if (!newsItem) {
+            throw new Error('新闻项不能为空');
+        }
+        
+        // 优先使用key字段，如果没有则使用link字段
+        const key = newsItem.key;
+        const link = newsItem.link;
+        
+        if (!key && !link) {
+            throw new Error('新闻项缺少key或link字段，无法删除');
+        }
+        
+        try {
+            // 构建URL，优先使用key参数，如果没有key则使用link参数
+            let url;
+            if (key) {
+                url = `${this.apiUrl}?cname=${this.cname}&key=${encodeURIComponent(key)}`;
+            } else {
+                url = `${this.apiUrl}?cname=${this.cname}&link=${encodeURIComponent(link)}`;
+            }
+            
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            
+            // 检查删除是否成功（支持多种响应格式）
+            const isSuccess = result.code === 200 || 
+                            result.status === 200 || 
+                            result.success === true ||
+                            (result.data && result.data.deleted_count > 0);
+            
+            if (isSuccess) {
+                // 如果删除成功，从本地列表中移除
+                this.news = this.news.filter((item) => {
+                    // 如果使用key删除，匹配key；如果使用link删除，匹配link
+                    if (key) {
+                        return item.key !== key;
+                    } else {
+                        return item.link !== link;
+                    }
+                });
+                console.log('新闻删除成功，已从本地列表移除');
+            } else {
+                // 如果响应表示删除失败，抛出错误
+                const errorMsg = result.msg || result.message || '删除失败';
+                throw new Error(errorMsg);
+            }
+            
+            return result;
+        } catch (error) {
+            console.error('删除新闻失败:', error);
+            throw error;
+        }
+    }
 }
 
 // 导出

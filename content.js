@@ -13408,21 +13408,47 @@ if (typeof getCenterPosition === 'undefined') {
                 margin-bottom: 8px !important;
             `;
             
+            // 创建标题行容器（标题和按钮在同一行）
+            const titleRow = document.createElement('div');
+            titleRow.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 8px !important;
+                width: 100% !important;
+                margin-bottom: 6px !important;
+            `;
+            
             // 标题
             const title = document.createElement('div');
             title.style.cssText = `
                 font-size: 14px !important;
                 font-weight: 600 !important;
                 color: #111827 !important;
-                margin-bottom: 6px !important;
                 line-height: 1.4 !important;
                 display: -webkit-box !important;
                 -webkit-line-clamp: 2 !important;
                 -webkit-box-orient: vertical !important;
                 overflow: hidden !important;
+                flex: 1 !important;
+                min-width: 0 !important;
             `;
             title.textContent = item.title || '无标题';
-            newsInfo.appendChild(title);
+            titleRow.appendChild(title);
+            
+            // 创建按钮容器（将在后面添加按钮）
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 2px !important;
+                opacity: 0 !important;
+                transition: opacity 0.2s ease !important;
+                flex-shrink: 0 !important;
+            `;
+            titleRow.appendChild(buttonContainer);
+            
+            newsInfo.appendChild(titleRow);
             
             // 描述
             if (item.description || item.content) {
@@ -13503,146 +13529,122 @@ if (typeof getCenterPosition === 'undefined') {
             newsInfo.appendChild(footer);
             newsItem.appendChild(newsInfo);
             
-            // 操作按钮区域（类似OSS文件列表）
-            const actionsContainer = document.createElement('div');
-            actionsContainer.className = 'news-actions';
-            actionsContainer.style.cssText = `
-                display: flex !important;
-                gap: 6px !important;
-                margin-top: 8px !important;
-                padding-top: 8px !important;
-                border-top: 1px solid #e5e7eb !important;
-            `;
-            
+            // 操作按钮（参考会话列表中的操作按钮样式和交互）
             // 复制链接按钮
             if (item.link) {
                 const copyBtn = document.createElement('button');
-                copyBtn.className = 'btn-success';
-                copyBtn.textContent = '📋';
+                copyBtn.className = 'news-copy-btn';
+                copyBtn.innerHTML = '📋';
                 copyBtn.title = '复制链接';
                 copyBtn.style.cssText = `
-                    flex: 1 !important;
-                    padding: 6px 4px !important;
-                    font-size: 14px !important;
+                    background: none !important;
                     border: none !important;
-                    border-radius: 4px !important;
-                    background: #10b981 !important;
-                    color: white !important;
                     cursor: pointer !important;
-                    transition: background 0.2s !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
+                    padding: 2px 4px !important;
+                    font-size: 12px !important;
+                    opacity: 0.6 !important;
+                    transition: opacity 0.2s ease !important;
+                    line-height: 1 !important;
+                    flex-shrink: 0 !important;
                 `;
                 copyBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.copyNewsLink(item.link);
                 });
                 copyBtn.addEventListener('mouseenter', () => {
-                    copyBtn.style.background = '#059669';
+                    copyBtn.style.opacity = '1';
                 });
                 copyBtn.addEventListener('mouseleave', () => {
-                    copyBtn.style.background = '#10b981';
+                    copyBtn.style.opacity = '0.6';
                 });
-                actionsContainer.appendChild(copyBtn);
+                buttonContainer.appendChild(copyBtn);
             }
             
             // 在新标签页打开按钮
             if (item.link) {
                 const openBtn = document.createElement('button');
-                openBtn.className = 'btn-open-link';
-                openBtn.textContent = '🔗';
+                openBtn.className = 'news-open-btn';
+                openBtn.innerHTML = '🔗';
                 openBtn.title = '在新标签页中打开新闻链接';
                 openBtn.style.cssText = `
-                    flex: 1 !important;
-                    padding: 6px 4px !important;
-                    font-size: 14px !important;
+                    background: none !important;
                     border: none !important;
-                    border-radius: 4px !important;
-                    background: #3b82f6 !important;
-                    color: white !important;
                     cursor: pointer !important;
-                    transition: background 0.2s !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
+                    padding: 2px 4px !important;
+                    font-size: 12px !important;
+                    opacity: 0.6 !important;
+                    transition: opacity 0.2s ease !important;
+                    line-height: 1 !important;
+                    flex-shrink: 0 !important;
                 `;
                 openBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.openNewsLink(item.link);
                 });
                 openBtn.addEventListener('mouseenter', () => {
-                    openBtn.style.background = '#2563eb';
+                    openBtn.style.opacity = '1';
                 });
                 openBtn.addEventListener('mouseleave', () => {
-                    openBtn.style.background = '#3b82f6';
+                    openBtn.style.opacity = '0.6';
                 });
-                actionsContainer.appendChild(openBtn);
+                buttonContainer.appendChild(openBtn);
             }
             
-            // 编辑按钮（预留，后续可以添加编辑功能）
+            // 编辑按钮
             const editBtn = document.createElement('button');
-            editBtn.className = 'tag-manager-btn';
-            editBtn.textContent = '✏️';
+            editBtn.className = 'news-edit-btn';
+            editBtn.innerHTML = '✏️';
             editBtn.title = '编辑新闻信息';
             editBtn.style.cssText = `
-                padding: 6px 4px !important;
-                font-size: 14px !important;
-                border: 1px solid #d1d5db !important;
-                border-radius: 4px !important;
-                background: white !important;
-                color: #374151 !important;
+                background: none !important;
+                border: none !important;
                 cursor: pointer !important;
-                transition: all 0.2s !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
             `;
             editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.handleNewsEditButtonClick(item, index);
             });
             editBtn.addEventListener('mouseenter', () => {
-                editBtn.style.background = '#f9fafb';
-                editBtn.style.borderColor = '#9ca3af';
+                editBtn.style.opacity = '1';
             });
             editBtn.addEventListener('mouseleave', () => {
-                editBtn.style.background = 'white';
-                editBtn.style.borderColor = '#d1d5db';
+                editBtn.style.opacity = '0.6';
             });
-            actionsContainer.appendChild(editBtn);
+            buttonContainer.appendChild(editBtn);
             
-            // 标签管理按钮（预留，后续可以添加标签管理功能）
+            // 标签管理按钮
             const tagBtn = document.createElement('button');
-            tagBtn.className = 'tag-manager-btn';
-            tagBtn.textContent = '🏷️';
+            tagBtn.className = 'news-tag-btn';
+            tagBtn.innerHTML = '🏷️';
             tagBtn.title = '管理标签';
             tagBtn.style.cssText = `
-                padding: 6px 4px !important;
-                font-size: 14px !important;
-                border: 1px solid #d1d5db !important;
-                border-radius: 4px !important;
-                background: white !important;
-                color: #374151 !important;
+                background: none !important;
+                border: none !important;
                 cursor: pointer !important;
-                transition: all 0.2s !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
             `;
             tagBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.handleNewsTagButtonClick(item, index);
             });
             tagBtn.addEventListener('mouseenter', () => {
-                tagBtn.style.background = '#f9fafb';
-                tagBtn.style.borderColor = '#9ca3af';
+                tagBtn.style.opacity = '1';
             });
             tagBtn.addEventListener('mouseleave', () => {
-                tagBtn.style.background = 'white';
-                tagBtn.style.borderColor = '#d1d5db';
+                tagBtn.style.opacity = '0.6';
             });
-            actionsContainer.appendChild(tagBtn);
+            buttonContainer.appendChild(tagBtn);
             
             // 上下文按钮（参考会话列表中的上下文按钮）
             const contextBtn = document.createElement('button');
@@ -13658,17 +13660,19 @@ if (typeof getCenterPosition === 'undefined') {
             `;
             contextBtn.title = '页面上下文';
             contextBtn.style.cssText = `
-                padding: 6px 8px !important;
-                font-size: 11px !important;
-                border: 1px solid #d1d5db !important;
-                border-radius: 4px !important;
-                background: white !important;
-                color: #374151 !important;
+                background: none !important;
+                border: none !important;
                 cursor: pointer !important;
-                transition: all 0.2s !important;
+                padding: 4px !important;
+                opacity: 0.6 !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
+                color: inherit !important;
+                border-radius: 4px !important;
             `;
             contextBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -13682,42 +13686,22 @@ if (typeof getCenterPosition === 'undefined') {
                 this.openContextEditor();
             });
             contextBtn.addEventListener('mouseenter', () => {
-                contextBtn.style.background = '#f9fafb';
-                contextBtn.style.borderColor = '#9ca3af';
+                contextBtn.style.opacity = '1';
+                contextBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
             });
             contextBtn.addEventListener('mouseleave', () => {
-                contextBtn.style.background = 'white';
-                contextBtn.style.borderColor = '#d1d5db';
+                contextBtn.style.opacity = '0.6';
+                contextBtn.style.background = 'none !important';
             });
-            actionsContainer.appendChild(contextBtn);
+            buttonContainer.appendChild(contextBtn);
             
-            // 删除按钮（长按删除）
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'btn-danger';
-            deleteBtn.textContent = '🗑️';
-            deleteBtn.title = '长按删除';
-            deleteBtn.style.cssText = `
-                padding: 6px 4px !important;
-                font-size: 14px !important;
-                border: none !important;
-                border-radius: 4px !important;
-                background: #ef4444 !important;
-                color: white !important;
-                cursor: pointer !important;
-                transition: background 0.2s !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            `;
-            deleteBtn.addEventListener('mouseenter', () => {
-                deleteBtn.style.background = '#dc2626';
+            // 鼠标悬停在新闻项上时显示按钮
+            newsItem.addEventListener('mouseenter', () => {
+                buttonContainer.style.opacity = '1';
             });
-            deleteBtn.addEventListener('mouseleave', () => {
-                deleteBtn.style.background = '#ef4444';
+            newsItem.addEventListener('mouseleave', () => {
+                buttonContainer.style.opacity = '0';
             });
-            actionsContainer.appendChild(deleteBtn);
-            
-            newsItem.appendChild(actionsContainer);
             
             // 长按删除相关变量
             let longPressTimer = null;

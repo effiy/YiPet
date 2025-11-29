@@ -544,7 +544,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.ossTagFilterVisibleCount = 8; // 折叠时显示的OSS标签数量
         this.ossTagFilterSearchKeyword = ''; // OSS标签搜索关键词
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
-        this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null
+        this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
         this.calendarCollapsed = false; // 日历是否折叠
         this.calendarMonth = null; // 当前显示的日历月份
         
@@ -5515,16 +5515,38 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 应用日期区间过滤
-        if (this.dateRangeFilter && this.dateRangeFilter.startDate) {
-            const startDate = this.dateRangeFilter.startDate;
-            const endDate = this.dateRangeFilter.endDate || startDate;
-            const startTime = startDate.getTime();
-            const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
-            
-            files = files.filter(file => {
-                const fileTime = file.last_modified || file.created_at || 0;
-                return fileTime >= startTime && fileTime <= endTime;
-            });
+        if (this.dateRangeFilter) {
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 有开始和结束日期：筛选区间内的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const endDate = this.dateRangeFilter.endDate;
+                const startTime = startDate.getTime();
+                const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
+                
+                files = files.filter(file => {
+                    const fileTime = file.last_modified || file.created_at || 0;
+                    return fileTime >= startTime && fileTime <= endTime;
+                });
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                // 只有开始日期：筛选开始日期当天的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const startTime = startDate.getTime();
+                const endTime = startTime + 24 * 60 * 60 * 1000 - 1; // 包含开始日期的整天
+                
+                files = files.filter(file => {
+                    const fileTime = file.last_modified || file.created_at || 0;
+                    return fileTime >= startTime && fileTime <= endTime;
+                });
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 只有结束日期：筛选结束日期之前的记录
+                const endDate = this.dateRangeFilter.endDate;
+                const endTime = endDate.getTime(); // 不包含结束日期当天
+                
+                files = files.filter(file => {
+                    const fileTime = file.last_modified || file.created_at || 0;
+                    return fileTime < endTime;
+                });
+            }
         }
         
         // 应用无标签筛选
@@ -7078,13 +7100,24 @@ if (typeof getCenterPosition === 'undefined') {
      */
     handleDateClick(date) {
         if (!this.dateRangeFilter) {
-            // 开始选择日期区间
+            // 开始选择日期区间，默认作为结束日期（支持筛选结束日期之前）
             this.dateRangeFilter = {
-                startDate: date,
-                endDate: null
+                startDate: null,
+                endDate: date
             };
-        } else if (!this.dateRangeFilter.endDate) {
-            // 选择结束日期
+        } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+            // 如果只有结束日期，现在选择开始日期
+            if (date.getTime() > this.dateRangeFilter.endDate.getTime()) {
+                // 如果选择的日期晚于结束日期，交换它们
+                this.dateRangeFilter = {
+                    startDate: this.dateRangeFilter.endDate,
+                    endDate: date
+                };
+            } else {
+                this.dateRangeFilter.startDate = date;
+            }
+        } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+            // 如果只有开始日期，现在选择结束日期
             if (date.getTime() < this.dateRangeFilter.startDate.getTime()) {
                 // 如果选择的日期早于开始日期，交换它们
                 this.dateRangeFilter = {
@@ -7095,10 +7128,10 @@ if (typeof getCenterPosition === 'undefined') {
                 this.dateRangeFilter.endDate = date;
             }
         } else {
-            // 重新开始选择
+            // 重新开始选择，默认作为结束日期
             this.dateRangeFilter = {
-                startDate: date,
-                endDate: null
+                startDate: null,
+                endDate: date
             };
         }
         
@@ -7114,16 +7147,24 @@ if (typeof getCenterPosition === 'undefined') {
      * 判断日期是否在区间内
      */
     isDateInRange(date, startDate, endDate) {
-        if (!startDate) return false;
         const dateTime = date.getTime();
-        const startTime = startDate.getTime();
         
-        if (!endDate) {
+        if (startDate && endDate) {
+            // 有开始和结束日期：判断是否在区间内
+            const startTime = startDate.getTime();
+            const endTime = endDate.getTime();
+            return dateTime >= startTime && dateTime <= endTime;
+        } else if (startDate && !endDate) {
+            // 只有开始日期：判断是否等于开始日期
+            const startTime = startDate.getTime();
             return dateTime === startTime;
+        } else if (!startDate && endDate) {
+            // 只有结束日期：判断是否在结束日期之前
+            const endTime = endDate.getTime();
+            return dateTime < endTime;
         }
         
-        const endTime = endDate.getTime();
-        return dateTime >= startTime && dateTime <= endTime;
+        return false;
     }
     
     /**
@@ -7142,13 +7183,20 @@ if (typeof getCenterPosition === 'undefined') {
     updateDateRangeDisplay(element) {
         if (!element) return;
         
-        if (this.dateRangeFilter && this.dateRangeFilter.startDate) {
-            const startStr = this.formatDate(this.dateRangeFilter.startDate);
-            if (this.dateRangeFilter.endDate) {
+        if (this.dateRangeFilter) {
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 有开始和结束日期
+                const startStr = this.formatDate(this.dateRangeFilter.startDate);
                 const endStr = this.formatDate(this.dateRangeFilter.endDate);
                 element.textContent = `${startStr} ~ ${endStr}`;
-            } else {
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                // 只有开始日期
+                const startStr = this.formatDate(this.dateRangeFilter.startDate);
                 element.textContent = `${startStr} ~ 选择结束日期`;
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 只有结束日期（筛选结束日期之前）
+                const endStr = this.formatDate(this.dateRangeFilter.endDate);
+                element.textContent = `~ ${endStr}（之前）`;
             }
             // 显示清除按钮
             if (this.clearDateBtn) {
@@ -11114,16 +11162,38 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 应用日期区间过滤
-        if (this.dateRangeFilter && this.dateRangeFilter.startDate) {
-            const startDate = this.dateRangeFilter.startDate;
-            const endDate = this.dateRangeFilter.endDate || startDate;
-            const startTime = startDate.getTime();
-            const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
-            
-            allSessions = allSessions.filter(session => {
-                const sessionTime = session.createdAt || session.updatedAt || 0;
-                return sessionTime >= startTime && sessionTime <= endTime;
-            });
+        if (this.dateRangeFilter) {
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 有开始和结束日期：筛选区间内的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const endDate = this.dateRangeFilter.endDate;
+                const startTime = startDate.getTime();
+                const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
+                
+                allSessions = allSessions.filter(session => {
+                    const sessionTime = session.createdAt || session.updatedAt || 0;
+                    return sessionTime >= startTime && sessionTime <= endTime;
+                });
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                // 只有开始日期：筛选开始日期当天的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const startTime = startDate.getTime();
+                const endTime = startTime + 24 * 60 * 60 * 1000 - 1; // 包含开始日期的整天
+                
+                allSessions = allSessions.filter(session => {
+                    const sessionTime = session.createdAt || session.updatedAt || 0;
+                    return sessionTime >= startTime && sessionTime <= endTime;
+                });
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 只有结束日期：筛选结束日期之前的记录
+                const endDate = this.dateRangeFilter.endDate;
+                const endTime = endDate.getTime(); // 不包含结束日期当天
+                
+                allSessions = allSessions.filter(session => {
+                    const sessionTime = session.createdAt || session.updatedAt || 0;
+                    return sessionTime < endTime;
+                });
+            }
         }
         
         // 清空列表
@@ -11999,16 +12069,38 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 应用日期区间过滤
-        if (this.dateRangeFilter && this.dateRangeFilter.startDate) {
-            const startDate = this.dateRangeFilter.startDate;
-            const endDate = this.dateRangeFilter.endDate || startDate;
-            const startTime = startDate.getTime();
-            const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
-            
-            files = files.filter(file => {
-                const fileTime = file.last_modified || file.created_at || 0;
-                return fileTime >= startTime && fileTime <= endTime;
-            });
+        if (this.dateRangeFilter) {
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 有开始和结束日期：筛选区间内的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const endDate = this.dateRangeFilter.endDate;
+                const startTime = startDate.getTime();
+                const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
+                
+                files = files.filter(file => {
+                    const fileTime = file.last_modified || file.created_at || 0;
+                    return fileTime >= startTime && fileTime <= endTime;
+                });
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                // 只有开始日期：筛选开始日期当天的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const startTime = startDate.getTime();
+                const endTime = startTime + 24 * 60 * 60 * 1000 - 1; // 包含开始日期的整天
+                
+                files = files.filter(file => {
+                    const fileTime = file.last_modified || file.created_at || 0;
+                    return fileTime >= startTime && fileTime <= endTime;
+                });
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 只有结束日期：筛选结束日期之前的记录
+                const endDate = this.dateRangeFilter.endDate;
+                const endTime = endDate.getTime(); // 不包含结束日期当天
+                
+                files = files.filter(file => {
+                    const fileTime = file.last_modified || file.created_at || 0;
+                    return fileTime < endTime;
+                });
+            }
         }
         
         // 应用无标签筛选

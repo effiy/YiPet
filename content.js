@@ -6999,6 +6999,19 @@ if (typeof getCenterPosition === 'undefined') {
         const selectedStart = this.dateRangeFilter?.startDate;
         const selectedEnd = this.dateRangeFilter?.endDate;
         
+        // 将主题色转换为RGB并添加透明度（在循环外部计算一次）
+        const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        };
+        const rgb = hexToRgb(mainColor) || { r: 99, g: 102, b: 241 };
+        const rangeBgColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`;
+        const rangeHoverBgColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`;
+        
         // 创建日期单元格
         for (let i = 0; i < 42; i++) {
             let date, isCurrentMonth, dayNumber;
@@ -7032,27 +7045,39 @@ if (typeof getCenterPosition === 'undefined') {
             const isStart = selectedStart && date.getTime() === selectedStart.getTime();
             const isEnd = selectedEnd && date.getTime() === selectedEnd.getTime();
             
-            // 优化今天的样式
-            let todayStyle = '';
-            if (isToday && !isSelected) {
-                // 今天且未选中：使用浅色背景和边框，字体加粗
-                todayStyle = `
-                    background: ${mainColor}15 !important;
-                    border: 2px solid ${mainColor} !important;
-                    font-weight: 600 !important;
-                    color: ${mainColor} !important;
-                `;
-            } else if (isToday && isSelected) {
-                // 今天且已选中：在选中样式基础上添加特殊标识
-                todayStyle = `
-                    border: 2px solid ${mainColor} !important;
-                    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
-                `;
+            // 优化日期样式
+            let textColor = isCurrentMonth ? '#374151' : '#d1d5db';
+            let bgColor = 'transparent';
+            let borderStyle = '';
+            let fontWeight = 'normal';
+            
+            if (isStart || isEnd) {
+                // 开始或结束日期：使用主题色背景，白色文字
+                bgColor = mainColor;
+                textColor = '#ffffff';
+                fontWeight = '700';
+                borderStyle = `border: 2px solid ${mainColor} !important;`;
+                if (isToday) {
+                    // 今天且是开始/结束日期：添加外圈边框突出显示
+                    borderStyle = `border: 2px solid ${mainColor} !important; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) inset, 0 0 0 1px ${mainColor} !important;`;
+                }
+            } else if (isSelected) {
+                // 区间内的日期：使用主题色浅色背景
+                bgColor = rangeBgColor;
+                textColor = isCurrentMonth ? '#374151' : '#9ca3af';
+                fontWeight = '500';
+                if (isToday) {
+                    // 今天且在区间内：添加边框
+                    borderStyle = `border: 1.5px solid ${mainColor} !important;`;
+                    textColor = mainColor;
+                    fontWeight = '600';
+                }
             } else if (isToday) {
-                // 今天但不在当前月：保持边框样式
-                todayStyle = `
-                    border: 2px solid ${mainColor}80 !important;
-                `;
+                // 今天但未选中：使用浅色背景和边框
+                bgColor = `${mainColor}20`;
+                borderStyle = `border: 1.5px solid ${mainColor} !important;`;
+                textColor = mainColor;
+                fontWeight = '600';
             }
             
             dayCell.textContent = dayNumber;
@@ -7066,10 +7091,10 @@ if (typeof getCenterPosition === 'undefined') {
                 border-radius: 4px !important;
                 transition: all 0.2s ease !important;
                 position: relative !important;
-                color: ${isCurrentMonth ? '#374151' : '#d1d5db'} !important;
-                background: ${isSelected ? (isStart || isEnd ? mainColor : '#e0e7ff') : 'transparent'} !important;
-                ${todayStyle}
-                ${isStart || isEnd ? `color: #ffffff !important; font-weight: 700 !important;` : ''}
+                color: ${textColor} !important;
+                background: ${bgColor} !important;
+                ${borderStyle}
+                font-weight: ${fontWeight} !important;
                 ${!isCurrentMonth ? 'opacity: 0.4 !important;' : ''}
             `;
             
@@ -7079,13 +7104,26 @@ if (typeof getCenterPosition === 'undefined') {
                 });
                 
                 dayCell.addEventListener('mouseenter', () => {
-                    if (!isSelected) {
+                    if (isStart || isEnd) {
+                        // 开始/结束日期悬停：稍微加深
+                        dayCell.style.background = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.9)`;
+                    } else if (isSelected) {
+                        // 区间内日期悬停：加深背景
+                        dayCell.style.background = rangeHoverBgColor;
+                    } else {
+                        // 未选中日期悬停：浅灰色背景
                         dayCell.style.background = '#f3f4f6';
                     }
                 });
                 
                 dayCell.addEventListener('mouseleave', () => {
-                    if (!isSelected) {
+                    if (isStart || isEnd) {
+                        dayCell.style.background = mainColor;
+                    } else if (isSelected) {
+                        dayCell.style.background = rangeBgColor;
+                    } else if (isToday) {
+                        dayCell.style.background = `${mainColor}20`;
+                    } else {
                         dayCell.style.background = 'transparent';
                     }
                 });

@@ -14154,7 +14154,7 @@ if (typeof getCenterPosition === 'undefined') {
             display: none !important;
             align-items: center !important;
             justify-content: center !important;
-            z-index: 100000 !important;
+            z-index: ${PET_CONFIG.ui.zIndex.modal} !important;
         `;
         
         const panel = document.createElement('div');
@@ -14565,7 +14565,7 @@ if (typeof getCenterPosition === 'undefined') {
             display: none !important;
             align-items: center !important;
             justify-content: center !important;
-            z-index: 100000 !important;
+            z-index: ${PET_CONFIG.ui.zIndex.modal} !important;
         `;
         
         const panel = document.createElement('div');

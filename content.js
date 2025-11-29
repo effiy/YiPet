@@ -13518,17 +13518,21 @@ if (typeof getCenterPosition === 'undefined') {
             if (item.link) {
                 const copyBtn = document.createElement('button');
                 copyBtn.className = 'btn-success';
-                copyBtn.textContent = '📋 复制链接';
+                copyBtn.textContent = '📋';
+                copyBtn.title = '复制链接';
                 copyBtn.style.cssText = `
                     flex: 1 !important;
-                    padding: 6px 8px !important;
-                    font-size: 11px !important;
+                    padding: 6px 4px !important;
+                    font-size: 14px !important;
                     border: none !important;
                     border-radius: 4px !important;
                     background: #10b981 !important;
                     color: white !important;
                     cursor: pointer !important;
                     transition: background 0.2s !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
                 `;
                 copyBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -13543,20 +13547,56 @@ if (typeof getCenterPosition === 'undefined') {
                 actionsContainer.appendChild(copyBtn);
             }
             
+            // 在新标签页打开按钮
+            if (item.link) {
+                const openBtn = document.createElement('button');
+                openBtn.className = 'btn-open-link';
+                openBtn.textContent = '🔗';
+                openBtn.title = '在新标签页中打开新闻链接';
+                openBtn.style.cssText = `
+                    flex: 1 !important;
+                    padding: 6px 4px !important;
+                    font-size: 14px !important;
+                    border: none !important;
+                    border-radius: 4px !important;
+                    background: #3b82f6 !important;
+                    color: white !important;
+                    cursor: pointer !important;
+                    transition: background 0.2s !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                `;
+                openBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openNewsLink(item.link);
+                });
+                openBtn.addEventListener('mouseenter', () => {
+                    openBtn.style.background = '#2563eb';
+                });
+                openBtn.addEventListener('mouseleave', () => {
+                    openBtn.style.background = '#3b82f6';
+                });
+                actionsContainer.appendChild(openBtn);
+            }
+            
             // 编辑按钮（预留，后续可以添加编辑功能）
             const editBtn = document.createElement('button');
             editBtn.className = 'tag-manager-btn';
-            editBtn.textContent = '✏️ 编辑';
+            editBtn.textContent = '✏️';
             editBtn.title = '编辑新闻信息';
             editBtn.style.cssText = `
-                padding: 6px 8px !important;
-                font-size: 11px !important;
+                padding: 6px 4px !important;
+                font-size: 14px !important;
                 border: 1px solid #d1d5db !important;
                 border-radius: 4px !important;
                 background: white !important;
                 color: #374151 !important;
                 cursor: pointer !important;
                 transition: all 0.2s !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
             `;
             editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -13575,17 +13615,20 @@ if (typeof getCenterPosition === 'undefined') {
             // 标签管理按钮（预留，后续可以添加标签管理功能）
             const tagBtn = document.createElement('button');
             tagBtn.className = 'tag-manager-btn';
-            tagBtn.textContent = '🏷️ 标签';
+            tagBtn.textContent = '🏷️';
             tagBtn.title = '管理标签';
             tagBtn.style.cssText = `
-                padding: 6px 8px !important;
-                font-size: 11px !important;
+                padding: 6px 4px !important;
+                font-size: 14px !important;
                 border: 1px solid #d1d5db !important;
                 border-radius: 4px !important;
                 background: white !important;
                 color: #374151 !important;
                 cursor: pointer !important;
                 transition: all 0.2s !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
             `;
             tagBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -13651,17 +13694,20 @@ if (typeof getCenterPosition === 'undefined') {
             // 删除按钮（长按删除）
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn-danger';
-            deleteBtn.textContent = '🗑️ 删除';
+            deleteBtn.textContent = '🗑️';
             deleteBtn.title = '长按删除';
             deleteBtn.style.cssText = `
-                padding: 6px 8px !important;
-                font-size: 11px !important;
+                padding: 6px 4px !important;
+                font-size: 14px !important;
                 border: none !important;
                 border-radius: 4px !important;
                 background: #ef4444 !important;
                 color: white !important;
                 cursor: pointer !important;
                 transition: background 0.2s !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
             `;
             deleteBtn.addEventListener('mouseenter', () => {
                 deleteBtn.style.background = '#dc2626';
@@ -14116,6 +14162,29 @@ if (typeof getCenterPosition === 'undefined') {
                 console.error('复制链接失败:', fallbackError);
                 this.showNotification('复制链接失败', 'error');
             }
+        }
+    }
+    
+    // 在新标签页中打开新闻链接
+    openNewsLink(url) {
+        try {
+            if (!url) {
+                this.showNotification('链接无效', 'error');
+                return;
+            }
+            
+            // 验证URL格式
+            let validUrl = url;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                validUrl = 'https://' + url;
+            }
+            
+            // 在新标签页中打开链接
+            window.open(validUrl, '_blank');
+            this.showNotification('正在打开链接...', 'success');
+        } catch (error) {
+            console.error('打开链接失败:', error);
+            this.showNotification('打开链接失败', 'error');
         }
     }
     

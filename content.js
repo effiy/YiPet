@@ -14068,7 +14068,7 @@ if (typeof getCenterPosition === 'undefined') {
     
     // 处理新闻标签按钮点击
     handleNewsTagButtonClick(newsItem, index) {
-        this.openNewsTagModal(newsItem, index);
+        this.openNewsTagManager(newsItem, index);
     }
     
     // 打开新闻编辑模态框
@@ -14490,6 +14490,110 @@ if (typeof getCenterPosition === 'undefined') {
     }
     
     // 打开新闻标签管理模态框
+    // 打开新闻标签管理器（使用与会话标签管理相同的UI）
+    openNewsTagManager(newsItem, index) {
+        if (!newsItem) {
+            console.warn('新闻项不存在，无法管理标签');
+            return;
+        }
+
+        // 确保聊天窗口已打开
+        if (!this.chatWindow || !this.isChatOpen) {
+            // 如果聊天窗口未打开，先打开它
+            this.openChatWindow().then(() => {
+                this._doOpenNewsTagManager(newsItem, index);
+            });
+        } else {
+            this._doOpenNewsTagManager(newsItem, index);
+        }
+    }
+
+    _doOpenNewsTagManager(newsItem, index) {
+        const currentTags = newsItem.tags || [];
+
+        // 创建标签管理弹窗
+        this.ensureNewsTagManagerUi();
+        const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
+        if (!modal) {
+            console.error('新闻标签管理弹窗未找到');
+            return;
+        }
+
+        // 显示弹窗
+        modal.style.display = 'flex';
+        modal.dataset.newsIndex = index;
+        modal.dataset.newsKey = newsItem.key || '';
+        modal.dataset.newsLink = newsItem.link || '';
+        
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+
+        // 加载当前标签
+        this.loadNewsTagsIntoManager(newsItem, index, currentTags);
+
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.news-tag-manager-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeNewsTagManager();
+        }
+
+        // 添加保存事件
+        const saveBtn = modal.querySelector('.news-tag-manager-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveNewsTags(newsItem, index);
+        }
+
+        // 添加输入框回车事件（兼容中文输入法）
+        const tagInput = modal.querySelector('.news-tag-manager-input');
+        if (tagInput) {
+            // 确保输入法组合状态已初始化（如果输入框是新创建的）
+            if (tagInput._isComposing === undefined) {
+                tagInput._isComposing = false;
+                tagInput.addEventListener('compositionstart', () => {
+                    tagInput._isComposing = true;
+                });
+                tagInput.addEventListener('compositionend', () => {
+                    tagInput._isComposing = false;
+                });
+            }
+            
+            // 添加回车键事件处理（移除旧的监听器，避免重复绑定）
+            const existingHandler = tagInput._enterKeyHandler;
+            if (existingHandler) {
+                tagInput.removeEventListener('keydown', existingHandler);
+            }
+            
+            const enterKeyHandler = (e) => {
+                // 如果在输入法组合过程中，忽略回车键
+                if (tagInput._isComposing) {
+                    return;
+                }
+                
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addNewsTagFromInput(newsItem, index);
+                }
+            };
+            
+            tagInput._enterKeyHandler = enterKeyHandler;
+            tagInput.addEventListener('keydown', enterKeyHandler);
+            
+            tagInput.focus();
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeNewsTagManager();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
     openNewsTagModal(newsItem, index) {
         // 确保模态框UI存在
         this.ensureNewsTagModalUi();
@@ -14558,6 +14662,347 @@ if (typeof getCenterPosition === 'undefined') {
         if (tagInput) tagInput.value = '';
     }
     
+    // 确保新闻标签管理器UI存在（使用与会话标签管理相同的UI）
+    ensureNewsTagManagerUi() {
+        if (!this.chatWindow) return;
+        if (this.chatWindow.querySelector('#pet-news-tag-manager')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'pet-news-tag-manager';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 10000 !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeNewsTagManager();
+            }
+        });
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
+            width: 90% !important;
+            max-width: 800px !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+        `;
+
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 20px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '管理标签';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'news-tag-manager-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // 输入区域
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'news-tag-manager-input-group';
+        inputGroup.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            margin-bottom: 20px !important;
+        `;
+
+        const tagInput = document.createElement('input');
+        tagInput.className = 'news-tag-manager-input';
+        tagInput.type = 'text';
+        tagInput.placeholder = '输入标签名称，按回车添加';
+        tagInput.style.cssText = `
+            flex: 1 !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        
+        // 输入法组合状态跟踪（用于处理中文输入）
+        tagInput._isComposing = false;
+        tagInput.addEventListener('compositionstart', () => {
+            tagInput._isComposing = true;
+        });
+        tagInput.addEventListener('compositionend', () => {
+            tagInput._isComposing = false;
+        });
+        
+        tagInput.addEventListener('focus', () => {
+            tagInput.style.borderColor = '#4CAF50';
+        });
+        tagInput.addEventListener('blur', () => {
+            tagInput.style.borderColor = '#e0e0e0';
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加';
+        addBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.background = '#45a049';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.background = '#4CAF50';
+        });
+        addBtn.addEventListener('click', () => {
+            const newsIndex = modal.dataset.newsIndex;
+            const newsKey = modal.dataset.newsKey;
+            const newsLink = modal.dataset.newsLink;
+            if (newsIndex !== undefined) {
+                // 获取新闻项
+                let newsItem = null;
+                if (window.currentNews && Array.isArray(window.currentNews) && parseInt(newsIndex) >= 0) {
+                    newsItem = window.currentNews[parseInt(newsIndex)];
+                }
+                if (newsItem) {
+                    this.addNewsTagFromInput(newsItem, parseInt(newsIndex));
+                }
+            }
+        });
+
+        // 智能生成标签按钮（新闻标签管理也支持智能生成）
+        const smartGenerateBtn = document.createElement('button');
+        smartGenerateBtn.className = 'news-tag-manager-smart-generate';
+        smartGenerateBtn.textContent = '✨ 智能生成';
+        smartGenerateBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #9C27B0 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        smartGenerateBtn.addEventListener('mouseenter', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#7B1FA2';
+            }
+        });
+        smartGenerateBtn.addEventListener('mouseleave', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#9C27B0';
+            }
+        });
+        smartGenerateBtn.addEventListener('click', () => {
+            const newsIndex = modal.dataset.newsIndex;
+            if (newsIndex !== undefined) {
+                let newsItem = null;
+                if (window.currentNews && Array.isArray(window.currentNews) && parseInt(newsIndex) >= 0) {
+                    newsItem = window.currentNews[parseInt(newsIndex)];
+                }
+                if (newsItem) {
+                    this.generateNewsSmartTags(newsItem, parseInt(newsIndex), smartGenerateBtn);
+                }
+            }
+        });
+
+        inputGroup.appendChild(tagInput);
+        inputGroup.appendChild(addBtn);
+        inputGroup.appendChild(smartGenerateBtn);
+
+        // 快捷标签按钮容器
+        const quickTagsContainer = document.createElement('div');
+        quickTagsContainer.className = 'news-tag-manager-quick-tags';
+        quickTagsContainer.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            margin-bottom: 20px !important;
+        `;
+
+        // 快捷标签列表（与会话标签管理保持一致）
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        
+        quickTags.forEach(tagName => {
+            const quickTagBtn = document.createElement('button');
+            quickTagBtn.textContent = tagName;
+            quickTagBtn.className = 'news-tag-manager-quick-tag-btn';
+            quickTagBtn.dataset.tagName = tagName;
+            quickTagBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #f0f0f0 !important;
+                color: #333 !important;
+                border: 1px solid #d0d0d0 !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 13px !important;
+                transition: all 0.2s ease !important;
+            `;
+            quickTagBtn.addEventListener('mouseenter', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#e0e0e0';
+                quickTagBtn.style.borderColor = '#4CAF50';
+            });
+            quickTagBtn.addEventListener('mouseleave', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#f0f0f0';
+                quickTagBtn.style.borderColor = '#d0d0d0';
+            });
+            quickTagBtn.addEventListener('click', () => {
+                // 如果标签已添加，不执行操作
+                if (quickTagBtn.style.cursor === 'not-allowed') {
+                    return;
+                }
+                const newsIndex = modal.dataset.newsIndex;
+                if (newsIndex !== undefined) {
+                    let newsItem = null;
+                    if (window.currentNews && Array.isArray(window.currentNews) && parseInt(newsIndex) >= 0) {
+                        newsItem = window.currentNews[parseInt(newsIndex)];
+                    }
+                    if (newsItem) {
+                        this.addNewsQuickTag(newsItem, parseInt(newsIndex), tagName);
+                    }
+                }
+            });
+            quickTagsContainer.appendChild(quickTagBtn);
+        });
+
+        // 标签列表
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'news-tag-manager-tags';
+        tagsContainer.style.cssText = `
+            min-height: 100px !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            margin-bottom: 20px !important;
+            padding: 12px !important;
+            background: #f8f9fa !important;
+            border-radius: 6px !important;
+        `;
+
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 10px !important;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #f0f0f0 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: background 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#e0e0e0';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#f0f0f0';
+        });
+        cancelBtn.addEventListener('click', () => this.closeNewsTagManager());
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'news-tag-manager-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#1976D2';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#2196F3';
+        });
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+
+        panel.appendChild(header);
+        panel.appendChild(inputGroup);
+        panel.appendChild(quickTagsContainer);
+        panel.appendChild(tagsContainer);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        this.chatWindow.appendChild(modal);
+    }
+
     // 确保新闻标签管理模态框UI存在
     ensureNewsTagModalUi() {
         if (document.getElementById('pet-news-tag-modal')) return;
@@ -14740,6 +15185,237 @@ if (typeof getCenterPosition === 'undefined') {
         document.body.appendChild(modal);
     }
     
+    // 加载新闻标签到管理器
+    loadNewsTagsIntoManager(newsItem, index, tags) {
+        const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
+        if (!modal) return;
+
+        const tagsContainer = modal.querySelector('.news-tag-manager-tags');
+        if (!tagsContainer) return;
+
+        tagsContainer.innerHTML = '';
+
+        if (!tags || tags.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无标签';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+                font-size: 14px !important;
+            `;
+            tagsContainer.appendChild(emptyMsg);
+            return;
+        }
+
+        tags.forEach((tag, tagIndex) => {
+            const tagItem = document.createElement('div');
+            tagItem.style.cssText = `
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                background: #4CAF50 !important;
+                color: white !important;
+                padding: 6px 12px !important;
+                border-radius: 20px !important;
+                margin: 4px !important;
+                font-size: 13px !important;
+            `;
+
+            const tagText = document.createElement('span');
+            tagText.textContent = tag;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '✕';
+            removeBtn.style.cssText = `
+                background: rgba(255, 255, 255, 0.3) !important;
+                border: none !important;
+                color: white !important;
+                width: 18px !important;
+                height: 18px !important;
+                border-radius: 50% !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 !important;
+                transition: background 0.2s ease !important;
+            `;
+            removeBtn.addEventListener('mouseenter', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.5)';
+            });
+            removeBtn.addEventListener('mouseleave', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+            });
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeNewsTag(newsItem, index, tagIndex);
+            });
+
+            tagItem.appendChild(tagText);
+            tagItem.appendChild(removeBtn);
+            tagsContainer.appendChild(tagItem);
+        });
+
+        // 更新快捷标签按钮状态
+        const quickTagButtons = modal.querySelectorAll('.news-tag-manager-quick-tag-btn');
+        quickTagButtons.forEach(btn => {
+            const tagName = btn.dataset.tagName;
+            const isAdded = tags && tags.includes(tagName);
+            if (isAdded) {
+                btn.style.background = '#4CAF50';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#4CAF50';
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+            } else {
+                btn.style.background = '#f0f0f0';
+                btn.style.color = '#333';
+                btn.style.borderColor = '#d0d0d0';
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            }
+        });
+    }
+
+    // 从输入框添加新闻标签
+    addNewsTagFromInput(newsItem, index) {
+        const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
+        if (!modal) return;
+
+        const tagInput = modal.querySelector('.news-tag-manager-input');
+        if (!tagInput) return;
+
+        const tagName = tagInput.value.trim();
+        if (!tagName) return;
+
+        // 获取当前标签
+        if (!newsItem.tags) {
+            newsItem.tags = [];
+        }
+
+        // 检查标签是否已存在
+        if (newsItem.tags.includes(tagName)) {
+            tagInput.value = '';
+            tagInput.focus();
+            return;
+        }
+
+        // 添加标签
+        newsItem.tags.push(tagName);
+        tagInput.value = '';
+        tagInput.focus();
+
+        // 重新加载标签列表
+        this.loadNewsTagsIntoManager(newsItem, index, newsItem.tags);
+    }
+
+    // 添加新闻快捷标签
+    addNewsQuickTag(newsItem, index, tagName) {
+        const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
+        if (!modal) return;
+
+        if (!newsItem.tags) {
+            newsItem.tags = [];
+        }
+
+        // 检查标签是否已存在
+        if (newsItem.tags.includes(tagName)) {
+            return;
+        }
+
+        // 添加标签
+        newsItem.tags.push(tagName);
+
+        // 重新加载标签列表
+        this.loadNewsTagsIntoManager(newsItem, index, newsItem.tags);
+    }
+
+    // 删除新闻标签
+    removeNewsTag(newsItem, index, tagIndex) {
+        if (!newsItem.tags) return;
+
+        newsItem.tags.splice(tagIndex, 1);
+        this.loadNewsTagsIntoManager(newsItem, index, newsItem.tags);
+    }
+
+    // 智能生成新闻标签
+    async generateNewsSmartTags(newsItem, index, buttonElement) {
+        if (!newsItem) {
+            console.warn('新闻项不存在，无法生成标签');
+            return;
+        }
+
+        const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
+        
+        if (!modal) {
+            console.error('新闻标签管理弹窗未找到');
+            return;
+        }
+
+        // 禁用按钮，显示加载状态
+        if (buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.style.background = '#ccc';
+            buttonElement.style.cursor = 'not-allowed';
+            const originalText = buttonElement.textContent;
+            buttonElement.textContent = '生成中...';
+            
+            try {
+                // 收集新闻信息
+                const newsTitle = newsItem.title || '当前新闻';
+                const newsDescription = newsItem.description || '';
+                const newsContent = newsItem.content || '';
+                
+                // 构建提示词
+                const prompt = `请根据以下新闻信息，生成3-5个合适的标签（用中文，用逗号分隔，不要包含"标签"、"分类"等词）：
+标题：${newsTitle}
+描述：${newsDescription}
+内容：${newsContent.substring(0, 500)}`;
+
+                // 使用简单的关键词提取（智能生成功能可以后续扩展）
+                const keywords = this.extractKeywordsFromNews(newsItem);
+                if (keywords.length > 0) {
+                    if (!newsItem.tags) {
+                        newsItem.tags = [];
+                    }
+                    keywords.forEach(tag => {
+                        if (!newsItem.tags.includes(tag)) {
+                            newsItem.tags.push(tag);
+                        }
+                    });
+                    this.loadNewsTagsIntoManager(newsItem, index, newsItem.tags);
+                    this.showNotification('已添加关键词标签', 'success');
+                } else {
+                    this.showNotification('无法提取关键词', 'info');
+                }
+            } catch (error) {
+                console.error('生成标签失败:', error);
+                this.showNotification('生成标签失败: ' + error.message, 'error');
+            } finally {
+                buttonElement.disabled = false;
+                buttonElement.style.background = '#9C27B0';
+                buttonElement.style.cursor = 'pointer';
+                buttonElement.textContent = originalText;
+            }
+        }
+    }
+
+    // 从新闻中提取关键词（简单实现）
+    extractKeywordsFromNews(newsItem) {
+        const text = `${newsItem.title || ''} ${newsItem.description || ''} ${newsItem.content || ''}`;
+        // 简单的关键词提取逻辑（可以根据需要改进）
+        const keywords = [];
+        const commonTags = ['技术', '新闻', '科技', '互联网', '商业', '娱乐', '体育', '政治', '社会', '文化'];
+        commonTags.forEach(tag => {
+            if (text.includes(tag)) {
+                keywords.push(tag);
+            }
+        });
+        return keywords.slice(0, 3); // 最多返回3个关键词
+    }
+
     // 更新标签输入列表显示
     updateNewsTagInputList(container, tags) {
         if (!container) return;
@@ -14834,46 +15510,53 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
     
-    // 保存新闻标签
-    async saveNewsTags() {
-        const modal = document.getElementById('pet-news-tag-modal');
+    // 保存新闻标签（新版本，使用新的标签管理器）
+    async saveNewsTags(newsItem, index) {
+        if (!newsItem) {
+            console.warn('新闻项不存在，无法保存标签');
+            return;
+        }
+
+        const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
         if (!modal) return;
-        
-        const saveBtn = modal.querySelector('#news-tag-save-btn');
+
+        const saveBtn = modal.querySelector('.news-tag-manager-save');
         if (!saveBtn) return;
-        
+
         if (saveBtn.hasAttribute('data-saving')) return;
-        
+
         saveBtn.setAttribute('data-saving', 'true');
         const originalText = saveBtn.textContent;
         saveBtn.textContent = '保存中...';
         saveBtn.style.opacity = '0.6';
         saveBtn.style.cursor = 'not-allowed';
-        
+
         try {
-            const tags = modal._currentTags || [];
-            const newsKey = modal.getAttribute('data-news-key');
-            const newsLink = modal.getAttribute('data-news-link');
-            const index = parseInt(modal.getAttribute('data-news-index'));
-            
-            // 获取原始新闻数据
-            let originalNews = null;
-            if (window.currentNews && Array.isArray(window.currentNews) && index >= 0) {
-                originalNews = window.currentNews[index];
+            // 规范化标签（trim处理，去重，过滤空标签）
+            if (newsItem.tags && Array.isArray(newsItem.tags)) {
+                const normalizedTags = newsItem.tags
+                    .map(tag => tag ? tag.trim() : '')
+                    .filter(tag => tag.length > 0);
+                // 去重
+                newsItem.tags = [...new Set(normalizedTags)];
             }
-            
+
+            const tags = newsItem.tags || [];
+            const newsKey = newsItem.key || modal.dataset.newsKey;
+            const newsLink = newsItem.link || modal.dataset.newsLink;
+
             // 构建更新数据
             const updateData = {
-                key: newsKey || originalNews?.key,
+                key: newsKey,
                 tags: tags
             };
-            
+
             // 如果有key，说明是更新现有新闻
             if (updateData.key) {
                 // 调用后端API更新
                 const apiUrl = this.newsManager?.apiUrl || 'https://api.effiy.cn/mongodb/';
                 const cname = this.newsManager?.cname || 'rss';
-                
+
                 const response = await fetch(`${apiUrl}?cname=${cname}`, {
                     method: 'PUT',
                     headers: {
@@ -14881,19 +15564,14 @@ if (typeof getCenterPosition === 'undefined') {
                     },
                     body: JSON.stringify(updateData)
                 });
-                
+
                 if (!response.ok) {
                     const errorText = await response.text();
                     throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
-                
+
                 const result = await response.json();
                 if (result.code === 200) {
-                    // 更新本地新闻数据
-                    if (originalNews) {
-                        originalNews.tags = tags;
-                    }
-                    
                     // 更新新闻管理器中的数据
                     if (this.newsManager) {
                         const allNews = this.newsManager.getAllNews();
@@ -14905,26 +15583,36 @@ if (typeof getCenterPosition === 'undefined') {
                             allNews[newsIndex].tags = tags;
                         }
                     }
-                    
+
+                    // 更新window.currentNews中的数据
+                    if (window.currentNews && Array.isArray(window.currentNews) && index >= 0) {
+                        if (window.currentNews[index]) {
+                            window.currentNews[index].tags = tags;
+                        }
+                    }
+
                     // 重新渲染新闻列表
                     await this.updateNewsSidebar(false);
-                    
+
                     this.showNotification('标签已保存', 'success');
-                    this.closeNewsTagModal();
+                    this.closeNewsTagManager();
                 } else {
                     throw new Error(result.message || '保存失败');
                 }
             } else {
                 // 没有key，暂时只更新本地
-                if (originalNews) {
-                    originalNews.tags = tags;
+                // 更新window.currentNews中的数据
+                if (window.currentNews && Array.isArray(window.currentNews) && index >= 0) {
+                    if (window.currentNews[index]) {
+                        window.currentNews[index].tags = tags;
+                    }
                 }
-                
+
                 // 重新渲染新闻列表
                 await this.updateNewsSidebar(false);
-                
+
                 this.showNotification('标签已更新（本地）', 'success');
-                this.closeNewsTagModal();
+                this.closeNewsTagManager();
             }
         } catch (error) {
             console.error('保存标签失败:', error);
@@ -14934,6 +15622,95 @@ if (typeof getCenterPosition === 'undefined') {
             saveBtn.textContent = originalText;
             saveBtn.style.opacity = '1';
             saveBtn.style.cursor = 'pointer';
+        }
+    }
+
+    // 关闭新闻标签管理器（自动保存）
+    async closeNewsTagManager() {
+        const modal = this.chatWindow?.querySelector('#pet-news-tag-manager');
+        if (modal) {
+            const newsIndex = modal.dataset.newsIndex;
+            const newsKey = modal.dataset.newsKey;
+            const newsLink = modal.dataset.newsLink;
+            
+            // 关闭前自动保存
+            if (newsIndex !== undefined) {
+                try {
+                    let newsItem = null;
+                    if (window.currentNews && Array.isArray(window.currentNews) && parseInt(newsIndex) >= 0) {
+                        newsItem = window.currentNews[parseInt(newsIndex)];
+                    }
+                    
+                    if (newsItem) {
+                        // 规范化标签（trim处理，去重，过滤空标签）
+                        if (newsItem.tags && Array.isArray(newsItem.tags)) {
+                            const normalizedTags = newsItem.tags
+                                .map(tag => tag ? tag.trim() : '')
+                                .filter(tag => tag.length > 0);
+                            // 去重
+                            newsItem.tags = [...new Set(normalizedTags)];
+                        }
+                        
+                        // 如果有key，保存到后端
+                        if (newsItem.key) {
+                            const apiUrl = this.newsManager?.apiUrl || 'https://api.effiy.cn/mongodb/';
+                            const cname = this.newsManager?.cname || 'rss';
+                            
+                            try {
+                                const response = await fetch(`${apiUrl}?cname=${cname}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        key: newsItem.key,
+                                        tags: newsItem.tags || []
+                                    })
+                                });
+                                
+                                if (response.ok) {
+                                    const result = await response.json();
+                                    if (result.code === 200) {
+                                        // 更新新闻管理器中的数据
+                                        if (this.newsManager) {
+                                            const allNews = this.newsManager.getAllNews();
+                                            const newsIndex = allNews.findIndex(n => 
+                                                (n.key && n.key === newsItem.key) || 
+                                                (n.link && n.link === newsItem.link)
+                                            );
+                                            if (newsIndex >= 0) {
+                                                allNews[newsIndex].tags = newsItem.tags;
+                                            }
+                                        }
+                                        
+                                        await this.updateNewsSidebar(false);
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('自动保存标签失败:', error);
+                            }
+                        } else {
+                            // 没有key，只更新本地
+                            await this.updateNewsSidebar(false);
+                        }
+                    }
+                } catch (error) {
+                    console.error('自动保存标签失败:', error);
+                }
+            }
+            
+            modal.style.display = 'none';
+            
+            // 显示折叠按钮
+            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+            if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
+            if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+            
+            const tagInput = modal.querySelector('.news-tag-manager-input');
+            if (tagInput) {
+                tagInput.value = '';
+            }
         }
     }
     

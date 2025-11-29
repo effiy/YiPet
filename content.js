@@ -15,12 +15,20 @@
             warn: console.warn
         };
         const muteIfNeeded = (enabled) => {
-            if (enabled) return;
-            const noop = () => {};
-            console.log = noop;
-            console.info = noop;
-            console.debug = noop;
-            console.warn = noop;
+            if (enabled) {
+                // 恢复原始日志方法
+                console.log = original.log;
+                console.info = original.info;
+                console.debug = original.debug;
+                console.warn = original.warn;
+            } else {
+                // 禁用日志
+                const noop = () => {};
+                console.log = noop;
+                console.info = noop;
+                console.debug = noop;
+                console.warn = noop;
+            }
         };
         chrome.storage.sync.get([keyName], (res) => {
             const enabled = res[keyName];
@@ -13301,6 +13309,12 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         let news = this.newsManager ? this.newsManager.getAllNews() : [];
+        
+        // 调试：输出获取到的新闻数据
+        console.log('从newsManager获取到的新闻数量:', news.length);
+        if (news.length > 0) {
+            console.log('第一条新闻示例:', news[0]);
+        }
         
         // 根据搜索关键词过滤新闻（本地过滤）
         if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {

@@ -77,12 +77,31 @@ class NewsManager {
             
             // 处理返回的数据
             let newsList = [];
+            
+            // 调试：输出原始返回数据
+            console.log('新闻API返回的原始数据:', result);
+            
             if (Array.isArray(result)) {
                 newsList = result;
-            } else if (result.data && Array.isArray(result.data)) {
-                newsList = result.data;
-            } else if (result.items && Array.isArray(result.items)) {
-                newsList = result.items;
+            } else if (result && typeof result === 'object') {
+                // 尝试多种可能的数据字段
+                if (Array.isArray(result?.data?.list)) {
+                    newsList = result?.data?.list;
+                } else {
+                    // 如果都不匹配，尝试查找所有数组类型的属性
+                    for (const key in result) {
+                        if (Array.isArray(result[key]) && result[key].length > 0) {
+                            console.log('发现数组字段:', key, '包含', result[key].length, '条数据');
+                            newsList = result[key];
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 如果仍然没有找到数据，输出警告
+            if (newsList.length === 0) {
+                console.warn('未能从API返回数据中提取新闻列表，返回的数据结构:', Object.keys(result || {}));
             }
             
             this.news = newsList;

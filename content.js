@@ -11546,8 +11546,8 @@ if (typeof getCenterPosition === 'undefined') {
             `;
             titleRow.appendChild(titleDiv);
             
-            // 只要不是http开头的网址就会显示编辑标题按钮
-            const shouldShowEditBtn = session.url && !session.url.startsWith('http');
+            // 所有会话都显示编辑标题按钮
+            const shouldShowEditBtn = session && session.id;
             let editBtn = null;
             
             if (shouldShowEditBtn) {

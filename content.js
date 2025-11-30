@@ -1255,6 +1255,67 @@ if (typeof getCenterPosition === 'undefined') {
         `;
     }
 
+    // 显示加载动画（使用角色run目录下的连续图片）
+    showLoadingAnimation() {
+        if (!this.pet) return;
+        
+        const role = this.role || '教师';
+        const runImages = [
+            chrome.runtime.getURL(`roles/${role}/run/1.png`),
+            chrome.runtime.getURL(`roles/${role}/run/2.png`),
+            chrome.runtime.getURL(`roles/${role}/run/3.png`)
+        ];
+        
+        // 保存原始背景图片
+        if (!this.originalBackgroundImage) {
+            const role = this.role || '教师';
+            this.originalBackgroundImage = chrome.runtime.getURL(`roles/${role}/icon.png`);
+        }
+        
+        // 如果当前已经有动画在运行，不重复启动
+        if (this.loadingAnimationInterval) {
+            return;
+        }
+        
+        let currentFrame = 0;
+        
+        // 设置初始帧
+        this.pet.style.backgroundImage = `url(${runImages[currentFrame]})`;
+        this.pet.style.backgroundSize = 'contain';
+        this.pet.style.backgroundPosition = 'center';
+        this.pet.style.backgroundRepeat = 'no-repeat';
+        
+        // 创建动画循环（每200ms切换一帧）
+        this.loadingAnimationInterval = setInterval(() => {
+            if (!this.pet) {
+                this.stopLoadingAnimation();
+                return;
+            }
+            
+            currentFrame = (currentFrame + 1) % runImages.length;
+            this.pet.style.backgroundImage = `url(${runImages[currentFrame]})`;
+        }, 200);
+        
+        console.log('开始显示加载动画');
+    }
+
+    // 停止加载动画，恢复原始图片
+    stopLoadingAnimation() {
+        if (this.loadingAnimationInterval) {
+            clearInterval(this.loadingAnimationInterval);
+            this.loadingAnimationInterval = null;
+        }
+        
+        if (this.pet && this.originalBackgroundImage) {
+            this.pet.style.backgroundImage = `url(${this.originalBackgroundImage})`;
+            this.pet.style.backgroundSize = 'contain';
+            this.pet.style.backgroundPosition = 'center';
+            this.pet.style.backgroundRepeat = 'no-repeat';
+        }
+        
+        console.log('停止加载动画');
+    }
+
     addInteractions() {
         if (!this.pet) return;
 
@@ -2507,6 +2568,9 @@ if (typeof getCenterPosition === 'undefined') {
 
     // 生成宠物响应（流式版本）
     async generatePetResponseStream(message, onContent, abortController = null) {
+        // 开始加载动画
+        this.showLoadingAnimation();
+        
         try {
             // 检查开关状态
             let includeContext = true; // 默认包含上下文
@@ -2711,11 +2775,17 @@ if (typeof getCenterPosition === 'undefined') {
             }
             console.error('API 调用失败:', error);
             throw error;
+        } finally {
+            // 停止加载动画
+            this.stopLoadingAnimation();
         }
     }
 
     // 生成宠物响应
     async generatePetResponse(message) {
+        // 开始加载动画
+        this.showLoadingAnimation();
+        
         try {
             // 检查开关状态
             let includeContext = true; // 默认包含上下文
@@ -2825,6 +2895,9 @@ if (typeof getCenterPosition === 'undefined') {
             console.error('API 调用失败:', error);
             // 如果 API 调用失败，返回默认响应
             return '抱歉，我现在无法连接到服务器。请稍后再试。😔';
+        } finally {
+            // 停止加载动画
+            this.stopLoadingAnimation();
         }
     }
 

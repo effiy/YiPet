@@ -30,6 +30,9 @@ class SessionApiManager {
             saveCount: 0,
             errorCount: 0,
         };
+        
+        // 加载动画计数器
+        this.activeRequestCount = 0;
     }
     
     /**
@@ -48,6 +51,26 @@ class SessionApiManager {
     }
     
     /**
+     * 显示加载动画
+     */
+    _showLoadingAnimation() {
+        this.activeRequestCount++;
+        if (this.activeRequestCount === 1 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.show();
+        }
+    }
+    
+    /**
+     * 隐藏加载动画
+     */
+    _hideLoadingAnimation() {
+        this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
+        if (this.activeRequestCount === 0 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.hide();
+        }
+    }
+    
+    /**
      * 执行请求（带重试和去重）
      */
     async _request(url, options = {}, retryCount = 0) {
@@ -60,6 +83,11 @@ class SessionApiManager {
         // 检查是否有正在进行的相同请求
         if (this.pendingRequests.has(requestKey)) {
             return await this.pendingRequests.get(requestKey);
+        }
+        
+        // 显示加载动画（只在第一次请求时显示）
+        if (retryCount === 0) {
+            this._showLoadingAnimation();
         }
         
         // 创建请求Promise
@@ -85,6 +113,9 @@ class SessionApiManager {
                 // 从pending中移除
                 this.pendingRequests.delete(requestKey);
                 
+                // 隐藏加载动画
+                this._hideLoadingAnimation();
+                
                 return result;
             } catch (error) {
                 // 从pending中移除
@@ -96,6 +127,9 @@ class SessionApiManager {
                     await new Promise(resolve => setTimeout(resolve, this.retryConfig.retryDelay * (retryCount + 1)));
                     return this._request(url, options, retryCount + 1);
                 }
+                
+                // 隐藏加载动画
+                this._hideLoadingAnimation();
                 
                 this.stats.errorCount++;
                 throw error;

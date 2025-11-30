@@ -506,6 +506,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.colorIndex = PET_CONFIG.pet.defaultColorIndex;
         this.size = PET_CONFIG.pet.defaultSize;
         this.position = getPetDefaultPosition();
+        this.role = '教师'; // 默认角色为教师
         this.chatWindow = null;
         this.isChatOpen = false;
         this.currentModel = (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3';
@@ -780,6 +781,11 @@ if (typeof getCenterPosition === 'undefined') {
                     sendResponse({ success: true });
                     break;
 
+                case 'setRole':
+                    this.setRole(request.role);
+                    sendResponse({ success: true, role: this.role });
+                    break;
+
                 case 'setModel':
                     this.setModel(request.model);
                     sendResponse({ success: true, model: this.currentModel });
@@ -791,6 +797,7 @@ if (typeof getCenterPosition === 'undefined') {
                         color: this.colorIndex,
                         size: this.size,
                         position: this.position,
+                        role: this.role || '教师',
                         model: this.currentModel
                     });
                     break;
@@ -1226,8 +1233,9 @@ if (typeof getCenterPosition === 'undefined') {
     updatePetStyle() {
         if (!this.pet) return;
 
-        // 获取扩展的 URL
-        const iconUrl = chrome.runtime.getURL('icons/icon.png');
+        // 根据角色获取对应的图标URL，默认使用教师角色
+        const role = this.role || '教师';
+        const iconUrl = chrome.runtime.getURL(`roles/${role}/icon.png`);
 
         this.pet.style.cssText = `
             position: fixed !important;
@@ -1335,6 +1343,22 @@ if (typeof getCenterPosition === 'undefined') {
         console.log('宠物大小设置为:', this.size);
     }
 
+    setRole(role) {
+        // 验证角色是否有效（检查 roles 文件夹中是否存在对应的文件夹）
+        const validRoles = ['教师', '医生', '甜品师', '警察'];
+        if (validRoles.includes(role)) {
+            this.role = role;
+            this.updatePetStyle();
+            this.saveState();
+            this.syncToGlobalState();
+            console.log('宠物角色设置为:', this.role);
+        } else {
+            console.warn('无效的角色，使用默认角色教师:', role);
+            this.role = '教师';
+            this.updatePetStyle();
+        }
+    }
+
     setModel(modelId) {
         if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models && PET_CONFIG.chatModels.models.some(m => m.id === modelId)) {
             this.currentModel = modelId;
@@ -1391,6 +1415,7 @@ if (typeof getCenterPosition === 'undefined') {
             color: this.colorIndex,
             size: this.size,
             position: this.position,
+            role: this.role || '教师',
             model: this.currentModel,
             timestamp: now
         };
@@ -1552,10 +1577,13 @@ if (typeof getCenterPosition === 'undefined') {
         }
 
         this.currentModel = state.model !== undefined ? state.model : ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
+        // 加载角色，默认为教师
+        this.role = state.role || '教师';
         // 位置也使用全局状态，但会进行边界检查
         this.position = this.validatePosition(state.position || getPetDefaultPosition());
         console.log('宠物全局状态已恢复:', state);
         console.log('宠物可见性:', this.isVisible);
+        console.log('宠物角色:', this.role);
 
         // 更新宠物样式（如果宠物已创建）
         this.updatePetStyle();
@@ -1582,9 +1610,13 @@ if (typeof getCenterPosition === 'undefined') {
                     this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize;
                 }
 
+                // 加载角色，默认为教师
+                this.role = state.role || '教师';
+
                 this.position = state.position || getPetDefaultPosition();
                 console.log('宠物本地状态已恢复:', state);
                 console.log('宠物可见性:', this.isVisible);
+                console.log('宠物角色:', this.role);
                 
                 // 更新宠物样式（如果宠物已创建）
                 this.updatePetStyle();
@@ -1605,7 +1637,7 @@ if (typeof getCenterPosition === 'undefined') {
 
     handleGlobalStateUpdate(newState) {
         if (newState) {
-            // 更新全局状态（颜色、大小、可见性、位置）
+            // 更新全局状态（颜色、大小、可见性、位置、角色）
             this.isVisible = newState.visible !== undefined ? newState.visible : this.isVisible;
             this.colorIndex = newState.color !== undefined ? newState.color : this.colorIndex;
 
@@ -1614,6 +1646,11 @@ if (typeof getCenterPosition === 'undefined') {
                 this.size = PET_CONFIG.pet.defaultSize;
             } else {
                 this.size = newState.size !== undefined ? newState.size : this.size;
+            }
+
+            // 更新角色
+            if (newState.role) {
+                this.role = newState.role;
             }
 
             // 位置也进行跨页面同步，但会进行边界检查

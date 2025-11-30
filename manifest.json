@@ -34,6 +34,7 @@
     {
       "resources": [
         "icons/icon.png",
+        "roles/*/icon.png",
         "mermaid.min.js",
         "load-mermaid.js",
         "render-mermaid.js",

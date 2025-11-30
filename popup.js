@@ -80,7 +80,8 @@ class PopupController {
             visible: true,
             color: 0,
             size: 180,
-            position: { x: 0, y: 0 }
+            position: { x: 0, y: 0 },
+            role: '教师' // 默认角色
         };
         
         this.init();
@@ -176,6 +177,14 @@ class PopupController {
             });
         }
         
+        // 角色选择
+        const roleSelect = document.getElementById('roleSelect');
+        if (roleSelect) {
+            roleSelect.addEventListener('change', (e) => {
+                this.setPetRole(e.target.value);
+            });
+        }
+        
     }
     
     async loadPetStatus() {
@@ -197,7 +206,8 @@ class PopupController {
                         visible: response.visible !== undefined ? response.visible : true,
                         color: response.color !== undefined ? response.color : 0,
                         size: response.size !== undefined ? response.size : 180,
-                        position: response.position || getPetDefaultPosition()
+                        position: response.position || getPetDefaultPosition(),
+                        role: response.role || '教师'
                     };
                 } else {
                     console.log('无法获取宠物状态，使用默认值');
@@ -237,7 +247,8 @@ class PopupController {
                             visible: state.visible !== undefined ? state.visible : true,
                             color: state.color !== undefined ? state.color : 0,
                             size: state.size !== undefined ? state.size : 180,
-                            position: state.position || getPetDefaultPosition()
+                            position: state.position || getPetDefaultPosition(),
+                            role: state.role || '教师'
                         });
                     } else {
                         resolve(null);
@@ -261,7 +272,8 @@ class PopupController {
                                 visible: state.visible !== undefined ? state.visible : false,
                                 color: state.color !== undefined ? state.color : 0,
                                 size: state.size !== undefined ? state.size : 180,
-                                position: state.position || getPetDefaultPosition()
+                                position: state.position || getPetDefaultPosition(),
+                                role: state.role || '教师'
                             });
                         } else {
                             resolve(null);
@@ -279,7 +291,8 @@ class PopupController {
                         visible: state.visible !== undefined ? state.visible : true,
                         color: state.color !== undefined ? state.color : 0,
                         size: state.size !== undefined ? state.size : 180,
-                        position: state.position || getPetDefaultPosition()
+                        position: state.position || getPetDefaultPosition(),
+                        role: state.role || '教师'
                     });
                 } else {
                     // 如果 local 中没有，尝试从 sync 加载（兼容旧版本）
@@ -290,12 +303,13 @@ class PopupController {
                                 const localValue = localStorage.getItem('petGlobalState');
                                 if (localValue) {
                                     const state = JSON.parse(localValue);
-                                    resolve({
-                                        visible: state.visible !== undefined ? state.visible : false,
-                                        color: state.color !== undefined ? state.color : 0,
-                                        size: state.size !== undefined ? state.size : 180,
-                                        position: state.position || getPetDefaultPosition()
-                                    });
+                            resolve({
+                                visible: state.visible !== undefined ? state.visible : false,
+                                color: state.color !== undefined ? state.color : 0,
+                                size: state.size !== undefined ? state.size : 180,
+                                position: state.position || getPetDefaultPosition(),
+                                role: state.role || '教师'
+                            });
                                 } else {
                                     resolve(null);
                                 }
@@ -312,7 +326,8 @@ class PopupController {
                                 visible: state.visible !== undefined ? state.visible : true,
                                 color: state.color !== undefined ? state.color : 0,
                                 size: state.size !== undefined ? state.size : 180,
-                                position: state.position || getPetDefaultPosition()
+                                position: state.position || getPetDefaultPosition(),
+                                role: state.role || '教师'
                             });
                         } else {
                             resolve(null);
@@ -330,6 +345,7 @@ class PopupController {
                 color: this.petStatus.color,
                 size: this.petStatus.size,
                 position: this.petStatus.position,
+                role: this.petStatus.role || '教师',
                 timestamp: Date.now()
             };
             
@@ -556,6 +572,12 @@ class PopupController {
             colorSelect.value = this.petStatus.color;
         }
         
+        // 更新角色选择
+        const roleSelect = document.getElementById('roleSelect');
+        if (roleSelect) {
+            roleSelect.value = this.petStatus.role || '教师';
+        }
+        
         // 更新状态指示器
         this.updateStatusIndicator();
     }
@@ -746,6 +768,29 @@ class PopupController {
         }
     }
     
+    async setPetRole(role) {
+        this.petStatus.role = role || '教师';
+        
+        try {
+            // 更新全局状态
+            await this.updateGlobalState();
+            
+            const response = await this.sendMessageToContentScript({ 
+                action: 'setRole', 
+                role: role 
+            });
+            if (response && response.success) {
+                this.showNotification(`角色已切换为：${role}`);
+                // 更新UI状态
+                this.updateUI();
+            } else {
+                this.showNotification('操作失败，请刷新页面后重试', 'error');
+            }
+        } catch (error) {
+            this.showNotification('操作失败，请刷新页面后重试', 'error');
+        }
+    }
+    
     setButtonLoading(buttonId, loading) {
         const button = document.getElementById(buttonId);
         if (button) {
@@ -773,6 +818,7 @@ class PopupController {
                                 this.petStatus.visible = newState.visible !== undefined ? newState.visible : this.petStatus.visible;
                                 this.petStatus.color = newState.color !== undefined ? newState.color : this.petStatus.color;
                                 this.petStatus.size = newState.size !== undefined ? newState.size : this.petStatus.size;
+                                this.petStatus.role = newState.role || this.petStatus.role || '教师';
                                 // 位置也进行跨页面同步
                                 if (newState.position) {
                                     this.petStatus.position = newState.position;

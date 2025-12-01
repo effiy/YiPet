@@ -4660,46 +4660,39 @@ if (typeof getCenterPosition === 'undefined') {
                 // pageContent = session.pageContent || '';
             }
             
-            // 如果是新闻会话，使用当前选中会话的标题、网址等信息（如果存在且不是新闻会话本身）
-            if (session._isNewsSession) {
-                // 如果当前有选中的会话，且不是新闻会话本身，则使用选中会话的信息
-                if (this.currentSessionId && this.currentSessionId !== sessionId && this.sessions[this.currentSessionId]) {
-                    const currentSession = this.sessions[this.currentSessionId];
-                    // 如果当前会话不是新闻会话，使用当前会话的所有相关字段
-                    if (!currentSession._isNewsSession) {
-                        // 使用当前选中会话的所有字段（标题、网址、描述、内容等）
-                        if (currentSession.pageTitle) {
-                            pageTitle = currentSession.pageTitle;
-                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的标题一致
-                            session.pageTitle = currentSession.pageTitle;
-                        }
-                        if (currentSession.url) {
-                            sessionUrl = currentSession.url;
-                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的网址一致
-                            session.url = currentSession.url;
-                        }
-                        if (currentSession.pageDescription) {
-                            pageDescription = currentSession.pageDescription;
-                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的描述一致
-                            session.pageDescription = currentSession.pageDescription;
-                        }
-                        if (currentSession.pageContent) {
-                            pageContent = currentSession.pageContent;
-                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的内容一致
-                            session.pageContent = currentSession.pageContent;
-                        }
-                        // 同时更新会话对象中的tags，以便后续构建sessionData时使用
-                        if (currentSession.tags && Array.isArray(currentSession.tags)) {
-                            session.tags = currentSession.tags;
-                        }
-                        console.log('新闻会话保存时使用当前选中会话的信息:', {
-                            pageTitle: pageTitle,
-                            url: sessionUrl,
-                            pageDescription: pageDescription,
-                            tags: session.tags
-                        });
-                    }
+            // 如果是新闻会话，优先使用新闻本身的标题、网址等信息
+            if (session._isNewsSession && session._newsInfo) {
+                // 优先使用新闻信息中的标题和网址，确保保存的会话信息与新闻一致
+                if (session._newsInfo.title) {
+                    pageTitle = session._newsInfo.title;
+                    // 同时更新会话对象本身，确保保存到后端的数据和会话显示的标题一致
+                    session.pageTitle = session._newsInfo.title;
                 }
+                if (session._newsInfo.link) {
+                    sessionUrl = session._newsInfo.link;
+                    // 同时更新会话对象本身，确保保存到后端的数据和会话显示的网址一致
+                    session.url = session._newsInfo.link;
+                }
+                if (session._newsInfo.description || session._newsInfo.content) {
+                    pageDescription = session._newsInfo.description || session._newsInfo.content || '';
+                    // 同时更新会话对象本身，确保保存到后端的数据和会话显示的描述一致
+                    session.pageDescription = pageDescription;
+                }
+                if (session._newsInfo.content) {
+                    pageContent = session._newsInfo.content;
+                    // 同时更新会话对象本身，确保保存到后端的数据和会话显示的内容一致
+                    session.pageContent = session._newsInfo.content;
+                }
+                // 如果新闻有标签，使用新闻的标签
+                if (session._newsInfo.tags && Array.isArray(session._newsInfo.tags)) {
+                    session.tags = session._newsInfo.tags;
+                }
+                console.log('新闻会话保存时使用新闻本身的信息:', {
+                    pageTitle: pageTitle,
+                    url: sessionUrl,
+                    pageDescription: pageDescription,
+                    tags: session.tags
+                });
             }
             
             // 处理消息中的 base64 图片（在上传到 OSS 后替换为 URL）
@@ -4869,29 +4862,24 @@ if (typeof getCenterPosition === 'undefined') {
                             // OSS文件会话的pageContent应该保留会话中保存的内容，而不是设置为空
                         }
                         
-                        // 如果是新闻会话，使用当前选中会话的标题、网址等信息（如果存在且不是新闻会话本身）
-                        if (session._isNewsSession) {
-                            if (this.currentSessionId && this.currentSessionId !== sessionId && this.sessions[this.currentSessionId]) {
-                                const currentSession = this.sessions[this.currentSessionId];
-                                if (!currentSession._isNewsSession) {
-                                    // 使用当前选中会话的所有字段（标题、网址、描述、内容等）
-                                    if (currentSession.pageTitle) {
-                                        fallbackPageTitle = currentSession.pageTitle;
-                                    }
-                                    if (currentSession.url) {
-                                        fallbackSessionUrl = currentSession.url;
-                                    }
-                                    if (currentSession.pageDescription) {
-                                        fallbackPageDescription = currentSession.pageDescription;
-                                    }
-                                    if (currentSession.pageContent) {
-                                        fallbackPageContent = currentSession.pageContent;
-                                    }
-                                    // 同时更新会话对象中的tags，以便后续构建sessionData时使用
-                                    if (currentSession.tags && Array.isArray(currentSession.tags)) {
-                                        session.tags = currentSession.tags;
-                                    }
-                                }
+                        // 如果是新闻会话，优先使用新闻本身的标题、网址等信息
+                        if (session._isNewsSession && session._newsInfo) {
+                            // 优先使用新闻信息中的标题和网址，确保保存的会话信息与新闻一致
+                            if (session._newsInfo.title) {
+                                fallbackPageTitle = session._newsInfo.title;
+                            }
+                            if (session._newsInfo.link) {
+                                fallbackSessionUrl = session._newsInfo.link;
+                            }
+                            if (session._newsInfo.description || session._newsInfo.content) {
+                                fallbackPageDescription = session._newsInfo.description || session._newsInfo.content || '';
+                            }
+                            if (session._newsInfo.content) {
+                                fallbackPageContent = session._newsInfo.content;
+                            }
+                            // 如果新闻有标签，使用新闻的标签
+                            if (session._newsInfo.tags && Array.isArray(session._newsInfo.tags)) {
+                                session.tags = session._newsInfo.tags;
                             }
                         }
                         

@@ -16348,7 +16348,7 @@ ${originalText}
         const descriptionInput = document.createElement('textarea');
         descriptionInput.id = 'news-edit-description';
         descriptionInput.setAttribute('data-optimize-field', 'description');
-        descriptionInput.rows = 3;
+        descriptionInput.rows = 6;
         descriptionInput.style.cssText = `
             width: 100% !important;
             padding: 10px 12px !important;

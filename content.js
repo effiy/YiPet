@@ -11440,9 +11440,18 @@ if (typeof getCenterPosition === 'undefined') {
             return;
         }
         
+        // 检查是否从其他视图切换过来
+        const wasOssFileListVisible = this.ossFileListVisible;
+        const wasNewsListVisible = this.newsListVisible;
+        
         // 确保视图模式状态正确
         this.ossFileListVisible = false;
         this.newsListVisible = false;
+        
+        // 如果视图状态发生变化（从其他视图切换过来），清空聊天消息
+        if ((wasOssFileListVisible || wasNewsListVisible)) {
+            this.clearChatMessages();
+        }
         
         // 隐藏OSS文件列表和OSS标签筛选器
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
@@ -12570,9 +12579,18 @@ if (typeof getCenterPosition === 'undefined') {
             return;
         }
         
+        // 检查是否从其他视图切换过来
+        const wasOssFileListVisible = this.ossFileListVisible;
+        const wasNewsListVisible = this.newsListVisible;
+        
         // 确保视图模式状态正确
         this.ossFileListVisible = true;
         this.newsListVisible = false;
+        
+        // 如果视图状态发生变化（从其他视图切换过来），清空聊天消息
+        if (!wasOssFileListVisible) {
+            this.clearChatMessages();
+        }
         
         // 隐藏会话列表相关元素
         const sessionList = this.sessionSidebar.querySelector('.session-list');
@@ -14307,8 +14325,17 @@ if (typeof getCenterPosition === 'undefined') {
             return;
         }
         
+        // 检查是否从其他视图切换过来
+        const wasOssFileListVisible = this.ossFileListVisible;
+        const wasNewsListVisible = this.newsListVisible;
+        
         // 确保视图模式状态正确
         this.newsListVisible = true;
+        
+        // 如果视图状态发生变化（从其他视图切换过来），清空聊天消息
+        if (!wasNewsListVisible) {
+            this.clearChatMessages();
+        }
         
         // 隐藏会话列表相关元素
         const sessionList = this.sessionSidebar.querySelector('.session-list');
@@ -18218,10 +18245,26 @@ if (typeof getCenterPosition === 'undefined') {
         console.log('已清除所有选中状态');
     }
     
+    // 清空聊天会话内容
+    clearChatMessages() {
+        if (!this.chatWindow || !this.isChatOpen) {
+            return;
+        }
+        
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+            console.log('已清空聊天会话内容');
+        }
+    }
+    
     // 设置视图模式（会话列表、OSS文件列表或新闻列表）
     async setViewMode(mode) {
         // 切换视图前，清除所有选中状态
         this.clearAllSelections();
+        
+        // 切换视图时，清空聊天会话内容
+        this.clearChatMessages();
         
         if (mode === 'oss') {
             this.ossFileListVisible = true;

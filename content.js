@@ -15912,6 +15912,307 @@ ${originalText}
         }
     }
     
+    // 优化页面上下文内容
+    async optimizeContext() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (!textarea) return;
+        
+        const originalText = textarea.value.trim();
+        if (!originalText) {
+            this.showNotification('请先输入内容', 'warning');
+            return;
+        }
+        
+        // 保存原始文本，用于撤销功能
+        if (!textarea.hasAttribute('data-original-text')) {
+            textarea.setAttribute('data-original-text', originalText);
+        }
+        
+        // 获取优化按钮和撤销按钮
+        const optimizeBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-optimize-btn') : null;
+        const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
+        const originalBtnText = optimizeBtn ? optimizeBtn.textContent : '';
+        
+        // 禁用按钮，显示加载状态
+        if (optimizeBtn) {
+            optimizeBtn.disabled = true;
+            optimizeBtn.textContent = '优化中...';
+            optimizeBtn.style.opacity = '0.6';
+            optimizeBtn.style.cursor = 'not-allowed';
+        }
+        
+        try {
+            // 构建优化提示词
+            const systemPrompt = `你是一个专业的Markdown文档优化专家，擅长：
+1. 优化文档结构和层次，使其逻辑清晰、层次分明
+2. 改进语言表达，使其更加流畅自然、易于理解
+3. 提升可读性，优化段落组织和过渡
+4. 保持原文的核心信息和完整性
+5. 优化Markdown格式，使其更加规范和美观
+6. 确保文档结构合理，标题层级清晰
+
+请优化Markdown格式的页面上下文内容，使其更加清晰、流畅、易读。`;
+
+            const userPrompt = `请优化以下Markdown格式的页面上下文内容，要求：
+1. 保持原文的核心信息和完整性
+2. 优化文档结构，使逻辑更清晰、层次更分明
+3. 改进语言表达，使其更加流畅自然
+4. 提升可读性，优化段落组织和过渡
+5. 优化Markdown格式，使其更加规范和美观
+6. 确保标题层级清晰，段落之间过渡自然
+7. 保持Markdown格式的有效性
+
+原始内容：
+${originalText}
+
+请直接返回优化后的Markdown内容，不要包含任何说明文字、引号或其他格式标记。`;
+            
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+            
+            // 显示加载动画
+            this._showLoadingAnimation();
+            
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // 先获取文本响应，检查是否是SSE格式
+            const responseText = await response.text();
+            let result;
+            
+            // 检查是否包含SSE格式（包含 "data: "）
+            if (responseText.includes('data: ')) {
+                // 处理SSE流式响应
+                const lines = responseText.split('\n');
+                let accumulatedData = '';
+                let lastValidData = null;
+                
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.startsWith('data: ')) {
+                        try {
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr === '[DONE]' || dataStr === '') {
+                                continue;
+                            }
+                            
+                            // 尝试解析JSON
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 检查是否完成
+                            if (chunk.done === true) {
+                                break;
+                            }
+                            
+                            // 累积内容（处理流式内容块）
+                            if (chunk.data) {
+                                accumulatedData += chunk.data;
+                            } else if (chunk.content) {
+                                accumulatedData += chunk.content;
+                            } else if (chunk.message && chunk.message.content) {
+                                // Ollama格式
+                                accumulatedData += chunk.message.content;
+                            } else if (typeof chunk === 'string') {
+                                accumulatedData += chunk;
+                            }
+                            
+                            // 保存最后一个有效的数据块（用于提取其他字段如status等）
+                            lastValidData = chunk;
+                        } catch (e) {
+                            // 如果不是JSON，可能是纯文本内容
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr && dataStr !== '[DONE]') {
+                                accumulatedData += dataStr;
+                            }
+                        }
+                    }
+                }
+                
+                // 如果累积了内容，创建结果对象
+                if (accumulatedData || lastValidData) {
+                    if (lastValidData && lastValidData.status) {
+                        // 如果有status字段，保留原有结构，但替换data/content
+                        result = {
+                            ...lastValidData,
+                            data: accumulatedData || lastValidData.data || '',
+                            content: accumulatedData || lastValidData.content || ''
+                        };
+                    } else {
+                        result = {
+                            data: accumulatedData,
+                            content: accumulatedData
+                        };
+                    }
+                } else {
+                    // 如果没有累积数据，尝试解析为JSON
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        throw new Error('无法解析响应格式');
+                    }
+                }
+            } else {
+                // 非SSE格式，直接解析JSON
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`无法解析响应: ${e.message}`);
+                }
+            }
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
+            // 解析响应内容
+            let optimizedText;
+            // 优先检查 status 字段，如果存在且不等于 200，则抛出错误
+            if (result.status !== undefined && result.status !== 200) {
+                throw new Error(result.msg || result.message || '优化失败');
+            }
+            
+            // 按优先级提取优化后的文本
+            if (result.data) {
+                optimizedText = result.data;
+            } else if (result.content) {
+                optimizedText = result.content;
+            } else if (result.message) {
+                optimizedText = result.message;
+            } else if (typeof result === 'string') {
+                optimizedText = result;
+            } else if (result.text) {
+                optimizedText = result.text;
+            } else {
+                // 如果所有字段都不存在，尝试从对象中查找可能的文本字段
+                const possibleFields = ['output', 'response', 'result', 'answer'];
+                for (const field of possibleFields) {
+                    if (result[field] && typeof result[field] === 'string') {
+                        optimizedText = result[field];
+                        break;
+                    }
+                }
+                
+                // 如果仍然找不到，抛出错误
+                if (!optimizedText) {
+                    console.error('无法解析响应内容，响应对象:', result);
+                    throw new Error('无法解析响应内容，请检查服务器响应格式');
+                }
+            }
+            
+            // 清理优化后的文本（更彻底的清理）
+            optimizedText = optimizedText.trim();
+            
+            // 移除可能的引号包裹（支持多种引号类型）
+            const quotePairs = [
+                ['"', '"'],
+                ['"', '"'],
+                ['"', '"'],
+                ["'", "'"],
+                ['`', '`'],
+                ['「', '」'],
+                ['『', '』']
+            ];
+            
+            for (const [startQuote, endQuote] of quotePairs) {
+                if (optimizedText.startsWith(startQuote) && optimizedText.endsWith(endQuote)) {
+                    optimizedText = optimizedText.slice(startQuote.length, -endQuote.length).trim();
+                }
+            }
+            
+            // 移除常见的AI回复前缀（如"优化后的内容："等）
+            const prefixes = [
+                /^优化后的[内容上下文]：?\s*/i,
+                /^以下是优化后的[内容上下文]：?\s*/i,
+                /^优化结果：?\s*/i,
+                /^优化后的文本：?\s*/i,
+                /^优化后的[内容上下文]如下：?\s*/i,
+                /^[内容上下文]优化如下：?\s*/i
+            ];
+            
+            for (const prefix of prefixes) {
+                optimizedText = optimizedText.replace(prefix, '').trim();
+            }
+            
+            // 清理多余的空白字符（但保留Markdown格式）
+            optimizedText = optimizedText.replace(/\n{4,}/g, '\n\n\n'); // 多个换行符合并为三个（保留Markdown段落间距）
+            optimizedText = optimizedText.replace(/[ \t]+/g, ' '); // 多个空格合并为一个（但保留代码块中的空格）
+            optimizedText = optimizedText.trim();
+            
+            // 验证优化后的文本是否有效
+            if (!optimizedText || optimizedText.length < 10) {
+                throw new Error('优化后的文本过短，可能优化失败，请重试');
+            }
+            
+            // 如果优化后的文本与原文完全相同，给出提示
+            if (optimizedText === originalText) {
+                this.showNotification('优化后的内容与原文相同', 'info');
+            }
+            
+            // 更新输入框内容
+            textarea.value = optimizedText;
+            
+            // 保存优化后的文本，用于撤销功能
+            textarea.setAttribute('data-optimized-text', optimizedText);
+            
+            // 触发 input 事件，确保值被正确更新并更新预览
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            // 显示撤销按钮
+            if (undoBtn) {
+                undoBtn.style.display = 'block';
+            }
+            
+            // 显示优化完成通知，包含字符数信息
+            const charCount = optimizedText.length;
+            const originalCharCount = originalText.length;
+            const changeInfo = charCount !== originalCharCount 
+                ? `（${originalCharCount}字 → ${charCount}字）` 
+                : `（${charCount}字）`;
+            this.showNotification(`优化完成 ${changeInfo}`, 'success');
+        } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            console.error('优化上下文失败:', error);
+            
+            // 提供更详细的错误信息
+            let errorMessage = '优化失败，请稍后重试';
+            if (error.message) {
+                if (error.message.includes('HTTP error')) {
+                    errorMessage = '网络请求失败，请检查网络连接';
+                } else if (error.message.includes('无法解析')) {
+                    errorMessage = '服务器响应格式异常，请稍后重试';
+                } else if (error.message.includes('过短')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage = error.message;
+                }
+            }
+            
+            this.showNotification(errorMessage, 'error');
+        } finally {
+            // 恢复按钮状态
+            if (optimizeBtn) {
+                optimizeBtn.disabled = false;
+                optimizeBtn.textContent = originalBtnText;
+                optimizeBtn.style.opacity = '1';
+                optimizeBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+    
     // 确保新闻编辑模态框UI存在
     ensureNewsEditModalUi() {
         if (document.getElementById('pet-news-edit-modal')) return;
@@ -22852,6 +23153,77 @@ ${originalText}
         });
         copyBtn.addEventListener('click', () => this.copyContextEditor());
         
+        // 智能优化按钮组
+        const optimizeBtnGroup = document.createElement('div');
+        optimizeBtnGroup.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+        
+        const optimizeBtn = document.createElement('button');
+        optimizeBtn.id = 'pet-context-optimize-btn';
+        optimizeBtn.textContent = '✨ 智能优化';
+        optimizeBtn.setAttribute('title', '智能优化上下文内容');
+        optimizeBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(76, 175, 80, 0.3) !important;
+            background: rgba(76, 175, 80, 0.15) !important;
+            color: #4caf50 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        optimizeBtn.addEventListener('click', async () => {
+            await this.optimizeContext();
+        });
+        optimizeBtn.addEventListener('mouseenter', () => {
+            if (!optimizeBtn.disabled) {
+                optimizeBtn.style.background = 'rgba(76, 175, 80, 0.25)';
+            }
+        });
+        optimizeBtn.addEventListener('mouseleave', () => {
+            if (!optimizeBtn.disabled) {
+                optimizeBtn.style.background = 'rgba(76, 175, 80, 0.15)';
+            }
+        });
+        
+        const undoBtn = document.createElement('button');
+        undoBtn.id = 'pet-context-undo-btn';
+        undoBtn.textContent = '↶ 撤销';
+        undoBtn.setAttribute('title', '撤销优化');
+        undoBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(255, 152, 0, 0.3) !important;
+            background: rgba(255, 152, 0, 0.15) !important;
+            color: #ff9800 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            display: none !important;
+            transition: all 0.2s !important;
+        `;
+        undoBtn.addEventListener('click', () => {
+            const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+            if (textarea) {
+                const originalText = textarea.getAttribute('data-original-text');
+                if (originalText !== null) {
+                    textarea.value = originalText;
+                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    undoBtn.style.display = 'none';
+                    this.showNotification('已撤销优化', 'info');
+                }
+            }
+        });
+        undoBtn.addEventListener('mouseenter', () => {
+            undoBtn.style.background = 'rgba(255, 152, 0, 0.25)';
+        });
+        undoBtn.addEventListener('mouseleave', () => {
+            undoBtn.style.background = 'rgba(255, 152, 0, 0.15)';
+        });
+        
+        optimizeBtnGroup.appendChild(optimizeBtn);
+        optimizeBtnGroup.appendChild(undoBtn);
+        
         // 拉取当前网页上下文按钮
         const refreshBtn = document.createElement('button');
         refreshBtn.id = 'pet-context-refresh-btn';
@@ -23004,6 +23376,7 @@ ${originalText}
         `;
         downloadBtn.addEventListener('click', () => this.downloadContextMarkdown());
         headerBtns.appendChild(copyBtn);
+        headerBtns.appendChild(optimizeBtnGroup);
         headerBtns.appendChild(refreshBtn);
         headerBtns.appendChild(saveBtn);
         headerBtns.appendChild(downloadBtn);
@@ -23103,6 +23476,11 @@ ${originalText}
         this.updateContextEditorPosition();
         this.loadContextIntoEditor();
         this.updateContextPreview();
+        // 隐藏撤销按钮（打开编辑器时重置状态）
+        const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
+        if (undoBtn) {
+            undoBtn.style.display = 'none';
+        }
         // 默认并排模式
         this._contextPreviewMode = this._contextPreviewMode || 'split';
         this.applyContextPreviewMode();

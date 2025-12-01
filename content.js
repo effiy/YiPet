@@ -4660,6 +4660,40 @@ if (typeof getCenterPosition === 'undefined') {
                 // pageContent = session.pageContent || '';
             }
             
+            // 如果是新闻会话，使用当前选中会话的标题、网址等信息（如果存在且不是新闻会话本身）
+            if (session._isNewsSession) {
+                // 如果当前有选中的会话，且不是新闻会话本身，则使用选中会话的信息
+                if (this.currentSessionId && this.currentSessionId !== sessionId && this.sessions[this.currentSessionId]) {
+                    const currentSession = this.sessions[this.currentSessionId];
+                    // 如果当前会话不是新闻会话，使用当前会话的所有相关字段
+                    if (!currentSession._isNewsSession) {
+                        // 使用当前选中会话的所有字段（标题、网址、描述、内容等）
+                        if (currentSession.pageTitle) {
+                            pageTitle = currentSession.pageTitle;
+                        }
+                        if (currentSession.url) {
+                            sessionUrl = currentSession.url;
+                        }
+                        if (currentSession.pageDescription) {
+                            pageDescription = currentSession.pageDescription;
+                        }
+                        if (currentSession.pageContent) {
+                            pageContent = currentSession.pageContent;
+                        }
+                        // 同时更新会话对象中的tags，以便后续构建sessionData时使用
+                        if (currentSession.tags && Array.isArray(currentSession.tags)) {
+                            session.tags = currentSession.tags;
+                        }
+                        console.log('新闻会话保存时使用当前选中会话的信息:', {
+                            pageTitle: pageTitle,
+                            url: sessionUrl,
+                            pageDescription: pageDescription,
+                            tags: session.tags
+                        });
+                    }
+                }
+            }
+            
             // 处理消息中的 base64 图片（在上传到 OSS 后替换为 URL）
             // 只有在 processImages 为 true 时才处理（即用户发送图片消息时）
             let messages = session.messages || [];
@@ -4693,6 +4727,12 @@ if (typeof getCenterPosition === 'undefined') {
             if (session._isOssFileSession && session._ossFileInfo) {
                 sessionData._isOssFileSession = true;
                 sessionData._ossFileInfo = session._ossFileInfo;
+            }
+            
+            // 如果是新闻会话，包含新闻信息（保留原始新闻信息，即使使用了当前选中会话的标题和网址）
+            if (session._isNewsSession && session._newsInfo) {
+                sessionData._isNewsSession = true;
+                sessionData._newsInfo = session._newsInfo;
             }
             
             // 使用API管理器
@@ -4774,20 +4814,105 @@ if (typeof getCenterPosition === 'undefined') {
                 // 404错误是正常的（会话可能还未同步到后端），尝试使用队列保存
                 if (this.sessionApi && session) {
                     try {
+                        // 构建会话数据，对于新闻会话使用当前选中会话的信息
+                        // 检查是否为空白会话
+                        const isBlankSession = session._isBlankSession || 
+                                              !session.url || 
+                                              session.url.startsWith('blank-session://');
+                        
+                        // 如果是OSS文件会话，url应该使用OSS文件的url，而不是session.url（可能被更新为当前页面URL）
+                        // 如果是空白会话，应该保持使用原始的blank-session://URL，而不是当前页面URL
+                        let fallbackSessionUrl = '';
+                        if (session._isOssFileSession && session._ossFileInfo?.url) {
+                            fallbackSessionUrl = session._ossFileInfo.url;
+                        } else if (isBlankSession) {
+                            // 对于空白会话，优先使用保存的原始URL，防止被意外更新为当前页面URL
+                            if (session._originalUrl && session._originalUrl.startsWith('blank-session://')) {
+                                fallbackSessionUrl = session._originalUrl;
+                            } else if (session.url && session.url.startsWith('blank-session://')) {
+                                fallbackSessionUrl = session.url;
+                            } else {
+                                // 如果URL已经被更新，使用创建时的URL或重新生成一个blank-session://URL
+                                fallbackSessionUrl = session._originalUrl || `blank-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                            }
+                        } else {
+                            fallbackSessionUrl = session.url || '';
+                        }
+                        
+                        // 如果是OSS文件会话，优先使用已更新的 pageTitle 和 pageDescription
+                        // 如果未更新，则使用 OSS 文件的名称作为默认值
+                        let fallbackPageTitle = session.pageTitle || '';
+                        let fallbackPageDescription = session.pageDescription || '';
+                        let fallbackPageContent = session.pageContent || '';
+                        
+                        if (session._isOssFileSession && session._ossFileInfo) {
+                            // 直接使用 session.pageTitle 和 session.pageDescription
+                            // 这些值在 saveOssFileTitleInfo 中已经被更新为编辑后的标题和描述
+                            // 如果它们为空，则使用 OSS 文件信息中的默认值
+                            if (!fallbackPageTitle) {
+                                fallbackPageTitle = session._ossFileInfo.name || 'OSS文件';
+                            }
+                            // pageDescription 已经在上面从 session.pageDescription 获取
+                            // 如果用户在 OSS 文件列表中编辑了描述，session.pageDescription 会被更新
+                            // 如果未编辑，pageDescription 可能为空字符串，这是正常的
+                            // OSS文件会话的pageContent应该保留会话中保存的内容，而不是设置为空
+                        }
+                        
+                        // 如果是新闻会话，使用当前选中会话的标题、网址等信息（如果存在且不是新闻会话本身）
+                        if (session._isNewsSession) {
+                            if (this.currentSessionId && this.currentSessionId !== sessionId && this.sessions[this.currentSessionId]) {
+                                const currentSession = this.sessions[this.currentSessionId];
+                                if (!currentSession._isNewsSession) {
+                                    // 使用当前选中会话的所有字段（标题、网址、描述、内容等）
+                                    if (currentSession.pageTitle) {
+                                        fallbackPageTitle = currentSession.pageTitle;
+                                    }
+                                    if (currentSession.url) {
+                                        fallbackSessionUrl = currentSession.url;
+                                    }
+                                    if (currentSession.pageDescription) {
+                                        fallbackPageDescription = currentSession.pageDescription;
+                                    }
+                                    if (currentSession.pageContent) {
+                                        fallbackPageContent = currentSession.pageContent;
+                                    }
+                                    // 同时更新会话对象中的tags，以便后续构建sessionData时使用
+                                    if (currentSession.tags && Array.isArray(currentSession.tags)) {
+                                        session.tags = currentSession.tags;
+                                    }
+                                }
+                            }
+                        }
+                        
                         const sessionData = {
                             id: session.id || sessionId,
-                            url: session.url || '',
-                            pageTitle: session.pageTitle || '',
-                            pageDescription: session.pageDescription || '',
+                            url: fallbackSessionUrl,
+                            pageTitle: fallbackPageTitle,
+                            pageDescription: fallbackPageDescription,
                             messages: session.messages || [],
+                            tags: session.tags || [],
                             createdAt: session.createdAt || Date.now(),
                             updatedAt: session.updatedAt || Date.now(),
                             lastAccessTime: session.lastAccessTime || Date.now()
                         };
                         
-                        // 只有在手动保存页面上下文时才包含 pageContent 字段
-                        if (includePageContent) {
-                            sessionData.pageContent = session.pageContent || '';
+                        // 包含 pageContent 字段的情况：
+                        // 1. 手动保存页面上下文时（includePageContent = true）
+                        // 2. OSS文件会话中有pageContent时（即使includePageContent = false，也应该保存）
+                        if (includePageContent || (session._isOssFileSession && fallbackPageContent && fallbackPageContent.trim() !== '')) {
+                            sessionData.pageContent = fallbackPageContent;
+                        }
+                        
+                        // 如果是OSS文件会话，包含OSS文件信息
+                        if (session._isOssFileSession && session._ossFileInfo) {
+                            sessionData._isOssFileSession = true;
+                            sessionData._ossFileInfo = session._ossFileInfo;
+                        }
+                        
+                        // 如果是新闻会话，包含新闻信息（保留原始新闻信息，即使使用了当前选中会话的标题和网址）
+                        if (session._isNewsSession && session._newsInfo) {
+                            sessionData._isNewsSession = true;
+                            sessionData._newsInfo = session._newsInfo;
                         }
                         
                         this.sessionApi.queueSave(sessionId, sessionData);
@@ -16909,6 +17034,15 @@ if (typeof getCenterPosition === 'undefined') {
     
     // 删除新闻项
     async deleteNewsItem(newsItem, index) {
+        if (!newsItem) return;
+        
+        // 获取新闻标题用于提示
+        const newsTitle = newsItem?.title || newsItem?.link || '未命名新闻';
+        
+        // 确认删除
+        const confirmDelete = confirm(`确定要删除新闻"${newsTitle}"吗？`);
+        if (!confirmDelete) return;
+        
         try {
             // 如果新闻管理器存在，先调用接口删除
             if (this.newsManager) {

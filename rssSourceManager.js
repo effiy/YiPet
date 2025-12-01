@@ -37,6 +37,9 @@ class RssSourceManager {
         
         // 初始化状态
         this._initialized = false;
+        
+        // 加载动画计数器
+        this.activeRequestCount = 0;
     }
     
     /**
@@ -44,6 +47,26 @@ class RssSourceManager {
      */
     isEnabled() {
         return this.enabled && !!this.apiUrl;
+    }
+    
+    /**
+     * 显示加载动画
+     */
+    _showLoadingAnimation() {
+        this.activeRequestCount++;
+        if (this.activeRequestCount === 1 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.show();
+        }
+    }
+    
+    /**
+     * 隐藏加载动画
+     */
+    _hideLoadingAnimation() {
+        this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
+        if (this.activeRequestCount === 0 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.hide();
+        }
     }
     
     /**
@@ -77,6 +100,9 @@ class RssSourceManager {
             return;
         }
         
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
         try {
             const url = `${this.apiUrl}?cname=${this.cname}`;
             
@@ -92,6 +118,9 @@ class RssSourceManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             
             // 处理返回的数据
             let sourcesList = [];
@@ -133,6 +162,8 @@ class RssSourceManager {
             
             console.log('RSS源列表已加载，共', sourcesList.length, '个');
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.warn('从API加载RSS源列表失败:', error);
             // 如果加载失败，保持现有数据
         }
@@ -190,6 +221,9 @@ class RssSourceManager {
             throw new Error('该RSS源已存在');
         }
         
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
         try {
             const url = `${this.apiUrl}?cname=${this.cname}`;
             
@@ -218,6 +252,9 @@ class RssSourceManager {
             
             const result = await response.json();
             
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
             // 处理返回的数据
             let newSource = null;
             if (result.success && result.data) {
@@ -239,6 +276,8 @@ class RssSourceManager {
             console.log('RSS源已添加:', newSource);
             return newSource;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('添加RSS源失败:', error);
             throw error;
         }
@@ -274,6 +313,9 @@ class RssSourceManager {
                 throw new Error('该RSS源URL已被其他源使用');
             }
         }
+        
+        // 显示加载动画
+        this._showLoadingAnimation();
         
         try {
             const url = `${this.apiUrl}?cname=${this.cname}`;
@@ -315,6 +357,9 @@ class RssSourceManager {
             
             const result = await response.json();
             
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
             // 处理返回的数据
             let updatedSource = null;
             if (result.success && result.data) {
@@ -336,6 +381,8 @@ class RssSourceManager {
             console.log('RSS源已更新:', updatedSource);
             return updatedSource;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('更新RSS源失败:', error);
             throw error;
         }
@@ -355,6 +402,9 @@ class RssSourceManager {
         if (!source) {
             throw new Error('RSS源不存在');
         }
+        
+        // 显示加载动画
+        this._showLoadingAnimation();
         
         try {
             // 使用key字段（优先）或url字段作为标识
@@ -377,6 +427,9 @@ class RssSourceManager {
             
             const result = await response.json();
             
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
             // 检查删除是否成功（支持多种响应格式）
             const isSuccess = result.code === 200 || 
                             result.status === 200 || 
@@ -393,6 +446,8 @@ class RssSourceManager {
                 throw new Error(errorMsg);
             }
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('删除RSS源失败:', error);
             throw error;
         }
@@ -486,6 +541,9 @@ class RssSourceManager {
             throw new Error('RSS源管理器未启用');
         }
         
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
         try {
             const url = `${this.rssApiUrl}/scheduler/status`;
             const response = await fetch(url, {
@@ -500,6 +558,9 @@ class RssSourceManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             const status = result.data || result;
             
             this.schedulerStatus = {
@@ -519,6 +580,8 @@ class RssSourceManager {
             
             return this.schedulerStatus;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.warn('获取定时器状态失败:', error);
             return this.schedulerStatus;
         }
@@ -538,6 +601,9 @@ class RssSourceManager {
             throw new Error('RSS源管理器未启用');
         }
         
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
         try {
             const url = `${this.rssApiUrl}/scheduler/config`;
             const response = await fetch(url, {
@@ -554,6 +620,9 @@ class RssSourceManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             const status = result.data || result;
             
             this.schedulerStatus = {
@@ -573,6 +642,8 @@ class RssSourceManager {
             
             return this.schedulerStatus;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('配置定时器失败:', error);
             throw error;
         }
@@ -586,6 +657,9 @@ class RssSourceManager {
         if (!this.isEnabled()) {
             throw new Error('RSS源管理器未启用');
         }
+        
+        // 显示加载动画
+        this._showLoadingAnimation();
         
         try {
             const url = `${this.rssApiUrl}/scheduler/start`;
@@ -602,6 +676,9 @@ class RssSourceManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             const status = result.data || result;
             
             this.schedulerStatus.enabled = true;
@@ -609,6 +686,8 @@ class RssSourceManager {
             
             return this.schedulerStatus;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('启动定时器失败:', error);
             throw error;
         }
@@ -622,6 +701,9 @@ class RssSourceManager {
         if (!this.isEnabled()) {
             throw new Error('RSS源管理器未启用');
         }
+        
+        // 显示加载动画
+        this._showLoadingAnimation();
         
         try {
             const url = `${this.rssApiUrl}/scheduler/stop`;
@@ -638,6 +720,9 @@ class RssSourceManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             const status = result.data || result;
             
             this.schedulerStatus.enabled = false;
@@ -645,6 +730,8 @@ class RssSourceManager {
             
             return this.schedulerStatus;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('停止定时器失败:', error);
             throw error;
         }
@@ -658,6 +745,9 @@ class RssSourceManager {
         if (!this.isEnabled()) {
             throw new Error('RSS源管理器未启用');
         }
+        
+        // 显示加载动画
+        this._showLoadingAnimation();
         
         try {
             const url = `${this.rssApiUrl}/parse-all`;
@@ -675,8 +765,14 @@ class RssSourceManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
             return result.data || result;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('批量解析RSS源失败:', error);
             throw error;
         }

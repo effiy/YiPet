@@ -159,6 +159,9 @@ class OssApiManager {
             throw new Error('文件无效');
         }
         
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
         try {
             const formData = new FormData();
             formData.append('file', file);
@@ -179,12 +182,17 @@ class OssApiManager {
             
             const result = await response.json();
             
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
             if (result.code === 200) {
                 return result;
             } else {
                 throw new Error(result.message || '上传失败');
             }
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('上传文件失败:', error);
             throw error;
         }
@@ -354,6 +362,9 @@ class OssApiManager {
             throw new Error('文件对象名无效');
         }
         
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
         try {
             const url = `${this.baseUrl}/oss/download/${encodeURIComponent(objectName)}`;
             
@@ -369,6 +380,9 @@ class OssApiManager {
             
             // 获取文件 blob
             const blob = await response.blob();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             
             // 确定文件名
             const downloadFilename = filename || objectName.split('/').pop() || 'download';
@@ -390,6 +404,8 @@ class OssApiManager {
             
             console.log('文件下载成功:', downloadFilename);
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('下载文件失败:', error);
             throw error;
         }

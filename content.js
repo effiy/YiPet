@@ -610,7 +610,52 @@ if (typeof getCenterPosition === 'undefined') {
         this.pendingStateUpdate = null; // 待保存的状态数据
         this.useLocalStorage = false; // 是否使用localStorage作为降级方案（当遇到配额错误时）
 
+        // 加载动画计数器
+        this.activeRequestCount = 0;
+
         this.init();
+    }
+    
+    /**
+     * 显示加载动画
+     */
+    _showLoadingAnimation() {
+        this.activeRequestCount++;
+        if (this.activeRequestCount === 1 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.show();
+        }
+    }
+    
+    /**
+     * 隐藏加载动画
+     */
+    _hideLoadingAnimation() {
+        this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
+        if (this.activeRequestCount === 0 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.hide();
+        }
+    }
+    
+    /**
+     * 带加载动画的 fetch 包装函数
+     * @param {string} url - 请求URL
+     * @param {Object} options - fetch选项
+     * @returns {Promise<Response>} fetch响应
+     */
+    async _fetchWithLoading(url, options = {}) {
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
+        try {
+            const response = await fetch(url, options);
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            return response;
+        } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            throw error;
+        }
     }
 
     async init() {
@@ -2861,20 +2906,33 @@ if (typeof getCenterPosition === 'undefined') {
                 this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
             );
             
+            // 显示加载动画
+            this._showLoadingAnimation();
+            
             // 调用 API，使用配置中的 URL
-            const response = await fetch(PET_CONFIG.api.promptUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
+            let response, result;
+            try {
+                response = await fetch(PET_CONFIG.api.promptUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                result = await response.json();
+                
+                // 隐藏加载动画
+                this._hideLoadingAnimation();
+            } catch (error) {
+                // 隐藏加载动画
+                this._hideLoadingAnimation();
+                throw error;
             }
-
-            const result = await response.json();
 
             // 适配新的响应格式: {status, msg, data, pagination}
             let responseContent;
@@ -4149,21 +4207,37 @@ if (typeof getCenterPosition === 'undefined') {
             
             console.log('开始从后端加载会话列表（页面刷新）...');
             
-            // 调用后端API获取会话列表
-            const response = await fetch(`${baseUrl}/session/`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            // 显示加载动画
+            this._showLoadingAnimation();
             
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.warn(`从后端加载会话列表失败: HTTP ${response.status}: ${errorText}`);
+            // 调用后端API获取会话列表
+            let response, result;
+            try {
+                response = await fetch(`${baseUrl}/session/`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.warn(`从后端加载会话列表失败: HTTP ${response.status}: ${errorText}`);
+                    // 隐藏加载动画
+                    this._hideLoadingAnimation();
+                    return;
+                }
+                
+                result = await response.json();
+                
+                // 隐藏加载动画
+                this._hideLoadingAnimation();
+            } catch (error) {
+                // 隐藏加载动画
+                this._hideLoadingAnimation();
+                console.warn('从后端加载会话列表失败:', error);
                 return;
             }
-            
-            const result = await response.json();
             this.lastSessionListLoadTime = now;
             
             if (result.success && result.sessions && Array.isArray(result.sessions)) {

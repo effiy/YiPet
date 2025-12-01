@@ -26,6 +26,29 @@ class NewsManager {
         
         // 初始化
         this._initialized = false;
+        
+        // 加载动画计数器
+        this.activeRequestCount = 0;
+    }
+    
+    /**
+     * 显示加载动画
+     */
+    _showLoadingAnimation() {
+        this.activeRequestCount++;
+        if (this.activeRequestCount === 1 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.show();
+        }
+    }
+    
+    /**
+     * 隐藏加载动画
+     */
+    _hideLoadingAnimation() {
+        this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
+        if (this.activeRequestCount === 0 && typeof window !== 'undefined' && window.petLoadingAnimation) {
+            window.petLoadingAnimation.hide();
+        }
     }
     
     /**
@@ -62,6 +85,9 @@ class NewsManager {
             
             const url = `${this.apiUrl}?cname=${this.cname}&isoDate=${isoDate}`;
             
+            // 显示加载动画
+            this._showLoadingAnimation();
+            
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -74,6 +100,9 @@ class NewsManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             
             // 处理返回的数据
             let newsList = [];
@@ -109,6 +138,8 @@ class NewsManager {
             
             console.log('新闻列表已加载，共', newsList.length, '条新闻');
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.warn('从API加载新闻列表失败:', error);
             // 如果加载失败，保持现有数据
         }
@@ -192,6 +223,9 @@ class NewsManager {
             throw new Error('新闻项缺少key或link字段，无法删除');
         }
         
+        // 显示加载动画
+        this._showLoadingAnimation();
+        
         try {
             // 构建URL，优先使用key参数，如果没有key则使用link参数
             let url;
@@ -214,6 +248,9 @@ class NewsManager {
             }
             
             const result = await response.json();
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             
             // 检查删除是否成功（支持多种响应格式）
             const isSuccess = result.code === 200 || 
@@ -240,6 +277,8 @@ class NewsManager {
             
             return result;
         } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
             console.error('删除新闻失败:', error);
             throw error;
         }

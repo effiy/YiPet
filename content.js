@@ -4670,15 +4670,23 @@ if (typeof getCenterPosition === 'undefined') {
                         // 使用当前选中会话的所有字段（标题、网址、描述、内容等）
                         if (currentSession.pageTitle) {
                             pageTitle = currentSession.pageTitle;
+                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的标题一致
+                            session.pageTitle = currentSession.pageTitle;
                         }
                         if (currentSession.url) {
                             sessionUrl = currentSession.url;
+                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的网址一致
+                            session.url = currentSession.url;
                         }
                         if (currentSession.pageDescription) {
                             pageDescription = currentSession.pageDescription;
+                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的描述一致
+                            session.pageDescription = currentSession.pageDescription;
                         }
                         if (currentSession.pageContent) {
                             pageContent = currentSession.pageContent;
+                            // 同时更新会话对象本身，确保保存到后端的数据和会话显示的内容一致
+                            session.pageContent = currentSession.pageContent;
                         }
                         // 同时更新会话对象中的tags，以便后续构建sessionData时使用
                         if (currentSession.tags && Array.isArray(currentSession.tags)) {
@@ -4719,7 +4727,10 @@ if (typeof getCenterPosition === 'undefined') {
             // 包含 pageContent 字段的情况：
             // 1. 手动保存页面上下文时（includePageContent = true）
             // 2. OSS文件会话中有pageContent时（即使includePageContent = false，也应该保存）
-            if (includePageContent || (session._isOssFileSession && pageContent && pageContent.trim() !== '')) {
+            // 3. 新闻会话中使用了当前选中会话的pageContent时（即使includePageContent = false，也应该保存）
+            if (includePageContent || 
+                (session._isOssFileSession && pageContent && pageContent.trim() !== '') ||
+                (session._isNewsSession && pageContent && pageContent.trim() !== '')) {
                 sessionData.pageContent = pageContent;
             }
             

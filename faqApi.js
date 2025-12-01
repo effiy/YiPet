@@ -13,12 +13,6 @@ class FaqApiManager {
         // 请求去重
         this.pendingRequests = new Map();
         
-        // 重试配置
-        this.retryConfig = {
-            maxRetries: 3,
-            retryDelay: 1000, // 1秒
-        };
-        
         // 统计信息
         this.stats = {
             totalRequests: 0,
@@ -65,9 +59,9 @@ class FaqApiManager {
     }
     
     /**
-     * 执行请求（带重试和去重）
+     * 执行请求（带去重）
      */
-    async _request(url, options = {}, retryCount = 0) {
+    async _request(url, options = {}) {
         if (!this.isEnabled()) {
             throw new Error('FAQ API管理器未启用');
         }
@@ -79,10 +73,8 @@ class FaqApiManager {
             return await this.pendingRequests.get(requestKey);
         }
         
-        // 显示加载动画（只在第一次请求时显示）
-        if (retryCount === 0) {
-            this._showLoadingAnimation();
-        }
+        // 显示加载动画
+        this._showLoadingAnimation();
         
         // 创建请求Promise
         const requestPromise = (async () => {
@@ -114,13 +106,6 @@ class FaqApiManager {
             } catch (error) {
                 // 从pending中移除
                 this.pendingRequests.delete(requestKey);
-                
-                // 重试逻辑
-                if (retryCount < this.retryConfig.maxRetries) {
-                    console.warn(`FAQ API请求失败，${this.retryConfig.retryDelay}ms后重试 (${retryCount + 1}/${this.retryConfig.maxRetries}):`, error.message);
-                    await new Promise(resolve => setTimeout(resolve, this.retryConfig.retryDelay * (retryCount + 1)));
-                    return this._request(url, options, retryCount + 1);
-                }
                 
                 // 隐藏加载动画
                 this._hideLoadingAnimation();

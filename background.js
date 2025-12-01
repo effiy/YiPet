@@ -12,11 +12,11 @@ chrome.runtime.onInstalled.addListener((details) => {
         petSettings: {
             size: 60,
             color: 0,
-            visible: true,
+            visible: false,
             autoStart: true
         },
         petGlobalState: {
-            visible: true,
+            visible: false,
             color: 0,
             size: 60,
             timestamp: Date.now()
@@ -192,7 +192,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         
         // 检查是否需要自动注入宠物
         chrome.storage.sync.get(['petSettings'], (result) => {
-            const settings = result.petSettings || { autoStart: true, visible: true };
+            const settings = result.petSettings || { autoStart: true, visible: false };
             console.log('宠物设置:', settings);
             
             if (settings.autoStart && settings.visible !== false) {
@@ -549,6 +549,7 @@ if (typeof module !== 'undefined' && module.exports) {
         sendToWeWorkRobot
     };
 }
+
 
 
 

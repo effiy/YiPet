@@ -77,7 +77,7 @@ class PopupController {
     constructor() {
         this.currentTab = null;
         this.petStatus = {
-            visible: true,
+            visible: false,
             color: 0,
             size: 180,
             position: { x: 0, y: 0 },
@@ -203,7 +203,7 @@ class PopupController {
                 if (response && response.success !== false) {
                     console.log('成功获取宠物状态:', response);
                     this.petStatus = {
-                        visible: response.visible !== undefined ? response.visible : true,
+                        visible: response.visible !== undefined ? response.visible : false,
                         color: response.color !== undefined ? response.color : 0,
                         size: response.size !== undefined ? response.size : 180,
                         position: response.position || getPetDefaultPosition(),
@@ -244,7 +244,7 @@ class PopupController {
                     if (localValue) {
                         const state = JSON.parse(localValue);
                         resolve({
-                            visible: state.visible !== undefined ? state.visible : true,
+                            visible: state.visible !== undefined ? state.visible : false,
                             color: state.color !== undefined ? state.color : 0,
                             size: state.size !== undefined ? state.size : 180,
                             position: state.position || getPetDefaultPosition(),
@@ -288,7 +288,7 @@ class PopupController {
                 if (result.petGlobalState) {
                     const state = result.petGlobalState;
                     resolve({
-                        visible: state.visible !== undefined ? state.visible : true,
+                        visible: state.visible !== undefined ? state.visible : false,
                         color: state.color !== undefined ? state.color : 0,
                         size: state.size !== undefined ? state.size : 180,
                         position: state.position || getPetDefaultPosition(),
@@ -323,7 +323,7 @@ class PopupController {
                         if (syncResult.petGlobalState) {
                             const state = syncResult.petGlobalState;
                             resolve({
-                                visible: state.visible !== undefined ? state.visible : true,
+                                visible: state.visible !== undefined ? state.visible : false,
                                 color: state.color !== undefined ? state.color : 0,
                                 size: state.size !== undefined ? state.size : 180,
                                 position: state.position || getPetDefaultPosition(),
@@ -935,6 +935,7 @@ window.addEventListener('beforeunload', () => {
         popupController.stopStatusSync();
     }
 });
+
 
 
 

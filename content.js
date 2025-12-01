@@ -66,7 +66,7 @@ if (typeof PET_CONFIG === 'undefined') {
         pet: {
             defaultSize: 180,
             defaultColorIndex: 0,
-            defaultVisible: true,
+            defaultVisible: false,
             colors: [
                 'linear-gradient(135deg, #ff6b6b, #ff8e8e)',
                 'linear-gradient(135deg, #4ecdc4, #44a08d)',
@@ -11471,7 +11471,20 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 按文件名排序会话（使用显示标题进行排序）
+        // 选中的会话（currentSessionId）会置顶到列表顶部
         const sortedSessions = allSessions.sort((a, b) => {
+            // 首先检查是否是当前选中的会话，选中的会话排在前面
+            const aIsCurrent = a.id === this.currentSessionId;
+            const bIsCurrent = b.id === this.currentSessionId;
+            
+            if (aIsCurrent && !bIsCurrent) {
+                return -1; // a 是当前会话，排在前面
+            }
+            if (!aIsCurrent && bIsCurrent) {
+                return 1; // b 是当前会话，排在前面
+            }
+            
+            // 如果都是或都不是当前会话，按原来的排序规则
             const aTitle = this._getSessionDisplayTitle(a) || '';
             const bTitle = this._getSessionDisplayTitle(b) || '';
             
@@ -12266,13 +12279,35 @@ if (typeof getCenterPosition === 'undefined') {
                     return;
                 }
                 
-                // 如果点击的是当前会话，不执行操作（但仍添加视觉反馈）
+                // 如果点击的是当前会话，查找并切换到 URL 为 https://effiy.cn/ 的会话
                 if (session.id === this.currentSessionId) {
-                    // 添加轻微反馈提示这是当前会话
+                    // 添加点击反馈
                     sessionItem.classList.add('clicked');
-                    setTimeout(() => {
-                        sessionItem.classList.remove('clicked');
-                    }, 150);
+                    
+                    // 查找 URL 为 https://effiy.cn/ 的会话
+                    const targetUrl = 'https://effiy.cn/';
+                    const targetSession = this.findSessionByUrl(targetUrl);
+                    
+                    if (targetSession && targetSession.id) {
+                        // 找到目标会话，切换到该会话
+                        sessionItem.style.pointerEvents = 'none';
+                        try {
+                            await this.switchSession(targetSession.id);
+                        } catch (error) {
+                            console.error('切换会话失败:', error);
+                            sessionItem.classList.remove('switching', 'clicked');
+                        } finally {
+                            setTimeout(() => {
+                                sessionItem.style.pointerEvents = '';
+                                sessionItem.classList.remove('clicked');
+                            }, 300);
+                        }
+                    } else {
+                        // 未找到目标会话，只添加视觉反馈
+                        setTimeout(() => {
+                            sessionItem.classList.remove('clicked');
+                        }, 150);
+                    }
                     return;
                 }
                 
@@ -36712,6 +36747,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

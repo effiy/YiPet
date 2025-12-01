@@ -596,6 +596,10 @@ if (typeof getCenterPosition === 'undefined') {
         this.hasRequestedNews = false; // 标记是否已经请求过新闻列表（用于延迟加载）
         this.lastNewsDateRange = null; // 上次加载新闻的日期区间（用于判断是否需要重新加载）
         
+        // RSS源管理器
+        this.rssSourceManager = null;
+        this.rssSourceManagerVisible = false; // RSS源管理界面是否可见
+        
         // FAQ API管理器
         this.faqApi = null;
 
@@ -664,6 +668,21 @@ if (typeof getCenterPosition === 'undefined') {
             console.log('新闻管理器已初始化');
         } else {
             console.log('新闻管理器未启用');
+        }
+        
+        // 初始化RSS源管理器
+        if (typeof RssSourceManager !== 'undefined') {
+            const yiaiBaseUrl = PET_CONFIG?.api?.yiaiBaseUrl || 'https://api.effiy.cn';
+            this.rssSourceManager = new RssSourceManager({
+                apiUrl: `${yiaiBaseUrl}/mongodb/`,
+                rssApiUrl: `${yiaiBaseUrl}/rss`,
+                cname: 'seeds',
+                enabled: true
+            });
+            await this.rssSourceManager.initialize();
+            console.log('RSS源管理器已初始化');
+        } else {
+            console.log('RSS源管理器未启用');
         }
         
         this.loadState(); // 加载保存的状态
@@ -13940,10 +13959,40 @@ if (typeof getCenterPosition === 'undefined') {
             }
         });
 
+        // RSS源管理按钮
+        const rssSourceManageBtn = document.createElement('button');
+        rssSourceManageBtn.className = 'rss-source-manage-btn';
+        rssSourceManageBtn.title = 'RSS源管理';
+        rssSourceManageBtn.innerHTML = '📡';
+        rssSourceManageBtn.style.cssText = `
+            font-size: 14px !important;
+            color: ${mainColor} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: 0.8 !important;
+        `;
+        rssSourceManageBtn.addEventListener('mouseenter', () => {
+            rssSourceManageBtn.style.opacity = '1';
+            rssSourceManageBtn.style.background = '#f3f4f6';
+        });
+        rssSourceManageBtn.addEventListener('mouseleave', () => {
+            rssSourceManageBtn.style.opacity = '0.8';
+            rssSourceManageBtn.style.background = 'none';
+        });
+        rssSourceManageBtn.addEventListener('click', () => {
+            this.showRssSourceManager();
+        });
+
         filterActions.appendChild(reverseFilterBtn);
         filterActions.appendChild(noTagsFilterBtn);
         filterActions.appendChild(expandToggleBtn);
         filterActions.appendChild(clearFilterBtn);
+        filterActions.appendChild(rssSourceManageBtn);
 
         // 创建标签搜索输入框容器
         const tagSearchContainer = document.createElement('div');
@@ -16855,6 +16904,1019 @@ if (typeof getCenterPosition === 'undefined') {
         // 确保索引为正数并在范围内
         const index = Math.abs(hash) % colorPalettes.length;
         return colorPalettes[index];
+    }
+    
+    // 显示RSS源管理界面
+    async showRssSourceManager() {
+        if (!this.rssSourceManager) {
+            console.warn('RSS源管理器未初始化');
+            return;
+        }
+        
+        // 确保RSS源管理UI存在
+        this.ensureRssSourceManagerUi();
+        
+        // 显示模态框
+        const modal = document.querySelector('#pet-rss-source-manager');
+        if (modal) {
+            modal.style.display = 'flex';
+            // 加载RSS源列表
+            await this.loadRssSourcesIntoManager();
+            // 更新定时器状态
+            await this.updateSchedulerStatus();
+        }
+    }
+    
+    // 确保RSS源管理UI存在
+    ensureRssSourceManagerUi() {
+        if (document.querySelector('#pet-rss-source-manager')) return;
+        
+        const mainColor = PET_CONFIG?.theme?.primaryColor || '#6366f1';
+        
+        const modal = document.createElement('div');
+        modal.id = 'pet-rss-source-manager';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: ${PET_CONFIG?.ui?.zIndex?.modal || 2147483649} !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeRssSourceManager();
+            }
+        });
+        
+        // ESC键关闭
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                this.closeRssSourceManager();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
+            width: 90% !important;
+            max-width: 800px !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+        `;
+        
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 20px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = 'RSS源管理';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'rss-source-manager-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.title = '关闭（ESC）';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+        closeBtn.addEventListener('click', () => this.closeRssSourceManager());
+        
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        
+        // 添加RSS源表单
+        const addForm = document.createElement('div');
+        addForm.className = 'rss-source-add-form';
+        addForm.style.cssText = `
+            margin-bottom: 20px !important;
+            padding: 16px !important;
+            background: #f8f9fa !important;
+            border-radius: 8px !important;
+        `;
+        
+        const formTitle = document.createElement('div');
+        formTitle.textContent = '添加RSS源';
+        formTitle.style.cssText = `
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+            margin-bottom: 12px !important;
+        `;
+        
+        const urlInput = document.createElement('input');
+        urlInput.type = 'url';
+        urlInput.placeholder = 'RSS源URL（例如：https://example.com/rss.xml）';
+        urlInput.className = 'rss-source-url-input';
+        urlInput.style.cssText = `
+            width: 100% !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            margin-bottom: 8px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+            box-sizing: border-box !important;
+        `;
+        urlInput.addEventListener('focus', () => {
+            urlInput.style.borderColor = mainColor;
+        });
+        urlInput.addEventListener('blur', () => {
+            urlInput.style.borderColor = '#e0e0e0';
+        });
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.placeholder = '名称（可选，默认使用URL）';
+        nameInput.className = 'rss-source-name-input';
+        nameInput.style.cssText = `
+            width: 100% !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            margin-bottom: 8px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+            box-sizing: border-box !important;
+        `;
+        nameInput.addEventListener('focus', () => {
+            nameInput.style.borderColor = mainColor;
+        });
+        nameInput.addEventListener('blur', () => {
+            nameInput.style.borderColor = '#e0e0e0';
+        });
+        
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加';
+        addBtn.className = 'rss-source-add-btn';
+        addBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: ${mainColor} !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            width: 100% !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.opacity = '0.9';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.opacity = '1';
+        });
+        addBtn.addEventListener('click', async () => {
+            const url = urlInput.value.trim();
+            const name = nameInput.value.trim();
+            
+            if (!url) {
+                alert('请输入RSS源URL');
+                return;
+            }
+            
+            try {
+                await this.rssSourceManager.addSource({ url, name });
+                urlInput.value = '';
+                nameInput.value = '';
+                await this.loadRssSourcesIntoManager();
+            } catch (error) {
+                alert('添加失败：' + error.message);
+            }
+        });
+        
+        addForm.appendChild(formTitle);
+        addForm.appendChild(urlInput);
+        addForm.appendChild(nameInput);
+        addForm.appendChild(addBtn);
+        
+        // 定时器配置区域
+        const schedulerConfig = document.createElement('div');
+        schedulerConfig.className = 'rss-scheduler-config';
+        schedulerConfig.style.cssText = `
+            margin-bottom: 20px !important;
+            padding: 16px !important;
+            background: #f0f7ff !important;
+            border-radius: 8px !important;
+            border: 1px solid #b3d9ff !important;
+        `;
+        
+        const schedulerTitle = document.createElement('div');
+        schedulerTitle.textContent = '定时解析配置';
+        schedulerTitle.style.cssText = `
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+            margin-bottom: 12px !important;
+        `;
+        
+        const schedulerStatus = document.createElement('div');
+        schedulerStatus.className = 'rss-scheduler-status';
+        schedulerStatus.style.cssText = `
+            font-size: 12px !important;
+            color: #666 !important;
+            margin-bottom: 12px !important;
+        `;
+        schedulerStatus.textContent = '加载中...';
+        
+        // 模式选择
+        const modeContainer = document.createElement('div');
+        modeContainer.style.cssText = `
+            margin-bottom: 12px !important;
+            display: flex !important;
+            gap: 10px !important;
+            align-items: center !important;
+        `;
+        
+        const modeLabel = document.createElement('label');
+        modeLabel.textContent = '定时模式:';
+        modeLabel.style.cssText = `
+            font-size: 12px !important;
+            color: #666 !important;
+        `;
+        
+        const modeSelect = document.createElement('select');
+        modeSelect.className = 'rss-scheduler-mode';
+        modeSelect.style.cssText = `
+            padding: 6px 8px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 4px !important;
+            font-size: 12px !important;
+            outline: none !important;
+            background: white !important;
+            cursor: pointer !important;
+        `;
+        const intervalOption = document.createElement('option');
+        intervalOption.value = 'interval';
+        intervalOption.textContent = '间隔模式';
+        const cronOption = document.createElement('option');
+        cronOption.value = 'cron';
+        cronOption.textContent = 'Cron 模式（每日/每月/时/分/秒）';
+        modeSelect.appendChild(intervalOption);
+        modeSelect.appendChild(cronOption);
+        
+        // 间隔模式配置
+        const intervalContainer = document.createElement('div');
+        intervalContainer.className = 'rss-scheduler-interval-container';
+        intervalContainer.style.cssText = `
+            display: flex !important;
+            gap: 10px !important;
+            align-items: center !important;
+            margin-bottom: 12px !important;
+        `;
+        
+        const intervalLabel = document.createElement('label');
+        intervalLabel.textContent = '间隔（秒）:';
+        intervalLabel.style.cssText = `
+            font-size: 12px !important;
+            color: #666 !important;
+        `;
+        
+        const intervalInput = document.createElement('input');
+        intervalInput.type = 'number';
+        intervalInput.min = '60';
+        intervalInput.step = '60';
+        intervalInput.value = '3600';
+        intervalInput.className = 'rss-scheduler-interval';
+        intervalInput.style.cssText = `
+            width: 100px !important;
+            padding: 6px 8px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 4px !important;
+            font-size: 12px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        intervalInput.addEventListener('focus', () => {
+            intervalInput.style.borderColor = mainColor;
+        });
+        intervalInput.addEventListener('blur', () => {
+            intervalInput.style.borderColor = '#e0e0e0';
+        });
+        
+        intervalContainer.appendChild(intervalLabel);
+        intervalContainer.appendChild(intervalInput);
+        
+        // Cron 模式配置
+        const cronContainer = document.createElement('div');
+        cronContainer.className = 'rss-scheduler-cron-container';
+        cronContainer.style.cssText = `
+            display: none !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            margin-bottom: 12px !important;
+        `;
+        
+        const createCronField = (label, field, min, max, placeholder) => {
+            const fieldContainer = document.createElement('div');
+            fieldContainer.style.cssText = `
+                display: flex !important;
+                gap: 8px !important;
+                align-items: center !important;
+            `;
+            
+            const fieldLabel = document.createElement('label');
+            fieldLabel.textContent = label + ':';
+            fieldLabel.style.cssText = `
+                font-size: 12px !important;
+                color: #666 !important;
+                width: 80px !important;
+            `;
+            
+            const fieldInput = document.createElement('input');
+            fieldInput.type = 'number';
+            fieldInput.min = min !== null ? min : '';
+            fieldInput.max = max !== null ? max : '';
+            fieldInput.placeholder = placeholder || '留空表示任意';
+            fieldInput.className = `rss-scheduler-cron-${field}`;
+            fieldInput.style.cssText = `
+                width: 100px !important;
+                padding: 6px 8px !important;
+                border: 2px solid #e0e0e0 !important;
+                border-radius: 4px !important;
+                font-size: 12px !important;
+                outline: none !important;
+                transition: border-color 0.2s ease !important;
+            `;
+            fieldInput.addEventListener('focus', () => {
+                fieldInput.style.borderColor = mainColor;
+            });
+            fieldInput.addEventListener('blur', () => {
+                fieldInput.style.borderColor = '#e0e0e0';
+            });
+            
+            const clearBtn = document.createElement('button');
+            clearBtn.textContent = '清空';
+            clearBtn.style.cssText = `
+                padding: 4px 8px !important;
+                background: #f0f0f0 !important;
+                color: #666 !important;
+                border: none !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 11px !important;
+            `;
+            clearBtn.addEventListener('click', () => {
+                fieldInput.value = '';
+            });
+            
+            fieldContainer.appendChild(fieldLabel);
+            fieldContainer.appendChild(fieldInput);
+            fieldContainer.appendChild(clearBtn);
+            
+            return { container: fieldContainer, input: fieldInput };
+        };
+        
+        const secondField = createCronField('秒', 'second', 0, 59, '0-59');
+        const minuteField = createCronField('分', 'minute', 0, 59, '0-59');
+        const hourField = createCronField('时', 'hour', 0, 23, '0-23');
+        const dayField = createCronField('日', 'day', 1, 31, '1-31');
+        const monthField = createCronField('月', 'month', 1, 12, '1-12');
+        const dayOfWeekField = createCronField('星期', 'day_of_week', 0, 6, '0-6 (0=周一)');
+        
+        cronContainer.appendChild(secondField.container);
+        cronContainer.appendChild(minuteField.container);
+        cronContainer.appendChild(hourField.container);
+        cronContainer.appendChild(dayField.container);
+        cronContainer.appendChild(monthField.container);
+        cronContainer.appendChild(dayOfWeekField.container);
+        
+        const cronHint = document.createElement('div');
+        cronHint.textContent = '提示：留空的字段表示任意值。例如：只设置"时"为9，表示每天9点执行。';
+        cronHint.style.cssText = `
+            font-size: 11px !important;
+            color: #999 !important;
+            margin-top: 4px !important;
+        `;
+        cronContainer.appendChild(cronHint);
+        
+        // 模式切换
+        modeSelect.addEventListener('change', () => {
+            if (modeSelect.value === 'interval') {
+                intervalContainer.style.display = 'flex';
+                cronContainer.style.display = 'none';
+            } else {
+                intervalContainer.style.display = 'none';
+                cronContainer.style.display = 'flex';
+            }
+        });
+        
+        const schedulerControls = document.createElement('div');
+        schedulerControls.style.cssText = `
+            display: flex !important;
+            gap: 10px !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+        `;
+        
+        const startBtn = document.createElement('button');
+        startBtn.textContent = '启动';
+        startBtn.className = 'rss-scheduler-start';
+        startBtn.style.cssText = `
+            padding: 6px 12px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            transition: opacity 0.2s ease !important;
+        `;
+        startBtn.addEventListener('mouseenter', () => {
+            startBtn.style.opacity = '0.9';
+        });
+        startBtn.addEventListener('mouseleave', () => {
+            startBtn.style.opacity = '1';
+        });
+        startBtn.addEventListener('click', async () => {
+            try {
+                const mode = modeSelect.value;
+                let config = { enabled: true };
+                
+                if (mode === 'interval') {
+                    const interval = parseInt(intervalInput.value);
+                    if (interval < 60) {
+                        alert('间隔不能小于 60 秒');
+                        return;
+                    }
+                    config.type = 'interval';
+                    config.interval = interval;
+                } else {
+                    config.type = 'cron';
+                    const cron = {};
+                    const secondVal = secondField.input.value.trim();
+                    const minuteVal = minuteField.input.value.trim();
+                    const hourVal = hourField.input.value.trim();
+                    const dayVal = dayField.input.value.trim();
+                    const monthVal = monthField.input.value.trim();
+                    const dayOfWeekVal = dayOfWeekField.input.value.trim();
+                    
+                    if (secondVal) cron.second = parseInt(secondVal);
+                    if (minuteVal) cron.minute = parseInt(minuteVal);
+                    if (hourVal) cron.hour = parseInt(hourVal);
+                    if (dayVal) cron.day = parseInt(dayVal);
+                    if (monthVal) cron.month = parseInt(monthVal);
+                    if (dayOfWeekVal) cron.day_of_week = parseInt(dayOfWeekVal);
+                    
+                    // 至少需要设置一个字段
+                    if (Object.keys(cron).length === 0) {
+                        alert('请至少设置一个 Cron 字段');
+                        return;
+                    }
+                    
+                    config.cron = cron;
+                }
+                
+                await this.rssSourceManager.configScheduler(config);
+                await this.updateSchedulerStatus();
+            } catch (error) {
+                alert('启动失败：' + error.message);
+            }
+        });
+        
+        const stopBtn = document.createElement('button');
+        stopBtn.textContent = '停止';
+        stopBtn.className = 'rss-scheduler-stop';
+        stopBtn.style.cssText = `
+            padding: 6px 12px !important;
+            background: #f44336 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            transition: opacity 0.2s ease !important;
+        `;
+        stopBtn.addEventListener('mouseenter', () => {
+            stopBtn.style.opacity = '0.9';
+        });
+        stopBtn.addEventListener('mouseleave', () => {
+            stopBtn.style.opacity = '1';
+        });
+        stopBtn.addEventListener('click', async () => {
+            try {
+                await this.rssSourceManager.stopScheduler();
+                await this.updateSchedulerStatus();
+            } catch (error) {
+                alert('停止失败：' + error.message);
+            }
+        });
+        
+        const parseAllBtn = document.createElement('button');
+        parseAllBtn.textContent = '立即解析全部';
+        parseAllBtn.className = 'rss-parse-all';
+        parseAllBtn.style.cssText = `
+            padding: 6px 12px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            transition: opacity 0.2s ease !important;
+        `;
+        parseAllBtn.addEventListener('mouseenter', () => {
+            parseAllBtn.style.opacity = '0.9';
+        });
+        parseAllBtn.addEventListener('mouseleave', () => {
+            parseAllBtn.style.opacity = '1';
+        });
+        parseAllBtn.addEventListener('click', async () => {
+            if (confirm('确定要立即解析所有启用的 RSS 源吗？')) {
+                try {
+                    parseAllBtn.disabled = true;
+                    parseAllBtn.textContent = '解析中...';
+                    const result = await this.rssSourceManager.parseAllEnabledSources();
+                    alert(`解析完成！成功: ${result.success_count || 0} 个，失败: ${result.failed_count || 0} 个`);
+                } catch (error) {
+                    alert('解析失败：' + error.message);
+                } finally {
+                    parseAllBtn.disabled = false;
+                    parseAllBtn.textContent = '立即解析全部';
+                }
+            }
+        });
+        
+        schedulerControls.appendChild(startBtn);
+        schedulerControls.appendChild(stopBtn);
+        schedulerControls.appendChild(parseAllBtn);
+        
+        schedulerConfig.appendChild(schedulerTitle);
+        schedulerConfig.appendChild(schedulerStatus);
+        schedulerConfig.appendChild(modeContainer);
+        modeContainer.appendChild(modeLabel);
+        modeContainer.appendChild(modeSelect);
+        schedulerConfig.appendChild(intervalContainer);
+        schedulerConfig.appendChild(cronContainer);
+        schedulerConfig.appendChild(schedulerControls);
+        
+        // 保存引用以便后续更新
+        this._rssSchedulerModeSelect = modeSelect;
+        this._rssSchedulerIntervalInput = intervalInput;
+        this._rssSchedulerCronFields = {
+            second: secondField.input,
+            minute: minuteField.input,
+            hour: hourField.input,
+            day: dayField.input,
+            month: monthField.input,
+            day_of_week: dayOfWeekField.input
+        };
+        
+        // RSS源列表
+        const sourcesContainer = document.createElement('div');
+        sourcesContainer.className = 'rss-source-list';
+        sourcesContainer.style.cssText = `
+            min-height: 200px !important;
+            max-height: 400px !important;
+            overflow-y: auto !important;
+            margin-bottom: 20px !important;
+        `;
+        
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 10px !important;
+        `;
+        
+        const closeFooterBtn = document.createElement('button');
+        closeFooterBtn.textContent = '关闭';
+        closeFooterBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #f0f0f0 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: background 0.2s ease !important;
+        `;
+        closeFooterBtn.addEventListener('mouseenter', () => {
+            closeFooterBtn.style.background = '#e0e0e0';
+        });
+        closeFooterBtn.addEventListener('mouseleave', () => {
+            closeFooterBtn.style.background = '#f0f0f0';
+        });
+        closeFooterBtn.addEventListener('click', () => this.closeRssSourceManager());
+        
+        footer.appendChild(closeFooterBtn);
+        
+        panel.appendChild(header);
+        panel.appendChild(addForm);
+        panel.appendChild(schedulerConfig);
+        panel.appendChild(sourcesContainer);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+        
+        // 保存引用以便后续更新
+        this._rssSchedulerStatus = schedulerStatus;
+        this._rssSchedulerInterval = intervalInput;
+        this._rssSchedulerStartBtn = startBtn;
+        this._rssSchedulerStopBtn = stopBtn;
+    }
+    
+    // 更新定时器状态显示
+    async updateSchedulerStatus() {
+        if (!this.rssSourceManager || !this._rssSchedulerStatus) return;
+        
+        try {
+            const status = await this.rssSourceManager.getSchedulerStatus();
+            
+            // 更新状态显示
+            if (this._rssSchedulerStatus) {
+                let statusText = '';
+                if (status.enabled) {
+                    if (status.type === 'cron' && status.cron) {
+                        const cronParts = [];
+                        if (status.cron.second !== null && status.cron.second !== undefined) {
+                            cronParts.push(`秒:${status.cron.second}`);
+                        }
+                        if (status.cron.minute !== null && status.cron.minute !== undefined) {
+                            cronParts.push(`分:${status.cron.minute}`);
+                        }
+                        if (status.cron.hour !== null && status.cron.hour !== undefined) {
+                            cronParts.push(`时:${status.cron.hour}`);
+                        }
+                        if (status.cron.day !== null && status.cron.day !== undefined) {
+                            cronParts.push(`日:${status.cron.day}`);
+                        }
+                        if (status.cron.month !== null && status.cron.month !== undefined) {
+                            cronParts.push(`月:${status.cron.month}`);
+                        }
+                        if (status.cron.day_of_week !== null && status.cron.day_of_week !== undefined) {
+                            cronParts.push(`星期:${status.cron.day_of_week}`);
+                        }
+                        statusText = `✓ 定时器运行中 | Cron: ${cronParts.length > 0 ? cronParts.join(', ') : '未配置'}`;
+                    } else {
+                        const intervalText = status.interval >= 3600 
+                            ? `${(status.interval / 3600).toFixed(1)} 小时`
+                            : status.interval >= 60
+                            ? `${(status.interval / 60).toFixed(0)} 分钟`
+                            : `${status.interval} 秒`;
+                        statusText = `✓ 定时器运行中 | 间隔: ${intervalText}`;
+                    }
+                } else {
+                    statusText = '✗ 定时器已停止';
+                }
+                
+                this._rssSchedulerStatus.textContent = statusText;
+                this._rssSchedulerStatus.style.color = status.enabled ? '#4CAF50' : '#999';
+            }
+            
+            // 更新模式选择
+            if (this._rssSchedulerModeSelect) {
+                this._rssSchedulerModeSelect.value = status.type || 'interval';
+                // 触发模式切换
+                this._rssSchedulerModeSelect.dispatchEvent(new Event('change'));
+            }
+            
+            // 更新间隔输入
+            if (this._rssSchedulerIntervalInput) {
+                this._rssSchedulerIntervalInput.value = status.interval || 3600;
+            }
+            
+            // 更新 Cron 字段
+            if (this._rssSchedulerCronFields && status.cron) {
+                if (status.cron.second !== null && status.cron.second !== undefined) {
+                    this._rssSchedulerCronFields.second.value = status.cron.second;
+                } else {
+                    this._rssSchedulerCronFields.second.value = '';
+                }
+                if (status.cron.minute !== null && status.cron.minute !== undefined) {
+                    this._rssSchedulerCronFields.minute.value = status.cron.minute;
+                } else {
+                    this._rssSchedulerCronFields.minute.value = '';
+                }
+                if (status.cron.hour !== null && status.cron.hour !== undefined) {
+                    this._rssSchedulerCronFields.hour.value = status.cron.hour;
+                } else {
+                    this._rssSchedulerCronFields.hour.value = '';
+                }
+                if (status.cron.day !== null && status.cron.day !== undefined) {
+                    this._rssSchedulerCronFields.day.value = status.cron.day;
+                } else {
+                    this._rssSchedulerCronFields.day.value = '';
+                }
+                if (status.cron.month !== null && status.cron.month !== undefined) {
+                    this._rssSchedulerCronFields.month.value = status.cron.month;
+                } else {
+                    this._rssSchedulerCronFields.month.value = '';
+                }
+                if (status.cron.day_of_week !== null && status.cron.day_of_week !== undefined) {
+                    this._rssSchedulerCronFields.day_of_week.value = status.cron.day_of_week;
+                } else {
+                    this._rssSchedulerCronFields.day_of_week.value = '';
+                }
+            }
+            
+            // 更新按钮状态
+            const startBtn = document.querySelector('.rss-scheduler-start');
+            const stopBtn = document.querySelector('.rss-scheduler-stop');
+            
+            if (startBtn) {
+                startBtn.disabled = status.enabled;
+                startBtn.style.opacity = status.enabled ? '0.5' : '1';
+            }
+            
+            if (stopBtn) {
+                stopBtn.disabled = !status.enabled;
+                stopBtn.style.opacity = !status.enabled ? '0.5' : '1';
+            }
+        } catch (error) {
+            console.warn('更新定时器状态失败:', error);
+            if (this._rssSchedulerStatus) {
+                this._rssSchedulerStatus.textContent = '获取状态失败';
+                this._rssSchedulerStatus.style.color = '#f44336';
+            }
+        }
+    }
+    
+    // 加载RSS源列表到管理器
+    async loadRssSourcesIntoManager() {
+        const modal = document.querySelector('#pet-rss-source-manager');
+        if (!modal) return;
+        
+        const sourcesContainer = modal.querySelector('.rss-source-list');
+        if (!sourcesContainer) return;
+        
+        sourcesContainer.innerHTML = '';
+        
+        if (!this.rssSourceManager) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = 'RSS源管理器未初始化';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+                font-size: 14px !important;
+            `;
+            sourcesContainer.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 从API刷新数据
+        await this.rssSourceManager.loadSources(true);
+        
+        const sources = this.rssSourceManager.getAllSources();
+        
+        if (sources.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无RSS源，请添加';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+                font-size: 14px !important;
+            `;
+            sourcesContainer.appendChild(emptyMsg);
+            return;
+        }
+        
+        const mainColor = PET_CONFIG?.theme?.primaryColor || '#6366f1';
+        
+        sources.forEach(source => {
+            const sourceItem = document.createElement('div');
+            sourceItem.className = 'rss-source-item';
+            sourceItem.style.cssText = `
+                padding: 12px !important;
+                margin-bottom: 8px !important;
+                background: #ffffff !important;
+                border: 1px solid #e5e7eb !important;
+                border-radius: 8px !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                transition: all 0.2s ease !important;
+            `;
+            
+            const sourceInfo = document.createElement('div');
+            sourceInfo.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
+            `;
+            
+            const sourceName = document.createElement('div');
+            sourceName.textContent = source.name || source.url;
+            sourceName.style.cssText = `
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                color: #333 !important;
+                margin-bottom: 4px !important;
+                word-break: break-all !important;
+            `;
+            
+            const sourceUrl = document.createElement('div');
+            sourceUrl.textContent = source.url;
+            sourceUrl.style.cssText = `
+                font-size: 12px !important;
+                color: #6b7280 !important;
+                word-break: break-all !important;
+            `;
+            
+            const sourceStatus = document.createElement('div');
+            sourceStatus.textContent = source.enabled !== false ? '✓ 启用' : '✗ 禁用';
+            sourceStatus.style.cssText = `
+                font-size: 12px !important;
+                color: ${source.enabled !== false ? '#4CAF50' : '#9ca3af'} !important;
+                margin-top: 4px !important;
+            `;
+            
+            sourceInfo.appendChild(sourceName);
+            sourceInfo.appendChild(sourceUrl);
+            sourceInfo.appendChild(sourceStatus);
+            
+            const sourceActions = document.createElement('div');
+            sourceActions.style.cssText = `
+                display: flex !important;
+                gap: 8px !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 启用/禁用按钮
+            const toggleBtn = document.createElement('button');
+            toggleBtn.textContent = source.enabled !== false ? '禁用' : '启用';
+            toggleBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: ${source.enabled !== false ? '#f0f0f0' : mainColor} !important;
+                color: ${source.enabled !== false ? '#333' : 'white'} !important;
+                border: none !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                transition: all 0.2s ease !important;
+            `;
+            toggleBtn.addEventListener('click', async () => {
+                try {
+                    await this.rssSourceManager.toggleSourceEnabled(source.id);
+                    await this.loadRssSourcesIntoManager();
+                } catch (error) {
+                    alert('操作失败：' + error.message);
+                }
+            });
+            
+            // 手动解析按钮
+            const parseBtn = document.createElement('button');
+            parseBtn.textContent = '手动解析';
+            parseBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #2196F3 !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                transition: all 0.2s ease !important;
+            `;
+            parseBtn.addEventListener('mouseenter', () => {
+                parseBtn.style.opacity = '0.9';
+            });
+            parseBtn.addEventListener('mouseleave', () => {
+                parseBtn.style.opacity = '1';
+            });
+            parseBtn.addEventListener('click', async () => {
+                if (confirm('确定要手动解析这个RSS源吗？解析后的数据将存入数据库。')) {
+                    try {
+                        parseBtn.disabled = true;
+                        parseBtn.textContent = '解析中...';
+                        await this.parseRssSource(source.url, source.name || source.url);
+                        alert('RSS源解析成功！');
+                    } catch (error) {
+                        alert('解析失败：' + error.message);
+                    } finally {
+                        parseBtn.disabled = false;
+                        parseBtn.textContent = '手动解析';
+                    }
+                }
+            });
+            
+            // 删除按钮
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '删除';
+            deleteBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #f44336 !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                transition: all 0.2s ease !important;
+            `;
+            deleteBtn.addEventListener('mouseenter', () => {
+                deleteBtn.style.opacity = '0.9';
+            });
+            deleteBtn.addEventListener('mouseleave', () => {
+                deleteBtn.style.opacity = '1';
+            });
+            deleteBtn.addEventListener('click', async () => {
+                if (confirm('确定要删除这个RSS源吗？')) {
+                    try {
+                        await this.rssSourceManager.deleteSource(source.id);
+                        await this.loadRssSourcesIntoManager();
+                    } catch (error) {
+                        alert('删除失败：' + error.message);
+                    }
+                }
+            });
+            
+            sourceActions.appendChild(toggleBtn);
+            sourceActions.appendChild(parseBtn);
+            sourceActions.appendChild(deleteBtn);
+            
+            sourceItem.appendChild(sourceInfo);
+            sourceItem.appendChild(sourceActions);
+            sourcesContainer.appendChild(sourceItem);
+        });
+    }
+    
+    // 关闭RSS源管理器
+    closeRssSourceManager() {
+        const modal = document.querySelector('#pet-rss-source-manager');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // 手动解析RSS源
+    async parseRssSource(url, name) {
+        try {
+            const apiUrl = PET_CONFIG?.api?.yiaiBaseUrl || 'https://api.effiy.cn';
+            const parseUrl = `${apiUrl}/rss/parse`;
+            
+            const response = await fetch(parseUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: url,
+                    name: name
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.code !== 200 && result.status !== 200) {
+                throw new Error(result.msg || result.message || '解析失败');
+            }
+            
+            console.log('RSS源解析成功:', result);
+            return result;
+        } catch (error) {
+            console.error('解析RSS源失败:', error);
+            throw error;
+        }
     }
     
     // 设置视图模式（会话列表、OSS文件列表或新闻列表）
@@ -36747,6 +37809,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

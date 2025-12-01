@@ -14317,6 +14317,23 @@ if (typeof getCenterPosition === 'undefined') {
         console.log('从newsManager获取到的新闻数量:', news.length);
         if (news.length > 0) {
             console.log('第一条新闻示例:', news[0]);
+            // 调试：输出第一条新闻的所有时间相关字段
+            const firstNews = news[0];
+            const parsedTime = this.getNewsTime(firstNews);
+            console.log('第一条新闻的时间字段:', {
+                published: firstNews.published,
+                pubDate: firstNews.pubDate,
+                publishedAt: firstNews.publishedAt,
+                date: firstNews.date,
+                created_at: firstNews.created_at,
+                createdAt: firstNews.createdAt,
+                publishDate: firstNews.publishDate,
+                pub_date: firstNews.pub_date,
+                publish_date: firstNews.publish_date,
+                allKeys: Object.keys(firstNews),
+                parsedTime: parsedTime,
+                formattedTime: parsedTime > 0 ? this.formatNewsTime(parsedTime) : '无时间'
+            });
         }
         
         // 根据搜索关键词过滤新闻（本地过滤）
@@ -14533,11 +14550,8 @@ if (typeof getCenterPosition === 'undefined') {
             
             const time = document.createElement('span');
             const newsTime = this.getNewsTime(item);
-            if (newsTime) {
-                time.textContent = this.formatNewsTime(newsTime);
-            } else {
-                time.textContent = '';
-            }
+            // 即使 newsTime 为 0 也尝试格式化（formatNewsTime 会处理无效时间戳）
+            time.textContent = this.formatNewsTime(newsTime);
             footer.appendChild(time);
             
             // 操作按钮容器（移动到footer中）
@@ -14973,18 +14987,98 @@ if (typeof getCenterPosition === 'undefined') {
     
     // 获取新闻时间戳
     getNewsTime(item) {
-        if (item.pubDate) {
-            return new Date(item.pubDate).getTime();
+        if (!item) {
+            return 0;
         }
-        if (item.publishedAt) {
-            return new Date(item.publishedAt).getTime();
+        
+        // 辅助函数：安全地解析日期
+        const parseDate = (dateValue, fieldName) => {
+            if (!dateValue) return null;
+            
+            // 如果已经是时间戳（数字）
+            if (typeof dateValue === 'number') {
+                // 检查是否是有效的时间戳（毫秒或秒）
+                if (dateValue > 0) {
+                    // 如果是秒级时间戳（小于 1970-01-01 的毫秒数），转换为毫秒
+                    if (dateValue < 10000000000) {
+                        return dateValue * 1000;
+                    }
+                    return dateValue;
+                }
+                return null;
+            }
+            
+            // 如果是 Date 对象
+            if (dateValue instanceof Date) {
+                const timestamp = dateValue.getTime();
+                return isNaN(timestamp) ? null : timestamp;
+            }
+            
+            // 如果是字符串，尝试解析
+            if (typeof dateValue === 'string') {
+                // 去除前后空格
+                const trimmedValue = dateValue.trim();
+                if (!trimmedValue) return null;
+                
+                // 首先尝试标准 Date 解析
+                let date = new Date(trimmedValue);
+                let timestamp = date.getTime();
+                
+                // 如果标准解析失败，尝试其他格式
+                if (isNaN(timestamp) || timestamp <= 0) {
+                    // 尝试多种日期格式
+                    const formats = [
+                        trimmedValue, // 原始值
+                        trimmedValue.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1/$2/$3'), // YYYY-MM-DD -> YYYY/MM/DD
+                        trimmedValue.replace(/(\d{4})(\d{2})(\d{2})/, '$1/$2/$3'), // YYYYMMDD -> YYYY/MM/DD
+                        trimmedValue.replace(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/, '$1/$2/$3 $4:$5:$6'), // YYYY-MM-DD HH:mm:ss
+                        trimmedValue.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1/$2/$3 $4:$5:$6'), // YYYYMMDDHHmmss
+                    ];
+                    
+                    for (const format of formats) {
+                        if (format === trimmedValue) continue; // 跳过已尝试的原始值
+                        date = new Date(format);
+                        timestamp = date.getTime();
+                        if (!isNaN(timestamp) && timestamp > 0) {
+                            break;
+                        }
+                    }
+                }
+                
+                // 检查是否解析成功（无效日期会返回 NaN）
+                if (!isNaN(timestamp) && timestamp > 0) {
+                    return timestamp;
+                } else {
+                    // 调试：输出无法解析的日期
+                    console.warn(`无法解析日期字段 ${fieldName}:`, dateValue, '类型:', typeof dateValue);
+                }
+            }
+            
+            return null;
+        };
+        
+        // 按优先级尝试各个字段，优先使用 published
+        const timeFields = ['published', 'pubDate', 'publishedAt', 'date', 'created_at', 'createdAt', 'publishDate', 'pub_date', 'publish_date'];
+        
+        for (const field of timeFields) {
+            if (item[field] !== undefined && item[field] !== null) {
+                const timestamp = parseDate(item[field], field);
+                if (timestamp !== null && timestamp > 0) {
+                    // 只在调试模式下输出（可以通过控制台查看）
+                    if (window.DEBUG_NEWS_TIME) {
+                        console.log(`成功解析时间字段 ${field}:`, item[field], '->', timestamp, '->', new Date(timestamp).toLocaleString('zh-CN'));
+                    }
+                    return timestamp;
+                }
+            }
         }
-        if (item.date) {
-            return new Date(item.date).getTime();
+        
+        // 调试：如果所有字段都找不到，输出新闻项的所有键以便调试（只输出一次）
+        if (!this._timeFieldWarningShown) {
+            console.warn('未找到有效的时间字段，新闻项可用字段:', Object.keys(item), '示例数据:', item);
+            this._timeFieldWarningShown = true;
         }
-        if (item.created_at) {
-            return new Date(item.created_at).getTime();
-        }
+        
         return 0;
     }
     
@@ -16847,24 +16941,56 @@ if (typeof getCenterPosition === 'undefined') {
     
     // 格式化新闻时间显示
     formatNewsTime(timestamp) {
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diff = now - date;
+        // 检查时间戳是否有效
+        if (!timestamp || timestamp <= 0 || isNaN(timestamp)) {
+            return '';
+        }
         
-        const minutes = Math.floor(diff / 60000);
-        const hours = Math.floor(diff / 3600000);
-        const days = Math.floor(diff / 86400000);
-        
-        if (minutes < 1) {
-            return '刚刚';
-        } else if (minutes < 60) {
-            return `${minutes}分钟前`;
-        } else if (hours < 24) {
-            return `${hours}小时前`;
-        } else if (days < 7) {
-            return `${days}天前`;
-        } else {
-            return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
+        try {
+            const date = new Date(timestamp);
+            
+            // 检查日期是否有效
+            if (isNaN(date.getTime())) {
+                return '';
+            }
+            
+            const now = new Date();
+            const diff = now - date;
+            
+            // 如果时间在未来，显示为"刚刚"
+            if (diff < 0) {
+                return '刚刚';
+            }
+            
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            const weeks = Math.floor(days / 7);
+            const months = Math.floor(days / 30);
+            const years = Math.floor(days / 365);
+            
+            if (minutes < 1) {
+                return '刚刚';
+            } else if (minutes < 60) {
+                return `${minutes}分钟前`;
+            } else if (hours < 24) {
+                return `${hours}小时前`;
+            } else if (days < 7) {
+                return `${days}天前`;
+            } else if (weeks < 4) {
+                return `${weeks}周前`;
+            } else if (months < 12) {
+                return `${months}个月前`;
+            } else if (years < 1) {
+                // 一年内，显示月日
+                return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+            } else {
+                // 超过一年，显示完整日期
+                return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+        } catch (error) {
+            console.warn('格式化新闻时间失败:', error, timestamp);
+            return '';
         }
     }
     
@@ -17919,8 +18045,51 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
     
+    // 清除所有选中状态（切换视图时调用）
+    clearAllSelections() {
+        // 清除当前选中的会话
+        this.currentSessionId = null;
+        
+        // 清除当前选中的文件
+        this.currentFile = null;
+        
+        // 清除批量选中的状态
+        if (this.selectedSessionIds) {
+            this.selectedSessionIds.clear();
+        }
+        if (this.selectedFileNames) {
+            this.selectedFileNames.clear();
+        }
+        
+        // 清除所有 active 类的元素
+        if (this.sessionSidebar) {
+            // 清除会话项的 active 状态
+            const activeSessionItems = this.sessionSidebar.querySelectorAll('.session-item.active');
+            activeSessionItems.forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // 清除文件项的 active 状态
+            const activeFileItems = this.sessionSidebar.querySelectorAll('.oss-file-item.active');
+            activeFileItems.forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // 清除新闻项的 active 状态
+            const activeNewsItems = this.sessionSidebar.querySelectorAll('.news-item.active');
+            activeNewsItems.forEach(item => {
+                item.classList.remove('active');
+            });
+        }
+        
+        console.log('已清除所有选中状态');
+    }
+    
     // 设置视图模式（会话列表、OSS文件列表或新闻列表）
     async setViewMode(mode) {
+        // 切换视图前，清除所有选中状态
+        this.clearAllSelections();
+        
         if (mode === 'oss') {
             this.ossFileListVisible = true;
             this.newsListVisible = false;
@@ -37809,6 +37978,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

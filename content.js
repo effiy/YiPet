@@ -14870,12 +14870,12 @@ if (typeof getCenterPosition === 'undefined') {
                         });
                     } catch (error) {
                         console.error('打开链接失败:', error);
-                        // 如果消息发送失败，尝试直接使用chrome.tabs API（如果可用）
-                        if (typeof chrome !== 'undefined' && chrome.tabs) {
+                        // 如果消息发送失败（例如扩展上下文失效），使用 window.open 作为降级方案
+                        if (item.link) {
                             try {
-                                chrome.tabs.create({ url: item.link });
-                            } catch (tabError) {
-                                console.error('使用chrome.tabs打开链接失败:', tabError);
+                                window.open(item.link, '_blank');
+                            } catch (openError) {
+                                console.error('使用window.open打开链接失败:', openError);
                             }
                         }
                     }

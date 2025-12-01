@@ -15540,6 +15540,378 @@ if (typeof getCenterPosition === 'undefined') {
         modal.removeAttribute('data-news-link');
     }
     
+    // 优化新闻字段（描述或内容）
+    async optimizeNewsField(fieldType, inputElement) {
+        if (!inputElement) return;
+        
+        const originalText = inputElement.value.trim();
+        if (!originalText) {
+            this.showNotification('请先输入内容', 'warning');
+            return;
+        }
+        
+        // 保存原始文本，用于撤销功能
+        if (!inputElement.hasAttribute('data-original-text')) {
+            inputElement.setAttribute('data-original-text', originalText);
+        }
+        
+        // 获取上下文信息（标题、描述等）
+        const modal = document.getElementById('pet-news-edit-modal');
+        let title = '';
+        let description = '';
+        let content = '';
+        
+        if (modal) {
+            const titleInput = modal.querySelector('#news-edit-title');
+            const descriptionInput = modal.querySelector('#news-edit-description');
+            const contentInput = modal.querySelector('#news-edit-content');
+            
+            title = titleInput ? titleInput.value.trim() : '';
+            description = descriptionInput ? descriptionInput.value.trim() : '';
+            content = contentInput ? contentInput.value.trim() : '';
+        }
+        
+        // 禁用按钮，显示加载状态
+        // 通过data属性精确查找对应的优化按钮
+        const groupElement = inputElement.parentElement;
+        const optimizeBtn = groupElement ? groupElement.querySelector(`button[data-optimize-field="${fieldType}"]`) : null;
+        const originalBtnText = optimizeBtn ? optimizeBtn.textContent : '';
+        if (optimizeBtn) {
+            optimizeBtn.disabled = true;
+            optimizeBtn.textContent = '优化中...';
+            optimizeBtn.style.opacity = '0.6';
+            optimizeBtn.style.cursor = 'not-allowed';
+        }
+        
+        try {
+            // 构建优化提示词（更专业和详细）
+            let systemPrompt, userPrompt;
+            if (fieldType === 'description') {
+                systemPrompt = `你是一个专业的新闻编辑和文案优化专家，擅长：
+1. 提炼新闻核心要点，用简洁有力的语言表达
+2. 优化文本结构，使其逻辑清晰、层次分明
+3. 提升文本吸引力，增强可读性和传播力
+4. 保持客观中立的新闻语调
+5. 确保信息准确完整，不遗漏关键信息
+
+请根据新闻标题和内容，优化新闻描述，使其更加简洁、准确、吸引人。`;
+                
+                // 构建包含上下文的用户提示词
+                let contextInfo = '';
+                if (title) {
+                    contextInfo += `新闻标题：${title}\n\n`;
+                }
+                if (content && content !== originalText) {
+                    contextInfo += `新闻内容摘要：${content.substring(0, 500)}${content.length > 500 ? '...' : ''}\n\n`;
+                }
+                
+                userPrompt = `${contextInfo}请优化以下新闻描述，要求：
+1. 保持50-200字左右，简洁有力
+2. 突出新闻的核心要点和关键信息
+3. 语言流畅自然，易于理解
+4. 保持客观中立的新闻语调
+5. 避免冗余和重复表达
+
+原始描述：
+${originalText}
+
+请直接返回优化后的描述，不要包含任何说明文字、引号或其他格式标记。`;
+                
+            } else if (fieldType === 'content') {
+                systemPrompt = `你是一个专业的新闻编辑和内容优化专家，擅长：
+1. 优化文章结构和段落组织，使逻辑清晰
+2. 改进语言表达，使其更加流畅自然
+3. 提升可读性，使内容易于理解和传播
+4. 保持原文的核心观点和信息完整性
+5. 优化句式，避免冗长和重复
+6. 确保段落之间的连贯性和过渡自然
+
+请根据新闻标题和描述，优化新闻内容，使其更加清晰、流畅、易读。`;
+                
+                // 构建包含上下文的用户提示词
+                let contextInfo = '';
+                if (title) {
+                    contextInfo += `新闻标题：${title}\n\n`;
+                }
+                if (description && description !== originalText) {
+                    contextInfo += `新闻描述：${description}\n\n`;
+                }
+                
+                userPrompt = `${contextInfo}请优化以下新闻内容，要求：
+1. 保持原文的核心信息和观点不变
+2. 优化段落结构，使逻辑更清晰
+3. 改进语言表达，使其更加流畅自然
+4. 提升可读性，使内容易于理解
+5. 优化句式，避免冗长和重复
+6. 确保段落之间的连贯性
+
+原始内容：
+${originalText}
+
+请直接返回优化后的内容，不要包含任何说明文字、引号或其他格式标记。`;
+            } else {
+                throw new Error('未知的字段类型');
+            }
+            
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+            
+            // 显示加载动画
+            this._showLoadingAnimation();
+            
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // 先获取文本响应，检查是否是SSE格式
+            const responseText = await response.text();
+            let result;
+            
+            // 检查是否包含SSE格式（包含 "data: "）
+            if (responseText.includes('data: ')) {
+                // 处理SSE流式响应
+                const lines = responseText.split('\n');
+                let accumulatedData = '';
+                let lastValidData = null;
+                
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.startsWith('data: ')) {
+                        try {
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr === '[DONE]' || dataStr === '') {
+                                continue;
+                            }
+                            
+                            // 尝试解析JSON
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 检查是否完成
+                            if (chunk.done === true) {
+                                break;
+                            }
+                            
+                            // 累积内容（处理流式内容块）
+                            if (chunk.data) {
+                                accumulatedData += chunk.data;
+                            } else if (chunk.content) {
+                                accumulatedData += chunk.content;
+                            } else if (chunk.message && chunk.message.content) {
+                                // Ollama格式
+                                accumulatedData += chunk.message.content;
+                            } else if (typeof chunk === 'string') {
+                                accumulatedData += chunk;
+                            }
+                            
+                            // 保存最后一个有效的数据块（用于提取其他字段如status等）
+                            lastValidData = chunk;
+                        } catch (e) {
+                            // 如果不是JSON，可能是纯文本内容
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr && dataStr !== '[DONE]') {
+                                accumulatedData += dataStr;
+                            }
+                        }
+                    }
+                }
+                
+                // 如果累积了内容，创建结果对象
+                if (accumulatedData || lastValidData) {
+                    if (lastValidData && lastValidData.status) {
+                        // 如果有status字段，保留原有结构，但替换data/content
+                        result = {
+                            ...lastValidData,
+                            data: accumulatedData || lastValidData.data || '',
+                            content: accumulatedData || lastValidData.content || ''
+                        };
+                    } else {
+                        // 否则创建新的结果对象
+                        result = {
+                            data: accumulatedData,
+                            content: accumulatedData
+                        };
+                    }
+                } else {
+                    // 如果无法解析SSE格式，尝试直接解析整个响应
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        throw new Error('无法解析响应格式');
+                    }
+                }
+            } else {
+                // 非SSE格式，直接解析JSON
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`无法解析响应: ${e.message}`);
+                }
+            }
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
+            // 解析响应内容
+            let optimizedText;
+            // 优先检查 status 字段，如果存在且不等于 200，则抛出错误
+            if (result.status !== undefined && result.status !== 200) {
+                throw new Error(result.msg || result.message || '优化失败');
+            }
+            
+            // 按优先级提取优化后的文本
+            if (result.data) {
+                optimizedText = result.data;
+            } else if (result.content) {
+                optimizedText = result.content;
+            } else if (result.message) {
+                optimizedText = result.message;
+            } else if (typeof result === 'string') {
+                optimizedText = result;
+            } else if (result.text) {
+                optimizedText = result.text;
+            } else {
+                // 如果所有字段都不存在，尝试从对象中查找可能的文本字段
+                const possibleFields = ['output', 'response', 'result', 'answer'];
+                for (const field of possibleFields) {
+                    if (result[field] && typeof result[field] === 'string') {
+                        optimizedText = result[field];
+                        break;
+                    }
+                }
+                
+                // 如果仍然找不到，抛出错误
+                if (!optimizedText) {
+                    console.error('无法解析响应内容，响应对象:', result);
+                    throw new Error('无法解析响应内容，请检查服务器响应格式');
+                }
+            }
+            
+            // 清理优化后的文本（更彻底的清理）
+            optimizedText = optimizedText.trim();
+            
+            // 移除可能的引号包裹（支持多种引号类型）
+            const quotePairs = [
+                ['"', '"'],
+                ['"', '"'],
+                ['"', '"'],
+                ["'", "'"],
+                ['`', '`'],
+                ['「', '」'],
+                ['『', '』']
+            ];
+            
+            for (const [startQuote, endQuote] of quotePairs) {
+                if (optimizedText.startsWith(startQuote) && optimizedText.endsWith(endQuote)) {
+                    optimizedText = optimizedText.slice(startQuote.length, -endQuote.length).trim();
+                }
+            }
+            
+            // 移除常见的AI回复前缀（如"优化后的描述："、"优化后的内容："等）
+            const prefixes = [
+                /^优化后的[描述内容]：?\s*/i,
+                /^以下是优化后的[描述内容]：?\s*/i,
+                /^优化结果：?\s*/i,
+                /^优化后的文本：?\s*/i,
+                /^优化后的[描述内容]如下：?\s*/i,
+                /^[描述内容]优化如下：?\s*/i
+            ];
+            
+            for (const prefix of prefixes) {
+                optimizedText = optimizedText.replace(prefix, '').trim();
+            }
+            
+            // 去除 HTML 标签和 Markdown 格式标记
+            optimizedText = optimizedText.replace(/<[^>]*>/g, ''); // 移除HTML标签
+            optimizedText = optimizedText.replace(/```[\s\S]*?```/g, ''); // 移除代码块
+            optimizedText = optimizedText.replace(/`[^`]+`/g, ''); // 移除行内代码
+            optimizedText = optimizedText.replace(/^\s*[-*+]\s+/gm, ''); // 移除列表标记
+            optimizedText = optimizedText.replace(/^\s*\d+\.\s+/gm, ''); // 移除有序列表标记
+            optimizedText = optimizedText.replace(/^#{1,6}\s+/gm, ''); // 移除标题标记
+            optimizedText = optimizedText.replace(/\*\*([^*]+)\*\*/g, '$1'); // 移除粗体标记
+            optimizedText = optimizedText.replace(/\*([^*]+)\*/g, '$1'); // 移除斜体标记
+            optimizedText = optimizedText.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1'); // 移除链接标记，保留文本
+            
+            // 清理多余的空白字符
+            optimizedText = optimizedText.replace(/\n{3,}/g, '\n\n'); // 多个换行符合并为两个
+            optimizedText = optimizedText.replace(/[ \t]+/g, ' '); // 多个空格合并为一个
+            optimizedText = optimizedText.trim();
+            
+            // 验证优化后的文本是否有效
+            if (!optimizedText || optimizedText.length < 5) {
+                throw new Error('优化后的文本过短，可能优化失败，请重试');
+            }
+            
+            // 如果优化后的文本与原文完全相同，给出提示
+            if (optimizedText === originalText) {
+                this.showNotification('优化后的内容与原文相同', 'info');
+            }
+            
+            // 更新输入框内容
+            inputElement.value = optimizedText;
+            
+            // 保存优化后的文本，用于撤销功能
+            inputElement.setAttribute('data-optimized-text', optimizedText);
+            
+            // 触发 input 事件，确保值被正确更新
+            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            // 显示撤销按钮
+            const undoBtn = groupElement ? groupElement.querySelector(`button[data-undo-field="${fieldType}"]`) : null;
+            if (undoBtn) {
+                undoBtn.style.display = 'block';
+            }
+            
+            // 显示优化完成通知，包含字符数信息
+            const charCount = optimizedText.length;
+            const originalCharCount = originalText.length;
+            const changeInfo = charCount !== originalCharCount 
+                ? `（${originalCharCount}字 → ${charCount}字）` 
+                : `（${charCount}字）`;
+            this.showNotification(`优化完成 ${changeInfo}`, 'success');
+        } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            console.error('优化新闻字段失败:', error);
+            
+            // 提供更详细的错误信息
+            let errorMessage = '优化失败，请稍后重试';
+            if (error.message) {
+                if (error.message.includes('HTTP error')) {
+                    errorMessage = '网络请求失败，请检查网络连接';
+                } else if (error.message.includes('无法解析')) {
+                    errorMessage = '服务器响应格式异常，请稍后重试';
+                } else if (error.message.includes('过短')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage = error.message;
+                }
+            }
+            
+            this.showNotification(errorMessage, 'error');
+        } finally {
+            // 恢复按钮状态
+            if (optimizeBtn) {
+                optimizeBtn.disabled = false;
+                optimizeBtn.textContent = originalBtnText;
+                optimizeBtn.style.opacity = '1';
+                optimizeBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+    
     // 确保新闻编辑模态框UI存在
     ensureNewsEditModalUi() {
         if (document.getElementById('pet-news-edit-modal')) return;
@@ -15562,7 +15934,7 @@ if (typeof getCenterPosition === 'undefined') {
         const panel = document.createElement('div');
         panel.style.cssText = `
             width: 90% !important;
-            max-width: 600px !important;
+            max-width: 900px !important;
             max-height: 90vh !important;
             background: #1f1f1f !important;
             color: #fff !important;
@@ -15665,11 +16037,16 @@ if (typeof getCenterPosition === 'undefined') {
         // 描述输入
         const descriptionGroup = document.createElement('div');
         descriptionGroup.style.cssText = 'margin-bottom: 16px;';
+        const descriptionLabelRow = document.createElement('div');
+        descriptionLabelRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;';
         const descriptionLabel = document.createElement('label');
         descriptionLabel.textContent = '描述';
-        descriptionLabel.style.cssText = 'display: block; margin-bottom: 8px; font-size: 14px; color: #e5e7eb;';
+        descriptionLabel.style.cssText = 'font-size: 14px; color: #e5e7eb;';
+        
+        // 先创建输入框，以便在按钮事件中使用
         const descriptionInput = document.createElement('textarea');
         descriptionInput.id = 'news-edit-description';
+        descriptionInput.setAttribute('data-optimize-field', 'description');
         descriptionInput.rows = 3;
         descriptionInput.style.cssText = `
             width: 100% !important;
@@ -15683,18 +16060,87 @@ if (typeof getCenterPosition === 'undefined') {
             box-sizing: border-box !important;
             font-family: inherit !important;
         `;
-        descriptionGroup.appendChild(descriptionLabel);
+        
+        const descriptionBtnGroup = document.createElement('div');
+        descriptionBtnGroup.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+        const descriptionOptimizeBtn = document.createElement('button');
+        descriptionOptimizeBtn.textContent = '✨ 智能优化';
+        descriptionOptimizeBtn.setAttribute('data-optimize-field', 'description');
+        descriptionOptimizeBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(76, 175, 80, 0.3) !important;
+            background: rgba(76, 175, 80, 0.15) !important;
+            color: #4caf50 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        descriptionOptimizeBtn.addEventListener('click', async () => {
+            await this.optimizeNewsField('description', descriptionInput);
+        });
+        descriptionOptimizeBtn.addEventListener('mouseenter', () => {
+            if (!descriptionOptimizeBtn.disabled) {
+                descriptionOptimizeBtn.style.background = 'rgba(76, 175, 80, 0.25)';
+            }
+        });
+        descriptionOptimizeBtn.addEventListener('mouseleave', () => {
+            if (!descriptionOptimizeBtn.disabled) {
+                descriptionOptimizeBtn.style.background = 'rgba(76, 175, 80, 0.15)';
+            }
+        });
+        const descriptionUndoBtn = document.createElement('button');
+        descriptionUndoBtn.textContent = '↶ 撤销';
+        descriptionUndoBtn.setAttribute('data-undo-field', 'description');
+        descriptionUndoBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(255, 152, 0, 0.3) !important;
+            background: rgba(255, 152, 0, 0.15) !important;
+            color: #ff9800 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            display: none !important;
+            transition: all 0.2s !important;
+        `;
+        descriptionUndoBtn.addEventListener('click', () => {
+            const originalText = descriptionInput.getAttribute('data-original-text');
+            if (originalText) {
+                descriptionInput.value = originalText;
+                descriptionInput.dispatchEvent(new Event('input', { bubbles: true }));
+                descriptionUndoBtn.style.display = 'none';
+                this.showNotification('已撤销优化', 'info');
+            }
+        });
+        descriptionUndoBtn.addEventListener('mouseenter', () => {
+            descriptionUndoBtn.style.background = 'rgba(255, 152, 0, 0.25)';
+        });
+        descriptionUndoBtn.addEventListener('mouseleave', () => {
+            descriptionUndoBtn.style.background = 'rgba(255, 152, 0, 0.15)';
+        });
+        descriptionBtnGroup.appendChild(descriptionOptimizeBtn);
+        descriptionBtnGroup.appendChild(descriptionUndoBtn);
+        descriptionLabelRow.appendChild(descriptionLabel);
+        descriptionLabelRow.appendChild(descriptionBtnGroup);
+        descriptionGroup.appendChild(descriptionLabelRow);
         descriptionGroup.appendChild(descriptionInput);
         content.appendChild(descriptionGroup);
         
         // 内容输入
         const contentGroup = document.createElement('div');
         contentGroup.style.cssText = 'margin-bottom: 16px;';
+        const contentLabelRow = document.createElement('div');
+        contentLabelRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;';
         const contentLabel = document.createElement('label');
         contentLabel.textContent = '内容';
-        contentLabel.style.cssText = 'display: block; margin-bottom: 8px; font-size: 14px; color: #e5e7eb;';
+        contentLabel.style.cssText = 'font-size: 14px; color: #e5e7eb;';
+        
+        // 先创建输入框，以便在按钮事件中使用
         const contentInput = document.createElement('textarea');
         contentInput.id = 'news-edit-content';
+        contentInput.setAttribute('data-optimize-field', 'content');
         contentInput.rows = 6;
         contentInput.style.cssText = `
             width: 100% !important;
@@ -15708,7 +16154,71 @@ if (typeof getCenterPosition === 'undefined') {
             box-sizing: border-box !important;
             font-family: inherit !important;
         `;
-        contentGroup.appendChild(contentLabel);
+        
+        const contentBtnGroup = document.createElement('div');
+        contentBtnGroup.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+        const contentOptimizeBtn = document.createElement('button');
+        contentOptimizeBtn.textContent = '✨ 智能优化';
+        contentOptimizeBtn.setAttribute('data-optimize-field', 'content');
+        contentOptimizeBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(76, 175, 80, 0.3) !important;
+            background: rgba(76, 175, 80, 0.15) !important;
+            color: #4caf50 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        contentOptimizeBtn.addEventListener('click', async () => {
+            await this.optimizeNewsField('content', contentInput);
+        });
+        contentOptimizeBtn.addEventListener('mouseenter', () => {
+            if (!contentOptimizeBtn.disabled) {
+                contentOptimizeBtn.style.background = 'rgba(76, 175, 80, 0.25)';
+            }
+        });
+        contentOptimizeBtn.addEventListener('mouseleave', () => {
+            if (!contentOptimizeBtn.disabled) {
+                contentOptimizeBtn.style.background = 'rgba(76, 175, 80, 0.15)';
+            }
+        });
+        const contentUndoBtn = document.createElement('button');
+        contentUndoBtn.textContent = '↶ 撤销';
+        contentUndoBtn.setAttribute('data-undo-field', 'content');
+        contentUndoBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(255, 152, 0, 0.3) !important;
+            background: rgba(255, 152, 0, 0.15) !important;
+            color: #ff9800 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            display: none !important;
+            transition: all 0.2s !important;
+        `;
+        contentUndoBtn.addEventListener('click', () => {
+            const originalText = contentInput.getAttribute('data-original-text');
+            if (originalText) {
+                contentInput.value = originalText;
+                contentInput.dispatchEvent(new Event('input', { bubbles: true }));
+                contentUndoBtn.style.display = 'none';
+                this.showNotification('已撤销优化', 'info');
+            }
+        });
+        contentUndoBtn.addEventListener('mouseenter', () => {
+            contentUndoBtn.style.background = 'rgba(255, 152, 0, 0.25)';
+        });
+        contentUndoBtn.addEventListener('mouseleave', () => {
+            contentUndoBtn.style.background = 'rgba(255, 152, 0, 0.15)';
+        });
+        contentBtnGroup.appendChild(contentOptimizeBtn);
+        contentBtnGroup.appendChild(contentUndoBtn);
+        contentLabelRow.appendChild(contentLabel);
+        contentLabelRow.appendChild(contentBtnGroup);
+        contentGroup.appendChild(contentLabelRow);
         contentGroup.appendChild(contentInput);
         content.appendChild(contentGroup);
         

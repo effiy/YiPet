@@ -15361,7 +15361,13 @@ if (typeof getCenterPosition === 'undefined') {
         if (this.apiRequestManager) {
             // 如果启用了存储同步，先同步一次 storage 数据，确保获取到最新的请求
             if (this.apiRequestManager.enableStorageSync) {
-                await this.apiRequestManager._loadRequestsFromStorage();
+                try {
+                    await this.apiRequestManager._loadRequestsFromStorage();
+                } catch (error) {
+                    // 静默处理所有错误，不输出日志
+                    // _loadRequestsFromStorage 内部已经处理了所有错误
+                    // 这里只是作为额外的安全措施
+                }
             }
             
             // 直接获取所有请求（不按页面过滤）
@@ -39586,6 +39592,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

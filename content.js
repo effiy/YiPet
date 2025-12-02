@@ -596,6 +596,10 @@ if (typeof getCenterPosition === 'undefined') {
         this.hasRequestedNews = false; // 标记是否已经请求过新闻列表（用于延迟加载）
         this.lastNewsDateRange = null; // 上次加载新闻的日期区间（用于判断是否需要重新加载）
         
+        // 接口请求管理相关属性
+        this.apiRequestManager = null;
+        this.apiRequestListVisible = false; // 接口请求列表是否可见
+        
         // RSS源管理器
         this.rssSourceManager = null;
         this.rssSourceManagerVisible = false; // RSS源管理界面是否可见
@@ -713,6 +717,49 @@ if (typeof getCenterPosition === 'undefined') {
             console.log('新闻管理器已初始化');
         } else {
             console.log('新闻管理器未启用');
+        }
+        
+        // 初始化接口请求管理器
+        if (typeof ApiRequestManager !== 'undefined') {
+            this.apiRequestManager = new ApiRequestManager({
+                enableRecording: true,
+                maxRecords: 1000,
+                filterExtensionRequests: true, // 过滤扩展请求，只记录页面请求
+                enableStorageSync: true // 启用存储同步，从 background 同步所有标签页的请求
+            });
+            await this.apiRequestManager.initialize();
+            console.log('接口请求管理器已初始化');
+            
+            // 监听接口请求记录事件，自动更新列表
+            window.addEventListener('apiRequestRecorded', (event) => {
+                console.log('收到接口请求记录事件:', event.detail);
+                // 如果接口请求列表当前可见，则自动更新
+                if (this.apiRequestListVisible) {
+                    console.log('接口请求列表可见，自动更新');
+                    this.updateApiRequestSidebar();
+                } else {
+                    console.log('接口请求列表不可见，跳过更新');
+                }
+            });
+            
+            // 监听来自 background 的消息（新标签页的请求）
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+                chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+                    if (request.action === 'apiRequestRecorded' && request.request) {
+                        console.log('收到来自 background 的接口请求:', request.request);
+                        // 如果接口请求列表当前可见，则自动更新
+                        if (this.apiRequestListVisible) {
+                            console.log('接口请求列表可见，自动更新（来自 background）');
+                            // 延迟更新，确保数据已同步
+                            setTimeout(() => {
+                                this.updateApiRequestSidebar();
+                            }, 100);
+                        }
+                    }
+                });
+            }
+        } else {
+            console.log('接口请求管理器未启用');
         }
         
         // 初始化RSS源管理器
@@ -7679,6 +7726,8 @@ if (typeof getCenterPosition === 'undefined') {
             this.updateNewsSidebar();
         } else if (this.ossFileListVisible) {
             this.updateOssFileSidebar();
+        } else if (this.apiRequestListVisible) {
+            this.updateApiRequestSidebar();
         } else {
             this.updateSessionSidebar();
         }
@@ -11521,6 +11570,7 @@ if (typeof getCenterPosition === 'undefined') {
         // 确保视图模式状态正确
         this.ossFileListVisible = false;
         this.newsListVisible = false;
+        this.apiRequestListVisible = false;
         
         // 如果视图状态发生变化（从其他视图切换过来），清空聊天消息
         if ((wasOssFileListVisible || wasNewsListVisible)) {
@@ -11545,6 +11595,12 @@ if (typeof getCenterPosition === 'undefined') {
         const ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
         if (ossTagFilterContainer) {
             ossTagFilterContainer.style.display = 'none';
+        }
+        
+        // 隐藏接口请求列表
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        if (apiRequestList) {
+            apiRequestList.style.display = 'none';
         }
         
         // 显示会话列表相关元素
@@ -12660,6 +12716,7 @@ if (typeof getCenterPosition === 'undefined') {
         // 确保视图模式状态正确
         this.ossFileListVisible = true;
         this.newsListVisible = false;
+        this.apiRequestListVisible = false;
         
         // 如果视图状态发生变化（从其他视图切换过来），清空聊天消息
         if (!wasOssFileListVisible) {
@@ -12688,6 +12745,12 @@ if (typeof getCenterPosition === 'undefined') {
         const newsTagFilterContainer = this.sessionSidebar.querySelector('.news-tag-filter-container');
         if (newsTagFilterContainer) {
             newsTagFilterContainer.style.display = 'none';
+        }
+        
+        // 隐藏接口请求列表
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        if (apiRequestList) {
+            apiRequestList.style.display = 'none';
         }
         // 批量工具栏在批量模式下显示
         if (batchToolbar && this.batchMode) {
@@ -14405,6 +14468,8 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 确保视图模式状态正确
         this.newsListVisible = true;
+        this.ossFileListVisible = false;
+        this.apiRequestListVisible = false;
         
         // 如果视图状态发生变化（从其他视图切换过来），清空聊天消息
         if (!wasNewsListVisible) {
@@ -14433,6 +14498,12 @@ if (typeof getCenterPosition === 'undefined') {
         }
         if (ossTagFilterContainer) {
             ossTagFilterContainer.style.display = 'none';
+        }
+        
+        // 隐藏接口请求列表
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        if (apiRequestList) {
+            apiRequestList.style.display = 'none';
         }
         
         // 显示新闻标签过滤器
@@ -15200,6 +15271,389 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 更新视图切换按钮状态
         this.applyViewMode();
+    }
+    
+    // 更新接口请求列表侧边栏
+    async updateApiRequestSidebar(forceRefresh = false) {
+        if (!this.sessionSidebar) {
+            console.log('侧边栏未创建，跳过更新');
+            return;
+        }
+        
+        // 检查是否从其他视图切换过来
+        const wasOssFileListVisible = this.ossFileListVisible;
+        const wasNewsListVisible = this.newsListVisible;
+        const wasApiRequestListVisible = this.apiRequestListVisible;
+        
+        // 确保视图模式状态正确
+        this.apiRequestListVisible = true;
+        this.ossFileListVisible = false;
+        this.newsListVisible = false;
+        
+        // 如果视图状态发生变化（从其他视图切换过来），清空聊天消息
+        if (!wasApiRequestListVisible) {
+            this.clearChatMessages();
+        }
+        
+        // 隐藏会话列表相关元素
+        const sessionList = this.sessionSidebar.querySelector('.session-list');
+        const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
+        const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
+        const scrollableContent = this.sessionSidebar.querySelector('.session-sidebar-scrollable-content');
+        const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const ossTagFilterContainer = this.sessionSidebar.querySelector('.oss-tag-filter-container');
+        const newsList = this.sessionSidebar.querySelector('.news-list');
+        const newsTagFilterContainer = this.sessionSidebar.querySelector('.news-tag-filter-container');
+        
+        if (sessionList) {
+            sessionList.style.display = 'none';
+        }
+        if (tagFilterContainer) {
+            tagFilterContainer.style.display = 'none';
+        }
+        if (scrollableContent) {
+            scrollableContent.style.display = 'none';
+        }
+        if (ossFileList) {
+            ossFileList.style.display = 'none';
+        }
+        if (ossTagFilterContainer) {
+            ossTagFilterContainer.style.display = 'none';
+        }
+        if (newsList) {
+            newsList.style.display = 'none';
+        }
+        if (newsTagFilterContainer) {
+            newsTagFilterContainer.style.display = 'none';
+        }
+        
+        // 批量工具栏在批量模式下显示
+        if (batchToolbar && this.batchMode) {
+            batchToolbar.style.display = 'flex';
+        } else if (batchToolbar) {
+            batchToolbar.style.display = 'none';
+        }
+        
+        // 获取或创建接口请求列表容器
+        let apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        if (!apiRequestList) {
+            apiRequestList = document.createElement('div');
+            apiRequestList.className = 'api-request-list';
+            apiRequestList.style.cssText = `
+                flex: 1 !important;
+                overflow-y: auto !important;
+                padding: 8px 8px 220px 8px !important;
+                scroll-padding-bottom: 20px !important;
+                box-sizing: border-box !important;
+            `;
+            this.sessionSidebar.appendChild(apiRequestList);
+        }
+        apiRequestList.style.display = 'block';
+        
+        // 更新搜索框占位符
+        const searchInput = this.sessionSidebar.querySelector('#session-search-input');
+        if (searchInput) {
+            searchInput.placeholder = '搜索接口请求...';
+        }
+        
+        // 获取接口请求记录
+        let requests = [];
+        if (this.apiRequestManager) {
+            // 如果启用了存储同步，先同步一次 storage 数据，确保获取到最新的请求
+            if (this.apiRequestManager.enableStorageSync) {
+                await this.apiRequestManager._loadRequestsFromStorage();
+            }
+            
+            // 直接获取所有请求（不按页面过滤）
+            // 这样可以确保用户能看到所有请求记录（包括其他标签页的请求）
+            requests = this.apiRequestManager.getAllRequests();
+            console.log('接口请求记录数量:', requests.length);
+            console.log('当前页面URL:', window.location.href);
+            console.log('总请求数:', this.apiRequestManager.requests.length);
+            console.log('本地请求数:', this.apiRequestManager.localRequests.length);
+            
+            if (requests.length === 0) {
+                console.warn('没有接口请求记录');
+                console.log('enableRecording:', this.apiRequestManager.enableRecording);
+                console.log('filterExtensionRequests:', this.apiRequestManager.filterExtensionRequests);
+            } else {
+                console.log('成功获取接口请求记录，第一个请求:', {
+                    url: requests[0]?.url,
+                    method: requests[0]?.method,
+                    status: requests[0]?.status,
+                    pageUrl: requests[0]?.pageUrl
+                });
+            }
+        } else {
+            console.warn('接口请求管理器未初始化');
+        }
+        
+        // 根据搜索关键词过滤请求（本地过滤）
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            requests = requests.filter(req => {
+                const url = (req.url || '').toLowerCase();
+                const method = (req.method || '').toLowerCase();
+                const status = String(req.status || '');
+                return url.includes(filterKeyword) || 
+                       method.includes(filterKeyword) ||
+                       status.includes(filterKeyword);
+            });
+        }
+        
+        // 清空列表
+        apiRequestList.innerHTML = '';
+        
+        if (requests.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.cssText = `
+                padding: 20px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 12px !important;
+            `;
+            emptyMsg.textContent = this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '' ? '未找到匹配的接口请求' : '暂无接口请求记录';
+            apiRequestList.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 按时间排序（最新的在前）
+        const sortedRequests = requests.sort((a, b) => {
+            return (b.timestamp || 0) - (a.timestamp || 0);
+        });
+        
+        // 创建接口请求列表项
+        for (let index = 0; index < sortedRequests.length; index++) {
+            const req = sortedRequests[index];
+            const requestItem = document.createElement('div');
+            requestItem.className = 'api-request-item';
+            requestItem.setAttribute('data-request-index', index);
+            
+            // 根据状态设置颜色
+            const isSuccess = req.status >= 200 && req.status < 300;
+            const isError = req.status >= 400 || req.status === 0;
+            const statusColor = isSuccess ? '#4CAF50' : isError ? '#f44336' : '#FF9800';
+            
+            requestItem.style.cssText = `
+                padding: 12px !important;
+                margin-bottom: 8px !important;
+                background: #ffffff !important;
+                border: 1px solid #e5e7eb !important;
+                border-left: 4px solid ${statusColor} !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+                position: relative !important;
+            `;
+            
+            // 请求信息容器
+            const requestInfo = document.createElement('div');
+            requestInfo.className = 'api-request-info';
+            requestInfo.style.cssText = `
+                margin-bottom: 8px !important;
+            `;
+            
+            // 创建标题行容器（方法和URL在同一行）
+            const titleRow = document.createElement('div');
+            titleRow.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 8px !important;
+                width: 100% !important;
+                margin-bottom: 6px !important;
+            `;
+            
+            // 方法标签
+            const methodTag = document.createElement('span');
+            methodTag.textContent = req.method || 'GET';
+            methodTag.style.cssText = `
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                color: ${statusColor} !important;
+                background: ${statusColor}22 !important;
+                padding: 2px 6px !important;
+                border-radius: 4px !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // URL
+            const url = document.createElement('div');
+            url.style.cssText = `
+                font-size: 13px !important;
+                font-weight: 600 !important;
+                color: #111827 !important;
+                line-height: 1.4 !important;
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important;
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+                word-break: break-all !important;
+            `;
+            url.textContent = req.url || '未知URL';
+            
+            titleRow.appendChild(methodTag);
+            titleRow.appendChild(url);
+            requestInfo.appendChild(titleRow);
+            
+            // 状态和时间信息
+            const statusRow = document.createElement('div');
+            statusRow.style.cssText = `
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                font-size: 11px !important;
+                color: #9ca3af !important;
+                margin-top: 6px !important;
+            `;
+            
+            const statusInfo = document.createElement('span');
+            statusInfo.textContent = `${req.status || 0} ${req.statusText || ''} • ${req.duration || 0}ms`;
+            statusInfo.style.cssText = `
+                color: ${statusColor} !important;
+                font-weight: 500 !important;
+            `;
+            
+            const time = document.createElement('span');
+            if (req.timestamp) {
+                const date = new Date(req.timestamp);
+                const now = new Date();
+                const diff = now - date;
+                const minutes = Math.floor(diff / (1000 * 60));
+                const seconds = Math.floor(diff / 1000);
+                
+                if (minutes > 0) {
+                    time.textContent = `${minutes}分钟前`;
+                } else if (seconds > 0) {
+                    time.textContent = `${seconds}秒前`;
+                } else {
+                    time.textContent = '刚刚';
+                }
+            } else {
+                time.textContent = '';
+            }
+            
+            statusRow.appendChild(statusInfo);
+            statusRow.appendChild(time);
+            requestInfo.appendChild(statusRow);
+            
+            requestItem.appendChild(requestInfo);
+            
+            // 点击展开详情
+            let isExpanded = false;
+            const detailPanel = document.createElement('div');
+            detailPanel.className = 'api-request-detail';
+            detailPanel.style.cssText = `
+                display: none !important;
+                margin-top: 8px !important;
+                padding-top: 8px !important;
+                border-top: 1px solid #e5e7eb !important;
+                font-size: 11px !important;
+            `;
+            
+            // 创建详情内容
+            const createDetailSection = (title, content, isCode = false) => {
+                const section = document.createElement('div');
+                section.style.cssText = `
+                    margin-bottom: 12px !important;
+                `;
+                
+                const sectionTitle = document.createElement('div');
+                sectionTitle.textContent = title;
+                sectionTitle.style.cssText = `
+                    font-weight: 600 !important;
+                    color: #374151 !important;
+                    margin-bottom: 4px !important;
+                `;
+                
+                const sectionContent = document.createElement('div');
+                if (isCode) {
+                    sectionContent.style.cssText = `
+                        background: #f9fafb !important;
+                        padding: 8px !important;
+                        border-radius: 4px !important;
+                        font-family: 'Monaco', 'Menlo', 'Consolas', monospace !important;
+                        font-size: 10px !important;
+                        color: #111827 !important;
+                        overflow-x: auto !important;
+                        white-space: pre-wrap !important;
+                        word-break: break-all !important;
+                        max-height: 200px !important;
+                        overflow-y: auto !important;
+                    `;
+                } else {
+                    sectionContent.style.cssText = `
+                        color: #6b7280 !important;
+                        line-height: 1.5 !important;
+                    `;
+                }
+                
+                if (typeof content === 'object') {
+                    sectionContent.textContent = JSON.stringify(content, null, 2);
+                } else {
+                    sectionContent.textContent = content || '';
+                }
+                
+                section.appendChild(sectionTitle);
+                section.appendChild(sectionContent);
+                return section;
+            };
+            
+            // 添加详情内容
+            if (req.headers && Object.keys(req.headers).length > 0) {
+                detailPanel.appendChild(createDetailSection('请求头', req.headers, true));
+            }
+            if (req.body) {
+                detailPanel.appendChild(createDetailSection('请求体', req.body, true));
+            }
+            if (req.responseHeaders && Object.keys(req.responseHeaders).length > 0) {
+                detailPanel.appendChild(createDetailSection('响应头', req.responseHeaders, true));
+            }
+            if (req.responseText) {
+                detailPanel.appendChild(createDetailSection('响应体', req.responseText, true));
+            }
+            if (req.curl) {
+                detailPanel.appendChild(createDetailSection('cURL 命令', req.curl, true));
+            }
+            
+            requestItem.appendChild(detailPanel);
+            
+            // 点击切换展开/收起
+            requestItem.addEventListener('click', (e) => {
+                // 如果点击的是详情面板内的内容，不切换展开状态
+                if (detailPanel.contains(e.target)) {
+                    return;
+                }
+                
+                isExpanded = !isExpanded;
+                if (isExpanded) {
+                    detailPanel.style.display = 'block';
+                    requestItem.style.background = '#f9fafb';
+                } else {
+                    detailPanel.style.display = 'none';
+                    requestItem.style.background = '#ffffff';
+                }
+            });
+            
+            // 悬停效果
+            requestItem.addEventListener('mouseenter', () => {
+                if (!isExpanded) {
+                    requestItem.style.background = '#f9fafb';
+                    requestItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                }
+            });
+            requestItem.addEventListener('mouseleave', () => {
+                if (!isExpanded) {
+                    requestItem.style.background = '#ffffff';
+                    requestItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                }
+            });
+            
+            apiRequestList.appendChild(requestItem);
+        }
     }
     
     // 格式化日期为 YYYY-MM-DD（用于新闻API）
@@ -19154,18 +19608,28 @@ ${originalText}
         if (mode === 'oss') {
             this.ossFileListVisible = true;
             this.newsListVisible = false;
+            this.apiRequestListVisible = false;
             await this.updateOssFileSidebar();
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
         } else if (mode === 'news') {
             this.ossFileListVisible = false;
             this.newsListVisible = true;
+            this.apiRequestListVisible = false;
             await this.updateNewsSidebar();
+            // 确保视图模式状态与列表数据一致
+            this.applyViewMode();
+        } else if (mode === 'api') {
+            this.ossFileListVisible = false;
+            this.newsListVisible = false;
+            this.apiRequestListVisible = true;
+            await this.updateApiRequestSidebar();
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
         } else {
             this.ossFileListVisible = false;
             this.newsListVisible = false;
+            this.apiRequestListVisible = false;
             await this.updateSessionSidebar();
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
@@ -19179,6 +19643,7 @@ ${originalText}
         const btnSession = this.sessionSidebar.querySelector('#view-toggle-session');
         const btnOss = this.sessionSidebar.querySelector('#view-toggle-oss');
         const btnNews = this.sessionSidebar.querySelector('#view-toggle-news');
+        const btnApi = this.sessionSidebar.querySelector('#view-toggle-api');
         
         if (!btnSession || !btnOss) return;
         
@@ -19206,9 +19671,12 @@ ${originalText}
         resetBtn(btnSession);
         resetBtn(btnOss);
         if (btnNews) resetBtn(btnNews);
+        if (btnApi) resetBtn(btnApi);
         
         // 激活当前模式的按钮
-        if (this.newsListVisible && btnNews) {
+        if (this.apiRequestListVisible && btnApi) {
+            activateBtn(btnApi);
+        } else if (this.newsListVisible && btnNews) {
             activateBtn(btnNews);
         } else if (this.ossFileListVisible) {
             activateBtn(btnOss);
@@ -30685,10 +31153,12 @@ ${messageContent}`;
         const btnSession = makeViewToggleBtn('view-toggle-session', '💬', 'session');
         const btnOss = makeViewToggleBtn('view-toggle-oss', '📦', 'oss');
         const btnNews = makeViewToggleBtn('view-toggle-news', '📰', 'news');
+        const btnApi = makeViewToggleBtn('view-toggle-api', '🔌', 'api');
         
         viewToggleGroup.appendChild(btnSession);
         viewToggleGroup.appendChild(btnOss);
         viewToggleGroup.appendChild(btnNews);
+        viewToggleGroup.appendChild(btnApi);
         
         // 第一行：搜索输入框 + 视图切换按钮组
         firstRow.appendChild(searchContainer);
@@ -39116,6 +39586,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

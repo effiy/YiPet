@@ -540,6 +540,376 @@ async function sendToWeWorkRobot(webhookUrl, content) {
     }
 }
 
+/**
+ * 接口请求监控管理器（Background）
+ * 使用 webRequest API 监控所有标签页的网络请求
+ */
+
+// 存储所有标签页的请求数据
+let globalApiRequests = [];
+const MAX_REQUESTS = 1000; // 最大请求记录数
+
+// 扩展相关的URL模式（用于过滤）
+const extensionUrlPatterns = [
+    /^chrome-extension:\/\//i,
+    /^chrome:\/\//i,
+    /^moz-extension:\/\//i,
+    /api\.effiy\.cn/i, // 扩展使用的API域名
+];
+
+/**
+ * 检查是否是扩展请求
+ */
+function isExtensionRequest(url) {
+    if (!url || typeof url !== 'string') {
+        return false;
+    }
+    for (const pattern of extensionUrlPatterns) {
+        if (pattern.test(url)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 规范化URL（移除hash和query参数，用于匹配）
+ */
+function normalizeUrl(url) {
+    if (!url || typeof url !== 'string') {
+        return '';
+    }
+    try {
+        const urlObj = new URL(url);
+        return `${urlObj.origin}${urlObj.pathname}`;
+    } catch (e) {
+        const hashIndex = url.indexOf('#');
+        const queryIndex = url.indexOf('?');
+        let endIndex = url.length;
+        if (hashIndex !== -1) {
+            endIndex = Math.min(endIndex, hashIndex);
+        }
+        if (queryIndex !== -1) {
+            endIndex = Math.min(endIndex, queryIndex);
+        }
+        return url.substring(0, endIndex);
+    }
+}
+
+/**
+ * 格式化请求头
+ */
+function formatHeaders(headers) {
+    if (!headers) return {};
+    if (Array.isArray(headers)) {
+        const result = {};
+        headers.forEach(header => {
+            result[header.name] = header.value;
+        });
+        return result;
+    }
+    if (typeof headers === 'object') {
+        return { ...headers };
+    }
+    return {};
+}
+
+/**
+ * 生成 curl 命令
+ */
+function generateCurl(url, method, headers, body) {
+    let curl = `curl -X ${method}`;
+    
+    if (headers && typeof headers === 'object') {
+        Object.entries(headers).forEach(([key, value]) => {
+            curl += ` \\\n  -H "${key}: ${value}"`;
+        });
+    }
+    
+    if (body) {
+        if (typeof body === 'string') {
+            curl += ` \\\n  -d '${body.replace(/'/g, "\\'")}'`;
+        } else if (typeof body === 'object') {
+            curl += ` \\\n  -d '${JSON.stringify(body).replace(/'/g, "\\'")}'`;
+        }
+    }
+    
+    curl += ` \\\n  "${url}"`;
+    return curl;
+}
+
+/**
+ * 记录请求到存储
+ */
+async function recordRequestToStorage(request) {
+    try {
+        // 过滤扩展请求
+        if (isExtensionRequest(request.url)) {
+            return;
+        }
+        
+        // 获取当前存储的请求列表
+        const result = await chrome.storage.local.get(['apiRequests']);
+        let requests = result.apiRequests || [];
+        
+        // 添加新请求
+        requests.push(request);
+        
+        // 限制记录数量
+        if (requests.length > MAX_REQUESTS) {
+            requests = requests.slice(-MAX_REQUESTS);
+        }
+        
+        // 保存到存储
+        await chrome.storage.local.set({ apiRequests: requests });
+        
+        // 更新全局变量
+        globalApiRequests = requests;
+        
+        // 通知所有标签页有新请求
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+                if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+                    chrome.tabs.sendMessage(tab.id, {
+                        action: 'apiRequestRecorded',
+                        request: request
+                    }).catch(() => {
+                        // 忽略错误（content script 可能未加载）
+                    });
+                }
+            });
+        });
+        
+        console.log('[Background] 接口请求已记录:', {
+            url: request.url,
+            method: request.method,
+            status: request.status,
+            tabId: request.tabId
+        });
+    } catch (error) {
+        console.error('[Background] 记录请求失败:', error);
+    }
+}
+
+// 存储请求开始信息（用于关联请求和响应）
+const requestStartInfo = new Map();
+
+/**
+ * 监听请求开始
+ * 监控所有类型的网络请求，包括页面导航、XHR、fetch 等
+ */
+chrome.webRequest.onBeforeRequest.addListener(
+    (details) => {
+        // 过滤扩展请求
+        if (isExtensionRequest(details.url)) {
+            return;
+        }
+        
+        // 监控所有类型的请求（包括 main_frame、sub_frame、xmlhttprequest、fetch、script、stylesheet、image 等）
+        // 但主要关注页面导航和 API 请求
+        const requestId = details.requestId;
+        const startTime = Date.now();
+        
+        // 获取请求方法
+        const method = details.method || 'GET';
+        
+        // 获取请求体（如果有，且是 POST/PUT/PATCH 等）
+        let requestBody = null;
+        if (details.requestBody && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+            if (details.requestBody.formData) {
+                requestBody = details.requestBody.formData;
+            } else if (details.requestBody.raw) {
+                // 对于原始数据，我们无法直接读取，只能标记
+                requestBody = '[Binary Data]';
+            }
+        }
+        
+        // 存储请求开始信息
+        requestStartInfo.set(requestId, {
+            url: details.url,
+            method: method,
+            tabId: details.tabId,
+            frameId: details.frameId,
+            type: details.type,
+            startTime: startTime,
+            requestBody: requestBody,
+            requestHeaders: details.requestHeaders || []
+        });
+    },
+    { urls: ['<all_urls>'] },
+    ['requestBody']
+);
+
+/**
+ * 监听请求头（获取完整的请求头信息）
+ */
+chrome.webRequest.onBeforeSendHeaders.addListener(
+    (details) => {
+        const requestInfo = requestStartInfo.get(details.requestId);
+        if (requestInfo) {
+            requestInfo.requestHeaders = details.requestHeaders || [];
+        }
+    },
+    { urls: ['<all_urls>'] },
+    ['requestHeaders']
+);
+
+/**
+ * 监听响应头（获取响应信息）
+ * 记录所有类型的请求，包括页面导航和 API 请求
+ */
+chrome.webRequest.onCompleted.addListener(
+    async (details) => {
+        const requestInfo = requestStartInfo.get(details.requestId);
+        if (!requestInfo) {
+            return;
+        }
+        
+        // 过滤扩展请求（双重检查）
+        if (isExtensionRequest(requestInfo.url)) {
+            requestStartInfo.delete(details.requestId);
+            return;
+        }
+        
+        // 计算请求耗时
+        const duration = Date.now() - requestInfo.startTime;
+        
+        // 获取标签页URL
+        let pageUrl = '';
+        try {
+            const tab = await chrome.tabs.get(requestInfo.tabId);
+            pageUrl = tab.url || '';
+        } catch (e) {
+            // 如果标签页已关闭，尝试从请求URL推断
+            pageUrl = requestInfo.url;
+            console.warn('[Background] 无法获取标签页URL，使用请求URL:', requestInfo.url);
+        }
+        
+        // 确定请求类型
+        let requestType = 'other';
+        if (requestInfo.type === 'xmlhttprequest') {
+            requestType = 'xhr';
+        } else if (requestInfo.type === 'fetch') {
+            requestType = 'fetch';
+        } else if (requestInfo.type === 'main_frame' || requestInfo.type === 'sub_frame') {
+            requestType = 'navigation';
+        }
+        
+        // 构建请求记录
+        const requestRecord = {
+            url: requestInfo.url,
+            method: requestInfo.method,
+            headers: formatHeaders(requestInfo.requestHeaders),
+            body: requestInfo.requestBody,
+            status: details.statusCode,
+            statusText: details.statusLine || 'OK',
+            responseHeaders: formatHeaders(details.responseHeaders),
+            responseBody: null, // webRequest API 无法获取响应体
+            responseText: null,
+            duration: duration,
+            timestamp: requestInfo.startTime,
+            type: requestType,
+            pageUrl: pageUrl,
+            normalizedPageUrl: normalizeUrl(pageUrl),
+            tabId: requestInfo.tabId,
+            curl: generateCurl(requestInfo.url, requestInfo.method, 
+                              formatHeaders(requestInfo.requestHeaders), 
+                              requestInfo.requestBody)
+        };
+        
+        // 记录请求
+        await recordRequestToStorage(requestRecord);
+        
+        // 清理请求开始信息
+        requestStartInfo.delete(details.requestId);
+    },
+    { urls: ['<all_urls>'] },
+    ['responseHeaders']
+);
+
+/**
+ * 监听请求错误
+ */
+chrome.webRequest.onErrorOccurred.addListener(
+    async (details) => {
+        const requestInfo = requestStartInfo.get(details.requestId);
+        if (!requestInfo) {
+            return;
+        }
+        
+        // 过滤扩展请求（双重检查）
+        if (isExtensionRequest(requestInfo.url)) {
+            requestStartInfo.delete(details.requestId);
+            return;
+        }
+        
+        // 计算请求耗时
+        const duration = Date.now() - requestInfo.startTime;
+        
+        // 获取标签页URL
+        let pageUrl = '';
+        try {
+            const tab = await chrome.tabs.get(requestInfo.tabId);
+            pageUrl = tab.url || '';
+        } catch (e) {
+            // 如果标签页已关闭，尝试从请求URL推断
+            pageUrl = requestInfo.url;
+            console.warn('[Background] 无法获取标签页URL，使用请求URL:', requestInfo.url);
+        }
+        
+        // 确定请求类型
+        let requestType = 'other';
+        if (requestInfo.type === 'xmlhttprequest') {
+            requestType = 'xhr';
+        } else if (requestInfo.type === 'fetch') {
+            requestType = 'fetch';
+        } else if (requestInfo.type === 'main_frame' || requestInfo.type === 'sub_frame') {
+            requestType = 'navigation';
+        }
+        
+        // 构建请求记录（错误）
+        const requestRecord = {
+            url: requestInfo.url,
+            method: requestInfo.method,
+            headers: formatHeaders(requestInfo.requestHeaders),
+            body: requestInfo.requestBody,
+            status: 0,
+            statusText: 'Network Error',
+            error: details.error || 'Request failed',
+            duration: duration,
+            timestamp: requestInfo.startTime,
+            type: requestType,
+            pageUrl: pageUrl,
+            normalizedPageUrl: normalizeUrl(pageUrl),
+            tabId: requestInfo.tabId,
+            curl: generateCurl(requestInfo.url, requestInfo.method, 
+                              formatHeaders(requestInfo.requestHeaders), 
+                              requestInfo.requestBody)
+        };
+        
+        // 记录请求
+        await recordRequestToStorage(requestRecord);
+        
+        // 清理请求开始信息
+        requestStartInfo.delete(details.requestId);
+    },
+    { urls: ['<all_urls>'] }
+);
+
+/**
+ * 定期清理过期的请求开始信息（防止内存泄漏）
+ */
+setInterval(() => {
+    const now = Date.now();
+    const timeout = 60000; // 60秒超时
+    
+    for (const [requestId, info] of requestStartInfo.entries()) {
+        if (now - info.startTime > timeout) {
+            requestStartInfo.delete(requestId);
+        }
+    }
+}, 30000); // 每30秒清理一次
+
 // 导出函数供其他脚本使用
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -549,6 +919,7 @@ if (typeof module !== 'undefined' && module.exports) {
         sendToWeWorkRobot
     };
 }
+
 
 
 

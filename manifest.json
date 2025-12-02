@@ -3,7 +3,7 @@
   "name": "温柔陪伴助手",
   "version": "1.1.0",
   "description": "在浏览器中添加一位温柔体贴的伴侣，陪伴您的浏览时光。支持多种互动功能，包括区域截图功能，让网页浏览更加有趣！",
-  "permissions": ["activeTab", "storage", "tabs", "scripting"],
+  "permissions": ["activeTab", "storage", "tabs", "scripting", "webRequest"],
   "host_permissions": [
     "<all_urls>",
     "https://api.effiy.cn/*",
@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["config.js", "md5.js", "loadingAnimation.js", "sessionApi.js", "sessionManager.js", "ossApi.js", "ossFileManager.js", "newsManager.js", "rssSourceManager.js", "faqApi.js", "turndown.js", "marked.min.js", "html2canvas.min.js", "export-chat-to-png.js", "content.js"],
+      "js": ["config.js", "md5.js", "loadingAnimation.js", "sessionApi.js", "sessionManager.js", "ossApi.js", "ossFileManager.js", "newsManager.js", "rssSourceManager.js", "faqApi.js", "apiRequestManager.js", "turndown.js", "marked.min.js", "html2canvas.min.js", "export-chat-to-png.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_end"
     }
@@ -49,6 +49,7 @@
     }
   ]
 }
+
 
 
 

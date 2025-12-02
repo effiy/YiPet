@@ -549,6 +549,10 @@ async function sendToWeWorkRobot(webhookUrl, content) {
 let globalApiRequests = [];
 const MAX_REQUESTS = 1000; // 最大请求记录数
 
+// 去重索引：使用 Map 存储请求的唯一标识，提高查找效率
+// key: `${method}:${normalizedUrl}:${timestampRange}`，value: 请求在数组中的索引
+const requestIndexMap = new Map();
+
 // 扩展相关的URL模式（用于过滤）
 const extensionUrlPatterns = [
     /^chrome-extension:\/\//i,
@@ -639,7 +643,102 @@ function generateCurl(url, method, headers, body) {
 }
 
 /**
- * 记录请求到存储
+ * 生成请求的唯一标识符（用于去重）
+ * @param {Object} request - 请求对象
+ * @returns {string} 唯一标识符
+ */
+function generateRequestKey(request) {
+    if (!request || !request.url || !request.method) {
+        return null;
+    }
+    
+    // 规范化URL（移除query参数和hash，用于去重）
+    const normalizedUrl = normalizeUrl(request.url);
+    const method = (request.method || 'GET').toUpperCase();
+    
+    // 对于相同URL和方法的请求，如果时间戳在5秒内，视为重复请求
+    // 将时间戳向下取整到5秒区间，这样5秒内的相同请求会有相同的key
+    const timestamp = request.timestamp || Date.now();
+    const timeWindow = 5000; // 5秒时间窗口
+    const timeRange = Math.floor(timestamp / timeWindow);
+    
+    return `${method}:${normalizedUrl}:${timeRange}`;
+}
+
+/**
+ * 重建请求索引（当数组发生变化时调用）
+ */
+function rebuildRequestIndex(requests) {
+    requestIndexMap.clear();
+    
+    // 重新建立索引
+    for (let i = 0; i < requests.length; i++) {
+        const request = requests[i];
+        if (request) {
+            const key = generateRequestKey(request);
+            if (key) {
+                // 如果key已存在，保留索引较小的（更早的请求）
+                if (!requestIndexMap.has(key)) {
+                    requestIndexMap.set(key, i);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 合并请求到列表（去重）
+ * @param {Array} requests - 现有请求列表
+ * @param {Object} newRequest - 新请求
+ * @returns {Array} 去重后的请求列表
+ */
+function mergeRequestToList(requests, newRequest) {
+    // 验证请求对象是否有效
+    if (!newRequest || typeof newRequest !== 'object' || !newRequest.url || !newRequest.method) {
+        return requests;
+    }
+    
+    // 生成请求的唯一标识符
+    const requestKey = generateRequestKey(newRequest);
+    if (!requestKey) {
+        return requests;
+    }
+    
+    // 使用 Map 索引快速查找是否已存在相同请求
+    const existingIndex = requestIndexMap.get(requestKey);
+    
+    if (existingIndex !== undefined && existingIndex < requests.length) {
+        // 已存在相同请求，检查是否需要更新（保留最新的请求）
+        const existingRequest = requests[existingIndex];
+        if (existingRequest && existingRequest.timestamp < newRequest.timestamp) {
+            // 新请求时间戳更大，更新为最新请求
+            requests[existingIndex] = newRequest;
+        }
+        // 如果新请求时间戳更小或相等，保留原有请求，不更新
+        return requests;
+    }
+    
+    // 不存在相同请求，添加新请求
+    const newIndex = requests.length;
+    requests.push(newRequest);
+    
+    // 更新索引
+    requestIndexMap.set(requestKey, newIndex);
+    
+    // 限制总请求数量
+    if (requests.length > MAX_REQUESTS) {
+        // 移除最旧的请求
+        requests.shift();
+        
+        // 重建索引（因为数组索引发生了变化）
+        rebuildRequestIndex(requests);
+    }
+    
+    return requests;
+}
+
+/**
+ * 记录请求到存储（带去重功能）
  */
 async function recordRequestToStorage(request) {
     try {
@@ -652,13 +751,13 @@ async function recordRequestToStorage(request) {
         const result = await chrome.storage.local.get(['apiRequests']);
         let requests = result.apiRequests || [];
         
-        // 添加新请求
-        requests.push(request);
-        
-        // 限制记录数量
-        if (requests.length > MAX_REQUESTS) {
-            requests = requests.slice(-MAX_REQUESTS);
+        // 如果索引为空，先重建索引
+        if (requestIndexMap.size === 0 && requests.length > 0) {
+            rebuildRequestIndex(requests);
         }
+        
+        // 合并新请求（自动去重）
+        requests = mergeRequestToList(requests, request);
         
         // 保存到存储
         await chrome.storage.local.set({ apiRequests: requests });
@@ -684,7 +783,9 @@ async function recordRequestToStorage(request) {
             url: request.url,
             method: request.method,
             status: request.status,
-            tabId: request.tabId
+            tabId: request.tabId,
+            totalRequests: requests.length,
+            uniqueRequests: requestIndexMap.size
         });
     } catch (error) {
         console.error('[Background] 记录请求失败:', error);
@@ -696,7 +797,7 @@ const requestStartInfo = new Map();
 
 /**
  * 监听请求开始
- * 监控所有类型的网络请求，包括页面导航、XHR、fetch 等
+ * 只监控 fetch 和 xhr 类型的网络请求
  */
 chrome.webRequest.onBeforeRequest.addListener(
     (details) => {
@@ -705,8 +806,11 @@ chrome.webRequest.onBeforeRequest.addListener(
             return;
         }
         
-        // 监控所有类型的请求（包括 main_frame、sub_frame、xmlhttprequest、fetch、script、stylesheet、image 等）
-        // 但主要关注页面导航和 API 请求
+        // 只监控 fetch 和 xhr 类型的请求
+        if (details.type !== 'xmlhttprequest' && details.type !== 'fetch') {
+            return;
+        }
+        
         const requestId = details.requestId;
         const startTime = Date.now();
         
@@ -756,7 +860,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 
 /**
  * 监听响应头（获取响应信息）
- * 记录所有类型的请求，包括页面导航和 API 请求
+ * 只记录 fetch 和 xhr 类型的请求
  */
 chrome.webRequest.onCompleted.addListener(
     async (details) => {
@@ -767,6 +871,12 @@ chrome.webRequest.onCompleted.addListener(
         
         // 过滤扩展请求（双重检查）
         if (isExtensionRequest(requestInfo.url)) {
+            requestStartInfo.delete(details.requestId);
+            return;
+        }
+        
+        // 只记录 fetch 和 xhr 类型的请求
+        if (requestInfo.type !== 'xmlhttprequest' && requestInfo.type !== 'fetch') {
             requestStartInfo.delete(details.requestId);
             return;
         }
@@ -791,8 +901,6 @@ chrome.webRequest.onCompleted.addListener(
             requestType = 'xhr';
         } else if (requestInfo.type === 'fetch') {
             requestType = 'fetch';
-        } else if (requestInfo.type === 'main_frame' || requestInfo.type === 'sub_frame') {
-            requestType = 'navigation';
         }
         
         // 构建请求记录
@@ -843,6 +951,12 @@ chrome.webRequest.onErrorOccurred.addListener(
             return;
         }
         
+        // 只记录 fetch 和 xhr 类型的请求
+        if (requestInfo.type !== 'xmlhttprequest' && requestInfo.type !== 'fetch') {
+            requestStartInfo.delete(details.requestId);
+            return;
+        }
+        
         // 计算请求耗时
         const duration = Date.now() - requestInfo.startTime;
         
@@ -863,8 +977,6 @@ chrome.webRequest.onErrorOccurred.addListener(
             requestType = 'xhr';
         } else if (requestInfo.type === 'fetch') {
             requestType = 'fetch';
-        } else if (requestInfo.type === 'main_frame' || requestInfo.type === 'sub_frame') {
-            requestType = 'navigation';
         }
         
         // 构建请求记录（错误）
@@ -919,6 +1031,7 @@ if (typeof module !== 'undefined' && module.exports) {
         sendToWeWorkRobot
     };
 }
+
 
 
 

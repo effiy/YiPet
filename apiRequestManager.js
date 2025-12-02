@@ -17,6 +17,10 @@ class ApiRequestManager {
         this.localRequests = []; // 仅存储当前页面本地拦截的请求
         this.currentPageUrl = window.location.href; // 当前页面URL
         
+        // 去重索引：使用 Map 存储请求的唯一标识，提高查找效率
+        // key: `${method}:${normalizedUrl}:${timestampRange}`，value: 请求在数组中的索引
+        this._requestIndex = new Map();
+        
         // 扩展相关的URL模式（用于过滤）
         this.extensionUrlPatterns = [
             /^chrome-extension:\/\//i,
@@ -609,6 +613,37 @@ class ApiRequestManager {
     }
     
     /**
+     * 从URL提取域名
+     * @param {string} url - 请求URL
+     * @returns {string} 域名
+     */
+    _extractDomain(url) {
+        if (!url || typeof url !== 'string') {
+            return '';
+        }
+        
+        try {
+            // 处理相对URL
+            if (url.startsWith('//')) {
+                url = 'https:' + url;
+            } else if (url.startsWith('/')) {
+                // 相对路径，使用当前页面的域名
+                url = window.location.origin + url;
+            }
+            
+            const urlObj = new URL(url);
+            return urlObj.hostname;
+        } catch (e) {
+            // 如果URL解析失败，尝试使用正则表达式提取
+            const match = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/\?:]+)/i);
+            if (match && match[1]) {
+                return match[1];
+            }
+            return '';
+        }
+    }
+    
+    /**
      * 记录请求（只记录重要的API请求）
      */
     _recordRequest(request) {
@@ -642,6 +677,21 @@ class ApiRequestManager {
         request.pageUrl = this.currentPageUrl;
         request.normalizedPageUrl = this._normalizeUrl(this.currentPageUrl);
         request.source = 'local'; // 标记为本地请求
+        
+        // 自动提取域名并添加为标签
+        if (request.url) {
+            const domain = this._extractDomain(request.url);
+            if (domain) {
+                // 如果请求还没有tags字段，初始化为空数组
+                if (!request.tags || !Array.isArray(request.tags)) {
+                    request.tags = [];
+                }
+                // 如果域名标签不存在，则添加
+                if (!request.tags.includes(domain)) {
+                    request.tags.push(domain);
+                }
+            }
+        }
         
         // 性能优化：限制响应体大小，避免大文件导致卡死
         if (request.responseText && request.responseText.length > 100000) {
@@ -732,6 +782,14 @@ class ApiRequestManager {
         // 标记为来自 background
         request.source = 'background';
         
+        // 自动提取域名并添加为标签（如果还没有标签）
+        if (request.url && (!request.tags || !Array.isArray(request.tags) || request.tags.length === 0)) {
+            const domain = this._extractDomain(request.url);
+            if (domain) {
+                request.tags = [domain];
+            }
+        }
+        
         // 合并到总请求列表（去重）
         this._mergeRequest(request);
         
@@ -744,7 +802,31 @@ class ApiRequestManager {
     }
     
     /**
+     * 生成请求的唯一标识符（用于去重）
+     * @param {Object} request - 请求对象
+     * @returns {string} 唯一标识符
+     */
+    _generateRequestKey(request) {
+        if (!request || !request.url || !request.method) {
+            return null;
+        }
+        
+        // 规范化URL（移除query参数和hash，用于去重）
+        const normalizedUrl = this._normalizeUrl(request.url);
+        const method = (request.method || 'GET').toUpperCase();
+        
+        // 对于相同URL和方法的请求，如果时间戳在5秒内，视为重复请求
+        // 将时间戳向下取整到5秒区间，这样5秒内的相同请求会有相同的key
+        const timestamp = request.timestamp || Date.now();
+        const timeWindow = 5000; // 5秒时间窗口
+        const timeRange = Math.floor(timestamp / timeWindow);
+        
+        return `${method}:${normalizedUrl}:${timeRange}`;
+    }
+    
+    /**
      * 合并请求到总列表（去重）
+     * 优化后的去重逻辑：使用 Map 索引提高查找效率
      */
     _mergeRequest(request) {
         // 验证请求对象是否有效
@@ -758,31 +840,65 @@ class ApiRequestManager {
         }
         
         try {
-            // 检查是否已存在相同的请求（基于 URL、方法、时间戳）
-            const exists = this.requests.some(existing => {
-                try {
-                    if (!existing || typeof existing !== 'object') {
-                        return false;
-                    }
-                    return existing.url === request.url &&
-                           existing.method === request.method &&
-                           Math.abs((existing.timestamp || 0) - (request.timestamp || 0)) < 1000; // 1秒内的相同请求视为重复
-                } catch (e) {
-                    // 比较时出错，静默返回 false
-                    return false;
-                }
-            });
+            // 生成请求的唯一标识符
+            const requestKey = this._generateRequestKey(request);
+            if (!requestKey) {
+                return; // 无法生成key，静默舍弃
+            }
             
-            if (!exists) {
-                this.requests.push(request);
-                
-                // 限制总请求数量
-                if (this.requests.length > this.maxRecords) {
-                    this.requests.shift();
+            // 使用 Map 索引快速查找是否已存在相同请求
+            const existingIndex = this._requestIndex.get(requestKey);
+            
+            if (existingIndex !== undefined && existingIndex < this.requests.length) {
+                // 已存在相同请求，检查是否需要更新（保留最新的请求）
+                const existingRequest = this.requests[existingIndex];
+                if (existingRequest && existingRequest.timestamp < request.timestamp) {
+                    // 新请求时间戳更大，更新为最新请求
+                    this.requests[existingIndex] = request;
                 }
+                // 如果新请求时间戳更小或相等，保留原有请求，不更新
+                return;
+            }
+            
+            // 不存在相同请求，添加新请求
+            const newIndex = this.requests.length;
+            this.requests.push(request);
+            
+            // 更新索引
+            this._requestIndex.set(requestKey, newIndex);
+            
+            // 限制总请求数量
+            if (this.requests.length > this.maxRecords) {
+                // 移除最旧的请求
+                const removedRequest = this.requests.shift();
+                
+                // 重建索引（因为数组索引发生了变化）
+                this._rebuildIndex();
             }
         } catch (e) {
             // 合并请求时出错，静默舍弃
+            console.warn('[ApiRequestManager] 合并请求时出错:', e);
+        }
+    }
+    
+    /**
+     * 重建请求索引（当数组发生变化时调用）
+     */
+    _rebuildIndex() {
+        this._requestIndex.clear();
+        
+        // 重新建立索引
+        for (let i = 0; i < this.requests.length; i++) {
+            const request = this.requests[i];
+            if (request) {
+                const key = this._generateRequestKey(request);
+                if (key) {
+                    // 如果key已存在，保留索引较小的（更早的请求）
+                    if (!this._requestIndex.has(key)) {
+                        this._requestIndex.set(key, i);
+                    }
+                }
+            }
         }
     }
     
@@ -941,6 +1057,9 @@ class ApiRequestManager {
             // 合并请求到总列表
             if (storageRequests.length > 0) {
                 try {
+                    // 先清空索引，准备重建
+                    this._requestIndex.clear();
+                    
                     for (const request of storageRequests) {
                         try {
                             // 验证并处理请求对象
@@ -948,12 +1067,16 @@ class ApiRequestManager {
                                 if (request.source !== 'local') {
                                     request.source = 'background';
                                 }
+                                // 使用合并方法（会自动去重）
                                 this._mergeRequest(request);
                             }
                         } catch (e) {
                             // 单个请求处理失败，静默跳过
                         }
                     }
+                    
+                    // 确保索引正确（重建索引）
+                    this._rebuildIndex();
                     
                     // 输出同步日志（仅在成功时）
                     try {
@@ -962,7 +1085,8 @@ class ApiRequestManager {
                             console.log('[ApiRequestManager] 从 storage 同步请求数据:', {
                                 storageCount: storageRequests.length,
                                 totalCount: this.requests.length,
-                                localCount: this.localRequests.length
+                                localCount: this.localRequests.length,
+                                uniqueCount: this._requestIndex.size
                             });
                             this._lastSyncTime = now;
                         }
@@ -1194,6 +1318,7 @@ class ApiRequestManager {
     clearAllRequests() {
         this.requests = [];
         this.localRequests = [];
+        this._requestIndex.clear(); // 清空索引
         
         // 如果启用了存储同步且上下文有效，也清空 storage
         if (this.enableStorageSync && !this._contextInvalidated && typeof chrome !== 'undefined' && chrome.storage) {
@@ -1236,6 +1361,8 @@ class ApiRequestManager {
      */
     clearCurrentPageRequests() {
         this.requests = this.requests.filter(req => req.pageUrl !== this.currentPageUrl);
+        // 重建索引
+        this._rebuildIndex();
     }
     
     /**
@@ -1269,6 +1396,7 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.ApiRequestManager = ApiRequestManager;
 }
+
 
 
 

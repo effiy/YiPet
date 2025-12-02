@@ -561,6 +561,14 @@ if (typeof getCenterPosition === 'undefined') {
         this.newsTagFilterVisibleCount = 8; // 折叠时显示的新闻标签数量
         this.newsTagFilterSearchKeyword = ''; // 新闻标签搜索关键词
         
+        // 请求接口标签过滤相关
+        this.selectedApiRequestFilterTags = []; // 选中的请求接口过滤标签
+        this.apiRequestTagFilterReverse = false; // 是否反向过滤请求接口
+        this.apiRequestTagFilterNoTags = false; // 是否筛选无标签的请求接口
+        this.apiRequestTagFilterExpanded = false; // 请求接口标签列表是否展开
+        this.apiRequestTagFilterVisibleCount = 8; // 折叠时显示的请求接口标签数量
+        this.apiRequestTagFilterSearchKeyword = ''; // 请求接口标签搜索关键词
+        
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
         this.calendarCollapsed = false; // 日历是否折叠
@@ -5818,6 +5826,32 @@ if (typeof getCenterPosition === 'undefined') {
         return [...priorityTagList, ...otherTags];
     }
 
+    // 收集所有请求接口的标签
+    getAllApiRequestTags() {
+        if (!this.apiRequestManager) {
+            return [];
+        }
+        
+        const allRequests = this.apiRequestManager.getAllRequests();
+        const tagSet = new Set();
+        
+        allRequests.forEach(request => {
+            if (request.tags && Array.isArray(request.tags)) {
+                request.tags.forEach(tag => {
+                    if (tag && tag.trim()) {
+                        tagSet.add(tag.trim());
+                    }
+                });
+            }
+        });
+        
+        // 请求接口标签按字母顺序排序（域名标签通常不需要优先级）
+        const allTags = Array.from(tagSet);
+        allTags.sort();
+        
+        return allTags;
+    }
+
     // 收集所有新闻的标签
     getAllNewsTags() {
         if (!this.newsManager) {
@@ -7040,11 +7074,26 @@ if (typeof getCenterPosition === 'undefined') {
             }
         }
         
+        // 计算每个标签对应的会话数量
+        const tagCounts = {};
+        const allSessions = this._getSessionsFromLocal();
+        allSessions.forEach(session => {
+            if (session.tags && Array.isArray(session.tags)) {
+                session.tags.forEach(t => {
+                    if (t && t.trim()) {
+                        const normalizedTag = t.trim();
+                        tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
+                    }
+                });
+            }
+        });
+        
         // 创建标签按钮
         visibleTags.forEach(tag => {
             const tagBtn = document.createElement('button');
             tagBtn.className = 'tag-filter-item';
-            tagBtn.textContent = tag;
+            const count = tagCounts[tag] || 0;
+            tagBtn.textContent = `${tag} (${count})`;
             const isSelected = this.selectedFilterTags && this.selectedFilterTags.includes(tag);
             
             tagBtn.style.cssText = `
@@ -8407,11 +8456,28 @@ if (typeof getCenterPosition === 'undefined') {
             }
         }
         
+        // 计算每个标签对应的OSS文件数量
+        const tagCounts = {};
+        if (this.ossFileManager) {
+            const allFiles = this.ossFileManager.getAllFiles();
+            allFiles.forEach(file => {
+                if (file.tags && Array.isArray(file.tags)) {
+                    file.tags.forEach(t => {
+                        if (t && t.trim()) {
+                            const normalizedTag = t.trim();
+                            tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
+                        }
+                    });
+                }
+            });
+        }
+        
         // 创建标签按钮
         visibleTags.forEach(tag => {
             const tagBtn = document.createElement('button');
             tagBtn.className = 'oss-tag-filter-item';
-            tagBtn.textContent = tag;
+            const count = tagCounts[tag] || 0;
+            tagBtn.textContent = `${tag} (${count})`;
             const isSelected = this.selectedOssFilterTags && this.selectedOssFilterTags.includes(tag);
             
             tagBtn.style.cssText = `
@@ -9939,11 +10005,27 @@ if (typeof getCenterPosition === 'undefined') {
             this.faqSelectedFilterTags = [];
         }
         
+        // 计算每个标签对应的FAQ数量
+        const tagCounts = {};
+        if (this.faqApi && this.faqApi.faqs) {
+            this.faqApi.faqs.forEach(faq => {
+                if (faq.tags && Array.isArray(faq.tags)) {
+                    faq.tags.forEach(t => {
+                        if (t && t.trim()) {
+                            const normalizedTag = t.trim();
+                            tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
+                        }
+                    });
+                }
+            });
+        }
+        
         // 创建标签按钮
         allTags.forEach(tag => {
             const tagBtn = document.createElement('button');
             tagBtn.className = 'faq-tag-filter-item';
-            tagBtn.textContent = tag;
+            const count = tagCounts[tag] || 0;
+            tagBtn.textContent = `${tag} (${count})`;
             const isSelected = this.faqSelectedFilterTags && this.faqSelectedFilterTags.includes(tag);
             
             tagBtn.style.cssText = `
@@ -11603,6 +11685,12 @@ if (typeof getCenterPosition === 'undefined') {
             apiRequestList.style.display = 'none';
         }
         
+        // 隐藏请求接口标签过滤器（只在请求接口视图中显示）
+        const apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+        if (apiRequestTagFilterContainer) {
+            apiRequestTagFilterContainer.style.display = 'none';
+        }
+        
         // 显示会话列表相关元素
         const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
         const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
@@ -12752,6 +12840,13 @@ if (typeof getCenterPosition === 'undefined') {
         if (apiRequestList) {
             apiRequestList.style.display = 'none';
         }
+        
+        // 隐藏请求接口标签过滤器（只在请求接口视图中显示）
+        const apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+        if (apiRequestTagFilterContainer) {
+            apiRequestTagFilterContainer.style.display = 'none';
+        }
+        
         // 批量工具栏在批量模式下显示
         if (batchToolbar && this.batchMode) {
             batchToolbar.style.display = 'flex';
@@ -13963,11 +14058,28 @@ if (typeof getCenterPosition === 'undefined') {
             }
         }
         
+        // 计算每个标签对应的新闻数量
+        const tagCounts = {};
+        if (this.newsManager) {
+            const allNews = this.newsManager.getAllNews();
+            allNews.forEach(news => {
+                if (news.tags && Array.isArray(news.tags)) {
+                    news.tags.forEach(t => {
+                        if (t && t.trim()) {
+                            const normalizedTag = t.trim();
+                            tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
+                        }
+                    });
+                }
+            });
+        }
+        
         // 创建标签按钮
         visibleTags.forEach(tag => {
             const tagBtn = document.createElement('button');
             tagBtn.className = 'news-tag-filter-item';
-            tagBtn.textContent = tag;
+            const count = tagCounts[tag] || 0;
+            tagBtn.textContent = `${tag} (${count})`;
             const isSelected = this.selectedNewsFilterTags && this.selectedNewsFilterTags.includes(tag);
             
             tagBtn.style.cssText = `
@@ -14455,6 +14567,591 @@ if (typeof getCenterPosition === 'undefined') {
         this.updateNewsTagFilterUI();
     }
 
+    // 更新请求接口标签过滤器UI
+    updateApiRequestTagFilterUI() {
+        if (!this.sessionSidebar) return;
+        
+        // 更新反向过滤按钮状态
+        const reverseFilterBtn = this.sessionSidebar.querySelector('.api-request-tag-filter-reverse');
+        if (reverseFilterBtn) {
+            reverseFilterBtn.style.color = this.apiRequestTagFilterReverse ? '#4CAF50' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.apiRequestTagFilterReverse ? '1' : '0.6';
+        }
+        
+        // 更新无标签筛选按钮状态
+        const noTagsFilterBtn = this.sessionSidebar.querySelector('.api-request-tag-filter-no-tags');
+        if (noTagsFilterBtn) {
+            noTagsFilterBtn.style.color = this.apiRequestTagFilterNoTags ? '#4CAF50' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.apiRequestTagFilterNoTags ? '1' : '0.6';
+        }
+        
+        // 更新清除按钮显示状态
+        const clearFilterBtn = this.sessionSidebar.querySelector('.api-request-tag-filter-clear');
+        if (clearFilterBtn) {
+            const hasSelectedTags = this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0;
+            const hasSearchKeyword = this.apiRequestTagFilterSearchKeyword && this.apiRequestTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.apiRequestTagFilterNoTags || hasSearchKeyword;
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
+        }
+        
+        const tagFilterList = this.sessionSidebar.querySelector('.api-request-tag-filter-list');
+        if (!tagFilterList) return;
+        
+        // 清空现有标签
+        tagFilterList.innerHTML = '';
+        
+        // 获取所有标签
+        const allTags = this.getAllApiRequestTags();
+        
+        // 根据搜索关键词过滤标签
+        let filteredTags = allTags;
+        const searchKeyword = (this.apiRequestTagFilterSearchKeyword || '').trim().toLowerCase();
+        if (searchKeyword) {
+            filteredTags = allTags.filter(tag => 
+                tag.toLowerCase().includes(searchKeyword)
+            );
+        }
+        
+        if (filteredTags.length === 0) {
+            // 如果没有匹配的标签，显示提示信息
+            const expandToggleBtn = this.sessionSidebar.querySelector('.api-request-tag-filter-expand-btn');
+            if (expandToggleBtn) {
+                expandToggleBtn.style.display = 'none';
+            }
+            // 显示"无匹配标签"提示
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = searchKeyword ? '未找到匹配的标签' : '暂无标签';
+            emptyMsg.style.cssText = `
+                padding: 8px !important;
+                text-align: center !important;
+                color: #9ca3af !important;
+                font-size: 11px !important;
+            `;
+            tagFilterList.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 确定要显示的标签（根据折叠状态）
+        // 确保选中的标签始终显示
+        const selectedTags = this.selectedApiRequestFilterTags || [];
+        let visibleTags;
+        let hasMoreTags;
+        
+        if (this.apiRequestTagFilterExpanded || searchKeyword) {
+            // 展开状态或有搜索关键词时：显示所有过滤后的标签
+            visibleTags = filteredTags;
+            hasMoreTags = false;
+        } else {
+            // 折叠状态：显示前N个标签，但确保选中的标签也在其中
+            const defaultVisible = filteredTags.slice(0, this.apiRequestTagFilterVisibleCount);
+            const selectedNotInDefault = selectedTags.filter(tag => !defaultVisible.includes(tag));
+            
+            // 保持filteredTags的原始顺序，但确保选中的标签也在可见列表中
+            const visibleSet = new Set([...defaultVisible, ...selectedNotInDefault]);
+            visibleTags = filteredTags.filter(tag => visibleSet.has(tag));
+            hasMoreTags = filteredTags.length > visibleTags.length;
+        }
+        
+        // 更新展开/折叠按钮（有搜索关键词时隐藏）
+        const expandToggleBtn = this.sessionSidebar.querySelector('.api-request-tag-filter-expand-btn');
+        if (expandToggleBtn) {
+            if (searchKeyword) {
+                // 有搜索关键词时隐藏展开/折叠按钮
+                expandToggleBtn.style.display = 'none';
+            } else if (hasMoreTags || this.apiRequestTagFilterExpanded) {
+                expandToggleBtn.style.display = 'block';
+                if (this.apiRequestTagFilterExpanded) {
+                    expandToggleBtn.innerHTML = '▲';
+                    expandToggleBtn.title = '收起标签';
+                } else {
+                    expandToggleBtn.innerHTML = '▼';
+                    expandToggleBtn.title = '展开标签';
+                }
+            } else {
+                expandToggleBtn.style.display = 'none';
+            }
+        }
+        
+        // 计算每个标签对应的请求数量
+        const tagCounts = {};
+        if (this.apiRequestManager) {
+            const allRequests = this.apiRequestManager.getAllRequests();
+            allRequests.forEach(req => {
+                if (req.tags && Array.isArray(req.tags)) {
+                    req.tags.forEach(t => {
+                        if (t && t.trim()) {
+                            const normalizedTag = t.trim();
+                            tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
+                        }
+                    });
+                }
+            });
+        }
+        
+        // 创建标签按钮
+        visibleTags.forEach(tag => {
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'api-request-tag-filter-item';
+            const count = tagCounts[tag] || 0;
+            tagBtn.textContent = `${tag} (${count})`;
+            const isSelected = this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.includes(tag);
+            
+            tagBtn.style.cssText = `
+                padding: 3px 8px !important;
+                border-radius: 10px !important;
+                border: 1px solid ${isSelected ? '#4CAF50' : '#e5e7eb'} !important;
+                background: ${isSelected ? '#4CAF50' : '#f9fafb'} !important;
+                color: ${isSelected ? 'white' : '#6b7280'} !important;
+                font-size: 10px !important;
+                font-weight: ${isSelected ? '500' : '400'} !important;
+                cursor: pointer !important;
+                transition: all 0.15s ease !important;
+                white-space: nowrap !important;
+                line-height: 1.4 !important;
+            `;
+            
+            tagBtn.addEventListener('mouseenter', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#4CAF50';
+                    tagBtn.style.background = '#f0fdf4';
+                    tagBtn.style.color = '#4CAF50';
+                } else {
+                    tagBtn.style.opacity = '0.9';
+                }
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#e5e7eb';
+                    tagBtn.style.background = '#f9fafb';
+                    tagBtn.style.color = '#6b7280';
+                } else {
+                    tagBtn.style.opacity = '1';
+                }
+            });
+            tagBtn.addEventListener('click', () => {
+                if (!this.selectedApiRequestFilterTags) {
+                    this.selectedApiRequestFilterTags = [];
+                }
+                
+                const index = this.selectedApiRequestFilterTags.indexOf(tag);
+                if (index > -1) {
+                    // 取消选中
+                    this.selectedApiRequestFilterTags.splice(index, 1);
+                } else {
+                    // 选中
+                    this.selectedApiRequestFilterTags.push(tag);
+                }
+                
+                // 更新所有标签按钮（确保状态一致）
+                this.updateApiRequestTagFilterUI();
+                // 更新请求接口列表（应用过滤）
+                this.updateApiRequestSidebar();
+            });
+            
+            tagFilterList.appendChild(tagBtn);
+        });
+    }
+
+    // 创建请求接口标签筛选器
+    createApiRequestTagFilter() {
+        if (!this.sessionSidebar) return;
+        
+        // 检查是否已存在
+        let apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+        if (apiRequestTagFilterContainer) {
+            // 如果已存在，只更新UI
+            this.updateApiRequestTagFilterUI();
+            return;
+        }
+        
+        const mainColor = PET_CONFIG?.theme?.primaryColor || '#6366f1';
+        
+        // 创建标签过滤器容器
+        apiRequestTagFilterContainer = document.createElement('div');
+        apiRequestTagFilterContainer.className = 'api-request-tag-filter-container';
+        apiRequestTagFilterContainer.style.cssText = `
+            padding: 8px 12px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+            flex-shrink: 0 !important;
+        `;
+
+        // 过滤器标题行（包含搜索输入框和操作按钮）
+        const filterHeader = document.createElement('div');
+        filterHeader.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            gap: 8px !important;
+            margin-bottom: 6px !important;
+        `;
+
+        // 右侧操作区（反向过滤开关 + 清除按钮）
+        const filterActions = document.createElement('div');
+        filterActions.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-shrink: 0 !important;
+        `;
+
+        // 反向过滤开关
+        const reverseFilterBtn = document.createElement('button');
+        reverseFilterBtn.className = 'api-request-tag-filter-reverse';
+        reverseFilterBtn.title = '反向过滤';
+        reverseFilterBtn.innerHTML = '⇄';
+        reverseFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.apiRequestTagFilterReverse ? '#4CAF50' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.apiRequestTagFilterReverse ? '1' : '0.6'} !important;
+        `;
+        reverseFilterBtn.addEventListener('mouseenter', () => {
+            reverseFilterBtn.style.opacity = '1';
+            reverseFilterBtn.style.background = '#f3f4f6';
+        });
+        reverseFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.apiRequestTagFilterReverse) {
+                reverseFilterBtn.style.opacity = '0.6';
+            }
+            reverseFilterBtn.style.background = 'none';
+        });
+        reverseFilterBtn.addEventListener('click', () => {
+            this.apiRequestTagFilterReverse = !this.apiRequestTagFilterReverse;
+            reverseFilterBtn.style.color = this.apiRequestTagFilterReverse ? '#4CAF50' : '#9ca3af';
+            reverseFilterBtn.style.opacity = this.apiRequestTagFilterReverse ? '1' : '0.6';
+            this.updateApiRequestSidebar();
+        });
+
+        // 无标签筛选开关
+        const noTagsFilterBtn = document.createElement('button');
+        noTagsFilterBtn.className = 'api-request-tag-filter-no-tags';
+        noTagsFilterBtn.title = '筛选无标签';
+        noTagsFilterBtn.innerHTML = '∅';
+        noTagsFilterBtn.style.cssText = `
+            font-size: 12px !important;
+            color: ${this.apiRequestTagFilterNoTags ? '#4CAF50' : '#9ca3af'} !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: ${this.apiRequestTagFilterNoTags ? '1' : '0.6'} !important;
+        `;
+        noTagsFilterBtn.addEventListener('mouseenter', () => {
+            noTagsFilterBtn.style.opacity = '1';
+            noTagsFilterBtn.style.background = '#f3f4f6';
+        });
+        noTagsFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.apiRequestTagFilterNoTags) {
+                noTagsFilterBtn.style.opacity = '0.6';
+            }
+            noTagsFilterBtn.style.background = 'none';
+        });
+        noTagsFilterBtn.addEventListener('click', () => {
+            this.apiRequestTagFilterNoTags = !this.apiRequestTagFilterNoTags;
+            noTagsFilterBtn.style.color = this.apiRequestTagFilterNoTags ? '#4CAF50' : '#9ca3af';
+            noTagsFilterBtn.style.opacity = this.apiRequestTagFilterNoTags ? '1' : '0.6';
+            this.updateApiRequestTagFilterUI();
+            this.updateApiRequestSidebar();
+        });
+
+        // 展开/收起按钮
+        const expandToggleBtn = document.createElement('button');
+        expandToggleBtn.className = 'api-request-tag-filter-expand-btn';
+        expandToggleBtn.title = '展开标签';
+        expandToggleBtn.innerHTML = '▼';
+        expandToggleBtn.style.cssText = `
+            font-size: 10px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            line-height: 1 !important;
+            opacity: 0.6 !important;
+            display: none !important;
+        `;
+        expandToggleBtn.addEventListener('mouseenter', () => {
+            expandToggleBtn.style.opacity = '1';
+            expandToggleBtn.style.background = '#f3f4f6';
+        });
+        expandToggleBtn.addEventListener('mouseleave', () => {
+            expandToggleBtn.style.opacity = '0.6';
+            expandToggleBtn.style.background = 'none';
+        });
+        expandToggleBtn.addEventListener('click', () => {
+            this.apiRequestTagFilterExpanded = !this.apiRequestTagFilterExpanded;
+            this.updateApiRequestTagFilterUI();
+        });
+
+        // 清除按钮
+        const clearFilterBtn = document.createElement('button');
+        clearFilterBtn.className = 'api-request-tag-filter-clear';
+        clearFilterBtn.textContent = '×';
+        clearFilterBtn.title = '清除筛选';
+        clearFilterBtn.style.cssText = `
+            font-size: 16px !important;
+            color: #9ca3af !important;
+            background: none !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 0 !important;
+            width: 18px !important;
+            height: 18px !important;
+            line-height: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 3px !important;
+            transition: all 0.2s ease !important;
+            opacity: 0.6 !important;
+        `;
+        clearFilterBtn.addEventListener('mouseenter', () => {
+            const hasSelectedTags = this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0;
+            const hasSearchKeyword = this.apiRequestTagFilterSearchKeyword && this.apiRequestTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.apiRequestTagFilterNoTags || hasSearchKeyword;
+            if (hasActiveFilter) {
+                clearFilterBtn.style.color = '#ef4444';
+                clearFilterBtn.style.opacity = '1';
+                clearFilterBtn.style.background = '#fee2e2';
+            } else {
+                clearFilterBtn.style.opacity = '0.4';
+            }
+        });
+        clearFilterBtn.addEventListener('mouseleave', () => {
+            const hasSelectedTags = this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0;
+            const hasSearchKeyword = this.apiRequestTagFilterSearchKeyword && this.apiRequestTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.apiRequestTagFilterNoTags || hasSearchKeyword;
+            clearFilterBtn.style.color = '#9ca3af';
+            clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+            clearFilterBtn.style.background = 'none';
+        });
+        clearFilterBtn.addEventListener('click', () => {
+            const hasSelectedTags = this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0;
+            const hasSearchKeyword = this.apiRequestTagFilterSearchKeyword && this.apiRequestTagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || this.apiRequestTagFilterNoTags || hasSearchKeyword;
+            if (hasActiveFilter) {
+                this.selectedApiRequestFilterTags = [];
+                this.apiRequestTagFilterNoTags = false;
+                this.apiRequestTagFilterSearchKeyword = '';
+                // 更新搜索输入框的值和清除按钮状态
+                const tagSearchInput = this.sessionSidebar.querySelector('.api-request-tag-filter-search');
+                const tagSearchClearBtn = this.sessionSidebar.querySelector('.api-request-tag-filter-search-clear');
+                if (tagSearchInput) {
+                    tagSearchInput.value = '';
+                }
+                if (tagSearchClearBtn) {
+                    tagSearchClearBtn.style.display = 'none';
+                }
+                const tagSearchIcon = this.sessionSidebar.querySelector('.api-request-tag-filter-search-container span');
+                if (tagSearchIcon && tagSearchIcon.textContent === '🔍') {
+                    tagSearchIcon.style.opacity = '0.5';
+                }
+                this.updateApiRequestTagFilterUI();
+                this.updateApiRequestSidebar();
+            }
+        });
+
+        filterActions.appendChild(reverseFilterBtn);
+        filterActions.appendChild(noTagsFilterBtn);
+        filterActions.appendChild(expandToggleBtn);
+        filterActions.appendChild(clearFilterBtn);
+
+        // 创建标签搜索输入框容器
+        const tagSearchContainer = document.createElement('div');
+        tagSearchContainer.className = 'api-request-tag-filter-search-container';
+        tagSearchContainer.style.cssText = `
+            position: relative !important;
+            flex: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+        `;
+
+        // 搜索图标
+        const tagSearchIcon = document.createElement('span');
+        tagSearchIcon.textContent = '🔍';
+        tagSearchIcon.style.cssText = `
+            position: absolute !important;
+            left: 8px !important;
+            font-size: 12px !important;
+            pointer-events: none !important;
+            z-index: 1 !important;
+            opacity: 0.5 !important;
+            transition: opacity 0.2s ease !important;
+        `;
+
+        // 标签搜索输入框
+        const tagSearchInput = document.createElement('input');
+        tagSearchInput.className = 'api-request-tag-filter-search';
+        tagSearchInput.type = 'text';
+        tagSearchInput.placeholder = '搜索标签...';
+        tagSearchInput.value = this.apiRequestTagFilterSearchKeyword || '';
+        tagSearchInput.style.cssText = `
+            width: 100% !important;
+            font-weight: 400 !important;
+            font-size: 12px !important;
+            color: #374151 !important;
+            padding: 4px 24px 4px 24px !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 6px !important;
+            background: #ffffff !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+            height: 24px !important;
+        `;
+
+        // 添加占位符样式
+        if (!document.getElementById('api-request-tag-search-placeholder-style')) {
+            const style = document.createElement('style');
+            style.id = 'api-request-tag-search-placeholder-style';
+            style.textContent = `
+                .api-request-tag-filter-search::placeholder {
+                    color: #9ca3af !important;
+                    opacity: 1 !important;
+                }
+                .api-request-tag-filter-search:focus::placeholder {
+                    color: #d1d5db !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 清除按钮（位于输入框右侧）
+        const tagSearchClearBtn = document.createElement('button');
+        tagSearchClearBtn.innerHTML = '✕';
+        tagSearchClearBtn.type = 'button';
+        tagSearchClearBtn.className = 'api-request-tag-filter-search-clear';
+        tagSearchClearBtn.style.cssText = `
+            position: absolute !important;
+            right: 4px !important;
+            width: 16px !important;
+            height: 16px !important;
+            border: none !important;
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+            border-radius: 50% !important;
+            cursor: pointer !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 10px !important;
+            padding: 0 !important;
+            transition: all 0.2s ease !important;
+            z-index: 2 !important;
+            line-height: 1 !important;
+        `;
+
+        // 更新清除按钮显示状态
+        const updateTagSearchClearButton = () => {
+            if (tagSearchInput.value.trim() !== '') {
+                tagSearchClearBtn.style.display = 'flex';
+                tagSearchIcon.style.opacity = '0.3';
+            } else {
+                tagSearchClearBtn.style.display = 'none';
+                tagSearchIcon.style.opacity = '0.5';
+            }
+        };
+
+        // 初始状态
+        updateTagSearchClearButton();
+
+        // 清除按钮点击事件
+        tagSearchClearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            tagSearchInput.value = '';
+            this.apiRequestTagFilterSearchKeyword = '';
+            updateTagSearchClearButton();
+            this.updateApiRequestTagFilterUI();
+            tagSearchInput.focus();
+        });
+
+        // 清除按钮悬停效果
+        tagSearchClearBtn.addEventListener('mouseenter', () => {
+            tagSearchClearBtn.style.background = '#d1d5db';
+            tagSearchClearBtn.style.transform = 'scale(1.15)';
+        });
+        tagSearchClearBtn.addEventListener('mouseleave', () => {
+            tagSearchClearBtn.style.background = '#e5e7eb';
+            tagSearchClearBtn.style.transform = 'scale(1)';
+        });
+
+        // 输入框聚焦和失焦样式
+        tagSearchInput.addEventListener('focus', () => {
+            tagSearchInput.style.borderColor = mainColor;
+            tagSearchInput.style.boxShadow = `0 0 0 2px ${mainColor}22`;
+            tagSearchIcon.style.opacity = '0.7';
+        });
+        tagSearchInput.addEventListener('blur', () => {
+            tagSearchInput.style.borderColor = '#e5e7eb';
+            tagSearchInput.style.boxShadow = 'none';
+            tagSearchIcon.style.opacity = tagSearchInput.value.trim() !== '' ? '0.3' : '0.5';
+        });
+
+        // 输入框输入事件，实时过滤标签（添加防抖）
+        let tagSearchDebounceTimer = null;
+        tagSearchInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            this.apiRequestTagFilterSearchKeyword = value;
+            updateTagSearchClearButton();
+            
+            // 清除之前的定时器
+            if (tagSearchDebounceTimer) {
+                clearTimeout(tagSearchDebounceTimer);
+            }
+            
+            // 设置新的定时器（防抖）
+            tagSearchDebounceTimer = setTimeout(() => {
+                this.updateApiRequestTagFilterUI();
+            }, 200);
+        });
+
+        tagSearchContainer.appendChild(tagSearchIcon);
+        tagSearchContainer.appendChild(tagSearchInput);
+        tagSearchContainer.appendChild(tagSearchClearBtn);
+
+        filterHeader.appendChild(tagSearchContainer);
+        filterHeader.appendChild(filterActions);
+
+        // 标签列表容器
+        const tagFilterList = document.createElement('div');
+        tagFilterList.className = 'api-request-tag-filter-list';
+        tagFilterList.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+            position: relative !important;
+        `;
+
+        apiRequestTagFilterContainer.appendChild(filterHeader);
+        apiRequestTagFilterContainer.appendChild(tagFilterList);
+
+        // 插入到侧边栏顶部（在请求接口列表之前）
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        if (apiRequestList) {
+            this.sessionSidebar.insertBefore(apiRequestTagFilterContainer, apiRequestList);
+        } else {
+            this.sessionSidebar.appendChild(apiRequestTagFilterContainer);
+        }
+
+        // 初始化标签列表
+        this.updateApiRequestTagFilterUI();
+    }
+
     // 更新新闻列表侧边栏
     async updateNewsSidebar(forceRefresh = false) {
         if (!this.sessionSidebar) {
@@ -14504,6 +15201,12 @@ if (typeof getCenterPosition === 'undefined') {
         const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
         if (apiRequestList) {
             apiRequestList.style.display = 'none';
+        }
+        
+        // 隐藏请求接口标签过滤器（只在请求接口视图中显示）
+        const apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+        if (apiRequestTagFilterContainer) {
+            apiRequestTagFilterContainer.style.display = 'none';
         }
         
         // 显示新闻标签过滤器
@@ -15327,6 +16030,12 @@ if (typeof getCenterPosition === 'undefined') {
             newsTagFilterContainer.style.display = 'none';
         }
         
+        // 显示请求接口标签过滤器
+        let apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+        if (apiRequestTagFilterContainer) {
+            apiRequestTagFilterContainer.style.display = 'block';
+        }
+        
         // 批量工具栏在批量模式下显示
         if (batchToolbar && this.batchMode) {
             batchToolbar.style.display = 'flex';
@@ -15356,6 +16065,15 @@ if (typeof getCenterPosition === 'undefined') {
             searchInput.placeholder = '搜索接口请求...';
         }
         
+        // 创建或更新请求接口标签过滤器
+        this.createApiRequestTagFilter();
+        
+        // 显示请求接口标签过滤器（重新查询，因为 createApiRequestTagFilter 可能重新创建了容器）
+        apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+        if (apiRequestTagFilterContainer) {
+            apiRequestTagFilterContainer.style.display = 'block';
+        }
+        
         // 获取接口请求记录
         let requests = [];
         if (this.apiRequestManager) {
@@ -15373,6 +16091,26 @@ if (typeof getCenterPosition === 'undefined') {
             // 直接获取所有请求（不按页面过滤）
             // 这样可以确保用户能看到所有请求记录（包括其他标签页的请求）
             requests = this.apiRequestManager.getAllRequests();
+            
+            // 确保每个请求都有域名标签（为旧请求自动添加）
+            requests.forEach(req => {
+                if (req.url) {
+                    // 如果请求还没有tags字段，或者tags为空，则添加域名标签
+                    if (!req.tags || !Array.isArray(req.tags) || req.tags.length === 0) {
+                        const domain = this.apiRequestManager._extractDomain(req.url);
+                        if (domain) {
+                            req.tags = [domain];
+                        }
+                    } else {
+                        // 如果已有标签，检查是否包含域名标签，如果没有则添加
+                        const domain = this.apiRequestManager._extractDomain(req.url);
+                        if (domain && !req.tags.includes(domain)) {
+                            req.tags.push(domain);
+                        }
+                    }
+                }
+            });
+            
             console.log('接口请求记录数量:', requests.length);
             console.log('当前页面URL:', window.location.href);
             console.log('总请求数:', this.apiRequestManager.requests.length);
@@ -15387,7 +16125,8 @@ if (typeof getCenterPosition === 'undefined') {
                     url: requests[0]?.url,
                     method: requests[0]?.method,
                     status: requests[0]?.status,
-                    pageUrl: requests[0]?.pageUrl
+                    pageUrl: requests[0]?.pageUrl,
+                    tags: requests[0]?.tags
                 });
             }
         } else {
@@ -15404,6 +16143,34 @@ if (typeof getCenterPosition === 'undefined') {
                 return url.includes(filterKeyword) || 
                        method.includes(filterKeyword) ||
                        status.includes(filterKeyword);
+            });
+        }
+        
+        // 应用无标签筛选
+        if (this.apiRequestTagFilterNoTags) {
+            requests = requests.filter(req => {
+                const requestTags = req.tags || [];
+                const hasTags = requestTags.length > 0 && requestTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的请求
+            });
+        }
+        
+        // 应用标签过滤
+        if (this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0) {
+            requests = requests.filter(req => {
+                const requestTags = (req.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const normalizedSelectedTags = this.selectedApiRequestFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
+                    requestTags.includes(selectedTag)
+                );
+                
+                if (this.apiRequestTagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的请求
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的请求
+                    return hasSelectedTags;
+                }
             });
         }
         
@@ -15546,6 +16313,52 @@ if (typeof getCenterPosition === 'undefined') {
             statusRow.appendChild(time);
             requestInfo.appendChild(statusRow);
             
+            // 标签区域
+            if (req.tags && Array.isArray(req.tags) && req.tags.length > 0) {
+                const tagsContainer = document.createElement('div');
+                tagsContainer.className = 'api-request-tags';
+                tagsContainer.style.cssText = `
+                    display: flex !important;
+                    flex-wrap: wrap !important;
+                    gap: 4px !important;
+                    margin-top: 8px !important;
+                `;
+                
+                req.tags.forEach(tag => {
+                    if (tag && tag.trim()) {
+                        const tagElement = document.createElement('span');
+                        tagElement.className = 'api-request-tag';
+                        tagElement.textContent = tag;
+                        // 根据标签内容生成颜色（使用哈希函数确保相同标签颜色一致）
+                        const tagColor = this.getTagColor(tag);
+                        tagElement.style.cssText = `
+                            display: inline-block !important;
+                            padding: 3px 8px !important;
+                            background: ${tagColor.background} !important;
+                            color: ${tagColor.text} !important;
+                            border-radius: 12px !important;
+                            font-size: 10px !important;
+                            font-weight: 500 !important;
+                            border: 1px solid ${tagColor.border} !important;
+                            transition: all 0.2s ease !important;
+                            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+                        `;
+                        // 添加悬停效果
+                        tagElement.addEventListener('mouseenter', () => {
+                            tagElement.style.transform = 'translateY(-1px)';
+                            tagElement.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                        });
+                        tagElement.addEventListener('mouseleave', () => {
+                            tagElement.style.transform = 'translateY(0)';
+                            tagElement.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                        });
+                        tagsContainer.appendChild(tagElement);
+                    }
+                });
+                
+                requestInfo.appendChild(tagsContainer);
+            }
+            
             requestItem.appendChild(requestInfo);
             
             // 点击展开详情
@@ -15561,10 +16374,18 @@ if (typeof getCenterPosition === 'undefined') {
             `;
             
             // 创建详情内容
-            const createDetailSection = (title, content, isCode = false) => {
+            const createDetailSection = (title, content, isCode = false, showCopyButton = false) => {
                 const section = document.createElement('div');
                 section.style.cssText = `
                     margin-bottom: 12px !important;
+                `;
+                
+                const titleContainer = document.createElement('div');
+                titleContainer.style.cssText = `
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                    margin-bottom: 4px !important;
                 `;
                 
                 const sectionTitle = document.createElement('div');
@@ -15572,8 +16393,85 @@ if (typeof getCenterPosition === 'undefined') {
                 sectionTitle.style.cssText = `
                     font-weight: 600 !important;
                     color: #374151 !important;
-                    margin-bottom: 4px !important;
                 `;
+                
+                titleContainer.appendChild(sectionTitle);
+                
+                // 如果需要显示复制按钮
+                if (showCopyButton) {
+                    const copyButton = document.createElement('button');
+                    copyButton.textContent = '复制';
+                    copyButton.style.cssText = `
+                        background: #3b82f6 !important;
+                        color: white !important;
+                        border: none !important;
+                        padding: 4px 12px !important;
+                        border-radius: 4px !important;
+                        font-size: 11px !important;
+                        cursor: pointer !important;
+                        font-weight: 500 !important;
+                        transition: background-color 0.2s !important;
+                    `;
+                    
+                    // 悬停效果
+                    copyButton.addEventListener('mouseenter', () => {
+                        copyButton.style.background = '#2563eb !important';
+                    });
+                    copyButton.addEventListener('mouseleave', () => {
+                        copyButton.style.background = '#3b82f6 !important';
+                    });
+                    
+                    // 点击复制功能
+                    copyButton.addEventListener('click', async (e) => {
+                        e.stopPropagation(); // 阻止事件冒泡，避免触发请求项的展开/收起
+                        
+                        const textToCopy = typeof content === 'object' 
+                            ? JSON.stringify(content, null, 2) 
+                            : (content || '');
+                        
+                        try {
+                            await navigator.clipboard.writeText(textToCopy);
+                            // 复制成功，更新按钮文本
+                            const originalText = copyButton.textContent;
+                            copyButton.textContent = '已复制';
+                            copyButton.style.background = '#10b981 !important';
+                            
+                            // 1秒后恢复
+                            setTimeout(() => {
+                                copyButton.textContent = originalText;
+                                copyButton.style.background = '#3b82f6 !important';
+                            }, 1000);
+                        } catch (err) {
+                            // 如果 clipboard API 不可用，使用传统方法
+                            const textArea = document.createElement('textarea');
+                            textArea.value = textToCopy;
+                            textArea.style.position = 'fixed';
+                            textArea.style.opacity = '0';
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            try {
+                                document.execCommand('copy');
+                                const originalText = copyButton.textContent;
+                                copyButton.textContent = '已复制';
+                                copyButton.style.background = '#10b981 !important';
+                                setTimeout(() => {
+                                    copyButton.textContent = originalText;
+                                    copyButton.style.background = '#3b82f6 !important';
+                                }, 1000);
+                            } catch (err) {
+                                copyButton.textContent = '复制失败';
+                                copyButton.style.background = '#ef4444 !important';
+                                setTimeout(() => {
+                                    copyButton.textContent = '复制';
+                                    copyButton.style.background = '#3b82f6 !important';
+                                }, 1000);
+                            }
+                            document.body.removeChild(textArea);
+                        }
+                    });
+                    
+                    titleContainer.appendChild(copyButton);
+                }
                 
                 const sectionContent = document.createElement('div');
                 if (isCode) {
@@ -15603,7 +16501,7 @@ if (typeof getCenterPosition === 'undefined') {
                     sectionContent.textContent = content || '';
                 }
                 
-                section.appendChild(sectionTitle);
+                section.appendChild(titleContainer);
                 section.appendChild(sectionContent);
                 return section;
             };
@@ -15622,7 +16520,7 @@ if (typeof getCenterPosition === 'undefined') {
                 detailPanel.appendChild(createDetailSection('响应体', req.responseText, true));
             }
             if (req.curl) {
-                detailPanel.appendChild(createDetailSection('cURL 命令', req.curl, true));
+                detailPanel.appendChild(createDetailSection('cURL 命令', req.curl, true, true));
             }
             
             requestItem.appendChild(detailPanel);
@@ -39592,6 +40490,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

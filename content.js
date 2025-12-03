@@ -16219,52 +16219,68 @@ if (typeof getCenterPosition === 'undefined') {
             return true;
         });
         
-        // 去重：优先使用 _id 或 key 去重，其次使用 URL+method 去重，保留时间戳最新的
-        const uniqueMap = new Map();
+        // 分离API数据（有_id或key）和本地数据（没有_id或key）
+        const apiRequests = []; // 来自API的数据
+        const localRequests = []; // 本地拦截的数据
+        
         requests.forEach(req => {
-            // 优先使用 _id 或 key 作为唯一标识（API数据）
-            const uniqueKey = req._id || req.key;
-            
-            if (uniqueKey) {
-                // 对于有 _id 或 key 的API数据，使用它作为唯一标识
-                const existingReq = uniqueMap.get(uniqueKey);
-                if (!existingReq) {
-                    uniqueMap.set(uniqueKey, req);
-                } else {
-                    // 如果已存在，比较时间戳，保留最新的
-                    const existingTimestamp = existingReq.timestamp || 0;
-                    const currentTimestamp = req.timestamp || 0;
-                    if (currentTimestamp > existingTimestamp) {
-                        uniqueMap.set(uniqueKey, req);
-                    }
-                }
+            if (req._id || req.key) {
+                // 有_id或key，说明来自API
+                apiRequests.push(req);
             } else {
-                // 对于没有 _id 或 key 的请求，使用 URL+method 作为唯一标识
-                const url = req.url || '';
-                const method = req.method || 'GET';
-                const urlMethodKey = `${method}:${url}`;
-                
-                if (!url) {
-                    // 如果URL也为空，跳过该请求（无效请求）
-                    return;
-                }
-                
-                const existingReq = uniqueMap.get(urlMethodKey);
+                // 没有_id或key，说明是本地拦截的数据
+                localRequests.push(req);
+            }
+        });
+        
+        // 对API数据进行去重（使用_id或key作为唯一标识）
+        const apiUniqueMap = new Map();
+        apiRequests.forEach(req => {
+            const uniqueKey = req._id || req.key;
+            if (uniqueKey) {
+                const existingReq = apiUniqueMap.get(uniqueKey);
                 if (!existingReq) {
-                    uniqueMap.set(urlMethodKey, req);
+                    apiUniqueMap.set(uniqueKey, req);
                 } else {
                     // 如果已存在，比较时间戳，保留最新的
                     const existingTimestamp = existingReq.timestamp || 0;
                     const currentTimestamp = req.timestamp || 0;
                     if (currentTimestamp > existingTimestamp) {
-                        uniqueMap.set(urlMethodKey, req);
+                        apiUniqueMap.set(uniqueKey, req);
                     }
                 }
             }
         });
         
-        // 将Map转换回数组
-        return Array.from(uniqueMap.values());
+        // 对本地数据进行去重（使用URL+method作为唯一标识）
+        const localUniqueMap = new Map();
+        localRequests.forEach(req => {
+            const url = req.url || '';
+            const method = req.method || 'GET';
+            const urlMethodKey = `${method}:${url}`;
+            
+            if (!url) {
+                // 如果URL也为空，跳过该请求（无效请求）
+                return;
+            }
+            
+            const existingReq = localUniqueMap.get(urlMethodKey);
+            if (!existingReq) {
+                localUniqueMap.set(urlMethodKey, req);
+            } else {
+                // 如果已存在，比较时间戳，保留最新的
+                const existingTimestamp = existingReq.timestamp || 0;
+                const currentTimestamp = req.timestamp || 0;
+                if (currentTimestamp > existingTimestamp) {
+                    localUniqueMap.set(urlMethodKey, req);
+                }
+            }
+        });
+        
+        // 将API数据放在前面，本地数据放在后面
+        const apiData = Array.from(apiUniqueMap.values());
+        const localData = Array.from(localUniqueMap.values());
+        return [...apiData, ...localData];
     }
 
     async updateApiRequestSidebar(forceRefresh = false) {

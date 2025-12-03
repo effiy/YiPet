@@ -614,6 +614,9 @@ if (typeof getCenterPosition === 'undefined') {
         
         // FAQ API管理器
         this.faqApi = null;
+        
+        // 请求接口 API管理器
+        this.apiRequestApi = null;
 
         // 状态保存节流相关
         this.lastStateSaveTime = 0; // 上次保存状态的时间
@@ -712,6 +715,14 @@ if (typeof getCenterPosition === 'undefined') {
             console.log('FAQ API管理器已初始化');
         } else {
             console.log('FAQ API管理器未启用');
+        }
+        
+        // 初始化请求接口 API管理器
+        if (typeof ApiRequestApiManager !== 'undefined') {
+            this.apiRequestApi = new ApiRequestApiManager('https://api.effiy.cn/mongodb', true);
+            console.log('请求接口 API管理器已初始化');
+        } else {
+            console.log('请求接口 API管理器未启用');
         }
         
         // 初始化新闻管理器
@@ -16500,8 +16511,94 @@ if (typeof getCenterPosition === 'undefined') {
                 time.textContent = '';
             }
             
+            // 操作按钮容器（移动到statusRow中）
+            const footerButtonContainer = document.createElement('div');
+            footerButtonContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            `;
+            
+            // 页面上下文按钮（参考新闻列表的实现）
+            const contextBtn = document.createElement('button');
+            contextBtn.className = 'api-request-context-btn';
+            contextBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            `;
+            contextBtn.title = '页面上下文';
+            contextBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 4px !important;
+                opacity: 0.6 !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: inherit !important;
+                border-radius: 4px !important;
+            `;
+            contextBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // 先激活或创建该接口请求的会话
+                await this.handleApiRequestClick(req);
+                // 确保聊天窗口已打开
+                if (!this.chatWindow || !this.isChatOpen) {
+                    await this.openChatWindow();
+                }
+                // 打开页面上下文编辑器
+                this.openContextEditor();
+            });
+            contextBtn.addEventListener('mouseenter', () => {
+                contextBtn.style.opacity = '1';
+                contextBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+            });
+            contextBtn.addEventListener('mouseleave', () => {
+                contextBtn.style.opacity = '0.6';
+                contextBtn.style.background = 'none !important';
+            });
+            footerButtonContainer.appendChild(contextBtn);
+            
+            // 保存会话按钮（参考新闻列表的实现）
+            const saveSessionBtn = document.createElement('button');
+            saveSessionBtn.className = 'api-request-save-session-btn';
+            saveSessionBtn.innerHTML = '💾';
+            saveSessionBtn.title = '保存会话';
+            saveSessionBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 12px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            saveSessionBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.handleApiRequestSaveSession(req);
+            });
+            saveSessionBtn.addEventListener('mouseenter', () => {
+                saveSessionBtn.style.opacity = '1';
+            });
+            saveSessionBtn.addEventListener('mouseleave', () => {
+                saveSessionBtn.style.opacity = '0.6';
+            });
+            footerButtonContainer.appendChild(saveSessionBtn);
+            
             statusRow.appendChild(statusInfo);
             statusRow.appendChild(time);
+            statusRow.appendChild(footerButtonContainer);
             requestInfo.appendChild(statusRow);
             
             // 标签区域
@@ -16984,6 +17081,374 @@ if (typeof getCenterPosition === 'undefined') {
         } catch (error) {
             console.error('处理新闻点击失败:', error);
             this.showNotification('打开新闻会话失败，请重试', 'error');
+        }
+    }
+    
+    // 处理请求接口点击，创建会话并打开聊天窗口（类似新闻列表）
+    async handleApiRequestClick(apiRequest) {
+        try {
+            if (!apiRequest) {
+                console.warn('请求接口项无效');
+                return;
+            }
+            
+            // 生成会话ID（基于请求URL和方法）
+            const requestId = `${apiRequest.method || 'GET'}:${apiRequest.url || ''}`;
+            const sessionId = await this.generateSessionId(requestId);
+            
+            // 检查是否已存在相同请求接口的会话
+            let matchedSessionId = null;
+            for (const [sid, session] of Object.entries(this.sessions)) {
+                if (session._isApiRequestSession && session._apiRequestInfo && 
+                    session._apiRequestInfo.url === apiRequest.url &&
+                    session._apiRequestInfo.method === apiRequest.method) {
+                    matchedSessionId = sid;
+                    break;
+                }
+            }
+            
+            // 如果找到匹配的会话，直接激活
+            if (matchedSessionId) {
+                // 激活会话
+                await this.activateSession(matchedSessionId, {
+                    saveCurrent: false,
+                    updateConsistency: false,
+                    updateUI: true,
+                    syncToBackend: false,
+                    skipBackendFetch: false
+                });
+                
+                console.log('请求接口会话已激活（使用匹配的会话）:', matchedSessionId);
+                return;
+            }
+            
+            // 如果没有找到匹配的会话，创建新会话
+            let session = this.sessions[sessionId];
+            
+            // 构建页面内容（包含请求详情）
+            const pageContent = this._buildApiRequestPageContent(apiRequest);
+            
+            if (!session) {
+                // 创建新会话
+                session = this.createSessionObject(sessionId, {
+                    url: apiRequest.pageUrl || apiRequest.url || '',
+                    title: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
+                    pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
+                    pageDescription: `接口请求：${apiRequest.url || ''}`,
+                    pageContent: pageContent
+                });
+                this.sessions[sessionId] = session;
+                
+                // 标记为请求接口会话
+                session._isApiRequestSession = true;
+                session._apiRequestInfo = {
+                    url: apiRequest.url || '',
+                    method: apiRequest.method || 'GET',
+                    status: apiRequest.status || 0,
+                    statusText: apiRequest.statusText || '',
+                    headers: apiRequest.headers || {},
+                    body: apiRequest.body || null,
+                    responseHeaders: apiRequest.responseHeaders || {},
+                    responseBody: apiRequest.responseBody || null,
+                    responseText: apiRequest.responseText || '',
+                    duration: apiRequest.duration || 0,
+                    timestamp: apiRequest.timestamp || Date.now(),
+                    type: apiRequest.type || 'fetch',
+                    curl: apiRequest.curl || '',
+                    pageUrl: apiRequest.pageUrl || '',
+                    tags: apiRequest.tags || []
+                };
+                
+                // 保存会话到本地
+                await this.saveAllSessions(false, false);
+            } else {
+                // 更新现有会话的请求接口信息
+                session._isApiRequestSession = true;
+                session._apiRequestInfo = {
+                    url: apiRequest.url || '',
+                    method: apiRequest.method || 'GET',
+                    status: apiRequest.status || 0,
+                    statusText: apiRequest.statusText || '',
+                    headers: apiRequest.headers || {},
+                    body: apiRequest.body || null,
+                    responseHeaders: apiRequest.responseHeaders || {},
+                    responseBody: apiRequest.responseBody || null,
+                    responseText: apiRequest.responseText || '',
+                    duration: apiRequest.duration || 0,
+                    timestamp: apiRequest.timestamp || Date.now(),
+                    type: apiRequest.type || 'fetch',
+                    curl: apiRequest.curl || '',
+                    pageUrl: apiRequest.pageUrl || '',
+                    tags: apiRequest.tags || []
+                };
+                session.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`;
+                session.pageDescription = `接口请求：${apiRequest.url || ''}`;
+                session.pageContent = pageContent;
+            }
+            
+            // 激活会话
+            await this.activateSession(sessionId, {
+                saveCurrent: false,
+                updateConsistency: false,
+                updateUI: true,
+                syncToBackend: false,
+                skipBackendFetch: true
+            });
+            
+            // 确保会话信息已更新（在激活会话后）
+            const activatedSession = this.sessions[sessionId];
+            if (activatedSession) {
+                activatedSession._isApiRequestSession = true;
+                activatedSession._apiRequestInfo = {
+                    url: apiRequest.url || '',
+                    method: apiRequest.method || 'GET',
+                    status: apiRequest.status || 0,
+                    statusText: apiRequest.statusText || '',
+                    headers: apiRequest.headers || {},
+                    body: apiRequest.body || null,
+                    responseHeaders: apiRequest.responseHeaders || {},
+                    responseBody: apiRequest.responseBody || null,
+                    responseText: apiRequest.responseText || '',
+                    duration: apiRequest.duration || 0,
+                    timestamp: apiRequest.timestamp || Date.now(),
+                    type: apiRequest.type || 'fetch',
+                    curl: apiRequest.curl || '',
+                    pageUrl: apiRequest.pageUrl || '',
+                    tags: apiRequest.tags || []
+                };
+                activatedSession.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`;
+                activatedSession.pageDescription = `接口请求：${apiRequest.url || ''}`;
+                activatedSession.pageContent = pageContent;
+            }
+            
+            console.log('请求接口会话已创建并激活:', sessionId);
+        } catch (error) {
+            console.error('处理请求接口点击失败:', error);
+            this.showNotification('打开请求接口会话失败，请重试', 'error');
+        }
+    }
+    
+    // 处理请求接口保存会话（参考新闻列表的实现）
+    async handleApiRequestSaveSession(apiRequest) {
+        try {
+            if (!apiRequest) {
+                this.showNotification('请求接口数据无效', 'error');
+                return;
+            }
+            
+            // 先创建或激活会话
+            await this.handleApiRequestClick(apiRequest);
+            
+            // 获取会话ID
+            const requestId = `${apiRequest.method || 'GET'}:${apiRequest.url || ''}`;
+            const sessionId = await this.generateSessionId(requestId);
+            
+            // 确保会话存在
+            let session = this.sessions[sessionId];
+            if (!session) {
+                // 如果会话不存在，重新创建
+                await this.handleApiRequestClick(apiRequest);
+                session = this.sessions[sessionId];
+            }
+            
+            if (!session) {
+                this.showNotification('无法创建会话', 'error');
+                return;
+            }
+            
+            // 保存请求接口到后端（通过 apiRequestApi）
+            if (this.apiRequestApi && this.apiRequestApi.isEnabled()) {
+                try {
+                    // 准备请求接口数据
+                    const apiRequestData = {
+                        url: apiRequest.url || '',
+                        method: apiRequest.method || 'GET',
+                        status: apiRequest.status || 0,
+                        statusText: apiRequest.statusText || '',
+                        headers: apiRequest.headers || {},
+                        body: apiRequest.body || null,
+                        responseHeaders: apiRequest.responseHeaders || {},
+                        responseBody: apiRequest.responseBody || null,
+                        responseText: apiRequest.responseText || '',
+                        duration: apiRequest.duration || 0,
+                        timestamp: apiRequest.timestamp || Date.now(),
+                        type: apiRequest.type || 'fetch',
+                        curl: apiRequest.curl || '',
+                        pageUrl: apiRequest.pageUrl || window.location.href,
+                        tags: apiRequest.tags || []
+                    };
+                    
+                    // 如果有key，使用它作为唯一标识
+                    if (apiRequest.key) {
+                        apiRequestData.key = apiRequest.key;
+                    } else if (apiRequest._id) {
+                        apiRequestData.key = apiRequest._id;
+                    } else if (apiRequest.id) {
+                        apiRequestData.key = apiRequest.id;
+                    }
+                    
+                    // 保存到后端
+                    const result = await this.apiRequestApi.saveApiRequest(apiRequestData);
+                    
+                    if (result && result.success) {
+                        console.log('请求接口已保存到后端:', result.data);
+                    }
+                } catch (error) {
+                    console.warn('保存请求接口到后端失败:', error);
+                    // 不阻止会话保存，继续执行
+                }
+            }
+            
+            // 保存会话到后端（通过 sessionApi）
+            if (this.sessionApi && this.enableBackendSync) {
+                try {
+                    // 构建页面内容
+                    const pageContent = this._buildApiRequestPageContent(apiRequest);
+                    
+                    // 准备会话数据
+                    const sessionData = {
+                        id: session.id || sessionId,
+                        url: apiRequest.pageUrl || apiRequest.url || '',
+                        pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
+                        pageDescription: `接口请求：${apiRequest.url || ''}`,
+                        pageContent: pageContent,
+                        messages: session.messages || [],
+                        tags: session.tags || apiRequest.tags || [],
+                        createdAt: session.createdAt || Date.now(),
+                        updatedAt: Date.now(),
+                        lastAccessTime: Date.now()
+                    };
+                    
+                    // 标记为请求接口会话
+                    sessionData._isApiRequestSession = true;
+                    sessionData._apiRequestInfo = {
+                        url: apiRequest.url || '',
+                        method: apiRequest.method || 'GET',
+                        status: apiRequest.status || 0,
+                        statusText: apiRequest.statusText || '',
+                        headers: apiRequest.headers || {},
+                        body: apiRequest.body || null,
+                        responseHeaders: apiRequest.responseHeaders || {},
+                        responseBody: apiRequest.responseBody || null,
+                        responseText: apiRequest.responseText || '',
+                        duration: apiRequest.duration || 0,
+                        timestamp: apiRequest.timestamp || Date.now(),
+                        type: apiRequest.type || 'fetch',
+                        curl: apiRequest.curl || '',
+                        pageUrl: apiRequest.pageUrl || '',
+                        tags: apiRequest.tags || []
+                    };
+                    
+                    // 保存会话到后端
+                    await this.sessionApi.saveSession(sessionData);
+                    
+                    console.log('请求接口会话已保存到后端:', sessionId);
+                    this.showNotification('会话已保存', 'success');
+                } catch (error) {
+                    console.error('保存请求接口会话到后端失败:', error);
+                    this.showNotification('保存会话失败，请重试', 'error');
+                }
+            } else {
+                // 如果没有启用后端同步，只保存到本地
+                await this.saveSession(sessionId, true);
+                this.showNotification('会话已保存到本地', 'success');
+            }
+        } catch (error) {
+            console.error('保存请求接口会话失败:', error);
+            this.showNotification('保存会话失败，请重试', 'error');
+        }
+    }
+    
+    // 构建请求接口的页面内容（Markdown格式）
+    _buildApiRequestPageContent(apiRequest) {
+        if (!apiRequest) return '';
+        
+        let content = `# 接口请求详情\n\n`;
+        
+        // 基本信息
+        content += `## 基本信息\n\n`;
+        content += `- **方法**: ${apiRequest.method || 'GET'}\n`;
+        content += `- **URL**: ${apiRequest.url || ''}\n`;
+        content += `- **状态**: ${apiRequest.status || 0} ${apiRequest.statusText || ''}\n`;
+        content += `- **耗时**: ${apiRequest.duration || 0}ms\n`;
+        content += `- **时间**: ${new Date(apiRequest.timestamp || Date.now()).toLocaleString()}\n`;
+        content += `- **类型**: ${apiRequest.type || 'fetch'}\n\n`;
+        
+        // 请求头
+        if (apiRequest.headers && Object.keys(apiRequest.headers).length > 0) {
+            content += `## 请求头\n\n`;
+            content += '```\n';
+            for (const [key, value] of Object.entries(apiRequest.headers)) {
+                content += `${key}: ${value}\n`;
+            }
+            content += '```\n\n';
+        }
+        
+        // 请求体
+        if (apiRequest.body) {
+            content += `## 请求体\n\n`;
+            content += '```json\n';
+            if (typeof apiRequest.body === 'string') {
+                try {
+                    const parsed = JSON.parse(apiRequest.body);
+                    content += JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    content += apiRequest.body;
+                }
+            } else {
+                content += JSON.stringify(apiRequest.body, null, 2);
+            }
+            content += '\n```\n\n';
+        }
+        
+        // 响应头
+        if (apiRequest.responseHeaders && Object.keys(apiRequest.responseHeaders).length > 0) {
+            content += `## 响应头\n\n`;
+            content += '```\n';
+            for (const [key, value] of Object.entries(apiRequest.responseHeaders)) {
+                content += `${key}: ${value}\n`;
+            }
+            content += '```\n\n';
+        }
+        
+        // 响应体
+        if (apiRequest.responseText || apiRequest.responseBody) {
+            content += `## 响应体\n\n`;
+            content += '```json\n';
+            if (apiRequest.responseBody) {
+                content += JSON.stringify(apiRequest.responseBody, null, 2);
+            } else if (apiRequest.responseText) {
+                try {
+                    const parsed = JSON.parse(apiRequest.responseText);
+                    content += JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    content += apiRequest.responseText;
+                }
+            }
+            content += '\n```\n\n';
+        }
+        
+        // cURL命令
+        if (apiRequest.curl) {
+            content += `## cURL命令\n\n`;
+            content += '```bash\n';
+            content += apiRequest.curl;
+            content += '\n```\n\n';
+        }
+        
+        return content;
+    }
+    
+    // 提取API路径（从完整URL中提取路径部分）
+    _extractApiPath(url) {
+        if (!url) return '';
+        try {
+            const urlObj = new URL(url);
+            return urlObj.pathname + urlObj.search;
+        } catch (e) {
+            // 如果URL解析失败，尝试简单提取
+            const match = url.match(/\/\/[^\/]+(\/.*)/);
+            return match ? match[1] : url;
         }
     }
     

@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["config.js", "md5.js", "loadingAnimation.js", "sessionApi.js", "sessionManager.js", "ossApi.js", "ossFileManager.js", "newsManager.js", "rssSourceManager.js", "faqApi.js", "apiRequestManager.js", "turndown.js", "marked.min.js", "html2canvas.min.js", "export-chat-to-png.js", "content.js"],
+      "js": ["config.js", "md5.js", "loadingAnimation.js", "sessionApi.js", "sessionManager.js", "ossApi.js", "ossFileManager.js", "newsManager.js", "rssSourceManager.js", "faqApi.js", "apiRequestManager.js", "apiRequestApi.js", "turndown.js", "marked.min.js", "html2canvas.min.js", "export-chat-to-png.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_end"
     }

@@ -4841,6 +4841,43 @@ if (typeof getCenterPosition === 'undefined') {
                 });
             }
             
+            // 如果是接口会话，优先使用接口本身的标题、网址等信息
+            if (session._isApiRequestSession && session._apiRequestInfo) {
+                // 优先使用接口信息中的标题和网址，确保保存的会话信息与接口一致
+                if (session._apiRequestInfo.url) {
+                    // 使用接口的pageUrl（如果有），否则使用接口的url
+                    sessionUrl = session._apiRequestInfo.pageUrl || session._apiRequestInfo.url;
+                    // 同时更新会话对象本身，确保保存到后端的数据和会话显示的网址一致
+                    session.url = sessionUrl;
+                }
+                // 构建接口标题：方法 + 路径
+                const apiPath = this._extractApiPath(session._apiRequestInfo.url);
+                pageTitle = `${session._apiRequestInfo.method || 'GET'} ${apiPath}`;
+                // 同时更新会话对象本身，确保保存到后端的数据和会话显示的标题一致
+                session.pageTitle = pageTitle;
+                
+                // 使用接口的描述
+                pageDescription = `接口请求：${session._apiRequestInfo.url || ''}`;
+                // 同时更新会话对象本身，确保保存到后端的数据和会话显示的描述一致
+                session.pageDescription = pageDescription;
+                
+                // 使用接口的pageContent（如果存在）
+                if (session.pageContent && session.pageContent.trim() !== '') {
+                    pageContent = session.pageContent;
+                }
+                
+                // 如果接口有标签，使用接口的标签
+                if (session._apiRequestInfo.tags && Array.isArray(session._apiRequestInfo.tags)) {
+                    session.tags = session._apiRequestInfo.tags;
+                }
+                console.log('接口会话保存时使用接口本身的信息:', {
+                    pageTitle: pageTitle,
+                    url: sessionUrl,
+                    pageDescription: pageDescription,
+                    tags: session.tags
+                });
+            }
+            
             // 处理消息中的 base64 图片（在上传到 OSS 后替换为 URL）
             // 只有在 processImages 为 true 时才处理（即用户发送图片消息时）
             let messages = session.messages || [];
@@ -4867,9 +4904,11 @@ if (typeof getCenterPosition === 'undefined') {
             // 1. 手动保存页面上下文时（includePageContent = true）
             // 2. OSS文件会话中有pageContent时（即使includePageContent = false，也应该保存）
             // 3. 新闻会话中使用了当前选中会话的pageContent时（即使includePageContent = false，也应该保存）
+            // 4. 接口会话中有pageContent时（即使includePageContent = false，也应该保存）
             if (includePageContent || 
                 (session._isOssFileSession && pageContent && pageContent.trim() !== '') ||
-                (session._isNewsSession && pageContent && pageContent.trim() !== '')) {
+                (session._isNewsSession && pageContent && pageContent.trim() !== '') ||
+                (session._isApiRequestSession && pageContent && pageContent.trim() !== '')) {
                 sessionData.pageContent = pageContent;
             }
             
@@ -4883,6 +4922,12 @@ if (typeof getCenterPosition === 'undefined') {
             if (session._isNewsSession && session._newsInfo) {
                 sessionData._isNewsSession = true;
                 sessionData._newsInfo = session._newsInfo;
+            }
+            
+            // 如果是接口会话，包含接口信息（保留原始接口信息，即使使用了当前选中会话的标题和网址）
+            if (session._isApiRequestSession && session._apiRequestInfo) {
+                sessionData._isApiRequestSession = true;
+                sessionData._apiRequestInfo = session._apiRequestInfo;
             }
             
             // 使用API管理器
@@ -4971,10 +5016,14 @@ if (typeof getCenterPosition === 'undefined') {
                                               session.url.startsWith('blank-session://');
                         
                         // 如果是OSS文件会话，url应该使用OSS文件的url，而不是session.url（可能被更新为当前页面URL）
+                        // 如果是接口会话，url应该使用接口的pageUrl或url，而不是session.url（可能被更新为当前页面URL）
                         // 如果是空白会话，应该保持使用原始的blank-session://URL，而不是当前页面URL
                         let fallbackSessionUrl = '';
                         if (session._isOssFileSession && session._ossFileInfo?.url) {
                             fallbackSessionUrl = session._ossFileInfo.url;
+                        } else if (session._isApiRequestSession && session._apiRequestInfo?.url) {
+                            // 使用接口的pageUrl（如果有），否则使用接口的url
+                            fallbackSessionUrl = session._apiRequestInfo.pageUrl || session._apiRequestInfo.url;
                         } else if (isBlankSession) {
                             // 对于空白会话，优先使用保存的原始URL，防止被意外更新为当前页面URL
                             if (session._originalUrl && session._originalUrl.startsWith('blank-session://')) {
@@ -5029,6 +5078,31 @@ if (typeof getCenterPosition === 'undefined') {
                             }
                         }
                         
+                        // 如果是接口会话，优先使用接口本身的标题、网址等信息
+                        if (session._isApiRequestSession && session._apiRequestInfo) {
+                            // 优先使用接口信息中的标题和网址，确保保存的会话信息与接口一致
+                            if (session._apiRequestInfo.url) {
+                                // 使用接口的pageUrl（如果有），否则使用接口的url
+                                fallbackSessionUrl = session._apiRequestInfo.pageUrl || session._apiRequestInfo.url;
+                            }
+                            // 构建接口标题：方法 + 路径
+                            const apiPath = this._extractApiPath(session._apiRequestInfo.url);
+                            fallbackPageTitle = `${session._apiRequestInfo.method || 'GET'} ${apiPath}`;
+                            
+                            // 使用接口的描述
+                            fallbackPageDescription = `接口请求：${session._apiRequestInfo.url || ''}`;
+                            
+                            // 使用接口的pageContent（如果存在）
+                            if (session.pageContent && session.pageContent.trim() !== '') {
+                                fallbackPageContent = session.pageContent;
+                            }
+                            
+                            // 如果接口有标签，使用接口的标签
+                            if (session._apiRequestInfo.tags && Array.isArray(session._apiRequestInfo.tags)) {
+                                session.tags = session._apiRequestInfo.tags;
+                            }
+                        }
+                        
                         const sessionData = {
                             id: session.id || sessionId,
                             url: fallbackSessionUrl,
@@ -5044,7 +5118,12 @@ if (typeof getCenterPosition === 'undefined') {
                         // 包含 pageContent 字段的情况：
                         // 1. 手动保存页面上下文时（includePageContent = true）
                         // 2. OSS文件会话中有pageContent时（即使includePageContent = false，也应该保存）
-                        if (includePageContent || (session._isOssFileSession && fallbackPageContent && fallbackPageContent.trim() !== '')) {
+                        // 3. 新闻会话中有pageContent时（即使includePageContent = false，也应该保存）
+                        // 4. 接口会话中有pageContent时（即使includePageContent = false，也应该保存）
+                        if (includePageContent || 
+                            (session._isOssFileSession && fallbackPageContent && fallbackPageContent.trim() !== '') ||
+                            (session._isNewsSession && fallbackPageContent && fallbackPageContent.trim() !== '') ||
+                            (session._isApiRequestSession && fallbackPageContent && fallbackPageContent.trim() !== '')) {
                             sessionData.pageContent = fallbackPageContent;
                         }
                         
@@ -5058,6 +5137,12 @@ if (typeof getCenterPosition === 'undefined') {
                         if (session._isNewsSession && session._newsInfo) {
                             sessionData._isNewsSession = true;
                             sessionData._newsInfo = session._newsInfo;
+                        }
+                        
+                        // 如果是接口会话，包含接口信息（保留原始接口信息，即使使用了当前选中会话的标题和网址）
+                        if (session._isApiRequestSession && session._apiRequestInfo) {
+                            sessionData._isApiRequestSession = true;
+                            sessionData._apiRequestInfo = session._apiRequestInfo;
                         }
                         
                         this.sessionApi.queueSave(sessionId, sessionData);
@@ -17099,21 +17184,26 @@ if (typeof getCenterPosition === 'undefined') {
             
             requestItem.appendChild(detailPanel);
             
-            // 点击切换展开/收起
+            // 点击事件处理（参考新闻列表的实现）
             requestItem.addEventListener('click', (e) => {
-                // 如果点击的是详情面板内的内容，不切换展开状态
-                if (detailPanel.contains(e.target)) {
+                // 如果点击的是按钮或详情面板内的内容，不触发创建会话
+                if (e.target.closest('button') || e.target.closest('.api-request-tags') || detailPanel.contains(e.target)) {
+                    // 如果点击的是详情面板内的内容，切换展开状态
+                    if (detailPanel.contains(e.target) && !e.target.closest('button') && !e.target.closest('a')) {
+                        isExpanded = !isExpanded;
+                        if (isExpanded) {
+                            detailPanel.style.display = 'block';
+                            requestItem.style.background = '#f9fafb';
+                        } else {
+                            detailPanel.style.display = 'none';
+                            requestItem.style.background = '#ffffff';
+                        }
+                    }
                     return;
                 }
                 
-                isExpanded = !isExpanded;
-                if (isExpanded) {
-                    detailPanel.style.display = 'block';
-                    requestItem.style.background = '#f9fafb';
-                } else {
-                    detailPanel.style.display = 'none';
-                    requestItem.style.background = '#ffffff';
-                }
+                // 处理接口点击，创建会话并打开聊天窗口（参考新闻列表）
+                this.handleApiRequestClick(req);
             });
             
             // 悬停效果
@@ -39361,9 +39451,18 @@ ${messageContent}`;
         const isOssFileSession = session && session._isOssFileSession;
         const ossFileInfo = session && session._ossFileInfo ? session._ossFileInfo : null;
         
+        // 检查是否是接口会话
+        const isApiRequestSession = session && session._isApiRequestSession;
+        const apiRequestInfo = session && session._apiRequestInfo ? session._apiRequestInfo : null;
+        
         // 如果是OSS文件会话，使用OSS文件信息
         if (isOssFileSession && ossFileInfo) {
             return await this.createOssFileWelcomeMessage(messagesContainer, ossFileInfo);
+        }
+        
+        // 如果是接口会话，使用接口信息
+        if (isApiRequestSession && apiRequestInfo) {
+            return await this.createApiRequestWelcomeMessage(messagesContainer, apiRequestInfo);
         }
         
         // 如果没有提供页面信息，使用当前页面信息或会话信息
@@ -39737,6 +39836,180 @@ ${messageContent}`;
             messageText.innerHTML = fileInfoHtml;
             // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
             messageText.setAttribute('data-original-text', fileInfoHtml);
+            
+            // 绑定手动保存按钮的点击事件
+            const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => {
+                    this.handleManualSaveSession(saveBtn);
+                });
+            }
+        }
+        
+        return welcomeMessage;
+    }
+    
+    // 创建接口请求欢迎消息
+    async createApiRequestWelcomeMessage(messagesContainer, apiRequestInfo) {
+        // 构建接口请求信息显示内容
+        const apiPath = this._extractApiPath(apiRequestInfo.url);
+        const method = apiRequestInfo.method || 'GET';
+        const status = apiRequestInfo.status || 0;
+        const statusText = apiRequestInfo.statusText || '';
+        const duration = apiRequestInfo.duration || 0;
+        const timestamp = apiRequestInfo.timestamp || Date.now();
+        
+        let apiRequestHtml = `
+            <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)); border-radius: 12px; border-left: 3px solid #4ECDC4;">
+                <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 20px;">🔌</span>
+                    <span style="font-weight: 600; font-size: 15px; color: #374151;">${this.escapeHtml(method)} ${this.escapeHtml(apiPath)}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🔗 接口地址</div>
+                    <a href="${apiRequestInfo.url}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(apiRequestInfo.url)}</a>
+                </div>
+        `;
+        
+        // 如果有状态码，显示状态信息
+        if (status > 0) {
+            const statusColor = status >= 200 && status < 300 ? '#4CAF50' : status >= 400 ? '#f44336' : '#FF9800';
+            apiRequestHtml += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📊 响应状态</div>
+                    <div style="font-size: 13px; color: ${statusColor}; font-weight: 600;">${status} ${statusText || ''}</div>
+                </div>
+            `;
+        }
+        
+        // 如果有响应时间，显示响应时间
+        if (duration > 0) {
+            apiRequestHtml += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">⏱️ 响应时间</div>
+                    <div style="font-size: 13px; color: #4B5563;">${duration}ms</div>
+                </div>
+            `;
+        }
+        
+        // 如果有页面URL，显示页面URL
+        if (apiRequestInfo.pageUrl) {
+            apiRequestHtml += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🌐 页面地址</div>
+                    <a href="${apiRequestInfo.pageUrl}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(apiRequestInfo.pageUrl)}</a>
+                </div>
+            `;
+        }
+        
+        // 如果有响应内容，显示响应内容预览
+        if (apiRequestInfo.responseText || apiRequestInfo.responseBody) {
+            const responseContent = apiRequestInfo.responseText || JSON.stringify(apiRequestInfo.responseBody, null, 2);
+            const previewText = responseContent.length > 200 ? responseContent.substring(0, 200) + '...' : responseContent;
+            apiRequestHtml += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📄 响应内容</div>
+                    <div style="font-size: 13px; color: #4B5563; line-height: 1.5; max-height: 150px; overflow-y: auto; background: rgba(0, 0, 0, 0.05); padding: 8px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-break: break-all;">${this.escapeHtml(previewText)}</div>
+                </div>
+            `;
+        }
+        
+        apiRequestHtml += `</div>`;
+        
+        // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
+        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        
+        // 根据检查结果决定是否添加手动保存会话按钮
+        if (shouldShowSaveButton) {
+            apiRequestHtml += `
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                    <button id="pet-manual-save-session-btn" class="pet-manual-save-btn" style="
+                        position: relative !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        gap: 8px !important;
+                        width: 100% !important;
+                        padding: 10px 20px !important;
+                        background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+                        color: white !important;
+                        border: none !important;
+                        border-radius: 10px !important;
+                        font-size: 14px !important;
+                        font-weight: 600 !important;
+                        cursor: pointer !important;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+                        overflow: hidden !important;
+                        user-select: none !important;
+                    ">
+                        <span class="save-btn-icon" style="
+                            display: inline-flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            font-size: 16px !important;
+                            transition: transform 0.3s ease !important;
+                        ">💾</span>
+                        <span class="save-btn-text">保存会话</span>
+                        <span class="save-btn-loader" style="
+                            display: none !important;
+                            position: absolute !important;
+                            width: 16px !important;
+                            height: 16px !important;
+                            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+                            border-top-color: white !important;
+                            border-radius: 50% !important;
+                            animation: spin 0.8s linear infinite !important;
+                        "></span>
+                    </button>
+                    <style>
+                        @keyframes spin {
+                            to { transform: rotate(360deg); }
+                        }
+                        .pet-manual-save-btn:hover:not(:disabled) {
+                            transform: translateY(-2px) !important;
+                            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+                        }
+                        .pet-manual-save-btn:active:not(:disabled) {
+                            transform: translateY(0) !important;
+                            box-shadow: 0 1px 4px rgba(78, 205, 196, 0.2) !important;
+                        }
+                        .pet-manual-save-btn:disabled {
+                            opacity: 0.7 !important;
+                            cursor: not-allowed !important;
+                            transform: none !important;
+                        }
+                        .pet-manual-save-btn.loading .save-btn-icon,
+                        .pet-manual-save-btn.loading .save-btn-text {
+                            opacity: 0 !important;
+                        }
+                        .pet-manual-save-btn.loading .save-btn-loader {
+                            display: block !important;
+                        }
+                        .pet-manual-save-btn.success {
+                            background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+                            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+                        }
+                        .pet-manual-save-btn.error {
+                            background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+                            box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
+                        }
+                    </style>
+                </div>
+            `;
+        }
+        
+        // 创建欢迎消息元素
+        const welcomeMessage = this.createMessageElement('', 'pet');
+        welcomeMessage.setAttribute('data-welcome-message', 'true');
+        messagesContainer.appendChild(welcomeMessage);
+        
+        const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
+        if (messageText) {
+            messageText.innerHTML = apiRequestHtml;
+            // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
+            messageText.setAttribute('data-original-text', apiRequestHtml);
             
             // 绑定手动保存按钮的点击事件
             const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');

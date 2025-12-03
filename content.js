@@ -17350,7 +17350,7 @@ if (typeof getCenterPosition === 'undefined') {
                 }
             } else {
                 // 如果没有启用后端同步，只保存到本地
-                await this.saveSession(sessionId, true);
+                await this.saveAllSessions(true, false);
                 this.showNotification('会话已保存到本地', 'success');
             }
         } catch (error) {

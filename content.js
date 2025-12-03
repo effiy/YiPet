@@ -15452,6 +15452,8 @@ if (typeof getCenterPosition === 'undefined') {
                         // 只有在没有日期筛选时才标记已请求过（避免日期筛选时影响后续加载）
                         this.hasRequestedNews = true;
                     }
+                    // 新闻加载完成后，更新标签过滤器UI以显示正确的数量
+                    this.updateNewsTagFilterUI();
                 }
             }
         } catch (error) {
@@ -15459,6 +15461,9 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         let news = this.newsManager ? this.newsManager.getAllNews() : [];
+        
+        // 确保标签过滤器UI已更新（即使没有加载新闻，也要更新一次以确保数量正确）
+        this.updateNewsTagFilterUI();
         
         // 调试：输出获取到的新闻数据
         console.log('从newsManager获取到的新闻数量:', news.length);

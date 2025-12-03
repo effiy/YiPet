@@ -16545,8 +16545,6 @@ if (typeof getCenterPosition === 'undefined') {
                         overflow-x: auto !important;
                         white-space: pre-wrap !important;
                         word-break: break-all !important;
-                        max-height: 200px !important;
-                        overflow-y: auto !important;
                     `;
                 } else {
                     sectionContent.style.cssText = `

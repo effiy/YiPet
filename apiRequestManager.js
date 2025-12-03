@@ -2,6 +2,13 @@
  * 接口请求管理器
  * 拦截和记录页面上的网络请求（fetch、XMLHttpRequest）
  * 提供清晰的 API 接口，用于管理和查看接口请求元数据
+ * 
+ * 性能优化版本：
+ * - 异步处理响应体读取，避免阻塞主线程
+ * - 延迟格式化操作，只在需要时执行
+ * - 优化URL监听，减少MutationObserver负担
+ * - 批量处理请求，减少数组操作频率
+ * - 优化索引重建逻辑
  */
 
 class ApiRequestManager {
@@ -38,12 +45,19 @@ class ApiRequestManager {
         // 性能优化：防抖保存队列
         this._saveQueue = []; // 待保存的请求队列
         this._saveTimer = null; // 防抖定时器
-        this._saveDebounceDelay = 2000; // 防抖延迟（2秒）
+        this._saveDebounceDelay = 3000; // 防抖延迟（3秒，增加以减少写入频率）
+        
+        // 性能优化：批量处理队列
+        this._processQueue = []; // 待处理的请求队列
+        this._processTimer = null; // 批量处理定时器
+        this._processBatchDelay = 100; // 批量处理延迟（100ms）
+        this._processBatchSize = 10; // 每批处理的请求数量
         
         // 静态资源过滤模式（不记录这些请求）
         this.staticResourcePatterns = [
             /\.(jpg|jpeg|png|gif|webp|svg|ico|bmp)$/i, // 图片
             /\.(css)$/i, // 样式表
+            /\.(js)$/i, // JavaScript文件
             /\.(woff|woff2|ttf|eot|otf)$/i, // 字体
             /\.(mp4|webm|ogg|mp3|wav|flac|aac)$/i, // 媒体
             /\.(pdf|zip|rar|tar|gz)$/i, // 文件
@@ -59,6 +73,23 @@ class ApiRequestManager {
             /\.json$/i, // JSON文件
             /application\/(json|xml)/i, // JSON/XML响应
         ];
+        
+        // 性能优化：使用 requestIdleCallback 或 setTimeout 作为降级
+        this._scheduleAsync = this._getAsyncScheduler();
+    }
+    
+    /**
+     * 获取异步调度器（优先使用 requestIdleCallback）
+     */
+    _getAsyncScheduler() {
+        if (typeof requestIdleCallback !== 'undefined') {
+            return (callback, delay = 0) => {
+                requestIdleCallback(callback, { timeout: delay });
+            };
+        }
+        return (callback, delay = 0) => {
+            setTimeout(callback, delay);
+        };
     }
     
     /**
@@ -81,19 +112,22 @@ class ApiRequestManager {
         
         // 如果启用了存储同步，从 storage 加载请求数据
         if (this.enableStorageSync && typeof chrome !== 'undefined' && chrome.storage) {
-            // 在加载前检查上下文
-            if (this._isContextValid()) {
-                try {
-                    await this._loadRequestsFromStorage();
-                } catch (error) {
-                    // 静默处理所有错误
-                    if (!this._contextInvalidated && !this._isContextValid()) {
-                        this._handleContextInvalidated();
+            // 延迟加载，避免阻塞初始化
+            this._scheduleAsync(async () => {
+                // 在加载前检查上下文
+                if (this._isContextValid()) {
+                    try {
+                        await this._loadRequestsFromStorage();
+                    } catch (error) {
+                        // 静默处理所有错误
+                        if (!this._contextInvalidated && !this._isContextValid()) {
+                            this._handleContextInvalidated();
+                        }
                     }
+                } else {
+                    this._handleContextInvalidated();
                 }
-            } else {
-                this._handleContextInvalidated();
-            }
+            }, 1000); // 延迟1秒加载
             
             // 监听 background 发送的新请求消息
             if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
@@ -122,7 +156,7 @@ class ApiRequestManager {
                 }
             }
             
-            // 性能优化：减少同步频率（每30秒同步一次，而不是5秒）
+            // 性能优化：减少同步频率（每60秒同步一次）
             this._syncInterval = setInterval(() => {
                 // 如果上下文已失效，清理定时器
                 if (this._contextInvalidated || !this._isContextValid()) {
@@ -140,7 +174,7 @@ class ApiRequestManager {
                 this._loadRequestsFromStorage().catch(() => {
                     // 静默处理错误
                 });
-            }, 30000); // 30秒同步一次
+            }, 60000); // 60秒同步一次
             
             // 页面卸载前保存队列
             if (typeof window !== 'undefined') {
@@ -152,16 +186,10 @@ class ApiRequestManager {
         
         this._initialized = true;
         console.log('接口请求管理器已初始化，拦截器已设置');
-        
-        // 输出当前状态用于调试
-        console.log('当前页面URL:', this.currentPageUrl);
-        console.log('是否启用记录:', this.enableRecording);
-        console.log('是否过滤扩展请求:', this.filterExtensionRequests);
-        console.log('是否启用存储同步:', this.enableStorageSync);
     }
     
     /**
-     * 拦截 fetch 请求
+     * 拦截 fetch 请求（优化版本：异步处理响应体）
      */
     _interceptFetch() {
         const self = this;
@@ -171,11 +199,23 @@ class ApiRequestManager {
             const [url, options = {}] = args;
             const requestUrl = typeof url === 'string' ? url : url.url || url.toString();
             const method = options.method || 'GET';
-            const headers = options.headers || {};
-            const body = options.body || null;
+            
+            // 快速检查：如果是静态资源或扩展请求，直接跳过记录
+            if (self.filterExtensionRequests && self._isExtensionRequest(requestUrl)) {
+                return originalFetch.apply(this, args);
+            }
+            
+            // 快速检查：如果是静态资源，直接跳过记录
+            if (self._isStaticResource(requestUrl)) {
+                return originalFetch.apply(this, args);
+            }
             
             // 记录请求开始时间
             const startTime = Date.now();
+            
+            // 保存原始参数（延迟格式化）
+            const rawHeaders = options.headers || {};
+            const rawBody = options.body || null;
             
             try {
                 // 执行原始请求
@@ -185,84 +225,115 @@ class ApiRequestManager {
                 const endTime = Date.now();
                 const duration = endTime - startTime;
                 
-                // 克隆响应以便读取body（不消耗原始响应）
-                const clonedResponse = response.clone();
-                
-                // 性能优化：只读取重要的响应内容，避免大文件导致卡死
-                let responseBody = null;
-                let responseText = null;
+                // 快速检查响应类型
                 const contentType = response.headers.get('content-type') || '';
                 
-                // 只读取JSON和文本响应，其他类型跳过
-                if (contentType.includes('application/json') || contentType.includes('text/')) {
-                    try {
-                        // 先检查响应大小（通过Content-Length）
-                        const contentLength = response.headers.get('content-length');
-                        if (contentLength && parseInt(contentLength) > 100000) {
-                            // 响应体过大，不读取
-                            responseText = '[响应体过大，已跳过]';
-                        } else {
-                            if (contentType.includes('application/json')) {
-                                responseBody = await clonedResponse.json();
-                                responseText = JSON.stringify(responseBody, null, 2);
-                                // 限制JSON字符串长度
-                                if (responseText.length > 100000) {
-                                    responseText = responseText.substring(0, 100000) + '...[已截断]';
-                                    responseBody = null;
-                                }
-                            } else if (contentType.includes('text/')) {
-                                responseText = await clonedResponse.text();
-                                // 限制文本长度
-                                if (responseText.length > 100000) {
-                                    responseText = responseText.substring(0, 100000) + '...[已截断]';
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        // 如果读取失败，静默处理
-                        responseText = '[无法读取响应内容]';
-                    }
-                } else {
-                    // 非文本/JSON响应，不读取
-                    responseText = '[非文本响应，已跳过]';
+                // 如果不是重要请求，直接跳过记录
+                if (!self._isImportantRequest(requestUrl, method, contentType)) {
+                    return response;
                 }
                 
-                // 记录请求
-                self._recordRequest({
-                    url: requestUrl,
-                    method: method,
-                    headers: self._formatHeaders(headers),
-                    body: self._formatBody(body),
-                    status: response.status,
-                    statusText: response.statusText,
-                    responseHeaders: self._formatHeaders(response.headers),
-                    responseBody: responseBody,
-                    responseText: responseText,
-                    duration: duration,
-                    timestamp: startTime,
-                    type: 'fetch',
-                    curl: self._generateCurl(requestUrl, method, headers, body)
-                });
+                // 异步处理响应体（不阻塞主线程）
+                self._scheduleAsync(async () => {
+                    try {
+                        // 克隆响应以便读取body（不消耗原始响应）
+                        const clonedResponse = response.clone();
+                        
+                        // 性能优化：只读取重要的响应内容，避免大文件导致卡死
+                        let responseBody = null;
+                        let responseText = null;
+                        
+                        // 只读取JSON和文本响应，其他类型跳过
+                        if (contentType.includes('application/json') || contentType.includes('text/')) {
+                            try {
+                                // 先检查响应大小（通过Content-Length）
+                                const contentLength = response.headers.get('content-length');
+                                if (contentLength && parseInt(contentLength) > 50000) {
+                                    // 响应体过大，不读取（降低阈值）
+                                    responseText = '[响应体过大，已跳过]';
+                                } else {
+                                    if (contentType.includes('application/json')) {
+                                        responseBody = await clonedResponse.json();
+                                        responseText = JSON.stringify(responseBody, null, 2);
+                                        // 限制JSON字符串长度（降低阈值）
+                                        if (responseText.length > 50000) {
+                                            responseText = responseText.substring(0, 50000) + '...[已截断]';
+                                            responseBody = null;
+                                        }
+                                    } else if (contentType.includes('text/')) {
+                                        responseText = await clonedResponse.text();
+                                        // 限制文本长度（降低阈值）
+                                        if (responseText.length > 50000) {
+                                            responseText = responseText.substring(0, 50000) + '...[已截断]';
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                // 如果读取失败，静默处理
+                                responseText = '[无法读取响应内容]';
+                            }
+                        } else {
+                            // 非文本/JSON响应，不读取
+                            responseText = '[非文本响应，已跳过]';
+                        }
+                        
+                        // 延迟格式化（在异步任务中执行）
+                        const formattedHeaders = self._formatHeaders(rawHeaders);
+                        const formattedBody = self._formatBody(rawBody);
+                        const formattedResponseHeaders = self._formatHeaders(response.headers);
+                        
+                        // 延迟生成curl（在异步任务中执行）
+                        const curl = self._generateCurl(requestUrl, method, formattedHeaders, formattedBody);
+                        
+                        // 记录请求
+                        self._recordRequest({
+                            url: requestUrl,
+                            method: method,
+                            headers: formattedHeaders,
+                            body: formattedBody,
+                            status: response.status,
+                            statusText: response.statusText,
+                            responseHeaders: formattedResponseHeaders,
+                            responseBody: responseBody,
+                            responseText: responseText,
+                            duration: duration,
+                            timestamp: startTime,
+                            type: 'fetch',
+                            curl: curl
+                        });
+                    } catch (e) {
+                        // 异步处理失败，静默处理
+                    }
+                }, 0);
                 
                 return response;
             } catch (error) {
-                // 记录请求失败
+                // 记录请求失败（异步处理）
                 const endTime = Date.now();
                 const duration = endTime - startTime;
                 
-                self._recordRequest({
-                    url: requestUrl,
-                    method: method,
-                    headers: self._formatHeaders(headers),
-                    body: self._formatBody(body),
-                    status: 0,
-                    statusText: 'Network Error',
-                    error: error.message || error.toString(),
-                    duration: duration,
-                    timestamp: startTime,
-                    type: 'fetch',
-                    curl: self._generateCurl(requestUrl, method, headers, body)
-                });
+                self._scheduleAsync(() => {
+                    try {
+                        const formattedHeaders = self._formatHeaders(rawHeaders);
+                        const formattedBody = self._formatBody(rawBody);
+                        
+                        self._recordRequest({
+                            url: requestUrl,
+                            method: method,
+                            headers: formattedHeaders,
+                            body: formattedBody,
+                            status: 0,
+                            statusText: 'Network Error',
+                            error: error.message || error.toString(),
+                            duration: duration,
+                            timestamp: startTime,
+                            type: 'fetch',
+                            curl: self._generateCurl(requestUrl, method, formattedHeaders, formattedBody)
+                        });
+                    } catch (e) {
+                        // 静默处理错误
+                    }
+                }, 0);
                 
                 throw error;
             }
@@ -270,7 +341,7 @@ class ApiRequestManager {
     }
     
     /**
-     * 拦截 XMLHttpRequest
+     * 拦截 XMLHttpRequest（优化版本：异步处理响应体）
      */
     _interceptXHR() {
         const self = this;
@@ -282,6 +353,15 @@ class ApiRequestManager {
         const requestInfoMap = new WeakMap();
         
         XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+            // 快速检查：如果是静态资源或扩展请求，直接跳过
+            if (self.filterExtensionRequests && self._isExtensionRequest(url)) {
+                return originalOpen.apply(this, [method, url, ...rest]);
+            }
+            
+            if (self._isStaticResource(url)) {
+                return originalOpen.apply(this, [method, url, ...rest]);
+            }
+            
             const requestInfo = {
                 method: method,
                 url: url,
@@ -304,101 +384,133 @@ class ApiRequestManager {
         
         XMLHttpRequest.prototype.send = function(body) {
             const requestInfo = requestInfoMap.get(this);
-            if (requestInfo) {
-                requestInfo.body = body;
-                requestInfo.startTime = Date.now();
+            if (!requestInfo) {
+                return originalSend.apply(this, [body]);
             }
             
-            // 监听响应
+            requestInfo.body = body;
+            requestInfo.startTime = Date.now();
+            
+            // 监听响应（异步处理）
             this.addEventListener('load', function() {
                 const info = requestInfoMap.get(this);
-                if (info) {
-                    const duration = Date.now() - info.startTime;
-                    let responseBody = null;
-                    let responseText = null;
-                    
-                    try {
-                        const contentType = this.getResponseHeader('content-type') || '';
-                        // 性能优化：限制响应体大小
-                        if (contentType.includes('application/json')) {
-                            try {
-                                const text = this.responseText;
-                                if (text && text.length > 100000) {
-                                    responseText = text.substring(0, 100000) + '...[已截断]';
-                                } else {
-                                    responseBody = JSON.parse(text);
-                                    responseText = JSON.stringify(responseBody, null, 2);
-                                    if (responseText.length > 100000) {
-                                        responseText = responseText.substring(0, 100000) + '...[已截断]';
-                                        responseBody = null;
-                                    }
-                                }
-                            } catch (e) {
-                                const text = this.responseText || '';
-                                responseText = text.length > 100000 ? text.substring(0, 100000) + '...[已截断]' : text;
-                            }
-                        } else if (contentType.includes('text/')) {
-                            const text = this.responseText || '';
-                            responseText = text.length > 100000 ? text.substring(0, 100000) + '...[已截断]' : text;
-                        } else {
-                            responseText = '[非文本响应，已跳过]';
-                        }
-                    } catch (e) {
-                        responseText = '[无法读取响应内容]';
-                    }
-                    
-                    // 获取响应头
-                    const responseHeaders = {};
-                    try {
-                        const headerString = this.getAllResponseHeaders();
-                        if (headerString) {
-                            headerString.split('\r\n').forEach(line => {
-                                const [name, ...valueParts] = line.split(':');
-                                if (name && valueParts.length > 0) {
-                                    responseHeaders[name.trim()] = valueParts.join(':').trim();
-                                }
-                            });
-                        }
-                    } catch (e) {
-                        // 忽略错误
-                    }
-                    
-                    self._recordRequest({
-                        url: info.url,
-                        method: info.method,
-                        headers: self._formatHeaders(info.headers),
-                        body: self._formatBody(info.body),
-                        status: this.status,
-                        statusText: this.statusText,
-                        responseHeaders: self._formatHeaders(responseHeaders),
-                        responseBody: responseBody,
-                        responseText: responseText,
-                        duration: duration,
-                        timestamp: info.startTime,
-                        type: 'xhr',
-                        curl: self._generateCurl(info.url, info.method, info.headers, info.body)
-                    });
+                if (!info) return;
+                
+                const duration = Date.now() - info.startTime;
+                const contentType = this.getResponseHeader('content-type') || '';
+                
+                // 快速检查：如果不是重要请求，直接跳过
+                if (!self._isImportantRequest(info.url, info.method, contentType)) {
+                    return;
                 }
+                
+                // 异步处理响应体
+                self._scheduleAsync(() => {
+                    try {
+                        let responseBody = null;
+                        let responseText = null;
+                        
+                        try {
+                            // 性能优化：限制响应体大小
+                            if (contentType.includes('application/json')) {
+                                try {
+                                    const text = this.responseText;
+                                    if (text && text.length > 50000) {
+                                        responseText = text.substring(0, 50000) + '...[已截断]';
+                                    } else {
+                                        responseBody = JSON.parse(text);
+                                        responseText = JSON.stringify(responseBody, null, 2);
+                                        if (responseText.length > 50000) {
+                                            responseText = responseText.substring(0, 50000) + '...[已截断]';
+                                            responseBody = null;
+                                        }
+                                    }
+                                } catch (e) {
+                                    const text = this.responseText || '';
+                                    responseText = text.length > 50000 ? text.substring(0, 50000) + '...[已截断]' : text;
+                                }
+                            } else if (contentType.includes('text/')) {
+                                const text = this.responseText || '';
+                                responseText = text.length > 50000 ? text.substring(0, 50000) + '...[已截断]' : text;
+                            } else {
+                                responseText = '[非文本响应，已跳过]';
+                            }
+                        } catch (e) {
+                            responseText = '[无法读取响应内容]';
+                        }
+                        
+                        // 获取响应头
+                        const responseHeaders = {};
+                        try {
+                            const headerString = this.getAllResponseHeaders();
+                            if (headerString) {
+                                headerString.split('\r\n').forEach(line => {
+                                    const [name, ...valueParts] = line.split(':');
+                                    if (name && valueParts.length > 0) {
+                                        responseHeaders[name.trim()] = valueParts.join(':').trim();
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            // 忽略错误
+                        }
+                        
+                        // 延迟格式化
+                        const formattedHeaders = self._formatHeaders(info.headers);
+                        const formattedBody = self._formatBody(info.body);
+                        const formattedResponseHeaders = self._formatHeaders(responseHeaders);
+                        const curl = self._generateCurl(info.url, info.method, formattedHeaders, formattedBody);
+                        
+                        self._recordRequest({
+                            url: info.url,
+                            method: info.method,
+                            headers: formattedHeaders,
+                            body: formattedBody,
+                            status: this.status,
+                            statusText: this.statusText,
+                            responseHeaders: formattedResponseHeaders,
+                            responseBody: responseBody,
+                            responseText: responseText,
+                            duration: duration,
+                            timestamp: info.startTime,
+                            type: 'xhr',
+                            curl: curl
+                        });
+                    } catch (e) {
+                        // 静默处理错误
+                    }
+                }, 0);
             });
             
             this.addEventListener('error', function() {
                 const info = requestInfoMap.get(this);
-                if (info) {
-                    const duration = Date.now() - info.startTime;
-                    self._recordRequest({
-                        url: info.url,
-                        method: info.method,
-                        headers: self._formatHeaders(info.headers),
-                        body: self._formatBody(info.body),
-                        status: 0,
-                        statusText: 'Network Error',
-                        error: 'Request failed',
-                        duration: duration,
-                        timestamp: info.startTime,
-                        type: 'xhr',
-                        curl: self._generateCurl(info.url, info.method, info.headers, info.body)
-                    });
-                }
+                if (!info) return;
+                
+                const duration = Date.now() - info.startTime;
+                
+                // 异步处理错误记录
+                self._scheduleAsync(() => {
+                    try {
+                        const formattedHeaders = self._formatHeaders(info.headers);
+                        const formattedBody = self._formatBody(info.body);
+                        
+                        self._recordRequest({
+                            url: info.url,
+                            method: info.method,
+                            headers: formattedHeaders,
+                            body: formattedBody,
+                            status: 0,
+                            statusText: 'Network Error',
+                            error: 'Request failed',
+                            duration: duration,
+                            timestamp: info.startTime,
+                            type: 'xhr',
+                            curl: self._generateCurl(info.url, info.method, formattedHeaders, formattedBody)
+                        });
+                    } catch (e) {
+                        // 静默处理错误
+                    }
+                }, 0);
             });
             
             return originalSend.apply(this, [body]);
@@ -406,40 +518,48 @@ class ApiRequestManager {
     }
     
     /**
-     * 监听URL变化（用于SPA应用）
+     * 监听URL变化（优化版本：使用更高效的方式）
      */
     _watchUrlChanges() {
         let lastUrl = window.location.href;
+        let urlCheckTimer = null;
         
-        // 使用 MutationObserver 监听DOM变化
-        const observer = new MutationObserver(() => {
+        // 使用更高效的方式：只监听 popstate 和 pushState/replaceState
+        const checkUrl = () => {
             const currentUrl = window.location.href;
             if (currentUrl !== lastUrl) {
                 lastUrl = currentUrl;
                 this.currentPageUrl = currentUrl;
-                // 可以在这里清空当前页面的请求记录，或者保留
-                console.log('页面URL已变化:', currentUrl);
             }
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        };
         
         // 监听 popstate 事件（浏览器前进/后退）
-        window.addEventListener('popstate', () => {
-            const currentUrl = window.location.href;
-            if (currentUrl !== lastUrl) {
-                lastUrl = currentUrl;
-                this.currentPageUrl = currentUrl;
-                console.log('页面URL已变化（popstate）:', currentUrl);
-            }
-        });
+        window.addEventListener('popstate', checkUrl);
+        
+        // 拦截 pushState 和 replaceState（SPA路由变化）
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        
+        history.pushState = function(...args) {
+            originalPushState.apply(this, args);
+            // 延迟检查，避免频繁触发
+            if (urlCheckTimer) clearTimeout(urlCheckTimer);
+            urlCheckTimer = setTimeout(checkUrl, 100);
+        };
+        
+        history.replaceState = function(...args) {
+            originalReplaceState.apply(this, args);
+            // 延迟检查，避免频繁触发
+            if (urlCheckTimer) clearTimeout(urlCheckTimer);
+            urlCheckTimer = setTimeout(checkUrl, 100);
+        };
+        
+        // 定期检查URL（作为兜底，但频率很低）
+        setInterval(checkUrl, 5000);
     }
     
     /**
-     * 格式化请求头
+     * 格式化请求头（优化版本：缓存结果）
      */
     _formatHeaders(headers) {
         if (!headers) return {};
@@ -494,7 +614,7 @@ class ApiRequestManager {
     }
     
     /**
-     * 生成 curl 命令
+     * 生成 curl 命令（延迟执行，只在需要时调用）
      */
     _generateCurl(url, method, headers, body) {
         let curl = `curl -X ${method}`;
@@ -563,6 +683,7 @@ class ApiRequestManager {
             const staticContentTypes = [
                 /^image\//i,
                 /^text\/css/i,
+                /^(text|application)\/(javascript|ecmascript|x-javascript)/i, // JavaScript
                 /^font\//i,
                 /^video\//i,
                 /^audio\//i,
@@ -644,7 +765,7 @@ class ApiRequestManager {
     }
     
     /**
-     * 记录请求（只记录重要的API请求）
+     * 记录请求（只记录重要的API请求，使用批量处理）
      */
     _recordRequest(request) {
         if (!this.enableRecording) {
@@ -694,36 +815,77 @@ class ApiRequestManager {
         }
         
         // 性能优化：限制响应体大小，避免大文件导致卡死
-        if (request.responseText && request.responseText.length > 100000) {
-            request.responseText = request.responseText.substring(0, 100000) + '...[响应体过大，已截断]';
+        if (request.responseText && request.responseText.length > 50000) {
+            request.responseText = request.responseText.substring(0, 50000) + '...[响应体过大，已截断]';
             request.responseBody = null; // 大响应体不解析JSON
         }
         
-        // 添加到本地请求列表
-        this.localRequests.push(request);
+        // 添加到批量处理队列
+        this._processQueue.push(request);
         
-        // 合并到总请求列表（去重）
-        this._mergeRequest(request);
-        
-        // 限制本地请求数量
-        if (this.localRequests.length > this.maxRecords) {
-            this.localRequests.shift();
+        // 触发批量处理（防抖）
+        if (this._processTimer) {
+            clearTimeout(this._processTimer);
         }
         
-        // 性能优化：使用防抖机制批量保存到 storage
-        if (this.enableStorageSync && !this._contextInvalidated && typeof chrome !== 'undefined' && chrome.storage) {
-            this._queueSaveRequest(request);
+        this._processTimer = setTimeout(() => {
+            this._processBatch();
+        }, this._processBatchDelay);
+    }
+    
+    /**
+     * 批量处理请求队列
+     */
+    _processBatch() {
+        if (this._processQueue.length === 0) {
+            return;
         }
         
-        // 触发自定义事件，通知UI更新
-        if (typeof window !== 'undefined') {
+        // 取出队列中的请求（限制数量）
+        const requestsToProcess = this._processQueue.splice(0, this._processBatchSize);
+        this._processTimer = null;
+        
+        // 批量处理
+        for (const request of requestsToProcess) {
             try {
-                window.dispatchEvent(new CustomEvent('apiRequestRecorded', {
-                    detail: request
-                }));
+                // 添加到本地请求列表
+                this.localRequests.push(request);
+                
+                // 合并到总请求列表（去重）
+                this._mergeRequest(request);
+                
+                // 限制本地请求数量
+                if (this.localRequests.length > this.maxRecords) {
+                    this.localRequests.shift();
+                }
+                
+                // 性能优化：使用防抖机制批量保存到 storage
+                if (this.enableStorageSync && !this._contextInvalidated && typeof chrome !== 'undefined' && chrome.storage) {
+                    this._queueSaveRequest(request);
+                }
+                
+                // 触发自定义事件，通知UI更新（异步）
+                if (typeof window !== 'undefined') {
+                    this._scheduleAsync(() => {
+                        try {
+                            window.dispatchEvent(new CustomEvent('apiRequestRecorded', {
+                                detail: request
+                            }));
+                        } catch (e) {
+                            // 静默处理事件触发错误
+                        }
+                    }, 0);
+                }
             } catch (e) {
-                // 静默处理事件触发错误
+                // 静默处理单个请求的错误
             }
+        }
+        
+        // 如果还有待处理的请求，继续处理
+        if (this._processQueue.length > 0) {
+            this._processTimer = setTimeout(() => {
+                this._processBatch();
+            }, this._processBatchDelay);
         }
     }
     
@@ -793,11 +955,17 @@ class ApiRequestManager {
         // 合并到总请求列表（去重）
         this._mergeRequest(request);
         
-        // 触发自定义事件，通知UI更新
+        // 触发自定义事件，通知UI更新（异步）
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('apiRequestRecorded', {
-                detail: request
-            }));
+            this._scheduleAsync(() => {
+                try {
+                    window.dispatchEvent(new CustomEvent('apiRequestRecorded', {
+                        detail: request
+                    }));
+                } catch (e) {
+                    // 静默处理错误
+                }
+            }, 0);
         }
     }
     
@@ -826,7 +994,7 @@ class ApiRequestManager {
     
     /**
      * 合并请求到总列表（去重）
-     * 优化后的去重逻辑：使用 Map 索引提高查找效率
+     * 优化后的去重逻辑：使用 Map 索引提高查找效率，减少索引重建
      */
     _mergeRequest(request) {
         // 验证请求对象是否有效
@@ -867,22 +1035,42 @@ class ApiRequestManager {
             // 更新索引
             this._requestIndex.set(requestKey, newIndex);
             
-            // 限制总请求数量
+            // 限制总请求数量（优化：只在必要时重建索引）
             if (this.requests.length > this.maxRecords) {
                 // 移除最旧的请求
                 const removedRequest = this.requests.shift();
                 
-                // 重建索引（因为数组索引发生了变化）
-                this._rebuildIndex();
+                // 优化：只更新受影响的索引，而不是重建整个索引
+                // 移除的请求的key需要从索引中删除
+                if (removedRequest) {
+                    const removedKey = this._generateRequestKey(removedRequest);
+                    if (removedKey && this._requestIndex.get(removedKey) === 0) {
+                        this._requestIndex.delete(removedKey);
+                    }
+                }
+                
+                // 所有索引都需要减1（因为数组第一个元素被移除了）
+                // 但这样效率低，所以只在索引过大时重建
+                if (this._requestIndex.size > this.maxRecords * 0.5) {
+                    // 索引过大，重建索引
+                    this._rebuildIndex();
+                } else {
+                    // 更新所有索引（减1）
+                    for (const [key, index] of this._requestIndex.entries()) {
+                        if (index > 0) {
+                            this._requestIndex.set(key, index - 1);
+                        }
+                    }
+                }
             }
         } catch (e) {
             // 合并请求时出错，静默舍弃
-            console.warn('[ApiRequestManager] 合并请求时出错:', e);
         }
     }
     
     /**
      * 重建请求索引（当数组发生变化时调用）
+     * 优化：只在必要时调用
      */
     _rebuildIndex() {
         this._requestIndex.clear();
@@ -931,22 +1119,10 @@ class ApiRequestManager {
                 return false;
             }
             
-            // 额外检查：尝试访问 runtime.getURL（如果可用）
-            // 这可以更可靠地检测上下文是否有效
-            try {
-                if (typeof chrome.runtime.getURL === 'function') {
-                    chrome.runtime.getURL(''); // 测试调用
-                }
-            } catch (e) {
-                // 如果 getURL 调用失败，上下文可能已失效
-                return false;
-            }
-            
             // 所有检查都通过，上下文有效
             return true;
         } catch (error) {
             // 如果抛出任何错误，说明上下文已失效
-            // 不检查具体错误消息，直接返回 false
             return false;
         }
     }
@@ -967,9 +1143,6 @@ class ApiRequestManager {
             clearInterval(this._syncInterval);
             this._syncInterval = null;
         }
-        
-        // 静默处理，不输出警告日志（避免控制台污染）
-        // console.warn('[ApiRequestManager] 扩展上下文已失效，已禁用存储同步功能');
     }
     
     /**
@@ -1054,34 +1227,44 @@ class ApiRequestManager {
                 storageRequests = [];
             }
             
-            // 合并请求到总列表
+            // 合并请求到总列表（优化：批量处理，避免频繁重建索引）
             if (storageRequests.length > 0) {
                 try {
                     // 先清空索引，准备重建
                     this._requestIndex.clear();
                     
-                    for (const request of storageRequests) {
-                        try {
-                            // 验证并处理请求对象
-                            if (request && typeof request === 'object' && request.url && request.method) {
-                                if (request.source !== 'local') {
-                                    request.source = 'background';
+                    // 批量处理请求
+                    const batchSize = 50; // 每批处理50个
+                    for (let i = 0; i < storageRequests.length; i += batchSize) {
+                        const batch = storageRequests.slice(i, i + batchSize);
+                        for (const request of batch) {
+                            try {
+                                // 验证并处理请求对象
+                                if (request && typeof request === 'object' && request.url && request.method) {
+                                    if (request.source !== 'local') {
+                                        request.source = 'background';
+                                    }
+                                    // 使用合并方法（会自动去重）
+                                    this._mergeRequest(request);
                                 }
-                                // 使用合并方法（会自动去重）
-                                this._mergeRequest(request);
+                            } catch (e) {
+                                // 单个请求处理失败，静默跳过
                             }
-                        } catch (e) {
-                            // 单个请求处理失败，静默跳过
+                        }
+                        
+                        // 每批处理后，让出主线程
+                        if (i + batchSize < storageRequests.length) {
+                            await new Promise(resolve => setTimeout(resolve, 0));
                         }
                     }
                     
                     // 确保索引正确（重建索引）
                     this._rebuildIndex();
                     
-                    // 输出同步日志（仅在成功时）
+                    // 输出同步日志（仅在成功时，且降低频率）
                     try {
                         const now = Date.now();
-                        if (now - this._lastSyncTime > 10000) {
+                        if (now - this._lastSyncTime > 30000) {
                             console.log('[ApiRequestManager] 从 storage 同步请求数据:', {
                                 storageCount: storageRequests.length,
                                 totalCount: this.requests.length,
@@ -1297,14 +1480,6 @@ class ApiRequestManager {
         // 如果匹配的请求为空，但总请求数不为空，返回所有请求
         // 这样可以确保用户能看到请求记录（可能是URL匹配问题）
         if (matchedRequests.length === 0 && this.requests.length > 0) {
-            console.log('当前页面URL匹配失败，返回所有请求');
-            console.log('当前页面URL:', this.currentPageUrl);
-            console.log('规范化后的URL:', this._normalizeUrl(this.currentPageUrl));
-            console.log('总请求数:', this.requests.length);
-            if (this.requests.length > 0) {
-                console.log('第一个请求的pageUrl:', this.requests[0]?.pageUrl);
-                console.log('第一个请求的规范化pageUrl:', this._normalizeUrl(this.requests[0]?.pageUrl || ''));
-            }
             // 返回所有请求，让用户能看到
             return [...this.requests];
         }
@@ -1352,8 +1527,15 @@ class ApiRequestManager {
             this._saveTimer = null;
         }
         
+        // 清理批量处理定时器
+        if (this._processTimer) {
+            clearTimeout(this._processTimer);
+            this._processTimer = null;
+        }
+        
         // 清空保存队列
         this._saveQueue = [];
+        this._processQueue = [];
     }
     
     /**
@@ -1396,7 +1578,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.ApiRequestManager = ApiRequestManager;
 }
-
-
-
-

@@ -16174,6 +16174,50 @@ if (typeof getCenterPosition === 'undefined') {
             });
         }
         
+        // 过滤掉 CSS 和 JS 请求
+        requests = requests.filter(req => {
+            const url = req.url || '';
+            const contentType = req.responseHeaders?.['content-type'] || 
+                              req.responseHeaders?.['Content-Type'] || '';
+            
+            // 检查 URL 是否以 .css 或 .js 结尾
+            if (/\.(css|js)$/i.test(url)) {
+                return false;
+            }
+            
+            // 检查 Content-Type 是否是 CSS 或 JavaScript
+            if (contentType) {
+                if (/^text\/css/i.test(contentType) || 
+                    /^(text|application)\/(javascript|ecmascript|x-javascript)/i.test(contentType)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        // 去重：去掉URL重复的请求，保留时间戳最新的
+        const urlMap = new Map();
+        requests.forEach(req => {
+            const url = req.url || '';
+            if (!url) return;
+            
+            const existingReq = urlMap.get(url);
+            if (!existingReq) {
+                // 如果该URL还没有记录，直接添加
+                urlMap.set(url, req);
+            } else {
+                // 如果已存在，比较时间戳，保留最新的
+                const existingTimestamp = existingReq.timestamp || 0;
+                const currentTimestamp = req.timestamp || 0;
+                if (currentTimestamp > existingTimestamp) {
+                    urlMap.set(url, req);
+                }
+            }
+        });
+        // 将Map转换回数组
+        requests = Array.from(urlMap.values());
+        
         // 清空列表
         apiRequestList.innerHTML = '';
         

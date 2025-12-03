@@ -285,6 +285,14 @@ class ApiRequestApiManager {
             
             // 处理响应格式
             if (result.code === 200) {
+                // 保存成功后，调用刷新接口刷新请求接口列表
+                try {
+                    await this.getApiRequests();
+                } catch (refreshError) {
+                    // 刷新失败不影响保存操作，静默处理
+                    console.debug('刷新请求接口列表失败:', refreshError.message);
+                }
+                
                 return {
                     success: true,
                     data: result.data || apiRequestData

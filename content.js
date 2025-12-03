@@ -12679,9 +12679,20 @@ if (typeof getCenterPosition === 'undefined') {
                         sessionItem.classList.add('long-pressing');
                         triggerHapticFeedback(); // 触发删除前的震动
                         
+                        // 获取会话标题用于提示
+                        const sessionTitle = session?.pageTitle || session.id || '未命名会话';
+                        
+                        // 确认删除
+                        const confirmDelete = confirm(`确定要删除会话"${sessionTitle}"吗？`);
+                        if (!confirmDelete) {
+                            // 用户取消删除，清除长按状态
+                            clearLongPress();
+                            return;
+                        }
+                        
                         // 触发删除（异步执行，删除完成后清除状态）
                         try {
-                            await this.deleteSession(session.id);
+                            await this.deleteSession(session.id, true); // 传入 true 跳过确认弹框
                         } catch (error) {
                             console.error('删除会话失败:', error);
                         } finally {
@@ -16100,9 +16111,20 @@ if (typeof getCenterPosition === 'undefined') {
                         newsItem.classList.add('long-pressing');
                         triggerHapticFeedback(); // 触发删除前的震动
                         
+                        // 获取新闻标题用于提示
+                        const newsTitle = item?.title || item?.link || '未命名新闻';
+                        
+                        // 确认删除
+                        const confirmDelete = confirm(`确定要删除新闻"${newsTitle}"吗？`);
+                        if (!confirmDelete) {
+                            // 用户取消删除，清除长按状态
+                            clearLongPress();
+                            return;
+                        }
+                        
                         // 触发删除（异步执行，删除完成后清除状态）
                         try {
-                            await this.deleteNewsItem(item, index);
+                            await this.deleteNewsItem(item, index, true); // 传入 true 跳过确认弹框
                         } catch (error) {
                             console.error('删除新闻失败:', error);
                             this.showNotification('删除新闻失败，请重试', 'error');
@@ -17375,6 +17397,18 @@ if (typeof getCenterPosition === 'undefined') {
                             isLongPressing = true;
                             requestItem.classList.add('long-pressing');
                             triggerHapticFeedback(); // 触发删除前的震动
+                            
+                            // 获取请求信息用于提示
+                            const requestUrl = req.url || '未知URL';
+                            const requestMethod = req.method || 'GET';
+                            
+                            // 确认删除
+                            const confirmDelete = confirm(`确定要删除请求接口"${requestMethod} ${requestUrl}"吗？`);
+                            if (!confirmDelete) {
+                                // 用户取消删除，清除长按状态
+                                clearLongPress();
+                                return;
+                            }
                             
                             // 触发删除（异步执行，删除完成后清除状态）
                             try {
@@ -20634,15 +20668,17 @@ ${originalText}
     }
     
     // 删除新闻项
-    async deleteNewsItem(newsItem, index) {
+    async deleteNewsItem(newsItem, index, skipConfirm = false) {
         if (!newsItem) return;
         
         // 获取新闻标题用于提示
         const newsTitle = newsItem?.title || newsItem?.link || '未命名新闻';
         
-        // 确认删除
-        const confirmDelete = confirm(`确定要删除新闻"${newsTitle}"吗？`);
-        if (!confirmDelete) return;
+        // 确认删除（如果未跳过确认）
+        if (!skipConfirm) {
+            const confirmDelete = confirm(`确定要删除新闻"${newsTitle}"吗？`);
+            if (!confirmDelete) return;
+        }
         
         try {
             // 如果新闻管理器存在，先调用接口删除
@@ -22598,16 +22634,18 @@ ${originalText}
     }
 
     // 删除会话
-    async deleteSession(sessionId) {
+    async deleteSession(sessionId, skipConfirm = false) {
         if (!sessionId || !this.sessions[sessionId]) return;
         
         // 获取会话标题用于提示
         const session = this.sessions[sessionId];
         const sessionTitle = session?.pageTitle || sessionId || '未命名会话';
         
-        // 确认删除
-        const confirmDelete = confirm(`确定要删除会话"${sessionTitle}"吗？`);
-        if (!confirmDelete) return;
+        // 确认删除（如果未跳过确认）
+        if (!skipConfirm) {
+            const confirmDelete = confirm(`确定要删除会话"${sessionTitle}"吗？`);
+            if (!confirmDelete) return;
+        }
         
         // 记录是否删除的是当前会话
         const isCurrentSession = sessionId === this.currentSessionId;

@@ -14717,8 +14717,8 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 计算每个标签对应的请求数量
-        // 标签统计应该基于所有请求（不应用标签过滤），这样用户才能看到每个标签的真实数量
-        // 但可以应用搜索关键词过滤，因为这是全局搜索
+        // 标签统计应该基于过滤后的请求列表（应用搜索关键词、无标签筛选、CSS/JS过滤、去重）
+        // 但不应用标签过滤本身，这样标签数量能反映当前列表中的实际数量
         const tagCounts = {};
         let requestsForStats = [];
         
@@ -14743,7 +14743,7 @@ if (typeof getCenterPosition === 'undefined') {
                 }
             });
             
-            // 只应用搜索关键词过滤（不应用标签过滤），这样统计数字反映所有请求
+            // 应用搜索关键词过滤
             if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
                 const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
                 requestsForStats = requestsForStats.filter(req => {
@@ -14755,9 +14755,60 @@ if (typeof getCenterPosition === 'undefined') {
                            status.includes(filterKeyword);
                 });
             }
+            
+            // 应用无标签筛选（如果启用）
+            if (this.apiRequestTagFilterNoTags) {
+                requestsForStats = requestsForStats.filter(req => {
+                    const requestTags = req.tags || [];
+                    const hasTags = requestTags.length > 0 && requestTags.some(tag => tag && tag.trim().length > 0);
+                    return !hasTags; // 只统计没有标签的请求
+                });
+            }
+            
+            // 过滤掉 CSS 和 JS 请求（与 _getFilteredApiRequests 保持一致）
+            requestsForStats = requestsForStats.filter(req => {
+                const url = req.url || '';
+                const contentType = req.responseHeaders?.['content-type'] || 
+                                  req.responseHeaders?.['Content-Type'] || '';
+                
+                // 检查 URL 是否以 .css 或 .js 结尾
+                if (/\.(css|js)$/i.test(url)) {
+                    return false;
+                }
+                
+                // 检查 Content-Type 是否是 CSS 或 JavaScript
+                if (contentType) {
+                    if (/^text\/css/i.test(contentType) || 
+                        /^(text|application)\/(javascript|ecmascript|x-javascript)/i.test(contentType)) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            // 去重：去掉URL重复的请求，保留时间戳最新的（与 _getFilteredApiRequests 保持一致）
+            const urlMap = new Map();
+            requestsForStats.forEach(req => {
+                const url = req.url || '';
+                if (!url) return;
+                
+                const existingReq = urlMap.get(url);
+                if (!existingReq) {
+                    urlMap.set(url, req);
+                } else {
+                    // 保留时间戳最新的
+                    const existingTimestamp = existingReq.timestamp || 0;
+                    const currentTimestamp = req.timestamp || 0;
+                    if (currentTimestamp > existingTimestamp) {
+                        urlMap.set(url, req);
+                    }
+                }
+            });
+            requestsForStats = Array.from(urlMap.values());
         }
         
-        // 计算每个标签在请求列表中的数量
+        // 计算每个标签在过滤后请求列表中的数量
         requestsForStats.forEach(req => {
             if (req.tags && Array.isArray(req.tags)) {
                 req.tags.forEach(t => {

@@ -16402,9 +16402,16 @@ if (typeof getCenterPosition === 'undefined') {
             searchInput.placeholder = '搜索接口请求...';
         }
         
+        // 切换请求接口视图时，调用API获取请求接口列表
+        // 只在强制刷新或从其他视图切换过来时才调用API，搜索输入时不调用
+        // 注意：清空搜索框时，wasApiRequestListVisible为true，不会重新调用API，这是正确的
+        const shouldCallApi = forceRefresh || !wasApiRequestListVisible;
+        
         // 如果启用了存储同步，先同步一次 storage 数据，确保获取到最新的请求
         // 必须在创建标签过滤器之前同步数据，以确保标签统计正确显示
-        if (this.apiRequestManager && this.apiRequestManager.enableStorageSync) {
+        // 但是，如果只是清空搜索框（wasApiRequestListVisible为true且forceRefresh为false），
+        // 不需要重新加载storage数据，避免覆盖API数据
+        if (this.apiRequestManager && this.apiRequestManager.enableStorageSync && shouldCallApi) {
             try {
                 await this.apiRequestManager._loadRequestsFromStorage();
             } catch (error) {
@@ -16413,11 +16420,6 @@ if (typeof getCenterPosition === 'undefined') {
                 // 这里只是作为额外的安全措施
             }
         }
-        
-        // 切换请求接口视图时，调用API获取请求接口列表
-        // 只在强制刷新或从其他视图切换过来时才调用API，搜索输入时不调用
-        // 注意：清空搜索框时，wasApiRequestListVisible为true，不会重新调用API，这是正确的
-        const shouldCallApi = forceRefresh || !wasApiRequestListVisible;
         if (shouldCallApi && this.apiRequestApi && this.apiRequestApi.isEnabled()) {
             try {
                 console.log('正在从API获取请求接口列表...');

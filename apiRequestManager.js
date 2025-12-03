@@ -1077,9 +1077,22 @@ class ApiRequestManager {
             if (existingIndex !== undefined && existingIndex >= 0 && existingIndex < this.requests.length) {
                 // 已存在相同请求，检查是否需要更新（保留最新的请求）
                 const existingRequest = this.requests[existingIndex];
+                
+                // 保护API数据：如果现有请求是API数据（有_id或key），而新请求不是API数据，不覆盖
+                const existingIsApiData = !!(existingRequest._id || existingRequest.key);
+                const newIsApiData = !!(request._id || request.key);
+                
+                if (existingIsApiData && !newIsApiData) {
+                    // 现有请求是API数据，新请求不是，保留API数据，不更新
+                    return;
+                }
+                
                 if (existingRequest && existingRequest.timestamp < request.timestamp) {
                     // 新请求时间戳更大，更新为最新请求
-                    this.requests[existingIndex] = request;
+                    // 但如果现有请求是API数据，而新请求不是，仍然保留API数据
+                    if (!(existingIsApiData && !newIsApiData)) {
+                        this.requests[existingIndex] = request;
+                    }
                 }
                 // 如果新请求时间戳更小或相等，保留原有请求，不更新
                 return;

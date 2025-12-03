@@ -16344,9 +16344,8 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 切换请求接口视图时，调用API获取请求接口列表
-        // 只在强制刷新或首次进入视图时调用API，搜索时跳过API调用
-        const shouldCallApi = forceRefresh || !wasApiRequestListVisible;
-        if (shouldCallApi && this.apiRequestApi && this.apiRequestApi.isEnabled()) {
+        // 每次切换到请求接口视图时都调用API，确保获取最新数据
+        if (this.apiRequestApi && this.apiRequestApi.isEnabled()) {
             try {
                 console.log('正在从API获取请求接口列表...');
                 const apiRequests = await this.apiRequestApi.getApiRequests();
@@ -16354,6 +16353,9 @@ if (typeof getCenterPosition === 'undefined') {
                 
                 // 将API返回的数据合并到请求列表中
                 if (apiRequests && apiRequests.length > 0 && this.apiRequestManager) {
+                    // 收集需要添加到列表开头的API数据
+                    const newApiRequests = [];
+                    
                     // 将API数据转换为请求接口格式并合并
                     apiRequests.forEach(apiRequest => {
                         // 确保数据格式正确
@@ -16395,10 +16397,16 @@ if (typeof getCenterPosition === 'undefined') {
                                 this.apiRequestManager.requests[existingIndex] = requestData;
                             }
                         } else {
-                            // 如果不存在，添加新请求
-                            this.apiRequestManager.requests.push(requestData);
+                            // 如果不存在，收集到新请求数组中
+                            newApiRequests.push(requestData);
                         }
                     });
+                    
+                    // 将新的API请求添加到列表最上方（数组开头）
+                    if (newApiRequests.length > 0) {
+                        this.apiRequestManager.requests.unshift(...newApiRequests);
+                        console.log('API数据已合并到请求列表最上方，新增请求数:', newApiRequests.length);
+                    }
                     
                     console.log('API数据已合并到请求列表，总请求数:', this.apiRequestManager.requests.length);
                 }

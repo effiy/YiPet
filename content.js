@@ -16543,8 +16543,21 @@ if (typeof getCenterPosition === 'undefined') {
             return;
         }
         
-        // 按时间排序（最新的在前）
+        // 排序：API返回的数据（有_id或key）优先显示在最前面，然后按时间排序（最新的在前）
         const sortedRequests = requests.sort((a, b) => {
+            // 检查是否是API返回的数据（有_id或key字段）
+            const aIsApiData = !!(a._id || a.key);
+            const bIsApiData = !!(b._id || b.key);
+            
+            // 如果一个是API数据，另一个不是，API数据排在前面
+            if (aIsApiData && !bIsApiData) {
+                return -1;
+            }
+            if (!aIsApiData && bIsApiData) {
+                return 1;
+            }
+            
+            // 如果都是API数据或都不是API数据，按时间戳排序（最新的在前）
             return (b.timestamp || 0) - (a.timestamp || 0);
         });
         

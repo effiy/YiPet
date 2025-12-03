@@ -17125,6 +17125,99 @@ if (typeof getCenterPosition === 'undefined') {
                 }
             });
             
+            // 长按删除功能（仅对API数据有效）
+            if (isApiData) {
+                let longPressTimer = null;
+                let isLongPressing = false;
+                const longPressDuration = 800; // 长按时间800ms
+                
+                const handleLongPressStart = (e) => {
+                    // 如果点击的是按钮或链接，不触发长按
+                    if (e.target.closest('button') || e.target.closest('a')) {
+                        return;
+                    }
+                    
+                    isLongPressing = false;
+                    longPressTimer = setTimeout(() => {
+                        isLongPressing = true;
+                        // 显示视觉反馈
+                        requestItem.style.background = '#fee2e2';
+                        requestItem.style.borderLeft = '4px solid #ef4444';
+                        requestItem.style.transform = 'scale(0.98)';
+                        
+                        // 显示确认删除提示
+                        const confirmDelete = confirm(`确定要删除这个API请求吗？\n\n${req.method || 'GET'} ${req.url || '未知URL'}`);
+                        
+                        if (confirmDelete) {
+                            // 执行删除
+                            this.handleApiRequestDelete(req);
+                        } else {
+                            // 取消删除，恢复样式
+                            requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
+                            requestItem.style.borderLeft = `4px solid ${statusColor}`;
+                            requestItem.style.transform = 'scale(1)';
+                        }
+                    }, longPressDuration);
+                };
+                
+                const handleLongPressEnd = (e) => {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                    
+                    // 如果已经触发了长按，阻止后续的点击事件
+                    if (isLongPressing) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        isLongPressing = false;
+                        
+                        // 恢复样式
+                        setTimeout(() => {
+                            requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
+                            requestItem.style.borderLeft = `4px solid ${statusColor}`;
+                            requestItem.style.transform = 'scale(1)';
+                        }, 100);
+                    }
+                };
+                
+                // 鼠标事件（桌面端）
+                requestItem.addEventListener('mousedown', handleLongPressStart);
+                requestItem.addEventListener('mouseup', handleLongPressEnd);
+                requestItem.addEventListener('mouseleave', () => {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                    if (isLongPressing) {
+                        requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
+                        requestItem.style.borderLeft = `4px solid ${statusColor}`;
+                        requestItem.style.transform = 'scale(1)';
+                        isLongPressing = false;
+                    }
+                });
+                
+                // 触摸事件（移动端）
+                requestItem.addEventListener('touchstart', (e) => {
+                    handleLongPressStart(e);
+                });
+                requestItem.addEventListener('touchend', (e) => {
+                    handleLongPressEnd(e);
+                });
+                requestItem.addEventListener('touchcancel', () => {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                    if (isLongPressing) {
+                        requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
+                        requestItem.style.borderLeft = `4px solid ${statusColor}`;
+                        requestItem.style.transform = 'scale(1)';
+                        isLongPressing = false;
+                    }
+                });
+            }
+            
             apiRequestList.appendChild(requestItem);
         }
     }
@@ -17647,6 +17740,74 @@ if (typeof getCenterPosition === 'undefined') {
         } catch (error) {
             console.error('保存请求接口会话失败:', error);
             this.showNotification('保存会话失败，请重试', 'error');
+        }
+    }
+    
+    // 处理API请求删除
+    async handleApiRequestDelete(apiRequest) {
+        try {
+            if (!apiRequest) {
+                this.showNotification('请求接口数据无效', 'error');
+                return;
+            }
+            
+            // 检查是否有_id或key字段（只有API数据才能删除）
+            if (!apiRequest._id && !apiRequest.key && !apiRequest.id) {
+                this.showNotification('该请求无法删除（缺少标识符）', 'error');
+                return;
+            }
+            
+            // 检查apiRequestApi是否可用
+            if (!this.apiRequestApi || !this.apiRequestApi.isEnabled()) {
+                this.showNotification('API管理器未启用，无法删除', 'error');
+                return;
+            }
+            
+            // 准备删除数据（需要key或url字段）
+            const deleteData = {
+                key: apiRequest.key || apiRequest._id || apiRequest.id,
+                url: apiRequest.url || ''
+            };
+            
+            // 显示加载提示
+            this.showNotification('正在删除...', 'info');
+            
+            // 调用API删除
+            const result = await this.apiRequestApi.deleteApiRequest(deleteData);
+            
+            if (result && result.success) {
+                console.log('API请求已删除:', deleteData);
+                
+                // 从本地请求列表中移除
+                if (this.apiRequestManager) {
+                    const index = this.apiRequestManager.requests.findIndex(req => {
+                        // 优先使用_id或key匹配
+                        if (deleteData.key) {
+                            return (req._id === deleteData.key) || (req.key === deleteData.key) || (req.id === deleteData.key);
+                        }
+                        // 如果没有key，使用URL匹配
+                        return req.url === deleteData.url;
+                    });
+                    
+                    if (index >= 0) {
+                        this.apiRequestManager.requests.splice(index, 1);
+                        // 重建索引
+                        if (this.apiRequestManager._rebuildIndex) {
+                            this.apiRequestManager._rebuildIndex();
+                        }
+                    }
+                }
+                
+                // 刷新列表
+                await this.updateApiRequestSidebar(true);
+                
+                this.showNotification('删除成功', 'success');
+            } else {
+                throw new Error(result?.message || '删除失败');
+            }
+        } catch (error) {
+            console.error('删除API请求失败:', error);
+            this.showNotification(`删除失败: ${error.message || '未知错误'}`, 'error');
         }
     }
     

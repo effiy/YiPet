@@ -16343,6 +16343,71 @@ if (typeof getCenterPosition === 'undefined') {
             }
         }
         
+        // 切换请求接口视图时，调用API获取请求接口列表
+        // 只在强制刷新或首次进入视图时调用API，搜索时跳过API调用
+        const shouldCallApi = forceRefresh || !wasApiRequestListVisible;
+        if (shouldCallApi && this.apiRequestApi && this.apiRequestApi.isEnabled()) {
+            try {
+                console.log('正在从API获取请求接口列表...');
+                const apiRequests = await this.apiRequestApi.getApiRequests();
+                console.log('从API获取到请求接口数量:', apiRequests.length);
+                
+                // 将API返回的数据合并到请求列表中
+                if (apiRequests && apiRequests.length > 0 && this.apiRequestManager) {
+                    // 将API数据转换为请求接口格式并合并
+                    apiRequests.forEach(apiRequest => {
+                        // 确保数据格式正确
+                        const requestData = {
+                            ...apiRequest, // 先保留所有原始字段
+                            url: apiRequest.url || apiRequest.endpoint || '',
+                            method: apiRequest.method || 'GET',
+                            status: apiRequest.status || 200,
+                            timestamp: apiRequest.timestamp || apiRequest.createdAt || Date.now(),
+                            pageUrl: apiRequest.pageUrl || window.location.href,
+                            tags: apiRequest.tags || [],
+                            responseHeaders: apiRequest.responseHeaders || {},
+                            requestHeaders: apiRequest.requestHeaders || {},
+                            requestBody: apiRequest.requestBody || apiRequest.body || '',
+                            responseBody: apiRequest.responseBody || apiRequest.response || '',
+                            _id: apiRequest._id || apiRequest.id,
+                            key: apiRequest.key
+                        };
+                        
+                        // 检查是否已存在相同的请求
+                        // 优先使用 _id 或 key 进行去重，如果没有则使用 URL 和方法
+                        const existingIndex = this.apiRequestManager.requests.findIndex(req => {
+                            // 如果有 _id，优先使用 _id 匹配
+                            if (requestData._id && req._id) {
+                                return req._id === requestData._id;
+                            }
+                            // 如果有 key，使用 key 匹配
+                            if (requestData.key && req.key) {
+                                return req.key === requestData.key;
+                            }
+                            // 否则使用 URL 和方法匹配
+                            return req.url === requestData.url && req.method === requestData.method;
+                        });
+                        
+                        if (existingIndex >= 0) {
+                            // 如果已存在，更新数据（保留时间戳较大的）
+                            const existing = this.apiRequestManager.requests[existingIndex];
+                            if (requestData.timestamp > (existing.timestamp || 0)) {
+                                this.apiRequestManager.requests[existingIndex] = requestData;
+                            }
+                        } else {
+                            // 如果不存在，添加新请求
+                            this.apiRequestManager.requests.push(requestData);
+                        }
+                    });
+                    
+                    console.log('API数据已合并到请求列表，总请求数:', this.apiRequestManager.requests.length);
+                }
+            } catch (error) {
+                console.warn('从API获取请求接口列表失败:', error.message);
+                // 即使API调用失败，也继续使用本地数据
+            }
+        }
+        
         // 创建或更新请求接口标签过滤器（在数据同步之后）
         this.createApiRequestTagFilter();
         
@@ -32337,6 +32402,8 @@ ${messageContent}`;
                 this.updateNewsSidebar();
             } else if (this.ossFileListVisible) {
                 this.updateOssFileSidebar();
+            } else if (this.apiRequestListVisible) {
+                this.updateApiRequestSidebar();
             } else {
                 this.updateSessionSidebar();
             }
@@ -32384,6 +32451,8 @@ ${messageContent}`;
                     this.updateNewsSidebar();
                 } else if (this.ossFileListVisible) {
                     this.updateOssFileSidebar();
+                } else if (this.apiRequestListVisible) {
+                    this.updateApiRequestSidebar();
                 } else {
                     this.updateSessionSidebar();
                 }
@@ -32402,8 +32471,12 @@ ${messageContent}`;
                 this.sessionTitleFilter = '';
                 updateClearButton();
                 // 根据当前模式决定更新哪个列表
-                if (this.ossFileListVisible) {
+                if (this.newsListVisible) {
+                    this.updateNewsSidebar();
+                } else if (this.ossFileListVisible) {
                     this.updateOssFileSidebar();
+                } else if (this.apiRequestListVisible) {
+                    this.updateApiRequestSidebar();
                 } else {
                     this.updateSessionSidebar();
                 }

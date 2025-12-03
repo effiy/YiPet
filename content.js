@@ -16219,28 +16219,52 @@ if (typeof getCenterPosition === 'undefined') {
             return true;
         });
         
-        // 去重：去掉URL重复的请求，保留时间戳最新的
-        const urlMap = new Map();
+        // 去重：优先使用 _id 或 key 去重，其次使用 URL+method 去重，保留时间戳最新的
+        const uniqueMap = new Map();
         requests.forEach(req => {
-            const url = req.url || '';
-            if (!url) return;
+            // 优先使用 _id 或 key 作为唯一标识（API数据）
+            const uniqueKey = req._id || req.key;
             
-            const existingReq = urlMap.get(url);
-            if (!existingReq) {
-                // 如果该URL还没有记录，直接添加
-                urlMap.set(url, req);
+            if (uniqueKey) {
+                // 对于有 _id 或 key 的API数据，使用它作为唯一标识
+                const existingReq = uniqueMap.get(uniqueKey);
+                if (!existingReq) {
+                    uniqueMap.set(uniqueKey, req);
+                } else {
+                    // 如果已存在，比较时间戳，保留最新的
+                    const existingTimestamp = existingReq.timestamp || 0;
+                    const currentTimestamp = req.timestamp || 0;
+                    if (currentTimestamp > existingTimestamp) {
+                        uniqueMap.set(uniqueKey, req);
+                    }
+                }
             } else {
-                // 如果已存在，比较时间戳，保留最新的
-                const existingTimestamp = existingReq.timestamp || 0;
-                const currentTimestamp = req.timestamp || 0;
-                if (currentTimestamp > existingTimestamp) {
-                    urlMap.set(url, req);
+                // 对于没有 _id 或 key 的请求，使用 URL+method 作为唯一标识
+                const url = req.url || '';
+                const method = req.method || 'GET';
+                const urlMethodKey = `${method}:${url}`;
+                
+                if (!url) {
+                    // 如果URL也为空，跳过该请求（无效请求）
+                    return;
+                }
+                
+                const existingReq = uniqueMap.get(urlMethodKey);
+                if (!existingReq) {
+                    uniqueMap.set(urlMethodKey, req);
+                } else {
+                    // 如果已存在，比较时间戳，保留最新的
+                    const existingTimestamp = existingReq.timestamp || 0;
+                    const currentTimestamp = req.timestamp || 0;
+                    if (currentTimestamp > existingTimestamp) {
+                        uniqueMap.set(urlMethodKey, req);
+                    }
                 }
             }
         });
         
         // 将Map转换回数组
-        return Array.from(urlMap.values());
+        return Array.from(uniqueMap.values());
     }
 
     async updateApiRequestSidebar(forceRefresh = false) {
@@ -16344,8 +16368,9 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 切换请求接口视图时，调用API获取请求接口列表
-        // 每次切换到请求接口视图时都调用API，确保获取最新数据
-        if (this.apiRequestApi && this.apiRequestApi.isEnabled()) {
+        // 只在强制刷新或从其他视图切换过来时才调用API，搜索输入时不调用
+        const shouldCallApi = forceRefresh || !wasApiRequestListVisible;
+        if (shouldCallApi && this.apiRequestApi && this.apiRequestApi.isEnabled()) {
             try {
                 console.log('正在从API获取请求接口列表...');
                 const apiRequests = await this.apiRequestApi.getApiRequests();
@@ -16353,10 +16378,12 @@ if (typeof getCenterPosition === 'undefined') {
                 
                 // 将API返回的数据合并到请求列表中
                 if (apiRequests && apiRequests.length > 0 && this.apiRequestManager) {
-                    // 收集需要添加到列表开头的API数据
-                    const newApiRequests = [];
+                    // 收集所有API返回的数据（无论是否已存在）
+                    const allApiRequests = [];
+                    // 用于记录需要从原列表中移除的索引
+                    const indicesToRemove = new Set();
                     
-                    // 将API数据转换为请求接口格式并合并
+                    // 将API数据转换为请求接口格式
                     apiRequests.forEach(apiRequest => {
                         // 确保数据格式正确
                         const requestData = {
@@ -16375,6 +16402,15 @@ if (typeof getCenterPosition === 'undefined') {
                             key: apiRequest.key
                         };
                         
+                        // 调试日志：记录API数据转换
+                        if (!requestData.url) {
+                            console.log('API数据URL为空，但保留该请求（有_id或key）:', {
+                                _id: requestData._id,
+                                key: requestData.key,
+                                method: requestData.method
+                            });
+                        }
+                        
                         // 检查是否已存在相同的请求
                         // 优先使用 _id 或 key 进行去重，如果没有则使用 URL 和方法
                         const existingIndex = this.apiRequestManager.requests.findIndex(req => {
@@ -16391,21 +16427,41 @@ if (typeof getCenterPosition === 'undefined') {
                         });
                         
                         if (existingIndex >= 0) {
-                            // 如果已存在，更新数据（保留时间戳较大的）
+                            // 如果已存在，标记需要移除，并使用API数据（保留时间戳较大的）
                             const existing = this.apiRequestManager.requests[existingIndex];
                             if (requestData.timestamp > (existing.timestamp || 0)) {
-                                this.apiRequestManager.requests[existingIndex] = requestData;
+                                indicesToRemove.add(existingIndex);
+                                allApiRequests.push(requestData);
+                            } else {
+                                // 如果现有数据更新，也标记移除并添加到前面
+                                indicesToRemove.add(existingIndex);
+                                allApiRequests.push(existing);
                             }
                         } else {
-                            // 如果不存在，收集到新请求数组中
-                            newApiRequests.push(requestData);
+                            // 如果不存在，直接添加到API数据数组
+                            allApiRequests.push(requestData);
                         }
                     });
                     
-                    // 将新的API请求添加到列表最上方（数组开头）
-                    if (newApiRequests.length > 0) {
-                        this.apiRequestManager.requests.unshift(...newApiRequests);
-                        console.log('API数据已合并到请求列表最上方，新增请求数:', newApiRequests.length);
+                    // 从原列表中移除已存在的请求（从后往前删除，避免索引变化）
+                    const sortedIndices = Array.from(indicesToRemove).sort((a, b) => b - a);
+                    sortedIndices.forEach(index => {
+                        this.apiRequestManager.requests.splice(index, 1);
+                    });
+                    
+                    // 将所有API数据添加到列表最上方（数组开头）
+                    if (allApiRequests.length > 0) {
+                        this.apiRequestManager.requests.unshift(...allApiRequests);
+                        console.log('API数据已合并到请求列表最上方，API请求数:', allApiRequests.length);
+                        console.log('API数据示例（前3个）:', allApiRequests.slice(0, 3).map(req => ({
+                            url: req.url,
+                            method: req.method,
+                            _id: req._id,
+                            key: req.key,
+                            hasUrl: !!req.url
+                        })));
+                    } else {
+                        console.warn('API数据转换后为空，请检查数据格式');
                     }
                     
                     console.log('API数据已合并到请求列表，总请求数:', this.apiRequestManager.requests.length);
@@ -16532,6 +16588,28 @@ if (typeof getCenterPosition === 'undefined') {
                 flex-shrink: 0 !important;
             `;
             
+            titleRow.appendChild(methodTag);
+            
+            // 检查是否是API返回的数据（有_id或key字段）
+            const isApiData = !!(req._id || req.key);
+            if (isApiData) {
+                // 添加API数据标识
+                const apiDataBadge = document.createElement('span');
+                apiDataBadge.textContent = 'API';
+                apiDataBadge.title = '来自接口返回的数据';
+                apiDataBadge.style.cssText = `
+                    font-size: 10px !important;
+                    font-weight: 600 !important;
+                    color: #2196F3 !important;
+                    background: #E3F2FD !important;
+                    padding: 2px 5px !important;
+                    border-radius: 3px !important;
+                    flex-shrink: 0 !important;
+                    border: 1px solid #90CAF9 !important;
+                `;
+                titleRow.appendChild(apiDataBadge);
+            }
+            
             // URL
             const url = document.createElement('div');
             url.style.cssText = `
@@ -16549,7 +16627,6 @@ if (typeof getCenterPosition === 'undefined') {
             `;
             url.textContent = req.url || '未知URL';
             
-            titleRow.appendChild(methodTag);
             titleRow.appendChild(url);
             requestInfo.appendChild(titleRow);
             
@@ -21268,7 +21345,7 @@ ${originalText}
             this.ossFileListVisible = false;
             this.newsListVisible = false;
             this.apiRequestListVisible = true;
-            await this.updateApiRequestSidebar();
+            await this.updateApiRequestSidebar(true);
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
         } else {

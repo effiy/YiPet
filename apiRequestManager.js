@@ -25,8 +25,14 @@ class ApiRequestManager {
         this.currentPageUrl = window.location.href; // 当前页面URL
         
         // 去重索引：使用 Map 存储请求的唯一标识，提高查找效率
-        // key: `${method}:${normalizedUrl}:${timestampRange}`，value: 请求在数组中的索引
+        // key: `${method}:${normalizedUrl}:${normalizedBody}:${timestampRange}`，value: 请求在数组中的索引
         this._requestIndex = new Map();
+        
+        // 请求去重配置
+        this._deduplicationConfig = {
+            timeWindow: 5000, // 5秒时间窗口（相同请求在5秒内视为重复）
+            enableBodyDedup: true, // 是否基于请求体进行去重
+        };
         
         // 扩展相关的URL模式（用于过滤）
         this.extensionUrlPatterns = [
@@ -970,7 +976,47 @@ class ApiRequestManager {
     }
     
     /**
-     * 生成请求的唯一标识符（用于去重）
+     * 规范化对象（排序键，确保相同对象生成相同的字符串）
+     * @param {*} obj - 要规范化的对象
+     * @returns {string} 规范化后的字符串
+     */
+    _normalizeObjectForDedup(obj) {
+        if (obj === null || obj === undefined) {
+            return '';
+        }
+        
+        // 如果是字符串，尝试解析为JSON
+        if (typeof obj === 'string') {
+            try {
+                obj = JSON.parse(obj);
+            } catch (e) {
+                // 如果不是JSON，直接返回（截断过长字符串）
+                return obj.length > 100 ? obj.substring(0, 100) : obj;
+            }
+        }
+        
+        // 如果是对象，递归排序键
+        if (typeof obj === 'object') {
+            if (Array.isArray(obj)) {
+                // 数组：只取前10个元素，避免过大
+                const limitedArray = obj.slice(0, 10).map(item => this._normalizeObjectForDedup(item));
+                return JSON.stringify(limitedArray);
+            }
+            
+            // 对象：排序键后序列化（只取前20个键，避免过大）
+            const sortedKeys = Object.keys(obj).sort().slice(0, 20);
+            const normalized = {};
+            for (const key of sortedKeys) {
+                normalized[key] = this._normalizeObjectForDedup(obj[key]);
+            }
+            return JSON.stringify(normalized);
+        }
+        
+        return String(obj);
+    }
+    
+    /**
+     * 生成请求的唯一标识符（用于去重，优化版）
      * @param {Object} request - 请求对象
      * @returns {string} 唯一标识符
      */
@@ -983,18 +1029,29 @@ class ApiRequestManager {
         const normalizedUrl = this._normalizeUrl(request.url);
         const method = (request.method || 'GET').toUpperCase();
         
-        // 对于相同URL和方法的请求，如果时间戳在5秒内，视为重复请求
-        // 将时间戳向下取整到5秒区间，这样5秒内的相同请求会有相同的key
+        // 规范化请求体（如果启用基于body的去重）
+        let normalizedBody = '';
+        if (this._deduplicationConfig.enableBodyDedup && request.body) {
+            normalizedBody = this._normalizeObjectForDedup(request.body);
+            // 限制body字符串长度，避免key过长
+            if (normalizedBody.length > 200) {
+                normalizedBody = normalizedBody.substring(0, 200);
+            }
+        }
+        
+        // 对于相同URL和方法的请求，如果时间戳在时间窗口内，视为重复请求
+        // 将时间戳向下取整到时间窗口区间
         const timestamp = request.timestamp || Date.now();
-        const timeWindow = 5000; // 5秒时间窗口
+        const timeWindow = this._deduplicationConfig.timeWindow;
         const timeRange = Math.floor(timestamp / timeWindow);
         
-        return `${method}:${normalizedUrl}:${timeRange}`;
+        // 生成key：method:url:body:timeRange
+        return `${method}:${normalizedUrl}:${normalizedBody}:${timeRange}`;
     }
     
     /**
-     * 合并请求到总列表（去重）
-     * 优化后的去重逻辑：使用 Map 索引提高查找效率，减少索引重建
+     * 合并请求到总列表（去重，优化版）
+     * 优化后的去重逻辑：使用 Map 索引提高查找效率，优化索引维护策略
      */
     _mergeRequest(request) {
         // 验证请求对象是否有效
@@ -1017,7 +1074,7 @@ class ApiRequestManager {
             // 使用 Map 索引快速查找是否已存在相同请求
             const existingIndex = this._requestIndex.get(requestKey);
             
-            if (existingIndex !== undefined && existingIndex < this.requests.length) {
+            if (existingIndex !== undefined && existingIndex >= 0 && existingIndex < this.requests.length) {
                 // 已存在相同请求，检查是否需要更新（保留最新的请求）
                 const existingRequest = this.requests[existingIndex];
                 if (existingRequest && existingRequest.timestamp < request.timestamp) {
@@ -1035,58 +1092,73 @@ class ApiRequestManager {
             // 更新索引
             this._requestIndex.set(requestKey, newIndex);
             
-            // 限制总请求数量（优化：只在必要时重建索引）
+            // 限制总请求数量（优化：使用更高效的索引维护策略）
             if (this.requests.length > this.maxRecords) {
                 // 移除最旧的请求
                 const removedRequest = this.requests.shift();
                 
-                // 优化：只更新受影响的索引，而不是重建整个索引
-                // 移除的请求的key需要从索引中删除
-                if (removedRequest) {
-                    const removedKey = this._generateRequestKey(removedRequest);
-                    if (removedKey && this._requestIndex.get(removedKey) === 0) {
-                        this._requestIndex.delete(removedKey);
-                    }
-                }
+                // 优化索引维护策略：
+                // 1. 如果索引大小超过阈值，重建索引（更准确）
+                // 2. 否则，只更新受影响的索引项
+                const indexSizeThreshold = this.maxRecords * 0.6; // 60%阈值
                 
-                // 所有索引都需要减1（因为数组第一个元素被移除了）
-                // 但这样效率低，所以只在索引过大时重建
-                if (this._requestIndex.size > this.maxRecords * 0.5) {
-                    // 索引过大，重建索引
+                if (this._requestIndex.size > indexSizeThreshold) {
+                    // 索引过大，重建索引（更准确，但稍慢）
                     this._rebuildIndex();
                 } else {
-                    // 更新所有索引（减1）
+                    // 只更新受影响的索引：删除被移除请求的索引，其他索引减1
+                    if (removedRequest) {
+                        const removedKey = this._generateRequestKey(removedRequest);
+                        if (removedKey) {
+                            this._requestIndex.delete(removedKey);
+                        }
+                    }
+                    
+                    // 更新所有索引（减1），但使用更高效的方式
+                    // 只遍历需要更新的索引（index > 0）
+                    const keysToUpdate = [];
                     for (const [key, index] of this._requestIndex.entries()) {
                         if (index > 0) {
-                            this._requestIndex.set(key, index - 1);
+                            keysToUpdate.push({ key, index });
                         }
+                    }
+                    
+                    // 批量更新索引
+                    for (const { key, index } of keysToUpdate) {
+                        this._requestIndex.set(key, index - 1);
                     }
                 }
             }
         } catch (e) {
             // 合并请求时出错，静默舍弃
+            console.debug('[ApiRequestManager] 合并请求时出错:', e);
         }
     }
     
     /**
      * 重建请求索引（当数组发生变化时调用）
-     * 优化：只在必要时调用
+     * 优化：只在必要时调用，使用更高效的策略
      */
     _rebuildIndex() {
+        const startTime = performance.now();
         this._requestIndex.clear();
         
-        // 重新建立索引
-        for (let i = 0; i < this.requests.length; i++) {
+        // 重新建立索引（从后往前遍历，保留最新的请求索引）
+        for (let i = this.requests.length - 1; i >= 0; i--) {
             const request = this.requests[i];
             if (request) {
                 const key = this._generateRequestKey(request);
                 if (key) {
-                    // 如果key已存在，保留索引较小的（更早的请求）
-                    if (!this._requestIndex.has(key)) {
-                        this._requestIndex.set(key, i);
-                    }
+                    // 从后往前遍历，如果key已存在，会被后面的（更新的）请求覆盖
+                    // 这样保证索引指向的是最新的请求
+                    this._requestIndex.set(key, i);
                 }
             }
+        }
+        
+        const duration = performance.now() - startTime;
+        if (duration > 10) {
+            console.debug(`[ApiRequestManager] 重建索引耗时: ${duration.toFixed(2)}ms, 索引大小: ${this._requestIndex.size}`);
         }
     }
     

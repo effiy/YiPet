@@ -10,17 +10,28 @@ class ApiRequestApiManager {
         this.enabled = enabled;
         this.cname = 'apis';
         
-        // 请求去重
+        // 请求去重：存储 { promise, timestamp, timeoutId }
         this.pendingRequests = new Map();
+        
+        // 请求超时配置（30秒）
+        this.requestTimeout = 30000;
+        
+        // 清理定时器：定期清理过期的pending请求
+        this._cleanupTimer = null;
+        this._cleanupInterval = 60000; // 每60秒清理一次
         
         // 统计信息
         this.stats = {
             totalRequests: 0,
             errorCount: 0,
+            duplicateRequests: 0, // 去重统计
         };
         
         // 加载动画计数器
         this.activeRequestCount = 0;
+        
+        // 启动清理定时器
+        this._startCleanupTimer();
     }
     
     /**
@@ -31,11 +42,116 @@ class ApiRequestApiManager {
     }
     
     /**
-     * 创建请求key用于去重
+     * 规范化对象（排序键，确保相同对象生成相同的字符串）
+     * @param {*} obj - 要规范化的对象
+     * @returns {string} 规范化后的字符串
+     */
+    _normalizeObject(obj) {
+        if (obj === null || obj === undefined) {
+            return '';
+        }
+        
+        // 如果是字符串，尝试解析为JSON
+        if (typeof obj === 'string') {
+            try {
+                obj = JSON.parse(obj);
+            } catch (e) {
+                // 如果不是JSON，直接返回
+                return obj;
+            }
+        }
+        
+        // 如果是对象，递归排序键
+        if (typeof obj === 'object') {
+            if (Array.isArray(obj)) {
+                return JSON.stringify(obj.map(item => this._normalizeObject(item)));
+            }
+            
+            // 对象：排序键后序列化
+            const sortedKeys = Object.keys(obj).sort();
+            const normalized = {};
+            for (const key of sortedKeys) {
+                normalized[key] = this._normalizeObject(obj[key]);
+            }
+            return JSON.stringify(normalized);
+        }
+        
+        return String(obj);
+    }
+    
+    /**
+     * 创建请求key用于去重（优化版：处理对象顺序问题）
+     * @param {string} method - 请求方法
+     * @param {string} url - 请求URL
+     * @param {*} body - 请求体
+     * @returns {string} 请求唯一标识
      */
     _getRequestKey(method, url, body) {
-        const bodyStr = body ? JSON.stringify(body) : '';
-        return `${method}:${url}:${bodyStr}`;
+        const methodUpper = (method || 'GET').toUpperCase();
+        const normalizedBody = body ? this._normalizeObject(body) : '';
+        return `${methodUpper}:${url}:${normalizedBody}`;
+    }
+    
+    /**
+     * 启动清理定时器（清理过期的pending请求）
+     */
+    _startCleanupTimer() {
+        if (this._cleanupTimer) {
+            clearInterval(this._cleanupTimer);
+        }
+        
+        this._cleanupTimer = setInterval(() => {
+            this._cleanupExpiredRequests();
+        }, this._cleanupInterval);
+    }
+    
+    /**
+     * 清理过期的pending请求
+     */
+    _cleanupExpiredRequests() {
+        const now = Date.now();
+        const expiredKeys = [];
+        
+        for (const [key, requestInfo] of this.pendingRequests.entries()) {
+            // 如果请求超过超时时间，标记为过期
+            if (now - requestInfo.timestamp > this.requestTimeout) {
+                expiredKeys.push(key);
+            }
+        }
+        
+        // 清理过期请求
+        for (const key of expiredKeys) {
+            const requestInfo = this.pendingRequests.get(key);
+            if (requestInfo && requestInfo.timeoutId) {
+                clearTimeout(requestInfo.timeoutId);
+            }
+            this.pendingRequests.delete(key);
+        }
+        
+        if (expiredKeys.length > 0) {
+            console.debug(`[ApiRequestApiManager] 清理了 ${expiredKeys.length} 个过期的pending请求`);
+        }
+    }
+    
+    /**
+     * 销毁管理器（清理资源）
+     */
+    destroy() {
+        // 清理定时器
+        if (this._cleanupTimer) {
+            clearInterval(this._cleanupTimer);
+            this._cleanupTimer = null;
+        }
+        
+        // 清理所有pending请求的timeout
+        for (const [key, requestInfo] of this.pendingRequests.entries()) {
+            if (requestInfo && requestInfo.timeoutId) {
+                clearTimeout(requestInfo.timeoutId);
+            }
+        }
+        
+        // 清空pending请求
+        this.pendingRequests.clear();
     }
     
     /**
@@ -59,7 +175,7 @@ class ApiRequestApiManager {
     }
     
     /**
-     * 执行请求（带去重）
+     * 执行请求（带去重，优化版）
      */
     async _request(url, options = {}) {
         if (!this.isEnabled()) {
@@ -69,8 +185,12 @@ class ApiRequestApiManager {
         const requestKey = this._getRequestKey(options.method || 'GET', url, options.body);
         
         // 检查是否有正在进行的相同请求
-        if (this.pendingRequests.has(requestKey)) {
-            return await this.pendingRequests.get(requestKey);
+        const existingRequest = this.pendingRequests.get(requestKey);
+        if (existingRequest && existingRequest.promise) {
+            // 统计去重请求
+            this.stats.duplicateRequests++;
+            console.debug(`[ApiRequestApiManager] 检测到重复请求，复用已有请求: ${requestKey}`);
+            return await existingRequest.promise;
         }
         
         // 显示加载动画
@@ -97,13 +217,13 @@ class ApiRequestApiManager {
                 const result = await response.json();
                 
                 // 从pending中移除
-                this.pendingRequests.delete(requestKey);
+                this._removePendingRequest(requestKey);
                 
                 return result;
             } catch (error) {
                 this.stats.errorCount++;
                 // 从pending中移除
-                this.pendingRequests.delete(requestKey);
+                this._removePendingRequest(requestKey);
                 throw error;
             } finally {
                 // 隐藏加载动画
@@ -111,10 +231,39 @@ class ApiRequestApiManager {
             }
         })();
         
-        // 保存到pending中
-        this.pendingRequests.set(requestKey, requestPromise);
+        // 创建超时清理
+        const timeoutId = setTimeout(() => {
+            // 如果请求超时，清理pending请求
+            if (this.pendingRequests.has(requestKey)) {
+                console.warn(`[ApiRequestApiManager] 请求超时，清理pending请求: ${requestKey}`);
+                this._removePendingRequest(requestKey);
+            }
+        }, this.requestTimeout);
+        
+        // 保存到pending中（包含promise、时间戳和timeoutId）
+        this.pendingRequests.set(requestKey, {
+            promise: requestPromise,
+            timestamp: Date.now(),
+            timeoutId: timeoutId
+        });
         
         return requestPromise;
+    }
+    
+    /**
+     * 移除pending请求（清理资源）
+     * @param {string} requestKey - 请求key
+     */
+    _removePendingRequest(requestKey) {
+        const requestInfo = this.pendingRequests.get(requestKey);
+        if (requestInfo) {
+            // 清理超时定时器
+            if (requestInfo.timeoutId) {
+                clearTimeout(requestInfo.timeoutId);
+            }
+            // 从Map中移除
+            this.pendingRequests.delete(requestKey);
+        }
     }
     
     /**

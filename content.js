@@ -16952,12 +16952,42 @@ if (typeof getCenterPosition === 'undefined') {
             });
             footerButtonContainer.appendChild(contextBtn);
             
-            // 保存会话按钮（参考新闻列表的实现）
-            const saveSessionBtn = document.createElement('button');
-            saveSessionBtn.className = 'api-request-save-session-btn';
-            saveSessionBtn.innerHTML = '💾';
-            saveSessionBtn.title = '保存请求';
-            saveSessionBtn.style.cssText = `
+            // 编辑请求按钮（只在已保存的请求上显示，参考会话列表的实现）
+            if (isApiData) {
+                const editBtn = document.createElement('button');
+                editBtn.className = 'api-request-edit-btn';
+                editBtn.innerHTML = '✏️';
+                editBtn.title = '编辑请求';
+                editBtn.style.cssText = `
+                    background: none !important;
+                    border: none !important;
+                    cursor: pointer !important;
+                    padding: 2px 4px !important;
+                    font-size: 12px !important;
+                    opacity: 0.6 !important;
+                    transition: opacity 0.2s ease !important;
+                    line-height: 1 !important;
+                    flex-shrink: 0 !important;
+                `;
+                editBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await this.editApiRequest(req);
+                });
+                editBtn.addEventListener('mouseenter', () => {
+                    editBtn.style.opacity = '1';
+                });
+                editBtn.addEventListener('mouseleave', () => {
+                    editBtn.style.opacity = '0.6';
+                });
+                footerButtonContainer.appendChild(editBtn);
+            }
+            
+            // 标签管理按钮（参考会话列表的实现）
+            const tagBtn = document.createElement('button');
+            tagBtn.className = 'api-request-tag-btn';
+            tagBtn.innerHTML = '🏷️';
+            tagBtn.title = '管理标签';
+            tagBtn.style.cssText = `
                 background: none !important;
                 border: none !important;
                 cursor: pointer !important;
@@ -16968,17 +16998,17 @@ if (typeof getCenterPosition === 'undefined') {
                 line-height: 1 !important;
                 flex-shrink: 0 !important;
             `;
-            saveSessionBtn.addEventListener('click', async (e) => {
+            tagBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                await this.handleApiRequestSaveSession(req);
+                await this.openApiRequestTagManager(req);
             });
-            saveSessionBtn.addEventListener('mouseenter', () => {
-                saveSessionBtn.style.opacity = '1';
+            tagBtn.addEventListener('mouseenter', () => {
+                tagBtn.style.opacity = '1';
             });
-            saveSessionBtn.addEventListener('mouseleave', () => {
-                saveSessionBtn.style.opacity = '0.6';
+            tagBtn.addEventListener('mouseleave', () => {
+                tagBtn.style.opacity = '0.6';
             });
-            footerButtonContainer.appendChild(saveSessionBtn);
+            footerButtonContainer.appendChild(tagBtn);
             
             statusRow.appendChild(statusInfo);
             statusRow.appendChild(time);
@@ -18149,6 +18179,1079 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         return content;
+    }
+    
+    // 编辑请求接口（参考会话的编辑功能）
+    async editApiRequest(apiRequest) {
+        if (!apiRequest) {
+            console.warn('请求接口数据无效，无法编辑:', apiRequest);
+            return;
+        }
+        
+        // 检查是否有_id或key字段（只有API数据才能编辑）
+        if (!apiRequest._id && !apiRequest.key && !apiRequest.id) {
+            this.showNotification('该请求无法编辑（缺少标识符）', 'error');
+            return;
+        }
+        
+        // 生成默认标题和描述
+        const apiPath = this._extractApiPath(apiRequest.url);
+        const originalTitle = apiRequest.title || `${apiRequest.method || 'GET'} ${apiPath}`;
+        const originalDescription = apiRequest.description || `接口请求：${apiRequest.url || ''}`;
+        
+        // 打开编辑对话框
+        this.openApiRequestInfoEditor(apiRequest, originalTitle, originalDescription);
+    }
+    
+    // 打开请求接口信息编辑对话框
+    openApiRequestInfoEditor(apiRequest, originalTitle, originalDescription) {
+        // 确保对话框UI存在
+        this.ensureApiRequestInfoEditorUi();
+        
+        const modal = document.body.querySelector('#pet-api-request-info-editor');
+        if (!modal) {
+            console.error('请求接口信息编辑对话框未找到');
+            return;
+        }
+        
+        // 显示对话框
+        modal.style.display = 'flex';
+        modal.dataset.apiRequestKey = apiRequest.key || apiRequest._id || apiRequest.id;
+        modal.dataset.apiRequestUrl = apiRequest.url || '';
+        
+        // 填充当前值
+        const titleInput = modal.querySelector('.api-request-editor-title-input');
+        const descriptionInput = modal.querySelector('.api-request-editor-description-input');
+        
+        if (titleInput) {
+            titleInput.value = originalTitle;
+        }
+        if (descriptionInput) {
+            descriptionInput.value = originalDescription;
+        }
+        
+        // 聚焦到标题输入框
+        if (titleInput) {
+            setTimeout(() => {
+                titleInput.focus();
+                titleInput.select();
+            }, 100);
+        }
+        
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.api-request-editor-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeApiRequestInfoEditor();
+        }
+        
+        // 添加保存事件
+        const saveBtn = modal.querySelector('.api-request-editor-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveApiRequestInfo(apiRequest);
+        }
+        
+        // 添加取消事件
+        const cancelBtn = modal.querySelector('.api-request-editor-cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeApiRequestInfoEditor();
+        }
+        
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeApiRequestInfoEditor();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+    
+    // 确保请求接口信息编辑对话框UI存在
+    ensureApiRequestInfoEditorUi() {
+        if (document.body.querySelector('#pet-api-request-info-editor')) return;
+        
+        const modal = document.createElement('div');
+        modal.id = 'pet-api-request-info-editor';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2147483653 !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeApiRequestInfoEditor();
+            }
+        });
+        
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 32px !important;
+            width: 90% !important;
+            max-width: 700px !important;
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+            position: relative !important;
+            z-index: 2147483654 !important;
+        `;
+        
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 24px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '编辑请求接口信息';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 20px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'api-request-editor-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+        
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        
+        // 标题输入区域
+        const titleGroup = document.createElement('div');
+        titleGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+        
+        const titleLabel = document.createElement('label');
+        titleLabel.textContent = '标题';
+        titleLabel.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+            margin-bottom: 8px !important;
+        `;
+        
+        const titleInput = document.createElement('input');
+        titleInput.className = 'api-request-editor-title-input';
+        titleInput.type = 'text';
+        titleInput.placeholder = '请输入标题';
+        titleInput.style.cssText = `
+            width: 100% !important;
+            padding: 12px !important;
+            border: 1px solid #ddd !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            box-sizing: border-box !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        titleInput.addEventListener('focus', () => {
+            titleInput.style.borderColor = '#4CAF50';
+        });
+        titleInput.addEventListener('blur', () => {
+            titleInput.style.borderColor = '#ddd';
+        });
+        
+        titleGroup.appendChild(titleLabel);
+        titleGroup.appendChild(titleInput);
+        
+        // 描述输入区域
+        const descriptionGroup = document.createElement('div');
+        descriptionGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+        
+        const descriptionLabel = document.createElement('label');
+        descriptionLabel.textContent = '描述';
+        descriptionLabel.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+            margin-bottom: 8px !important;
+        `;
+        
+        const descriptionInput = document.createElement('textarea');
+        descriptionInput.className = 'api-request-editor-description-input';
+        descriptionInput.placeholder = '请输入描述';
+        descriptionInput.rows = 4;
+        descriptionInput.style.cssText = `
+            width: 100% !important;
+            padding: 12px !important;
+            border: 1px solid #ddd !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            box-sizing: border-box !important;
+            resize: vertical !important;
+            transition: border-color 0.2s ease !important;
+            font-family: inherit !important;
+        `;
+        descriptionInput.addEventListener('focus', () => {
+            descriptionInput.style.borderColor = '#4CAF50';
+        });
+        descriptionInput.addEventListener('blur', () => {
+            descriptionInput.style.borderColor = '#ddd';
+        });
+        
+        descriptionGroup.appendChild(descriptionLabel);
+        descriptionGroup.appendChild(descriptionInput);
+        
+        // 按钮区域
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 12px !important;
+            margin-top: 24px !important;
+        `;
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'api-request-editor-cancel';
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            border: 1px solid #ddd !important;
+            border-radius: 8px !important;
+            background: white !important;
+            color: #333 !important;
+            font-size: 14px !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f5f5f5';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+        });
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'api-request-editor-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            border: none !important;
+            border-radius: 8px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#45a049';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#4CAF50';
+        });
+        
+        buttonGroup.appendChild(cancelBtn);
+        buttonGroup.appendChild(saveBtn);
+        
+        panel.appendChild(header);
+        panel.appendChild(titleGroup);
+        panel.appendChild(descriptionGroup);
+        panel.appendChild(buttonGroup);
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+    }
+    
+    // 保存请求接口信息
+    async saveApiRequestInfo(apiRequest) {
+        const modal = document.body.querySelector('#pet-api-request-info-editor');
+        if (!modal) {
+            console.error('请求接口信息编辑对话框未找到');
+            return;
+        }
+        
+        const titleInput = modal.querySelector('.api-request-editor-title-input');
+        const descriptionInput = modal.querySelector('.api-request-editor-description-input');
+        
+        if (!titleInput || !descriptionInput) {
+            console.error('输入框未找到');
+            return;
+        }
+        
+        const newTitle = titleInput.value.trim();
+        const newDescription = descriptionInput.value.trim();
+        
+        if (!newTitle) {
+            this.showNotification('标题不能为空', 'error');
+            return;
+        }
+        
+        try {
+            // 检查apiRequestApi是否可用
+            if (!this.apiRequestApi || !this.apiRequestApi.isEnabled()) {
+                this.showNotification('API管理器未启用，无法保存', 'error');
+                return;
+            }
+            
+            // 准备更新数据
+            const apiRequestData = {
+                key: apiRequest.key || apiRequest._id || apiRequest.id,
+                url: apiRequest.url || '',
+                method: apiRequest.method || 'GET',
+                status: apiRequest.status || 0,
+                statusText: apiRequest.statusText || '',
+                headers: apiRequest.headers || {},
+                body: apiRequest.body || null,
+                responseHeaders: apiRequest.responseHeaders || {},
+                responseBody: apiRequest.responseBody || null,
+                responseText: apiRequest.responseText || '',
+                duration: apiRequest.duration || 0,
+                timestamp: apiRequest.timestamp || Date.now(),
+                type: apiRequest.type || 'fetch',
+                curl: apiRequest.curl || '',
+                pageUrl: apiRequest.pageUrl || window.location.href,
+                tags: apiRequest.tags || [],
+                title: newTitle,
+                description: newDescription
+            };
+            
+            // 显示加载提示
+            this.showNotification('正在保存...', 'info');
+            
+            // 保存到后端
+            const result = await this.apiRequestApi.saveApiRequest(apiRequestData);
+            
+            if (result && result.success) {
+                console.log('请求接口信息已更新:', result.data);
+                
+                // 更新本地数据
+                if (this.apiRequestManager) {
+                    const index = this.apiRequestManager.requests.findIndex(req => {
+                        const key = apiRequest.key || apiRequest._id || apiRequest.id;
+                        return (req._id === key) || (req.key === key) || (req.id === key);
+                    });
+                    
+                    if (index >= 0) {
+                        // 更新本地数据
+                        this.apiRequestManager.requests[index].title = newTitle;
+                        this.apiRequestManager.requests[index].description = newDescription;
+                    }
+                }
+                
+                // 刷新列表
+                await this.updateApiRequestSidebar(true);
+                
+                // 关闭对话框
+                this.closeApiRequestInfoEditor();
+                
+                this.showNotification('保存成功', 'success');
+            } else {
+                throw new Error(result?.message || '保存失败');
+            }
+        } catch (error) {
+            console.error('保存请求接口信息失败:', error);
+            this.showNotification(`保存失败: ${error.message || '未知错误'}`, 'error');
+        }
+    }
+    
+    // 关闭请求接口信息编辑对话框
+    closeApiRequestInfoEditor() {
+        const modal = document.body.querySelector('#pet-api-request-info-editor');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // 确保请求接口标签管理器UI存在
+    ensureApiRequestTagManagerUi() {
+        // 优先在chatWindow中查找，如果不存在则在body中查找
+        let container = this.chatWindow || document.body;
+        if (container.querySelector('#pet-api-request-tag-manager')) return;
+        
+        const modal = document.createElement('div');
+        modal.id = 'pet-api-request-tag-manager';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 10000 !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeApiRequestTagManager();
+            }
+        });
+        
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
+            width: 90% !important;
+            max-width: 800px !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+        `;
+        
+        // 标题
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 20px !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '管理标签';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'api-request-tag-manager-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #999 !important;
+            padding: 0 !important;
+            width: 30px !important;
+            height: 30px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
+        });
+        
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        
+        // 输入区域
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'api-request-tag-manager-input-group';
+        inputGroup.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            margin-bottom: 20px !important;
+        `;
+        
+        const tagInput = document.createElement('input');
+        tagInput.className = 'api-request-tag-manager-input';
+        tagInput.type = 'text';
+        tagInput.placeholder = '输入标签名称，按回车添加';
+        tagInput.style.cssText = `
+            flex: 1 !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        
+        tagInput._isComposing = false;
+        tagInput.addEventListener('compositionstart', () => {
+            tagInput._isComposing = true;
+        });
+        tagInput.addEventListener('compositionend', () => {
+            tagInput._isComposing = false;
+        });
+        
+        tagInput.addEventListener('focus', () => {
+            tagInput.style.borderColor = '#4CAF50';
+        });
+        tagInput.addEventListener('blur', () => {
+            tagInput.style.borderColor = '#e0e0e0';
+        });
+        
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加';
+        addBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.background = '#45a049';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.background = '#4CAF50';
+        });
+        addBtn.addEventListener('click', () => {
+            const apiRequestKey = modal.dataset.apiRequestKey;
+            if (apiRequestKey) {
+                this.addApiRequestTagFromInput(modal);
+            }
+        });
+        
+        inputGroup.appendChild(tagInput);
+        inputGroup.appendChild(addBtn);
+        
+        // 标签列表
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'api-request-tag-manager-tags';
+        tagsContainer.style.cssText = `
+            min-height: 100px !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            margin-bottom: 20px !important;
+            padding: 12px !important;
+            background: #f8f9fa !important;
+            border-radius: 6px !important;
+        `;
+        
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 10px !important;
+        `;
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #f0f0f0 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            transition: background 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#e0e0e0';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#f0f0f0';
+        });
+        cancelBtn.addEventListener('click', () => {
+            this.closeApiRequestTagManager();
+        });
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'api-request-tag-manager-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#45a049';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#4CAF50';
+        });
+        
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+        
+        panel.appendChild(header);
+        panel.appendChild(inputGroup);
+        panel.appendChild(tagsContainer);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        container.appendChild(modal);
+    }
+    
+    // 加载标签到请求接口标签管理器
+    loadApiRequestTagsIntoManager(apiRequest, tags) {
+        const modal = this.chatWindow?.querySelector('#pet-api-request-tag-manager') || 
+                     document.body.querySelector('#pet-api-request-tag-manager');
+        if (!modal) {
+            console.error('请求接口标签管理弹窗未找到');
+            return;
+        }
+        
+        const tagsContainer = modal.querySelector('.api-request-tag-manager-tags');
+        if (!tagsContainer) {
+            console.error('标签容器未找到');
+            return;
+        }
+        
+        // 清空现有标签
+        tagsContainer.innerHTML = '';
+        
+        // 如果没有标签，显示提示
+        if (!tags || tags.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无标签';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+            `;
+            tagsContainer.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 渲染标签
+        tags.forEach(tag => {
+            if (tag && tag.trim()) {
+                const tagElement = document.createElement('div');
+                tagElement.className = 'api-request-tag-manager-tag-item';
+                tagElement.dataset.tagName = tag;
+                tagElement.style.cssText = `
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                    padding: 8px 12px !important;
+                    background: white !important;
+                    border: 1px solid #e0e0e0 !important;
+                    border-radius: 6px !important;
+                    margin: 4px !important;
+                    font-size: 13px !important;
+                `;
+                
+                const tagText = document.createElement('span');
+                tagText.textContent = tag;
+                tagText.style.cssText = `
+                    flex: 1 !important;
+                `;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.innerHTML = '✕';
+                removeBtn.style.cssText = `
+                    background: none !important;
+                    border: none !important;
+                    cursor: pointer !important;
+                    color: #999 !important;
+                    font-size: 16px !important;
+                    padding: 0 !important;
+                    width: 20px !important;
+                    height: 20px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    border-radius: 50% !important;
+                    transition: all 0.2s ease !important;
+                `;
+                removeBtn.addEventListener('mouseenter', () => {
+                    removeBtn.style.background = '#f0f0f0';
+                    removeBtn.style.color = '#f44336';
+                });
+                removeBtn.addEventListener('mouseleave', () => {
+                    removeBtn.style.background = 'none';
+                    removeBtn.style.color = '#999';
+                });
+                removeBtn.addEventListener('click', () => {
+                    this.removeApiRequestTagFromManager(modal, tag);
+                });
+                
+                tagElement.appendChild(tagText);
+                tagElement.appendChild(removeBtn);
+                tagsContainer.appendChild(tagElement);
+            }
+        });
+    }
+    
+    // 从输入框添加标签
+    addApiRequestTagFromInput(modal) {
+        if (!modal) {
+            modal = this.chatWindow?.querySelector('#pet-api-request-tag-manager') || 
+                   document.body.querySelector('#pet-api-request-tag-manager');
+        }
+        if (!modal) {
+            console.error('请求接口标签管理弹窗未找到');
+            return;
+        }
+        
+        const tagInput = modal.querySelector('.api-request-tag-manager-input');
+        if (!tagInput) {
+            console.error('标签输入框未找到');
+            return;
+        }
+        
+        const tagName = tagInput.value.trim();
+        if (!tagName) {
+            return;
+        }
+        
+        // 获取当前标签列表
+        const tagsContainer = modal.querySelector('.api-request-tag-manager-tags');
+        if (!tagsContainer) {
+            console.error('标签容器未找到');
+            return;
+        }
+        
+        // 检查标签是否已存在
+        const existingTags = Array.from(tagsContainer.querySelectorAll('.api-request-tag-manager-tag-item'))
+            .map(item => item.dataset.tagName);
+        
+        if (existingTags.includes(tagName)) {
+            this.showNotification('标签已存在', 'info');
+            return;
+        }
+        
+        // 添加标签到列表
+        const currentTags = existingTags.length === 0 && tagsContainer.querySelector('div')?.textContent === '暂无标签'
+            ? []
+            : existingTags;
+        currentTags.push(tagName);
+        
+        // 重新加载标签列表
+        this.loadApiRequestTagsIntoManager({ tags: currentTags }, currentTags);
+        
+        // 清空输入框
+        tagInput.value = '';
+        tagInput.focus();
+    }
+    
+    // 从管理器移除标签
+    removeApiRequestTagFromManager(modal, tagName) {
+        if (!modal) {
+            modal = this.chatWindow?.querySelector('#pet-api-request-tag-manager') || 
+                   document.body.querySelector('#pet-api-request-tag-manager');
+        }
+        if (!modal) {
+            console.error('请求接口标签管理弹窗未找到');
+            return;
+        }
+        
+        const tagsContainer = modal.querySelector('.api-request-tag-manager-tags');
+        if (!tagsContainer) {
+            console.error('标签容器未找到');
+            return;
+        }
+        
+        // 获取当前标签列表
+        const currentTags = Array.from(tagsContainer.querySelectorAll('.api-request-tag-manager-tag-item'))
+            .map(item => item.dataset.tagName)
+            .filter(tag => tag !== tagName);
+        
+        // 重新加载标签列表
+        this.loadApiRequestTagsIntoManager({ tags: currentTags }, currentTags);
+    }
+    
+    // 保存请求接口标签
+    async saveApiRequestTags(apiRequest) {
+        const modal = this.chatWindow?.querySelector('#pet-api-request-tag-manager') || 
+                     document.body.querySelector('#pet-api-request-tag-manager');
+        if (!modal) {
+            console.error('请求接口标签管理弹窗未找到');
+            return;
+        }
+        
+        const tagsContainer = modal.querySelector('.api-request-tag-manager-tags');
+        if (!tagsContainer) {
+            console.error('标签容器未找到');
+            return;
+        }
+        
+        // 获取当前标签列表
+        const currentTags = Array.from(tagsContainer.querySelectorAll('.api-request-tag-manager-tag-item'))
+            .map(item => item.dataset.tagName);
+        
+        try {
+            // 检查apiRequestApi是否可用
+            if (!this.apiRequestApi || !this.apiRequestApi.isEnabled()) {
+                this.showNotification('API管理器未启用，无法保存', 'error');
+                return;
+            }
+            
+            // 准备更新数据
+            const apiRequestData = {
+                key: apiRequest.key || apiRequest._id || apiRequest.id,
+                url: apiRequest.url || '',
+                method: apiRequest.method || 'GET',
+                status: apiRequest.status || 0,
+                statusText: apiRequest.statusText || '',
+                headers: apiRequest.headers || {},
+                body: apiRequest.body || null,
+                responseHeaders: apiRequest.responseHeaders || {},
+                responseBody: apiRequest.responseBody || null,
+                responseText: apiRequest.responseText || '',
+                duration: apiRequest.duration || 0,
+                timestamp: apiRequest.timestamp || Date.now(),
+                type: apiRequest.type || 'fetch',
+                curl: apiRequest.curl || '',
+                pageUrl: apiRequest.pageUrl || window.location.href,
+                tags: currentTags,
+                title: apiRequest.title || '',
+                description: apiRequest.description || ''
+            };
+            
+            // 显示加载提示
+            this.showNotification('正在保存...', 'info');
+            
+            // 保存到后端
+            const result = await this.apiRequestApi.saveApiRequest(apiRequestData);
+            
+            if (result && result.success) {
+                console.log('请求接口标签已更新:', result.data);
+                
+                // 更新本地数据
+                if (this.apiRequestManager) {
+                    const index = this.apiRequestManager.requests.findIndex(req => {
+                        const key = apiRequest.key || apiRequest._id || apiRequest.id;
+                        return (req._id === key) || (req.key === key) || (req.id === key);
+                    });
+                    
+                    if (index >= 0) {
+                        // 更新本地数据
+                        this.apiRequestManager.requests[index].tags = currentTags;
+                    }
+                }
+                
+                // 刷新列表
+                await this.updateApiRequestSidebar(true);
+                
+                // 关闭对话框
+                this.closeApiRequestTagManager();
+                
+                this.showNotification('保存成功', 'success');
+            } else {
+                throw new Error(result?.message || '保存失败');
+            }
+        } catch (error) {
+            console.error('保存请求接口标签失败:', error);
+            this.showNotification(`保存失败: ${error.message || '未知错误'}`, 'error');
+        }
+    }
+    
+    // 关闭请求接口标签管理器
+    closeApiRequestTagManager() {
+        const modal = this.chatWindow?.querySelector('#pet-api-request-tag-manager') || 
+                     document.body.querySelector('#pet-api-request-tag-manager');
+        if (modal) {
+            modal.style.display = 'none';
+            
+            // 恢复折叠按钮显示
+            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+            if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
+            if (inputToggleBtn) inputToggleBtn.style.display = '';
+        }
+    }
+    
+    // 打开请求接口标签管理器（参考会话的标签管理功能）
+    async openApiRequestTagManager(apiRequest) {
+        if (!apiRequest) {
+            console.warn('请求接口数据无效，无法管理标签:', apiRequest);
+            return;
+        }
+        
+        const currentTags = apiRequest.tags || [];
+        
+        // 创建标签管理弹窗
+        this.ensureApiRequestTagManagerUi();
+        const modal = this.chatWindow?.querySelector('#pet-api-request-tag-manager');
+        if (!modal) {
+            // 如果chatWindow不存在，在body上创建
+            const bodyModal = document.body.querySelector('#pet-api-request-tag-manager');
+            if (bodyModal) {
+                bodyModal.style.display = 'flex';
+                bodyModal.dataset.apiRequestKey = apiRequest.key || apiRequest._id || apiRequest.id;
+                bodyModal.dataset.apiRequestUrl = apiRequest.url || '';
+                
+                // 加载当前标签
+                this.loadApiRequestTagsIntoManager(apiRequest, currentTags);
+                
+                // 添加关闭事件
+                const closeBtn = bodyModal.querySelector('.api-request-tag-manager-close');
+                if (closeBtn) {
+                    closeBtn.onclick = () => this.closeApiRequestTagManager();
+                }
+                
+                // 添加保存事件
+                const saveBtn = bodyModal.querySelector('.api-request-tag-manager-save');
+                if (saveBtn) {
+                    saveBtn.onclick = () => this.saveApiRequestTags(apiRequest);
+                }
+                
+                // 添加输入框回车事件
+                const tagInput = bodyModal.querySelector('.api-request-tag-manager-input');
+                if (tagInput) {
+                    if (tagInput._isComposing === undefined) {
+                        tagInput._isComposing = false;
+                        tagInput.addEventListener('compositionstart', () => {
+                            tagInput._isComposing = true;
+                        });
+                        tagInput.addEventListener('compositionend', () => {
+                            tagInput._isComposing = false;
+                        });
+                    }
+                    
+                    const existingHandler = tagInput._enterKeyHandler;
+                    if (existingHandler) {
+                        tagInput.removeEventListener('keydown', existingHandler);
+                    }
+                    
+                    const enterKeyHandler = (e) => {
+                        if (tagInput._isComposing) {
+                            return;
+                        }
+                        
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            this.addApiRequestTagFromInput(bodyModal);
+                        }
+                    };
+                    
+                    tagInput._enterKeyHandler = enterKeyHandler;
+                    tagInput.addEventListener('keydown', enterKeyHandler);
+                    
+                    tagInput.focus();
+                }
+                
+                // ESC 键关闭
+                const escHandler = (e) => {
+                    if (e.key === 'Escape') {
+                        this.closeApiRequestTagManager();
+                        document.removeEventListener('keydown', escHandler);
+                    }
+                };
+                document.addEventListener('keydown', escHandler);
+                
+                return;
+            }
+            console.error('请求接口标签管理弹窗未找到');
+            return;
+        }
+        
+        // 显示弹窗
+        modal.style.display = 'flex';
+        modal.dataset.apiRequestKey = apiRequest.key || apiRequest._id || apiRequest.id;
+        modal.dataset.apiRequestUrl = apiRequest.url || '';
+        
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        
+        // 加载当前标签
+        this.loadApiRequestTagsIntoManager(apiRequest, currentTags);
+        
+        // 添加关闭事件
+        const closeBtn = modal.querySelector('.api-request-tag-manager-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeApiRequestTagManager();
+        }
+        
+        // 添加保存事件
+        const saveBtn = modal.querySelector('.api-request-tag-manager-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveApiRequestTags(apiRequest);
+        }
+        
+        // 添加输入框回车事件（兼容中文输入法）
+        const tagInput = modal.querySelector('.api-request-tag-manager-input');
+        if (tagInput) {
+            // 确保输入法组合状态已初始化（如果输入框是新创建的）
+            if (tagInput._isComposing === undefined) {
+                tagInput._isComposing = false;
+                tagInput.addEventListener('compositionstart', () => {
+                    tagInput._isComposing = true;
+                });
+                tagInput.addEventListener('compositionend', () => {
+                    tagInput._isComposing = false;
+                });
+            }
+            
+            // 添加回车键事件处理（移除旧的监听器，避免重复绑定）
+            const existingHandler = tagInput._enterKeyHandler;
+            if (existingHandler) {
+                tagInput.removeEventListener('keydown', existingHandler);
+            }
+            
+            const enterKeyHandler = (e) => {
+                // 如果在输入法组合过程中，忽略回车键
+                if (tagInput._isComposing) {
+                    return;
+                }
+                
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addApiRequestTagFromInput(modal);
+                }
+            };
+            
+            tagInput._enterKeyHandler = enterKeyHandler;
+            tagInput.addEventListener('keydown', enterKeyHandler);
+            
+            tagInput.focus();
+        }
+        
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeApiRequestTagManager();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
     }
     
     // 提取API路径（从完整URL中提取路径部分）

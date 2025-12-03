@@ -17184,8 +17184,26 @@ if (typeof getCenterPosition === 'undefined') {
             
             requestItem.appendChild(detailPanel);
             
+            // 长按删除相关变量（提升到外部作用域，以便点击事件也能访问）
+            let longPressTimer = null;
+            let longPressProgressTimer = null;
+            let longPressThreshold = 800; // 长按时间阈值（毫秒）
+            let isLongPressing = false;
+            let hasMoved = false;
+            let startX = 0;
+            let startY = 0;
+            let longPressStartTime = 0;
+            const moveThreshold = 10; // 移动阈值，超过此值则取消长按
+            
             // 点击事件处理（参考新闻列表的实现）
             requestItem.addEventListener('click', (e) => {
+                // 如果正在长按，不执行点击
+                if (isApiData && (isLongPressing || hasMoved)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
                 // 如果点击的是按钮或详情面板内的内容，不触发创建会话
                 if (e.target.closest('button') || e.target.closest('.api-request-tags') || detailPanel.contains(e.target)) {
                     // 如果点击的是详情面板内的内容，切换展开状态
@@ -17222,94 +17240,207 @@ if (typeof getCenterPosition === 'undefined') {
             
             // 长按删除功能（仅对API数据有效）
             if (isApiData) {
-                let longPressTimer = null;
-                let isLongPressing = false;
-                const longPressDuration = 800; // 长按时间800ms
                 
-                const handleLongPressStart = (e) => {
+                // 创建长按进度指示器
+                const progressBar = document.createElement('div');
+                progressBar.className = 'long-press-progress';
+                progressBar.style.cssText = `
+                    position: absolute !important;
+                    bottom: 0 !important;
+                    left: 0 !important;
+                    height: 3px !important;
+                    background: rgba(244, 67, 54, 0.8) !important;
+                    width: 0% !important;
+                    border-radius: 0 0 8px 8px !important;
+                    transition: width 0.05s linear !important;
+                    z-index: 10 !important;
+                `;
+                requestItem.appendChild(progressBar);
+                
+                // 创建长按提示文本
+                const hintText = document.createElement('div');
+                hintText.className = 'long-press-hint';
+                hintText.textContent = '继续按住以删除';
+                hintText.style.cssText = `
+                    position: absolute !important;
+                    top: 50% !important;
+                    left: 50% !important;
+                    transform: translate(-50%, -50%) scale(0) !important;
+                    background: rgba(244, 67, 54, 0.95) !important;
+                    color: white !important;
+                    padding: 6px 12px !important;
+                    border-radius: 6px !important;
+                    font-size: 12px !important;
+                    white-space: nowrap !important;
+                    pointer-events: none !important;
+                    z-index: 20 !important;
+                    opacity: 0 !important;
+                    transition: all 0.2s ease !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+                `;
+                requestItem.appendChild(hintText);
+                
+                // 清除长按定时器
+                const clearLongPress = () => {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                    if (longPressProgressTimer) {
+                        clearInterval(longPressProgressTimer);
+                        longPressProgressTimer = null;
+                    }
+                    if (isLongPressing) {
+                        requestItem.classList.remove('long-pressing', 'long-press-start', 
+                            'long-press-stage-1', 'long-press-stage-2', 'long-press-stage-3');
+                        isLongPressing = false;
+                    } else {
+                        // 即使没有完成长按，也要清除开始状态和阶段状态
+                        requestItem.classList.remove('long-press-start', 
+                            'long-press-stage-1', 'long-press-stage-2', 'long-press-stage-3');
+                    }
+                    hasMoved = false;
+                    progressBar.style.width = '0%';
+                    hintText.style.opacity = '0';
+                    hintText.style.transform = 'translate(-50%, -50%) scale(0)';
+                    longPressStartTime = 0;
+                };
+                
+                // 触觉反馈（如果支持）
+                const triggerHapticFeedback = () => {
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(50); // 短震动
+                    }
+                };
+                
+                // 开始长按检测
+                const startLongPress = (e) => {
                     // 如果点击的是按钮或链接，不触发长按
                     if (e.target.closest('button') || e.target.closest('a')) {
                         return;
                     }
                     
-                    isLongPressing = false;
-                    longPressTimer = setTimeout(() => {
-                        isLongPressing = true;
-                        // 显示视觉反馈
-                        requestItem.style.background = '#fee2e2';
-                        requestItem.style.borderLeft = '4px solid #ef4444';
-                        requestItem.style.transform = 'scale(0.98)';
-                        
-                        // 显示确认删除提示
-                        const confirmDelete = confirm(`确定要删除这个API请求吗？\n\n${req.method || 'GET'} ${req.url || '未知URL'}`);
-                        
-                        if (confirmDelete) {
-                            // 执行删除
-                            this.handleApiRequestDelete(req);
-                        } else {
-                            // 取消删除，恢复样式
-                            requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
-                            requestItem.style.borderLeft = `4px solid ${statusColor}`;
-                            requestItem.style.transform = 'scale(1)';
-                        }
-                    }, longPressDuration);
-                };
-                
-                const handleLongPressEnd = (e) => {
-                    if (longPressTimer) {
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                    }
+                    hasMoved = false;
+                    startX = e.touches ? e.touches[0].clientX : e.clientX;
+                    startY = e.touches ? e.touches[0].clientY : e.clientY;
+                    longPressStartTime = Date.now();
                     
-                    // 如果已经触发了长按，阻止后续的点击事件
-                    if (isLongPressing) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        isLongPressing = false;
+                    // 添加开始长按的视觉反馈
+                    requestItem.classList.add('long-press-start');
+                    
+                    // 显示提示文本（延迟一点，避免立即显示）
+                    setTimeout(() => {
+                        if (longPressStartTime && !hasMoved) {
+                            hintText.style.opacity = '1';
+                            hintText.style.transform = 'translate(-50%, -50%) scale(1)';
+                        }
+                    }, 200);
+                    
+                    // 开始进度条动画
+                    let lastStage = 0;
+                    const progressInterval = 50; // 每50ms更新一次
+                    longPressProgressTimer = setInterval(() => {
+                        if (hasMoved || !longPressStartTime) {
+                            clearInterval(longPressProgressTimer);
+                            return;
+                        }
                         
-                        // 恢复样式
-                        setTimeout(() => {
-                            requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
-                            requestItem.style.borderLeft = `4px solid ${statusColor}`;
-                            requestItem.style.transform = 'scale(1)';
-                        }, 100);
+                        const elapsed = Date.now() - longPressStartTime;
+                        const progress = Math.min((elapsed / longPressThreshold) * 100, 100);
+                        progressBar.style.width = progress + '%';
+                        
+                        // 在不同阶段添加反馈（确保每个阶段只触发一次）
+                        if (progress >= 30 && progress < 35 && lastStage < 1) {
+                            requestItem.classList.add('long-press-stage-1');
+                            lastStage = 1;
+                        } else if (progress >= 60 && progress < 65 && lastStage < 2) {
+                            requestItem.classList.remove('long-press-stage-1');
+                            requestItem.classList.add('long-press-stage-2');
+                            lastStage = 2;
+                            triggerHapticFeedback(); // 中期震动
+                        } else if (progress >= 90 && progress < 95 && lastStage < 3) {
+                            requestItem.classList.remove('long-press-stage-2');
+                            requestItem.classList.add('long-press-stage-3');
+                            lastStage = 3;
+                            triggerHapticFeedback(); // 接近完成时的震动
+                        }
+                        
+                        if (progress >= 100) {
+                            clearInterval(longPressProgressTimer);
+                        }
+                    }, progressInterval);
+                    
+                    longPressTimer = setTimeout(async () => {
+                        if (!hasMoved) {
+                            isLongPressing = true;
+                            requestItem.classList.add('long-pressing');
+                            triggerHapticFeedback(); // 触发删除前的震动
+                            
+                            // 触发删除（异步执行，删除完成后清除状态）
+                            try {
+                                await this.handleApiRequestDelete(req);
+                            } catch (error) {
+                                console.error('删除请求接口失败:', error);
+                            } finally {
+                                // 清除长按状态
+                                clearLongPress();
+                            }
+                        }
+                    }, longPressThreshold);
+                };
+                
+                // 结束长按检测
+                const endLongPress = () => {
+                    clearLongPress();
+                };
+                
+                // 移动检测（取消长按）
+                const handleMove = (e) => {
+                    const currentX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+                    const deltaX = Math.abs(currentX - startX);
+                    const deltaY = Math.abs(currentY - startY);
+                    
+                    if (deltaX > moveThreshold || deltaY > moveThreshold) {
+                        hasMoved = true;
+                        clearLongPress();
                     }
                 };
                 
-                // 鼠标事件（桌面端）
-                requestItem.addEventListener('mousedown', handleLongPressStart);
-                requestItem.addEventListener('mouseup', handleLongPressEnd);
-                requestItem.addEventListener('mouseleave', () => {
+                // 触摸事件（移动设备）
+                requestItem.addEventListener('touchstart', (e) => {
+                    startLongPress(e);
+                }, { passive: true });
+                
+                requestItem.addEventListener('touchmove', (e) => {
+                    handleMove(e);
+                }, { passive: true });
+                
+                requestItem.addEventListener('touchend', () => {
+                    endLongPress();
+                }, { passive: true });
+                
+                requestItem.addEventListener('touchcancel', () => {
+                    endLongPress();
+                }, { passive: true });
+                
+                // 鼠标事件（桌面设备）
+                requestItem.addEventListener('mousedown', (e) => {
+                    startLongPress(e);
+                });
+                
+                requestItem.addEventListener('mousemove', (e) => {
                     if (longPressTimer) {
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                    }
-                    if (isLongPressing) {
-                        requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
-                        requestItem.style.borderLeft = `4px solid ${statusColor}`;
-                        requestItem.style.transform = 'scale(1)';
-                        isLongPressing = false;
+                        handleMove(e);
                     }
                 });
                 
-                // 触摸事件（移动端）
-                requestItem.addEventListener('touchstart', (e) => {
-                    handleLongPressStart(e);
+                requestItem.addEventListener('mouseup', () => {
+                    endLongPress();
                 });
-                requestItem.addEventListener('touchend', (e) => {
-                    handleLongPressEnd(e);
-                });
-                requestItem.addEventListener('touchcancel', () => {
-                    if (longPressTimer) {
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                    }
-                    if (isLongPressing) {
-                        requestItem.style.background = isExpanded ? '#f9fafb' : '#ffffff';
-                        requestItem.style.borderLeft = `4px solid ${statusColor}`;
-                        requestItem.style.transform = 'scale(1)';
-                        isLongPressing = false;
-                    }
+                
+                requestItem.addEventListener('mouseleave', () => {
+                    endLongPress();
                 });
             }
             

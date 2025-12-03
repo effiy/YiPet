@@ -3452,12 +3452,13 @@ if (typeof getCenterPosition === 'undefined') {
             loadMessages = false,
             highlightSessionId = null,
             keepOssFileListView = false, // 是否保持OSS文件列表视图（不切换到会话列表）
-            keepNewsListView = false // 是否保持新闻列表视图（不切换到会话列表）
+            keepNewsListView = false, // 是否保持新闻列表视图（不切换到会话列表）
+            keepApiRequestListView = false // 是否保持请求接口列表视图（不切换到会话列表）
         } = options;
         
         if (updateSidebar && this.sessionSidebar) {
-            // 如果指定保持OSS文件列表视图或新闻列表视图，则不更新侧边栏（避免切换到会话列表）
-            if (!keepOssFileListView && !keepNewsListView) {
+            // 如果指定保持OSS文件列表视图、新闻列表视图或请求接口列表视图，则不更新侧边栏（避免切换到会话列表）
+            if (!keepOssFileListView && !keepNewsListView && !keepApiRequestListView) {
                 await this.updateSessionSidebar();
             } else if (keepOssFileListView) {
                 // 如果保持OSS文件列表视图，只更新OSS文件列表的active状态
@@ -3465,6 +3466,9 @@ if (typeof getCenterPosition === 'undefined') {
             } else if (keepNewsListView) {
                 // 如果保持新闻列表视图，只更新新闻列表的active状态
                 await this.updateNewsSidebar(false);
+            } else if (keepApiRequestListView) {
+                // 如果保持请求接口列表视图，只更新请求接口列表的active状态
+                await this.updateApiRequestSidebar(false);
             }
         }
         
@@ -3589,7 +3593,8 @@ if (typeof getCenterPosition === 'undefined') {
             syncToBackend = true,
             skipBackendFetch = false, // 是否跳过从后端获取数据（用于新创建的空白会话）
             keepOssFileListView = false, // 是否保持OSS文件列表视图（不切换到会话列表）
-            keepNewsListView = false // 是否保持新闻列表视图（不切换到会话列表）
+            keepNewsListView = false, // 是否保持新闻列表视图（不切换到会话列表）
+            keepApiRequestListView = false // 是否保持请求接口列表视图（不切换到会话列表）
         } = options;
         
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
@@ -3714,7 +3719,8 @@ if (typeof getCenterPosition === 'undefined') {
                 updateTitle: true,
                 loadMessages: this.isChatOpen,
                 keepOssFileListView: keepOssFileListView, // 传递保持OSS文件列表视图的选项
-                keepNewsListView: keepNewsListView // 传递保持新闻列表视图的选项
+                keepNewsListView: keepNewsListView, // 传递保持新闻列表视图的选项
+                keepApiRequestListView: keepApiRequestListView // 传递保持请求接口列表视图的选项
             });
         }
     }
@@ -16572,7 +16578,7 @@ if (typeof getCenterPosition === 'undefined') {
             const saveSessionBtn = document.createElement('button');
             saveSessionBtn.className = 'api-request-save-session-btn';
             saveSessionBtn.innerHTML = '💾';
-            saveSessionBtn.title = '保存会话';
+            saveSessionBtn.title = '保存请求';
             saveSessionBtn.style.cssText = `
                 background: none !important;
                 border: none !important;
@@ -17109,13 +17115,17 @@ if (typeof getCenterPosition === 'undefined') {
             
             // 如果找到匹配的会话，直接激活
             if (matchedSessionId) {
+                // 检查当前是否显示请求接口列表
+                const isApiRequestListVisible = this.apiRequestListVisible;
+                
                 // 激活会话
                 await this.activateSession(matchedSessionId, {
                     saveCurrent: false,
                     updateConsistency: false,
                     updateUI: true,
                     syncToBackend: false,
-                    skipBackendFetch: false
+                    skipBackendFetch: false,
+                    keepApiRequestListView: isApiRequestListVisible // 如果当前显示请求接口列表，保持该视图
                 });
                 
                 console.log('请求接口会话已激活（使用匹配的会话）:', matchedSessionId);
@@ -17186,13 +17196,17 @@ if (typeof getCenterPosition === 'undefined') {
                 session.pageContent = pageContent;
             }
             
+            // 检查当前是否显示请求接口列表
+            const isApiRequestListVisible = this.apiRequestListVisible;
+            
             // 激活会话
             await this.activateSession(sessionId, {
                 saveCurrent: false,
                 updateConsistency: false,
                 updateUI: true,
                 syncToBackend: false,
-                skipBackendFetch: true
+                skipBackendFetch: true,
+                keepApiRequestListView: isApiRequestListVisible // 如果当前显示请求接口列表，保持该视图
             });
             
             // 确保会话信息已更新（在激活会话后）

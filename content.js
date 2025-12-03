@@ -5834,7 +5834,28 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 根据参数决定使用所有请求还是过滤后的请求
-        const requests = useFilteredRequests ? this._getFilteredApiRequests() : this.apiRequestManager.getAllRequests();
+        let requests = useFilteredRequests ? this._getFilteredApiRequests() : this.apiRequestManager.getAllRequests();
+        
+        // 确保每个请求都有域名标签（为旧请求自动添加）
+        // 这与 _getFilteredApiRequests() 中的逻辑保持一致，确保标签统计正确
+        requests.forEach(req => {
+            if (req.url) {
+                // 如果请求还没有tags字段，或者tags为空，则添加域名标签
+                if (!req.tags || !Array.isArray(req.tags) || req.tags.length === 0) {
+                    const domain = this.apiRequestManager._extractDomain(req.url);
+                    if (domain) {
+                        req.tags = [domain];
+                    }
+                } else {
+                    // 如果已有标签，检查是否包含域名标签，如果没有则添加
+                    const domain = this.apiRequestManager._extractDomain(req.url);
+                    if (domain && !req.tags.includes(domain)) {
+                        req.tags.push(domain);
+                    }
+                }
+            }
+        });
+        
         const tagSet = new Set();
         
         requests.forEach(request => {
@@ -14573,6 +14594,25 @@ if (typeof getCenterPosition === 'undefined') {
     updateApiRequestTagFilterUI() {
         if (!this.sessionSidebar) return;
         
+        // 确保 apiRequestManager 已初始化
+        if (!this.apiRequestManager) {
+            // 如果 apiRequestManager 未初始化，清空标签列表并显示提示
+            const tagFilterList = this.sessionSidebar.querySelector('.api-request-tag-filter-list');
+            if (tagFilterList) {
+                tagFilterList.innerHTML = '';
+                const emptyMsg = document.createElement('div');
+                emptyMsg.textContent = '正在加载...';
+                emptyMsg.style.cssText = `
+                    padding: 8px !important;
+                    text-align: center !important;
+                    color: #9ca3af !important;
+                    font-size: 11px !important;
+                `;
+                tagFilterList.appendChild(emptyMsg);
+            }
+            return;
+        }
+        
         // 更新反向过滤按钮状态
         const reverseFilterBtn = this.sessionSidebar.querySelector('.api-request-tag-filter-reverse');
         if (reverseFilterBtn) {
@@ -14676,13 +14716,49 @@ if (typeof getCenterPosition === 'undefined') {
             }
         }
         
-        // 计算每个标签对应的请求数量（基于过滤后的请求列表，确保数量准确对应）
-        // 使用与显示逻辑完全一致的过滤方法，确保标签数量与显示的请求数量一致
+        // 计算每个标签对应的请求数量
+        // 标签统计应该基于所有请求（不应用标签过滤），这样用户才能看到每个标签的真实数量
+        // 但可以应用搜索关键词过滤，因为这是全局搜索
         const tagCounts = {};
-        const filteredRequests = this._getFilteredApiRequests();
+        let requestsForStats = [];
         
-        // 计算每个标签在过滤后的请求列表中的数量
-        filteredRequests.forEach(req => {
+        if (this.apiRequestManager) {
+            // 获取所有请求
+            requestsForStats = this.apiRequestManager.getAllRequests();
+            
+            // 确保每个请求都有域名标签（为旧请求自动添加）
+            requestsForStats.forEach(req => {
+                if (req.url) {
+                    if (!req.tags || !Array.isArray(req.tags) || req.tags.length === 0) {
+                        const domain = this.apiRequestManager._extractDomain(req.url);
+                        if (domain) {
+                            req.tags = [domain];
+                        }
+                    } else {
+                        const domain = this.apiRequestManager._extractDomain(req.url);
+                        if (domain && !req.tags.includes(domain)) {
+                            req.tags.push(domain);
+                        }
+                    }
+                }
+            });
+            
+            // 只应用搜索关键词过滤（不应用标签过滤），这样统计数字反映所有请求
+            if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+                const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+                requestsForStats = requestsForStats.filter(req => {
+                    const url = (req.url || '').toLowerCase();
+                    const method = (req.method || '').toLowerCase();
+                    const status = String(req.status || '');
+                    return url.includes(filterKeyword) || 
+                           method.includes(filterKeyword) ||
+                           status.includes(filterKeyword);
+                });
+            }
+        }
+        
+        // 计算每个标签在请求列表中的数量
+        requestsForStats.forEach(req => {
             if (req.tags && Array.isArray(req.tags)) {
                 req.tags.forEach(t => {
                     if (t && t.trim()) {
@@ -16187,16 +16263,8 @@ if (typeof getCenterPosition === 'undefined') {
             searchInput.placeholder = '搜索接口请求...';
         }
         
-        // 创建或更新请求接口标签过滤器
-        this.createApiRequestTagFilter();
-        
-        // 显示请求接口标签过滤器（重新查询，因为 createApiRequestTagFilter 可能重新创建了容器）
-        apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
-        if (apiRequestTagFilterContainer) {
-            apiRequestTagFilterContainer.style.display = 'block';
-        }
-        
         // 如果启用了存储同步，先同步一次 storage 数据，确保获取到最新的请求
+        // 必须在创建标签过滤器之前同步数据，以确保标签统计正确显示
         if (this.apiRequestManager && this.apiRequestManager.enableStorageSync) {
             try {
                 await this.apiRequestManager._loadRequestsFromStorage();
@@ -16206,6 +16274,18 @@ if (typeof getCenterPosition === 'undefined') {
                 // 这里只是作为额外的安全措施
             }
         }
+        
+        // 创建或更新请求接口标签过滤器（在数据同步之后）
+        this.createApiRequestTagFilter();
+        
+        // 显示请求接口标签过滤器（重新查询，因为 createApiRequestTagFilter 可能重新创建了容器）
+        apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+        if (apiRequestTagFilterContainer) {
+            apiRequestTagFilterContainer.style.display = 'block';
+        }
+        
+        // 确保标签统计正确显示（在数据同步后再次更新UI）
+        this.updateApiRequestTagFilterUI();
         
         // 使用统一的过滤方法获取请求列表
         let requests = this._getFilteredApiRequests();

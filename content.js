@@ -5827,15 +5827,17 @@ if (typeof getCenterPosition === 'undefined') {
     }
 
     // 收集所有请求接口的标签
-    getAllApiRequestTags() {
+    // @param {boolean} useFilteredRequests - 是否使用过滤后的请求列表（默认false，获取所有标签）
+    getAllApiRequestTags(useFilteredRequests = false) {
         if (!this.apiRequestManager) {
             return [];
         }
         
-        const allRequests = this.apiRequestManager.getAllRequests();
+        // 根据参数决定使用所有请求还是过滤后的请求
+        const requests = useFilteredRequests ? this._getFilteredApiRequests() : this.apiRequestManager.getAllRequests();
         const tagSet = new Set();
         
-        allRequests.forEach(request => {
+        requests.forEach(request => {
             if (request.tags && Array.isArray(request.tags)) {
                 request.tags.forEach(tag => {
                     if (tag && tag.trim()) {
@@ -14601,8 +14603,9 @@ if (typeof getCenterPosition === 'undefined') {
         // 清空现有标签
         tagFilterList.innerHTML = '';
         
-        // 获取所有标签
-        const allTags = this.getAllApiRequestTags();
+        // 获取所有标签（使用所有请求，确保显示所有可能的标签）
+        // 标签列表应该显示所有可能的标签，但数量会基于过滤后的请求计算
+        const allTags = this.getAllApiRequestTags(false);
         
         // 根据搜索关键词过滤标签
         let filteredTags = allTags;
@@ -14673,21 +14676,22 @@ if (typeof getCenterPosition === 'undefined') {
             }
         }
         
-        // 计算每个标签对应的请求数量
+        // 计算每个标签对应的请求数量（基于过滤后的请求列表，确保数量准确对应）
+        // 使用与显示逻辑完全一致的过滤方法，确保标签数量与显示的请求数量一致
         const tagCounts = {};
-        if (this.apiRequestManager) {
-            const allRequests = this.apiRequestManager.getAllRequests();
-            allRequests.forEach(req => {
-                if (req.tags && Array.isArray(req.tags)) {
-                    req.tags.forEach(t => {
-                        if (t && t.trim()) {
-                            const normalizedTag = t.trim();
-                            tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
-                        }
-                    });
-                }
-            });
-        }
+        const filteredRequests = this._getFilteredApiRequests();
+        
+        // 计算每个标签在过滤后的请求列表中的数量
+        filteredRequests.forEach(req => {
+            if (req.tags && Array.isArray(req.tags)) {
+                req.tags.forEach(t => {
+                    if (t && t.trim()) {
+                        const normalizedTag = t.trim();
+                        tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
+                    }
+                });
+            }
+        });
         
         // 创建标签按钮
         visibleTags.forEach(tag => {
@@ -15977,6 +15981,124 @@ if (typeof getCenterPosition === 'undefined') {
     }
     
     // 更新接口请求列表侧边栏
+    /**
+     * 获取过滤后的接口请求列表（统一过滤逻辑）
+     * @returns {Array} 过滤后的请求列表
+     */
+    _getFilteredApiRequests() {
+        if (!this.apiRequestManager) {
+            return [];
+        }
+        
+        // 获取所有请求
+        let requests = this.apiRequestManager.getAllRequests();
+        
+        // 确保每个请求都有域名标签（为旧请求自动添加）
+        requests.forEach(req => {
+            if (req.url) {
+                // 如果请求还没有tags字段，或者tags为空，则添加域名标签
+                if (!req.tags || !Array.isArray(req.tags) || req.tags.length === 0) {
+                    const domain = this.apiRequestManager._extractDomain(req.url);
+                    if (domain) {
+                        req.tags = [domain];
+                    }
+                } else {
+                    // 如果已有标签，检查是否包含域名标签，如果没有则添加
+                    const domain = this.apiRequestManager._extractDomain(req.url);
+                    if (domain && !req.tags.includes(domain)) {
+                        req.tags.push(domain);
+                    }
+                }
+            }
+        });
+        
+        // 根据搜索关键词过滤请求（本地过滤）
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            requests = requests.filter(req => {
+                const url = (req.url || '').toLowerCase();
+                const method = (req.method || '').toLowerCase();
+                const status = String(req.status || '');
+                return url.includes(filterKeyword) || 
+                       method.includes(filterKeyword) ||
+                       status.includes(filterKeyword);
+            });
+        }
+        
+        // 应用无标签筛选
+        if (this.apiRequestTagFilterNoTags) {
+            requests = requests.filter(req => {
+                const requestTags = req.tags || [];
+                const hasTags = requestTags.length > 0 && requestTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的请求
+            });
+        }
+        
+        // 应用标签过滤
+        if (this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0) {
+            requests = requests.filter(req => {
+                const requestTags = (req.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const normalizedSelectedTags = this.selectedApiRequestFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
+                    requestTags.includes(selectedTag)
+                );
+                
+                if (this.apiRequestTagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的请求
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的请求
+                    return hasSelectedTags;
+                }
+            });
+        }
+        
+        // 过滤掉 CSS 和 JS 请求
+        requests = requests.filter(req => {
+            const url = req.url || '';
+            const contentType = req.responseHeaders?.['content-type'] || 
+                              req.responseHeaders?.['Content-Type'] || '';
+            
+            // 检查 URL 是否以 .css 或 .js 结尾
+            if (/\.(css|js)$/i.test(url)) {
+                return false;
+            }
+            
+            // 检查 Content-Type 是否是 CSS 或 JavaScript
+            if (contentType) {
+                if (/^text\/css/i.test(contentType) || 
+                    /^(text|application)\/(javascript|ecmascript|x-javascript)/i.test(contentType)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        // 去重：去掉URL重复的请求，保留时间戳最新的
+        const urlMap = new Map();
+        requests.forEach(req => {
+            const url = req.url || '';
+            if (!url) return;
+            
+            const existingReq = urlMap.get(url);
+            if (!existingReq) {
+                // 如果该URL还没有记录，直接添加
+                urlMap.set(url, req);
+            } else {
+                // 如果已存在，比较时间戳，保留最新的
+                const existingTimestamp = existingReq.timestamp || 0;
+                const currentTimestamp = req.timestamp || 0;
+                if (currentTimestamp > existingTimestamp) {
+                    urlMap.set(url, req);
+                }
+            }
+        });
+        
+        // 将Map转换回数组
+        return Array.from(urlMap.values());
+    }
+
     async updateApiRequestSidebar(forceRefresh = false) {
         if (!this.sessionSidebar) {
             console.log('侧边栏未创建，跳过更新');
@@ -16074,43 +16196,22 @@ if (typeof getCenterPosition === 'undefined') {
             apiRequestTagFilterContainer.style.display = 'block';
         }
         
-        // 获取接口请求记录
-        let requests = [];
-        if (this.apiRequestManager) {
-            // 如果启用了存储同步，先同步一次 storage 数据，确保获取到最新的请求
-            if (this.apiRequestManager.enableStorageSync) {
-                try {
-                    await this.apiRequestManager._loadRequestsFromStorage();
-                } catch (error) {
-                    // 静默处理所有错误，不输出日志
-                    // _loadRequestsFromStorage 内部已经处理了所有错误
-                    // 这里只是作为额外的安全措施
-                }
+        // 如果启用了存储同步，先同步一次 storage 数据，确保获取到最新的请求
+        if (this.apiRequestManager && this.apiRequestManager.enableStorageSync) {
+            try {
+                await this.apiRequestManager._loadRequestsFromStorage();
+            } catch (error) {
+                // 静默处理所有错误，不输出日志
+                // _loadRequestsFromStorage 内部已经处理了所有错误
+                // 这里只是作为额外的安全措施
             }
-            
-            // 直接获取所有请求（不按页面过滤）
-            // 这样可以确保用户能看到所有请求记录（包括其他标签页的请求）
-            requests = this.apiRequestManager.getAllRequests();
-            
-            // 确保每个请求都有域名标签（为旧请求自动添加）
-            requests.forEach(req => {
-                if (req.url) {
-                    // 如果请求还没有tags字段，或者tags为空，则添加域名标签
-                    if (!req.tags || !Array.isArray(req.tags) || req.tags.length === 0) {
-                        const domain = this.apiRequestManager._extractDomain(req.url);
-                        if (domain) {
-                            req.tags = [domain];
-                        }
-                    } else {
-                        // 如果已有标签，检查是否包含域名标签，如果没有则添加
-                        const domain = this.apiRequestManager._extractDomain(req.url);
-                        if (domain && !req.tags.includes(domain)) {
-                            req.tags.push(domain);
-                        }
-                    }
-                }
-            });
-            
+        }
+        
+        // 使用统一的过滤方法获取请求列表
+        let requests = this._getFilteredApiRequests();
+        
+        // 输出调试信息
+        if (this.apiRequestManager) {
             console.log('接口请求记录数量:', requests.length);
             console.log('当前页面URL:', window.location.href);
             console.log('总请求数:', this.apiRequestManager.requests.length);
@@ -16132,91 +16233,6 @@ if (typeof getCenterPosition === 'undefined') {
         } else {
             console.warn('接口请求管理器未初始化');
         }
-        
-        // 根据搜索关键词过滤请求（本地过滤）
-        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
-            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
-            requests = requests.filter(req => {
-                const url = (req.url || '').toLowerCase();
-                const method = (req.method || '').toLowerCase();
-                const status = String(req.status || '');
-                return url.includes(filterKeyword) || 
-                       method.includes(filterKeyword) ||
-                       status.includes(filterKeyword);
-            });
-        }
-        
-        // 应用无标签筛选
-        if (this.apiRequestTagFilterNoTags) {
-            requests = requests.filter(req => {
-                const requestTags = req.tags || [];
-                const hasTags = requestTags.length > 0 && requestTags.some(tag => tag && tag.trim().length > 0);
-                return !hasTags; // 只显示没有标签的请求
-            });
-        }
-        
-        // 应用标签过滤
-        if (this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0) {
-            requests = requests.filter(req => {
-                const requestTags = (req.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
-                const normalizedSelectedTags = this.selectedApiRequestFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
-                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
-                    requestTags.includes(selectedTag)
-                );
-                
-                if (this.apiRequestTagFilterReverse) {
-                    // 反向过滤：排除包含选中标签的请求
-                    return !hasSelectedTags;
-                } else {
-                    // 正向过滤：只显示包含选中标签的请求
-                    return hasSelectedTags;
-                }
-            });
-        }
-        
-        // 过滤掉 CSS 和 JS 请求
-        requests = requests.filter(req => {
-            const url = req.url || '';
-            const contentType = req.responseHeaders?.['content-type'] || 
-                              req.responseHeaders?.['Content-Type'] || '';
-            
-            // 检查 URL 是否以 .css 或 .js 结尾
-            if (/\.(css|js)$/i.test(url)) {
-                return false;
-            }
-            
-            // 检查 Content-Type 是否是 CSS 或 JavaScript
-            if (contentType) {
-                if (/^text\/css/i.test(contentType) || 
-                    /^(text|application)\/(javascript|ecmascript|x-javascript)/i.test(contentType)) {
-                    return false;
-                }
-            }
-            
-            return true;
-        });
-        
-        // 去重：去掉URL重复的请求，保留时间戳最新的
-        const urlMap = new Map();
-        requests.forEach(req => {
-            const url = req.url || '';
-            if (!url) return;
-            
-            const existingReq = urlMap.get(url);
-            if (!existingReq) {
-                // 如果该URL还没有记录，直接添加
-                urlMap.set(url, req);
-            } else {
-                // 如果已存在，比较时间戳，保留最新的
-                const existingTimestamp = existingReq.timestamp || 0;
-                const currentTimestamp = req.timestamp || 0;
-                if (currentTimestamp > existingTimestamp) {
-                    urlMap.set(url, req);
-                }
-            }
-        });
-        // 将Map转换回数组
-        requests = Array.from(urlMap.values());
         
         // 清空列表
         apiRequestList.innerHTML = '';

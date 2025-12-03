@@ -16197,8 +16197,14 @@ if (typeof getCenterPosition === 'undefined') {
             });
         }
         
-        // 过滤掉 CSS 和 JS 请求
+        // 过滤掉 CSS 和 JS 请求（但保留API返回的数据，即使它们是CSS/JS请求）
         requests = requests.filter(req => {
+            // 如果是API返回的数据（有_id或key），保留它（不过滤）
+            if (req._id || req.key) {
+                return true;
+            }
+            
+            // 对于本地拦截的数据，过滤掉CSS和JS请求
             const url = req.url || '';
             const contentType = req.responseHeaders?.['content-type'] || 
                               req.responseHeaders?.['Content-Type'] || '';
@@ -16238,6 +16244,7 @@ if (typeof getCenterPosition === 'undefined') {
         apiRequests.forEach(req => {
             const uniqueKey = req._id || req.key;
             if (uniqueKey) {
+                // 有_id或key，使用_id或key作为唯一标识
                 const existingReq = apiUniqueMap.get(uniqueKey);
                 if (!existingReq) {
                     apiUniqueMap.set(uniqueKey, req);
@@ -16248,6 +16255,30 @@ if (typeof getCenterPosition === 'undefined') {
                     if (currentTimestamp > existingTimestamp) {
                         apiUniqueMap.set(uniqueKey, req);
                     }
+                }
+            } else {
+                // 没有_id或key，使用URL+method作为唯一标识（但保留这些数据）
+                const url = req.url || '';
+                const method = req.method || 'GET';
+                const urlMethodKey = `api_${method}:${url}`;
+                
+                if (url) {
+                    // 只有当URL存在时才进行去重
+                    const existingReq = apiUniqueMap.get(urlMethodKey);
+                    if (!existingReq) {
+                        apiUniqueMap.set(urlMethodKey, req);
+                    } else {
+                        // 如果已存在，比较时间戳，保留最新的
+                        const existingTimestamp = existingReq.timestamp || 0;
+                        const currentTimestamp = req.timestamp || 0;
+                        if (currentTimestamp > existingTimestamp) {
+                            apiUniqueMap.set(urlMethodKey, req);
+                        }
+                    }
+                } else {
+                    // URL也为空，但这是API数据，仍然保留（使用索引作为key）
+                    const fallbackKey = `api_no_id_${apiUniqueMap.size}`;
+                    apiUniqueMap.set(fallbackKey, req);
                 }
             }
         });
@@ -16385,6 +16416,7 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 切换请求接口视图时，调用API获取请求接口列表
         // 只在强制刷新或从其他视图切换过来时才调用API，搜索输入时不调用
+        // 注意：清空搜索框时，wasApiRequestListVisible为true，不会重新调用API，这是正确的
         const shouldCallApi = forceRefresh || !wasApiRequestListVisible;
         if (shouldCallApi && this.apiRequestApi && this.apiRequestApi.isEnabled()) {
             try {
@@ -16401,22 +16433,67 @@ if (typeof getCenterPosition === 'undefined') {
                     
                     // 将API数据转换为请求接口格式
                     apiRequests.forEach(apiRequest => {
-                        // 确保数据格式正确
+                        // 确保数据格式正确，字段名与本地拦截的数据格式保持一致
+                        // 统一处理所有可能的字段名变体
                         const requestData = {
                             ...apiRequest, // 先保留所有原始字段
                             url: apiRequest.url || apiRequest.endpoint || '',
                             method: apiRequest.method || 'GET',
                             status: apiRequest.status || 200,
-                            timestamp: apiRequest.timestamp || apiRequest.createdAt || Date.now(),
+                            statusText: apiRequest.statusText || '',
+                            timestamp: apiRequest.timestamp || apiRequest.createdAt || apiRequest.updatedAt || Date.now(),
+                            duration: apiRequest.duration || 0,
                             pageUrl: apiRequest.pageUrl || window.location.href,
                             tags: apiRequest.tags || [],
+                            // 统一字段名：使用与本地拦截数据相同的字段名
+                            // 请求头：优先使用 headers，其次 requestHeaders
+                            headers: apiRequest.headers || apiRequest.requestHeaders || {},
+                            // 请求体：统一使用 body 字段
+                            body: apiRequest.body || apiRequest.requestBody || null,
+                            // 响应头：统一使用 responseHeaders
                             responseHeaders: apiRequest.responseHeaders || {},
-                            requestHeaders: apiRequest.requestHeaders || {},
-                            requestBody: apiRequest.requestBody || apiRequest.body || '',
-                            responseBody: apiRequest.responseBody || apiRequest.response || '',
+                            // 响应体：统一使用 responseText（用于显示），responseBody（用于解析）
+                            responseBody: apiRequest.responseBody || (apiRequest.responseText ? (typeof apiRequest.responseText === 'string' ? null : apiRequest.responseText) : null),
+                            responseText: apiRequest.responseText || 
+                                         (apiRequest.responseBody ? (typeof apiRequest.responseBody === 'string' ? apiRequest.responseBody : JSON.stringify(apiRequest.responseBody, null, 2)) : '') ||
+                                         apiRequest.response || '',
+                            curl: apiRequest.curl || '',
+                            type: apiRequest.type || 'api',
+                            source: 'api', // 标记为API数据
                             _id: apiRequest._id || apiRequest.id,
                             key: apiRequest.key
                         };
+                        
+                        // 确保 responseText 是字符串格式（用于显示）
+                        if (requestData.responseText && typeof requestData.responseText !== 'string') {
+                            try {
+                                requestData.responseText = JSON.stringify(requestData.responseText, null, 2);
+                            } catch (e) {
+                                requestData.responseText = String(requestData.responseText);
+                            }
+                        }
+                        
+                        // 确保 responseBody 是对象格式（如果存在且是字符串，尝试解析）
+                        if (requestData.responseBody && typeof requestData.responseBody === 'string') {
+                            try {
+                                requestData.responseBody = JSON.parse(requestData.responseBody);
+                            } catch (e) {
+                                // 如果解析失败，保持字符串格式
+                            }
+                        }
+                        
+                        // 确保 body 格式正确（如果是对象，保留对象格式）
+                        if (requestData.body && typeof requestData.body === 'string') {
+                            try {
+                                // 尝试解析为对象，如果失败则保持字符串
+                                const parsed = JSON.parse(requestData.body);
+                                if (typeof parsed === 'object') {
+                                    requestData.body = parsed;
+                                }
+                            } catch (e) {
+                                // 保持字符串格式
+                            }
+                        }
                         
                         // 调试日志：记录API数据转换
                         if (!requestData.url) {
@@ -16438,18 +16515,21 @@ if (typeof getCenterPosition === 'undefined') {
                             if (requestData.key && req.key) {
                                 return req.key === requestData.key;
                             }
-                            // 否则使用 URL 和方法匹配
-                            return req.url === requestData.url && req.method === requestData.method;
+                            // 对于API数据，只使用_id或key匹配，不使用URL匹配（避免误匹配）
+                            // 如果没有_id和key，说明这是新的API数据，直接添加
+                            return false;
                         });
                         
                         if (existingIndex >= 0) {
                             // 如果已存在，标记需要移除，并使用API数据（保留时间戳较大的）
                             const existing = this.apiRequestManager.requests[existingIndex];
                             if (requestData.timestamp > (existing.timestamp || 0)) {
+                                // API数据更新，使用新数据
                                 indicesToRemove.add(existingIndex);
                                 allApiRequests.push(requestData);
                             } else {
-                                // 如果现有数据更新，也标记移除并添加到前面
+                                // 现有数据更新，保留现有数据（不添加到allApiRequests，避免重复）
+                                // 但需要标记移除，以便重新排序
                                 indicesToRemove.add(existingIndex);
                                 allApiRequests.push(existing);
                             }
@@ -16476,6 +16556,11 @@ if (typeof getCenterPosition === 'undefined') {
                             key: req.key,
                             hasUrl: !!req.url
                         })));
+                        
+                        // 重建索引，确保数据一致性
+                        if (this.apiRequestManager._rebuildIndex) {
+                            this.apiRequestManager._rebuildIndex();
+                        }
                     } else {
                         console.warn('API数据转换后为空，请检查数据格式');
                     }
@@ -16978,20 +17063,31 @@ if (typeof getCenterPosition === 'undefined') {
             };
             
             // 添加详情内容
-            if (req.headers && Object.keys(req.headers).length > 0) {
-                detailPanel.appendChild(createDetailSection('请求头', req.headers, true));
+            // 统一处理字段名，确保API数据和本地数据都能正确显示
+            const headers = req.headers || req.requestHeaders || {};
+            const body = req.body || req.requestBody || null;
+            const responseHeaders = req.responseHeaders || {};
+            const responseText = req.responseText || 
+                               (req.responseBody ? (typeof req.responseBody === 'string' ? req.responseBody : JSON.stringify(req.responseBody, null, 2)) : '') ||
+                               req.response || '';
+            const curl = req.curl || '';
+            
+            if (headers && Object.keys(headers).length > 0) {
+                detailPanel.appendChild(createDetailSection('请求头', headers, true));
             }
-            if (req.body) {
-                detailPanel.appendChild(createDetailSection('请求体', req.body, true));
+            if (body) {
+                // 如果body是对象，转换为JSON字符串显示
+                const bodyContent = typeof body === 'object' ? JSON.stringify(body, null, 2) : body;
+                detailPanel.appendChild(createDetailSection('请求体', bodyContent, true));
             }
-            if (req.responseHeaders && Object.keys(req.responseHeaders).length > 0) {
-                detailPanel.appendChild(createDetailSection('响应头', req.responseHeaders, true));
+            if (responseHeaders && Object.keys(responseHeaders).length > 0) {
+                detailPanel.appendChild(createDetailSection('响应头', responseHeaders, true));
             }
-            if (req.responseText) {
-                detailPanel.appendChild(createDetailSection('响应体', req.responseText, true));
+            if (responseText) {
+                detailPanel.appendChild(createDetailSection('响应体', responseText, true));
             }
-            if (req.curl) {
-                detailPanel.appendChild(createDetailSection('cURL 命令', req.curl, true, true));
+            if (curl) {
+                detailPanel.appendChild(createDetailSection('cURL 命令', curl, true, true));
             }
             
             requestItem.appendChild(detailPanel);

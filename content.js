@@ -578,6 +578,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.batchMode = false; // 是否处于批量选择模式
         this.selectedSessionIds = new Set(); // 选中的会话ID集合
         this.selectedFileNames = new Set(); // 选中的文件名称集合
+        this.selectedApiRequestIds = new Set(); // 选中的请求接口ID集合（使用_id或key作为唯一标识）
         this.currentFile = null; // 当前选中的文件
         
         // 会话API管理器
@@ -16677,6 +16678,9 @@ if (typeof getCenterPosition === 'undefined') {
             requestItem.className = 'api-request-item';
             requestItem.setAttribute('data-request-index', index);
             
+            // 获取请求接口的唯一标识（_id 或 key）
+            const requestId = req._id || req.key;
+            
             // 添加选中状态类：检查当前会话是否是该接口请求的会话
             let isActive = false;
             if (this.currentSessionId) {
@@ -16691,16 +16695,26 @@ if (typeof getCenterPosition === 'undefined') {
                 }
             }
             
+            // 批量模式下添加选中状态类
+            if (this.batchMode && requestId && this.selectedApiRequestIds.has(requestId)) {
+                requestItem.classList.add('selected');
+            }
+            
             // 根据状态设置颜色
             const isSuccess = req.status >= 200 && req.status < 300;
             const isError = req.status >= 400 || req.status === 0;
             const statusColor = isSuccess ? '#4CAF50' : isError ? '#f44336' : '#FF9800';
             
+            // 批量模式下选中状态的背景色
+            const isSelected = this.batchMode && requestId && this.selectedApiRequestIds.has(requestId);
+            const backgroundColor = isSelected ? '#eff6ff' : (isActive ? '#eff6ff' : '#ffffff');
+            const borderColor = isSelected ? '#3b82f6' : (isActive ? '#3b82f6' : '#e5e7eb');
+            
             requestItem.style.cssText = `
                 padding: 16px 18px !important;
                 margin-bottom: 12px !important;
-                background: ${isActive ? '#eff6ff' : '#ffffff'} !important;
-                border: 1px solid ${isActive ? '#3b82f6' : '#e5e7eb'} !important;
+                background: ${backgroundColor} !important;
+                border: 1px solid ${borderColor} !important;
                 border-left: 4px solid ${isActive ? '#3b82f6' : statusColor} !important;
                 border-radius: 12px !important;
                 cursor: pointer !important;
@@ -16709,11 +16723,73 @@ if (typeof getCenterPosition === 'undefined') {
                 position: relative !important;
             `;
             
+            // 创建复选框（仅在批量模式下显示，且仅对API数据有效）
+            let checkbox = null;
+            const isApiData = !!(req._id || req.key);
+            if (this.batchMode && isApiData && requestId) {
+                checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'api-request-checkbox';
+                checkbox.dataset.requestId = requestId;
+                checkbox.checked = this.selectedApiRequestIds.has(requestId);
+                checkbox.style.cssText = `
+                    width: 16px !important;
+                    height: 16px !important;
+                    cursor: pointer !important;
+                    margin-right: 12px !important;
+                    flex-shrink: 0 !important;
+                    display: block !important;
+                `;
+                
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    const reqId = e.target.dataset.requestId;
+                    if (e.target.checked) {
+                        this.selectedApiRequestIds.add(reqId);
+                        requestItem.classList.add('selected');
+                        requestItem.style.background = '#eff6ff';
+                        requestItem.style.borderColor = '#3b82f6';
+                    } else {
+                        this.selectedApiRequestIds.delete(reqId);
+                        requestItem.classList.remove('selected');
+                        requestItem.style.background = isActive ? '#eff6ff' : '#ffffff';
+                        requestItem.style.borderColor = isActive ? '#3b82f6' : '#e5e7eb';
+                    }
+                    this.updateBatchToolbar();
+                });
+                
+                // 阻止复选框点击事件冒泡
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+            
             // 请求信息容器
             const requestInfo = document.createElement('div');
             requestInfo.className = 'api-request-info';
             requestInfo.style.cssText = `
                 margin-bottom: 0 !important;
+            `;
+            
+            // 创建内部容器（包含复选框和内容）
+            const itemInner = document.createElement('div');
+            itemInner.style.cssText = `
+                display: flex !important;
+                align-items: flex-start !important;
+                width: 100% !important;
+                gap: 12px !important;
+            `;
+            
+            // 添加复选框（如果存在）
+            if (checkbox) {
+                itemInner.appendChild(checkbox);
+            }
+            
+            // 创建内容包装器
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
             `;
             
             // 创建标题行容器（方法和URL在同一行）
@@ -16824,10 +16900,7 @@ if (typeof getCenterPosition === 'undefined') {
             }
             leftContainer.appendChild(urlContainer);
             titleRow.appendChild(leftContainer);
-            requestInfo.appendChild(titleRow);
-            
-            // 检查是否是API返回的数据（有_id或key字段）
-            const isApiData = !!(req._id || req.key);
+            contentWrapper.appendChild(titleRow);
             
             // 响应状态和响应时间行（同一行，左右对齐）
             const statusRow = document.createElement('div');
@@ -17120,9 +17193,9 @@ if (typeof getCenterPosition === 'undefined') {
             // 将statusInfoContainer添加到statusRow
             statusRow.appendChild(statusInfoContainer);
             
-            // 将statusRow和footerRow添加到requestInfo
-            requestInfo.appendChild(statusRow);
-            requestInfo.appendChild(footerRow);
+            // 将statusRow和footerRow添加到contentWrapper
+            contentWrapper.appendChild(statusRow);
+            contentWrapper.appendChild(footerRow);
             
             // 标签区域
             if (req.tags && Array.isArray(req.tags) && req.tags.length > 0) {
@@ -17169,8 +17242,14 @@ if (typeof getCenterPosition === 'undefined') {
                     }
                 });
                 
-                requestInfo.appendChild(tagsContainer);
+                contentWrapper.appendChild(tagsContainer);
             }
+            
+            // 将contentWrapper添加到itemInner
+            itemInner.appendChild(contentWrapper);
+            
+            // 将itemInner添加到requestInfo
+            requestInfo.appendChild(itemInner);
             
             requestItem.appendChild(requestInfo);
             
@@ -26067,6 +26146,7 @@ ${originalText}
         this.batchMode = true;
         this.selectedSessionIds.clear();
         this.selectedFileNames.clear();
+        this.selectedApiRequestIds.clear();
         
         // 显示批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');
@@ -26089,13 +26169,16 @@ ${originalText}
             batchModeBtn.style.borderColor = '#059669 !important';
         }
         
-        // 更新会话列表或文件列表，显示复选框
+        // 更新会话列表、文件列表或请求接口列表，显示复选框
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
             this.updateOssFileSidebar();
+        } else if (apiRequestList && apiRequestList.style.display !== 'none') {
+            this.updateApiRequestSidebar();
         }
         
         // 更新批量工具栏状态
@@ -26112,6 +26195,7 @@ ${originalText}
         this.batchMode = false;
         this.selectedSessionIds.clear();
         this.selectedFileNames.clear();
+        this.selectedApiRequestIds.clear();
         
         // 隐藏批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');
@@ -26134,13 +26218,16 @@ ${originalText}
             batchModeBtn.style.transform = 'translateY(0)';
             batchModeBtn.style.boxShadow = 'none !important';
         }
-        // 更新会话列表或文件列表，隐藏复选框
+        // 更新会话列表、文件列表或请求接口列表，隐藏复选框
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
             this.updateOssFileSidebar();
+        } else if (apiRequestList && apiRequestList.style.display !== 'none') {
+            this.updateApiRequestSidebar();
         }
         
         // 显示通知
@@ -26153,12 +26240,16 @@ ${originalText}
         const batchDeleteBtn = document.getElementById('batch-delete-btn');
         const selectAllBtn = document.getElementById('select-all-btn');
         
-        // 判断当前显示的是会话列表还是文件列表
+        // 判断当前显示的是会话列表、文件列表还是请求接口列表
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
         const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
+        const isApiRequestListMode = apiRequestList && apiRequestList.style.display !== 'none';
         
-        const count = isFileListMode ? this.selectedFileNames.size : this.selectedSessionIds.size;
+        const count = isFileListMode ? this.selectedFileNames.size : 
+                     isApiRequestListMode ? this.selectedApiRequestIds.size : 
+                     this.selectedSessionIds.size;
         
         if (selectedCount) {
             selectedCount.textContent = `已选择 ${count} 个`;
@@ -26193,6 +26284,13 @@ ${originalText}
                 const filteredFiles = this._getFilteredFiles();
                 allSelected = filteredFiles.length > 0 && 
                              filteredFiles.every(file => this.selectedFileNames.has(file.name));
+            } else if (isApiRequestListMode) {
+                const filteredApiRequests = this._getFilteredApiRequests();
+                allSelected = filteredApiRequests.length > 0 && 
+                            filteredApiRequests.every(req => {
+                                const requestId = req._id || req.key;
+                                return requestId && this.selectedApiRequestIds.has(requestId);
+                            });
             } else {
                 const filteredSessions = this._getFilteredSessions();
                 allSelected = filteredSessions.length > 0 && 
@@ -26216,6 +26314,57 @@ ${originalText}
         } else {
             this.hideOssFileBatchButtons();
         }
+    }
+    
+    // 获取过滤后的请求接口列表（用于批量选择）
+    _getFilteredApiRequests() {
+        if (!this.apiRequestManager) {
+            return [];
+        }
+        
+        let requests = this.apiRequestManager.getAllRequests();
+        
+        // 应用搜索过滤
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const searchKeyword = this.sessionTitleFilter.toLowerCase().trim();
+            requests = requests.filter(req => {
+                const url = (req.url || '').toLowerCase();
+                const method = (req.method || '').toLowerCase();
+                const title = (req.title || '').toLowerCase();
+                const description = (req.description || '').toLowerCase();
+                return url.includes(searchKeyword) || 
+                       method.includes(searchKeyword) ||
+                       title.includes(searchKeyword) ||
+                       description.includes(searchKeyword);
+            });
+        }
+        
+        // 应用标签过滤
+        if (this.selectedApiRequestFilterTags && this.selectedApiRequestFilterTags.length > 0) {
+            const selectedTags = this.selectedApiRequestFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+            if (selectedTags.length > 0) {
+                requests = requests.filter(req => {
+                    const reqTags = req.tags || [];
+                    if (this.apiRequestTagFilterReverse) {
+                        // 反向过滤：不包含任何选中标签
+                        return !selectedTags.some(tag => reqTags.includes(tag));
+                    } else {
+                        // 正向过滤：包含所有选中标签
+                        return selectedTags.every(tag => reqTags.includes(tag));
+                    }
+                });
+            }
+        }
+        
+        // 应用无标签过滤
+        if (this.apiRequestTagFilterNoTags) {
+            requests = requests.filter(req => {
+                const reqTags = req.tags || [];
+                return reqTags.length === 0;
+            });
+        }
+        
+        return requests;
     }
     
     // 更新OSS文件视图下的批量操作按钮（移除所有OSS专用按钮）
@@ -26534,7 +26683,9 @@ ${originalText}
     toggleSelectAll() {
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
         const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
+        const isApiRequestListMode = apiRequestList && apiRequestList.style.display !== 'none';
         
         if (isFileListMode) {
             // 文件列表模式
@@ -26567,6 +26718,55 @@ ${originalText}
                         fileItem.classList.add('selected');
                     } else {
                         fileItem.classList.remove('selected');
+                    }
+                }
+            });
+        } else if (isApiRequestListMode) {
+            // 请求接口列表模式
+            const filteredApiRequests = this._getFilteredApiRequests();
+            const allSelected = filteredApiRequests.length > 0 && 
+                              filteredApiRequests.every(req => {
+                                  const requestId = req._id || req.key;
+                                  return requestId && this.selectedApiRequestIds.has(requestId);
+                              });
+            
+            if (allSelected) {
+                // 取消全选：只取消当前显示的请求接口
+                filteredApiRequests.forEach(req => {
+                    const requestId = req._id || req.key;
+                    if (requestId) {
+                        this.selectedApiRequestIds.delete(requestId);
+                    }
+                });
+            } else {
+                // 全选：选中所有当前显示的请求接口（仅API数据）
+                filteredApiRequests.forEach(req => {
+                    const requestId = req._id || req.key;
+                    if (requestId) {
+                        this.selectedApiRequestIds.add(requestId);
+                    }
+                });
+            }
+            
+            // 更新所有复选框状态
+            const checkboxes = document.querySelectorAll('.api-request-checkbox');
+            checkboxes.forEach(checkbox => {
+                const requestId = checkbox.dataset.requestId;
+                checkbox.checked = this.selectedApiRequestIds.has(requestId);
+                
+                // 更新请求接口项的选中状态类
+                const requestItem = checkbox.closest('.api-request-item');
+                if (requestItem) {
+                    if (this.selectedApiRequestIds.has(requestId)) {
+                        requestItem.classList.add('selected');
+                        requestItem.style.background = '#eff6ff';
+                        requestItem.style.borderColor = '#3b82f6';
+                    } else {
+                        requestItem.classList.remove('selected');
+                        // 检查是否是激活状态
+                        const isActive = requestItem.classList.contains('active');
+                        requestItem.style.background = isActive ? '#eff6ff' : '#ffffff';
+                        requestItem.style.borderColor = isActive ? '#3b82f6' : '#e5e7eb';
                     }
                 }
             });
@@ -26610,13 +26810,109 @@ ${originalText}
         this.updateBatchToolbar();
     }
     
-    // 批量删除（支持会话和文件）
+    // 批量删除（支持会话、文件和请求接口）
     async batchDeleteSessions() {
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
+        const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
         const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
+        const isApiRequestListMode = apiRequestList && apiRequestList.style.display !== 'none';
         
-        if (isFileListMode) {
+        if (isApiRequestListMode) {
+            // 批量删除请求接口
+            if (this.selectedApiRequestIds.size === 0) {
+                this.showNotification('请先选择要删除的请求接口', 'error');
+                return;
+            }
+            
+            const count = this.selectedApiRequestIds.size;
+            const confirmMessage = `确定要删除选中的 ${count} 个请求接口吗？此操作不可撤销。`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            const requestIds = Array.from(this.selectedApiRequestIds);
+            
+            try {
+                // 检查apiRequestApi是否可用
+                if (!this.apiRequestApi || !this.apiRequestApi.isEnabled()) {
+                    this.showNotification('API管理器未启用，无法删除', 'error');
+                    return;
+                }
+                
+                let successCount = 0;
+                let failCount = 0;
+                
+                // 获取所有请求接口数据，用于删除
+                const allRequests = this.apiRequestManager ? this.apiRequestManager.getAllRequests() : [];
+                
+                for (const requestId of requestIds) {
+                    try {
+                        // 查找对应的请求接口数据
+                        const apiRequest = allRequests.find(req => {
+                            const reqId = req._id || req.key || req.id;
+                            return reqId === requestId;
+                        });
+                        
+                        if (!apiRequest) {
+                            console.warn(`未找到请求接口数据: ${requestId}`);
+                            failCount++;
+                            continue;
+                        }
+                        
+                        // 准备删除数据（需要key或url字段）
+                        const deleteData = {
+                            key: apiRequest.key || apiRequest._id || apiRequest.id,
+                            url: apiRequest.url || ''
+                        };
+                        
+                        // 调用API删除
+                        await this.apiRequestApi.deleteApiRequest(deleteData);
+                        
+                        // 从本地请求列表中移除
+                        if (this.apiRequestManager) {
+                            const index = this.apiRequestManager.requests.findIndex(req => {
+                                const reqId = req._id || req.key || req.id;
+                                return reqId === requestId;
+                            });
+                            
+                            if (index >= 0) {
+                                this.apiRequestManager.requests.splice(index, 1);
+                            }
+                        }
+                        
+                        successCount++;
+                    } catch (error) {
+                        console.error(`删除请求接口 ${requestId} 失败:`, error);
+                        failCount++;
+                    }
+                }
+                
+                // 重建索引
+                if (this.apiRequestManager && this.apiRequestManager._rebuildIndex) {
+                    this.apiRequestManager._rebuildIndex();
+                }
+                
+                // 清空选中状态
+                this.selectedApiRequestIds.clear();
+                
+                // 退出批量模式
+                this.exitBatchMode();
+                
+                // 刷新请求接口列表
+                await this.updateApiRequestSidebar(true);
+                
+                // 显示成功通知
+                if (failCount === 0) {
+                    this.showNotification(`已成功删除 ${successCount} 个请求接口`, 'success');
+                } else {
+                    this.showNotification(`已删除 ${successCount} 个请求接口，${failCount} 个失败`, 'error');
+                }
+            } catch (error) {
+                console.error('批量删除请求接口失败:', error);
+                this.showNotification('批量删除请求接口失败: ' + error.message, 'error');
+            }
+        } else if (isFileListMode) {
             // 批量删除文件
             if (this.selectedFileNames.size === 0) {
                 this.showNotification('请先选择要删除的文件', 'error');

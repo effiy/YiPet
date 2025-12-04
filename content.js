@@ -16813,6 +16813,40 @@ if (typeof getCenterPosition === 'undefined') {
                 min-width: 0 !important;
             `;
             
+            // 折叠/展开按钮
+            const expandBtn = document.createElement('button');
+            expandBtn.className = 'api-request-expand-btn';
+            expandBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            `;
+            expandBtn.title = '展开详情';
+            expandBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 4px !important;
+                opacity: 0.6 !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: inherit !important;
+                border-radius: 4px !important;
+                margin-top: 2px !important;
+            `;
+            expandBtn.addEventListener('mouseenter', () => {
+                expandBtn.style.opacity = '1';
+                expandBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+            });
+            expandBtn.addEventListener('mouseleave', () => {
+                expandBtn.style.opacity = '0.6';
+                expandBtn.style.background = 'none !important';
+            });
+            
             // 方法标签
             const methodTag = document.createElement('span');
             methodTag.textContent = req.method || 'GET';
@@ -16900,6 +16934,7 @@ if (typeof getCenterPosition === 'undefined') {
             }
             leftContainer.appendChild(urlContainer);
             titleRow.appendChild(leftContainer);
+            titleRow.appendChild(expandBtn);
             contentWrapper.appendChild(titleRow);
             
             // 响应状态和响应时间行（同一行，左右对齐）
@@ -17265,6 +17300,33 @@ if (typeof getCenterPosition === 'undefined') {
                 font-size: 11px !important;
             `;
             
+            // 折叠/展开按钮点击事件
+            expandBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                isExpanded = !isExpanded;
+                if (isExpanded) {
+                    detailPanel.style.display = 'block';
+                    expandBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                        </svg>
+                    `;
+                    expandBtn.title = '收起详情';
+                    requestItem.style.background = '#f9fafb';
+                    requestItem.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)';
+                } else {
+                    detailPanel.style.display = 'none';
+                    expandBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    `;
+                    expandBtn.title = '展开详情';
+                    requestItem.style.background = backgroundColor;
+                    requestItem.style.boxShadow = isActive ? '0 2px 4px rgba(59, 130, 246, 0.2)' : '0 2px 4px rgba(0, 0, 0, 0.06)';
+                }
+            });
+            
             // 创建详情内容
             const createDetailSection = (title, content, isCode = false, showCopyButton = false) => {
                 const section = document.createElement('div');
@@ -17406,30 +17468,44 @@ if (typeof getCenterPosition === 'undefined') {
             
             // 添加详情内容
             // 统一处理字段名，确保API数据和本地数据都能正确显示
+            const requestUrl = req.url || '';
+            const requestMethod = req.method || 'GET';
             const headers = req.headers || req.requestHeaders || {};
             const body = req.body || req.requestBody || null;
             const responseHeaders = req.responseHeaders || {};
             const responseText = req.responseText || 
                                (req.responseBody ? (typeof req.responseBody === 'string' ? req.responseBody : JSON.stringify(req.responseBody, null, 2)) : '') ||
                                req.response || '';
-            const curl = req.curl || '';
             
+            // 生成curl命令（如果没有则自动生成）
+            let curl = req.curl || '';
+            if (!curl && requestUrl) {
+                curl = this.generateCurlCommand(req);
+            }
+            
+            // 按顺序显示：Request URL、Request Method、Request Headers、Curl
+            if (requestUrl) {
+                detailPanel.appendChild(createDetailSection('Request URL', requestUrl, true, true));
+            }
+            if (requestMethod) {
+                detailPanel.appendChild(createDetailSection('Request Method', requestMethod, false));
+            }
             if (headers && Object.keys(headers).length > 0) {
-                detailPanel.appendChild(createDetailSection('请求头', headers, true));
+                detailPanel.appendChild(createDetailSection('Request Headers', headers, true, true));
             }
             if (body) {
                 // 如果body是对象，转换为JSON字符串显示
                 const bodyContent = typeof body === 'object' ? JSON.stringify(body, null, 2) : body;
-                detailPanel.appendChild(createDetailSection('请求体', bodyContent, true));
-            }
-            if (responseHeaders && Object.keys(responseHeaders).length > 0) {
-                detailPanel.appendChild(createDetailSection('响应头', responseHeaders, true));
-            }
-            if (responseText) {
-                detailPanel.appendChild(createDetailSection('响应体', responseText, true));
+                detailPanel.appendChild(createDetailSection('Request Body', bodyContent, true, true));
             }
             if (curl) {
-                detailPanel.appendChild(createDetailSection('cURL 命令', curl, true, true));
+                detailPanel.appendChild(createDetailSection('Curl', curl, true, true));
+            }
+            if (responseHeaders && Object.keys(responseHeaders).length > 0) {
+                detailPanel.appendChild(createDetailSection('Response Headers', responseHeaders, true, true));
+            }
+            if (responseText) {
+                detailPanel.appendChild(createDetailSection('Response Body', responseText, true, true));
             }
             
             requestItem.appendChild(detailPanel);
@@ -17456,19 +17532,6 @@ if (typeof getCenterPosition === 'undefined') {
                 
                 // 如果点击的是按钮或详情面板内的内容，不触发创建会话
                 if (e.target.closest('button') || e.target.closest('.api-request-tags') || detailPanel.contains(e.target)) {
-                    // 如果点击的是详情面板内的内容，切换展开状态
-                    if (detailPanel.contains(e.target) && !e.target.closest('button') && !e.target.closest('a')) {
-                        isExpanded = !isExpanded;
-                        if (isExpanded) {
-                            detailPanel.style.display = 'block';
-                            requestItem.style.background = '#f9fafb';
-                            requestItem.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)';
-                        } else {
-                            detailPanel.style.display = 'none';
-                            requestItem.style.background = '#ffffff';
-                            requestItem.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08)';
-                        }
-                    }
                     return;
                 }
                 
@@ -17488,20 +17551,22 @@ if (typeof getCenterPosition === 'undefined') {
                     requestItem.style.transform = 'translateY(-1px)';
                     requestItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1) !important';
                 }
-                // 显示操作按钮
+                // 显示操作按钮和展开按钮
                 footerButtonContainer.style.opacity = '1';
+                expandBtn.style.opacity = '1';
             });
             requestItem.addEventListener('mouseleave', () => {
                 isHoveringItem = false;
                 if (!isExpanded) {
-                    requestItem.style.background = '#ffffff !important';
-                    requestItem.style.borderColor = '#e5e7eb !important';
+                    requestItem.style.background = backgroundColor + ' !important';
+                    requestItem.style.borderColor = borderColor + ' !important';
                     requestItem.style.transform = 'translateY(0)';
-                    requestItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05) !important';
+                    requestItem.style.boxShadow = (isActive ? '0 2px 4px rgba(59, 130, 246, 0.2)' : '0 2px 4px rgba(0, 0, 0, 0.06)') + ' !important';
                 }
                 // 如果鼠标不在按钮容器上，隐藏操作按钮（与会话列表一致，opacity为0.6）
                 if (!isHoveringButtons) {
                     footerButtonContainer.style.opacity = '0.6';
+                    expandBtn.style.opacity = '0.6';
                 }
             });
             

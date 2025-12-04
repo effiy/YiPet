@@ -16634,7 +16634,10 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 清空列表
-        apiRequestList.innerHTML = '';
+        const children = Array.from(apiRequestList.children);
+        children.forEach(child => {
+            child.remove();
+        });
         
         if (requests.length === 0) {
             const emptyMsg = document.createElement('div');
@@ -16674,6 +16677,20 @@ if (typeof getCenterPosition === 'undefined') {
             requestItem.className = 'api-request-item';
             requestItem.setAttribute('data-request-index', index);
             
+            // 添加选中状态类：检查当前会话是否是该接口请求的会话
+            let isActive = false;
+            if (this.currentSessionId) {
+                const currentSession = this.sessions[this.currentSessionId];
+                if (currentSession && currentSession._isApiRequestSession && currentSession._apiRequestInfo) {
+                    // 当前会话是接口请求会话，检查接口请求URL和方法是否匹配
+                    if (currentSession._apiRequestInfo.url === req.url &&
+                        currentSession._apiRequestInfo.method === req.method) {
+                        isActive = true;
+                        requestItem.classList.add('active');
+                    }
+                }
+            }
+            
             // 根据状态设置颜色
             const isSuccess = req.status >= 200 && req.status < 300;
             const isError = req.status >= 400 || req.status === 0;
@@ -16682,13 +16699,13 @@ if (typeof getCenterPosition === 'undefined') {
             requestItem.style.cssText = `
                 padding: 16px 18px !important;
                 margin-bottom: 12px !important;
-                background: #ffffff !important;
-                border: 1px solid #e5e7eb !important;
-                border-left: 4px solid ${statusColor} !important;
+                background: ${isActive ? '#eff6ff' : '#ffffff'} !important;
+                border: 1px solid ${isActive ? '#3b82f6' : '#e5e7eb'} !important;
+                border-left: 4px solid ${isActive ? '#3b82f6' : statusColor} !important;
                 border-radius: 12px !important;
                 cursor: pointer !important;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06) !important;
+                box-shadow: ${isActive ? '0 2px 4px rgba(59, 130, 246, 0.2)' : '0 2px 4px rgba(0, 0, 0, 0.06)'} !important;
                 position: relative !important;
             `;
             
@@ -16749,6 +16766,25 @@ if (typeof getCenterPosition === 'undefined') {
                 gap: 4px !important;
             `;
             
+            // 标题（如果有）
+            if (req.title && req.title.trim()) {
+                const title = document.createElement('div');
+                title.style.cssText = `
+                    font-size: 14px !important;
+                    font-weight: 600 !important;
+                    color: #111827 !important;
+                    line-height: 1.5 !important;
+                    display: -webkit-box !important;
+                    -webkit-line-clamp: 1 !important;
+                    -webkit-box-orient: vertical !important;
+                    overflow: hidden !important;
+                    word-break: break-word !important;
+                    text-overflow: ellipsis !important;
+                `;
+                title.textContent = req.title.trim();
+                urlContainer.appendChild(title);
+            }
+            
             // URL
             const url = document.createElement('div');
             url.style.cssText = `
@@ -16766,6 +16802,26 @@ if (typeof getCenterPosition === 'undefined') {
             url.textContent = req.url || '未知URL';
             
             urlContainer.appendChild(url);
+            
+            // 描述（如果有）
+            if (req.description && req.description.trim()) {
+                const description = document.createElement('div');
+                description.style.cssText = `
+                    font-size: 12px !important;
+                    font-weight: 400 !important;
+                    color: #6b7280 !important;
+                    line-height: 1.5 !important;
+                    display: -webkit-box !important;
+                    -webkit-line-clamp: 2 !important;
+                    -webkit-box-orient: vertical !important;
+                    overflow: hidden !important;
+                    word-break: break-word !important;
+                    text-overflow: ellipsis !important;
+                    margin-top: 2px !important;
+                `;
+                description.textContent = req.description.trim();
+                urlContainer.appendChild(description);
+            }
             leftContainer.appendChild(urlContainer);
             titleRow.appendChild(leftContainer);
             requestInfo.appendChild(titleRow);
@@ -16773,7 +16829,7 @@ if (typeof getCenterPosition === 'undefined') {
             // 检查是否是API返回的数据（有_id或key字段）
             const isApiData = !!(req._id || req.key);
             
-            // 状态和时间信息
+            // 响应状态和响应时间行（同一行，左右对齐）
             const statusRow = document.createElement('div');
             statusRow.style.cssText = `
                 display: flex !important;
@@ -16786,14 +16842,13 @@ if (typeof getCenterPosition === 'undefined') {
                 border-top: 1px solid #f3f4f6 !important;
             `;
             
-            // 左侧状态信息容器
+            // 左侧状态信息容器（响应状态和响应时间）
             const statusInfoContainer = document.createElement('div');
             statusInfoContainer.style.cssText = `
                 display: flex !important;
                 align-items: center !important;
                 gap: 10px !important;
                 flex: 1 !important;
-                flex-wrap: wrap !important;
             `;
             
             // 状态信息（带图标样式）
@@ -16821,7 +16876,7 @@ if (typeof getCenterPosition === 'undefined') {
             
             statusInfoContainer.appendChild(statusInfo);
             
-            // 持续时间
+            // 持续时间（和状态在同一行，右对齐）
             if (req.duration !== undefined && req.duration !== null) {
                 const duration = document.createElement('span');
                 duration.textContent = `${req.duration}ms`;
@@ -16832,19 +16887,39 @@ if (typeof getCenterPosition === 'undefined') {
                     background: #f3f4f6 !important;
                     padding: 2px 8px !important;
                     border-radius: 4px !important;
+                    margin-left: auto !important;
                 `;
                 statusInfoContainer.appendChild(duration);
             }
             
+            // 底部信息行（时间和操作按钮）
+            const footerRow = document.createElement('div');
+            footerRow.style.cssText = `
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                font-size: 11px !important;
+                color: #9ca3af !important;
+                margin-top: 8px !important;
+            `;
+            
+            // 时间（updatedTime）
             const time = document.createElement('span');
-            if (req.timestamp) {
-                const date = new Date(req.timestamp);
+            const timeValue = req.updatedAt || req.updated_at || req.timestamp || 0;
+            if (timeValue) {
+                const date = new Date(timeValue);
                 const now = new Date();
                 const diff = now - date;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor(diff / (1000 * 60 * 60));
                 const minutes = Math.floor(diff / (1000 * 60));
                 const seconds = Math.floor(diff / 1000);
                 
-                if (minutes > 0) {
+                if (days > 0) {
+                    time.textContent = `${days}天前`;
+                } else if (hours > 0) {
+                    time.textContent = `${hours}小时前`;
+                } else if (minutes > 0) {
                     time.textContent = `${minutes}分钟前`;
                 } else if (seconds > 0) {
                     time.textContent = `${seconds}秒前`;
@@ -16854,74 +16929,18 @@ if (typeof getCenterPosition === 'undefined') {
             } else {
                 time.textContent = '';
             }
-            time.style.cssText = `
-                color: #9ca3af !important;
-                font-size: 11px !important;
-                margin-left: auto !important;
-            `;
-            statusInfoContainer.appendChild(time);
+            footerRow.appendChild(time);
             
-            // 操作按钮容器（移动到statusRow中）
+            // 操作按钮容器（和时间同一行）
             const footerButtonContainer = document.createElement('div');
             footerButtonContainer.className = 'api-request-actions';
             footerButtonContainer.style.cssText = `
                 display: flex !important;
                 align-items: center !important;
-                gap: 6px !important;
-                opacity: 0 !important;
-                transition: opacity 0.3s ease !important;
-                margin-left: 12px !important;
+                gap: 4px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
             `;
-            
-            // 页面上下文按钮（参考新闻列表的实现）
-            const contextBtn = document.createElement('button');
-            contextBtn.className = 'api-request-context-btn';
-            contextBtn.innerHTML = `
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-            `;
-            contextBtn.title = '页面上下文';
-            contextBtn.style.cssText = `
-                background: rgba(99, 102, 241, 0.1) !important;
-                border: none !important;
-                cursor: pointer !important;
-                padding: 6px !important;
-                transition: all 0.2s ease !important;
-                line-height: 1 !important;
-                flex-shrink: 0 !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                color: #6366f1 !important;
-                border-radius: 6px !important;
-                width: 28px !important;
-                height: 28px !important;
-            `;
-            contextBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                // 先激活或创建该接口请求的会话
-                await this.handleApiRequestClick(req);
-                // 确保聊天窗口已打开
-                if (!this.chatWindow || !this.isChatOpen) {
-                    await this.openChatWindow();
-                }
-                // 打开页面上下文编辑器
-                this.openContextEditor();
-            });
-            contextBtn.addEventListener('mouseenter', () => {
-                contextBtn.style.background = 'rgba(99, 102, 241, 0.2) !important';
-                contextBtn.style.transform = 'scale(1.05)';
-            });
-            contextBtn.addEventListener('mouseleave', () => {
-                contextBtn.style.background = 'rgba(99, 102, 241, 0.1) !important';
-                contextBtn.style.transform = 'scale(1)';
-            });
-            footerButtonContainer.appendChild(contextBtn);
             
             // 编辑请求按钮（只在已保存的请求上显示，参考会话列表的实现）
             if (isApiData) {
@@ -16935,32 +16954,31 @@ if (typeof getCenterPosition === 'undefined') {
                 `;
                 editBtn.title = '编辑请求';
                 editBtn.style.cssText = `
-                    background: rgba(59, 130, 246, 0.1) !important;
+                    background: none !important;
                     border: none !important;
                     cursor: pointer !important;
-                    padding: 6px !important;
+                    padding: 4px !important;
+                    opacity: 0.6 !important;
                     transition: all 0.2s ease !important;
                     line-height: 1 !important;
                     flex-shrink: 0 !important;
                     display: flex !important;
                     align-items: center !important;
                     justify-content: center !important;
-                    color: #3b82f6 !important;
-                    border-radius: 6px !important;
-                    width: 28px !important;
-                    height: 28px !important;
+                    color: inherit !important;
+                    border-radius: 4px !important;
                 `;
                 editBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     await this.editApiRequest(req);
                 });
                 editBtn.addEventListener('mouseenter', () => {
-                    editBtn.style.background = 'rgba(59, 130, 246, 0.2) !important';
-                    editBtn.style.transform = 'scale(1.05)';
+                    editBtn.style.opacity = '1';
+                    editBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
                 });
                 editBtn.addEventListener('mouseleave', () => {
-                    editBtn.style.background = 'rgba(59, 130, 246, 0.1) !important';
-                    editBtn.style.transform = 'scale(1)';
+                    editBtn.style.opacity = '0.6';
+                    editBtn.style.background = 'none !important';
                 });
                 footerButtonContainer.appendChild(editBtn);
             }
@@ -16976,38 +16994,135 @@ if (typeof getCenterPosition === 'undefined') {
             `;
             tagBtn.title = '管理标签';
             tagBtn.style.cssText = `
-                background: rgba(139, 92, 246, 0.1) !important;
+                background: none !important;
                 border: none !important;
                 cursor: pointer !important;
-                padding: 6px !important;
+                padding: 4px !important;
+                opacity: 0.6 !important;
                 transition: all 0.2s ease !important;
                 line-height: 1 !important;
                 flex-shrink: 0 !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                color: #8b5cf6 !important;
-                border-radius: 6px !important;
-                width: 28px !important;
-                height: 28px !important;
+                color: inherit !important;
+                border-radius: 4px !important;
             `;
             tagBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 await this.openApiRequestTagManager(req);
             });
             tagBtn.addEventListener('mouseenter', () => {
-                tagBtn.style.background = 'rgba(139, 92, 246, 0.2) !important';
-                tagBtn.style.transform = 'scale(1.05)';
+                tagBtn.style.opacity = '1';
+                tagBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
             });
             tagBtn.addEventListener('mouseleave', () => {
-                tagBtn.style.background = 'rgba(139, 92, 246, 0.1) !important';
-                tagBtn.style.transform = 'scale(1)';
+                tagBtn.style.opacity = '0.6';
+                tagBtn.style.background = 'none !important';
             });
             footerButtonContainer.appendChild(tagBtn);
             
+            // 查看curl命令按钮
+            const curlBtn = document.createElement('button');
+            curlBtn.className = 'api-request-curl-btn';
+            curlBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+            `;
+            curlBtn.title = '查看curl命令';
+            curlBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 4px !important;
+                opacity: 0.6 !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: inherit !important;
+                border-radius: 4px !important;
+            `;
+            curlBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showCurlCommand(req);
+            });
+            curlBtn.addEventListener('mouseenter', () => {
+                curlBtn.style.opacity = '1';
+                curlBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+            });
+            curlBtn.addEventListener('mouseleave', () => {
+                curlBtn.style.opacity = '0.6';
+                curlBtn.style.background = 'none !important';
+            });
+            footerButtonContainer.appendChild(curlBtn);
+            
+            // 页面上下文按钮（参考会话列表的实现，放在最后）
+            const contextBtn = document.createElement('button');
+            contextBtn.className = 'api-request-context-btn';
+            contextBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            `;
+            contextBtn.title = '页面上下文';
+            contextBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 4px !important;
+                opacity: 0.6 !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: inherit !important;
+                border-radius: 4px !important;
+            `;
+            
+            // 按钮悬停时增加不透明度和背景色
+            contextBtn.addEventListener('mouseenter', () => {
+                contextBtn.style.opacity = '1';
+                contextBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+            });
+            contextBtn.addEventListener('mouseleave', () => {
+                contextBtn.style.opacity = '0.6';
+                contextBtn.style.background = 'none !important';
+            });
+            
+            // 阻止页面上下文按钮点击事件冒泡到 requestItem
+            contextBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // 先激活或创建该接口请求的会话
+                await this.handleApiRequestClick(req);
+                // 确保聊天窗口已打开
+                if (!this.chatWindow || !this.isChatOpen) {
+                    await this.openChatWindow();
+                }
+                // 打开页面上下文编辑器
+                this.openContextEditor();
+            });
+            footerButtonContainer.appendChild(contextBtn);
+            
+            // 将操作按钮添加到footerRow
+            footerRow.appendChild(footerButtonContainer);
+            
+            // 将statusInfoContainer添加到statusRow
             statusRow.appendChild(statusInfoContainer);
-            statusRow.appendChild(footerButtonContainer);
+            
+            // 将statusRow和footerRow添加到requestInfo
             requestInfo.appendChild(statusRow);
+            requestInfo.appendChild(footerRow);
             
             // 标签区域
             if (req.tags && Array.isArray(req.tags) && req.tags.length > 0) {
@@ -17282,24 +17397,47 @@ if (typeof getCenterPosition === 'undefined') {
                 this.handleApiRequestClick(req);
             });
             
-            // 悬停效果
+            // 悬停效果（与会话列表保持一致）
+            let isHoveringItem = false;
+            let isHoveringButtons = false;
+            
             requestItem.addEventListener('mouseenter', () => {
+                isHoveringItem = true;
                 if (!isExpanded) {
-                    requestItem.style.background = '#f9fafb';
-                    requestItem.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)';
+                    requestItem.style.background = '#f9fafb !important';
+                    requestItem.style.borderColor = '#d1d5db !important';
                     requestItem.style.transform = 'translateY(-1px)';
+                    requestItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1) !important';
                 }
                 // 显示操作按钮
                 footerButtonContainer.style.opacity = '1';
             });
             requestItem.addEventListener('mouseleave', () => {
+                isHoveringItem = false;
                 if (!isExpanded) {
-                    requestItem.style.background = '#ffffff';
-                    requestItem.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08)';
+                    requestItem.style.background = '#ffffff !important';
+                    requestItem.style.borderColor = '#e5e7eb !important';
                     requestItem.style.transform = 'translateY(0)';
+                    requestItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05) !important';
                 }
-                // 隐藏操作按钮
-                footerButtonContainer.style.opacity = '0';
+                // 如果鼠标不在按钮容器上，隐藏操作按钮（与会话列表一致，opacity为0.6）
+                if (!isHoveringButtons) {
+                    footerButtonContainer.style.opacity = '0.6';
+                }
+            });
+            
+            // 确保按钮容器在悬停时保持可见
+            footerButtonContainer.addEventListener('mouseenter', () => {
+                isHoveringButtons = true;
+                footerButtonContainer.style.opacity = '1';
+            });
+            
+            footerButtonContainer.addEventListener('mouseleave', () => {
+                isHoveringButtons = false;
+                // 如果鼠标离开按钮容器且不在requestItem上，隐藏按钮
+                if (!isHoveringItem) {
+                    footerButtonContainer.style.opacity = '0.6';
+                }
             });
             
             // 长按删除功能（仅对API数据有效）
@@ -17520,45 +17658,6 @@ if (typeof getCenterPosition === 'undefined') {
                 });
             }
             
-            // 添加悬停效果（在添加到DOM之前）
-            const actionsContainer = requestItem.querySelector('.api-request-actions');
-            if (actionsContainer) {
-                let isHoveringItem = false;
-                let isHoveringButtons = false;
-                
-                requestItem.addEventListener('mouseenter', () => {
-                    isHoveringItem = true;
-                    requestItem.style.transform = 'translateY(-2px)';
-                    requestItem.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)';
-                    requestItem.style.borderColor = '#d1d5db';
-                    actionsContainer.style.opacity = '1';
-                });
-                
-                requestItem.addEventListener('mouseleave', () => {
-                    isHoveringItem = false;
-                    requestItem.style.transform = 'translateY(0)';
-                    requestItem.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.06)';
-                    requestItem.style.borderColor = '#e5e7eb';
-                    // 如果鼠标不在按钮容器上，隐藏按钮
-                    if (!isHoveringButtons) {
-                        actionsContainer.style.opacity = '0';
-                    }
-                });
-                
-                // 确保按钮容器在悬停时保持可见
-                actionsContainer.addEventListener('mouseenter', () => {
-                    isHoveringButtons = true;
-                    actionsContainer.style.opacity = '1';
-                });
-                
-                actionsContainer.addEventListener('mouseleave', () => {
-                    isHoveringButtons = false;
-                    // 如果鼠标离开按钮容器且不在requestItem上，隐藏按钮
-                    if (!isHoveringItem) {
-                        actionsContainer.style.opacity = '0';
-                    }
-                });
-            }
             
             apiRequestList.appendChild(requestItem);
         }
@@ -18233,29 +18332,155 @@ if (typeof getCenterPosition === 'undefined') {
         return content;
     }
     
-    // 编辑请求接口（参考会话的编辑功能）
+    // 新建请求接口（类似Postman）
+    async createNewApiRequest() {
+        // 创建空的请求对象
+        const newRequest = {
+            method: 'GET',
+            url: '',
+            headers: {},
+            body: null,
+            title: '',
+            description: ''
+        };
+        
+        // 打开编辑器（新建模式）
+        this.openApiRequestEditor(newRequest, true);
+    }
+    
+    // 编辑请求接口（参考Postman的设计，支持编辑所有参数）
     async editApiRequest(apiRequest) {
         if (!apiRequest) {
             console.warn('请求接口数据无效，无法编辑:', apiRequest);
             return;
         }
         
-        // 检查是否有_id或key字段（只有API数据才能编辑）
-        if (!apiRequest._id && !apiRequest.key && !apiRequest.id) {
-            this.showNotification('该请求无法编辑（缺少标识符）', 'error');
+        // 打开编辑器（编辑模式）
+        this.openApiRequestEditor(apiRequest, false);
+    }
+    
+    // 打开增强的接口编辑器（类似Postman）
+    openApiRequestEditor(apiRequest, isNew = false) {
+        // 确保编辑器UI存在
+        this.ensureApiRequestEditorUi();
+        
+        const modal = document.body.querySelector('#pet-api-request-editor');
+        if (!modal) {
+            console.error('接口编辑器未找到');
             return;
         }
         
-        // 生成默认标题和描述
-        const apiPath = this._extractApiPath(apiRequest.url);
-        const originalTitle = apiRequest.title || `${apiRequest.method || 'GET'} ${apiPath}`;
-        const originalDescription = apiRequest.description || `接口请求：${apiRequest.url || ''}`;
+        // 显示对话框
+        modal.style.display = 'flex';
+        modal.dataset.isNew = isNew ? 'true' : 'false';
+        modal.dataset.apiRequestKey = apiRequest.key || apiRequest._id || apiRequest.id || '';
         
-        // 打开编辑对话框
-        this.openApiRequestInfoEditor(apiRequest, originalTitle, originalDescription);
+        // 填充表单数据
+        const methodSelect = modal.querySelector('.api-editor-method-select');
+        const urlInput = modal.querySelector('.api-editor-url-input');
+        const titleInput = modal.querySelector('.api-editor-title-input');
+        const descriptionInput = modal.querySelector('.api-editor-description-input');
+        const headersContainer = modal.querySelector('.api-editor-headers-container');
+        const bodyTypeSelect = modal.querySelector('.api-editor-body-type-select');
+        const bodyTextarea = modal.querySelector('.api-editor-body-textarea');
+        
+        // 填充基本信息
+        if (methodSelect) {
+            methodSelect.value = apiRequest.method || 'GET';
+        }
+        if (urlInput) {
+            urlInput.value = apiRequest.url || '';
+        }
+        if (titleInput) {
+            titleInput.value = apiRequest.title || '';
+        }
+        if (descriptionInput) {
+            descriptionInput.value = apiRequest.description || '';
+        }
+        
+        // 填充Headers
+        this.populateHeadersEditor(headersContainer, apiRequest.headers || {});
+        
+        // 填充Body
+        if (bodyTypeSelect && bodyTextarea) {
+            const bodyType = this.detectBodyType(apiRequest.body);
+            bodyTypeSelect.value = bodyType;
+            this.updateBodyEditor(bodyTypeSelect, bodyTextarea, apiRequest.body);
+        }
+        
+        // 填充响应结果
+        const responseTextarea = modal.querySelector('.api-editor-response-textarea');
+        if (responseTextarea) {
+            // 检查是否有响应数据（需要同时检查值是否存在且不为空）
+            const hasResponseText = apiRequest.responseText && String(apiRequest.responseText).trim().length > 0;
+            const hasResponseBody = apiRequest.responseBody !== null && apiRequest.responseBody !== undefined;
+            
+            if (hasResponseText || hasResponseBody) {
+                // 确定响应文本内容
+                let responseText = '';
+                if (hasResponseText) {
+                    responseText = String(apiRequest.responseText);
+                    // 如果是JSON字符串，尝试格式化
+                    if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+                        try {
+                            const parsed = JSON.parse(responseText);
+                            responseText = JSON.stringify(parsed, null, 2);
+                        } catch (e) {
+                            // 解析失败，保持原样
+                        }
+                    }
+                } else if (hasResponseBody) {
+                    // 如果responseBody是对象，格式化为JSON
+                    if (typeof apiRequest.responseBody === 'object') {
+                        responseText = JSON.stringify(apiRequest.responseBody, null, 2);
+                    } else {
+                        responseText = String(apiRequest.responseBody);
+                    }
+                }
+                
+                const status = apiRequest.status || 0;
+                const statusText = apiRequest.statusText || '';
+                const duration = apiRequest.duration || 0;
+                const responseHeaders = apiRequest.responseHeaders || {};
+                
+                const statusColor = status >= 200 && status < 300 ? '#10b981' : 
+                                   status >= 400 ? '#ef4444' : '#f59e0b';
+                
+                responseTextarea.value = `状态: ${status} ${statusText}\n` +
+                                       `耗时: ${duration}ms\n` +
+                                       `响应头:\n${JSON.stringify(responseHeaders, null, 2)}\n\n` +
+                                       `响应体:\n${responseText}`;
+                responseTextarea.style.borderColor = statusColor;
+            } else {
+                // 没有响应数据时，清空并重置样式
+                responseTextarea.value = '';
+                responseTextarea.style.borderColor = '#d1d5db';
+            }
+        }
+        
+        // 更新标题
+        const title = modal.querySelector('.api-editor-title');
+        if (title) {
+            title.textContent = isNew ? '新建接口请求' : '编辑接口请求';
+        }
+        
+        // curl 导入按钮在新建和编辑时都显示，无需控制显示状态
+        
+        // 聚焦到URL输入框
+        if (urlInput) {
+            setTimeout(() => {
+                urlInput.focus();
+                if (isNew) {
+                    urlInput.select();
+                }
+            }, 100);
+        }
+        
+        // 绑定事件
+        this.bindApiRequestEditorEvents(modal, apiRequest, isNew);
     }
     
-    // 打开请求接口信息编辑对话框
+    // 打开请求接口信息编辑对话框（保留旧版本以兼容）
     openApiRequestInfoEditor(apiRequest, originalTitle, originalDescription) {
         // 确保对话框UI存在
         this.ensureApiRequestInfoEditorUi();
@@ -18318,7 +18543,2458 @@ if (typeof getCenterPosition === 'undefined') {
         document.addEventListener('keydown', escHandler);
     }
     
-    // 确保请求接口信息编辑对话框UI存在
+    // 确保增强的接口编辑器UI存在（类似Postman）
+    ensureApiRequestEditorUi() {
+        if (document.body.querySelector('#pet-api-request-editor')) return;
+        
+        const modal = document.createElement('div');
+        modal.id = 'pet-api-request-editor';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.6) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2147483653 !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+        `;
+        
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeApiRequestEditor();
+            }
+        });
+        
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            width: 100% !important;
+            max-width: 900px !important;
+            max-height: 90vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+            overflow: hidden !important;
+        `;
+        
+        // 头部
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.className = 'api-editor-title';
+        title.textContent = '编辑接口请求';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #1f2937 !important;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'api-editor-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #6b7280 !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#e5e7eb';
+            closeBtn.style.color = '#1f2937';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#6b7280';
+        });
+        
+        const headerRight = document.createElement('div');
+        headerRight.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        `;
+        headerRight.appendChild(closeBtn);
+        
+        header.appendChild(title);
+        header.appendChild(headerRight);
+        
+        // 内容区域（可滚动）
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 24px !important;
+        `;
+        
+        // 基本信息区域
+        const basicInfoSection = document.createElement('div');
+        basicInfoSection.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+        
+        // 标题输入
+        const titleGroup = this.createFormGroup('标题', 'input', 'api-editor-title-input', '请输入接口标题（可选）');
+        basicInfoSection.appendChild(titleGroup);
+        
+        // 描述输入
+        const descriptionGroup = this.createFormGroup('描述', 'textarea', 'api-editor-description-input', '请输入接口描述（可选）', 3);
+        basicInfoSection.appendChild(descriptionGroup);
+        
+        // 请求方法选择器
+        const methodGroup = document.createElement('div');
+        methodGroup.style.cssText = `margin-bottom: 16px !important;`;
+        const methodLabel = document.createElement('label');
+        methodLabel.textContent = '请求方法';
+        methodLabel.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+            margin-bottom: 8px !important;
+        `;
+        const methodSelect = document.createElement('select');
+        methodSelect.className = 'api-editor-method-select';
+        methodSelect.style.cssText = `
+            width: 100% !important;
+            padding: 10px 12px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            background: white !important;
+            cursor: pointer !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].forEach(method => {
+            const option = document.createElement('option');
+            option.value = method;
+            option.textContent = method;
+            methodSelect.appendChild(option);
+        });
+        methodGroup.appendChild(methodLabel);
+        methodGroup.appendChild(methodSelect);
+        
+        // URL输入
+        const urlGroup = this.createFormGroup('请求URL', 'input', 'api-editor-url-input', 'https://api.example.com/endpoint');
+        const urlInput = urlGroup.querySelector('.api-editor-url-input');
+        if (urlInput) {
+            urlInput.style.cssText += `font-family: 'Monaco', 'Menlo', monospace !important;`;
+        }
+        
+        // 添加 curl 导入按钮到 URL 输入框旁边
+        const urlLabel = urlGroup.querySelector('label');
+        if (urlLabel) {
+            const curlImportBtn = document.createElement('button');
+            curlImportBtn.className = 'api-editor-curl-import-btn';
+            curlImportBtn.textContent = '📥 从 curl 导入';
+            curlImportBtn.title = '从 curl 命令导入接口请求';
+            curlImportBtn.style.cssText = `
+                margin-left: 8px !important;
+                padding: 6px 12px !important;
+                border: 1px solid #d1d5db !important;
+                border-radius: 6px !important;
+                background: white !important;
+                color: #3b82f6 !important;
+                font-size: 12px !important;
+                font-weight: 500 !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            `;
+            curlImportBtn.addEventListener('mouseenter', () => {
+                curlImportBtn.style.background = '#eff6ff';
+                curlImportBtn.style.borderColor = '#3b82f6';
+            });
+            curlImportBtn.addEventListener('mouseleave', () => {
+                curlImportBtn.style.background = 'white';
+                curlImportBtn.style.borderColor = '#d1d5db';
+            });
+            curlImportBtn.addEventListener('click', () => {
+                this.showCurlImportDialog(modal);
+            });
+            
+            // 将按钮添加到标签旁边
+            urlLabel.style.cssText += `display: flex !important; align-items: center !important; justify-content: space-between !important;`;
+            urlLabel.appendChild(curlImportBtn);
+        }
+        
+        // Headers编辑器
+        const headersGroup = document.createElement('div');
+        headersGroup.style.cssText = `margin-bottom: 24px !important;`;
+        const headersLabel = document.createElement('label');
+        headersLabel.textContent = '请求头 (Headers)';
+        headersLabel.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+            margin-bottom: 8px !important;
+        `;
+        const headersContainer = document.createElement('div');
+        headersContainer.className = 'api-editor-headers-container';
+        headersContainer.style.cssText = `
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            overflow: hidden !important;
+            background: #f9fafb !important;
+        `;
+        headersGroup.appendChild(headersLabel);
+        headersGroup.appendChild(headersContainer);
+        
+        // Body编辑器
+        const bodyGroup = document.createElement('div');
+        bodyGroup.style.cssText = `margin-bottom: 24px !important;`;
+        const bodyLabel = document.createElement('label');
+        bodyLabel.textContent = '请求体 (Body)';
+        bodyLabel.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+            margin-bottom: 8px !important;
+        `;
+        const bodyTypeSelect = document.createElement('select');
+        bodyTypeSelect.className = 'api-editor-body-type-select';
+        bodyTypeSelect.style.cssText = `
+            width: 100% !important;
+            padding: 8px 12px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px 8px 0 0 !important;
+            border-bottom: none !important;
+            font-size: 13px !important;
+            background: white !important;
+            cursor: pointer !important;
+            margin-bottom: 0 !important;
+        `;
+        ['none', 'json', 'form-data', 'x-www-form-urlencoded', 'raw'].forEach(type => {
+            const option = document.createElement('option');
+            option.value = type;
+            option.textContent = type === 'none' ? '无' : 
+                               type === 'json' ? 'JSON' :
+                               type === 'form-data' ? 'Form Data' :
+                               type === 'x-www-form-urlencoded' ? 'x-www-form-urlencoded' :
+                               'Raw';
+            bodyTypeSelect.appendChild(option);
+        });
+        const bodyTextarea = document.createElement('textarea');
+        bodyTextarea.className = 'api-editor-body-textarea';
+        bodyTextarea.placeholder = '请输入请求体内容...';
+        bodyTextarea.style.cssText = `
+            width: 100% !important;
+            min-height: 200px !important;
+            padding: 12px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 0 0 8px 8px !important;
+            font-size: 13px !important;
+            font-family: 'Monaco', 'Menlo', monospace !important;
+            resize: vertical !important;
+            box-sizing: border-box !important;
+        `;
+        bodyGroup.appendChild(bodyLabel);
+        bodyGroup.appendChild(bodyTypeSelect);
+        bodyGroup.appendChild(bodyTextarea);
+        
+        // 监听Body类型变化
+        bodyTypeSelect.addEventListener('change', () => {
+            this.updateBodyEditor(bodyTypeSelect, bodyTextarea, null);
+        });
+        
+        // 响应结果显示区域
+        const responseGroup = document.createElement('div');
+        responseGroup.style.cssText = `margin-bottom: 24px !important;`;
+        const responseLabel = document.createElement('label');
+        responseLabel.textContent = '响应结果 (Response)';
+        responseLabel.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+            margin-bottom: 8px !important;
+        `;
+        const responseTextarea = document.createElement('textarea');
+        responseTextarea.className = 'api-editor-response-textarea';
+        responseTextarea.placeholder = '点击"发送请求"按钮后，响应结果将显示在这里...';
+        responseTextarea.readOnly = true;
+        responseTextarea.style.cssText = `
+            width: 100% !important;
+            min-height: 200px !important;
+            padding: 12px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            font-family: 'Monaco', 'Menlo', monospace !important;
+            resize: vertical !important;
+            box-sizing: border-box !important;
+            background: #f9fafb !important;
+            color: #374151 !important;
+        `;
+        responseGroup.appendChild(responseLabel);
+        responseGroup.appendChild(responseTextarea);
+        
+        content.appendChild(basicInfoSection);
+        content.appendChild(methodGroup);
+        content.appendChild(urlGroup);
+        content.appendChild(headersGroup);
+        content.appendChild(bodyGroup);
+        content.appendChild(responseGroup);
+        
+        // 底部按钮区域
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 12px !important;
+            padding: 20px 24px !important;
+            border-top: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+        `;
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'api-editor-cancel';
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            background: white !important;
+            color: #374151 !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f3f4f6';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+        });
+        
+        const sendBtn = document.createElement('button');
+        sendBtn.className = 'api-editor-send';
+        sendBtn.textContent = '🚀 发送请求';
+        sendBtn.style.cssText = `
+            padding: 10px 24px !important;
+            border: none !important;
+            border-radius: 8px !important;
+            background: #10b981 !important;
+            color: white !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        sendBtn.addEventListener('mouseenter', () => {
+            sendBtn.style.background = '#059669';
+        });
+        sendBtn.addEventListener('mouseleave', () => {
+            sendBtn.style.background = '#10b981';
+        });
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'api-editor-save';
+        saveBtn.textContent = '保存';
+        saveBtn.style.cssText = `
+            padding: 10px 24px !important;
+            border: none !important;
+            border-radius: 8px !important;
+            background: #3b82f6 !important;
+            color: white !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = '#2563eb';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = '#3b82f6';
+        });
+        
+        footer.appendChild(cancelBtn);
+        footer.appendChild(sendBtn);
+        footer.appendChild(saveBtn);
+        
+        panel.appendChild(header);
+        panel.appendChild(content);
+        panel.appendChild(footer);
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+    }
+    
+    // 创建表单组（辅助函数）
+    createFormGroup(labelText, inputType, inputClass, placeholder, rows = 1) {
+        const group = document.createElement('div');
+        group.style.cssText = `margin-bottom: 16px !important;`;
+        
+        const label = document.createElement('label');
+        label.textContent = labelText;
+        label.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+            margin-bottom: 8px !important;
+        `;
+        
+        let input;
+        if (inputType === 'textarea') {
+            input = document.createElement('textarea');
+            input.rows = rows;
+        } else {
+            input = document.createElement('input');
+            input.type = inputType;
+        }
+        input.className = inputClass;
+        input.placeholder = placeholder;
+        input.style.cssText = `
+            width: 100% !important;
+            padding: 10px 12px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            box-sizing: border-box !important;
+            transition: border-color 0.2s ease !important;
+            font-family: inherit !important;
+        `;
+        input.addEventListener('focus', () => {
+            input.style.borderColor = '#3b82f6';
+        });
+        input.addEventListener('blur', () => {
+            input.style.borderColor = '#d1d5db';
+        });
+        
+        group.appendChild(label);
+        group.appendChild(input);
+        return group;
+    }
+    
+    // 填充Headers编辑器
+    populateHeadersEditor(container, headers) {
+        container.innerHTML = '';
+        
+        // 添加默认的Content-Type header（如果是POST/PUT等）
+        const headerRows = [];
+        if (headers && Object.keys(headers).length > 0) {
+            Object.entries(headers).forEach(([key, value]) => {
+                headerRows.push({ key, value, enabled: true });
+            });
+        }
+        
+        // 如果没有headers，至少添加一行空行
+        if (headerRows.length === 0) {
+            headerRows.push({ key: '', value: '', enabled: true });
+        }
+        
+        headerRows.forEach((row, index) => {
+            const rowElement = this.createHeaderRow(row.key, row.value, row.enabled, index);
+            container.appendChild(rowElement);
+        });
+        
+        // 添加"添加Header"按钮
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '+ 添加Header';
+        addBtn.style.cssText = `
+            width: 100% !important;
+            padding: 10px !important;
+            border: 1px dashed #d1d5db !important;
+            border-top: none !important;
+            background: white !important;
+            color: #6b7280 !important;
+            font-size: 13px !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.background = '#f9fafb';
+            addBtn.style.borderColor = '#3b82f6';
+            addBtn.style.color = '#3b82f6';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.background = 'white';
+            addBtn.style.borderColor = '#d1d5db';
+            addBtn.style.color = '#6b7280';
+        });
+        addBtn.addEventListener('click', () => {
+            const newRow = this.createHeaderRow('', '', true, headerRows.length);
+            container.insertBefore(newRow, addBtn);
+        });
+        container.appendChild(addBtn);
+    }
+    
+    // 创建Header行
+    createHeaderRow(key, value, enabled, index) {
+        const row = document.createElement('div');
+        row.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            padding: 8px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            align-items: center !important;
+        `;
+        
+        const keyInput = document.createElement('input');
+        keyInput.type = 'text';
+        keyInput.placeholder = 'Header名称';
+        keyInput.value = key;
+        keyInput.style.cssText = `
+            flex: 1 !important;
+            padding: 6px 8px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 4px !important;
+            font-size: 12px !important;
+            font-family: 'Monaco', 'Menlo', monospace !important;
+        `;
+        
+        const valueInput = document.createElement('input');
+        valueInput.type = 'text';
+        valueInput.placeholder = 'Header值';
+        valueInput.value = value;
+        valueInput.style.cssText = `
+            flex: 2 !important;
+            padding: 6px 8px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 4px !important;
+            font-size: 12px !important;
+            font-family: 'Monaco', 'Menlo', monospace !important;
+        `;
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = '✕';
+        deleteBtn.style.cssText = `
+            padding: 4px 8px !important;
+            border: none !important;
+            background: #ef4444 !important;
+            color: white !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            transition: all 0.2s ease !important;
+        `;
+        deleteBtn.addEventListener('mouseenter', () => {
+            deleteBtn.style.background = '#dc2626';
+        });
+        deleteBtn.addEventListener('mouseleave', () => {
+            deleteBtn.style.background = '#ef4444';
+        });
+        deleteBtn.addEventListener('click', () => {
+            row.remove();
+        });
+        
+        row.appendChild(keyInput);
+        row.appendChild(valueInput);
+        row.appendChild(deleteBtn);
+        
+        return row;
+    }
+    
+    // 检测Body类型
+    detectBodyType(body) {
+        if (!body) return 'none';
+        if (typeof body === 'string') {
+            try {
+                JSON.parse(body);
+                return 'json';
+            } catch {
+                return 'raw';
+            }
+        }
+        if (typeof body === 'object') {
+            return 'json';
+        }
+        return 'none';
+    }
+    
+    // 更新Body编辑器
+    updateBodyEditor(typeSelect, textarea, body) {
+        const type = typeSelect.value;
+        
+        if (type === 'none') {
+            textarea.style.display = 'none';
+            textarea.value = '';
+        } else {
+            textarea.style.display = 'block';
+            
+            if (body !== null && body !== undefined) {
+                if (type === 'json') {
+                    if (typeof body === 'object') {
+                        textarea.value = JSON.stringify(body, null, 2);
+                    } else if (typeof body === 'string') {
+                        try {
+                            const parsed = JSON.parse(body);
+                            textarea.value = JSON.stringify(parsed, null, 2);
+                        } catch {
+                            textarea.value = body;
+                        }
+                    } else {
+                        textarea.value = '';
+                    }
+                } else {
+                    textarea.value = typeof body === 'string' ? body : JSON.stringify(body);
+                }
+            } else {
+                if (type === 'json') {
+                    textarea.value = '{\n  \n}';
+                } else {
+                    textarea.value = '';
+                }
+            }
+        }
+    }
+    
+    // 绑定编辑器事件
+    bindApiRequestEditorEvents(modal, apiRequest, isNew) {
+        const closeBtn = modal.querySelector('.api-editor-close');
+        const cancelBtn = modal.querySelector('.api-editor-cancel');
+        const saveBtn = modal.querySelector('.api-editor-save');
+        const sendBtn = modal.querySelector('.api-editor-send');
+        
+        const closeHandler = () => this.closeApiRequestEditor();
+        
+        if (closeBtn) closeBtn.onclick = closeHandler;
+        if (cancelBtn) cancelBtn.onclick = closeHandler;
+        if (saveBtn) saveBtn.onclick = () => this.saveApiRequestFromEditor(apiRequest, isNew);
+        if (sendBtn) sendBtn.onclick = () => this.sendApiRequestFromEditor(modal);
+        
+        // ESC键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeHandler();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+    
+    // 从编辑器保存请求
+    async saveApiRequestFromEditor(originalRequest, isNew) {
+        const modal = document.body.querySelector('#pet-api-request-editor');
+        if (!modal) {
+            console.error('接口编辑器未找到');
+            return;
+        }
+        
+        // 收集表单数据
+        const methodSelect = modal.querySelector('.api-editor-method-select');
+        const urlInput = modal.querySelector('.api-editor-url-input');
+        const titleInput = modal.querySelector('.api-editor-title-input');
+        const descriptionInput = modal.querySelector('.api-editor-description-input');
+        const headersContainer = modal.querySelector('.api-editor-headers-container');
+        const bodyTypeSelect = modal.querySelector('.api-editor-body-type-select');
+        const bodyTextarea = modal.querySelector('.api-editor-body-textarea');
+        
+        const method = methodSelect?.value || 'GET';
+        const url = urlInput?.value.trim() || '';
+        const title = titleInput?.value.trim() || '';
+        const description = descriptionInput?.value.trim() || '';
+        
+        // 验证URL
+        if (!url) {
+            this.showNotification('请求URL不能为空', 'error');
+            return;
+        }
+        
+        // 收集Headers
+        const headers = {};
+        if (headersContainer) {
+            const rows = headersContainer.querySelectorAll('div[style*="display: flex"]');
+            rows.forEach(row => {
+                const keyInput = row.querySelector('input[placeholder="Header名称"]');
+                const valueInput = row.querySelector('input[placeholder="Header值"]');
+                if (keyInput && valueInput) {
+                    const key = keyInput.value.trim();
+                    const value = valueInput.value.trim();
+                    if (key && value) {
+                        headers[key] = value;
+                    }
+                }
+            });
+        }
+        
+        // 收集Body
+        let body = null;
+        if (bodyTypeSelect && bodyTextarea) {
+            const bodyType = bodyTypeSelect.value;
+            const bodyText = bodyTextarea.value.trim();
+            
+            if (bodyType !== 'none' && bodyText) {
+                if (bodyType === 'json') {
+                    try {
+                        body = JSON.parse(bodyText);
+                    } catch (e) {
+                        this.showNotification('JSON格式错误，请检查请求体', 'error');
+                        return;
+                    }
+                } else {
+                    body = bodyText;
+                }
+            }
+        }
+        
+        try {
+            // 检查apiRequestApi是否可用
+            if (!this.apiRequestApi || !this.apiRequestApi.isEnabled()) {
+                this.showNotification('API管理器未启用，无法保存', 'error');
+                return;
+            }
+            
+            // 准备保存数据
+            const apiRequestData = {
+                url: url,
+                method: method,
+                headers: headers,
+                body: body,
+                title: title || `${method} ${this._extractApiPath(url)}`,
+                description: description || `接口请求：${url}`,
+                pageUrl: window.location.href,
+                tags: originalRequest.tags || [],
+                timestamp: Date.now()
+            };
+            
+            // 如果是编辑模式，保留原有数据
+            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
+                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
+                // 保留响应数据
+                apiRequestData.status = originalRequest.status || 0;
+                apiRequestData.statusText = originalRequest.statusText || '';
+                apiRequestData.responseHeaders = originalRequest.responseHeaders || {};
+                apiRequestData.responseBody = originalRequest.responseBody || null;
+                apiRequestData.responseText = originalRequest.responseText || '';
+                apiRequestData.duration = originalRequest.duration || 0;
+                apiRequestData.type = originalRequest.type || 'api';
+                apiRequestData.curl = originalRequest.curl || '';
+            }
+            
+            // 显示加载提示
+            this.showNotification('正在保存...', 'info');
+            
+            // 保存到后端
+            const result = await this.apiRequestApi.saveApiRequest(apiRequestData);
+            
+            if (result && result.success) {
+                console.log('接口请求已保存:', result.data);
+                
+                // 刷新列表
+                await this.updateApiRequestSidebar(true);
+                
+                // 关闭编辑器
+                this.closeApiRequestEditor();
+                
+                this.showNotification(isNew ? '新建成功' : '保存成功', 'success');
+            } else {
+                throw new Error(result?.message || '保存失败');
+            }
+        } catch (error) {
+            console.error('保存接口请求失败:', error);
+            this.showNotification(`保存失败: ${error.message || '未知错误'}`, 'error');
+        }
+    }
+    
+    // 关闭接口编辑器
+    closeApiRequestEditor() {
+        const modal = document.body.querySelector('#pet-api-request-editor');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // 从编辑器发送请求
+    async sendApiRequestFromEditor(modal) {
+        if (!modal) {
+            modal = document.body.querySelector('#pet-api-request-editor');
+        }
+        if (!modal) {
+            console.error('接口编辑器未找到');
+            return;
+        }
+        
+        // 收集表单数据
+        const methodSelect = modal.querySelector('.api-editor-method-select');
+        const urlInput = modal.querySelector('.api-editor-url-input');
+        const headersContainer = modal.querySelector('.api-editor-headers-container');
+        const bodyTypeSelect = modal.querySelector('.api-editor-body-type-select');
+        const bodyTextarea = modal.querySelector('.api-editor-body-textarea');
+        const responseTextarea = modal.querySelector('.api-editor-response-textarea');
+        const sendBtn = modal.querySelector('.api-editor-send');
+        
+        const method = methodSelect?.value || 'GET';
+        const url = urlInput?.value.trim() || '';
+        
+        // 验证URL
+        if (!url) {
+            this.showNotification('请求URL不能为空', 'error');
+            return;
+        }
+        
+        // 收集Headers
+        const headers = {};
+        if (headersContainer) {
+            const rows = headersContainer.querySelectorAll('div[style*="display: flex"]');
+            rows.forEach(row => {
+                const keyInput = row.querySelector('input[placeholder="Header名称"]');
+                const valueInput = row.querySelector('input[placeholder="Header值"]');
+                if (keyInput && valueInput) {
+                    const key = keyInput.value.trim();
+                    const value = valueInput.value.trim();
+                    if (key && value) {
+                        headers[key] = value;
+                    }
+                }
+            });
+        }
+        
+        // 收集Body
+        let body = null;
+        if (bodyTypeSelect && bodyTextarea) {
+            const bodyType = bodyTypeSelect.value;
+            const bodyText = bodyTextarea.value.trim();
+            
+            if (bodyType !== 'none' && bodyText) {
+                if (bodyType === 'json') {
+                    try {
+                        body = JSON.parse(bodyText);
+                    } catch (e) {
+                        this.showNotification('JSON格式错误，请检查请求体', 'error');
+                        return;
+                    }
+                } else if (bodyType === 'x-www-form-urlencoded') {
+                    // 处理表单数据
+                    const formData = new URLSearchParams();
+                    try {
+                        const pairs = bodyText.split('&');
+                        pairs.forEach(pair => {
+                            const [key, value] = pair.split('=').map(s => decodeURIComponent(s));
+                            if (key) formData.append(key, value || '');
+                        });
+                        body = formData.toString();
+                    } catch (e) {
+                        body = bodyText;
+                    }
+                } else {
+                    body = bodyText;
+                }
+            }
+        }
+        
+        // 禁用发送按钮，显示加载状态
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.textContent = '发送中...';
+            sendBtn.style.opacity = '0.6';
+            sendBtn.style.cursor = 'not-allowed';
+        }
+        
+        // 清空响应结果
+        if (responseTextarea) {
+            responseTextarea.value = '正在发送请求...';
+        }
+        
+        const startTime = Date.now();
+        
+        try {
+            // 准备请求选项
+            const requestOptions = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers
+                }
+            };
+            
+            // 如果有body，添加到请求选项
+            if (body) {
+                if (bodyTypeSelect && bodyTypeSelect.value === 'json') {
+                    requestOptions.body = JSON.stringify(body);
+                } else if (bodyTypeSelect && bodyTypeSelect.value === 'x-www-form-urlencoded') {
+                    requestOptions.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                    requestOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+                } else {
+                    requestOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+                }
+            }
+            
+            // 发送请求
+            const response = await fetch(url, requestOptions);
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            // 获取响应头
+            const responseHeaders = {};
+            response.headers.forEach((value, key) => {
+                responseHeaders[key] = value;
+            });
+            
+            // 获取响应体
+            let responseBody = null;
+            let responseText = '';
+            const contentType = response.headers.get('content-type') || '';
+            
+            try {
+                if (contentType.includes('application/json')) {
+                    responseBody = await response.json();
+                    responseText = JSON.stringify(responseBody, null, 2);
+                } else {
+                    responseText = await response.text();
+                }
+            } catch (e) {
+                responseText = '[无法读取响应内容]';
+            }
+            
+            // 更新响应结果显示
+            if (responseTextarea) {
+                const statusColor = response.status >= 200 && response.status < 300 ? '#10b981' : 
+                                   response.status >= 400 ? '#ef4444' : '#f59e0b';
+                responseTextarea.value = `状态: ${response.status} ${response.statusText || ''}\n` +
+                                       `耗时: ${duration}ms\n` +
+                                       `响应头:\n${JSON.stringify(responseHeaders, null, 2)}\n\n` +
+                                       `响应体:\n${responseText}`;
+                responseTextarea.style.borderColor = statusColor;
+            }
+            
+            // 将响应结果保存到表单数据中（用于后续保存）
+            modal._responseData = {
+                status: response.status,
+                statusText: response.statusText,
+                responseHeaders: responseHeaders,
+                responseBody: responseBody,
+                responseText: responseText,
+                duration: duration
+            };
+            
+            // 将返回结果写入页面上下文
+            await this.addApiRequestResponseToContext(url, method, response, responseBody, responseText, duration);
+            
+            this.showNotification(`请求成功: ${response.status} ${response.statusText || ''}`, 'success');
+        } catch (error) {
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            // 更新响应结果显示（错误信息）
+            if (responseTextarea) {
+                responseTextarea.value = `错误: ${error.message || '请求失败'}\n` +
+                                       `耗时: ${duration}ms`;
+                responseTextarea.style.borderColor = '#ef4444';
+            }
+            
+            // 将错误信息保存到表单数据中
+            modal._responseData = {
+                status: 0,
+                statusText: 'Network Error',
+                error: error.message || '请求失败',
+                duration: duration
+            };
+            
+            this.showNotification(`请求失败: ${error.message || '未知错误'}`, 'error');
+        } finally {
+            // 恢复发送按钮
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '🚀 发送请求';
+                sendBtn.style.opacity = '1';
+                sendBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+    
+    // 将接口请求响应结果添加到页面上下文
+    async addApiRequestResponseToContext(url, method, response, responseBody, responseText, duration) {
+        if (!this.currentSessionId) {
+            // 如果没有当前会话，初始化会话
+            try {
+                await this.initSessionWithDelay();
+            } catch (e) {
+                console.warn('初始化会话失败，将直接添加消息:', e);
+            }
+        }
+        
+        // 构建响应消息内容
+        const statusColor = response.status >= 200 && response.status < 300 ? '#10b981' : 
+                           response.status >= 400 ? '#ef4444' : '#f59e0b';
+        
+        let responseContent = `## 接口请求响应\n\n`;
+        responseContent += `**请求方法:** ${method}\n`;
+        responseContent += `**请求URL:** ${url}\n`;
+        responseContent += `**响应状态:** <span style="color: ${statusColor}">${response.status} ${response.statusText || ''}</span>\n`;
+        responseContent += `**响应时间:** ${duration}ms\n\n`;
+        
+        if (responseText) {
+            // 限制响应内容长度，避免过长
+            const maxLength = 5000;
+            const displayText = responseText.length > maxLength ? responseText.substring(0, maxLength) + '\n...[已截断]' : responseText;
+            responseContent += `**响应内容:**\n\`\`\`json\n${displayText}\n\`\`\`\n`;
+        }
+        
+        // 添加到会话中
+        try {
+            await this.addMessageToSession('pet', responseContent, null, true);
+        } catch (e) {
+            console.warn('添加消息到会话失败:', e);
+        }
+    }
+    
+    // 确保请求接口信息编辑对话框UI存在（保留旧版本以兼容）
+    ensureApiRequestInfoEditorUi() {
+        if (document.body.querySelector('#pet-api-request-info-editor')) return;
+    }
+    
+    // 从编辑器保存请求
+    async saveApiRequestFromEditor(originalRequest, isNew) {
+        const modal = document.body.querySelector('#pet-api-request-editor');
+        if (!modal) {
+            console.error('接口编辑器未找到');
+            return;
+        }
+        
+        // 收集表单数据
+        const methodSelect = modal.querySelector('.api-editor-method-select');
+        const urlInput = modal.querySelector('.api-editor-url-input');
+        const titleInput = modal.querySelector('.api-editor-title-input');
+        const descriptionInput = modal.querySelector('.api-editor-description-input');
+        const headersContainer = modal.querySelector('.api-editor-headers-container');
+        const bodyTypeSelect = modal.querySelector('.api-editor-body-type-select');
+        const bodyTextarea = modal.querySelector('.api-editor-body-textarea');
+        
+        const method = methodSelect?.value || 'GET';
+        const url = urlInput?.value.trim() || '';
+        const title = titleInput?.value.trim() || '';
+        const description = descriptionInput?.value.trim() || '';
+        
+        // 验证URL
+        if (!url) {
+            this.showNotification('请求URL不能为空', 'error');
+            return;
+        }
+        
+        // 收集Headers
+        const headers = {};
+        if (headersContainer) {
+            const rows = headersContainer.querySelectorAll('div[style*="display: flex"]');
+            rows.forEach(row => {
+                const keyInput = row.querySelector('input[placeholder="Header名称"]');
+                const valueInput = row.querySelector('input[placeholder="Header值"]');
+                if (keyInput && valueInput) {
+                    const key = keyInput.value.trim();
+                    const value = valueInput.value.trim();
+                    if (key && value) {
+                        headers[key] = value;
+                    }
+                }
+            });
+        }
+        
+        // 收集Body
+        let body = null;
+        if (bodyTypeSelect && bodyTextarea) {
+            const bodyType = bodyTypeSelect.value;
+            const bodyText = bodyTextarea.value.trim();
+            
+            if (bodyType !== 'none' && bodyText) {
+                if (bodyType === 'json') {
+                    try {
+                        body = JSON.parse(bodyText);
+                    } catch (e) {
+                        this.showNotification('JSON格式错误，请检查请求体', 'error');
+                        return;
+                    }
+                } else {
+                    body = bodyText;
+                }
+            }
+        }
+        
+        try {
+            // 检查apiRequestApi是否可用
+            if (!this.apiRequestApi || !this.apiRequestApi.isEnabled()) {
+                this.showNotification('API管理器未启用，无法保存', 'error');
+                return;
+            }
+            
+            // 准备保存数据
+            const apiRequestData = {
+                url: url,
+                method: method,
+                headers: headers,
+                body: body,
+                title: title || `${method} ${this._extractApiPath(url)}`,
+                description: description || `接口请求：${url}`,
+                pageUrl: window.location.href,
+                tags: originalRequest.tags || [],
+                timestamp: Date.now()
+            };
+            
+            // 如果modal中有响应数据（通过发送请求获得），使用响应数据
+            if (modal._responseData) {
+                apiRequestData.status = modal._responseData.status || 0;
+                apiRequestData.statusText = modal._responseData.statusText || '';
+                apiRequestData.responseHeaders = modal._responseData.responseHeaders || {};
+                apiRequestData.responseBody = modal._responseData.responseBody || null;
+                apiRequestData.responseText = modal._responseData.responseText || '';
+                apiRequestData.duration = modal._responseData.duration || 0;
+                if (modal._responseData.error) {
+                    apiRequestData.error = modal._responseData.error;
+                }
+            } else if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
+                // 如果是编辑模式且没有新的响应数据，保留原有数据
+                apiRequestData.status = originalRequest.status || 0;
+                apiRequestData.statusText = originalRequest.statusText || '';
+                apiRequestData.responseHeaders = originalRequest.responseHeaders || {};
+                apiRequestData.responseBody = originalRequest.responseBody || null;
+                apiRequestData.responseText = originalRequest.responseText || '';
+                apiRequestData.duration = originalRequest.duration || 0;
+                apiRequestData.type = originalRequest.type || 'api';
+                apiRequestData.curl = originalRequest.curl || '';
+            }
+            
+            // 如果是编辑模式，设置key
+            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
+                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
+            }
+            
+            // 显示加载提示
+            this.showNotification('正在保存...', 'info');
+            
+            // 保存到后端
+            const result = await this.apiRequestApi.saveApiRequest(apiRequestData);
+            
+            if (result && result.success) {
+                console.log('接口请求已保存:', result.data);
+                
+                // 刷新列表
+                await this.updateApiRequestSidebar(true);
+                
+                // 关闭编辑器
+                this.closeApiRequestEditor();
+                
+                this.showNotification(isNew ? '新建成功' : '保存成功', 'success');
+            } else {
+                throw new Error(result?.message || '保存失败');
+            }
+        } catch (error) {
+            console.error('保存接口请求失败:', error);
+            this.showNotification(`保存失败: ${error.message || '未知错误'}`, 'error');
+        }
+    }
+    
+    // 关闭接口编辑器
+    closeApiRequestEditor() {
+        const modal = document.body.querySelector('#pet-api-request-editor');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // 显示 curl 导入对话框
+    showCurlImportDialog(parentModal) {
+        // 确保对话框UI存在
+        this.ensureCurlImportDialogUi();
+        
+        const dialog = document.body.querySelector('#pet-curl-import-dialog');
+        if (!dialog) {
+            console.error('curl 导入对话框未找到');
+            return;
+        }
+        
+        // 保存父模态框引用
+        dialog.dataset.parentModal = parentModal ? 'true' : 'false';
+        if (parentModal) {
+            dialog._parentModal = parentModal;
+        }
+        
+        // 显示对话框
+        dialog.style.display = 'flex';
+        
+        // 聚焦到输入框
+        const textarea = dialog.querySelector('textarea');
+        if (textarea) {
+            setTimeout(() => {
+                textarea.focus();
+                if (textarea.value) {
+                    textarea.select();
+                }
+            }, 100);
+        }
+    }
+    
+    // 确保 curl 导入对话框UI存在
+    ensureCurlImportDialogUi() {
+        if (document.body.querySelector('#pet-curl-import-dialog')) return;
+        
+        // 创建对话框
+        const dialog = document.createElement('div');
+        dialog.id = 'pet-curl-import-dialog';
+        dialog.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.6) !important;
+            display: none !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2147483655 !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+        `;
+        
+        // 点击背景关闭
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) {
+                dialog.style.display = 'none';
+            }
+        });
+        
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            width: 100% !important;
+            max-width: 700px !important;
+            max-height: 80vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+            overflow: hidden !important;
+        `;
+        
+        // 头部
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '从 curl 导入';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #1f2937 !important;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #6b7280 !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#e5e7eb';
+            closeBtn.style.color = '#1f2937';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#6b7280';
+        });
+        closeBtn.addEventListener('click', () => {
+            dialog.style.display = 'none';
+        });
+        
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        
+        // 内容区域
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 24px !important;
+        `;
+        
+        // 标签和提示信息
+        const labelContainer = document.createElement('div');
+        labelContainer.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 8px !important;
+        `;
+        
+        const label = document.createElement('label');
+        label.textContent = '粘贴 curl 命令';
+        label.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+        `;
+        
+        const hintText = document.createElement('span');
+        hintText.textContent = '支持 Ctrl+V / Cmd+V 快速粘贴';
+        hintText.style.cssText = `
+            font-size: 12px !important;
+            color: #6b7280 !important;
+            font-weight: normal !important;
+        `;
+        
+        labelContainer.appendChild(label);
+        labelContainer.appendChild(hintText);
+        
+        // 输入框容器
+        const textareaContainer = document.createElement('div');
+        textareaContainer.style.cssText = `
+            position: relative !important;
+            margin-bottom: 12px !important;
+        `;
+        
+        const textarea = document.createElement('textarea');
+        textarea.placeholder = '例如：curl -X POST https://api.example.com/users \\\n  -H "Content-Type: application/json" \\\n  -d \'{"name": "John"}\'';
+        textarea.style.cssText = `
+            width: 100% !important;
+            min-height: 220px !important;
+            padding: 12px 40px 12px 12px !important;
+            border: 2px solid #d1d5db !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace !important;
+            resize: vertical !important;
+            box-sizing: border-box !important;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+            line-height: 1.6 !important;
+        `;
+        
+        // 添加聚焦效果
+        textarea.addEventListener('focus', () => {
+            textarea.style.borderColor = '#3b82f6';
+            textarea.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+        });
+        textarea.addEventListener('blur', () => {
+            textarea.style.borderColor = '#d1d5db';
+            textarea.style.boxShadow = 'none';
+        });
+        
+        // 清空按钮
+        const clearBtn = document.createElement('button');
+        clearBtn.innerHTML = '✕';
+        clearBtn.title = '清空';
+        clearBtn.style.cssText = `
+            position: absolute !important;
+            top: 8px !important;
+            right: 8px !important;
+            width: 24px !important;
+            height: 24px !important;
+            border: none !important;
+            background: #f3f4f6 !important;
+            color: #6b7280 !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        `;
+        clearBtn.addEventListener('mouseenter', () => {
+            clearBtn.style.background = '#ef4444';
+            clearBtn.style.color = 'white';
+        });
+        clearBtn.addEventListener('mouseleave', () => {
+            clearBtn.style.background = '#f3f4f6';
+            clearBtn.style.color = '#6b7280';
+        });
+        clearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            textarea.value = '';
+            textarea.focus();
+            errorMsg.style.display = 'none';
+            updateClearButtonVisibility();
+        });
+        
+        // 更新清空按钮可见性
+        const updateClearButtonVisibility = () => {
+            if (textarea.value.trim()) {
+                clearBtn.style.opacity = '1';
+                clearBtn.style.pointerEvents = 'auto';
+            } else {
+                clearBtn.style.opacity = '0';
+                clearBtn.style.pointerEvents = 'none';
+            }
+        };
+        
+        textarea.addEventListener('input', updateClearButtonVisibility);
+        textarea.addEventListener('paste', () => {
+            setTimeout(updateClearButtonVisibility, 10);
+        });
+        
+        textareaContainer.appendChild(textarea);
+        textareaContainer.appendChild(clearBtn);
+        
+        // 错误消息
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'curl-import-error';
+        errorMsg.style.cssText = `
+            margin-top: 12px !important;
+            padding: 12px 16px !important;
+            background: #fee2e2 !important;
+            color: #dc2626 !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            display: none !important;
+            border-left: 4px solid #dc2626 !important;
+            line-height: 1.5 !important;
+        `;
+        
+        // 成功消息
+        const successMsg = document.createElement('div');
+        successMsg.className = 'curl-import-success';
+        successMsg.style.cssText = `
+            margin-top: 12px !important;
+            padding: 12px 16px !important;
+            background: #d1fae5 !important;
+            color: #065f46 !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            display: none !important;
+            border-left: 4px solid #10b981 !important;
+            line-height: 1.5 !important;
+        `;
+        
+        content.appendChild(labelContainer);
+        content.appendChild(textareaContainer);
+        content.appendChild(errorMsg);
+        content.appendChild(successMsg);
+        
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 12px !important;
+            padding: 20px 24px !important;
+            border-top: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+        `;
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            background: white !important;
+            color: #374151 !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f3f4f6';
+            cancelBtn.style.borderColor = '#9ca3af';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+            cancelBtn.style.borderColor = '#d1d5db';
+        });
+        cancelBtn.addEventListener('click', () => {
+            dialog.style.display = 'none';
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+        });
+        
+        const importBtn = document.createElement('button');
+        importBtn.innerHTML = '<span class="import-btn-text">导入</span>';
+        importBtn.style.cssText = `
+            padding: 10px 24px !important;
+            border: none !important;
+            border-radius: 8px !important;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+            color: white !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3) !important;
+            position: relative !important;
+            min-width: 80px !important;
+        `;
+        importBtn.addEventListener('mouseenter', () => {
+            if (!importBtn.disabled) {
+                importBtn.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)';
+                importBtn.style.transform = 'translateY(-1px)';
+                importBtn.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.4)';
+            }
+        });
+        importBtn.addEventListener('mouseleave', () => {
+            if (!importBtn.disabled) {
+                importBtn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                importBtn.style.transform = 'translateY(0)';
+                importBtn.style.boxShadow = '0 2px 4px rgba(59, 130, 246, 0.3)';
+            }
+        });
+        
+        // 导入处理函数
+        const handleImport = async () => {
+            const curlCommand = textarea.value.trim();
+            
+            // 隐藏之前的消息
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            
+            if (!curlCommand) {
+                errorMsg.textContent = '❌ 请输入 curl 命令';
+                errorMsg.style.display = 'block';
+                textarea.focus();
+                return;
+            }
+            
+            // 设置加载状态
+            importBtn.disabled = true;
+            importBtn.style.opacity = '0.7';
+            importBtn.style.cursor = 'wait';
+            importBtn.querySelector('.import-btn-text').textContent = '导入中...';
+            
+            try {
+                // 解析 curl 命令
+                const parseResult = this.parseCurlCommand(curlCommand);
+                
+                if (!parseResult) {
+                    throw new Error('无法识别 curl 命令格式，请确保命令以 "curl" 开头');
+                }
+                
+                if (!parseResult.url) {
+                    throw new Error('未找到有效的 URL，请检查 curl 命令是否包含完整的请求地址');
+                }
+                
+                // 获取父模态框
+                const parentModal = dialog._parentModal || document.body.querySelector('#pet-api-request-editor');
+                
+                if (!parentModal) {
+                    throw new Error('无法找到接口编辑器');
+                }
+                
+                // 填充表单
+                this.fillApiRequestEditorFromCurl(parentModal, parseResult);
+                
+                // 显示成功消息
+                successMsg.textContent = '✅ curl 命令已成功导入！';
+                successMsg.style.display = 'block';
+                
+                // 延迟关闭对话框，让用户看到成功提示
+                setTimeout(() => {
+                    dialog.style.display = 'none';
+                    errorMsg.style.display = 'none';
+                    successMsg.style.display = 'none';
+                }, 800);
+                
+            } catch (error) {
+                // 显示详细错误信息
+                let errorText = '❌ 解析失败';
+                if (error.message) {
+                    errorText += `: ${error.message}`;
+                } else if (typeof error === 'string') {
+                    errorText += `: ${error}`;
+                }
+                errorText += '\n\n提示：请确保 curl 命令格式正确，包含 URL 和必要的参数。';
+                
+                errorMsg.textContent = errorText;
+                errorMsg.style.display = 'block';
+                
+                // 滚动到错误消息
+                errorMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+            } finally {
+                // 恢复按钮状态
+                importBtn.disabled = false;
+                importBtn.style.opacity = '1';
+                importBtn.style.cursor = 'pointer';
+                importBtn.querySelector('.import-btn-text').textContent = '导入';
+            }
+        };
+        
+        importBtn.addEventListener('click', handleImport);
+        
+        // 支持 Enter + Ctrl/Cmd 快捷键导入
+        textarea.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleImport();
+            }
+        });
+        
+        footer.appendChild(cancelBtn);
+        footer.appendChild(importBtn);
+        
+        panel.appendChild(header);
+        panel.appendChild(content);
+        panel.appendChild(footer);
+        dialog.appendChild(panel);
+        document.body.appendChild(dialog);
+        
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                dialog.style.display = 'none';
+                errorMsg.style.display = 'none';
+                successMsg.style.display = 'none';
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+    
+    // 确保请求接口信息编辑对话框UI存在（保留旧版本以兼容）
+    ensureApiRequestInfoEditorUi() {
+        if (document.body.querySelector('#pet-api-request-info-editor')) return;
+        
+        // 创建对话框
+        const dialog = document.createElement('div');
+        dialog.id = 'pet-api-request-info-editor';
+        dialog.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.6) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2147483654 !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+        `;
+        
+        // 点击背景关闭
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) {
+                dialog.style.display = 'none';
+            }
+        });
+        
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            background: white !important;
+            border-radius: 12px !important;
+            width: 100% !important;
+            max-width: 700px !important;
+            max-height: 80vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+            overflow: hidden !important;
+        `;
+        
+        // 头部
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 20px 24px !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '从 curl 导入';
+        title.style.cssText = `
+            margin: 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #1f2937 !important;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            font-size: 24px !important;
+            cursor: pointer !important;
+            color: #6b7280 !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#e5e7eb';
+            closeBtn.style.color = '#1f2937';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#6b7280';
+        });
+        closeBtn.addEventListener('click', () => {
+            dialog.style.display = 'none';
+        });
+        
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        
+        // 内容区域
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 24px !important;
+        `;
+        
+        // 标签和提示信息
+        const labelContainer = document.createElement('div');
+        labelContainer.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 8px !important;
+        `;
+        
+        const label = document.createElement('label');
+        label.textContent = '粘贴 curl 命令';
+        label.style.cssText = `
+            display: block !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            color: #374151 !important;
+        `;
+        
+        const hintText = document.createElement('span');
+        hintText.textContent = '支持 Ctrl+V / Cmd+V 快速粘贴';
+        hintText.style.cssText = `
+            font-size: 12px !important;
+            color: #6b7280 !important;
+            font-weight: normal !important;
+        `;
+        
+        labelContainer.appendChild(label);
+        labelContainer.appendChild(hintText);
+        
+        // 输入框容器
+        const textareaContainer = document.createElement('div');
+        textareaContainer.style.cssText = `
+            position: relative !important;
+            margin-bottom: 12px !important;
+        `;
+        
+        textarea = document.createElement('textarea');
+        textarea.placeholder = '例如：curl -X POST https://api.example.com/users \\\n  -H "Content-Type: application/json" \\\n  -d \'{"name": "John"}\'';
+        textarea.style.cssText = `
+            width: 100% !important;
+            min-height: 220px !important;
+            padding: 12px 40px 12px 12px !important;
+            border: 2px solid #d1d5db !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace !important;
+            resize: vertical !important;
+            box-sizing: border-box !important;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+            line-height: 1.6 !important;
+        `;
+        
+        // 添加聚焦效果
+        textarea.addEventListener('focus', () => {
+            textarea.style.borderColor = '#3b82f6';
+            textarea.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+        });
+        textarea.addEventListener('blur', () => {
+            textarea.style.borderColor = '#d1d5db';
+            textarea.style.boxShadow = 'none';
+        });
+        
+        // 清空按钮
+        const clearBtn = document.createElement('button');
+        clearBtn.innerHTML = '✕';
+        clearBtn.title = '清空';
+        clearBtn.style.cssText = `
+            position: absolute !important;
+            top: 8px !important;
+            right: 8px !important;
+            width: 24px !important;
+            height: 24px !important;
+            border: none !important;
+            background: #f3f4f6 !important;
+            color: #6b7280 !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        `;
+        clearBtn.addEventListener('mouseenter', () => {
+            clearBtn.style.background = '#ef4444';
+            clearBtn.style.color = 'white';
+        });
+        clearBtn.addEventListener('mouseleave', () => {
+            clearBtn.style.background = '#f3f4f6';
+            clearBtn.style.color = '#6b7280';
+        });
+        clearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            textarea.value = '';
+            textarea.focus();
+            errorMsg.style.display = 'none';
+            updateClearButtonVisibility();
+        });
+        
+        // 更新清空按钮可见性
+        const updateClearButtonVisibility = () => {
+            if (textarea.value.trim()) {
+                clearBtn.style.opacity = '1';
+                clearBtn.style.pointerEvents = 'auto';
+            } else {
+                clearBtn.style.opacity = '0';
+                clearBtn.style.pointerEvents = 'none';
+            }
+        };
+        
+        textarea.addEventListener('input', updateClearButtonVisibility);
+        textarea.addEventListener('paste', () => {
+            setTimeout(updateClearButtonVisibility, 10);
+        });
+        
+        textareaContainer.appendChild(textarea);
+        textareaContainer.appendChild(clearBtn);
+        
+        // 错误消息
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'curl-import-error';
+        errorMsg.style.cssText = `
+            margin-top: 12px !important;
+            padding: 12px 16px !important;
+            background: #fee2e2 !important;
+            color: #dc2626 !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            display: none !important;
+            border-left: 4px solid #dc2626 !important;
+            line-height: 1.5 !important;
+        `;
+        
+        // 成功消息
+        const successMsg = document.createElement('div');
+        successMsg.className = 'curl-import-success';
+        successMsg.style.cssText = `
+            margin-top: 12px !important;
+            padding: 12px 16px !important;
+            background: #d1fae5 !important;
+            color: #065f46 !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            display: none !important;
+            border-left: 4px solid #10b981 !important;
+            line-height: 1.5 !important;
+        `;
+        
+        content.appendChild(labelContainer);
+        content.appendChild(textareaContainer);
+        content.appendChild(errorMsg);
+        content.appendChild(successMsg);
+        
+        // 如果是编辑模式，填充当前的 curl 命令
+        if (parentModal) {
+            const currentCurl = this.generateCurlFromEditor(parentModal);
+            if (currentCurl) {
+                // 将 \\\n 转换为真正的换行符，以便在 textarea 中正确显示
+                textarea.value = currentCurl.replace(/\\\n/g, '\n');
+            }
+        }
+        
+        // 底部按钮
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            display: flex !important;
+            justify-content: flex-end !important;
+            gap: 12px !important;
+            padding: 20px 24px !important;
+            border-top: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
+        `;
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '取消';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            background: white !important;
+            color: #374151 !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f3f4f6';
+            cancelBtn.style.borderColor = '#9ca3af';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+            cancelBtn.style.borderColor = '#d1d5db';
+        });
+        cancelBtn.addEventListener('click', () => {
+            dialog.style.display = 'none';
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+        });
+        
+        const importBtn = document.createElement('button');
+        importBtn.innerHTML = '<span class="import-btn-text">导入</span>';
+        importBtn.style.cssText = `
+            padding: 10px 24px !important;
+            border: none !important;
+            border-radius: 8px !important;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+            color: white !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3) !important;
+            position: relative !important;
+            min-width: 80px !important;
+        `;
+        importBtn.addEventListener('mouseenter', () => {
+            if (!importBtn.disabled) {
+                importBtn.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)';
+                importBtn.style.transform = 'translateY(-1px)';
+                importBtn.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.4)';
+            }
+        });
+        importBtn.addEventListener('mouseleave', () => {
+            if (!importBtn.disabled) {
+                importBtn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                importBtn.style.transform = 'translateY(0)';
+                importBtn.style.boxShadow = '0 2px 4px rgba(59, 130, 246, 0.3)';
+            }
+        });
+        
+        // 导入处理函数
+        const handleImport = async () => {
+            const curlCommand = textarea.value.trim();
+            
+            // 隐藏之前的消息
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            
+            if (!curlCommand) {
+                errorMsg.textContent = '❌ 请输入 curl 命令';
+                errorMsg.style.display = 'block';
+                textarea.focus();
+                return;
+            }
+            
+            // 设置加载状态
+            importBtn.disabled = true;
+            importBtn.style.opacity = '0.7';
+            importBtn.style.cursor = 'wait';
+            importBtn.querySelector('.import-btn-text').textContent = '导入中...';
+            
+            try {
+                // 解析 curl 命令
+                const parseResult = this.parseCurlCommand(curlCommand);
+                
+                if (!parseResult) {
+                    throw new Error('无法识别 curl 命令格式，请确保命令以 "curl" 开头');
+                }
+                
+                if (!parseResult.url) {
+                    throw new Error('未找到有效的 URL，请检查 curl 命令是否包含完整的请求地址');
+                }
+                
+                // 填充表单
+                this.fillApiRequestEditorFromCurl(parentModal, parseResult);
+                
+                // 显示成功消息
+                successMsg.textContent = '✅ curl 命令已成功导入！';
+                successMsg.style.display = 'block';
+                
+                // 延迟关闭对话框，让用户看到成功提示
+                setTimeout(() => {
+                    dialog.style.display = 'none';
+                    errorMsg.style.display = 'none';
+                    successMsg.style.display = 'none';
+                }, 800);
+                
+            } catch (error) {
+                // 显示详细错误信息
+                let errorText = '❌ 解析失败';
+                if (error.message) {
+                    errorText += `: ${error.message}`;
+                } else if (typeof error === 'string') {
+                    errorText += `: ${error}`;
+                }
+                errorText += '\n\n提示：请确保 curl 命令格式正确，包含 URL 和必要的参数。';
+                
+                errorMsg.textContent = errorText;
+                errorMsg.style.display = 'block';
+                
+                // 滚动到错误消息
+                errorMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+            } finally {
+                // 恢复按钮状态
+                importBtn.disabled = false;
+                importBtn.style.opacity = '1';
+                importBtn.style.cursor = 'pointer';
+                importBtn.querySelector('.import-btn-text').textContent = '导入';
+            }
+        };
+        
+        importBtn.addEventListener('click', handleImport);
+        
+        // 支持 Enter + Ctrl/Cmd 快捷键导入
+        textarea.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleImport();
+            }
+        });
+        
+        footer.appendChild(cancelBtn);
+        footer.appendChild(importBtn);
+        
+        panel.appendChild(header);
+        panel.appendChild(content);
+        panel.appendChild(footer);
+        dialog.appendChild(panel);
+        document.body.appendChild(dialog);
+        
+        // 聚焦到输入框并选中文本（如果有）
+        setTimeout(() => {
+            textarea.focus();
+            if (textarea.value) {
+                textarea.select();
+            }
+        }, 100);
+        
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                dialog.style.display = 'none';
+                errorMsg.style.display = 'none';
+                successMsg.style.display = 'none';
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        
+    }
+    
+    // 解析 curl 命令
+    parseCurlCommand(curlCommand) {
+        if (!curlCommand || typeof curlCommand !== 'string') {
+            throw new Error('curl 命令不能为空');
+        }
+        
+        // 规范化 curl 命令：处理多行格式（反斜杠换行）
+        curlCommand = curlCommand.trim();
+        
+        if (!curlCommand) {
+            throw new Error('curl 命令不能为空');
+        }
+        
+        // 移除行尾的反斜杠和换行符，合并多行
+        // 先处理带反斜杠的换行（标准 curl 格式）
+        curlCommand = curlCommand.replace(/\\\s*\n\s*/g, ' ').replace(/\\\s*\r\n\s*/g, ' ');
+        // 再处理不带反斜杠的换行（从 textarea 中直接粘贴的多行格式）
+        curlCommand = curlCommand.replace(/\n\s*/g, ' ').replace(/\r\n\s*/g, ' ');
+        
+        // 检查是否是 curl 命令
+        const lowerCommand = curlCommand.toLowerCase();
+        if (!lowerCommand.startsWith('curl')) {
+            throw new Error('命令必须以 "curl" 开头');
+        }
+        
+        const result = {
+            method: 'GET',
+            url: '',
+            headers: {},
+            body: null
+        };
+        
+        // 移除 'curl' 前缀
+        let command = curlCommand.substring(4).trim();
+        
+        // 解析参数（改进版：更好地处理引号和空格）
+        const parts = [];
+        let currentPart = '';
+        let inQuotes = false;
+        let quoteChar = null;
+        
+        for (let i = 0; i < command.length; i++) {
+            const char = command[i];
+            const prevChar = i > 0 ? command[i - 1] : null;
+            
+            // 处理引号（支持单引号和双引号）
+            if ((char === '"' || char === "'") && prevChar !== '\\') {
+                if (!inQuotes) {
+                    inQuotes = true;
+                    quoteChar = char;
+                    currentPart += char;
+                } else if (char === quoteChar) {
+                    inQuotes = false;
+                    quoteChar = null;
+                    currentPart += char;
+                } else {
+                    currentPart += char;
+                }
+            } else if (char === ' ' && !inQuotes) {
+                // 空格分隔参数
+                if (currentPart.trim()) {
+                    parts.push(currentPart.trim());
+                    currentPart = '';
+                }
+            } else {
+                currentPart += char;
+            }
+        }
+        
+        // 添加最后一个部分
+        if (currentPart.trim()) {
+            parts.push(currentPart.trim());
+        }
+        
+        // 解析各个部分
+        let i = 0;
+        while (i < parts.length) {
+            const part = parts[i];
+            
+            // 解析方法 (-X 或 --request)
+            if ((part === '-X' || part === '--request') && i + 1 < parts.length) {
+                result.method = parts[i + 1].toUpperCase();
+                i += 2;
+                continue;
+            }
+            
+            // 解析 Header (-H 或 --header)
+            if ((part === '-H' || part === '--header') && i + 1 < parts.length) {
+                let headerStr = parts[i + 1];
+                // 移除引号
+                headerStr = headerStr.replace(/^["']|["']$/g, '');
+                // 处理转义字符
+                headerStr = headerStr.replace(/\\'/g, "'").replace(/\\"/g, '"');
+                
+                const colonIndex = headerStr.indexOf(':');
+                if (colonIndex > 0) {
+                    const key = headerStr.substring(0, colonIndex).trim();
+                    const value = headerStr.substring(colonIndex + 1).trim();
+                    if (key && value) {
+                        result.headers[key] = value;
+                    }
+                }
+                i += 2;
+                continue;
+            }
+            
+            // 解析 Body (-d 或 --data 或 --data-raw 或 --data-binary)
+            if ((part === '-d' || part === '--data' || part === '--data-raw' || part === '--data-binary' || part === '--data-ascii') && i + 1 < parts.length) {
+                let bodyStr = parts[i + 1];
+                // 移除引号
+                bodyStr = bodyStr.replace(/^["']|["']$/g, '');
+                // 处理转义字符
+                bodyStr = bodyStr.replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+                
+                // 尝试解析为 JSON
+                try {
+                    result.body = JSON.parse(bodyStr);
+                } catch {
+                    result.body = bodyStr;
+                }
+                i += 2;
+                continue;
+            }
+            
+            // 解析 URL (--url)
+            if (part === '--url' && i + 1 < parts.length) {
+                result.url = parts[i + 1].replace(/^["']|["']$/g, '');
+                i += 2;
+                continue;
+            }
+            
+            // 解析认证 (-u 或 --user)
+            if ((part === '-u' || part === '--user') && i + 1 < parts.length) {
+                const authStr = parts[i + 1].replace(/^["']|["']$/g, '');
+                // Basic 认证：username:password
+                if (authStr.includes(':')) {
+                    const [username, password] = authStr.split(':');
+                    const credentials = btoa(`${username}:${password}`);
+                    result.headers['Authorization'] = `Basic ${credentials}`;
+                }
+                i += 2;
+                continue;
+            }
+            
+            // 解析 URL（没有前缀的参数，通常是最后一个，且看起来像 URL）
+            if (!part.startsWith('-') && !part.startsWith('--')) {
+                const cleanPart = part.replace(/^["']|["']$/g, '');
+                // 检查是否是 URL
+                if (cleanPart.startsWith('http://') || cleanPart.startsWith('https://')) {
+                    result.url = cleanPart;
+                } else if (!result.url && i === parts.length - 1) {
+                    // 如果是最后一个参数且还没有 URL，假设它是 URL
+                    result.url = cleanPart;
+                }
+                i++;
+                continue;
+            }
+            
+            i++;
+        }
+        
+        // 如果没有找到 URL，尝试从命令中提取
+        if (!result.url) {
+            // 查找最后一个看起来像 URL 的部分
+            for (let j = parts.length - 1; j >= 0; j--) {
+                const part = parts[j];
+                const cleanPart = part.replace(/^["']|["']$/g, '');
+                if (cleanPart.startsWith('http://') || cleanPart.startsWith('https://')) {
+                    result.url = cleanPart;
+                    break;
+                }
+            }
+        }
+        
+        if (!result.url) {
+            throw new Error('未找到有效的 URL。请确保 curl 命令包含完整的请求地址（以 http:// 或 https:// 开头）');
+        }
+        
+        // 验证 URL 格式
+        try {
+            new URL(result.url);
+        } catch (e) {
+            throw new Error(`URL 格式无效: ${result.url}`);
+        }
+        
+        return result;
+    }
+    
+    // 从 curl 解析结果填充编辑器
+    fillApiRequestEditorFromCurl(modal, parsed) {
+        const methodSelect = modal.querySelector('.api-editor-method-select');
+        const urlInput = modal.querySelector('.api-editor-url-input');
+        const headersContainer = modal.querySelector('.api-editor-headers-container');
+        const bodyTypeSelect = modal.querySelector('.api-editor-body-type-select');
+        const bodyTextarea = modal.querySelector('.api-editor-body-textarea');
+        
+        // 填充方法（添加平滑过渡效果）
+        if (methodSelect && parsed.method) {
+            methodSelect.style.transition = 'all 0.3s ease';
+            methodSelect.value = parsed.method;
+            // 添加高亮效果
+            methodSelect.style.background = '#dbeafe';
+            setTimeout(() => {
+                methodSelect.style.background = 'white';
+            }, 500);
+        }
+        
+        // 填充 URL（添加高亮效果）
+        if (urlInput && parsed.url) {
+            urlInput.value = parsed.url;
+            urlInput.style.transition = 'all 0.3s ease';
+            urlInput.style.background = '#dbeafe';
+            setTimeout(() => {
+                urlInput.style.background = 'white';
+            }, 500);
+        }
+        
+        // 填充 Headers（添加动画效果）
+        if (headersContainer && parsed.headers) {
+            headersContainer.style.transition = 'all 0.3s ease';
+            headersContainer.style.background = '#dbeafe';
+            this.populateHeadersEditor(headersContainer, parsed.headers);
+            setTimeout(() => {
+                headersContainer.style.background = '#f9fafb';
+            }, 500);
+        }
+        
+        // 填充 Body（添加动画效果）
+        if (bodyTypeSelect && bodyTextarea && parsed.body !== null && parsed.body !== undefined) {
+            const bodyType = this.detectBodyType(parsed.body);
+            bodyTypeSelect.value = bodyType;
+            this.updateBodyEditor(bodyTypeSelect, bodyTextarea, parsed.body);
+            
+            // 添加高亮效果
+            bodyTextarea.style.transition = 'all 0.3s ease';
+            bodyTextarea.style.background = '#dbeafe';
+            setTimeout(() => {
+                bodyTextarea.style.background = 'white';
+            }, 500);
+        }
+        
+        // 显示成功通知（使用更友好的消息）
+        const importedFields = [];
+        if (parsed.method) importedFields.push('请求方法');
+        if (parsed.url) importedFields.push('URL');
+        if (parsed.headers && Object.keys(parsed.headers).length > 0) importedFields.push('请求头');
+        if (parsed.body !== null && parsed.body !== undefined) importedFields.push('请求体');
+        
+        const message = `curl 命令已成功导入！已填充：${importedFields.join('、')}`;
+        this.showNotification(message, 'success');
+    }
+    
+    // 从编辑器保存请求
+    async saveApiRequestFromEditor(originalRequest, isNew) {
+        const modal = document.body.querySelector('#pet-api-request-editor');
+        if (!modal) {
+            console.error('接口编辑器未找到');
+            return;
+        }
+        
+        // 收集表单数据
+        const methodSelect = modal.querySelector('.api-editor-method-select');
+        const urlInput = modal.querySelector('.api-editor-url-input');
+        const titleInput = modal.querySelector('.api-editor-title-input');
+        const descriptionInput = modal.querySelector('.api-editor-description-input');
+        const headersContainer = modal.querySelector('.api-editor-headers-container');
+        const bodyTypeSelect = modal.querySelector('.api-editor-body-type-select');
+        const bodyTextarea = modal.querySelector('.api-editor-body-textarea');
+        
+        const method = methodSelect?.value || 'GET';
+        const url = urlInput?.value.trim() || '';
+        const title = titleInput?.value.trim() || '';
+        const description = descriptionInput?.value.trim() || '';
+        
+        // 验证URL
+        if (!url) {
+            this.showNotification('请求URL不能为空', 'error');
+            return;
+        }
+        
+        // 收集Headers
+        const headers = {};
+        if (headersContainer) {
+            const rows = headersContainer.querySelectorAll('div[style*="display: flex"]');
+            rows.forEach(row => {
+                const keyInput = row.querySelector('input[placeholder="Header名称"]');
+                const valueInput = row.querySelector('input[placeholder="Header值"]');
+                if (keyInput && valueInput) {
+                    const key = keyInput.value.trim();
+                    const value = valueInput.value.trim();
+                    if (key && value) {
+                        headers[key] = value;
+                    }
+                }
+            });
+        }
+        
+        // 收集Body
+        let body = null;
+        if (bodyTypeSelect && bodyTextarea) {
+            const bodyType = bodyTypeSelect.value;
+            const bodyText = bodyTextarea.value.trim();
+            
+            if (bodyType !== 'none' && bodyText) {
+                if (bodyType === 'json') {
+                    try {
+                        body = JSON.parse(bodyText);
+                    } catch (e) {
+                        this.showNotification('JSON格式错误，请检查请求体', 'error');
+                        return;
+                    }
+                } else {
+                    body = bodyText;
+                }
+            }
+        }
+        
+        try {
+            // 检查apiRequestApi是否可用
+            if (!this.apiRequestApi || !this.apiRequestApi.isEnabled()) {
+                this.showNotification('API管理器未启用，无法保存', 'error');
+                return;
+            }
+            
+            // 准备保存数据
+            const apiRequestData = {
+                url: url,
+                method: method,
+                headers: headers,
+                body: body,
+                title: title || `${method} ${this._extractApiPath(url)}`,
+                description: description || `接口请求：${url}`,
+                pageUrl: window.location.href,
+                tags: originalRequest.tags || [],
+                timestamp: Date.now()
+            };
+            
+            // 如果是编辑模式，保留原有数据
+            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
+                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
+                // 保留响应数据
+                apiRequestData.status = originalRequest.status || 0;
+                apiRequestData.statusText = originalRequest.statusText || '';
+                apiRequestData.responseHeaders = originalRequest.responseHeaders || {};
+                apiRequestData.responseBody = originalRequest.responseBody || null;
+                apiRequestData.responseText = originalRequest.responseText || '';
+                apiRequestData.duration = originalRequest.duration || 0;
+                apiRequestData.type = originalRequest.type || 'api';
+                apiRequestData.curl = originalRequest.curl || '';
+            }
+            
+            // 显示加载提示
+            this.showNotification('正在保存...', 'info');
+            
+            // 保存到后端
+            const result = await this.apiRequestApi.saveApiRequest(apiRequestData);
+            
+            if (result && result.success) {
+                console.log('接口请求已保存:', result.data);
+                
+                // 刷新列表
+                await this.updateApiRequestSidebar(true);
+                
+                // 关闭编辑器
+                this.closeApiRequestEditor();
+                
+                this.showNotification(isNew ? '新建成功' : '保存成功', 'success');
+            } else {
+                throw new Error(result?.message || '保存失败');
+            }
+        } catch (error) {
+            console.error('保存接口请求失败:', error);
+            this.showNotification(`保存失败: ${error.message || '未知错误'}`, 'error');
+        }
+    }
+    
+    // 关闭接口编辑器
+    closeApiRequestEditor() {
+        const modal = document.body.querySelector('#pet-api-request-editor');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // 确保请求接口信息编辑对话框UI存在（保留旧版本以兼容）
     ensureApiRequestInfoEditorUi() {
         if (document.body.querySelector('#pet-api-request-info-editor')) return;
         
@@ -19304,6 +21980,280 @@ if (typeof getCenterPosition === 'undefined') {
             }
         };
         document.addEventListener('keydown', escHandler);
+    }
+    
+    // 生成curl命令
+    generateCurlCommand(apiRequest) {
+        if (!apiRequest) {
+            return '';
+        }
+        
+        const url = apiRequest.url || '';
+        const method = (apiRequest.method || 'GET').toUpperCase();
+        const headers = apiRequest.headers || apiRequest.requestHeaders || {};
+        let body = apiRequest.body || apiRequest.requestBody || null;
+        
+        // 处理body格式
+        if (body && typeof body === 'string') {
+            try {
+                // 尝试解析为JSON，如果是有效的JSON，则保留字符串格式用于curl
+                JSON.parse(body);
+                // 是有效的JSON字符串，直接使用
+            } catch (e) {
+                // 不是JSON，保持原样
+            }
+        } else if (body && typeof body === 'object') {
+            // 对象转换为JSON字符串
+            body = JSON.stringify(body);
+        }
+        
+        // 生成curl命令
+        let curl = `curl -X ${method}`;
+        
+        // 添加请求头
+        if (headers && typeof headers === 'object') {
+            Object.entries(headers).forEach(([key, value]) => {
+                if (key && value !== undefined && value !== null) {
+                    // 转义双引号和反斜杠
+                    const escapedValue = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                    curl += ` \\\n  -H "${key}: ${escapedValue}"`;
+                }
+            });
+        }
+        
+        // 添加请求体（只对POST、PUT、PATCH等方法添加）
+        if (body && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            if (typeof body === 'string') {
+                // 转义：先转义反斜杠，再转义单引号（在单引号字符串中，需要结束单引号、添加\'、再开始单引号）
+                const escapedBody = body.replace(/\\/g, '\\\\').replace(/'/g, "'\\''");
+                curl += ` \\\n  -d '${escapedBody}'`;
+            }
+        }
+        
+        // 添加URL（转义双引号）
+        const escapedUrl = url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        curl += ` \\\n  "${escapedUrl}"`;
+        
+        return curl;
+    }
+    
+    // 显示curl命令弹窗
+    showCurlCommand(apiRequest) {
+        if (!apiRequest) {
+            console.warn('请求接口数据无效，无法显示curl命令:', apiRequest);
+            return;
+        }
+        
+        // 生成curl命令
+        const curlCommand = this.generateCurlCommand(apiRequest);
+        
+        // 确保chatWindow存在，如果不存在则在body上创建
+        const container = this.chatWindow || document.body;
+        
+        // 检查是否已存在curl命令弹窗
+        let modal = container.querySelector('#pet-curl-command-viewer');
+        if (!modal) {
+            // 创建模态框
+            modal = document.createElement('div');
+            modal.id = 'pet-curl-command-viewer';
+            modal.style.cssText = `
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                background: rgba(0, 0, 0, 0.5) !important;
+                display: none !important;
+                align-items: center !important;
+                justify-content: center !important;
+                z-index: ${PET_CONFIG.ui.zIndex.modal + 1} !important;
+            `;
+            
+            // 点击背景关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            // 创建面板
+            const panel = document.createElement('div');
+            panel.style.cssText = `
+                background: white !important;
+                border-radius: 12px !important;
+                padding: 28px !important;
+                width: 95% !important;
+                max-width: 1200px !important;
+                max-height: 85vh !important;
+                overflow-y: auto !important;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+            `;
+            
+            // 标题栏
+            const header = document.createElement('div');
+            header.style.cssText = `
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                margin-bottom: 20px !important;
+            `;
+            
+            const title = document.createElement('h3');
+            title.textContent = 'curl 命令';
+            title.style.cssText = `
+                margin: 0 !important;
+                font-size: 18px !important;
+                font-weight: 600 !important;
+                color: #333 !important;
+            `;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'curl-command-viewer-close';
+            closeBtn.innerHTML = '✕';
+            closeBtn.title = '关闭（ESC）';
+            closeBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                font-size: 24px !important;
+                cursor: pointer !important;
+                color: #999 !important;
+                padding: 0 !important;
+                width: 30px !important;
+                height: 30px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 4px !important;
+                transition: all 0.2s ease !important;
+            `;
+            closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.background = '#f0f0f0';
+                closeBtn.style.color = '#333';
+            });
+            closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.background = 'none';
+                closeBtn.style.color = '#999';
+            });
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            
+            header.appendChild(title);
+            header.appendChild(closeBtn);
+            
+            // curl命令显示区域
+            const curlContainer = document.createElement('div');
+            curlContainer.style.cssText = `
+                margin-bottom: 20px !important;
+            `;
+            
+            const curlTextarea = document.createElement('textarea');
+            curlTextarea.className = 'curl-command-textarea';
+            curlTextarea.readOnly = true;
+            curlTextarea.style.cssText = `
+                width: 100% !important;
+                min-height: 300px !important;
+                padding: 16px !important;
+                border: 1px solid #e5e7eb !important;
+                border-radius: 8px !important;
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace !important;
+                font-size: 13px !important;
+                line-height: 1.6 !important;
+                color: #1f2937 !important;
+                background: #f9fafb !important;
+                resize: vertical !important;
+                box-sizing: border-box !important;
+            `;
+            
+            curlContainer.appendChild(curlTextarea);
+            
+            // 底部按钮栏
+            const footer = document.createElement('div');
+            footer.style.cssText = `
+                display: flex !important;
+                justify-content: flex-end !important;
+                gap: 12px !important;
+                padding-top: 16px !important;
+                border-top: 1px solid #e5e7eb !important;
+            `;
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = '复制命令';
+            copyBtn.style.cssText = `
+                padding: 10px 24px !important;
+                border: none !important;
+                border-radius: 8px !important;
+                background: #3b82f6 !important;
+                color: white !important;
+                font-size: 14px !important;
+                font-weight: 500 !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+            `;
+            copyBtn.addEventListener('mouseenter', () => {
+                copyBtn.style.background = '#2563eb';
+            });
+            copyBtn.addEventListener('mouseleave', () => {
+                copyBtn.style.background = '#3b82f6';
+            });
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(curlCommand);
+                    copyBtn.textContent = '已复制！';
+                    copyBtn.style.background = '#10b981';
+                    setTimeout(() => {
+                        copyBtn.textContent = '复制命令';
+                        copyBtn.style.background = '#3b82f6';
+                    }, 2000);
+                } catch (err) {
+                    console.error('复制失败:', err);
+                    // 降级方案：选中文本
+                    curlTextarea.select();
+                    document.execCommand('copy');
+                    copyBtn.textContent = '已复制！';
+                    copyBtn.style.background = '#10b981';
+                    setTimeout(() => {
+                        copyBtn.textContent = '复制命令';
+                        copyBtn.style.background = '#3b82f6';
+                    }, 2000);
+                }
+            });
+            
+            footer.appendChild(copyBtn);
+            
+            panel.appendChild(header);
+            panel.appendChild(curlContainer);
+            panel.appendChild(footer);
+            modal.appendChild(panel);
+            container.appendChild(modal);
+        }
+        
+        // 更新curl命令内容
+        const curlTextarea = modal.querySelector('.curl-command-textarea');
+        if (curlTextarea) {
+            // 将 \\\n 转换为真正的换行符，以便在 textarea 中正确显示
+            curlTextarea.value = curlCommand.replace(/\\\n/g, '\n');
+        }
+        
+        // 显示模态框
+        modal.style.display = 'flex';
+        
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                modal.style.display = 'none';
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        
+        // 聚焦到textarea，方便用户选择文本
+        if (curlTextarea) {
+            setTimeout(() => {
+                curlTextarea.focus();
+                curlTextarea.select();
+            }, 100);
+        }
     }
     
     // 提取API路径（从完整URL中提取路径部分）
@@ -34435,7 +37385,7 @@ ${messageContent}`;
             this.style.boxShadow = 'none !important';
         });
         
-        // 按钮点击事件：创建空白新会话或上传文件到OSS
+        // 按钮点击事件：创建空白新会话、上传文件到OSS或新建接口
         addSessionBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -34443,6 +37393,12 @@ ${messageContent}`;
             // 如果在OSS文件视图下，触发文件上传
             if (this.ossFileListVisible) {
                 await this.uploadFileToOss();
+                return;
+            }
+            
+            // 如果在接口请求视图下，创建新接口
+            if (this.apiRequestListVisible) {
+                this.createNewApiRequest();
                 return;
             }
             
@@ -43206,6 +46162,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

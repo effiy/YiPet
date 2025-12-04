@@ -1,6 +1,7 @@
 /**
  * 加载动画组件
  * 使用 roles/教师/run 下的连续图片生成动画
+ * 优化版：添加图片预加载、错误处理和重试机制
  */
 
 class LoadingAnimation {
@@ -13,17 +14,44 @@ class LoadingAnimation {
         this.isVisible = false;
         this.showCount = 0; // 显示计数器，支持多个调用者
         
-        // 获取扩展资源URL
+        // 图片预加载缓存
+        this.imageCache = new Map();
+        this.preloadPromises = [];
+        this.isPreloading = false;
+        
+        // 扩展上下文状态
+        this.extensionContextValid = true;
+        
+        // 获取扩展资源URL（带错误处理）
         this.getExtensionUrl = (path) => {
             try {
-                if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
-                    return chrome.runtime.getURL(path);
+                // 检查扩展上下文是否有效
+                if (typeof chrome === 'undefined' || !chrome.runtime) {
+                    this.extensionContextValid = false;
+                    return null;
                 }
-                // 备用方案：如果是开发环境，可能需要使用相对路径
-                return path;
+                
+                try {
+                    // 尝试获取 runtime.id，如果失败说明上下文已失效
+                    const runtimeId = chrome.runtime.id;
+                    if (!runtimeId) {
+                        this.extensionContextValid = false;
+                        return null;
+                    }
+                    
+                    const url = chrome.runtime.getURL(path);
+                    this.extensionContextValid = true;
+                    return url;
+                } catch (error) {
+                    // 扩展上下文已失效
+                    this.extensionContextValid = false;
+                    console.warn('扩展上下文已失效，无法获取资源URL:', error);
+                    return null;
+                }
             } catch (error) {
                 console.warn('获取扩展URL失败:', error);
-                return path;
+                this.extensionContextValid = false;
+                return null;
             }
         };
     }
@@ -71,7 +99,7 @@ class LoadingAnimation {
     /**
      * 显示动画
      */
-    show() {
+    async show() {
         this.showCount++;
         
         if (this.isVisible) {
@@ -81,6 +109,25 @@ class LoadingAnimation {
         this.createAnimationElement();
         this.isVisible = true;
         this.currentFrame = 1;
+        
+        // 检查扩展上下文
+        if (!this.extensionContextValid) {
+            // 尝试重新检查
+            const testUrl = this.getExtensionUrl('roles/教师/run/1.png');
+            if (!testUrl) {
+                console.warn('[LoadingAnimation] 扩展上下文无效，无法显示动画');
+                return;
+            }
+        }
+        
+        // 预加载图片（如果还没预加载）
+        if (this.imageCache.size === 0) {
+            try {
+                await this.preloadImages();
+            } catch (error) {
+                console.warn('[LoadingAnimation] 预加载失败，将使用实时加载:', error);
+            }
+        }
         
         // 显示容器
         if (this.animationElement) {
@@ -128,8 +175,14 @@ class LoadingAnimation {
         // 立即显示第一帧
         this.updateFrame();
         
-        // 设置循环
+        // 设置循环（使用更稳定的方式）
         this.animationInterval = setInterval(() => {
+            // 检查扩展上下文
+            if (!this.extensionContextValid) {
+                this.stopAnimation();
+                return;
+            }
+            
             this.currentFrame = (this.currentFrame % this.totalFrames) + 1;
             this.updateFrame();
         }, this.frameDelay);
@@ -146,17 +199,154 @@ class LoadingAnimation {
     }
     
     /**
-     * 更新当前帧
+     * 预加载所有动画帧图片
+     */
+    async preloadImages() {
+        if (this.isPreloading) {
+            return Promise.all(this.preloadPromises);
+        }
+        
+        this.isPreloading = true;
+        this.preloadPromises = [];
+        
+        // 预加载所有帧
+        for (let frame = 1; frame <= this.totalFrames; frame++) {
+            const promise = this.loadImage(frame);
+            this.preloadPromises.push(promise);
+        }
+        
+        try {
+            await Promise.all(this.preloadPromises);
+            console.log('[LoadingAnimation] 图片预加载完成');
+        } catch (error) {
+            console.warn('[LoadingAnimation] 部分图片预加载失败:', error);
+        } finally {
+            this.isPreloading = false;
+        }
+    }
+    
+    /**
+     * 加载单张图片（带重试机制）
+     */
+    loadImage(frame, retries = 3) {
+        return new Promise((resolve, reject) => {
+            // 检查缓存
+            if (this.imageCache.has(frame)) {
+                const cached = this.imageCache.get(frame);
+                if (cached && cached.complete && cached.naturalWidth > 0) {
+                    resolve(cached);
+                    return;
+                }
+            }
+            
+            const imagePath = `roles/教师/run/${frame}.png`;
+            const imageUrl = this.getExtensionUrl(imagePath);
+            
+            if (!imageUrl) {
+                reject(new Error('无法获取扩展资源URL'));
+                return;
+            }
+            
+            const img = new Image();
+            let attemptCount = 0;
+            
+            const attemptLoad = () => {
+                attemptCount++;
+                
+                // 设置超时
+                const timeout = setTimeout(() => {
+                    img.onload = null;
+                    img.onerror = null;
+                    
+                    if (attemptCount < retries) {
+                        // 重试
+                        setTimeout(attemptLoad, 100 * attemptCount);
+                    } else {
+                        reject(new Error(`图片加载超时: ${imagePath}`));
+                    }
+                }, 3000);
+                
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    img.onload = null;
+                    img.onerror = null;
+                    
+                    // 缓存图片
+                    this.imageCache.set(frame, img);
+                    resolve(img);
+                };
+                
+                img.onerror = (error) => {
+                    clearTimeout(timeout);
+                    img.onload = null;
+                    img.onerror = null;
+                    
+                    // 如果扩展上下文失效，不再重试
+                    if (!this.extensionContextValid) {
+                        reject(new Error('扩展上下文已失效'));
+                        return;
+                    }
+                    
+                    if (attemptCount < retries) {
+                        // 重试前等待一段时间
+                        setTimeout(attemptLoad, 100 * attemptCount);
+                    } else {
+                        console.warn(`[LoadingAnimation] 图片加载失败 (${attemptCount}次重试): ${imagePath}`);
+                        reject(error);
+                    }
+                };
+                
+                // 设置 src（触发加载）
+                // 直接使用 URL，允许浏览器缓存
+                img.src = imageUrl;
+            };
+            
+            attemptLoad();
+        });
+    }
+    
+    /**
+     * 更新当前帧（优化版：使用预加载的图片）
      */
     updateFrame() {
         if (!this.animationImg) {
             return;
         }
         
-        const imagePath = `roles/教师/run/${this.currentFrame}.png`;
-        const imageUrl = this.getExtensionUrl(imagePath);
+        // 如果扩展上下文已失效，不更新
+        if (!this.extensionContextValid) {
+            return;
+        }
         
-        this.animationImg.src = imageUrl;
+        // 尝试从缓存获取
+        const cachedImg = this.imageCache.get(this.currentFrame);
+        
+        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+            // 使用缓存的图片
+            // 避免重复设置相同的 src（防止 canceled）
+            if (this.animationImg.src !== cachedImg.src) {
+                this.animationImg.src = cachedImg.src;
+            }
+        } else {
+            // 如果缓存中没有或图片未加载完成，使用原始URL（降级方案）
+            // 同时尝试异步加载到缓存
+            const imagePath = `roles/教师/run/${this.currentFrame}.png`;
+            const imageUrl = this.getExtensionUrl(imagePath);
+            if (imageUrl) {
+                // 避免重复设置相同的 src（防止 canceled）
+                if (this.animationImg.src !== imageUrl) {
+                    this.animationImg.src = imageUrl;
+                }
+                
+                // 异步加载到缓存（不阻塞当前帧显示）
+                if (!cachedImg) {
+                    this.loadImage(this.currentFrame, 2).catch(error => {
+                        // 静默处理加载失败
+                        console.debug(`[LoadingAnimation] 后台加载第${this.currentFrame}帧失败:`, error);
+                    });
+                }
+            }
+        }
     }
     
     /**
@@ -165,11 +355,27 @@ class LoadingAnimation {
     destroy() {
         this.hide();
         
+        // 清理图片缓存
+        this.imageCache.clear();
+        this.preloadPromises = [];
+        this.isPreloading = false;
+        
         if (this.animationElement && this.animationElement.parentNode) {
             this.animationElement.parentNode.removeChild(this.animationElement);
             this.animationElement = null;
             this.animationImg = null;
         }
+    }
+    
+    /**
+     * 重置扩展上下文状态（当扩展重新加载时调用）
+     */
+    resetExtensionContext() {
+        this.extensionContextValid = true;
+        // 清理缓存，强制重新加载
+        this.imageCache.clear();
+        this.preloadPromises = [];
+        this.isPreloading = false;
     }
 }
 
@@ -184,4 +390,5 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.LoadingAnimation = LoadingAnimation;
 }
+
 

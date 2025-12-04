@@ -738,45 +738,18 @@ if (typeof getCenterPosition === 'undefined') {
             console.log('新闻管理器未启用');
         }
         
-        // 初始化接口请求管理器
+        // 初始化接口请求管理器（仅用于存储从API获取的数据，不拦截本地请求）
         if (typeof ApiRequestManager !== 'undefined') {
             this.apiRequestManager = new ApiRequestManager({
-                enableRecording: true,
+                enableRecording: false, // 禁用请求拦截，不记录本地请求
                 maxRecords: 1000,
-                filterExtensionRequests: true, // 过滤扩展请求，只记录页面请求
-                enableStorageSync: true // 启用存储同步，从 background 同步所有标签页的请求
+                filterExtensionRequests: true,
+                enableStorageSync: false // 禁用存储同步，不从 storage 同步本地请求
             });
             await this.apiRequestManager.initialize();
-            console.log('接口请求管理器已初始化');
+            console.log('接口请求管理器已初始化（仅API模式）');
             
-            // 监听接口请求记录事件，自动更新列表
-            window.addEventListener('apiRequestRecorded', (event) => {
-                console.log('收到接口请求记录事件:', event.detail);
-                // 如果接口请求列表当前可见，则自动更新
-                if (this.apiRequestListVisible) {
-                    console.log('接口请求列表可见，自动更新');
-                    this.updateApiRequestSidebar();
-                } else {
-                    console.log('接口请求列表不可见，跳过更新');
-                }
-            });
-            
-            // 监听来自 background 的消息（新标签页的请求）
-            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-                chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-                    if (request.action === 'apiRequestRecorded' && request.request) {
-                        console.log('收到来自 background 的接口请求:', request.request);
-                        // 如果接口请求列表当前可见，则自动更新
-                        if (this.apiRequestListVisible) {
-                            console.log('接口请求列表可见，自动更新（来自 background）');
-                            // 延迟更新，确保数据已同步
-                            setTimeout(() => {
-                                this.updateApiRequestSidebar();
-                            }, 100);
-                        }
-                    }
-                });
-            }
+            // 不再监听接口请求记录事件，因为已禁用本地请求拦截
         } else {
             console.log('接口请求管理器未启用');
         }
@@ -16309,32 +16282,10 @@ if (typeof getCenterPosition === 'undefined') {
             });
         }
         
-        // 过滤掉 CSS 和 JS 请求（但保留API返回的数据，即使它们是CSS/JS请求）
+        // 只保留从API获取的数据（有_id或key标记），过滤掉所有本地拦截的数据
         requests = requests.filter(req => {
-            // 如果是API返回的数据（有_id或key），保留它（不过滤）
-            if (req._id || req.key) {
-                return true;
-            }
-            
-            // 对于本地拦截的数据，过滤掉CSS和JS请求
-            const url = req.url || '';
-            const contentType = req.responseHeaders?.['content-type'] || 
-                              req.responseHeaders?.['Content-Type'] || '';
-            
-            // 检查 URL 是否以 .css 或 .js 结尾
-            if (/\.(css|js)$/i.test(url)) {
-                return false;
-            }
-            
-            // 检查 Content-Type 是否是 CSS 或 JavaScript
-            if (contentType) {
-                if (/^text\/css/i.test(contentType) || 
-                    /^(text|application)\/(javascript|ecmascript|x-javascript)/i.test(contentType)) {
-                    return false;
-                }
-            }
-            
-            return true;
+            // 只保留API返回的数据（有_id或key标记）
+            return !!(req._id || req.key || req.source === 'api');
         });
         
         // 分离API数据（有_id或key）和本地数据（没有_id或key）
@@ -16420,10 +16371,9 @@ if (typeof getCenterPosition === 'undefined') {
             }
         });
         
-        // 将API数据放在前面，本地数据放在后面
+        // 只返回API数据（已禁用本地请求拦截，不再返回本地数据）
         const apiData = Array.from(apiUniqueMap.values());
-        const localData = Array.from(localUniqueMap.values());
-        return [...apiData, ...localData];
+        return apiData;
     }
 
     async updateApiRequestSidebar(forceRefresh = false) {
@@ -16519,31 +16469,21 @@ if (typeof getCenterPosition === 'undefined') {
         // 注意：清空搜索框时，wasApiRequestListVisible为true，不会重新调用API，这是正确的
         const shouldCallApi = forceRefresh || !wasApiRequestListVisible;
         
-        // 如果启用了存储同步，先同步一次 storage 数据，确保获取到最新的请求
-        // 必须在创建标签过滤器之前同步数据，以确保标签统计正确显示
-        // 但是，如果只是清空搜索框（wasApiRequestListVisible为true且forceRefresh为false），
-        // 不需要重新加载storage数据，避免覆盖API数据
-        if (this.apiRequestManager && this.apiRequestManager.enableStorageSync && shouldCallApi) {
-            try {
-                await this.apiRequestManager._loadRequestsFromStorage();
-            } catch (error) {
-                // 静默处理所有错误，不输出日志
-                // _loadRequestsFromStorage 内部已经处理了所有错误
-                // 这里只是作为额外的安全措施
-            }
-        }
+        // 只从API获取请求接口列表，不再从 storage 同步本地请求
         if (shouldCallApi && this.apiRequestApi && this.apiRequestApi.isEnabled()) {
             try {
                 console.log('正在从API获取请求接口列表...');
                 const apiRequests = await this.apiRequestApi.getApiRequests();
                 console.log('从API获取到请求接口数量:', apiRequests.length);
                 
-                // 将API返回的数据合并到请求列表中
+                // 将API返回的数据合并到请求列表中（只保留API数据，移除本地拦截的数据）
                 if (apiRequests && apiRequests.length > 0 && this.apiRequestManager) {
-                    // 收集所有API返回的数据（无论是否已存在）
+                    // 清空现有请求列表，只保留API数据
+                    this.apiRequestManager.requests = [];
+                    this.apiRequestManager.localRequests = [];
+                    
+                    // 收集所有API返回的数据
                     const allApiRequests = [];
-                    // 用于记录需要从原列表中移除的索引
-                    const indicesToRemove = new Set();
                     
                     // 将API数据转换为请求接口格式
                     apiRequests.forEach(apiRequest => {
@@ -16618,51 +16558,14 @@ if (typeof getCenterPosition === 'undefined') {
                             });
                         }
                         
-                        // 检查是否已存在相同的请求
-                        // 优先使用 _id 或 key 进行去重，如果没有则使用 URL 和方法
-                        const existingIndex = this.apiRequestManager.requests.findIndex(req => {
-                            // 如果有 _id，优先使用 _id 匹配
-                            if (requestData._id && req._id) {
-                                return req._id === requestData._id;
-                            }
-                            // 如果有 key，使用 key 匹配
-                            if (requestData.key && req.key) {
-                                return req.key === requestData.key;
-                            }
-                            // 对于API数据，只使用_id或key匹配，不使用URL匹配（避免误匹配）
-                            // 如果没有_id和key，说明这是新的API数据，直接添加
-                            return false;
-                        });
-                        
-                        if (existingIndex >= 0) {
-                            // 如果已存在，标记需要移除，并使用API数据（保留时间戳较大的）
-                            const existing = this.apiRequestManager.requests[existingIndex];
-                            if (requestData.timestamp > (existing.timestamp || 0)) {
-                                // API数据更新，使用新数据
-                                indicesToRemove.add(existingIndex);
-                                allApiRequests.push(requestData);
-                            } else {
-                                // 现有数据更新，保留现有数据（不添加到allApiRequests，避免重复）
-                                // 但需要标记移除，以便重新排序
-                                indicesToRemove.add(existingIndex);
-                                allApiRequests.push(existing);
-                            }
-                        } else {
-                            // 如果不存在，直接添加到API数据数组
-                            allApiRequests.push(requestData);
-                        }
+                        // 直接添加到API数据数组（已清空列表，无需去重）
+                        allApiRequests.push(requestData);
                     });
                     
-                    // 从原列表中移除已存在的请求（从后往前删除，避免索引变化）
-                    const sortedIndices = Array.from(indicesToRemove).sort((a, b) => b - a);
-                    sortedIndices.forEach(index => {
-                        this.apiRequestManager.requests.splice(index, 1);
-                    });
-                    
-                    // 将所有API数据添加到列表最上方（数组开头）
+                    // 将所有API数据添加到列表（已清空，直接添加）
                     if (allApiRequests.length > 0) {
-                        this.apiRequestManager.requests.unshift(...allApiRequests);
-                        console.log('API数据已合并到请求列表最上方，API请求数:', allApiRequests.length);
+                        this.apiRequestManager.requests = allApiRequests;
+                        console.log('API数据已加载到请求列表，API请求数:', allApiRequests.length);
                         console.log('API数据示例（前3个）:', allApiRequests.slice(0, 3).map(req => ({
                             url: req.url,
                             method: req.method,
@@ -16679,11 +16582,15 @@ if (typeof getCenterPosition === 'undefined') {
                         console.warn('API数据转换后为空，请检查数据格式');
                     }
                     
-                    console.log('API数据已合并到请求列表，总请求数:', this.apiRequestManager.requests.length);
+                    console.log('API数据已加载到请求列表，总请求数:', this.apiRequestManager.requests.length);
                 }
             } catch (error) {
                 console.warn('从API获取请求接口列表失败:', error.message);
-                // 即使API调用失败，也继续使用本地数据
+                // API调用失败时，清空请求列表（不再使用本地数据）
+                if (this.apiRequestManager) {
+                    this.apiRequestManager.requests = [];
+                    this.apiRequestManager.localRequests = [];
+                }
             }
         }
         
@@ -16773,15 +16680,15 @@ if (typeof getCenterPosition === 'undefined') {
             const statusColor = isSuccess ? '#4CAF50' : isError ? '#f44336' : '#FF9800';
             
             requestItem.style.cssText = `
-                padding: 12px !important;
-                margin-bottom: 8px !important;
+                padding: 16px 18px !important;
+                margin-bottom: 12px !important;
                 background: #ffffff !important;
                 border: 1px solid #e5e7eb !important;
                 border-left: 4px solid ${statusColor} !important;
-                border-radius: 8px !important;
+                border-radius: 12px !important;
                 cursor: pointer !important;
-                transition: all 0.2s ease !important;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06) !important;
                 position: relative !important;
             `;
             
@@ -16789,18 +16696,28 @@ if (typeof getCenterPosition === 'undefined') {
             const requestInfo = document.createElement('div');
             requestInfo.className = 'api-request-info';
             requestInfo.style.cssText = `
-                margin-bottom: 8px !important;
+                margin-bottom: 0 !important;
             `;
             
             // 创建标题行容器（方法和URL在同一行）
             const titleRow = document.createElement('div');
             titleRow.style.cssText = `
                 display: flex !important;
-                align-items: center !important;
+                align-items: flex-start !important;
                 justify-content: space-between !important;
-                gap: 8px !important;
+                gap: 12px !important;
                 width: 100% !important;
-                margin-bottom: 6px !important;
+                margin-bottom: 12px !important;
+            `;
+            
+            // 左侧容器（方法标签和URL）
+            const leftContainer = document.createElement('div');
+            leftContainer.style.cssText = `
+                display: flex !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+                flex: 1 !important;
+                min-width: 0 !important;
             `;
             
             // 方法标签
@@ -16810,53 +16727,51 @@ if (typeof getCenterPosition === 'undefined') {
                 font-size: 11px !important;
                 font-weight: 700 !important;
                 color: ${statusColor} !important;
-                background: ${statusColor}22 !important;
-                padding: 2px 6px !important;
-                border-radius: 4px !important;
+                background: ${statusColor}15 !important;
+                padding: 5px 10px !important;
+                border-radius: 8px !important;
                 flex-shrink: 0 !important;
+                letter-spacing: 0.5px !important;
+                border: 1px solid ${statusColor}30 !important;
+                line-height: 1.4 !important;
+                margin-top: 2px !important;
             `;
             
-            titleRow.appendChild(methodTag);
+            leftContainer.appendChild(methodTag);
             
-            // 检查是否是API返回的数据（有_id或key字段）
-            const isApiData = !!(req._id || req.key);
-            if (isApiData) {
-                // 添加API数据标识
-                const apiDataBadge = document.createElement('span');
-                apiDataBadge.textContent = 'API';
-                apiDataBadge.title = '来自接口返回的数据';
-                apiDataBadge.style.cssText = `
-                    font-size: 10px !important;
-                    font-weight: 600 !important;
-                    color: #2196F3 !important;
-                    background: #E3F2FD !important;
-                    padding: 2px 5px !important;
-                    border-radius: 3px !important;
-                    flex-shrink: 0 !important;
-                    border: 1px solid #90CAF9 !important;
-                `;
-                titleRow.appendChild(apiDataBadge);
-            }
+            // URL容器
+            const urlContainer = document.createElement('div');
+            urlContainer.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 4px !important;
+            `;
             
             // URL
             const url = document.createElement('div');
             url.style.cssText = `
                 font-size: 13px !important;
-                font-weight: 600 !important;
-                color: #111827 !important;
-                line-height: 1.4 !important;
+                font-weight: 500 !important;
+                color: #1f2937 !important;
+                line-height: 1.6 !important;
                 display: -webkit-box !important;
                 -webkit-line-clamp: 2 !important;
                 -webkit-box-orient: vertical !important;
                 overflow: hidden !important;
-                flex: 1 !important;
-                min-width: 0 !important;
                 word-break: break-all !important;
+                text-overflow: ellipsis !important;
             `;
             url.textContent = req.url || '未知URL';
             
-            titleRow.appendChild(url);
+            urlContainer.appendChild(url);
+            leftContainer.appendChild(urlContainer);
+            titleRow.appendChild(leftContainer);
             requestInfo.appendChild(titleRow);
+            
+            // 检查是否是API返回的数据（有_id或key字段）
+            const isApiData = !!(req._id || req.key);
             
             // 状态和时间信息
             const statusRow = document.createElement('div');
@@ -16865,16 +16780,61 @@ if (typeof getCenterPosition === 'undefined') {
                 justify-content: space-between !important;
                 align-items: center !important;
                 font-size: 11px !important;
-                color: #9ca3af !important;
-                margin-top: 6px !important;
+                color: #6b7280 !important;
+                margin-top: 0 !important;
+                padding-top: 12px !important;
+                border-top: 1px solid #f3f4f6 !important;
             `;
             
+            // 左侧状态信息容器
+            const statusInfoContainer = document.createElement('div');
+            statusInfoContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                flex: 1 !important;
+                flex-wrap: wrap !important;
+            `;
+            
+            // 状态信息（带图标样式）
             const statusInfo = document.createElement('span');
-            statusInfo.textContent = `${req.status || 0} ${req.statusText || ''} • ${req.duration || 0}ms`;
+            statusInfo.textContent = `${req.status || 0} ${req.statusText || ''}`;
             statusInfo.style.cssText = `
                 color: ${statusColor} !important;
-                font-weight: 500 !important;
+                font-weight: 600 !important;
+                font-size: 11px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 4px !important;
             `;
+            
+            // 添加状态指示点
+            const statusDot = document.createElement('span');
+            statusDot.style.cssText = `
+                width: 6px !important;
+                height: 6px !important;
+                border-radius: 50% !important;
+                background: ${statusColor} !important;
+                display: inline-block !important;
+            `;
+            statusInfo.insertBefore(statusDot, statusInfo.firstChild);
+            
+            statusInfoContainer.appendChild(statusInfo);
+            
+            // 持续时间
+            if (req.duration !== undefined && req.duration !== null) {
+                const duration = document.createElement('span');
+                duration.textContent = `${req.duration}ms`;
+                duration.style.cssText = `
+                    color: #6b7280 !important;
+                    font-size: 11px !important;
+                    font-weight: 500 !important;
+                    background: #f3f4f6 !important;
+                    padding: 2px 8px !important;
+                    border-radius: 4px !important;
+                `;
+                statusInfoContainer.appendChild(duration);
+            }
             
             const time = document.createElement('span');
             if (req.timestamp) {
@@ -16894,13 +16854,23 @@ if (typeof getCenterPosition === 'undefined') {
             } else {
                 time.textContent = '';
             }
+            time.style.cssText = `
+                color: #9ca3af !important;
+                font-size: 11px !important;
+                margin-left: auto !important;
+            `;
+            statusInfoContainer.appendChild(time);
             
             // 操作按钮容器（移动到statusRow中）
             const footerButtonContainer = document.createElement('div');
+            footerButtonContainer.className = 'api-request-actions';
             footerButtonContainer.style.cssText = `
                 display: flex !important;
                 align-items: center !important;
-                gap: 4px !important;
+                gap: 6px !important;
+                opacity: 0 !important;
+                transition: opacity 0.3s ease !important;
+                margin-left: 12px !important;
             `;
             
             // 页面上下文按钮（参考新闻列表的实现）
@@ -16917,19 +16887,20 @@ if (typeof getCenterPosition === 'undefined') {
             `;
             contextBtn.title = '页面上下文';
             contextBtn.style.cssText = `
-                background: none !important;
+                background: rgba(99, 102, 241, 0.1) !important;
                 border: none !important;
                 cursor: pointer !important;
-                padding: 4px !important;
-                opacity: 0.6 !important;
+                padding: 6px !important;
                 transition: all 0.2s ease !important;
                 line-height: 1 !important;
                 flex-shrink: 0 !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                color: inherit !important;
-                border-radius: 4px !important;
+                color: #6366f1 !important;
+                border-radius: 6px !important;
+                width: 28px !important;
+                height: 28px !important;
             `;
             contextBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -16943,12 +16914,12 @@ if (typeof getCenterPosition === 'undefined') {
                 this.openContextEditor();
             });
             contextBtn.addEventListener('mouseenter', () => {
-                contextBtn.style.opacity = '1';
-                contextBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+                contextBtn.style.background = 'rgba(99, 102, 241, 0.2) !important';
+                contextBtn.style.transform = 'scale(1.05)';
             });
             contextBtn.addEventListener('mouseleave', () => {
-                contextBtn.style.opacity = '0.6';
-                contextBtn.style.background = 'none !important';
+                contextBtn.style.background = 'rgba(99, 102, 241, 0.1) !important';
+                contextBtn.style.transform = 'scale(1)';
             });
             footerButtonContainer.appendChild(contextBtn);
             
@@ -16956,28 +16927,40 @@ if (typeof getCenterPosition === 'undefined') {
             if (isApiData) {
                 const editBtn = document.createElement('button');
                 editBtn.className = 'api-request-edit-btn';
-                editBtn.innerHTML = '✏️';
+                editBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                `;
                 editBtn.title = '编辑请求';
                 editBtn.style.cssText = `
-                    background: none !important;
+                    background: rgba(59, 130, 246, 0.1) !important;
                     border: none !important;
                     cursor: pointer !important;
-                    padding: 2px 4px !important;
-                    font-size: 12px !important;
-                    opacity: 0.6 !important;
-                    transition: opacity 0.2s ease !important;
+                    padding: 6px !important;
+                    transition: all 0.2s ease !important;
                     line-height: 1 !important;
                     flex-shrink: 0 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    color: #3b82f6 !important;
+                    border-radius: 6px !important;
+                    width: 28px !important;
+                    height: 28px !important;
                 `;
                 editBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     await this.editApiRequest(req);
                 });
                 editBtn.addEventListener('mouseenter', () => {
-                    editBtn.style.opacity = '1';
+                    editBtn.style.background = 'rgba(59, 130, 246, 0.2) !important';
+                    editBtn.style.transform = 'scale(1.05)';
                 });
                 editBtn.addEventListener('mouseleave', () => {
-                    editBtn.style.opacity = '0.6';
+                    editBtn.style.background = 'rgba(59, 130, 246, 0.1) !important';
+                    editBtn.style.transform = 'scale(1)';
                 });
                 footerButtonContainer.appendChild(editBtn);
             }
@@ -16985,33 +16968,44 @@ if (typeof getCenterPosition === 'undefined') {
             // 标签管理按钮（参考会话列表的实现）
             const tagBtn = document.createElement('button');
             tagBtn.className = 'api-request-tag-btn';
-            tagBtn.innerHTML = '🏷️';
+            tagBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                </svg>
+            `;
             tagBtn.title = '管理标签';
             tagBtn.style.cssText = `
-                background: none !important;
+                background: rgba(139, 92, 246, 0.1) !important;
                 border: none !important;
                 cursor: pointer !important;
-                padding: 2px 4px !important;
-                font-size: 12px !important;
-                opacity: 0.6 !important;
-                transition: opacity 0.2s ease !important;
+                padding: 6px !important;
+                transition: all 0.2s ease !important;
                 line-height: 1 !important;
                 flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: #8b5cf6 !important;
+                border-radius: 6px !important;
+                width: 28px !important;
+                height: 28px !important;
             `;
             tagBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 await this.openApiRequestTagManager(req);
             });
             tagBtn.addEventListener('mouseenter', () => {
-                tagBtn.style.opacity = '1';
+                tagBtn.style.background = 'rgba(139, 92, 246, 0.2) !important';
+                tagBtn.style.transform = 'scale(1.05)';
             });
             tagBtn.addEventListener('mouseleave', () => {
-                tagBtn.style.opacity = '0.6';
+                tagBtn.style.background = 'rgba(139, 92, 246, 0.1) !important';
+                tagBtn.style.transform = 'scale(1)';
             });
             footerButtonContainer.appendChild(tagBtn);
             
-            statusRow.appendChild(statusInfo);
-            statusRow.appendChild(time);
+            statusRow.appendChild(statusInfoContainer);
             statusRow.appendChild(footerButtonContainer);
             requestInfo.appendChild(statusRow);
             
@@ -17022,8 +17016,10 @@ if (typeof getCenterPosition === 'undefined') {
                 tagsContainer.style.cssText = `
                     display: flex !important;
                     flex-wrap: wrap !important;
-                    gap: 4px !important;
-                    margin-top: 8px !important;
+                    gap: 8px !important;
+                    margin-top: 12px !important;
+                    padding-top: 12px !important;
+                    border-top: 1px solid #f3f4f6 !important;
                 `;
                 
                 req.tags.forEach(tag => {
@@ -17035,10 +17031,10 @@ if (typeof getCenterPosition === 'undefined') {
                         const tagColor = this.getTagColor(tag);
                         tagElement.style.cssText = `
                             display: inline-block !important;
-                            padding: 3px 8px !important;
+                            padding: 4px 10px !important;
                             background: ${tagColor.background} !important;
                             color: ${tagColor.text} !important;
-                            border-radius: 12px !important;
+                            border-radius: 14px !important;
                             font-size: 10px !important;
                             font-weight: 500 !important;
                             border: 1px solid ${tagColor.border} !important;
@@ -17047,8 +17043,8 @@ if (typeof getCenterPosition === 'undefined') {
                         `;
                         // 添加悬停效果
                         tagElement.addEventListener('mouseenter', () => {
-                            tagElement.style.transform = 'translateY(-1px)';
-                            tagElement.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                            tagElement.style.transform = 'translateY(-2px)';
+                            tagElement.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.12)';
                         });
                         tagElement.addEventListener('mouseleave', () => {
                             tagElement.style.transform = 'translateY(0)';
@@ -17069,8 +17065,8 @@ if (typeof getCenterPosition === 'undefined') {
             detailPanel.className = 'api-request-detail';
             detailPanel.style.cssText = `
                 display: none !important;
-                margin-top: 8px !important;
-                padding-top: 8px !important;
+                margin-top: 12px !important;
+                padding-top: 12px !important;
                 border-top: 1px solid #e5e7eb !important;
                 font-size: 11px !important;
             `;
@@ -17079,7 +17075,7 @@ if (typeof getCenterPosition === 'undefined') {
             const createDetailSection = (title, content, isCode = false, showCopyButton = false) => {
                 const section = document.createElement('div');
                 section.style.cssText = `
-                    margin-bottom: 12px !important;
+                    margin-bottom: 14px !important;
                 `;
                 
                 const titleContainer = document.createElement('div');
@@ -17087,14 +17083,15 @@ if (typeof getCenterPosition === 'undefined') {
                     display: flex !important;
                     align-items: center !important;
                     justify-content: space-between !important;
-                    margin-bottom: 4px !important;
+                    margin-bottom: 6px !important;
                 `;
                 
                 const sectionTitle = document.createElement('div');
                 sectionTitle.textContent = title;
                 sectionTitle.style.cssText = `
                     font-weight: 600 !important;
-                    color: #374151 !important;
+                    color: #1f2937 !important;
+                    font-size: 12px !important;
                 `;
                 
                 titleContainer.appendChild(sectionTitle);
@@ -17107,20 +17104,24 @@ if (typeof getCenterPosition === 'undefined') {
                         background: #3b82f6 !important;
                         color: white !important;
                         border: none !important;
-                        padding: 4px 12px !important;
-                        border-radius: 4px !important;
+                        padding: 5px 14px !important;
+                        border-radius: 6px !important;
                         font-size: 11px !important;
                         cursor: pointer !important;
                         font-weight: 500 !important;
-                        transition: background-color 0.2s !important;
+                        transition: all 0.2s ease !important;
                     `;
                     
                     // 悬停效果
                     copyButton.addEventListener('mouseenter', () => {
                         copyButton.style.background = '#2563eb !important';
+                        copyButton.style.transform = 'translateY(-1px)';
+                        copyButton.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
                     });
                     copyButton.addEventListener('mouseleave', () => {
                         copyButton.style.background = '#3b82f6 !important';
+                        copyButton.style.transform = 'translateY(0)';
+                        copyButton.style.boxShadow = 'none';
                     });
                     
                     // 点击复制功能
@@ -17179,19 +17180,22 @@ if (typeof getCenterPosition === 'undefined') {
                 if (isCode) {
                     sectionContent.style.cssText = `
                         background: #f9fafb !important;
-                        padding: 8px !important;
-                        border-radius: 4px !important;
+                        padding: 10px 12px !important;
+                        border-radius: 6px !important;
                         font-family: 'Monaco', 'Menlo', 'Consolas', monospace !important;
-                        font-size: 10px !important;
+                        font-size: 11px !important;
                         color: #111827 !important;
                         overflow-x: auto !important;
                         white-space: pre-wrap !important;
                         word-break: break-all !important;
+                        border: 1px solid #e5e7eb !important;
+                        line-height: 1.6 !important;
                     `;
                 } else {
                     sectionContent.style.cssText = `
                         color: #6b7280 !important;
-                        line-height: 1.5 !important;
+                        line-height: 1.6 !important;
+                        font-size: 11px !important;
                     `;
                 }
                 
@@ -17264,9 +17268,11 @@ if (typeof getCenterPosition === 'undefined') {
                         if (isExpanded) {
                             detailPanel.style.display = 'block';
                             requestItem.style.background = '#f9fafb';
+                            requestItem.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)';
                         } else {
                             detailPanel.style.display = 'none';
                             requestItem.style.background = '#ffffff';
+                            requestItem.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08)';
                         }
                     }
                     return;
@@ -17280,14 +17286,20 @@ if (typeof getCenterPosition === 'undefined') {
             requestItem.addEventListener('mouseenter', () => {
                 if (!isExpanded) {
                     requestItem.style.background = '#f9fafb';
-                    requestItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    requestItem.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)';
+                    requestItem.style.transform = 'translateY(-1px)';
                 }
+                // 显示操作按钮
+                footerButtonContainer.style.opacity = '1';
             });
             requestItem.addEventListener('mouseleave', () => {
                 if (!isExpanded) {
                     requestItem.style.background = '#ffffff';
-                    requestItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    requestItem.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08)';
+                    requestItem.style.transform = 'translateY(0)';
                 }
+                // 隐藏操作按钮
+                footerButtonContainer.style.opacity = '0';
             });
             
             // 长按删除功能（仅对API数据有效）
@@ -17505,6 +17517,46 @@ if (typeof getCenterPosition === 'undefined') {
                 
                 requestItem.addEventListener('mouseleave', () => {
                     endLongPress();
+                });
+            }
+            
+            // 添加悬停效果（在添加到DOM之前）
+            const actionsContainer = requestItem.querySelector('.api-request-actions');
+            if (actionsContainer) {
+                let isHoveringItem = false;
+                let isHoveringButtons = false;
+                
+                requestItem.addEventListener('mouseenter', () => {
+                    isHoveringItem = true;
+                    requestItem.style.transform = 'translateY(-2px)';
+                    requestItem.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)';
+                    requestItem.style.borderColor = '#d1d5db';
+                    actionsContainer.style.opacity = '1';
+                });
+                
+                requestItem.addEventListener('mouseleave', () => {
+                    isHoveringItem = false;
+                    requestItem.style.transform = 'translateY(0)';
+                    requestItem.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.06)';
+                    requestItem.style.borderColor = '#e5e7eb';
+                    // 如果鼠标不在按钮容器上，隐藏按钮
+                    if (!isHoveringButtons) {
+                        actionsContainer.style.opacity = '0';
+                    }
+                });
+                
+                // 确保按钮容器在悬停时保持可见
+                actionsContainer.addEventListener('mouseenter', () => {
+                    isHoveringButtons = true;
+                    actionsContainer.style.opacity = '1';
+                });
+                
+                actionsContainer.addEventListener('mouseleave', () => {
+                    isHoveringButtons = false;
+                    // 如果鼠标离开按钮容器且不在requestItem上，隐藏按钮
+                    if (!isHoveringItem) {
+                        actionsContainer.style.opacity = '0';
+                    }
                 });
             }
             
@@ -43154,6 +43206,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

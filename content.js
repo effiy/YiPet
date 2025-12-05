@@ -5999,6 +5999,52 @@ if (typeof getCenterPosition === 'undefined') {
         return [...priorityTagList, ...otherTags];
     }
 
+    getAllOssTags() {
+        if (!this.ossFileManager) {
+            return [];
+        }
+        
+        const allFiles = this.ossFileManager.getAllFiles();
+        const tagSet = new Set();
+        
+        allFiles.forEach(file => {
+            if (file.tags && Array.isArray(file.tags)) {
+                file.tags.forEach(tag => {
+                    if (tag && tag.trim()) {
+                        tagSet.add(tag.trim());
+                    }
+                });
+            }
+        });
+        
+        // 优先标签列表（按顺序，与新闻列表保持一致）
+        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
+        
+        // 分离优先标签和其他标签
+        const allTags = Array.from(tagSet);
+        const priorityTagSet = new Set(priorityTags);
+        const priorityTagList = [];
+        const otherTags = [];
+        
+        // 先添加存在的优先标签（按顺序）
+        priorityTags.forEach(tag => {
+            if (allTags.includes(tag)) {
+                priorityTagList.push(tag);
+            }
+        });
+        
+        // 添加其他标签（按字母顺序）
+        allTags.forEach(tag => {
+            if (!priorityTagSet.has(tag)) {
+                otherTags.push(tag);
+            }
+        });
+        otherTags.sort();
+        
+        // 合并：优先标签在前，其他标签在后
+        return [...priorityTagList, ...otherTags];
+    }
+
     // 获取会话的显示标题（用于过滤和显示）
     _getSessionDisplayTitle(session) {
         if (!session) return '未命名会话';
@@ -8334,9 +8380,9 @@ if (typeof getCenterPosition === 'undefined') {
                     `;
                     previewToggleBtn.addEventListener('click', () => {
                         this.ossImagePreviewEnabled = !this.ossImagePreviewEnabled;
-                        previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
-                        previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
-                        previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
+                    previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#4CAF50' : '#9ca3af';
+                    previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
+                    previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
                         this.saveOssImagePreviewState();
                         
                         // 批量设置所有文件的预览开关状态
@@ -8353,7 +8399,7 @@ if (typeof getCenterPosition === 'undefined') {
                             const fileName = btn.dataset.fileName;
                             if (fileName) {
                                 const filePreviewEnabled = this.getFilePreviewEnabled(fileName);
-                                btn.style.color = filePreviewEnabled ? '#667eea' : '#9ca3af';
+                                btn.style.color = filePreviewEnabled ? '#4CAF50' : '#9ca3af';
                                 btn.style.opacity = filePreviewEnabled ? '1' : '0.6';
                                 btn.title = filePreviewEnabled ? '关闭此文件预览' : '开启此文件预览';
                             }
@@ -8371,9 +8417,9 @@ if (typeof getCenterPosition === 'undefined') {
                 }
             } else {
                 // 如果已存在，更新状态
-                previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
-                previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
-                previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
+                    previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#4CAF50' : '#9ca3af';
+                    previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
+                    previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
             }
             return;
         }
@@ -8413,7 +8459,7 @@ if (typeof getCenterPosition === 'undefined') {
         previewToggleBtn.innerHTML = this.ossImagePreviewEnabled ? '🖼️' : '🖼️';
         previewToggleBtn.style.cssText = `
             font-size: 14px !important;
-            color: ${this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af'} !important;
+            color: ${this.ossImagePreviewEnabled ? '#4CAF50' : '#9ca3af'} !important;
             background: none !important;
             border: none !important;
             cursor: pointer !important;
@@ -8425,7 +8471,7 @@ if (typeof getCenterPosition === 'undefined') {
         `;
         previewToggleBtn.addEventListener('click', () => {
             this.ossImagePreviewEnabled = !this.ossImagePreviewEnabled;
-            previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
+            previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#4CAF50' : '#9ca3af';
             previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
             previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
             this.saveOssImagePreviewState();
@@ -8444,7 +8490,7 @@ if (typeof getCenterPosition === 'undefined') {
                 const fileName = btn.dataset.fileName;
                 if (fileName) {
                     const filePreviewEnabled = this.getFilePreviewEnabled(fileName);
-                    btn.style.color = filePreviewEnabled ? '#667eea' : '#9ca3af';
+                    btn.style.color = filePreviewEnabled ? '#4CAF50' : '#9ca3af';
                     btn.style.opacity = filePreviewEnabled ? '1' : '0.6';
                     btn.title = filePreviewEnabled ? '关闭此文件预览' : '开启此文件预览';
                 }
@@ -8461,7 +8507,7 @@ if (typeof getCenterPosition === 'undefined') {
         reverseFilterBtn.innerHTML = '⇄';
         reverseFilterBtn.style.cssText = `
             font-size: 12px !important;
-            color: ${this.ossTagFilterReverse ? '#667eea' : '#9ca3af'} !important;
+            color: ${this.ossTagFilterReverse ? '#4CAF50' : '#9ca3af'} !important;
             background: none !important;
             border: none !important;
             cursor: pointer !important;
@@ -8471,9 +8517,19 @@ if (typeof getCenterPosition === 'undefined') {
             line-height: 1 !important;
             opacity: ${this.ossTagFilterReverse ? '1' : '0.6'} !important;
         `;
+        reverseFilterBtn.addEventListener('mouseenter', () => {
+            reverseFilterBtn.style.opacity = '1';
+            reverseFilterBtn.style.background = '#f3f4f6';
+        });
+        reverseFilterBtn.addEventListener('mouseleave', () => {
+            if (!this.ossTagFilterReverse) {
+                reverseFilterBtn.style.opacity = '0.6';
+            }
+            reverseFilterBtn.style.background = 'none';
+        });
         reverseFilterBtn.addEventListener('click', () => {
             this.ossTagFilterReverse = !this.ossTagFilterReverse;
-            reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#667eea' : '#9ca3af';
+            reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#4CAF50' : '#9ca3af';
             reverseFilterBtn.style.opacity = this.ossTagFilterReverse ? '1' : '0.6';
             this.updateOssTagFilterUI();
             this.updateOssFileSidebar();
@@ -8486,7 +8542,7 @@ if (typeof getCenterPosition === 'undefined') {
         noTagsFilterBtn.innerHTML = '∅';
         noTagsFilterBtn.style.cssText = `
             font-size: 12px !important;
-            color: ${this.ossTagFilterNoTags ? '#667eea' : '#9ca3af'} !important;
+            color: ${this.ossTagFilterNoTags ? '#4CAF50' : '#9ca3af'} !important;
             background: none !important;
             border: none !important;
             cursor: pointer !important;
@@ -8570,7 +8626,7 @@ if (typeof getCenterPosition === 'undefined') {
         clearFilterBtn.addEventListener('mouseenter', () => {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
             const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
-            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterNoTags || hasSearchKeyword;
             if (hasActiveFilter) {
                 clearFilterBtn.style.color = '#ef4444';
                 clearFilterBtn.style.opacity = '1';
@@ -8582,7 +8638,7 @@ if (typeof getCenterPosition === 'undefined') {
         clearFilterBtn.addEventListener('mouseleave', () => {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
             const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
-            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterNoTags || hasSearchKeyword;
             clearFilterBtn.style.color = '#9ca3af';
             clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
             clearFilterBtn.style.background = 'none';
@@ -8590,14 +8646,12 @@ if (typeof getCenterPosition === 'undefined') {
         clearFilterBtn.addEventListener('click', () => {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
             const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
-            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterNoTags || hasSearchKeyword;
             
-            // 如果有选中的标签、启用了反向过滤、启用了无标签筛选或有搜索关键词，则清除筛选
+            // 如果有选中的标签、启用了无标签筛选或有搜索关键词，则清除筛选
             if (hasActiveFilter) {
                 // 清除选中的标签
                 this.selectedOssFilterTags = [];
-                // 重置反向过滤状态
-                this.ossTagFilterReverse = false;
                 // 重置无标签筛选状态
                 this.ossTagFilterNoTags = false;
                 // 清除搜索关键词
@@ -8750,7 +8804,7 @@ if (typeof getCenterPosition === 'undefined') {
         });
 
         // 输入框聚焦和失焦样式
-        const mainColor = '#667eea';
+        const mainColor = PET_CONFIG?.theme?.primaryColor || '#6366f1';
         tagSearchInput.addEventListener('focus', () => {
             tagSearchInput.style.borderColor = mainColor;
             tagSearchInput.style.boxShadow = `0 0 0 2px ${mainColor}22`;
@@ -8836,7 +8890,7 @@ if (typeof getCenterPosition === 'undefined') {
         // 更新图片预览开关按钮状态
         const previewToggleBtn = this.sessionSidebar.querySelector('.oss-image-preview-toggle');
         if (previewToggleBtn) {
-            previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#667eea' : '#9ca3af';
+            previewToggleBtn.style.color = this.ossImagePreviewEnabled ? '#4CAF50' : '#9ca3af';
             previewToggleBtn.style.opacity = this.ossImagePreviewEnabled ? '1' : '0.6';
             previewToggleBtn.title = this.ossImagePreviewEnabled ? '关闭所有文件预览' : '开启所有文件预览';
         }
@@ -8844,23 +8898,23 @@ if (typeof getCenterPosition === 'undefined') {
         // 更新反向过滤按钮状态
         const reverseFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-reverse');
         if (reverseFilterBtn) {
-            reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#667eea' : '#9ca3af';
+            reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#4CAF50' : '#9ca3af';
             reverseFilterBtn.style.opacity = this.ossTagFilterReverse ? '1' : '0.6';
         }
         
         // 更新无标签筛选按钮状态
         const noTagsFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-no-tags');
         if (noTagsFilterBtn) {
-            noTagsFilterBtn.style.color = this.ossTagFilterNoTags ? '#667eea' : '#9ca3af';
+            noTagsFilterBtn.style.color = this.ossTagFilterNoTags ? '#4CAF50' : '#9ca3af';
             noTagsFilterBtn.style.opacity = this.ossTagFilterNoTags ? '1' : '0.6';
         }
         
-        // 更新清除按钮显示状态（如果有选中的标签、启用了反向过滤、启用了无标签筛选或有搜索关键词，则显示为可用状态）
+        // 更新清除按钮显示状态（如果有选中的标签、启用了无标签筛选或有搜索关键词，则显示为可用状态）
         const clearFilterBtn = this.sessionSidebar.querySelector('.oss-tag-filter-clear');
         if (clearFilterBtn) {
             const hasSelectedTags = this.selectedOssFilterTags && this.selectedOssFilterTags.length > 0;
             const hasSearchKeyword = this.ossTagFilterSearchKeyword && this.ossTagFilterSearchKeyword.trim() !== '';
-            const hasActiveFilter = hasSelectedTags || this.ossTagFilterReverse || this.ossTagFilterNoTags || hasSearchKeyword;
+            const hasActiveFilter = hasSelectedTags || this.ossTagFilterNoTags || hasSearchKeyword;
             clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
             clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
             clearFilterBtn.style.pointerEvents = hasActiveFilter ? 'auto' : 'none';
@@ -8872,16 +8926,8 @@ if (typeof getCenterPosition === 'undefined') {
         // 清空现有标签
         tagFilterList.innerHTML = '';
         
-        // 从后端获取所有标签
-        let allTags = [];
-        try {
-            if (this.ossApi && this.ossApi.isEnabled()) {
-                const tagsData = await this.ossApi.getAllTags();
-                allTags = tagsData.map(item => item.name || item);
-            }
-        } catch (error) {
-            console.warn('获取OSS标签列表失败:', error);
-        }
+        // 获取所有标签（使用getAllOssTags方法，包含排序逻辑）
+        const allTags = this.getAllOssTags();
         
         // 根据搜索关键词过滤标签
         let filteredTags = allTags;
@@ -8979,8 +9025,8 @@ if (typeof getCenterPosition === 'undefined') {
             tagBtn.style.cssText = `
                 padding: 3px 8px !important;
                 border-radius: 10px !important;
-                border: 1px solid ${isSelected ? '#667eea' : '#e5e7eb'} !important;
-                background: ${isSelected ? '#667eea' : '#f9fafb'} !important;
+                border: 1px solid ${isSelected ? '#4CAF50' : '#e5e7eb'} !important;
+                background: ${isSelected ? '#4CAF50' : '#f9fafb'} !important;
                 color: ${isSelected ? 'white' : '#6b7280'} !important;
                 font-size: 10px !important;
                 font-weight: ${isSelected ? '500' : '400'} !important;
@@ -8990,6 +9036,24 @@ if (typeof getCenterPosition === 'undefined') {
                 line-height: 1.4 !important;
             `;
             
+            tagBtn.addEventListener('mouseenter', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#4CAF50';
+                    tagBtn.style.background = '#f0fdf4';
+                    tagBtn.style.color = '#4CAF50';
+                } else {
+                    tagBtn.style.opacity = '0.9';
+                }
+            });
+            tagBtn.addEventListener('mouseleave', () => {
+                if (!isSelected) {
+                    tagBtn.style.borderColor = '#e5e7eb';
+                    tagBtn.style.background = '#f9fafb';
+                    tagBtn.style.color = '#6b7280';
+                } else {
+                    tagBtn.style.opacity = '1';
+                }
+            });
             tagBtn.addEventListener('click', () => {
                 if (!this.selectedOssFilterTags) {
                     this.selectedOssFilterTags = [];
@@ -8997,12 +9061,16 @@ if (typeof getCenterPosition === 'undefined') {
                 
                 const index = this.selectedOssFilterTags.indexOf(tag);
                 if (index > -1) {
+                    // 取消选中
                     this.selectedOssFilterTags.splice(index, 1);
                 } else {
+                    // 选中
                     this.selectedOssFilterTags.push(tag);
                 }
                 
+                // 更新所有标签按钮（确保状态一致）
                 this.updateOssTagFilterUI();
+                // 更新文件列表（应用过滤）
                 this.updateOssFileSidebar();
             });
             
@@ -13943,7 +14011,7 @@ if (typeof getCenterPosition === 'undefined') {
                 this.setFilePreviewEnabled(file.name, newState);
                 
                 // 更新当前按钮状态
-                previewToggleBtn.style.color = newState ? '#667eea' : '#9ca3af';
+                previewToggleBtn.style.color = newState ? '#4CAF50' : '#9ca3af';
                 previewToggleBtn.style.opacity = newState ? '1' : '0.6';
                 previewToggleBtn.title = newState ? '关闭此文件预览' : '开启此文件预览';
                 

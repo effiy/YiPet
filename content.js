@@ -16255,6 +16255,41 @@ if (typeof getCenterPosition === 'undefined') {
             });
         }
         
+        // 应用日期筛选
+        if (this.dateRangeFilter) {
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 有开始和结束日期：筛选区间内的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const endDate = this.dateRangeFilter.endDate;
+                const startTime = startDate.getTime();
+                const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
+                
+                requests = requests.filter(req => {
+                    const requestTime = req.timestamp || req.createdAt || req.updatedAt || 0;
+                    return requestTime >= startTime && requestTime <= endTime;
+                });
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                // 只有开始日期：筛选开始日期当天的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const startTime = startDate.getTime();
+                const endTime = startTime + 24 * 60 * 60 * 1000 - 1; // 包含开始日期的整天
+                
+                requests = requests.filter(req => {
+                    const requestTime = req.timestamp || req.createdAt || req.updatedAt || 0;
+                    return requestTime >= startTime && requestTime <= endTime;
+                });
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 只有结束日期：筛选结束日期之前的记录
+                const endDate = this.dateRangeFilter.endDate;
+                const endTime = endDate.getTime(); // 不包含结束日期当天
+                
+                requests = requests.filter(req => {
+                    const requestTime = req.timestamp || req.createdAt || req.updatedAt || 0;
+                    return requestTime < endTime;
+                });
+            }
+        }
+        
         // 应用无标签筛选
         if (this.apiRequestTagFilterNoTags) {
             requests = requests.filter(req => {
@@ -18686,6 +18721,18 @@ if (typeof getCenterPosition === 'undefined') {
         const cancelBtn = modal.querySelector('.api-request-editor-cancel');
         if (cancelBtn) {
             cancelBtn.onclick = () => this.closeApiRequestInfoEditor();
+        }
+        
+        // 添加智能生成标题事件
+        const generateTitleBtn = modal.querySelector('.api-request-editor-generate-title');
+        if (generateTitleBtn) {
+            generateTitleBtn.onclick = () => this.generateApiRequestTitle(apiRequest);
+        }
+        
+        // 添加智能生成描述事件
+        const generateDescriptionBtn = modal.querySelector('.api-request-editor-generate-description');
+        if (generateDescriptionBtn) {
+            generateDescriptionBtn.onclick = () => this.generateApiRequestDescription(apiRequest);
         }
         
         // ESC 键关闭
@@ -21404,12 +21451,19 @@ if (typeof getCenterPosition === 'undefined') {
             margin-bottom: 8px !important;
         `;
         
+        const titleInputWrapper = document.createElement('div');
+        titleInputWrapper.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            align-items: center !important;
+        `;
+        
         const titleInput = document.createElement('input');
         titleInput.className = 'api-request-editor-title-input';
         titleInput.type = 'text';
         titleInput.placeholder = '请输入标题';
         titleInput.style.cssText = `
-            width: 100% !important;
+            flex: 1 !important;
             padding: 12px !important;
             border: 1px solid #ddd !important;
             border-radius: 8px !important;
@@ -21424,8 +21478,33 @@ if (typeof getCenterPosition === 'undefined') {
             titleInput.style.borderColor = '#ddd';
         });
         
+        const generateTitleBtn = document.createElement('button');
+        generateTitleBtn.className = 'api-request-editor-generate-title';
+        generateTitleBtn.innerHTML = '✨ 智能生成';
+        generateTitleBtn.style.cssText = `
+            padding: 12px 16px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        generateTitleBtn.addEventListener('mouseenter', () => {
+            generateTitleBtn.style.background = '#1976D2';
+        });
+        generateTitleBtn.addEventListener('mouseleave', () => {
+            generateTitleBtn.style.background = '#2196F3';
+        });
+        
+        titleInputWrapper.appendChild(titleInput);
+        titleInputWrapper.appendChild(generateTitleBtn);
+        
         titleGroup.appendChild(titleLabel);
-        titleGroup.appendChild(titleInput);
+        titleGroup.appendChild(titleInputWrapper);
         
         // 描述输入区域
         const descriptionGroup = document.createElement('div');
@@ -21441,6 +21520,13 @@ if (typeof getCenterPosition === 'undefined') {
             font-weight: 500 !important;
             color: #333 !important;
             margin-bottom: 8px !important;
+        `;
+        
+        const descriptionInputWrapper = document.createElement('div');
+        descriptionInputWrapper.style.cssText = `
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
         `;
         
         const descriptionInput = document.createElement('textarea');
@@ -21465,8 +21551,34 @@ if (typeof getCenterPosition === 'undefined') {
             descriptionInput.style.borderColor = '#ddd';
         });
         
+        const generateDescriptionBtn = document.createElement('button');
+        generateDescriptionBtn.className = 'api-request-editor-generate-description';
+        generateDescriptionBtn.innerHTML = '✨ 智能生成描述';
+        generateDescriptionBtn.style.cssText = `
+            align-self: flex-end !important;
+            padding: 12px 16px !important;
+            background: #2196F3 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        generateDescriptionBtn.addEventListener('mouseenter', () => {
+            generateDescriptionBtn.style.background = '#1976D2';
+        });
+        generateDescriptionBtn.addEventListener('mouseleave', () => {
+            generateDescriptionBtn.style.background = '#2196F3';
+        });
+        
+        descriptionInputWrapper.appendChild(descriptionInput);
+        descriptionInputWrapper.appendChild(generateDescriptionBtn);
+        
         descriptionGroup.appendChild(descriptionLabel);
-        descriptionGroup.appendChild(descriptionInput);
+        descriptionGroup.appendChild(descriptionInputWrapper);
         
         // 按钮区域
         const buttonGroup = document.createElement('div');
@@ -21626,6 +21738,445 @@ if (typeof getCenterPosition === 'undefined') {
         const modal = document.body.querySelector('#pet-api-request-info-editor');
         if (modal) {
             modal.style.display = 'none';
+        }
+    }
+    
+    // 智能生成接口请求标题
+    async generateApiRequestTitle(apiRequest) {
+        if (!apiRequest) {
+            console.warn('接口请求不存在，无法生成标题');
+            return;
+        }
+
+        const modal = document.body.querySelector('#pet-api-request-info-editor');
+        if (!modal) {
+            return;
+        }
+
+        const generateBtn = modal.querySelector('.api-request-editor-generate-title');
+        const titleInput = modal.querySelector('.api-request-editor-title-input');
+        
+        if (!generateBtn || !titleInput) {
+            return;
+        }
+
+        // 设置按钮为加载状态
+        const originalText = generateBtn.innerHTML;
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '生成中...';
+        generateBtn.style.opacity = '0.6';
+        generateBtn.style.cursor = 'not-allowed';
+
+        try {
+            // 构建生成标题的 prompt
+            let systemPrompt = '你是一个专业的助手，擅长根据接口请求信息生成简洁、准确的标题。';
+            let userPrompt = '请根据以下接口请求信息，生成一个简洁、准确的标题（不超过30个字）：\n\n';
+
+            // 添加接口请求信息
+            if (apiRequest.method) {
+                userPrompt += `请求方法：${apiRequest.method}\n`;
+            }
+            if (apiRequest.url) {
+                userPrompt += `请求URL：${apiRequest.url}\n`;
+            }
+            if (apiRequest.pageUrl) {
+                userPrompt += `页面URL：${apiRequest.pageUrl}\n`;
+            }
+            if (apiRequest.status) {
+                userPrompt += `响应状态：${apiRequest.status} ${apiRequest.statusText || ''}\n`;
+            }
+
+            // 添加请求体信息（如果有）
+            if (apiRequest.body) {
+                let bodyStr = '';
+                if (typeof apiRequest.body === 'string') {
+                    try {
+                        const parsed = JSON.parse(apiRequest.body);
+                        bodyStr = JSON.stringify(parsed, null, 2).substring(0, 500);
+                    } catch {
+                        bodyStr = apiRequest.body.substring(0, 500);
+                    }
+                } else {
+                    bodyStr = JSON.stringify(apiRequest.body, null, 2).substring(0, 500);
+                }
+                if (bodyStr) {
+                    userPrompt += `\n请求体：\n${bodyStr}\n`;
+                }
+            }
+
+            // 添加响应信息（如果有）
+            if (apiRequest.responseBody || apiRequest.responseText) {
+                let responseStr = '';
+                if (apiRequest.responseBody) {
+                    if (typeof apiRequest.responseBody === 'string') {
+                        try {
+                            const parsed = JSON.parse(apiRequest.responseBody);
+                            responseStr = JSON.stringify(parsed, null, 2).substring(0, 500);
+                        } catch {
+                            responseStr = apiRequest.responseBody.substring(0, 500);
+                        }
+                    } else {
+                        responseStr = JSON.stringify(apiRequest.responseBody, null, 2).substring(0, 500);
+                    }
+                } else if (apiRequest.responseText) {
+                    responseStr = apiRequest.responseText.substring(0, 500);
+                }
+                if (responseStr) {
+                    userPrompt += `\n响应内容：\n${responseStr}\n`;
+                }
+            }
+
+            userPrompt += '\n\n请直接返回标题，不要包含其他说明文字。';
+
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // 先获取响应文本，检查是否是 SSE 格式
+            const responseText = await response.text();
+            let result;
+            
+            try {
+                // 检查是否包含 SSE 格式（包含 "data: "）
+                if (responseText.includes('data: ')) {
+                    // 处理 SSE 格式响应
+                    const lines = responseText.split('\n');
+                    let accumulatedData = '';
+                    let lastValidData = null;
+                    
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.startsWith('data: ')) {
+                            try {
+                                const dataStr = trimmedLine.substring(6).trim();
+                                if (dataStr === '[DONE]' || dataStr === '') {
+                                    continue;
+                                }
+                                
+                                // 尝试解析 JSON
+                                const chunk = JSON.parse(dataStr);
+                                
+                                // 检查是否完成
+                                if (chunk.done === true) {
+                                    break;
+                                }
+                                
+                                // 累积内容
+                                if (chunk.content) {
+                                    accumulatedData += chunk.content;
+                                    lastValidData = chunk;
+                                } else if (chunk.data) {
+                                    accumulatedData += (typeof chunk.data === 'string' ? chunk.data : chunk.data.content || '');
+                                    lastValidData = chunk;
+                                } else if (chunk.message && chunk.message.content) {
+                                    accumulatedData += chunk.message.content;
+                                    lastValidData = chunk;
+                                }
+                            } catch (e) {
+                                console.warn('解析 SSE 数据块失败:', trimmedLine, e);
+                            }
+                        }
+                    }
+                    
+                    // 如果有累积的内容，使用它
+                    if (accumulatedData) {
+                        result = { content: accumulatedData, data: accumulatedData };
+                    } else if (lastValidData) {
+                        result = lastValidData;
+                    } else {
+                        // 尝试从最后一行提取 JSON
+                        const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                        if (sseMatch) {
+                            result = JSON.parse(sseMatch[1]);
+                        } else {
+                            throw new Error('无法解析 SSE 响应');
+                        }
+                    }
+                } else {
+                    // 普通 JSON 响应
+                    result = JSON.parse(responseText);
+                }
+            } catch (parseError) {
+                console.error('解析响应失败:', parseError, '响应内容:', responseText.substring(0, 200));
+                throw new Error('解析响应失败: ' + parseError.message);
+            }
+            
+            // 提取生成的标题（适配不同的响应格式）
+            let generatedTitle = '';
+            if (result.status === 200 && result.data) {
+                // 成功响应，提取 data 字段
+                generatedTitle = typeof result.data === 'string' ? result.data.trim() : (result.data.content || '').trim();
+            } else if (result && result.content) {
+                generatedTitle = result.content.trim();
+            } else if (result && result.data && result.data.content) {
+                generatedTitle = result.data.content.trim();
+            } else if (result && result.message) {
+                generatedTitle = result.message.trim();
+            } else if (typeof result === 'string') {
+                generatedTitle = result.trim();
+            }
+
+            // 清理标题（移除可能的引号、换行等）
+            generatedTitle = generatedTitle.replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim();
+            
+            // 限制长度
+            if (generatedTitle.length > 50) {
+                generatedTitle = generatedTitle.substring(0, 50);
+            }
+
+            if (generatedTitle) {
+                titleInput.value = generatedTitle;
+                titleInput.focus();
+            } else {
+                alert('生成标题失败，请重试');
+            }
+        } catch (error) {
+            console.error('生成标题失败:', error);
+            alert('生成标题失败：' + error.message);
+        } finally {
+            // 恢复按钮状态
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = originalText;
+            generateBtn.style.opacity = '1';
+            generateBtn.style.cursor = 'pointer';
+        }
+    }
+
+    // 智能生成接口请求描述
+    async generateApiRequestDescription(apiRequest) {
+        if (!apiRequest) {
+            console.warn('接口请求不存在，无法生成描述');
+            return;
+        }
+
+        const modal = document.body.querySelector('#pet-api-request-info-editor');
+        if (!modal) {
+            return;
+        }
+
+        const generateBtn = modal.querySelector('.api-request-editor-generate-description');
+        const descriptionInput = modal.querySelector('.api-request-editor-description-input');
+        
+        if (!generateBtn || !descriptionInput) {
+            return;
+        }
+
+        // 设置按钮为加载状态
+        const originalText = generateBtn.innerHTML;
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '生成中...';
+        generateBtn.style.opacity = '0.6';
+        generateBtn.style.cursor = 'not-allowed';
+
+        try {
+            // 构建生成描述的 prompt
+            let systemPrompt = '你是一个专业的助手，擅长根据接口请求信息生成简洁、准确的描述。';
+            let userPrompt = '请根据以下接口请求信息，生成一个简洁、准确的描述（50-200字）：\n\n';
+
+            // 添加接口请求信息
+            if (apiRequest.method) {
+                userPrompt += `请求方法：${apiRequest.method}\n`;
+            }
+            if (apiRequest.url) {
+                userPrompt += `请求URL：${apiRequest.url}\n`;
+            }
+            if (apiRequest.pageUrl) {
+                userPrompt += `页面URL：${apiRequest.pageUrl}\n`;
+            }
+            if (apiRequest.status) {
+                userPrompt += `响应状态：${apiRequest.status} ${apiRequest.statusText || ''}\n`;
+            }
+
+            // 添加请求头信息（如果有）
+            if (apiRequest.headers && Object.keys(apiRequest.headers).length > 0) {
+                userPrompt += `\n请求头：\n${JSON.stringify(apiRequest.headers, null, 2).substring(0, 300)}\n`;
+            }
+
+            // 添加请求体信息（如果有）
+            if (apiRequest.body) {
+                let bodyStr = '';
+                if (typeof apiRequest.body === 'string') {
+                    try {
+                        const parsed = JSON.parse(apiRequest.body);
+                        bodyStr = JSON.stringify(parsed, null, 2).substring(0, 800);
+                    } catch {
+                        bodyStr = apiRequest.body.substring(0, 800);
+                    }
+                } else {
+                    bodyStr = JSON.stringify(apiRequest.body, null, 2).substring(0, 800);
+                }
+                if (bodyStr) {
+                    userPrompt += `\n请求体：\n${bodyStr}\n`;
+                }
+            }
+
+            // 添加响应信息（如果有）
+            if (apiRequest.responseBody || apiRequest.responseText) {
+                let responseStr = '';
+                if (apiRequest.responseBody) {
+                    if (typeof apiRequest.responseBody === 'string') {
+                        try {
+                            const parsed = JSON.parse(apiRequest.responseBody);
+                            responseStr = JSON.stringify(parsed, null, 2).substring(0, 800);
+                        } catch {
+                            responseStr = apiRequest.responseBody.substring(0, 800);
+                        }
+                    } else {
+                        responseStr = JSON.stringify(apiRequest.responseBody, null, 2).substring(0, 800);
+                    }
+                } else if (apiRequest.responseText) {
+                    responseStr = apiRequest.responseText.substring(0, 800);
+                }
+                if (responseStr) {
+                    userPrompt += `\n响应内容：\n${responseStr}\n`;
+                }
+            }
+
+            userPrompt += '\n\n请直接返回描述，不要包含其他说明文字。描述应该简洁明了，概括接口请求的主要功能和用途。';
+
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // 先获取响应文本，检查是否是 SSE 格式
+            const responseText = await response.text();
+            let result;
+            
+            try {
+                // 检查是否包含 SSE 格式（包含 "data: "）
+                if (responseText.includes('data: ')) {
+                    // 处理 SSE 格式响应
+                    const lines = responseText.split('\n');
+                    let accumulatedData = '';
+                    let lastValidData = null;
+                    
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.startsWith('data: ')) {
+                            try {
+                                const dataStr = trimmedLine.substring(6).trim();
+                                if (dataStr === '[DONE]' || dataStr === '') {
+                                    continue;
+                                }
+                                
+                                // 尝试解析 JSON
+                                const chunk = JSON.parse(dataStr);
+                                
+                                // 检查是否完成
+                                if (chunk.done === true) {
+                                    break;
+                                }
+                                
+                                // 累积内容
+                                if (chunk.content) {
+                                    accumulatedData += chunk.content;
+                                    lastValidData = chunk;
+                                } else if (chunk.data) {
+                                    accumulatedData += (typeof chunk.data === 'string' ? chunk.data : chunk.data.content || '');
+                                    lastValidData = chunk;
+                                } else if (chunk.message && chunk.message.content) {
+                                    accumulatedData += chunk.message.content;
+                                    lastValidData = chunk;
+                                }
+                            } catch (e) {
+                                console.warn('解析 SSE 数据块失败:', trimmedLine, e);
+                            }
+                        }
+                    }
+                    
+                    // 如果有累积的内容，使用它
+                    if (accumulatedData) {
+                        result = { content: accumulatedData, data: accumulatedData };
+                    } else if (lastValidData) {
+                        result = lastValidData;
+                    } else {
+                        // 尝试从最后一行提取 JSON
+                        const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                        if (sseMatch) {
+                            result = JSON.parse(sseMatch[1]);
+                        } else {
+                            throw new Error('无法解析 SSE 响应');
+                        }
+                    }
+                } else {
+                    // 普通 JSON 响应
+                    result = JSON.parse(responseText);
+                }
+            } catch (parseError) {
+                console.error('解析响应失败:', parseError, '响应内容:', responseText.substring(0, 200));
+                throw new Error('解析响应失败: ' + parseError.message);
+            }
+            
+            // 提取生成的描述（适配不同的响应格式）
+            let generatedDescription = '';
+            if (result.status === 200 && result.data) {
+                // 成功响应，提取 data 字段
+                generatedDescription = typeof result.data === 'string' ? result.data.trim() : (result.data.content || '').trim();
+            } else if (result && result.content) {
+                generatedDescription = result.content.trim();
+            } else if (result && result.data && result.data.content) {
+                generatedDescription = result.data.content.trim();
+            } else if (result && result.message) {
+                generatedDescription = result.message.trim();
+            } else if (typeof result === 'string') {
+                generatedDescription = result.trim();
+            }
+
+            // 清理描述（移除可能的引号等）
+            generatedDescription = generatedDescription.replace(/^["']|["']$/g, '').trim();
+            
+            // 限制长度
+            if (generatedDescription.length > 500) {
+                generatedDescription = generatedDescription.substring(0, 500);
+            }
+
+            if (generatedDescription) {
+                descriptionInput.value = generatedDescription;
+                descriptionInput.focus();
+            } else {
+                alert('生成描述失败，请重试');
+            }
+        } catch (error) {
+            console.error('生成描述失败:', error);
+            alert('生成描述失败：' + error.message);
+        } finally {
+            // 恢复按钮状态
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = originalText;
+            generateBtn.style.opacity = '1';
+            generateBtn.style.cursor = 'pointer';
         }
     }
     
@@ -25881,8 +26432,6 @@ ${originalText}
         sourcesContainer.className = 'rss-source-list';
         sourcesContainer.style.cssText = `
             min-height: 200px !important;
-            max-height: 400px !important;
-            overflow-y: auto !important;
             margin-bottom: 20px !important;
         `;
         
@@ -26626,6 +27175,41 @@ ${originalText}
                        title.includes(searchKeyword) ||
                        description.includes(searchKeyword);
             });
+        }
+        
+        // 应用日期筛选
+        if (this.dateRangeFilter) {
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 有开始和结束日期：筛选区间内的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const endDate = this.dateRangeFilter.endDate;
+                const startTime = startDate.getTime();
+                const endTime = endDate.getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
+                
+                requests = requests.filter(req => {
+                    const requestTime = req.timestamp || req.createdAt || req.updatedAt || 0;
+                    return requestTime >= startTime && requestTime <= endTime;
+                });
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                // 只有开始日期：筛选开始日期当天的记录
+                const startDate = this.dateRangeFilter.startDate;
+                const startTime = startDate.getTime();
+                const endTime = startTime + 24 * 60 * 60 * 1000 - 1; // 包含开始日期的整天
+                
+                requests = requests.filter(req => {
+                    const requestTime = req.timestamp || req.createdAt || req.updatedAt || 0;
+                    return requestTime >= startTime && requestTime <= endTime;
+                });
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 只有结束日期：筛选结束日期之前的记录
+                const endDate = this.dateRangeFilter.endDate;
+                const endTime = endDate.getTime(); // 不包含结束日期当天
+                
+                requests = requests.filter(req => {
+                    const requestTime = req.timestamp || req.createdAt || req.updatedAt || 0;
+                    return requestTime < endTime;
+                });
+            }
         }
         
         // 应用标签过滤
@@ -44724,63 +45308,97 @@ ${messageContent}`;
         const duration = apiRequestInfo.duration || 0;
         const timestamp = apiRequestInfo.timestamp || Date.now();
         
+        // 优化后的排版：使用更清晰的视觉层次和间距
         let apiRequestHtml = `
-            <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)); border-radius: 12px; border-left: 3px solid #4ECDC4;">
-                <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 20px;">🔌</span>
-                    <span style="font-weight: 600; font-size: 15px; color: #374151;">${this.escapeHtml(method)} ${this.escapeHtml(apiPath)}</span>
+            <div style="margin: 0; padding: 0;">
+                <!-- 标题区域 -->
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span style="font-size: 22px; line-height: 1;">🔌</span>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="display: inline-block; padding: 4px 10px; background: rgba(255, 255, 255, 0.2); border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">${this.escapeHtml(method)}</span>
+                                <span style="font-weight: 600; font-size: 15px; color: rgba(255, 255, 255, 0.95); word-break: break-word;">${this.escapeHtml(apiPath)}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🔗 接口地址</div>
-                    <a href="${apiRequestInfo.url}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(apiRequestInfo.url)}</a>
-                </div>
+                <!-- 信息区域 -->
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+        `;
+        
+        // 接口地址
+        apiRequestHtml += `
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px; opacity: 0.9;">🔗</span>
+                            <span style="font-size: 12px; color: rgba(255, 255, 255, 0.7); font-weight: 500;">接口地址</span>
+                        </div>
+                        <a href="${apiRequestInfo.url}" target="_blank" style="word-break: break-all; color: rgba(255, 255, 255, 0.9); text-decoration: none; font-size: 13px; line-height: 1.5; padding: 8px 10px; background: rgba(0, 0, 0, 0.15); border-radius: 6px; transition: all 0.2s ease; display: block;" onmouseover="this.style.background='rgba(0, 0, 0, 0.25)'; this.style.textDecoration='underline'" onmouseout="this.style.background='rgba(0, 0, 0, 0.15)'; this.style.textDecoration='none'">${this.escapeHtml(apiRequestInfo.url)}</a>
+                    </div>
         `;
         
         // 如果有状态码，显示状态信息
         if (status > 0) {
-            const statusColor = status >= 200 && status < 300 ? '#4CAF50' : status >= 400 ? '#f44336' : '#FF9800';
+            const statusColor = status >= 200 && status < 300 ? 'rgba(76, 175, 80, 0.9)' : status >= 400 ? 'rgba(244, 67, 54, 0.9)' : 'rgba(255, 152, 0, 0.9)';
             apiRequestHtml += `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📊 响应状态</div>
-                    <div style="font-size: 13px; color: ${statusColor}; font-weight: 600;">${status} ${statusText || ''}</div>
-                </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px; opacity: 0.9;">📊</span>
+                            <span style="font-size: 12px; color: rgba(255, 255, 255, 0.7); font-weight: 500;">响应状态</span>
+                        </div>
+                        <div style="font-size: 14px; color: ${statusColor}; font-weight: 600; padding: 6px 10px; background: rgba(0, 0, 0, 0.15); border-radius: 6px; display: inline-block;">${status} ${statusText || ''}</div>
+                    </div>
             `;
         }
         
         // 如果有响应时间，显示响应时间
         if (duration > 0) {
             apiRequestHtml += `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">⏱️ 响应时间</div>
-                    <div style="font-size: 13px; color: #4B5563;">${duration}ms</div>
-                </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px; opacity: 0.9;">⏱️</span>
+                            <span style="font-size: 12px; color: rgba(255, 255, 255, 0.7); font-weight: 500;">响应时间</span>
+                        </div>
+                        <div style="font-size: 14px; color: rgba(255, 255, 255, 0.9); padding: 6px 10px; background: rgba(0, 0, 0, 0.15); border-radius: 6px; display: inline-block; font-weight: 500;">${duration}ms</div>
+                    </div>
             `;
         }
         
         // 如果有页面URL，显示页面URL
         if (apiRequestInfo.pageUrl) {
             apiRequestHtml += `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">🌐 页面地址</div>
-                    <a href="${apiRequestInfo.pageUrl}" target="_blank" style="word-break: break-all; color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; max-width: 100%;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${this.escapeHtml(apiRequestInfo.pageUrl)}</a>
-                </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px; opacity: 0.9;">🌐</span>
+                            <span style="font-size: 12px; color: rgba(255, 255, 255, 0.7); font-weight: 500;">页面地址</span>
+                        </div>
+                        <a href="${apiRequestInfo.pageUrl}" target="_blank" style="word-break: break-all; color: rgba(255, 255, 255, 0.9); text-decoration: none; font-size: 13px; line-height: 1.5; padding: 8px 10px; background: rgba(0, 0, 0, 0.15); border-radius: 6px; transition: all 0.2s ease; display: block;" onmouseover="this.style.background='rgba(0, 0, 0, 0.25)'; this.style.textDecoration='underline'" onmouseout="this.style.background='rgba(0, 0, 0, 0.15)'; this.style.textDecoration='none'">${this.escapeHtml(apiRequestInfo.pageUrl)}</a>
+                    </div>
             `;
         }
         
         // 如果有响应内容，显示响应内容预览
         if (apiRequestInfo.responseText || apiRequestInfo.responseBody) {
             const responseContent = apiRequestInfo.responseText || JSON.stringify(apiRequestInfo.responseBody, null, 2);
-            const previewText = responseContent.length > 200 ? responseContent.substring(0, 200) + '...' : responseContent;
+            // 对于较长的内容，只显示前500字符，不设置滚动条
+            const previewText = responseContent.length > 500 ? responseContent.substring(0, 500) + '...' : responseContent;
             apiRequestHtml += `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px; font-weight: 500;">📄 响应内容</div>
-                    <div style="font-size: 13px; color: #4B5563; line-height: 1.5; max-height: 150px; overflow-y: auto; background: rgba(0, 0, 0, 0.05); padding: 8px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-break: break-all;">${this.escapeHtml(previewText)}</div>
-                </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px; opacity: 0.9;">📄</span>
+                            <span style="font-size: 12px; color: rgba(255, 255, 255, 0.7); font-weight: 500;">响应内容</span>
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255, 255, 255, 0.85); line-height: 1.6; background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 6px; font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'Consolas', 'Courier New', monospace; white-space: pre-wrap; word-break: break-word; border: 1px solid rgba(255, 255, 255, 0.1); overflow: visible;">${this.escapeHtml(previewText)}</div>
+                    </div>
             `;
         }
         
-        apiRequestHtml += `</div>`;
+        apiRequestHtml += `
+                </div>
+            </div>
+        `;
         
         // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
         const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
@@ -44788,24 +45406,24 @@ ${messageContent}`;
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {
             apiRequestHtml += `
-                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(78, 205, 196, 0.2);">
+                <div style="margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, 0.15);">
                     <button id="pet-manual-save-session-btn" class="pet-manual-save-btn" style="
                         position: relative !important;
                         display: flex !important;
                         align-items: center !important;
                         justify-content: center !important;
-                        gap: 8px !important;
+                        gap: 10px !important;
                         width: 100% !important;
-                        padding: 10px 20px !important;
-                        background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+                        padding: 12px 20px !important;
+                        background: linear-gradient(135deg, rgba(78, 205, 196, 0.9), rgba(68, 160, 141, 0.9)) !important;
                         color: white !important;
                         border: none !important;
-                        border-radius: 10px !important;
+                        border-radius: 8px !important;
                         font-size: 14px !important;
                         font-weight: 600 !important;
                         cursor: pointer !important;
                         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                        box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+                        box-shadow: 0 2px 8px rgba(78, 205, 196, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2) !important;
                         overflow: hidden !important;
                         user-select: none !important;
                     ">
@@ -44834,14 +45452,15 @@ ${messageContent}`;
                         }
                         .pet-manual-save-btn:hover:not(:disabled) {
                             transform: translateY(-2px) !important;
-                            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+                            box-shadow: 0 4px 16px rgba(78, 205, 196, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+                            background: linear-gradient(135deg, rgba(78, 205, 196, 1), rgba(68, 160, 141, 1)) !important;
                         }
                         .pet-manual-save-btn:active:not(:disabled) {
                             transform: translateY(0) !important;
-                            box-shadow: 0 1px 4px rgba(78, 205, 196, 0.2) !important;
+                            box-shadow: 0 1px 4px rgba(78, 205, 196, 0.3) !important;
                         }
                         .pet-manual-save-btn:disabled {
-                            opacity: 0.7 !important;
+                            opacity: 0.6 !important;
                             cursor: not-allowed !important;
                             transform: none !important;
                         }
@@ -44853,12 +45472,12 @@ ${messageContent}`;
                             display: block !important;
                         }
                         .pet-manual-save-btn.success {
-                            background: linear-gradient(135deg, #4CAF50, #45a049) !important;
-                            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+                            background: linear-gradient(135deg, rgba(76, 175, 80, 0.9), rgba(69, 160, 73, 0.9)) !important;
+                            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.35) !important;
                         }
                         .pet-manual-save-btn.error {
-                            background: linear-gradient(135deg, #f44336, #d32f2f) !important;
-                            box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
+                            background: linear-gradient(135deg, rgba(244, 67, 54, 0.9), rgba(211, 47, 47, 0.9)) !important;
+                            box-shadow: 0 2px 8px rgba(244, 67, 54, 0.35) !important;
                         }
                     </style>
                 </div>
@@ -46747,6 +47366,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

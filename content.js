@@ -13452,6 +13452,29 @@ if (typeof getCenterPosition === 'undefined') {
             `;
             this.sessionSidebar.appendChild(ossFileList);
         }
+        // 确保滚动条隐藏样式已应用（如果之前没有创建）
+        if (!document.getElementById('hide-scrollbar-style')) {
+            const hideScrollbarStyle = document.createElement('style');
+            hideScrollbarStyle.id = 'hide-scrollbar-style';
+            hideScrollbarStyle.textContent = `
+                .session-sidebar-scrollable-content::-webkit-scrollbar,
+                .oss-file-list::-webkit-scrollbar,
+                .news-list::-webkit-scrollbar,
+                .api-request-list::-webkit-scrollbar {
+                    display: none !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                }
+                .session-sidebar-scrollable-content,
+                .oss-file-list,
+                .news-list,
+                .api-request-list {
+                    -ms-overflow-style: none !important;
+                    scrollbar-width: none !important;
+                }
+            `;
+            document.head.appendChild(hideScrollbarStyle);
+        }
         ossFileList.style.display = 'block';
         
         // 更新搜索框占位符
@@ -30741,7 +30764,7 @@ ${originalText}
             border-radius: 12px !important;
             padding: 32px !important;
             width: 90% !important;
-            max-width: 500px !important;
+            max-width: 800px !important;
             max-height: 85vh !important;
             overflow-y: auto !important;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
@@ -41566,6 +41589,29 @@ ${messageContent}`;
             flex-direction: column !important;
             min-height: 0 !important;
         `;
+        // 隐藏滚动条但保持滚动功能
+        if (!document.getElementById('hide-scrollbar-style')) {
+            const hideScrollbarStyle = document.createElement('style');
+            hideScrollbarStyle.id = 'hide-scrollbar-style';
+            hideScrollbarStyle.textContent = `
+                .session-sidebar-scrollable-content::-webkit-scrollbar,
+                .oss-file-list::-webkit-scrollbar,
+                .news-list::-webkit-scrollbar,
+                .api-request-list::-webkit-scrollbar {
+                    display: none !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                }
+                .session-sidebar-scrollable-content,
+                .oss-file-list,
+                .news-list,
+                .api-request-list {
+                    -ms-overflow-style: none !important;
+                    scrollbar-width: none !important;
+                }
+            `;
+            document.head.appendChild(hideScrollbarStyle);
+        }
 
         // 会话列表容器（移除独立滚动）
         const sessionList = document.createElement('div');

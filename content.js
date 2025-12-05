@@ -6857,12 +6857,19 @@ if (typeof getCenterPosition === 'undefined') {
             const sessionList = this.sessionSidebar?.querySelector('.session-list');
             const ossFileList = this.sessionSidebar?.querySelector('.oss-file-list');
             const newsList = this.sessionSidebar?.querySelector('.news-list');
+            const apiRequestList = this.sessionSidebar?.querySelector('.api-request-list');
             const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
             const isNewsListMode = newsList && newsList.style.display !== 'none';
+            const isApiRequestListMode = apiRequestList && apiRequestList.style.display !== 'none' || this.apiRequestListVisible;
             
             // 如果是新闻列表模式，导出新闻
             if (isNewsListMode) {
                 return await this._exportNewsToZip();
+            }
+            
+            // 如果是请求接口列表模式，导出请求接口
+            if (isApiRequestListMode) {
+                return await this._exportApiRequestsToZip();
             }
             
             let sessions = [];
@@ -7234,6 +7241,224 @@ if (typeof getCenterPosition === 'undefined') {
         } else if (newsItem.description) {
             // 如果没有正文，使用描述作为正文
             content += `## 正文\n\n${newsItem.description}\n`;
+        }
+        
+        return content;
+    }
+
+    // 导出请求接口为ZIP文件
+    async _exportApiRequestsToZip() {
+        try {
+            // 获取过滤后的请求接口列表
+            let requests = this._getFilteredApiRequests();
+            
+            // 如果有选中的请求接口，只导出选中的
+            if (this.batchMode && this.selectedApiRequestIds && this.selectedApiRequestIds.size > 0) {
+                requests = requests.filter(req => {
+                    const requestId = req._id || req.key || '';
+                    return requestId && this.selectedApiRequestIds.has(requestId);
+                });
+            }
+            
+            if (requests.length === 0) {
+                this.showNotification('没有可导出的请求接口', 'error');
+                return;
+            }
+            
+            // 显示进度提示
+            this.showNotification(`正在处理 ${requests.length} 个请求接口...`, 'info');
+            
+            // 遍历每个请求接口，生成导出数据
+            const exportData = [];
+            for (let i = 0; i < requests.length; i++) {
+                const req = requests[i];
+                
+                // 生成标题（使用请求方法和URL路径）
+                const apiPath = this._extractApiPath(req.url || '');
+                const title = this._sanitizeFileName(`${req.method || 'GET'} ${apiPath}` || '未命名请求接口');
+                
+                // 获取标签
+                const tags = req.tags || [];
+                
+                // 生成请求接口Markdown内容
+                const requestContent = this._generateApiRequestMd(req);
+                
+                exportData.push({
+                    tags: tags,
+                    title: title,
+                    pageContent: requestContent
+                });
+                
+                // 更新进度提示（每10个请求更新一次）
+                if ((i + 1) % 10 === 0 || (i + 1) === requests.length) {
+                    this.showNotification(`已处理 ${i + 1}/${requests.length} 个请求接口...`, 'info');
+                }
+            }
+            
+            // 在页面上下文中执行导出逻辑
+            this.showNotification('正在生成ZIP文件...', 'info');
+            
+            // 使用注入外部脚本的方式（避免CSP限制）
+            return new Promise((resolve, reject) => {
+                // 创建数据容器（通过data属性传递数据，避免内联脚本）
+                const dataContainer = document.createElement('div');
+                dataContainer.id = '__jszip_export_data__';
+                dataContainer.style.display = 'none';
+                dataContainer.setAttribute('data-export', JSON.stringify(exportData));
+                dataContainer.setAttribute('data-export-type', 'apiRequest');
+                (document.head || document.documentElement).appendChild(dataContainer);
+                
+                // 加载外部导出脚本
+                const exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+                const exportScript = document.createElement('script');
+                exportScript.src = exportScriptUrl;
+                exportScript.charset = 'UTF-8';
+                exportScript.async = false;
+                
+                // 监听导出结果
+                const handleSuccess = (event) => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    // 清理
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    this.showNotification(`成功导出 ${event.detail.count} 个请求接口`, 'success');
+                    resolve();
+                };
+                
+                const handleError = (event) => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    // 清理
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    const errorMsg = event.detail && event.detail.error ? event.detail.error : '导出失败';
+                    reject(new Error(errorMsg));
+                };
+                
+                window.addEventListener('jszip-export-success', handleSuccess);
+                window.addEventListener('jszip-export-error', handleError);
+                
+                // 注入脚本
+                (document.head || document.documentElement).appendChild(exportScript);
+                
+                // 设置超时
+                setTimeout(() => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    reject(new Error('导出超时'));
+                }, 30000);
+            });
+        } catch (error) {
+            console.error('导出请求接口失败:', error);
+            throw error;
+        }
+    }
+
+    // 生成请求接口Markdown内容
+    _generateApiRequestMd(request) {
+        let content = `# ${request.method || 'GET'} ${this._extractApiPath(request.url || '')}\n\n`;
+        
+        // 请求URL
+        if (request.url) {
+            content += `**请求URL**: ${request.url}\n\n`;
+        }
+        
+        // 请求方法
+        if (request.method) {
+            content += `**请求方法**: ${request.method}\n\n`;
+        }
+        
+        // 状态码
+        if (request.status) {
+            content += `**状态码**: ${request.status} ${request.statusText || ''}\n\n`;
+        }
+        
+        // 时间戳
+        if (request.timestamp) {
+            const date = new Date(request.timestamp);
+            content += `**请求时间**: ${date.toLocaleString('zh-CN')}\n\n`;
+        }
+        
+        // 耗时
+        if (request.duration) {
+            content += `**耗时**: ${request.duration}ms\n\n`;
+        }
+        
+        // 页面URL
+        if (request.pageUrl) {
+            content += `**页面URL**: ${request.pageUrl}\n\n`;
+        }
+        
+        // 标签
+        if (request.tags && request.tags.length > 0) {
+            content += `**标签**: ${request.tags.join(', ')}\n\n`;
+        }
+        
+        // 请求头
+        if (request.headers && Object.keys(request.headers).length > 0) {
+            content += `## 请求头\n\n\`\`\`json\n${JSON.stringify(request.headers, null, 2)}\n\`\`\`\n\n`;
+        }
+        
+        // 请求体
+        if (request.body) {
+            content += `## 请求体\n\n`;
+            if (typeof request.body === 'string') {
+                try {
+                    // 尝试格式化JSON
+                    const parsed = JSON.parse(request.body);
+                    content += `\`\`\`json\n${JSON.stringify(parsed, null, 2)}\n\`\`\`\n\n`;
+                } catch (e) {
+                    content += `\`\`\`\n${request.body}\n\`\`\`\n\n`;
+                }
+            } else if (typeof request.body === 'object') {
+                content += `\`\`\`json\n${JSON.stringify(request.body, null, 2)}\n\`\`\`\n\n`;
+            } else {
+                content += `${request.body}\n\n`;
+            }
+        }
+        
+        // 响应头
+        if (request.responseHeaders && Object.keys(request.responseHeaders).length > 0) {
+            content += `## 响应头\n\n\`\`\`json\n${JSON.stringify(request.responseHeaders, null, 2)}\n\`\`\`\n\n`;
+        }
+        
+        // 响应体
+        if (request.responseText) {
+            content += `## 响应体\n\n`;
+            if (request.responseBody && typeof request.responseBody === 'object') {
+                content += `\`\`\`json\n${JSON.stringify(request.responseBody, null, 2)}\n\`\`\`\n\n`;
+            } else if (typeof request.responseText === 'string') {
+                try {
+                    // 尝试解析为JSON并格式化
+                    const parsed = JSON.parse(request.responseText);
+                    content += `\`\`\`json\n${JSON.stringify(parsed, null, 2)}\n\`\`\`\n\n`;
+                } catch (e) {
+                    // 不是JSON，直接显示
+                    content += `\`\`\`\n${request.responseText}\n\`\`\`\n\n`;
+                }
+            } else {
+                content += `${request.responseText}\n\n`;
+            }
+        }
+        
+        // CURL命令
+        if (request.curl) {
+            content += `## CURL命令\n\n\`\`\`bash\n${request.curl}\n\`\`\`\n\n`;
         }
         
         return content;

@@ -91,7 +91,12 @@
         const a = document.createElement('a');
         a.href = url;
         // 根据导出类型生成不同的文件名
-        const fileNamePrefix = exportType === 'news' ? '新闻导出_' : '会话导出_';
+        let fileNamePrefix = '会话导出_';
+        if (exportType === 'news') {
+            fileNamePrefix = '新闻导出_';
+        } else if (exportType === 'apiRequest') {
+            fileNamePrefix = '请求接口导出_';
+        }
         a.download = fileNamePrefix + new Date().toISOString().slice(0, 10) + '.zip';
         document.body.appendChild(a);
         a.click();

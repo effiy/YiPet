@@ -21,6 +21,9 @@
         return;
     }
     
+    // 获取导出类型（默认为会话）
+    const exportType = dataContainer.getAttribute('data-export-type') || 'session';
+    
     // 检查JSZip是否已加载
     if (typeof JSZip === 'undefined' && !window.JSZip) {
         window.dispatchEvent(new CustomEvent('jszip-export-error', { 
@@ -87,7 +90,9 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = '会话导出_' + new Date().toISOString().slice(0, 10) + '.zip';
+        // 根据导出类型生成不同的文件名
+        const fileNamePrefix = exportType === 'news' ? '新闻导出_' : '会话导出_';
+        a.download = fileNamePrefix + new Date().toISOString().slice(0, 10) + '.zip';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

@@ -6853,10 +6853,17 @@ if (typeof getCenterPosition === 'undefined') {
             // 加载JSZip库（在页面上下文中）
             await this._loadJSZip();
             
-            // 判断当前是否在 OSS 文件模式下
+            // 判断当前视图模式
             const sessionList = this.sessionSidebar?.querySelector('.session-list');
             const ossFileList = this.sessionSidebar?.querySelector('.oss-file-list');
+            const newsList = this.sessionSidebar?.querySelector('.news-list');
             const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
+            const isNewsListMode = newsList && newsList.style.display !== 'none';
+            
+            // 如果是新闻列表模式，导出新闻
+            if (isNewsListMode) {
+                return await this._exportNewsToZip();
+            }
             
             let sessions = [];
             
@@ -7005,6 +7012,7 @@ if (typeof getCenterPosition === 'undefined') {
                 dataContainer.id = '__jszip_export_data__';
                 dataContainer.style.display = 'none';
                 dataContainer.setAttribute('data-export', JSON.stringify(exportData));
+                dataContainer.setAttribute('data-export-type', 'session');
                 (document.head || document.documentElement).appendChild(dataContainer);
                 
                 // 加载外部导出脚本
@@ -7066,6 +7074,169 @@ if (typeof getCenterPosition === 'undefined') {
             console.error('导出会话失败:', error);
             throw error;
         }
+    }
+
+    // 导出新闻为ZIP文件
+    async _exportNewsToZip() {
+        try {
+            // 获取过滤后的新闻列表
+            let news = this._getFilteredNews();
+            
+            // 如果有选中的新闻，只导出选中的新闻
+            if (this.batchMode && this.selectedNewsIds && this.selectedNewsIds.size > 0) {
+                news = news.filter(item => {
+                    const newsId = item.link || item.id || '';
+                    return newsId && this.selectedNewsIds.has(newsId);
+                });
+            }
+            
+            if (news.length === 0) {
+                this.showNotification('没有可导出的新闻', 'error');
+                return;
+            }
+            
+            // 显示进度提示
+            this.showNotification(`正在处理 ${news.length} 条新闻...`, 'info');
+            
+            // 遍历每条新闻，生成导出数据
+            const exportData = [];
+            for (let i = 0; i < news.length; i++) {
+                const item = news[i];
+                
+                // 生成标题（使用新闻标题）
+                const title = this._sanitizeFileName(item.title || '未命名新闻');
+                
+                // 获取标签
+                const tags = item.tags || [];
+                
+                // 生成新闻Markdown内容
+                const newsContent = this._generateNewsMd(item);
+                
+                exportData.push({
+                    tags: tags,
+                    title: title,
+                    pageContent: newsContent
+                });
+                
+                // 更新进度提示（每10条新闻更新一次）
+                if ((i + 1) % 10 === 0 || (i + 1) === news.length) {
+                    this.showNotification(`已处理 ${i + 1}/${news.length} 条新闻...`, 'info');
+                }
+            }
+            
+            // 在页面上下文中执行导出逻辑
+            this.showNotification('正在生成ZIP文件...', 'info');
+            
+            // 使用注入外部脚本的方式（避免CSP限制）
+            return new Promise((resolve, reject) => {
+                // 创建数据容器（通过data属性传递数据，避免内联脚本）
+                const dataContainer = document.createElement('div');
+                dataContainer.id = '__jszip_export_data__';
+                dataContainer.style.display = 'none';
+                dataContainer.setAttribute('data-export', JSON.stringify(exportData));
+                dataContainer.setAttribute('data-export-type', 'news');
+                (document.head || document.documentElement).appendChild(dataContainer);
+                
+                // 加载外部导出脚本
+                const exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+                const exportScript = document.createElement('script');
+                exportScript.src = exportScriptUrl;
+                exportScript.charset = 'UTF-8';
+                exportScript.async = false;
+                
+                // 监听导出结果
+                const handleSuccess = (event) => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    // 清理
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    this.showNotification(`成功导出 ${event.detail.count} 条新闻`, 'success');
+                    resolve();
+                };
+                
+                const handleError = (event) => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    // 清理
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    const errorMsg = event.detail && event.detail.error ? event.detail.error : '导出失败';
+                    reject(new Error(errorMsg));
+                };
+                
+                window.addEventListener('jszip-export-success', handleSuccess);
+                window.addEventListener('jszip-export-error', handleError);
+                
+                // 注入脚本
+                (document.head || document.documentElement).appendChild(exportScript);
+                
+                // 设置超时
+                setTimeout(() => {
+                    window.removeEventListener('jszip-export-success', handleSuccess);
+                    window.removeEventListener('jszip-export-error', handleError);
+                    if (exportScript.parentNode) {
+                        exportScript.parentNode.removeChild(exportScript);
+                    }
+                    if (dataContainer.parentNode) {
+                        dataContainer.parentNode.removeChild(dataContainer);
+                    }
+                    reject(new Error('导出超时'));
+                }, 30000);
+            });
+        } catch (error) {
+            console.error('导出新闻失败:', error);
+            throw error;
+        }
+    }
+
+    // 生成新闻Markdown内容
+    _generateNewsMd(newsItem) {
+        let content = `# ${newsItem.title || '未命名新闻'}\n\n`;
+        
+        // 发布时间
+        const newsTime = this.getNewsTime(newsItem);
+        if (newsTime > 0) {
+            content += `**发布时间**: ${this.formatNewsTime(newsTime)}\n\n`;
+        }
+        
+        // 链接
+        if (newsItem.link) {
+            content += `**原文链接**: ${newsItem.link}\n\n`;
+        }
+        
+        // 来源
+        if (newsItem.source) {
+            content += `**来源**: ${newsItem.source}\n\n`;
+        }
+        
+        // 标签
+        if (newsItem.tags && newsItem.tags.length > 0) {
+            content += `**标签**: ${newsItem.tags.join(', ')}\n\n`;
+        }
+        
+        // 描述
+        if (newsItem.description) {
+            content += `## 摘要\n\n${newsItem.description}\n\n`;
+        }
+        
+        // 正文内容
+        if (newsItem.content) {
+            content += `## 正文\n\n${newsItem.content}\n`;
+        } else if (newsItem.description) {
+            // 如果没有正文，使用描述作为正文
+            content += `## 正文\n\n${newsItem.description}\n`;
+        }
+        
+        return content;
     }
 
     // 更新标签过滤器UI

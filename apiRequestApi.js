@@ -67,13 +67,32 @@ class ApiRequestApiManager {
                 return JSON.stringify(obj.map(item => this._normalizeObject(item)));
             }
             
-            // 对象：排序键后序列化
-            const sortedKeys = Object.keys(obj).sort();
-            const normalized = {};
-            for (const key of sortedKeys) {
-                normalized[key] = this._normalizeObject(obj[key]);
+            // 检查是否是普通对象（排除Date、RegExp等特殊对象）
+            if (obj.constructor && obj.constructor !== Object && !Array.isArray(obj)) {
+                // 特殊对象类型，转换为字符串
+                try {
+                    return JSON.stringify(obj);
+                } catch (e) {
+                    return String(obj);
+                }
             }
-            return JSON.stringify(normalized);
+            
+            // 对象：排序键后序列化
+            try {
+                const sortedKeys = Object.keys(obj).sort();
+                const normalized = {};
+                for (const key of sortedKeys) {
+                    normalized[key] = this._normalizeObject(obj[key]);
+                }
+                return JSON.stringify(normalized);
+            } catch (e) {
+                // 如果Object.keys失败，尝试直接序列化
+                try {
+                    return JSON.stringify(obj);
+                } catch (e2) {
+                    return String(obj);
+                }
+            }
         }
         
         return String(obj);
@@ -205,7 +224,7 @@ class ApiRequestApiManager {
                     ...options,
                     headers: {
                         'Content-Type': 'application/json',
-                        ...options.headers,
+                        ...(options.headers && typeof options.headers === 'object' ? options.headers : {}),
                     },
                 });
                 
@@ -390,4 +409,5 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.ApiRequestApiManager = ApiRequestApiManager;
 }
+
 

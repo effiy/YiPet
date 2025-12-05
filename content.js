@@ -18596,6 +18596,12 @@ if (typeof getCenterPosition === 'undefined') {
             const bodyType = this.detectBodyType(apiRequest.body);
             bodyTypeSelect.value = bodyType;
             this.updateBodyEditor(bodyTypeSelect, bodyTextarea, apiRequest.body);
+            
+            // 更新格式化按钮显示状态
+            const formatJsonBtn = modal.querySelector('.api-editor-format-json-btn');
+            if (formatJsonBtn) {
+                formatJsonBtn.style.display = bodyType === 'json' ? 'block' : 'none';
+            }
         }
         
         // 填充响应结果
@@ -18967,6 +18973,13 @@ if (typeof getCenterPosition === 'undefined') {
         // Body编辑器
         const bodyGroup = document.createElement('div');
         bodyGroup.style.cssText = `margin-bottom: 24px !important;`;
+        const bodyLabelContainer = document.createElement('div');
+        bodyLabelContainer.style.cssText = `
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 8px !important;
+        `;
         const bodyLabel = document.createElement('label');
         bodyLabel.textContent = '请求体 (Body)';
         bodyLabel.style.cssText = `
@@ -18974,8 +18987,36 @@ if (typeof getCenterPosition === 'undefined') {
             font-size: 14px !important;
             font-weight: 500 !important;
             color: #374151 !important;
-            margin-bottom: 8px !important;
+            margin: 0 !important;
         `;
+        const formatJsonBtn = document.createElement('button');
+        formatJsonBtn.className = 'api-editor-format-json-btn';
+        formatJsonBtn.textContent = '格式化 JSON';
+        formatJsonBtn.style.cssText = `
+            padding: 6px 12px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: #374151 !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            display: none !important;
+        `;
+        formatJsonBtn.addEventListener('mouseenter', () => {
+            formatJsonBtn.style.background = '#f3f4f6';
+            formatJsonBtn.style.borderColor = '#9ca3af';
+        });
+        formatJsonBtn.addEventListener('mouseleave', () => {
+            formatJsonBtn.style.background = 'white';
+            formatJsonBtn.style.borderColor = '#d1d5db';
+        });
+        formatJsonBtn.addEventListener('click', () => {
+            this.formatJsonBody(bodyTextarea);
+        });
+        bodyLabelContainer.appendChild(bodyLabel);
+        bodyLabelContainer.appendChild(formatJsonBtn);
         const bodyTypeSelect = document.createElement('select');
         bodyTypeSelect.className = 'api-editor-body-type-select';
         bodyTypeSelect.style.cssText = `
@@ -19013,14 +19054,19 @@ if (typeof getCenterPosition === 'undefined') {
             resize: vertical !important;
             box-sizing: border-box !important;
         `;
-        bodyGroup.appendChild(bodyLabel);
+        bodyGroup.appendChild(bodyLabelContainer);
         bodyGroup.appendChild(bodyTypeSelect);
         bodyGroup.appendChild(bodyTextarea);
         
         // 监听Body类型变化
         bodyTypeSelect.addEventListener('change', () => {
             this.updateBodyEditor(bodyTypeSelect, bodyTextarea, null);
+            // 更新格式化按钮显示状态
+            formatJsonBtn.style.display = bodyTypeSelect.value === 'json' ? 'block' : 'none';
         });
+        
+        // 初始化格式化按钮显示状态
+        formatJsonBtn.style.display = bodyTypeSelect.value === 'json' ? 'block' : 'none';
         
         // 响应结果显示区域
         const responseGroup = document.createElement('div');
@@ -19366,6 +19412,97 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
     
+    // 格式化JSON Body
+    formatJsonBody(textarea) {
+        if (!textarea) {
+            return;
+        }
+        
+        const currentValue = textarea.value.trim();
+        
+        if (!currentValue) {
+            // 如果为空，设置为空的JSON对象
+            textarea.value = '{\n  \n}';
+            return;
+        }
+        
+        try {
+            // 尝试解析JSON
+            const parsed = JSON.parse(currentValue);
+            // 格式化JSON（使用2个空格缩进）
+            const formatted = JSON.stringify(parsed, null, 2);
+            textarea.value = formatted;
+            
+            // 显示成功提示（可选）
+            this.showApiRequestNotification('JSON格式化成功', 'success');
+        } catch (error) {
+            // JSON格式错误，显示错误提示
+            this.showApiRequestNotification('JSON格式错误：' + error.message, 'error');
+        }
+    }
+    
+    // 显示API请求编辑器通知（辅助方法）
+    showApiRequestNotification(message, type = 'success') {
+        // 创建通知元素
+        const notification = document.createElement('div');
+        notification.className = `api-editor-notification ${type}`;
+        notification.textContent = message;
+        const backgroundColor = type === 'error' ? '#f44336' : 
+                               type === 'info' ? '#2196F3' : '#4CAF50';
+        
+        notification.style.cssText = `
+            position: fixed !important;
+            top: 20px !important;
+            right: 20px !important;
+            background: ${backgroundColor} !important;
+            color: white !important;
+            padding: 12px 20px !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            z-index: 10001 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            animation: slideInRight 0.3s ease-out !important;
+            max-width: 400px !important;
+        `;
+        
+        // 添加动画样式（如果还没有）
+        if (!document.getElementById('api-editor-notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'api-editor-notification-styles';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from {
+                        opacity: 0;
+                        transform: translateX(100%);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                }
+            `;
+            if (document.head) {
+                document.head.appendChild(style);
+            }
+        }
+        
+        if (document.body) {
+            document.body.appendChild(notification);
+        }
+        
+        // 3秒后移除通知
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideInRight 0.3s ease-out reverse';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 3000);
+    }
+    
     // 绑定编辑器事件
     bindApiRequestEditorEvents(modal, apiRequest, isNew) {
         const closeBtn = modal.querySelector('.api-editor-close');
@@ -19479,8 +19616,10 @@ if (typeof getCenterPosition === 'undefined') {
             if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
                 apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
                 apiRequestData.type = originalRequest.type || 'api';
-                apiRequestData.curl = originalRequest.curl || '';
             }
+            
+            // 根据当前编辑器内容重新生成 curl 命令，确保与方法一致
+            apiRequestData.curl = this.generateCurlFromEditor(modal) || '';
             
             // 检查是否有新的响应数据（从发送请求后保存的）
             if (modal._responseData) {
@@ -19969,6 +20108,15 @@ if (typeof getCenterPosition === 'undefined') {
                 timestamp: Date.now()
             };
             
+            // 如果是编辑模式，设置key
+            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
+                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
+                apiRequestData.type = originalRequest.type || 'api';
+            }
+            
+            // 根据当前编辑器内容重新生成 curl 命令，确保与方法一致
+            apiRequestData.curl = this.generateCurlFromEditor(modal) || '';
+            
             // 如果modal中有响应数据（通过发送请求获得），使用响应数据
             if (modal._responseData) {
                 apiRequestData.status = modal._responseData.status || 0;
@@ -19988,13 +20136,6 @@ if (typeof getCenterPosition === 'undefined') {
                 apiRequestData.responseBody = originalRequest.responseBody || null;
                 apiRequestData.responseText = originalRequest.responseText || '';
                 apiRequestData.duration = originalRequest.duration || 0;
-                apiRequestData.type = originalRequest.type || 'api';
-                apiRequestData.curl = originalRequest.curl || '';
-            }
-            
-            // 如果是编辑模式，设置key
-            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
-                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
             }
             
             // 显示加载提示
@@ -21289,8 +21430,10 @@ if (typeof getCenterPosition === 'undefined') {
             if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
                 apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
                 apiRequestData.type = originalRequest.type || 'api';
-                apiRequestData.curl = originalRequest.curl || '';
             }
+            
+            // 根据当前编辑器内容重新生成 curl 命令，确保与方法一致
+            apiRequestData.curl = this.generateCurlFromEditor(modal) || '';
             
             // 检查是否有新的响应数据（从发送请求后保存的）
             if (modal._responseData) {
@@ -47366,6 +47509,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

@@ -30583,7 +30583,7 @@ ${originalText}
     }
     
     // 打开 OSS 文件标题编辑对话框
-    openOssFileTitleEditor(fileName, originalTitle, originalDescription = '') {
+    async openOssFileTitleEditor(fileName, originalTitle, originalDescription = '') {
         // 确保对话框UI存在
         this.ensureOssFileTitleEditorUi();
         
@@ -30609,6 +30609,34 @@ ${originalText}
             descriptionInput.value = originalDescription;
         }
 
+        // 加载当前标签
+        let currentTags = [];
+        try {
+            // 尝试从文件列表中获取标签
+            const allFiles = this.ossFileManager?.getAllFiles() || [];
+            const file = allFiles.find(f => f.name === fileName);
+            if (file && file.tags && Array.isArray(file.tags)) {
+                currentTags = [...file.tags];
+            } else if (this.ossApi && this.ossApi.isEnabled()) {
+                // 如果文件列表中没有，尝试从后端获取
+                try {
+                    currentTags = await this.ossApi.getFileTags(fileName);
+                } catch (error) {
+                    console.warn('获取文件标签失败:', error);
+                    currentTags = [];
+                }
+            }
+        } catch (error) {
+            console.warn('加载文件标签失败:', error);
+            currentTags = [];
+        }
+        
+        // 保存标签到modal的临时数据中
+        modal._currentTags = [...currentTags];
+        
+        // 加载标签到管理器
+        this.loadOssFileTagsIntoManager(fileName, currentTags);
+
         // 聚焦到标题输入框
         if (titleInput) {
             setTimeout(() => {
@@ -30633,6 +30661,42 @@ ${originalText}
         const cancelBtn = modal.querySelector('.oss-file-editor-cancel');
         if (cancelBtn) {
             cancelBtn.onclick = () => this.closeOssFileTitleEditor();
+        }
+
+        // 添加标签输入框回车事件（兼容中文输入法）
+        const tagInput = modal.querySelector('.oss-file-editor-tag-input');
+        if (tagInput) {
+            // 确保输入法组合状态已初始化
+            if (tagInput._isComposing === undefined) {
+                tagInput._isComposing = false;
+                tagInput.addEventListener('compositionstart', () => {
+                    tagInput._isComposing = true;
+                });
+                tagInput.addEventListener('compositionend', () => {
+                    tagInput._isComposing = false;
+                });
+            }
+            
+            // 添加回车键事件处理
+            const existingHandler = tagInput._enterKeyHandler;
+            if (existingHandler) {
+                tagInput.removeEventListener('keydown', existingHandler);
+            }
+            
+            const enterKeyHandler = (e) => {
+                // 如果在输入法组合过程中，忽略回车键
+                if (tagInput._isComposing) {
+                    return;
+                }
+                
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addOssFileTagFromInput(fileName);
+                }
+            };
+            
+            tagInput._enterKeyHandler = enterKeyHandler;
+            tagInput.addEventListener('keydown', enterKeyHandler);
         }
 
         // ESC 键关闭
@@ -30839,6 +30903,189 @@ ${originalText}
         descriptionGroup.appendChild(descriptionLabel);
         descriptionGroup.appendChild(descriptionInput);
 
+        // 标签管理区域（参考新闻列表的标签管理器）
+        const tagGroup = document.createElement('div');
+        tagGroup.style.cssText = `
+            margin-bottom: 24px !important;
+        `;
+
+        const tagLabel = document.createElement('label');
+        tagLabel.textContent = '文件标签';
+        tagLabel.style.cssText = `
+            display: block !important;
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+        `;
+
+        // 标签输入区域
+        const tagInputGroup = document.createElement('div');
+        tagInputGroup.className = 'oss-file-editor-tag-input-group';
+        tagInputGroup.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            margin-bottom: 12px !important;
+        `;
+
+        const tagInput = document.createElement('input');
+        tagInput.className = 'oss-file-editor-tag-input';
+        tagInput.type = 'text';
+        tagInput.placeholder = '输入标签名称，按回车添加';
+        tagInput.style.cssText = `
+            flex: 1 !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            outline: none !important;
+            transition: border-color 0.2s ease !important;
+        `;
+        
+        tagInput.addEventListener('focus', () => {
+            tagInput.style.borderColor = '#4CAF50';
+        });
+        tagInput.addEventListener('blur', () => {
+            tagInput.style.borderColor = '#e0e0e0';
+        });
+
+        const addTagBtn = document.createElement('button');
+        addTagBtn.textContent = '添加';
+        addTagBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        addTagBtn.addEventListener('mouseenter', () => {
+            addTagBtn.style.background = '#45a049';
+        });
+        addTagBtn.addEventListener('mouseleave', () => {
+            addTagBtn.style.background = '#4CAF50';
+        });
+        addTagBtn.addEventListener('click', () => {
+            const fileName = modal.dataset.fileName;
+            if (fileName) {
+                this.addOssFileTagFromInput(fileName);
+            }
+        });
+
+        // 智能生成标签按钮
+        const smartGenerateBtn = document.createElement('button');
+        smartGenerateBtn.className = 'oss-file-editor-smart-generate';
+        smartGenerateBtn.textContent = '✨ 智能生成';
+        smartGenerateBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #9C27B0 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        smartGenerateBtn.addEventListener('mouseenter', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#7B1FA2';
+            }
+        });
+        smartGenerateBtn.addEventListener('mouseleave', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#9C27B0';
+            }
+        });
+        smartGenerateBtn.addEventListener('click', () => {
+            const fileName = modal.dataset.fileName;
+            if (fileName) {
+                this.generateOssFileSmartTags(fileName, smartGenerateBtn);
+            }
+        });
+
+        tagInputGroup.appendChild(tagInput);
+        tagInputGroup.appendChild(addTagBtn);
+        tagInputGroup.appendChild(smartGenerateBtn);
+
+        // 快捷标签按钮容器
+        const quickTagsContainer = document.createElement('div');
+        quickTagsContainer.className = 'oss-file-editor-quick-tags';
+        quickTagsContainer.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            margin-bottom: 12px !important;
+        `;
+
+        // 快捷标签列表（与新闻列表保持一致）
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        
+        quickTags.forEach(tagName => {
+            const quickTagBtn = document.createElement('button');
+            quickTagBtn.textContent = tagName;
+            quickTagBtn.className = 'oss-file-editor-quick-tag-btn';
+            quickTagBtn.dataset.tagName = tagName;
+            quickTagBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #f0f0f0 !important;
+                color: #333 !important;
+                border: 1px solid #d0d0d0 !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 13px !important;
+                transition: all 0.2s ease !important;
+            `;
+            quickTagBtn.addEventListener('mouseenter', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#e0e0e0';
+                quickTagBtn.style.borderColor = '#4CAF50';
+            });
+            quickTagBtn.addEventListener('mouseleave', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#f0f0f0';
+                quickTagBtn.style.borderColor = '#d0d0d0';
+            });
+            quickTagBtn.addEventListener('click', () => {
+                // 如果标签已添加，不执行操作
+                if (quickTagBtn.style.cursor === 'not-allowed') {
+                    return;
+                }
+                const fileName = modal.dataset.fileName;
+                if (fileName) {
+                    this.addOssFileQuickTag(fileName, tagName);
+                }
+            });
+            quickTagsContainer.appendChild(quickTagBtn);
+        });
+
+        // 标签列表容器
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'oss-file-editor-tags';
+        tagsContainer.style.cssText = `
+            min-height: 60px !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+            padding: 12px !important;
+            background: #f8f9fa !important;
+            border-radius: 6px !important;
+        `;
+
+        tagGroup.appendChild(tagLabel);
+        tagGroup.appendChild(tagInputGroup);
+        tagGroup.appendChild(quickTagsContainer);
+        tagGroup.appendChild(tagsContainer);
+
         // 按钮区域
         const buttonGroup = document.createElement('div');
         buttonGroup.style.cssText = `
@@ -30896,6 +31143,7 @@ ${originalText}
         panel.appendChild(header);
         panel.appendChild(titleGroup);
         panel.appendChild(descriptionGroup);
+        panel.appendChild(tagGroup);
         panel.appendChild(buttonGroup);
         modal.appendChild(panel);
         document.body.appendChild(modal);
@@ -30906,7 +31154,244 @@ ${originalText}
         const modal = document.body.querySelector('#pet-oss-file-title-editor');
         if (modal) {
             modal.style.display = 'none';
+            // 清空临时标签数据
+            modal._currentTags = [];
         }
+    }
+    
+    // 加载OSS文件标签到管理器
+    loadOssFileTagsIntoManager(fileName, tags) {
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (!modal) return;
+
+        const tagsContainer = modal.querySelector('.oss-file-editor-tags');
+        if (!tagsContainer) return;
+
+        tagsContainer.innerHTML = '';
+
+        if (!tags || tags.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无标签';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+                font-size: 14px !important;
+            `;
+            tagsContainer.appendChild(emptyMsg);
+            return;
+        }
+
+        tags.forEach((tag, tagIndex) => {
+            const tagItem = document.createElement('div');
+            tagItem.style.cssText = `
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                background: #4CAF50 !important;
+                color: white !important;
+                padding: 6px 12px !important;
+                border-radius: 20px !important;
+                margin: 4px !important;
+                font-size: 13px !important;
+            `;
+
+            const tagText = document.createElement('span');
+            tagText.textContent = tag;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '✕';
+            removeBtn.style.cssText = `
+                background: rgba(255, 255, 255, 0.3) !important;
+                border: none !important;
+                color: white !important;
+                width: 18px !important;
+                height: 18px !important;
+                border-radius: 50% !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 !important;
+                transition: background 0.2s ease !important;
+            `;
+            removeBtn.addEventListener('mouseenter', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.5)';
+            });
+            removeBtn.addEventListener('mouseleave', () => {
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+            });
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeOssFileTagByValue(fileName, tag);
+            });
+
+            tagItem.appendChild(tagText);
+            tagItem.appendChild(removeBtn);
+            tagsContainer.appendChild(tagItem);
+        });
+
+        // 更新快捷标签按钮状态
+        const quickTagButtons = modal.querySelectorAll('.oss-file-editor-quick-tag-btn');
+        quickTagButtons.forEach(btn => {
+            const tagName = btn.dataset.tagName;
+            const isAdded = tags && tags.includes(tagName);
+            if (isAdded) {
+                btn.style.background = '#4CAF50';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#4CAF50';
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+            } else {
+                btn.style.background = '#f0f0f0';
+                btn.style.color = '#333';
+                btn.style.borderColor = '#d0d0d0';
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            }
+        });
+    }
+
+    // 从输入框添加OSS文件标签
+    addOssFileTagFromInput(fileName) {
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (!modal) return;
+
+        const tagInput = modal.querySelector('.oss-file-editor-tag-input');
+        if (!tagInput) return;
+
+        const tagName = tagInput.value.trim();
+        if (!tagName) return;
+
+        // 获取当前标签列表
+        if (!modal._currentTags) {
+            modal._currentTags = [];
+        }
+
+        // 检查标签是否已存在
+        if (modal._currentTags.includes(tagName)) {
+            tagInput.value = '';
+            tagInput.focus();
+            return;
+        }
+
+        // 添加标签
+        modal._currentTags.push(tagName);
+        tagInput.value = '';
+        tagInput.focus();
+
+        // 重新加载标签列表
+        this.loadOssFileTagsIntoManager(fileName, modal._currentTags);
+    }
+
+    // 添加OSS文件快捷标签
+    addOssFileQuickTag(fileName, tagName) {
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (!modal) return;
+
+        if (!modal._currentTags) {
+            modal._currentTags = [];
+        }
+
+        // 检查标签是否已存在
+        if (modal._currentTags.includes(tagName)) {
+            return;
+        }
+
+        // 添加标签
+        modal._currentTags.push(tagName);
+
+        // 重新加载标签列表
+        this.loadOssFileTagsIntoManager(fileName, modal._currentTags);
+    }
+
+    // 删除OSS文件标签（根据标签值）
+    removeOssFileTagByValue(fileName, tagValue) {
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (!modal || !modal._currentTags) return;
+
+        const tagIndex = modal._currentTags.indexOf(tagValue);
+        if (tagIndex >= 0) {
+            modal._currentTags.splice(tagIndex, 1);
+            this.loadOssFileTagsIntoManager(fileName, modal._currentTags);
+        }
+    }
+
+    // 智能生成OSS文件标签
+    async generateOssFileSmartTags(fileName, buttonElement) {
+        if (!fileName) {
+            console.warn('文件名无效，无法生成标签');
+            return;
+        }
+
+        const modal = document.body.querySelector('#pet-oss-file-title-editor');
+        if (!modal) {
+            console.error('OSS文件编辑对话框未找到');
+            return;
+        }
+
+        // 禁用按钮，显示加载状态
+        if (buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.style.background = '#ccc';
+            buttonElement.style.cursor = 'not-allowed';
+            const originalText = buttonElement.textContent;
+            buttonElement.textContent = '生成中...';
+            
+            try {
+                // 获取文件信息
+                const titleInput = modal.querySelector('.oss-file-editor-title-input');
+                const descriptionInput = modal.querySelector('.oss-file-editor-description-input');
+                const fileTitle = titleInput ? titleInput.value.trim() : fileName;
+                const fileDescription = descriptionInput ? descriptionInput.value.trim() : '';
+                
+                // 构建提示词
+                const prompt = `请根据以下文件信息，生成3-5个合适的标签（用中文，用逗号分隔，不要包含"标签"、"分类"等词）：
+文件名：${fileName}
+标题：${fileTitle}
+描述：${fileDescription}`;
+
+                // 使用简单的关键词提取（智能生成功能可以后续扩展）
+                const keywords = this.extractKeywordsFromOssFile(fileName, fileTitle, fileDescription);
+                if (keywords.length > 0) {
+                    if (!modal._currentTags) {
+                        modal._currentTags = [];
+                    }
+                    keywords.forEach(tag => {
+                        if (!modal._currentTags.includes(tag)) {
+                            modal._currentTags.push(tag);
+                        }
+                    });
+                    this.loadOssFileTagsIntoManager(fileName, modal._currentTags);
+                    this.showNotification('已添加关键词标签', 'success');
+                } else {
+                    this.showNotification('无法提取关键词', 'info');
+                }
+            } catch (error) {
+                console.error('生成标签失败:', error);
+                this.showNotification('生成标签失败: ' + error.message, 'error');
+            } finally {
+                buttonElement.disabled = false;
+                buttonElement.style.background = '#9C27B0';
+                buttonElement.style.cursor = 'pointer';
+                buttonElement.textContent = originalText;
+            }
+        }
+    }
+
+    // 从OSS文件信息中提取关键词（简单实现）
+    extractKeywordsFromOssFile(fileName, title, description) {
+        const text = `${fileName} ${title || ''} ${description || ''}`;
+        // 简单的关键词提取逻辑（可以根据需要改进）
+        const keywords = [];
+        const commonTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记', '技术', '图片', '视频', '音频', '数据'];
+        commonTags.forEach(tag => {
+            if (text.includes(tag)) {
+                keywords.push(tag);
+            }
+        });
+        return keywords.slice(0, 3); // 最多返回3个关键词
     }
     
     // 保存 OSS 文件标题信息
@@ -30932,6 +31417,16 @@ ${originalText}
         const newTitle = titleInput.value.trim();
         const newDescription = descriptionInput ? descriptionInput.value.trim() : '';
         
+        // 获取标签（规范化处理）
+        let tags = [];
+        if (modal._currentTags && Array.isArray(modal._currentTags)) {
+            tags = modal._currentTags
+                .map(tag => tag ? tag.trim() : '')
+                .filter(tag => tag.length > 0);
+            // 去重
+            tags = [...new Set(tags)];
+        }
+        
         // 如果标题为空，使用原文件名
         const finalTitle = newTitle || fileName;
 
@@ -30945,14 +31440,24 @@ ${originalText}
             // 保存描述到本地存储
             await this.saveOssFileDescription(fileName, newDescription);
             
-            // 保存文件信息到后端
+            // 保存文件信息到后端（包括标签）
             if (this.ossApi && this.ossApi.isEnabled()) {
                 try {
                     await this.ossApi.updateFileInfo(fileName, {
                         title: finalTitle === originalFileName ? '' : finalTitle,
-                        description: newDescription
+                        description: newDescription,
+                        tags: tags
                     });
-                    console.log('文件信息已保存到后端:', { fileName, title: finalTitle, description: newDescription });
+                    console.log('文件信息已保存到后端:', { fileName, title: finalTitle, description: newDescription, tags: tags });
+                    
+                    // 同时更新文件列表中的标签
+                    if (this.ossFileManager) {
+                        const allFiles = this.ossFileManager.getAllFiles();
+                        const fileIndex = allFiles.findIndex(f => f.name === fileName);
+                        if (fileIndex >= 0) {
+                            allFiles[fileIndex].tags = tags;
+                        }
+                    }
                 } catch (error) {
                     console.warn('保存文件信息到后端失败:', error);
                     // 不阻塞后续操作，继续更新会话
@@ -30974,7 +31479,11 @@ ${originalText}
                     if (session._ossFileInfo) {
                         session._ossFileInfo.name = finalTitle;
                         session._ossFileInfo.description = newDescription;
+                        session._ossFileInfo.tags = tags;
                     }
+                    
+                    // 更新会话的标签
+                    session.tags = tags;
                     
                     // 更新会话时间戳
                     session.updatedAt = Date.now();
@@ -31034,7 +31543,7 @@ ${originalText}
             // 更新UI显示
             await this.updateOssFileSidebar(true);
             
-            console.log('文件信息已更新:', { fileName, title: finalTitle, description: newDescription, updatedSessions: updatedSessionIds.length });
+            console.log('文件信息已更新:', { fileName, title: finalTitle, description: newDescription, tags: tags, updatedSessions: updatedSessionIds.length });
             
             // 关闭对话框
             this.closeOssFileTitleEditor();

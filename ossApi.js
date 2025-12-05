@@ -280,11 +280,12 @@ class OssApiManager {
     }
     
     /**
-     * 更新文件信息（标题、描述等）
+     * 更新文件信息（标题、描述、标签等）
      * @param {string} objectName - 文件对象名
      * @param {Object} fileInfo - 文件信息对象
      * @param {string} fileInfo.title - 文件标题（可选）
      * @param {string} fileInfo.description - 文件描述（可选）
+     * @param {Array<string>} fileInfo.tags - 文件标签（可选）
      * @returns {Promise<Object>} 更新结果
      */
     async updateFileInfo(objectName, fileInfo = {}) {
@@ -294,13 +295,20 @@ class OssApiManager {
         
         try {
             const url = `${this.baseUrl}/oss/file/info`;
+            const requestBody = {
+                object_name: objectName,
+                title: fileInfo.title || '',
+                description: fileInfo.description || ''
+            };
+            
+            // 如果提供了标签，添加到请求体中
+            if (fileInfo.tags !== undefined && Array.isArray(fileInfo.tags)) {
+                requestBody.tags = fileInfo.tags;
+            }
+            
             const result = await this._request(url, {
                 method: 'POST',
-                body: JSON.stringify({
-                    object_name: objectName,
-                    title: fileInfo.title || '',
-                    description: fileInfo.description || ''
-                })
+                body: JSON.stringify(requestBody)
             });
             
             if (result.code === 200) {

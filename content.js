@@ -27446,10 +27446,25 @@ ${originalText}
             `;
             toggleBtn.addEventListener('click', async () => {
                 try {
-                    await this.rssSourceManager.toggleSourceEnabled(source.id);
+                    // 禁用按钮，防止重复点击
+                    toggleBtn.disabled = true;
+                    const originalText = toggleBtn.textContent;
+                    toggleBtn.textContent = '处理中...';
+                    
+                    // 使用正确的标识符：优先使用id，然后是_id，最后是key或url
+                    const sourceId = source.id || source._id || source.key || source.url;
+                    if (!sourceId) {
+                        throw new Error('无法确定RSS源的标识符');
+                    }
+                    
+                    await this.rssSourceManager.toggleSourceEnabled(sourceId);
                     await this.loadRssSourcesIntoManager();
                 } catch (error) {
                     alert('操作失败：' + error.message);
+                } finally {
+                    // 恢复按钮状态
+                    toggleBtn.disabled = false;
+                    toggleBtn.textContent = source.enabled !== false ? '禁用' : '启用';
                 }
             });
             
@@ -27510,10 +27525,28 @@ ${originalText}
             deleteBtn.addEventListener('click', async () => {
                 if (confirm('确定要删除这个RSS源吗？')) {
                     try {
-                        await this.rssSourceManager.deleteSource(source.id);
+                        // 禁用按钮，防止重复点击
+                        deleteBtn.disabled = true;
+                        deleteBtn.textContent = '删除中...';
+                        deleteBtn.style.opacity = '0.6';
+                        deleteBtn.style.cursor = 'not-allowed';
+                        
+                        // 使用正确的标识符：优先使用id，然后是_id，最后是key或url
+                        const sourceId = source.id || source._id || source.key || source.url;
+                        if (!sourceId) {
+                            throw new Error('无法确定RSS源的标识符');
+                        }
+                        
+                        await this.rssSourceManager.deleteSource(sourceId);
+                        // 删除成功后重新加载列表
                         await this.loadRssSourcesIntoManager();
                     } catch (error) {
                         alert('删除失败：' + error.message);
+                        // 恢复按钮状态
+                        deleteBtn.disabled = false;
+                        deleteBtn.textContent = '删除';
+                        deleteBtn.style.opacity = '1';
+                        deleteBtn.style.cursor = 'pointer';
                     }
                 }
             });

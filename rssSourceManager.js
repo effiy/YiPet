@@ -320,8 +320,8 @@ class RssSourceManager {
         try {
             const url = `${this.apiUrl}?cname=${this.cname}`;
             
-            // 使用key字段（优先）或id字段作为标识
-            const key = source.key || source.url || id;
+            // 优先使用key字段，如果没有则使用id或_id，最后才使用url
+            const key = source.key || source.id || source._id || source.url || id;
             
             // 构建更新数据
             const updatePayload = {
@@ -407,8 +407,9 @@ class RssSourceManager {
         this._showLoadingAnimation();
         
         try {
-            // 使用key字段（优先）或url字段作为标识
-            const key = source.key || source.url || id;
+            // 优先使用key字段，如果没有则使用id或_id，最后才使用url
+            // 注意：API期望的是key参数，所以我们将id/_id作为key的值传递
+            const key = source.key || source.id || source._id || source.url || id;
             
             // DELETE请求通过URL参数传递key
             const url = `${this.apiUrl}?cname=${this.cname}&key=${encodeURIComponent(key)}`;
@@ -437,8 +438,20 @@ class RssSourceManager {
                             (result.data && result.data.deleted_count > 0);
             
             if (isSuccess) {
-                // 更新本地缓存
-                await this.loadSources(true);
+                // 立即从本地缓存中移除，提供更好的用户体验
+                this.sources = this.sources.filter(source => {
+                    // 匹配多种可能的标识符
+                    return source.id !== id && 
+                           source._id !== id && 
+                           source.key !== id &&
+                           source.url !== id;
+                });
+                
+                // 异步更新本地缓存（后台刷新，不阻塞）
+                this.loadSources(true).catch(error => {
+                    console.warn('后台刷新RSS源列表失败:', error);
+                });
+                
                 console.log('RSS源已删除:', id);
                 return true;
             } else {

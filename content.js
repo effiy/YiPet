@@ -579,6 +579,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.selectedSessionIds = new Set(); // 选中的会话ID集合
         this.selectedFileNames = new Set(); // 选中的文件名称集合
         this.selectedApiRequestIds = new Set(); // 选中的请求接口ID集合（使用_id或key作为唯一标识）
+        this.selectedNewsIds = new Set(); // 选中的新闻ID集合（使用link作为唯一标识）
         this.currentFile = null; // 当前选中的文件
         
         // 会话API管理器
@@ -15650,6 +15651,12 @@ if (typeof getCenterPosition === 'undefined') {
                 }
             }
             
+            // 批量模式下添加选中状态类
+            const newsId = item.link || item.id || index.toString(); // 使用link作为唯一标识
+            if (this.batchMode && this.selectedNewsIds.has(newsId)) {
+                newsItem.classList.add('selected');
+            }
+            
             newsItem.style.cssText = `
                 padding: 12px !important;
                 margin-bottom: 8px !important;
@@ -15662,11 +15669,63 @@ if (typeof getCenterPosition === 'undefined') {
                 position: relative !important;
             `;
             
+            // 创建复选框（仅在批量模式下显示）
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'news-checkbox';
+            checkbox.dataset.newsId = newsId;
+            checkbox.checked = this.selectedNewsIds.has(newsId);
+            checkbox.style.cssText = `
+                width: 16px !important;
+                height: 16px !important;
+                cursor: pointer !important;
+                margin-right: 8px !important;
+                flex-shrink: 0 !important;
+                display: ${this.batchMode ? 'block' : 'none'} !important;
+            `;
+            
+            checkbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const newsId = e.target.dataset.newsId;
+                if (e.target.checked) {
+                    this.selectedNewsIds.add(newsId);
+                    newsItem.classList.add('selected');
+                } else {
+                    this.selectedNewsIds.delete(newsId);
+                    newsItem.classList.remove('selected');
+                }
+                this.updateBatchToolbar();
+            });
+            
+            // 阻止复选框点击事件冒泡
+            checkbox.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+            
             // 新闻信息容器
             const newsInfo = document.createElement('div');
             newsInfo.className = 'news-info';
             newsInfo.style.cssText = `
-                margin-bottom: 8px !important;
+                margin-bottom: ${this.batchMode ? '0' : '8px'} !important;
+            `;
+            
+            // 创建新闻项内部容器（包含复选框和内容）
+            const itemInner = document.createElement('div');
+            itemInner.style.cssText = `
+                display: flex !important;
+                align-items: flex-start !important;
+                width: 100% !important;
+                gap: 8px !important;
+            `;
+            
+            // 添加复选框
+            itemInner.appendChild(checkbox);
+            
+            // 创建内容包装器
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
+                flex: 1 !important;
+                min-width: 0 !important;
             `;
             
             // 创建标题行容器（标题和按钮在同一行）
@@ -15697,7 +15756,7 @@ if (typeof getCenterPosition === 'undefined') {
             title.textContent = item.title || '无标题';
             titleRow.appendChild(title);
             
-            newsInfo.appendChild(titleRow);
+            contentWrapper.appendChild(titleRow);
             
             // 描述
             if (item.description || item.content) {
@@ -15713,7 +15772,7 @@ if (typeof getCenterPosition === 'undefined') {
                     overflow: hidden !important;
                 `;
                 description.textContent = item.description || item.content || '';
-                newsInfo.appendChild(description);
+                contentWrapper.appendChild(description);
             }
             
             // 标签区域（预留，后续可以添加标签功能）
@@ -15757,7 +15816,7 @@ if (typeof getCenterPosition === 'undefined') {
                     tagsContainer.appendChild(tagElement);
                 });
             }
-            newsInfo.appendChild(tagsContainer);
+            contentWrapper.appendChild(tagsContainer);
             
             // 底部信息（时间和来源）
             const footer = document.createElement('div');
@@ -15936,8 +15995,10 @@ if (typeof getCenterPosition === 'undefined') {
             footerButtonContainer.appendChild(contextBtn);
             
             footer.appendChild(footerButtonContainer);
+            contentWrapper.appendChild(footer);
             
-            newsInfo.appendChild(footer);
+            itemInner.appendChild(contentWrapper);
+            newsInfo.appendChild(itemInner);
             newsItem.appendChild(newsInfo);
             
             // 长按删除相关变量
@@ -16170,6 +16231,11 @@ if (typeof getCenterPosition === 'undefined') {
             
             // 点击事件处理（防止长按过程中触发其他操作）
             newsItem.addEventListener('click', (e) => {
+                // 如果点击的是复选框，不执行切换操作
+                if (e.target.type === 'checkbox' || e.target.closest('.news-checkbox')) {
+                    return;
+                }
+                
                 // 如果点击的是按钮或标签区域，不阻止
                 if (e.target.closest('button') || e.target.closest('.news-tags')) {
                     return;
@@ -16179,6 +16245,13 @@ if (typeof getCenterPosition === 'undefined') {
                 if (isLongPressing || hasMoved) {
                     e.preventDefault();
                     e.stopPropagation();
+                    return;
+                }
+                
+                // 批量模式下，点击切换选中状态
+                if (this.batchMode) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
                     return;
                 }
                 
@@ -24104,6 +24177,293 @@ ${originalText}
         }
     }
     
+    // 翻译新闻字段（标题、描述或内容）
+    async translateNewsField(fieldType, inputElement, targetLanguage) {
+        if (!inputElement) return;
+        
+        const originalText = inputElement.value.trim();
+        if (!originalText) {
+            this.showNotification('请先输入内容', 'warning');
+            return;
+        }
+        
+        // 保存原始文本，用于撤销功能
+        if (!inputElement.hasAttribute('data-original-text')) {
+            inputElement.setAttribute('data-original-text', originalText);
+        }
+        
+        // 禁用按钮，显示加载状态
+        const groupElement = inputElement.parentElement;
+        const translateBtn = groupElement ? groupElement.querySelector(`button[data-translate-field="${fieldType}"][data-target-lang="${targetLanguage}"]`) : null;
+        const originalBtnText = translateBtn ? translateBtn.textContent : '';
+        if (translateBtn) {
+            translateBtn.disabled = true;
+            translateBtn.textContent = '翻译中...';
+            translateBtn.style.opacity = '0.6';
+            translateBtn.style.cursor = 'not-allowed';
+        }
+        
+        try {
+            // 构建翻译提示词
+            const languageName = targetLanguage === 'zh' ? '中文' : '英文';
+            const systemPrompt = `你是一个专业的翻译专家，擅长准确、流畅地翻译文本。请将用户提供的文本翻译成${languageName}，要求：
+1. 保持原文的意思和语气不变
+2. 翻译自然流畅，符合${languageName}的表达习惯
+3. 保留原文的格式和结构
+4. 如果是新闻内容，保持新闻的客观性和准确性
+
+请直接返回翻译后的文本，不要包含任何说明文字、引号或其他格式标记。`;
+            
+            const userPrompt = `请将以下文本翻译成${languageName}：
+
+${originalText}
+
+请直接返回翻译后的文本，不要包含任何说明文字、引号或其他格式标记。`;
+            
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+            
+            // 显示加载动画
+            this._showLoadingAnimation();
+            
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // 先获取文本响应，检查是否是SSE格式
+            const responseText = await response.text();
+            let result;
+            
+            // 检查是否包含SSE格式（包含 "data: "）
+            if (responseText.includes('data: ')) {
+                // 处理SSE流式响应
+                const lines = responseText.split('\n');
+                let accumulatedData = '';
+                let lastValidData = null;
+                
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.startsWith('data: ')) {
+                        try {
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr === '[DONE]' || dataStr === '') {
+                                continue;
+                            }
+                            
+                            // 尝试解析JSON
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 检查是否完成
+                            if (chunk.done === true) {
+                                break;
+                            }
+                            
+                            // 累积内容（处理流式内容块）
+                            if (chunk.data) {
+                                accumulatedData += chunk.data;
+                            } else if (chunk.content) {
+                                accumulatedData += chunk.content;
+                            } else if (chunk.message && chunk.message.content) {
+                                // Ollama格式
+                                accumulatedData += chunk.message.content;
+                            } else if (typeof chunk === 'string') {
+                                accumulatedData += chunk;
+                            }
+                            
+                            // 保存最后一个有效的数据块（用于提取其他字段如status等）
+                            lastValidData = chunk;
+                        } catch (e) {
+                            // 如果不是JSON，可能是纯文本内容
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr && dataStr !== '[DONE]') {
+                                accumulatedData += dataStr;
+                            }
+                        }
+                    }
+                }
+                
+                // 如果累积了内容，创建结果对象
+                if (accumulatedData || lastValidData) {
+                    if (lastValidData && lastValidData.status) {
+                        // 如果有status字段，保留原有结构，但替换data/content
+                        result = {
+                            ...lastValidData,
+                            data: accumulatedData || lastValidData.data || '',
+                            content: accumulatedData || lastValidData.content || ''
+                        };
+                    } else {
+                        // 否则创建新的结果对象
+                        result = {
+                            data: accumulatedData,
+                            content: accumulatedData
+                        };
+                    }
+                } else {
+                    // 如果无法解析SSE格式，尝试直接解析整个响应
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        throw new Error('无法解析响应格式');
+                    }
+                }
+            } else {
+                // 非SSE格式，直接解析JSON
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`无法解析响应: ${e.message}`);
+                }
+            }
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
+            // 解析响应内容
+            let translatedText;
+            // 优先检查 status 字段，如果存在且不等于 200，则抛出错误
+            if (result.status !== undefined && result.status !== 200) {
+                throw new Error(result.msg || result.message || '翻译失败');
+            }
+            
+            // 按优先级提取翻译后的文本
+            if (result.data) {
+                translatedText = result.data;
+            } else if (result.content) {
+                translatedText = result.content;
+            } else if (result.message) {
+                translatedText = result.message;
+            } else if (typeof result === 'string') {
+                translatedText = result;
+            } else if (result.text) {
+                translatedText = result.text;
+            } else {
+                // 如果所有字段都不存在，尝试从对象中查找可能的文本字段
+                const possibleFields = ['output', 'response', 'result', 'answer'];
+                for (const field of possibleFields) {
+                    if (result[field] && typeof result[field] === 'string') {
+                        translatedText = result[field];
+                        break;
+                    }
+                }
+                
+                // 如果仍然找不到，抛出错误
+                if (!translatedText) {
+                    console.error('无法解析响应内容，响应对象:', result);
+                    throw new Error('无法解析响应内容，请检查服务器响应格式');
+                }
+            }
+            
+            // 清理翻译后的文本
+            translatedText = translatedText.trim();
+            
+            // 移除可能的引号包裹（支持多种引号类型）
+            const quotePairs = [
+                ['"', '"'],
+                ['"', '"'],
+                ['"', '"'],
+                ["'", "'"],
+                ['`', '`'],
+                ['「', '」'],
+                ['『', '』']
+            ];
+            
+            for (const [startQuote, endQuote] of quotePairs) {
+                if (translatedText.startsWith(startQuote) && translatedText.endsWith(endQuote)) {
+                    translatedText = translatedText.slice(startQuote.length, -endQuote.length).trim();
+                }
+            }
+            
+            // 移除常见的AI回复前缀
+            const prefixes = [
+                /^翻译后的[内容文本]：?\s*/i,
+                /^以下是翻译后的[内容文本]：?\s*/i,
+                /^翻译结果：?\s*/i,
+                /^翻译后的文本：?\s*/i,
+                /^翻译后的[内容文本]如下：?\s*/i,
+                /^[内容文本]翻译如下：?\s*/i
+            ];
+            
+            for (const prefix of prefixes) {
+                translatedText = translatedText.replace(prefix, '').trim();
+            }
+            
+            // 清理多余的空白字符（但保留格式）
+            translatedText = translatedText.replace(/\n{4,}/g, '\n\n\n');
+            translatedText = translatedText.replace(/[ \t]+/g, ' ');
+            translatedText = translatedText.trim();
+            
+            // 验证翻译后的文本是否有效
+            if (!translatedText || translatedText.length < 1) {
+                throw new Error('翻译后的文本为空，可能翻译失败，请重试');
+            }
+            
+            // 如果翻译后的文本与原文完全相同，给出提示
+            if (translatedText === originalText) {
+                this.showNotification('翻译后的内容与原文相同', 'info');
+            }
+            
+            // 更新输入框内容
+            inputElement.value = translatedText;
+            
+            // 保存翻译后的文本，用于撤销功能
+            inputElement.setAttribute('data-translated-text', translatedText);
+            
+            // 触发 input 事件，确保值被正确更新
+            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            // 显示撤销按钮（从模态框中查找，更可靠）
+            const modal = document.getElementById('pet-news-edit-modal');
+            const undoBtn = modal ? modal.querySelector(`button[data-undo-field="${fieldType}"]`) : null;
+            if (undoBtn) {
+                undoBtn.style.display = 'block';
+            }
+            
+            // 显示翻译完成通知
+            this.showNotification(`翻译成${languageName}完成`, 'success');
+        } catch (error) {
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            console.error('翻译失败:', error);
+            
+            // 提供更详细的错误信息
+            let errorMessage = '翻译失败，请稍后重试';
+            if (error.message) {
+                if (error.message.includes('HTTP error')) {
+                    errorMessage = '网络请求失败，请检查网络连接';
+                } else if (error.message.includes('无法解析')) {
+                    errorMessage = '服务器响应格式异常，请稍后重试';
+                } else if (error.message.includes('为空')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage = error.message;
+                }
+            }
+            
+            this.showNotification(errorMessage, 'error');
+        } finally {
+            // 恢复按钮状态
+            if (translateBtn) {
+                translateBtn.disabled = false;
+                translateBtn.textContent = originalBtnText;
+                translateBtn.style.opacity = '1';
+                translateBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+    
     // 确保新闻编辑模态框UI存在
     ensureNewsEditModalUi() {
         if (document.getElementById('pet-news-edit-modal')) return;
@@ -24183,12 +24543,16 @@ ${originalText}
         // 标题输入
         const titleGroup = document.createElement('div');
         titleGroup.style.cssText = 'margin-bottom: 16px;';
+        const titleLabelRow = document.createElement('div');
+        titleLabelRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;';
         const titleLabel = document.createElement('label');
         titleLabel.textContent = '标题';
-        titleLabel.style.cssText = 'display: block; margin-bottom: 8px; font-size: 14px; color: #e5e7eb;';
+        titleLabel.style.cssText = 'font-size: 14px; color: #e5e7eb;';
+        
         const titleInput = document.createElement('input');
         titleInput.id = 'news-edit-title';
         titleInput.type = 'text';
+        titleInput.setAttribute('data-translate-field', 'title');
         titleInput.style.cssText = `
             width: 100% !important;
             padding: 10px 12px !important;
@@ -24199,7 +24563,108 @@ ${originalText}
             font-size: 14px !important;
             box-sizing: border-box !important;
         `;
-        titleGroup.appendChild(titleLabel);
+        
+        const titleBtnGroup = document.createElement('div');
+        titleBtnGroup.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+        
+        // 翻译成中文按钮
+        const titleTranslateZhBtn = document.createElement('button');
+        titleTranslateZhBtn.textContent = '🇨🇳 中文';
+        titleTranslateZhBtn.setAttribute('data-translate-field', 'title');
+        titleTranslateZhBtn.setAttribute('data-target-lang', 'zh');
+        titleTranslateZhBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(33, 150, 243, 0.3) !important;
+            background: rgba(33, 150, 243, 0.15) !important;
+            color: #2196f3 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        titleTranslateZhBtn.addEventListener('click', async () => {
+            await this.translateNewsField('title', titleInput, 'zh');
+        });
+        titleTranslateZhBtn.addEventListener('mouseenter', () => {
+            if (!titleTranslateZhBtn.disabled) {
+                titleTranslateZhBtn.style.background = 'rgba(33, 150, 243, 0.25)';
+            }
+        });
+        titleTranslateZhBtn.addEventListener('mouseleave', () => {
+            if (!titleTranslateZhBtn.disabled) {
+                titleTranslateZhBtn.style.background = 'rgba(33, 150, 243, 0.15)';
+            }
+        });
+        
+        // 翻译成英文按钮
+        const titleTranslateEnBtn = document.createElement('button');
+        titleTranslateEnBtn.textContent = '🇺🇸 英文';
+        titleTranslateEnBtn.setAttribute('data-translate-field', 'title');
+        titleTranslateEnBtn.setAttribute('data-target-lang', 'en');
+        titleTranslateEnBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(33, 150, 243, 0.3) !important;
+            background: rgba(33, 150, 243, 0.15) !important;
+            color: #2196f3 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        titleTranslateEnBtn.addEventListener('click', async () => {
+            await this.translateNewsField('title', titleInput, 'en');
+        });
+        titleTranslateEnBtn.addEventListener('mouseenter', () => {
+            if (!titleTranslateEnBtn.disabled) {
+                titleTranslateEnBtn.style.background = 'rgba(33, 150, 243, 0.25)';
+            }
+        });
+        titleTranslateEnBtn.addEventListener('mouseleave', () => {
+            if (!titleTranslateEnBtn.disabled) {
+                titleTranslateEnBtn.style.background = 'rgba(33, 150, 243, 0.15)';
+            }
+        });
+        
+        // 撤销按钮
+        const titleUndoBtn = document.createElement('button');
+        titleUndoBtn.textContent = '↶ 撤销';
+        titleUndoBtn.setAttribute('data-undo-field', 'title');
+        titleUndoBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(255, 152, 0, 0.3) !important;
+            background: rgba(255, 152, 0, 0.15) !important;
+            color: #ff9800 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            display: none !important;
+            transition: all 0.2s !important;
+        `;
+        titleUndoBtn.addEventListener('click', () => {
+            const originalText = titleInput.getAttribute('data-original-text');
+            if (originalText) {
+                titleInput.value = originalText;
+                titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+                titleUndoBtn.style.display = 'none';
+                this.showNotification('已撤销翻译', 'info');
+            }
+        });
+        titleUndoBtn.addEventListener('mouseenter', () => {
+            titleUndoBtn.style.background = 'rgba(255, 152, 0, 0.25)';
+        });
+        titleUndoBtn.addEventListener('mouseleave', () => {
+            titleUndoBtn.style.background = 'rgba(255, 152, 0, 0.15)';
+        });
+        
+        titleBtnGroup.appendChild(titleTranslateZhBtn);
+        titleBtnGroup.appendChild(titleTranslateEnBtn);
+        titleBtnGroup.appendChild(titleUndoBtn);
+        titleLabelRow.appendChild(titleLabel);
+        titleLabelRow.appendChild(titleBtnGroup);
+        titleGroup.appendChild(titleLabelRow);
         titleGroup.appendChild(titleInput);
         content.appendChild(titleGroup);
         
@@ -24282,6 +24747,67 @@ ${originalText}
                 descriptionOptimizeBtn.style.background = 'rgba(76, 175, 80, 0.15)';
             }
         });
+        
+        // 翻译成中文按钮
+        const descriptionTranslateZhBtn = document.createElement('button');
+        descriptionTranslateZhBtn.textContent = '🇨🇳 中文';
+        descriptionTranslateZhBtn.setAttribute('data-translate-field', 'description');
+        descriptionTranslateZhBtn.setAttribute('data-target-lang', 'zh');
+        descriptionTranslateZhBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(33, 150, 243, 0.3) !important;
+            background: rgba(33, 150, 243, 0.15) !important;
+            color: #2196f3 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        descriptionTranslateZhBtn.addEventListener('click', async () => {
+            await this.translateNewsField('description', descriptionInput, 'zh');
+        });
+        descriptionTranslateZhBtn.addEventListener('mouseenter', () => {
+            if (!descriptionTranslateZhBtn.disabled) {
+                descriptionTranslateZhBtn.style.background = 'rgba(33, 150, 243, 0.25)';
+            }
+        });
+        descriptionTranslateZhBtn.addEventListener('mouseleave', () => {
+            if (!descriptionTranslateZhBtn.disabled) {
+                descriptionTranslateZhBtn.style.background = 'rgba(33, 150, 243, 0.15)';
+            }
+        });
+        
+        // 翻译成英文按钮
+        const descriptionTranslateEnBtn = document.createElement('button');
+        descriptionTranslateEnBtn.textContent = '🇺🇸 英文';
+        descriptionTranslateEnBtn.setAttribute('data-translate-field', 'description');
+        descriptionTranslateEnBtn.setAttribute('data-target-lang', 'en');
+        descriptionTranslateEnBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(33, 150, 243, 0.3) !important;
+            background: rgba(33, 150, 243, 0.15) !important;
+            color: #2196f3 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        descriptionTranslateEnBtn.addEventListener('click', async () => {
+            await this.translateNewsField('description', descriptionInput, 'en');
+        });
+        descriptionTranslateEnBtn.addEventListener('mouseenter', () => {
+            if (!descriptionTranslateEnBtn.disabled) {
+                descriptionTranslateEnBtn.style.background = 'rgba(33, 150, 243, 0.25)';
+            }
+        });
+        descriptionTranslateEnBtn.addEventListener('mouseleave', () => {
+            if (!descriptionTranslateEnBtn.disabled) {
+                descriptionTranslateEnBtn.style.background = 'rgba(33, 150, 243, 0.15)';
+            }
+        });
+        
         const descriptionUndoBtn = document.createElement('button');
         descriptionUndoBtn.textContent = '↶ 撤销';
         descriptionUndoBtn.setAttribute('data-undo-field', 'description');
@@ -24303,7 +24829,7 @@ ${originalText}
                 descriptionInput.value = originalText;
                 descriptionInput.dispatchEvent(new Event('input', { bubbles: true }));
                 descriptionUndoBtn.style.display = 'none';
-                this.showNotification('已撤销优化', 'info');
+                this.showNotification('已撤销', 'info');
             }
         });
         descriptionUndoBtn.addEventListener('mouseenter', () => {
@@ -24313,6 +24839,8 @@ ${originalText}
             descriptionUndoBtn.style.background = 'rgba(255, 152, 0, 0.15)';
         });
         descriptionBtnGroup.appendChild(descriptionOptimizeBtn);
+        descriptionBtnGroup.appendChild(descriptionTranslateZhBtn);
+        descriptionBtnGroup.appendChild(descriptionTranslateEnBtn);
         descriptionBtnGroup.appendChild(descriptionUndoBtn);
         descriptionLabelRow.appendChild(descriptionLabel);
         descriptionLabelRow.appendChild(descriptionBtnGroup);
@@ -24376,6 +24904,67 @@ ${originalText}
                 contentOptimizeBtn.style.background = 'rgba(76, 175, 80, 0.15)';
             }
         });
+        
+        // 翻译成中文按钮
+        const contentTranslateZhBtn = document.createElement('button');
+        contentTranslateZhBtn.textContent = '🇨🇳 中文';
+        contentTranslateZhBtn.setAttribute('data-translate-field', 'content');
+        contentTranslateZhBtn.setAttribute('data-target-lang', 'zh');
+        contentTranslateZhBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(33, 150, 243, 0.3) !important;
+            background: rgba(33, 150, 243, 0.15) !important;
+            color: #2196f3 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        contentTranslateZhBtn.addEventListener('click', async () => {
+            await this.translateNewsField('content', contentInput, 'zh');
+        });
+        contentTranslateZhBtn.addEventListener('mouseenter', () => {
+            if (!contentTranslateZhBtn.disabled) {
+                contentTranslateZhBtn.style.background = 'rgba(33, 150, 243, 0.25)';
+            }
+        });
+        contentTranslateZhBtn.addEventListener('mouseleave', () => {
+            if (!contentTranslateZhBtn.disabled) {
+                contentTranslateZhBtn.style.background = 'rgba(33, 150, 243, 0.15)';
+            }
+        });
+        
+        // 翻译成英文按钮
+        const contentTranslateEnBtn = document.createElement('button');
+        contentTranslateEnBtn.textContent = '🇺🇸 英文';
+        contentTranslateEnBtn.setAttribute('data-translate-field', 'content');
+        contentTranslateEnBtn.setAttribute('data-target-lang', 'en');
+        contentTranslateEnBtn.style.cssText = `
+            padding: 4px 12px !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(33, 150, 243, 0.3) !important;
+            background: rgba(33, 150, 243, 0.15) !important;
+            color: #2196f3 !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            transition: all 0.2s !important;
+        `;
+        contentTranslateEnBtn.addEventListener('click', async () => {
+            await this.translateNewsField('content', contentInput, 'en');
+        });
+        contentTranslateEnBtn.addEventListener('mouseenter', () => {
+            if (!contentTranslateEnBtn.disabled) {
+                contentTranslateEnBtn.style.background = 'rgba(33, 150, 243, 0.25)';
+            }
+        });
+        contentTranslateEnBtn.addEventListener('mouseleave', () => {
+            if (!contentTranslateEnBtn.disabled) {
+                contentTranslateEnBtn.style.background = 'rgba(33, 150, 243, 0.15)';
+            }
+        });
+        
         const contentUndoBtn = document.createElement('button');
         contentUndoBtn.textContent = '↶ 撤销';
         contentUndoBtn.setAttribute('data-undo-field', 'content');
@@ -24397,7 +24986,7 @@ ${originalText}
                 contentInput.value = originalText;
                 contentInput.dispatchEvent(new Event('input', { bubbles: true }));
                 contentUndoBtn.style.display = 'none';
-                this.showNotification('已撤销优化', 'info');
+                this.showNotification('已撤销', 'info');
             }
         });
         contentUndoBtn.addEventListener('mouseenter', () => {
@@ -24407,6 +24996,8 @@ ${originalText}
             contentUndoBtn.style.background = 'rgba(255, 152, 0, 0.15)';
         });
         contentBtnGroup.appendChild(contentOptimizeBtn);
+        contentBtnGroup.appendChild(contentTranslateZhBtn);
+        contentBtnGroup.appendChild(contentTranslateEnBtn);
         contentBtnGroup.appendChild(contentUndoBtn);
         contentLabelRow.appendChild(contentLabel);
         contentLabelRow.appendChild(contentBtnGroup);
@@ -26996,6 +27587,12 @@ ${originalText}
         if (this.selectedFileNames) {
             this.selectedFileNames.clear();
         }
+        if (this.selectedApiRequestIds) {
+            this.selectedApiRequestIds.clear();
+        }
+        if (this.selectedNewsIds) {
+            this.selectedNewsIds.clear();
+        }
         
         // 清除所有 active 类的元素
         if (this.sessionSidebar) {
@@ -27128,6 +27725,7 @@ ${originalText}
         this.selectedSessionIds.clear();
         this.selectedFileNames.clear();
         this.selectedApiRequestIds.clear();
+        this.selectedNewsIds.clear();
         
         // 显示批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');
@@ -27150,16 +27748,19 @@ ${originalText}
             batchModeBtn.style.borderColor = '#059669 !important';
         }
         
-        // 更新会话列表、文件列表或请求接口列表，显示复选框
+        // 更新会话列表、文件列表、请求接口列表或新闻列表，显示复选框
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        const newsList = this.sessionSidebar.querySelector('.news-list');
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
             this.updateOssFileSidebar();
         } else if (apiRequestList && apiRequestList.style.display !== 'none') {
             this.updateApiRequestSidebar();
+        } else if (newsList && newsList.style.display !== 'none') {
+            this.updateNewsSidebar();
         }
         
         // 更新批量工具栏状态
@@ -27177,6 +27778,7 @@ ${originalText}
         this.selectedSessionIds.clear();
         this.selectedFileNames.clear();
         this.selectedApiRequestIds.clear();
+        this.selectedNewsIds.clear();
         
         // 隐藏批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');
@@ -27199,16 +27801,19 @@ ${originalText}
             batchModeBtn.style.transform = 'translateY(0)';
             batchModeBtn.style.boxShadow = 'none !important';
         }
-        // 更新会话列表、文件列表或请求接口列表，隐藏复选框
+        // 更新会话列表、文件列表、请求接口列表或新闻列表，隐藏复选框
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        const newsList = this.sessionSidebar.querySelector('.news-list');
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
             this.updateOssFileSidebar();
         } else if (apiRequestList && apiRequestList.style.display !== 'none') {
             this.updateApiRequestSidebar();
+        } else if (newsList && newsList.style.display !== 'none') {
+            this.updateNewsSidebar();
         }
         
         // 显示通知
@@ -27221,15 +27826,18 @@ ${originalText}
         const batchDeleteBtn = document.getElementById('batch-delete-btn');
         const selectAllBtn = document.getElementById('select-all-btn');
         
-        // 判断当前显示的是会话列表、文件列表还是请求接口列表
+        // 判断当前显示的是会话列表、文件列表、请求接口列表还是新闻列表
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        const newsList = this.sessionSidebar.querySelector('.news-list');
         const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
         const isApiRequestListMode = apiRequestList && apiRequestList.style.display !== 'none';
+        const isNewsListMode = newsList && newsList.style.display !== 'none';
         
         const count = isFileListMode ? this.selectedFileNames.size : 
                      isApiRequestListMode ? this.selectedApiRequestIds.size : 
+                     isNewsListMode ? this.selectedNewsIds.size :
                      this.selectedSessionIds.size;
         
         if (selectedCount) {
@@ -27272,6 +27880,13 @@ ${originalText}
                                 const requestId = req._id || req.key;
                                 return requestId && this.selectedApiRequestIds.has(requestId);
                             });
+            } else if (isNewsListMode) {
+                const filteredNews = this._getFilteredNews();
+                allSelected = filteredNews.length > 0 && 
+                             filteredNews.every(news => {
+                                 const newsId = news.link || news.id || '';
+                                 return newsId && this.selectedNewsIds.has(newsId);
+                             });
             } else {
                 const filteredSessions = this._getFilteredSessions();
                 allSelected = filteredSessions.length > 0 && 
@@ -27295,6 +27910,60 @@ ${originalText}
         } else {
             this.hideOssFileBatchButtons();
         }
+    }
+    
+    // 获取过滤后的新闻列表（用于批量选择）
+    _getFilteredNews() {
+        if (!this.newsManager) {
+            return [];
+        }
+        
+        let news = this.newsManager.getAllNews();
+        
+        // 应用搜索过滤
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            news = news.filter(item => {
+                const title = (item.title || '').toLowerCase();
+                const description = (item.description || '').toLowerCase();
+                const content = (item.content || '').toLowerCase();
+                return title.includes(filterKeyword) || 
+                       description.includes(filterKeyword) || 
+                       content.includes(filterKeyword);
+            });
+        }
+        
+        // 应用无标签筛选
+        if (this.newsTagFilterNoTags) {
+            news = news.filter(item => {
+                const itemTags = item.tags || [];
+                const hasTags = itemTags.length > 0 && itemTags.some(tag => tag && tag.trim().length > 0);
+                return !hasTags; // 只显示没有标签的新闻
+            });
+        }
+        
+        // 应用标签过滤
+        if (this.selectedNewsFilterTags && this.selectedNewsFilterTags.length > 0) {
+            news = news.filter(item => {
+                const itemTags = (item.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const normalizedSelectedTags = this.selectedNewsFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
+                    itemTags.includes(selectedTag)
+                );
+                
+                if (this.newsTagFilterReverse) {
+                    // 反向过滤：排除包含选中标签的新闻
+                    return !hasSelectedTags;
+                } else {
+                    // 正向过滤：只显示包含选中标签的新闻
+                    return hasSelectedTags;
+                }
+            });
+        }
+        
+        // 注意：日期区间过滤已通过API调用实现，不再需要本地过滤
+        
+        return news;
     }
     
     // 获取过滤后的请求接口列表（用于批量选择）
@@ -27700,8 +28369,10 @@ ${originalText}
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        const newsList = this.sessionSidebar.querySelector('.news-list');
         const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
         const isApiRequestListMode = apiRequestList && apiRequestList.style.display !== 'none';
+        const isNewsListMode = newsList && newsList.style.display !== 'none';
         
         if (isFileListMode) {
             // 文件列表模式
@@ -27786,6 +28457,49 @@ ${originalText}
                     }
                 }
             });
+        } else if (isNewsListMode) {
+            // 新闻列表模式
+            const filteredNews = this._getFilteredNews();
+            const allSelected = filteredNews.length > 0 && 
+                               filteredNews.every(news => {
+                                   const newsId = news.link || news.id || '';
+                                   return newsId && this.selectedNewsIds.has(newsId);
+                               });
+            
+            if (allSelected) {
+                // 取消全选：只取消当前显示的新闻
+                filteredNews.forEach(news => {
+                    const newsId = news.link || news.id || '';
+                    if (newsId) {
+                        this.selectedNewsIds.delete(newsId);
+                    }
+                });
+            } else {
+                // 全选：选中所有当前显示的新闻
+                filteredNews.forEach(news => {
+                    const newsId = news.link || news.id || '';
+                    if (newsId) {
+                        this.selectedNewsIds.add(newsId);
+                    }
+                });
+            }
+            
+            // 更新所有复选框状态
+            const checkboxes = document.querySelectorAll('.news-checkbox');
+            checkboxes.forEach(checkbox => {
+                const newsId = checkbox.dataset.newsId;
+                checkbox.checked = this.selectedNewsIds.has(newsId);
+                
+                // 更新新闻项的选中状态类
+                const newsItem = checkbox.closest('.news-item');
+                if (newsItem) {
+                    if (this.selectedNewsIds.has(newsId)) {
+                        newsItem.classList.add('selected');
+                    } else {
+                        newsItem.classList.remove('selected');
+                    }
+                }
+            });
         } else {
             // 会话列表模式
             const filteredSessions = this._getFilteredSessions();
@@ -27826,15 +28540,95 @@ ${originalText}
         this.updateBatchToolbar();
     }
     
-    // 批量删除（支持会话、文件和请求接口）
+    // 批量删除（支持会话、文件、请求接口和新闻）
     async batchDeleteSessions() {
         const sessionList = this.sessionSidebar.querySelector('.session-list');
         const ossFileList = this.sessionSidebar.querySelector('.oss-file-list');
         const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+        const newsList = this.sessionSidebar.querySelector('.news-list');
         const isFileListMode = ossFileList && ossFileList.style.display !== 'none';
         const isApiRequestListMode = apiRequestList && apiRequestList.style.display !== 'none';
+        const isNewsListMode = newsList && newsList.style.display !== 'none';
         
-        if (isApiRequestListMode) {
+        if (isNewsListMode) {
+            // 批量删除新闻
+            if (this.selectedNewsIds.size === 0) {
+                this.showNotification('请先选择要删除的新闻', 'error');
+                return;
+            }
+            
+            const count = this.selectedNewsIds.size;
+            const confirmMessage = `确定要删除选中的 ${count} 条新闻吗？此操作不可撤销。`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            const newsIds = Array.from(this.selectedNewsIds);
+            
+            try {
+                if (!this.newsManager) {
+                    this.showNotification('新闻管理器未初始化，无法删除', 'error');
+                    return;
+                }
+                
+                let successCount = 0;
+                let failCount = 0;
+                
+                // 获取所有新闻数据，用于删除
+                const allNews = this.newsManager.getAllNews();
+                
+                for (const newsId of newsIds) {
+                    try {
+                        // 查找对应的新闻数据
+                        const newsItem = allNews.find(news => {
+                            const itemId = news.link || news.id || '';
+                            return itemId === newsId;
+                        });
+                        
+                        if (!newsItem) {
+                            console.warn(`未找到新闻数据: ${newsId}`);
+                            failCount++;
+                            continue;
+                        }
+                        
+                        // 调用删除接口
+                        await this.newsManager.deleteNews(newsItem);
+                        successCount++;
+                    } catch (error) {
+                        console.error(`删除新闻失败: ${newsId}`, error);
+                        failCount++;
+                    }
+                }
+                
+                // 重新渲染新闻列表
+                await this.updateNewsSidebar(false);
+                
+                // 清空选中状态
+                this.selectedNewsIds.clear();
+                
+                // 更新批量工具栏
+                this.updateBatchToolbar();
+                
+                // 如果全部删除成功，退出批量模式
+                if (failCount === 0 && successCount > 0) {
+                    this.exitBatchMode();
+                }
+                
+                // 显示结果
+                if (successCount > 0) {
+                    if (failCount === 0) {
+                        this.showNotification(`成功删除 ${successCount} 条新闻`, 'success');
+                    } else {
+                        this.showNotification(`删除完成：成功 ${successCount} 条，失败 ${failCount} 条`, 'error');
+                    }
+                } else {
+                    this.showNotification('删除失败，请重试', 'error');
+                }
+            } catch (error) {
+                console.error('批量删除新闻失败:', error);
+                this.showNotification('批量删除新闻失败: ' + error.message, 'error');
+            }
+        } else if (isApiRequestListMode) {
             // 批量删除请求接口
             if (this.selectedApiRequestIds.size === 0) {
                 this.showNotification('请先选择要删除的请求接口', 'error');
@@ -47509,6 +48303,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

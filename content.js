@@ -17130,17 +17130,17 @@ if (typeof getCenterPosition === 'undefined') {
             });
             footerButtonContainer.appendChild(tagBtn);
             
-            // 查看curl命令按钮
-            const curlBtn = document.createElement('button');
-            curlBtn.className = 'api-request-curl-btn';
-            curlBtn.innerHTML = `
+            // 发送请求按钮
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'api-request-send-btn';
+            sendBtn.innerHTML = `
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                 </svg>
             `;
-            curlBtn.title = '查看curl命令';
-            curlBtn.style.cssText = `
+            sendBtn.title = '发送请求';
+            sendBtn.style.cssText = `
                 background: none !important;
                 border: none !important;
                 cursor: pointer !important;
@@ -17155,19 +17155,19 @@ if (typeof getCenterPosition === 'undefined') {
                 color: inherit !important;
                 border-radius: 4px !important;
             `;
-            curlBtn.addEventListener('click', (e) => {
+            sendBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                this.showCurlCommand(req);
+                await this.sendApiRequestFromItem(req);
             });
-            curlBtn.addEventListener('mouseenter', () => {
-                curlBtn.style.opacity = '1';
-                curlBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+            sendBtn.addEventListener('mouseenter', () => {
+                sendBtn.style.opacity = '1';
+                sendBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
             });
-            curlBtn.addEventListener('mouseleave', () => {
-                curlBtn.style.opacity = '0.6';
-                curlBtn.style.background = 'none !important';
+            sendBtn.addEventListener('mouseleave', () => {
+                sendBtn.style.opacity = '0.6';
+                sendBtn.style.background = 'none !important';
             });
-            footerButtonContainer.appendChild(curlBtn);
+            footerButtonContainer.appendChild(sendBtn);
             
             // 页面上下文按钮（参考会话列表的实现，放在最后）
             const contextBtn = document.createElement('button');
@@ -18091,7 +18091,9 @@ if (typeof getCenterPosition === 'undefined') {
             let session = this.sessions[sessionId];
             
             // 构建页面内容（包含请求详情）
-            const pageContent = this._buildApiRequestPageContent(apiRequest);
+            // 如果会话已存在且已有pageContent，保留原有内容，不重新构建
+            const shouldBuildPageContent = !session || !session.pageContent || session.pageContent.trim() === '';
+            const pageContent = shouldBuildPageContent ? this._buildApiRequestPageContent(apiRequest) : null;
             
             if (!session) {
                 // 创建新会话
@@ -18100,7 +18102,7 @@ if (typeof getCenterPosition === 'undefined') {
                     title: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
                     pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
                     pageDescription: `接口请求：${apiRequest.url || ''}`,
-                    pageContent: pageContent
+                    pageContent: pageContent || ''
                 });
                 this.sessions[sessionId] = session;
                 
@@ -18148,7 +18150,10 @@ if (typeof getCenterPosition === 'undefined') {
                 };
                 session.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`;
                 session.pageDescription = `接口请求：${apiRequest.url || ''}`;
-                session.pageContent = pageContent;
+                // 只有在pageContent为空时才更新，保留已追加的响应内容
+                if (shouldBuildPageContent && pageContent) {
+                    session.pageContent = pageContent;
+                }
             }
             
             // 检查当前是否显示请求接口列表
@@ -18187,7 +18192,10 @@ if (typeof getCenterPosition === 'undefined') {
                 };
                 activatedSession.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`;
                 activatedSession.pageDescription = `接口请求：${apiRequest.url || ''}`;
-                activatedSession.pageContent = pageContent;
+                // 只有在pageContent为空时才更新，保留已追加的响应内容
+                if (shouldBuildPageContent && pageContent) {
+                    activatedSession.pageContent = pageContent;
+                }
             }
             
             console.log('请求接口会话已创建并激活:', sessionId);
@@ -18271,8 +18279,11 @@ if (typeof getCenterPosition === 'undefined') {
             // 保存会话到后端（通过 sessionApi）
             if (this.sessionApi && this.enableBackendSync) {
                 try {
-                    // 构建页面内容
-                    const pageContent = this._buildApiRequestPageContent(apiRequest);
+                    // 优先使用会话中已有的pageContent，如果为空才构建新的
+                    let pageContent = session.pageContent;
+                    if (!pageContent || pageContent.trim() === '') {
+                        pageContent = this._buildApiRequestPageContent(apiRequest);
+                    }
                     
                     // 准备会话数据
                     const sessionData = {
@@ -19417,18 +19428,33 @@ if (typeof getCenterPosition === 'undefined') {
                 timestamp: Date.now()
             };
             
-            // 如果是编辑模式，保留原有数据
+            // 如果是编辑模式，设置key
             if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
                 apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
-                // 保留响应数据
+                apiRequestData.type = originalRequest.type || 'api';
+                apiRequestData.curl = originalRequest.curl || '';
+            }
+            
+            // 检查是否有新的响应数据（从发送请求后保存的）
+            if (modal._responseData) {
+                // 优先使用新的响应数据
+                apiRequestData.status = modal._responseData.status || 0;
+                apiRequestData.statusText = modal._responseData.statusText || '';
+                apiRequestData.responseHeaders = modal._responseData.responseHeaders || {};
+                apiRequestData.responseBody = modal._responseData.responseBody || null;
+                apiRequestData.responseText = modal._responseData.responseText || '';
+                apiRequestData.duration = modal._responseData.duration || 0;
+                if (modal._responseData.error) {
+                    apiRequestData.error = modal._responseData.error;
+                }
+            } else if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
+                // 如果没有新的响应数据，且是编辑模式，保留原有响应数据
                 apiRequestData.status = originalRequest.status || 0;
                 apiRequestData.statusText = originalRequest.statusText || '';
                 apiRequestData.responseHeaders = originalRequest.responseHeaders || {};
                 apiRequestData.responseBody = originalRequest.responseBody || null;
                 apiRequestData.responseText = originalRequest.responseText || '';
                 apiRequestData.duration = originalRequest.duration || 0;
-                apiRequestData.type = originalRequest.type || 'api';
-                apiRequestData.curl = originalRequest.curl || '';
             }
             
             // 显示加载提示
@@ -19662,6 +19688,92 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
     
+    // 从请求列表项发送请求
+    async sendApiRequestFromItem(apiRequest) {
+        if (!apiRequest || !apiRequest.url) {
+            this.showNotification('请求URL不能为空', 'error');
+            return;
+        }
+        
+        const method = apiRequest.method || 'GET';
+        const url = apiRequest.url.trim();
+        const headers = apiRequest.headers || {};
+        const body = apiRequest.body || null;
+        
+        // 显示加载提示
+        this.showNotification('正在发送请求...', 'info');
+        
+        const startTime = Date.now();
+        
+        try {
+            // 准备请求选项
+            const requestOptions = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers
+                }
+            };
+            
+            // 如果有body，添加到请求选项
+            if (body) {
+                if (typeof body === 'string') {
+                    try {
+                        // 尝试解析为JSON
+                        const parsed = JSON.parse(body);
+                        requestOptions.body = JSON.stringify(parsed);
+                    } catch (e) {
+                        // 如果不是JSON，直接使用字符串
+                        requestOptions.body = body;
+                    }
+                } else {
+                    requestOptions.body = JSON.stringify(body);
+                }
+            }
+            
+            // 发送请求
+            const response = await fetch(url, requestOptions);
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            // 获取响应头
+            const responseHeaders = {};
+            response.headers.forEach((value, key) => {
+                responseHeaders[key] = value;
+            });
+            
+            // 获取响应体
+            let responseBody = null;
+            let responseText = '';
+            const contentType = response.headers.get('content-type') || '';
+            
+            try {
+                if (contentType.includes('application/json')) {
+                    responseBody = await response.json();
+                    responseText = JSON.stringify(responseBody, null, 2);
+                } else {
+                    responseText = await response.text();
+                }
+            } catch (e) {
+                responseText = '[无法读取响应内容]';
+            }
+            
+            // 将返回结果写入页面上下文
+            await this.addApiRequestResponseToContext(url, method, response, responseBody, responseText, duration);
+            
+            const statusColor = response.status >= 200 && response.status < 300 ? '#10b981' : 
+                               response.status >= 400 ? '#ef4444' : '#f59e0b';
+            
+            this.showNotification(`请求成功: ${response.status} ${response.statusText || ''} (${duration}ms)`, 'success');
+        } catch (error) {
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            this.showNotification(`请求失败: ${error.message || '未知错误'} (${duration}ms)`, 'error');
+            console.error('发送请求失败:', error);
+        }
+    }
+    
     // 将接口请求响应结果添加到页面上下文
     async addApiRequestResponseToContext(url, method, response, responseBody, responseText, duration) {
         if (!this.currentSessionId) {
@@ -19670,17 +19782,25 @@ if (typeof getCenterPosition === 'undefined') {
                 await this.initSessionWithDelay();
             } catch (e) {
                 console.warn('初始化会话失败，将直接添加消息:', e);
+                return;
             }
         }
         
-        // 构建响应消息内容
+        // 获取当前会话
+        const session = this.sessions[this.currentSessionId];
+        if (!session) {
+            console.warn('当前会话不存在，无法追加响应内容到页面上下文');
+            return;
+        }
+        
+        // 构建响应内容（Markdown格式）
         const statusColor = response.status >= 200 && response.status < 300 ? '#10b981' : 
                            response.status >= 400 ? '#ef4444' : '#f59e0b';
         
-        let responseContent = `## 接口请求响应\n\n`;
+        let responseContent = `\n\n## 接口请求响应\n\n`;
         responseContent += `**请求方法:** ${method}\n`;
         responseContent += `**请求URL:** ${url}\n`;
-        responseContent += `**响应状态:** <span style="color: ${statusColor}">${response.status} ${response.statusText || ''}</span>\n`;
+        responseContent += `**响应状态:** ${response.status} ${response.statusText || ''}\n`;
         responseContent += `**响应时间:** ${duration}ms\n\n`;
         
         if (responseText) {
@@ -19690,11 +19810,25 @@ if (typeof getCenterPosition === 'undefined') {
             responseContent += `**响应内容:**\n\`\`\`json\n${displayText}\n\`\`\`\n`;
         }
         
-        // 添加到会话中
+        // 追加到会话的pageContent字段
         try {
-            await this.addMessageToSession('pet', responseContent, null, true);
+            // 如果pageContent不存在或为空，初始化为空字符串
+            if (!session.pageContent) {
+                session.pageContent = '';
+            }
+            
+            // 追加响应内容到pageContent
+            session.pageContent += responseContent;
+            
+            // 更新会话的更新时间
+            session.updatedAt = Date.now();
+            
+            // 保存到后端（包含pageContent）
+            await this.syncSessionToBackend(this.currentSessionId, true, true);
+            
+            console.log('接口请求响应已追加到会话页面上下文并保存到后端');
         } catch (e) {
-            console.warn('添加消息到会话失败:', e);
+            console.warn('追加响应内容到页面上下文失败:', e);
         }
     }
     
@@ -19866,11 +20000,24 @@ if (typeof getCenterPosition === 'undefined') {
             dialog._parentModal = parentModal;
         }
         
+        // 如果是编辑模式，填充当前的 curl 命令
+        const textarea = dialog.querySelector('textarea');
+        if (textarea && parentModal) {
+            const currentCurl = this.generateCurlFromEditor(parentModal);
+            if (currentCurl) {
+                // 将 \\\n 转换为真正的换行符，以便在 textarea 中正确显示
+                textarea.value = currentCurl.replace(/\\\n/g, '\n');
+            } else {
+                textarea.value = '';
+            }
+        } else if (textarea) {
+            textarea.value = '';
+        }
+        
         // 显示对话框
         dialog.style.display = 'flex';
         
         // 聚焦到输入框
-        const textarea = dialog.querySelector('textarea');
         if (textarea) {
             setTimeout(() => {
                 textarea.focus();
@@ -19915,8 +20062,8 @@ if (typeof getCenterPosition === 'undefined') {
             background: white !important;
             border-radius: 12px !important;
             width: 100% !important;
-            max-width: 700px !important;
-            max-height: 80vh !important;
+            max-width: 1000px !important;
+            max-height: 85vh !important;
             display: flex !important;
             flex-direction: column !important;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
@@ -20018,7 +20165,7 @@ if (typeof getCenterPosition === 'undefined') {
         textarea.placeholder = '例如：curl -X POST https://api.example.com/users \\\n  -H "Content-Type: application/json" \\\n  -d \'{"name": "John"}\'';
         textarea.style.cssText = `
             width: 100% !important;
-            min-height: 220px !important;
+            min-height: 350px !important;
             padding: 12px 40px 12px 12px !important;
             border: 2px solid #d1d5db !important;
             border-radius: 8px !important;
@@ -21091,18 +21238,33 @@ if (typeof getCenterPosition === 'undefined') {
                 timestamp: Date.now()
             };
             
-            // 如果是编辑模式，保留原有数据
+            // 如果是编辑模式，设置key
             if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
                 apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
-                // 保留响应数据
+                apiRequestData.type = originalRequest.type || 'api';
+                apiRequestData.curl = originalRequest.curl || '';
+            }
+            
+            // 检查是否有新的响应数据（从发送请求后保存的）
+            if (modal._responseData) {
+                // 优先使用新的响应数据
+                apiRequestData.status = modal._responseData.status || 0;
+                apiRequestData.statusText = modal._responseData.statusText || '';
+                apiRequestData.responseHeaders = modal._responseData.responseHeaders || {};
+                apiRequestData.responseBody = modal._responseData.responseBody || null;
+                apiRequestData.responseText = modal._responseData.responseText || '';
+                apiRequestData.duration = modal._responseData.duration || 0;
+                if (modal._responseData.error) {
+                    apiRequestData.error = modal._responseData.error;
+                }
+            } else if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
+                // 如果没有新的响应数据，且是编辑模式，保留原有响应数据
                 apiRequestData.status = originalRequest.status || 0;
                 apiRequestData.statusText = originalRequest.statusText || '';
                 apiRequestData.responseHeaders = originalRequest.responseHeaders || {};
                 apiRequestData.responseBody = originalRequest.responseBody || null;
                 apiRequestData.responseText = originalRequest.responseText || '';
                 apiRequestData.duration = originalRequest.duration || 0;
-                apiRequestData.type = originalRequest.type || 'api';
-                apiRequestData.curl = originalRequest.curl || '';
             }
             
             // 显示加载提示
@@ -22124,6 +22286,68 @@ if (typeof getCenterPosition === 'undefined') {
             }
         };
         document.addEventListener('keydown', escHandler);
+    }
+    
+    // 从编辑器生成curl命令
+    generateCurlFromEditor(modal) {
+        if (!modal) {
+            return '';
+        }
+        
+        // 收集表单数据（与saveApiRequestFromEditor方法中的逻辑一致）
+        const methodSelect = modal.querySelector('.api-editor-method-select');
+        const urlInput = modal.querySelector('.api-editor-url-input');
+        const headersContainer = modal.querySelector('.api-editor-headers-container');
+        const bodyTypeSelect = modal.querySelector('.api-editor-body-type-select');
+        const bodyTextarea = modal.querySelector('.api-editor-body-textarea');
+        
+        const method = methodSelect?.value || 'GET';
+        const url = urlInput?.value.trim() || '';
+        
+        if (!url) {
+            return '';
+        }
+        
+        // 收集Headers
+        const headers = {};
+        if (headersContainer) {
+            const rows = headersContainer.querySelectorAll('div[style*="display: flex"]');
+            rows.forEach(row => {
+                const keyInput = row.querySelector('input[placeholder="Header名称"]');
+                const valueInput = row.querySelector('input[placeholder="Header值"]');
+                if (keyInput && valueInput) {
+                    const key = keyInput.value.trim();
+                    const value = valueInput.value.trim();
+                    if (key && value) {
+                        headers[key] = value;
+                    }
+                }
+            });
+        }
+        
+        // 收集Body
+        let body = null;
+        if (bodyTypeSelect && bodyTextarea) {
+            const bodyType = bodyTypeSelect.value;
+            const bodyText = bodyTextarea.value.trim();
+            
+            if (bodyType !== 'none' && bodyText) {
+                if (bodyType === 'json') {
+                    // JSON类型，保持为字符串格式（用于curl）
+                    body = bodyText;
+                } else {
+                    body = bodyText;
+                }
+            }
+        }
+        
+        // 使用现有的generateCurlCommand方法生成curl命令
+        return this.generateCurlCommand({
+            url: url,
+            method: method,
+            headers: headers,
+            body: body
+        });
     }
     
     // 生成curl命令
@@ -46523,6 +46747,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

@@ -30347,8 +30347,8 @@ ${originalText}
         const titleInputWrapper = document.createElement('div');
         titleInputWrapper.style.cssText = `
             display: flex !important;
+            flex-direction: column !important;
             gap: 8px !important;
-            align-items: center !important;
         `;
 
         const titleInput = document.createElement('input');
@@ -30356,7 +30356,7 @@ ${originalText}
         titleInput.type = 'text';
         titleInput.placeholder = '请输入会话标题';
         titleInput.style.cssText = `
-            flex: 1 !important;
+            width: 100% !important;
             padding: 12px 14px !important;
             border: 2px solid #e0e0e0 !important;
             border-radius: 6px !important;
@@ -30372,6 +30372,14 @@ ${originalText}
         titleInput.addEventListener('blur', () => {
             titleInput.style.borderColor = '#e0e0e0';
         });
+
+        // 按钮容器
+        const titleButtonContainer = document.createElement('div');
+        titleButtonContainer.style.cssText = `
+            display: flex !important;
+            gap: 8px !important;
+            justify-content: flex-end !important;
+        `;
 
         const generateTitleBtn = document.createElement('button');
         generateTitleBtn.className = 'session-editor-generate-title';
@@ -30445,10 +30453,12 @@ ${originalText}
             translateTitleEnBtn.style.background = '#9C27B0';
         });
 
+        titleButtonContainer.appendChild(generateTitleBtn);
+        titleButtonContainer.appendChild(translateTitleZhBtn);
+        titleButtonContainer.appendChild(translateTitleEnBtn);
+
         titleInputWrapper.appendChild(titleInput);
-        titleInputWrapper.appendChild(generateTitleBtn);
-        titleInputWrapper.appendChild(translateTitleZhBtn);
-        titleInputWrapper.appendChild(translateTitleEnBtn);
+        titleInputWrapper.appendChild(titleButtonContainer);
 
         titleGroup.appendChild(titleLabel);
         titleGroup.appendChild(titleInputWrapper);

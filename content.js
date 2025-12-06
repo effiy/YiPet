@@ -7743,14 +7743,6 @@ if (typeof getCenterPosition === 'undefined') {
             font-size: 16px !important;
         `;
         
-        const headerTitle = document.createElement('span');
-        headerTitle.textContent = '日期筛选';
-        headerTitle.style.cssText = `
-            font-size: 13px !important;
-            font-weight: 500 !important;
-            color: #374151 !important;
-        `;
-        
         // 日期区间显示和清除按钮容器
         const dateRangeContainer = document.createElement('div');
         dateRangeContainer.style.cssText = `
@@ -7812,6 +7804,157 @@ if (typeof getCenterPosition === 'undefined') {
         dateRangeContainer.appendChild(dateRangeDisplay);
         dateRangeContainer.appendChild(clearDateBtn);
         
+        // 右侧容器：日期导航按钮组和折叠/展开按钮
+        const headerRight = document.createElement('div');
+        headerRight.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+        `;
+        
+        // 日期导航按钮组容器
+        const dayNavContainer = document.createElement('div');
+        dayNavContainer.className = 'day-navigation-container';
+        dayNavContainer.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 2px !important;
+            background: #ffffff !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 6px !important;
+            padding: 2px !important;
+            margin-right: 8px !important;
+        `;
+        
+        // 上一天快捷按钮
+        const prevDayBtn = document.createElement('button');
+        prevDayBtn.innerHTML = '◀';
+        prevDayBtn.className = 'prev-day-btn';
+        prevDayBtn.title = '上一天';
+        prevDayBtn.style.cssText = `
+            width: 24px !important;
+            height: 24px !important;
+            border: none !important;
+            background: transparent !important;
+            color: #6b7280 !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 12px !important;
+            padding: 0 !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            line-height: 1 !important;
+            position: relative !important;
+        `;
+        
+        prevDayBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const oldMonth = this.calendarMonth ? new Date(this.calendarMonth) : null;
+            this.navigateDay(-1);
+            this.updateDateRangeDisplay(dateRangeDisplay);
+            if (this.clearDateBtn) {
+                this.clearDateBtn.style.display = this.dateRangeFilter ? 'flex' : 'none';
+            }
+            // 如果月份改变了，更新月份标题
+            if (oldMonth && this.calendarMonth && 
+                (oldMonth.getFullYear() !== this.calendarMonth.getFullYear() || 
+                 oldMonth.getMonth() !== this.calendarMonth.getMonth())) {
+                if (this.calendarMonthTitle) {
+                    this.updateMonthTitle(this.calendarMonthTitle, this.calendarMonth);
+                }
+            }
+            this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            this.applyDateFilter();
+        });
+        
+        prevDayBtn.addEventListener('mouseenter', () => {
+            prevDayBtn.style.background = '#f3f4f6';
+            prevDayBtn.style.color = mainColor;
+            prevDayBtn.style.transform = 'scale(1.1)';
+        });
+        
+        prevDayBtn.addEventListener('mouseleave', () => {
+            prevDayBtn.style.background = 'transparent';
+            prevDayBtn.style.color = '#6b7280';
+            prevDayBtn.style.transform = 'scale(1)';
+        });
+        
+        prevDayBtn.addEventListener('mousedown', () => {
+            prevDayBtn.style.transform = 'scale(0.95)';
+        });
+        
+        prevDayBtn.addEventListener('mouseup', () => {
+            prevDayBtn.style.transform = 'scale(1.1)';
+        });
+        
+        // 下一天快捷按钮
+        const nextDayBtn = document.createElement('button');
+        nextDayBtn.innerHTML = '▶';
+        nextDayBtn.className = 'next-day-btn';
+        nextDayBtn.title = '下一天';
+        nextDayBtn.style.cssText = `
+            width: 24px !important;
+            height: 24px !important;
+            border: none !important;
+            background: transparent !important;
+            color: #6b7280 !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 12px !important;
+            padding: 0 !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            line-height: 1 !important;
+            position: relative !important;
+        `;
+        
+        nextDayBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const oldMonth = this.calendarMonth ? new Date(this.calendarMonth) : null;
+            this.navigateDay(1);
+            this.updateDateRangeDisplay(dateRangeDisplay);
+            if (this.clearDateBtn) {
+                this.clearDateBtn.style.display = this.dateRangeFilter ? 'flex' : 'none';
+            }
+            // 如果月份改变了，更新月份标题
+            if (oldMonth && this.calendarMonth && 
+                (oldMonth.getFullYear() !== this.calendarMonth.getFullYear() || 
+                 oldMonth.getMonth() !== this.calendarMonth.getMonth())) {
+                if (this.calendarMonthTitle) {
+                    this.updateMonthTitle(this.calendarMonthTitle, this.calendarMonth);
+                }
+            }
+            this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            this.applyDateFilter();
+        });
+        
+        nextDayBtn.addEventListener('mouseenter', () => {
+            nextDayBtn.style.background = '#f3f4f6';
+            nextDayBtn.style.color = mainColor;
+            nextDayBtn.style.transform = 'scale(1.1)';
+        });
+        
+        nextDayBtn.addEventListener('mouseleave', () => {
+            nextDayBtn.style.background = 'transparent';
+            nextDayBtn.style.color = '#6b7280';
+            nextDayBtn.style.transform = 'scale(1)';
+        });
+        
+        nextDayBtn.addEventListener('mousedown', () => {
+            nextDayBtn.style.transform = 'scale(0.95)';
+        });
+        
+        nextDayBtn.addEventListener('mouseup', () => {
+            nextDayBtn.style.transform = 'scale(1.1)';
+        });
+        
+        dayNavContainer.appendChild(prevDayBtn);
+        dayNavContainer.appendChild(nextDayBtn);
+        
         // 右侧：折叠/展开按钮
         const toggleBtn = document.createElement('span');
         toggleBtn.className = 'calendar-toggle-btn';
@@ -7823,11 +7966,13 @@ if (typeof getCenterPosition === 'undefined') {
             cursor: pointer !important;
         `;
         
+        headerRight.appendChild(dayNavContainer);
+        headerRight.appendChild(toggleBtn);
+        
         headerLeft.appendChild(calendarIcon);
-        headerLeft.appendChild(headerTitle);
         headerLeft.appendChild(dateRangeContainer);
         calendarHeader.appendChild(headerLeft);
-        calendarHeader.appendChild(toggleBtn);
+        calendarHeader.appendChild(headerRight);
         
         // 日历内容区域
         const calendarContent = document.createElement('div');
@@ -7869,6 +8014,8 @@ if (typeof getCenterPosition === 'undefined') {
         this.dateRangeDisplay = dateRangeDisplay;
         this.calendarContent = calendarContent;
         this.clearDateBtn = clearDateBtn;
+        this.prevDayBtn = prevDayBtn;
+        this.nextDayBtn = nextDayBtn;
         
         return calendarContainer;
     }
@@ -8238,6 +8385,83 @@ if (typeof getCenterPosition === 'undefined') {
         
         // 应用日期过滤
         this.applyDateFilter();
+    }
+    
+    /**
+     * 导航到上一天或下一天
+     * @param {number} direction - 方向：-1 表示上一天，1 表示下一天
+     */
+    navigateDay(direction) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        let baseDate;
+        
+        if (this.dateRangeFilter) {
+            // 如果有日期筛选，优先使用结束日期，如果没有则使用开始日期
+            if (this.dateRangeFilter.endDate) {
+                baseDate = new Date(this.dateRangeFilter.endDate);
+            } else if (this.dateRangeFilter.startDate) {
+                baseDate = new Date(this.dateRangeFilter.startDate);
+            } else {
+                baseDate = new Date(today);
+            }
+        } else {
+            // 如果没有日期筛选，使用今天
+            baseDate = new Date(today);
+        }
+        
+        baseDate.setHours(0, 0, 0, 0);
+        
+        // 计算新日期
+        const newDate = new Date(baseDate);
+        newDate.setDate(newDate.getDate() + direction);
+        newDate.setHours(0, 0, 0, 0);
+        
+        // 更新日期筛选
+        // 如果之前有日期区间，保持区间结构但移动日期
+        if (this.dateRangeFilter && this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+            // 如果有完整的日期区间，计算区间长度并保持
+            const rangeLength = Math.abs(this.dateRangeFilter.endDate.getTime() - this.dateRangeFilter.startDate.getTime());
+            const daysDiff = Math.floor(rangeLength / (1000 * 60 * 60 * 24));
+            
+            if (this.dateRangeFilter.endDate.getTime() >= this.dateRangeFilter.startDate.getTime()) {
+                // 正常区间：结束日期 >= 开始日期
+                this.dateRangeFilter = {
+                    startDate: new Date(newDate.getTime() - daysDiff * 24 * 60 * 60 * 1000),
+                    endDate: newDate
+                };
+            } else {
+                // 反向区间：结束日期 < 开始日期
+                this.dateRangeFilter = {
+                    startDate: newDate,
+                    endDate: new Date(newDate.getTime() + daysDiff * 24 * 60 * 60 * 1000)
+                };
+            }
+        } else if (this.dateRangeFilter && this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+            // 只有开始日期，移动开始日期
+            this.dateRangeFilter = {
+                startDate: newDate,
+                endDate: null
+            };
+        } else {
+            // 只有结束日期或没有日期筛选，设置为单日筛选（结束日期之前）
+            this.dateRangeFilter = {
+                startDate: null,
+                endDate: newDate
+            };
+        }
+        
+        // 更新日历月份以显示新日期
+        const newMonth = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+        if (!this.calendarMonth || 
+            this.calendarMonth.getFullYear() !== newMonth.getFullYear() || 
+            this.calendarMonth.getMonth() !== newMonth.getMonth()) {
+            this.calendarMonth = newMonth;
+            if (this.calendarMonthTitle) {
+                this.updateMonthTitle(this.calendarMonthTitle, newMonth);
+            }
+        }
     }
     
     /**

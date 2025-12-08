@@ -12629,20 +12629,7 @@ if (typeof getCenterPosition === 'undefined') {
         }
         
         // 按文件名排序会话（使用显示标题进行排序）
-        // 选中的会话（currentSessionId）会置顶到列表顶部
         const sortedSessions = allSessions.sort((a, b) => {
-            // 首先检查是否是当前选中的会话，选中的会话排在前面
-            const aIsCurrent = a.id === this.currentSessionId;
-            const bIsCurrent = b.id === this.currentSessionId;
-            
-            if (aIsCurrent && !bIsCurrent) {
-                return -1; // a 是当前会话，排在前面
-            }
-            if (!aIsCurrent && bIsCurrent) {
-                return 1; // b 是当前会话，排在前面
-            }
-            
-            // 如果都是或都不是当前会话，按原来的排序规则
             const aTitle = this._getSessionDisplayTitle(a) || '';
             const bTitle = this._getSessionDisplayTitle(b) || '';
             

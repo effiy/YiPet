@@ -24874,6 +24874,318 @@ ${originalText}
             }
         }
     }
+
+    /**
+     * 翻译上下文内容
+     * @param {string} targetLang - 目标语言 'zh' 或 'en'
+     */
+    async translateContext(targetLang) {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (!textarea) return;
+        
+        const originalText = textarea.value.trim();
+        if (!originalText) {
+            this.showNotification('请先输入内容', 'warning');
+            return;
+        }
+        
+        // 保存原始文本，用于撤销功能
+        if (!textarea.hasAttribute('data-original-text')) {
+            textarea.setAttribute('data-original-text', originalText);
+        }
+        
+        // 获取翻译按钮
+        const translateZhBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-zh-btn') : null;
+        const translateEnBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-en-btn') : null;
+        const targetBtn = targetLang === 'zh' ? translateZhBtn : translateEnBtn;
+        const originalBtnText = targetBtn ? targetBtn.textContent : '';
+        
+        // 禁用按钮，显示加载状态
+        if (translateZhBtn) {
+            translateZhBtn.disabled = true;
+            translateZhBtn.setAttribute('data-translating', 'true');
+            if (targetLang === 'zh') {
+                translateZhBtn.textContent = '翻译中...';
+            }
+            translateZhBtn.style.opacity = '0.6';
+            translateZhBtn.style.cursor = 'not-allowed';
+        }
+        if (translateEnBtn) {
+            translateEnBtn.disabled = true;
+            translateEnBtn.setAttribute('data-translating', 'true');
+            if (targetLang === 'en') {
+                translateEnBtn.textContent = '翻译中...';
+            }
+            translateEnBtn.style.opacity = '0.6';
+            translateEnBtn.style.cursor = 'not-allowed';
+        }
+        
+        try {
+            // 构建翻译提示词
+            const targetLanguage = targetLang === 'zh' ? '中文' : '英文';
+            const systemPrompt = `你是一个专业的翻译专家，擅长将各种语言的内容准确、流畅地翻译成${targetLanguage}。请保持原文的格式、结构和语义，确保翻译准确、自然、流畅。`;
+            
+            const userPrompt = `请将以下内容翻译成${targetLanguage}，要求：
+1. 保持原文的格式和结构（包括Markdown格式）
+2. 翻译准确、自然、流畅
+3. 保持专业术语的准确性
+4. 不要添加任何说明文字、引号或其他格式标记
+5. 直接返回翻译后的内容
+
+原文内容：
+${originalText}
+
+请直接返回翻译后的${targetLanguage}内容，不要包含任何说明文字、引号或其他格式标记。`;
+            
+            // 构建请求 payload
+            const payload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt,
+                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+            );
+            
+            // 显示加载动画
+            this._showLoadingAnimation();
+            
+            // 调用 prompt 接口
+            const response = await fetch(PET_CONFIG.api.promptUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // 先获取文本响应，检查是否是SSE格式
+            const responseText = await response.text();
+            let result;
+            
+            // 检查是否包含SSE格式（包含 "data: "）
+            if (responseText.includes('data: ')) {
+                // 处理SSE流式响应
+                const lines = responseText.split('\n');
+                let accumulatedData = '';
+                let lastValidData = null;
+                
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.startsWith('data: ')) {
+                        try {
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr === '[DONE]' || dataStr === '') {
+                                continue;
+                            }
+                            
+                            // 尝试解析JSON
+                            const chunk = JSON.parse(dataStr);
+                            
+                            // 检查是否完成
+                            if (chunk.done === true) {
+                                break;
+                            }
+                            
+                            // 累积内容（处理流式内容块）
+                            if (chunk.data) {
+                                accumulatedData += chunk.data;
+                            } else if (chunk.content) {
+                                accumulatedData += chunk.content;
+                            } else if (chunk.message && chunk.message.content) {
+                                // Ollama格式
+                                accumulatedData += chunk.message.content;
+                            } else if (typeof chunk === 'string') {
+                                accumulatedData += chunk;
+                            }
+                            
+                            // 保存最后一个有效的数据块（用于提取其他字段如status等）
+                            lastValidData = chunk;
+                        } catch (e) {
+                            // 如果不是JSON，可能是纯文本内容
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr && dataStr !== '[DONE]') {
+                                accumulatedData += dataStr;
+                            }
+                        }
+                    }
+                }
+                
+                // 如果累积了内容，创建结果对象
+                if (accumulatedData || lastValidData) {
+                    if (lastValidData && lastValidData.status) {
+                        // 如果有status字段，保留原有结构，但替换data/content
+                        result = {
+                            ...lastValidData,
+                            data: accumulatedData || lastValidData.data || '',
+                            content: accumulatedData || lastValidData.content || ''
+                        };
+                    } else {
+                        result = {
+                            data: accumulatedData,
+                            content: accumulatedData
+                        };
+                    }
+                } else {
+                    // 如果没有累积数据，尝试解析为JSON
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        throw new Error('无法解析响应格式');
+                    }
+                }
+            } else {
+                // 非SSE格式，直接解析JSON
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`无法解析响应: ${e.message}`);
+                }
+            }
+            
+            // 隐藏加载动画
+            this._hideLoadingAnimation();
+            
+            // 解析响应内容
+            let translatedText;
+            // 优先检查 status 字段，如果存在且不等于 200，则抛出错误
+            if (result.status !== undefined && result.status !== 200) {
+                throw new Error(result.msg || result.message || '翻译失败');
+            }
+            
+            // 按优先级提取翻译后的文本
+            if (result.data) {
+                translatedText = result.data;
+            } else if (result.content) {
+                translatedText = result.content;
+            } else if (result.message) {
+                translatedText = result.message;
+            } else if (typeof result === 'string') {
+                translatedText = result;
+            } else if (result.text) {
+                translatedText = result.text;
+            } else {
+                // 如果所有字段都不存在，尝试从对象中查找可能的文本字段
+                const possibleFields = ['output', 'response', 'result', 'answer'];
+                for (const field of possibleFields) {
+                    if (result[field] && typeof result[field] === 'string') {
+                        translatedText = result[field];
+                        break;
+                    }
+                }
+                
+                // 如果仍然找不到，抛出错误
+                if (!translatedText) {
+                    console.error('无法解析响应内容，响应对象:', result);
+                    throw new Error('无法解析响应内容，请检查服务器响应格式');
+                }
+            }
+            
+            // 清理翻译后的文本（更彻底的清理）
+            translatedText = translatedText.trim();
+            
+            // 移除可能的引号包裹（支持多种引号类型）
+            const quotePairs = [
+                ['"', '"'],
+                ['"', '"'],
+                ['"', '"'],
+                ["'", "'"],
+                ['`', '`'],
+                ['「', '」'],
+                ['『', '』']
+            ];
+            
+            for (const [startQuote, endQuote] of quotePairs) {
+                if (translatedText.startsWith(startQuote) && translatedText.endsWith(endQuote)) {
+                    translatedText = translatedText.slice(startQuote.length, -endQuote.length).trim();
+                }
+            }
+            
+            // 移除常见的AI回复前缀
+            const prefixes = [
+                /^翻译后的[内容上下文]：?\s*/i,
+                /^以下是翻译后的[内容上下文]：?\s*/i,
+                /^翻译结果：?\s*/i,
+                /^翻译后的文本：?\s*/i,
+                /^翻译后的[内容上下文]如下：?\s*/i,
+                /^[内容上下文]翻译如下：?\s*/i,
+                /^以下是翻译成[中文英文]的[内容上下文]：?\s*/i
+            ];
+            
+            for (const prefix of prefixes) {
+                translatedText = translatedText.replace(prefix, '').trim();
+            }
+            
+            // 清理多余的空白字符（但保留Markdown格式）
+            translatedText = translatedText.replace(/\n{4,}/g, '\n\n\n');
+            translatedText = translatedText.replace(/[ \t]+/g, ' ');
+            translatedText = translatedText.trim();
+            
+            // 验证翻译后的文本是否有效
+            if (!translatedText || translatedText.length < 10) {
+                throw new Error('翻译后的文本过短，可能翻译失败，请重试');
+            }
+            
+            // 如果翻译后的文本与原文完全相同，给出提示
+            if (translatedText === originalText) {
+                this.showNotification('翻译后的内容与原文相同，可能已经是目标语言', 'info');
+            }
+            
+            // 更新输入框内容
+            textarea.value = translatedText;
+            
+            // 保存翻译后的文本，用于撤销功能
+            textarea.setAttribute('data-translated-text', translatedText);
+            
+            // 触发 input 事件，确保值被正确更新并更新预览
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            // 显示翻译完成通知，包含字符数信息
+            const charCount = translatedText.length;
+            const originalCharCount = originalText.length;
+            const changeInfo = charCount !== originalCharCount 
+                ? `（${originalCharCount}字 → ${charCount}字）` 
+                : `（${charCount}字）`;
+            this.showNotification(`翻译完成 ${changeInfo}`, 'success');
+        } catch (error) {
+            // 隐藏加载动画
+            this._showLoadingAnimation();
+            console.error('翻译上下文失败:', error);
+            
+            // 提供更详细的错误信息
+            let errorMessage = '翻译失败，请稍后重试';
+            if (error.message) {
+                if (error.message.includes('HTTP error')) {
+                    errorMessage = '网络请求失败，请检查网络连接';
+                } else if (error.message.includes('无法解析')) {
+                    errorMessage = '服务器响应格式异常，请稍后重试';
+                } else if (error.message.includes('过短')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage = error.message;
+                }
+            }
+            
+            this.showNotification(errorMessage, 'error');
+        } finally {
+            // 恢复按钮状态
+            if (translateZhBtn) {
+                translateZhBtn.disabled = false;
+                translateZhBtn.removeAttribute('data-translating');
+                translateZhBtn.textContent = '🇨🇳 中文';
+                translateZhBtn.style.opacity = '1';
+                translateZhBtn.style.cursor = 'pointer';
+            }
+            if (translateEnBtn) {
+                translateEnBtn.disabled = false;
+                translateEnBtn.removeAttribute('data-translating');
+                translateEnBtn.textContent = '🇺🇸 英文';
+                translateEnBtn.style.opacity = '1';
+                translateEnBtn.style.cursor = 'pointer';
+            }
+        }
+    }
     
     // 翻译新闻字段（标题、描述或内容）
     async translateNewsField(fieldType, inputElement, targetLanguage) {
@@ -34202,8 +34514,85 @@ ${originalText}
             cursor: pointer !important;
         `;
         downloadBtn.addEventListener('click', () => this.downloadContextMarkdown());
+        
+        // 翻译按钮组
+        const translateBtnGroup = document.createElement('div');
+        translateBtnGroup.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+        
+        // 翻译成中文按钮
+        const translateToZhBtn = document.createElement('button');
+        translateToZhBtn.id = 'pet-context-translate-zh-btn';
+        translateToZhBtn.className = 'chat-toolbar-btn';
+        translateToZhBtn.setAttribute('title', '翻译成中文');
+        translateToZhBtn.textContent = '🇨🇳 中文';
+        translateToZhBtn.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(33, 150, 243, 0.3) !important;
+            background: rgba(33, 150, 243, 0.15) !important;
+            color: #2196f3 !important;
+            cursor: pointer !important;
+            transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
+            outline: none !important;
+            white-space: nowrap !important;
+        `;
+        translateToZhBtn.addEventListener('mouseenter', () => {
+            if (!translateToZhBtn.hasAttribute('data-translating')) {
+                translateToZhBtn.style.background = 'rgba(33, 150, 243, 0.25)';
+                translateToZhBtn.style.borderColor = 'rgba(33, 150, 243, 0.4)';
+            }
+        });
+        translateToZhBtn.addEventListener('mouseleave', () => {
+            if (!translateToZhBtn.hasAttribute('data-translating')) {
+                translateToZhBtn.style.background = 'rgba(33, 150, 243, 0.15)';
+                translateToZhBtn.style.borderColor = 'rgba(33, 150, 243, 0.3)';
+            }
+        });
+        translateToZhBtn.addEventListener('click', async () => {
+            await this.translateContext('zh');
+        });
+        
+        // 翻译成英文按钮
+        const translateToEnBtn = document.createElement('button');
+        translateToEnBtn.id = 'pet-context-translate-en-btn';
+        translateToEnBtn.className = 'chat-toolbar-btn';
+        translateToEnBtn.setAttribute('title', '翻译成英文');
+        translateToEnBtn.textContent = '🇺🇸 英文';
+        translateToEnBtn.style.cssText = `
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(156, 39, 176, 0.3) !important;
+            background: rgba(156, 39, 176, 0.15) !important;
+            color: #9c27b0 !important;
+            cursor: pointer !important;
+            transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
+            outline: none !important;
+            white-space: nowrap !important;
+        `;
+        translateToEnBtn.addEventListener('mouseenter', () => {
+            if (!translateToEnBtn.hasAttribute('data-translating')) {
+                translateToEnBtn.style.background = 'rgba(156, 39, 176, 0.25)';
+                translateToEnBtn.style.borderColor = 'rgba(156, 39, 176, 0.4)';
+            }
+        });
+        translateToEnBtn.addEventListener('mouseleave', () => {
+            if (!translateToEnBtn.hasAttribute('data-translating')) {
+                translateToEnBtn.style.background = 'rgba(156, 39, 176, 0.15)';
+                translateToEnBtn.style.borderColor = 'rgba(156, 39, 176, 0.3)';
+            }
+        });
+        translateToEnBtn.addEventListener('click', async () => {
+            await this.translateContext('en');
+        });
+        
+        translateBtnGroup.appendChild(translateToZhBtn);
+        translateBtnGroup.appendChild(translateToEnBtn);
+        
         headerBtns.appendChild(copyBtn);
         headerBtns.appendChild(optimizeBtnGroup);
+        headerBtns.appendChild(translateBtnGroup);
         headerBtns.appendChild(refreshBtn);
         headerBtns.appendChild(saveBtn);
         headerBtns.appendChild(downloadBtn);

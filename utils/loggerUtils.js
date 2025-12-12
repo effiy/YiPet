@@ -1,6 +1,18 @@
 /**
  * 日志工具类
- * 统一处理日志静默功能，避免重复代码
+ * 
+ * 功能说明：
+ * - 统一处理日志静默功能
+ * - 根据开发模式设置控制控制台输出
+ * - 避免在生产环境输出过多日志
+ * 
+ * 使用示例：
+ * ```javascript
+ * // 初始化日志工具（默认禁用日志）
+ * LoggerUtils.initMuteLogger('petDevMode', false);
+ * 
+ * // 启用日志（通过Chrome Storage设置 petDevMode = true）
+ * ```
  */
 
 class LoggerUtils {

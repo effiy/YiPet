@@ -1,6 +1,19 @@
 /**
  * 消息通信工具类
- * 统一处理与content script和background script的通信
+ * 
+ * 功能说明：
+ * - 统一处理与content script和background script的通信
+ * - 提供自动重试机制，提高通信可靠性
+ * - 统一错误处理，简化调用代码
+ * 
+ * 使用示例：
+ * ```javascript
+ * // 发送消息到content script（带重试）
+ * const response = await MessageHelper.sendToContentScript(tabId, { action: 'getStatus' });
+ * 
+ * // 检查content script是否就绪
+ * const isReady = await MessageHelper.checkContentScriptReady(tabId);
+ * ```
  */
 
 class MessageHelper {

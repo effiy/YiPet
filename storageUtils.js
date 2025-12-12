@@ -1,7 +1,22 @@
 /**
  * 存储工具类
- * 统一处理 Chrome Storage 和 localStorage 的操作
- * 提供降级机制和错误处理
+ * 
+ * 功能说明：
+ * - 统一处理 Chrome Storage 和 localStorage 的操作
+ * - 提供降级机制：Chrome Storage -> localStorage
+ * - 自动处理配额错误和上下文失效错误
+ * - 规范化状态数据，确保数据一致性
+ * 
+ * 使用示例：
+ * ```javascript
+ * const storageUtils = new StorageUtils();
+ * 
+ * // 加载全局状态
+ * const state = await storageUtils.loadGlobalState();
+ * 
+ * // 保存全局状态
+ * await storageUtils.saveGlobalState(newState);
+ * ```
  */
 
 class StorageUtils {

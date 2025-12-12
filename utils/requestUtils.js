@@ -1,6 +1,26 @@
 /**
  * 请求工具类
- * 提供URL规范化、扩展请求检查、请求格式化等公共功能
+ * 
+ * 功能说明：
+ * - 提供URL规范化功能（移除query和hash）
+ * - 检查是否是扩展相关请求（用于过滤）
+ * - 格式化请求头和请求体
+ * - 生成curl命令字符串（用于调试）
+ * 
+ * 使用示例：
+ * ```javascript
+ * // 检查是否是扩展请求
+ * if (RequestUtils.isExtensionRequest(url)) {
+ *     return; // 跳过扩展请求
+ * }
+ * 
+ * // 规范化URL
+ * const normalized = RequestUtils.normalizeUrl('https://example.com/path?query=1#hash');
+ * // 结果: 'https://example.com/path'
+ * 
+ * // 生成curl命令
+ * const curl = RequestUtils.generateCurl(url, 'POST', headers, body);
+ * ```
  */
 
 class RequestUtils {

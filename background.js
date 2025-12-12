@@ -1,9 +1,20 @@
 /**
  * Chrome扩展后台脚本
- * 处理扩展的安装、更新和消息传递
+ * 
+ * 功能说明：
+ * - 处理扩展的安装、更新和生命周期管理
+ * - 管理消息传递（popup <-> background <-> content script）
+ * - 监控网络请求（API请求记录）
+ * - 处理标签页注入和宠物初始化
+ * - 提供截图、权限检查等系统级功能
  */
 
-// 引入公共工具（如果可用）
+// ==================== 工具类引入 ====================
+
+/**
+ * 引入公共请求工具类（如果可用）
+ * 优先使用全局RequestUtils，否则尝试require，最后使用本地实现
+ */
 let RequestUtils;
 if (typeof window !== 'undefined' && window.RequestUtils) {
     RequestUtils = window.RequestUtils;
@@ -16,17 +27,22 @@ if (typeof window !== 'undefined' && window.RequestUtils) {
     }
 }
 
-// 扩展安装时的处理
+// ==================== 扩展生命周期管理 ====================
+
+/**
+ * 扩展安装/更新时的处理
+ * 设置默认配置，确保首次安装时有一致的初始状态
+ */
 chrome.runtime.onInstalled.addListener((details) => {
     console.log('可拖拽小宠物扩展已安装');
     
     // 设置默认配置
     chrome.storage.sync.set({
         petSettings: {
-            size: 60,
-            color: 0,
-            visible: false,
-            autoStart: true
+            size: 60,           // 默认大小（像素）
+            color: 0,           // 默认颜色索引
+            visible: false,      // 默认不可见
+            autoStart: true     // 默认自动启动
         },
         petGlobalState: {
             visible: false,
@@ -36,13 +52,18 @@ chrome.runtime.onInstalled.addListener((details) => {
         }
     });
     
-    // 如果是更新，显示更新通知
+    // 如果是更新，记录更新信息
     if (details.reason === 'update') {
         console.log('扩展已更新到版本:', chrome.runtime.getManifest().version);
     }
 });
 
-// 消息处理函数（拆分后的各个处理函数）
+// ==================== 消息处理函数 ====================
+
+/**
+ * 处理获取扩展信息请求
+ * @param {Function} sendResponse - 响应回调函数
+ */
 function handleGetExtensionInfoRequest(sendResponse) {
     sendResponse({
         version: chrome.runtime.getManifest().version,
@@ -50,17 +71,31 @@ function handleGetExtensionInfoRequest(sendResponse) {
     });
 }
 
+/**
+ * 处理打开选项页面请求
+ * @param {Function} sendResponse - 响应回调函数
+ */
 function handleOpenOptionsPageRequest(sendResponse) {
     chrome.runtime.openOptionsPage();
     sendResponse({ success: true });
 }
 
+/**
+ * 处理获取活动标签页请求
+ * @param {Function} sendResponse - 响应回调函数
+ */
 function handleGetActiveTabRequest(sendResponse) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         sendResponse({ tab: tabs[0] });
     });
 }
 
+/**
+ * 处理注入宠物请求
+ * @param {Object} request - 请求对象
+ * @param {Object} sender - 发送者信息
+ * @param {Function} sendResponse - 响应回调函数
+ */
 function handleInjectPetRequest(request, sender, sendResponse) {
     const tabId = request.tabId || sender.tab.id;
     console.log('注入宠物到标签页:', tabId);
@@ -68,20 +103,32 @@ function handleInjectPetRequest(request, sender, sendResponse) {
     sendResponse({ success: true });
 }
 
+/**
+ * 处理移除宠物请求
+ * @param {Object} sender - 发送者信息
+ * @param {Function} sendResponse - 响应回调函数
+ */
 function handleRemovePetRequest(sender, sendResponse) {
     removePetFromTab(sender.tab.id);
     sendResponse({ success: true });
 }
 
+/**
+ * 处理截图请求
+ * 检查权限后执行截图操作
+ * @param {Function} sendResponse - 响应回调函数
+ */
 function handleCaptureVisibleTabRequest(sendResponse) {
     console.log('处理截图请求');
     
+    // 检查是否已有activeTab权限
     chrome.permissions.contains({
         permissions: ['activeTab']
     }, (hasPermission) => {
         console.log('Background权限检查结果:', hasPermission);
         
         if (!hasPermission) {
+            // 如果没有权限，尝试请求权限
             console.error('缺少activeTab权限，尝试请求权限...');
             chrome.permissions.request({
                 permissions: ['activeTab']
@@ -98,6 +145,7 @@ function handleCaptureVisibleTabRequest(sendResponse) {
                 }
             });
         } else {
+            // 已有权限，直接执行截图
             captureTabScreenshot(sendResponse);
         }
     });
@@ -175,53 +223,67 @@ function handleOpenLinkInNewTabRequest(request, sendResponse) {
     }
 }
 
-// 处理来自popup和content script的消息
+// ==================== 消息路由 ====================
+
+/**
+ * 处理来自popup和content script的消息
+ * 根据action字段路由到对应的处理函数
+ */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Background收到消息:', request);
     
+    // 消息处理器映射表
     const actionHandlers = {
         'getExtensionInfo': () => handleGetExtensionInfoRequest(sendResponse),
         'openOptionsPage': () => handleOpenOptionsPageRequest(sendResponse),
         'getActiveTab': () => {
             handleGetActiveTabRequest(sendResponse);
-            return true; // 保持消息通道开放
+            return true; // 保持消息通道开放（异步操作）
         },
         'injectPet': () => handleInjectPetRequest(request, sender, sendResponse),
         'removePet': () => handleRemovePetRequest(sender, sendResponse),
         'captureVisibleTab': () => {
             handleCaptureVisibleTabRequest(sendResponse);
-            return true; // 保持消息通道开放
+            return true; // 保持消息通道开放（异步操作）
         },
         'checkPermissions': () => {
             handleCheckPermissionsRequest(sendResponse);
-            return true; // 保持消息通道开放
+            return true; // 保持消息通道开放（异步操作）
         },
         'forwardToContentScript': () => {
             handleForwardToContentScriptRequest(request, sendResponse);
-            return true; // 保持消息通道开放
+            return true; // 保持消息通道开放（异步操作）
         },
         'sendToWeWorkRobot': () => {
             handleSendToWeWorkRobotRequest(request, sendResponse);
-            return true; // 保持消息通道开放
+            return true; // 保持消息通道开放（异步操作）
         },
         'openLinkInNewTab': () => {
             handleOpenLinkInNewTabRequest(request, sendResponse);
-            return true; // 保持消息通道开放
+            return true; // 保持消息通道开放（异步操作）
         }
     };
     
+    // 执行对应的处理器
     const handler = actionHandlers[request.action];
     if (handler) {
         return handler();
     } else {
+        // 未知的action，返回错误
         sendResponse({ success: false, error: 'Unknown action' });
     }
 });
 
-// 标签页更新时的处理
+// ==================== 标签页管理 ====================
+
+/**
+ * 标签页更新时的处理
+ * 当页面加载完成时，根据设置决定是否自动注入宠物
+ */
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     console.log('标签页更新:', tabId, changeInfo.status, tab.url);
     
+    // 只在页面完全加载完成且不是系统页面时处理
     if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
         console.log('页面加载完成，检查是否需要注入宠物');
         
@@ -235,12 +297,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                 setTimeout(() => {
                     console.log('自动注入宠物到标签页:', tabId);
                     injectPetToTab(tabId);
-                }, 1000); // 减少延迟时间
+                }, 1000); // 延迟1秒，确保页面DOM已准备好
             } else {
                 console.log('自动注入已禁用或宠物不可见');
             }
         });
     } else {
+        // 跳过系统页面（chrome://、chrome-extension://等）
         console.log('跳过注入:', {
             status: changeInfo.status,
             url: tab.url,
@@ -249,7 +312,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
-// 直接注入content script
+// ==================== 注入功能 ====================
+
+/**
+ * 直接注入content script到指定标签页
+ * @param {number} tabId - 标签页ID
+ * @returns {Promise<boolean>} 是否注入成功
+ */
 async function injectContentScript(tabId) {
     try {
         console.log('直接注入content script到标签页:', tabId);
@@ -265,7 +334,11 @@ async function injectContentScript(tabId) {
     }
 }
 
-// 向指定标签页注入宠物
+/**
+ * 向指定标签页注入宠物
+ * 如果content script未加载，会先尝试注入content script
+ * @param {number} tabId - 标签页ID
+ */
 function injectPetToTab(tabId) {
     console.log('尝试注入宠物到标签页:', tabId);
     chrome.tabs.sendMessage(tabId, { action: 'initPet' }, (response) => {
@@ -292,7 +365,10 @@ function injectPetToTab(tabId) {
     });
 }
 
-// 从指定标签页移除宠物
+/**
+ * 从指定标签页移除宠物
+ * @param {number} tabId - 标签页ID
+ */
 function removePetFromTab(tabId) {
     chrome.tabs.sendMessage(tabId, { action: 'removePet' }, (response) => {
         if (chrome.runtime.lastError) {
@@ -301,7 +377,10 @@ function removePetFromTab(tabId) {
     });
 }
 
-// 获取所有浏览器标签页
+/**
+ * 获取所有浏览器标签页
+ * @returns {Promise<Array>} 标签页数组
+ */
 function getAllBrowserTabs() {
     return new Promise((resolve) => {
         chrome.tabs.query({}, (tabs) => {
@@ -310,7 +389,12 @@ function getAllBrowserTabs() {
     });
 }
 
-// 在所有标签页中执行操作
+/**
+ * 在所有标签页中执行操作
+ * @param {string} action - 要执行的操作
+ * @param {Object} data - 附加数据
+ * @returns {Promise<Array>} 执行结果数组
+ */
 async function executeActionInAllTabs(action, data = {}) {
     const tabs = await getAllBrowserTabs();
     const promises = tabs.map(tab => {
@@ -324,7 +408,13 @@ async function executeActionInAllTabs(action, data = {}) {
     return Promise.all(promises);
 }
 
-// 执行截图的方法
+// ==================== 截图功能 ====================
+
+/**
+ * 执行标签页截图
+ * 检查标签页有效性后执行截图操作
+ * @param {Function} sendResponse - 响应回调函数
+ */
 function captureTabScreenshot(sendResponse) {
     // 检查是否有活动标签页
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -382,7 +472,12 @@ function captureTabScreenshot(sendResponse) {
     });
 }
 
-// 扩展图标点击时的处理
+// ==================== 扩展图标点击处理 ====================
+
+/**
+ * 扩展图标点击时的处理
+ * 快速切换宠物的显示/隐藏状态
+ */
 chrome.action.onClicked.addListener((tab) => {
     // 切换宠物的显示/隐藏状态
     chrome.tabs.sendMessage(tab.id, { action: 'toggleVisibility' }, (response) => {
@@ -392,26 +487,30 @@ chrome.action.onClicked.addListener((tab) => {
     });
 });
 
-// 监听存储变化
+// ==================== 存储变化监听 ====================
+
+/**
+ * 监听存储变化
+ * 当设置或全局状态变化时，同步到所有标签页
+ */
 chrome.storage.onChanged.addListener((changes, namespace) => {
     // 监听 local 存储的变化（新版本使用 local 避免写入配额限制）
     if (namespace === 'local') {
         if (changes.petSettings) {
             console.log('宠物设置已更新');
-            
             // 通知所有标签页设置已更新
             executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
         }
         
         if (changes.petGlobalState) {
             console.log('宠物全局状态已更新');
-            
             // 通知所有标签页全局状态已更新
             executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
             
-            // 立即同步到所有活动标签页
+            // 立即同步到所有活动标签页（确保实时性）
             chrome.tabs.query({}, (tabs) => {
                 tabs.forEach(tab => {
+                    // 跳过系统页面
                     if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
                         chrome.tabs.sendMessage(tab.id, {
                             action: 'globalStateUpdated',
@@ -441,13 +540,22 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     }
 });
 
-// 处理键盘快捷键
+// ==================== 键盘快捷键处理 ====================
+
+/**
+ * 处理键盘快捷键
+ * 支持以下快捷键：
+ * - toggle-pet: 切换宠物显示/隐藏
+ * - change-color: 切换宠物颜色
+ * - reset-position: 重置宠物位置
+ */
 try {
     if (chrome && chrome.commands && typeof chrome.commands.onCommand === 'object' && chrome.commands.onCommand.addListener) {
         chrome.commands.onCommand.addListener((command) => {
             try {
                 switch (command) {
                     case 'toggle-pet':
+                        // 切换宠物显示/隐藏
                         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                             if (tabs && tabs[0]) {
                                 chrome.tabs.sendMessage(tabs[0].id, { action: 'toggleVisibility' });
@@ -456,6 +564,7 @@ try {
                         break;
                         
                     case 'change-color':
+                        // 切换宠物颜色
                         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                             if (tabs && tabs[0]) {
                                 chrome.tabs.sendMessage(tabs[0].id, { action: 'changeColor' });
@@ -464,6 +573,7 @@ try {
                         break;
                         
                     case 'reset-position':
+                        // 重置宠物位置
                         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                             if (tabs && tabs[0]) {
                                 chrome.tabs.sendMessage(tabs[0].id, { action: 'resetPosition' });
@@ -483,29 +593,47 @@ try {
     console.error('注册键盘快捷键时出错:', error);
 }
 
-// 定期清理无效的存储数据
+// ==================== 定期清理任务 ====================
+
+/**
+ * 定期清理无效的存储数据
+ * 清理一周前的宠物位置数据，防止存储空间浪费
+ */
 setInterval(() => {
     chrome.storage.local.get(null, (items) => {
         const now = Date.now();
-        const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+        const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000); // 7天前的时间戳
         
         Object.keys(items).forEach(key => {
+            // 清理过期的位置数据
             if (key.startsWith('petPosition_') && items[key].timestamp < oneWeekAgo) {
                 chrome.storage.local.remove(key);
             }
         });
     });
-}, 24 * 60 * 60 * 1000); // 每天执行一次
+}, 24 * 60 * 60 * 1000); // 每24小时执行一次
 
-// 错误处理
+// ==================== 错误处理 ====================
+
+/**
+ * 扩展挂起时的处理
+ * 在扩展被系统挂起前执行清理操作
+ */
 chrome.runtime.onSuspend.addListener(() => {
     console.log('扩展即将被挂起');
 });
 
-// 发送消息到企微机器人
+// ==================== 企微机器人集成 ====================
+
+/**
+ * 发送消息到企微机器人
+ * @param {string} webhookUrl - 企微机器人webhook地址
+ * @param {string} content - 消息内容（Markdown格式）
+ * @returns {Promise<Object>} 发送结果
+ */
 async function sendMessageToWeWorkRobot(webhookUrl, content) {
     try {
-        // 企微机器人 markdown.content 的最大长度限制为 4096
+        // 企微机器人 markdown.content 的最大长度限制为 4096 字符
         const MAX_LENGTH = 4096;
         
         // 参数验证
@@ -575,9 +703,16 @@ async function sendMessageToWeWorkRobot(webhookUrl, content) {
     }
 }
 
+// ==================== 网络请求监控 ====================
+
 /**
  * 接口请求监控管理器（Background）
  * 使用 webRequest API 监控所有标签页的网络请求
+ * 
+ * 功能：
+ * - 记录所有 XHR/Fetch 请求
+ * - 自动去重（相同请求在5秒内只记录一次）
+ * - 限制最大记录数，防止存储溢出
  */
 
 // 存储所有标签页的请求数据
@@ -585,7 +720,8 @@ let globalApiRequests = [];
 const MAX_REQUESTS = 1000; // 最大请求记录数
 
 // 去重索引：使用 Map 存储请求的唯一标识，提高查找效率
-// key: `${method}:${normalizedUrl}:${timestampRange}`，value: 请求在数组中的索引
+// key格式: `${method}:${normalizedUrl}:${timestampRange}`
+// value: 请求在数组中的索引
 const requestIndexMap = new Map();
 
 // 使用公共工具函数（如果可用，否则使用本地实现）

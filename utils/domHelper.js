@@ -1,6 +1,17 @@
 /**
  * DOM操作工具类
- * 提供统一的DOM查询和操作方法，减少重复代码
+ * 
+ * 功能说明：
+ * - 提供统一的DOM查询和操作方法
+ * - 减少重复代码，提高代码可维护性
+ * - 所有方法都包含安全检查，避免空指针错误
+ * 
+ * 使用示例：
+ * ```javascript
+ * const element = DomHelper.getElement('myButton');
+ * DomHelper.setText(element, '点击我');
+ * DomHelper.addEventListener(element, 'click', handleClick);
+ * ```
  */
 
 class DomHelper {

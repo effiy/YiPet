@@ -1,6 +1,24 @@
 /**
  * 统一错误处理工具类
- * 提供统一的错误处理和用户提示机制
+ * 
+ * 功能说明：
+ * - 提供统一的错误处理和用户提示机制
+ * - 自动显示错误通知（可选）
+ * - 检查特定类型的错误（上下文失效、配额错误等）
+ * - 安全执行异步操作，自动捕获错误
+ * 
+ * 使用示例：
+ * ```javascript
+ * // 安全执行异步操作
+ * const result = await ErrorHandler.safeExecute(async () => {
+ *     return await someAsyncOperation();
+ * }, { showNotification: true });
+ * 
+ * // 检查是否是上下文失效错误
+ * if (ErrorHandler.isContextInvalidated(error)) {
+ *     // 处理上下文失效
+ * }
+ * ```
  */
 
 class ErrorHandler {

@@ -129,62 +129,21 @@ class PopupController {
     }
     
     setupEventListeners() {
-        // 切换显示/隐藏
-        const toggleBtn = document.getElementById('toggleBtn');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                this.togglePet();
-            });
-        }
-        
-        // 改变颜色
-        const colorBtn = document.getElementById('colorBtn');
-        if (colorBtn) {
-            colorBtn.addEventListener('click', () => {
-                this.changePetColor();
-            });
-        }
-        
-        // 大小滑块
-        const sizeSlider = document.getElementById('sizeSlider');
-        if (sizeSlider) {
-            sizeSlider.addEventListener('input', (e) => {
-                this.updatePetSize(parseInt(e.target.value));
-            });
-        }
-        
-        // 颜色选择
-        const colorSelect = document.getElementById('colorSelect');
-        if (colorSelect) {
-            colorSelect.addEventListener('change', (e) => {
-                this.setPetColor(parseInt(e.target.value));
-            });
-        }
-        
-        // 重置位置
-        const resetBtn = document.getElementById('resetBtn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                this.resetPetPosition();
-            });
-        }
-        
-        // 居中显示
-        const centerBtn = document.getElementById('centerBtn');
-        if (centerBtn) {
-            centerBtn.addEventListener('click', () => {
-                this.centerPet();
-            });
-        }
-        
-        // 角色选择
-        const roleSelect = document.getElementById('roleSelect');
-        if (roleSelect) {
-            roleSelect.addEventListener('change', (e) => {
-                this.setPetRole(e.target.value);
-            });
-        }
-        
+        // 使用工具类简化事件监听器设置
+        const eventMap = [
+            { id: 'toggleBtn', event: 'click', handler: () => this.togglePet() },
+            { id: 'colorBtn', event: 'click', handler: () => this.changePetColor() },
+            { id: 'sizeSlider', event: 'input', handler: (e) => this.updatePetSize(parseInt(e.target.value)) },
+            { id: 'colorSelect', event: 'change', handler: (e) => this.setPetColor(parseInt(e.target.value)) },
+            { id: 'resetBtn', event: 'click', handler: () => this.resetPetPosition() },
+            { id: 'centerBtn', event: 'click', handler: () => this.centerPet() },
+            { id: 'roleSelect', event: 'change', handler: (e) => this.setPetRole(e.target.value) }
+        ];
+
+        eventMap.forEach(({ id, event, handler }) => {
+            const element = DomHelper.getElement(id);
+            DomHelper.addEventListener(element, event, handler);
+        });
     }
     
     async loadPetStatus() {
@@ -267,282 +226,213 @@ class PopupController {
     }
     
     async checkContentScriptStatus() {
-        try {
-            console.log('检查content script状态...');
-            const response = await this.sendMessageToContentScript({ action: 'ping' });
-            return response !== null;
-        } catch (error) {
-            console.log('Content script 未响应:', error);
+        if (!this.currentTab || !this.currentTab.id) {
             return false;
         }
+        return await MessageHelper.checkContentScriptReady(this.currentTab.id);
     }
     
     updateUI() {
         // 更新切换按钮
-        const toggleBtn = document.getElementById('toggleBtn');
+        const toggleBtn = DomHelper.getElement('toggleBtn');
         if (toggleBtn) {
-            const btnText = toggleBtn.querySelector('.btn-text');
-            const btnIcon = toggleBtn.querySelector('.btn-icon');
+            const btnText = DomHelper.querySelector(toggleBtn, '.btn-text');
+            const btnIcon = DomHelper.querySelector(toggleBtn, '.btn-icon');
             
             if (btnText && btnIcon) {
                 if (this.petStatus.visible) {
-                    btnText.textContent = '隐藏陪伴';
-                    btnIcon.textContent = '👁️';
+                    DomHelper.setText(btnText, '隐藏陪伴');
+                    DomHelper.setText(btnIcon, '👁️');
                 } else {
-                    btnText.textContent = '显示陪伴';
-                    btnIcon.textContent = '🙈';
+                    DomHelper.setText(btnText, '显示陪伴');
+                    DomHelper.setText(btnIcon, '🙈');
                 }
             }
         }
         
-        // 更新大小滑块
-        const sizeSlider = document.getElementById('sizeSlider');
-        const sizeValue = document.getElementById('sizeValue');
-        if (sizeSlider) {
-            sizeSlider.value = this.petStatus.size;
-        }
-        if (sizeValue) {
-            sizeValue.textContent = this.petStatus.size;
-        }
+        // 更新大小滑块和显示值
+        const sizeSlider = DomHelper.getElement('sizeSlider');
+        const sizeValue = DomHelper.getElement('sizeValue');
+        DomHelper.setValue(sizeSlider, this.petStatus.size);
+        DomHelper.setText(sizeValue, this.petStatus.size);
         
-        // 更新颜色选择
-        const colorSelect = document.getElementById('colorSelect');
-        if (colorSelect) {
-            colorSelect.value = this.petStatus.color;
-        }
-        
-        // 更新角色选择
-        const roleSelect = document.getElementById('roleSelect');
-        if (roleSelect) {
-            roleSelect.value = this.petStatus.role || '教师';
-        }
+        // 更新颜色和角色选择
+        DomHelper.setValue(DomHelper.getElement('colorSelect'), this.petStatus.color);
+        DomHelper.setValue(DomHelper.getElement('roleSelect'), this.petStatus.role || '教师');
         
         // 更新状态指示器
         this.updateStatusIndicator();
     }
     
     updateStatusIndicator() {
-        const statusIndicator = document.getElementById('statusIndicator');
-        if (statusIndicator) {
-            const statusText = statusIndicator.querySelector('.status-text');
-            const statusDot = statusIndicator.querySelector('.status-dot');
-            
-            if (statusText && statusDot) {
-                if (this.petStatus.visible) {
-                    statusText.textContent = '已激活';
-                    statusDot.style.background = CONSTANTS.UI.STATUS_DOT_ACTIVE;
-                } else {
-                    statusText.textContent = '已隐藏';
-                    statusDot.style.background = CONSTANTS.UI.STATUS_DOT_INACTIVE;
-                }
+        const statusIndicator = DomHelper.getElement('statusIndicator');
+        if (!statusIndicator) return;
+        
+        const statusText = DomHelper.querySelector(statusIndicator, '.status-text');
+        const statusDot = DomHelper.querySelector(statusIndicator, '.status-dot');
+        
+        if (statusText && statusDot) {
+            if (this.petStatus.visible) {
+                DomHelper.setText(statusText, '已激活');
+                statusDot.style.background = CONSTANTS.UI.STATUS_DOT_ACTIVE;
+            } else {
+                DomHelper.setText(statusText, '已隐藏');
+                statusDot.style.background = CONSTANTS.UI.STATUS_DOT_INACTIVE;
             }
         }
     }
     
     async sendMessageToContentScript(message, retries = CONSTANTS.RETRY.MAX_RETRIES) {
-        for (let i = 0; i < retries; i++) {
-            try {
-                console.log(`发送消息到content script (尝试 ${i + 1}/${retries}):`, message);
-                
-                // 通过background script转发消息
-                const response = await chrome.runtime.sendMessage({
-                    action: 'forwardToContentScript',
-                    tabId: this.currentTab.id,
-                    message: message
-                });
-                
-                console.log('收到响应:', response);
-                return response;
-            } catch (error) {
-                console.log(`通信失败 (尝试 ${i + 1}/${retries}):`, error.message);
-                
-                if (i === retries - 1) {
-                    // 最后一次尝试失败
-                    console.error('所有通信尝试都失败了');
-                    return null;
-                }
-                
-                // 等待一段时间后重试（指数退避）
-                const delay = CONSTANTS.RETRY.INITIAL_DELAY * (i + 1);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
+        if (!this.currentTab || !this.currentTab.id) {
+            console.error('当前标签页无效');
+            return null;
         }
-        return null;
+        return await MessageHelper.sendToContentScript(this.currentTab.id, message, { maxRetries: retries });
     }
     
     async togglePet() {
         this.setButtonLoading('toggleBtn', true);
         
-        try {
+        const result = await ErrorHandler.safeExecute(async () => {
             console.log('切换宠物可见性...');
             const response = await this.sendMessageToContentScript({ action: 'toggleVisibility' });
             
             if (response && response.success) {
                 this.petStatus.visible = response.visible !== undefined ? response.visible : !this.petStatus.visible;
-                
-                // 更新全局状态
                 await this.updateGlobalState();
-                
                 this.updateUI();
                 const message = this.petStatus.visible ? CONSTANTS.SUCCESS_MESSAGES.SHOWN : CONSTANTS.SUCCESS_MESSAGES.HIDDEN;
                 this.showNotification(message);
                 console.log('宠物状态切换成功:', this.petStatus.visible);
+                return { success: true };
             } else {
-                console.log('切换宠物状态失败，响应:', response);
-                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
+                throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
             }
-        } catch (error) {
-            console.error('切换宠物状态时出错:', error);
-            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
-        } finally {
-            this.setButtonLoading('toggleBtn', false);
-        }
+        }, { showNotification: true });
+        
+        this.setButtonLoading('toggleBtn', false);
+        return result;
     }
     
     async changePetColor() {
         this.setButtonLoading('colorBtn', true);
         
-        try {
+        const result = await ErrorHandler.safeExecute(async () => {
             const response = await this.sendMessageToContentScript({ action: 'changeColor' });
             if (response && response.success) {
                 this.petStatus.color = (this.petStatus.color + 1) % 5;
                 this.updateUI();
                 this.showNotification(CONSTANTS.SUCCESS_MESSAGES.COLOR_CHANGED);
+                return { success: true };
             } else {
-                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
+                throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
             }
-        } catch (error) {
-            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
-        } finally {
-            this.setButtonLoading('colorBtn', false);
-        }
+        }, { showNotification: true });
+        
+        this.setButtonLoading('colorBtn', false);
+        return result;
     }
     
     async setPetColor(colorIndex) {
         this.petStatus.color = colorIndex;
         
-        try {
-            // 更新全局状态
+        await ErrorHandler.safeExecute(async () => {
             await this.updateGlobalState();
-            
             const response = await this.sendMessageToContentScript({ 
                 action: 'setColor', 
                 color: colorIndex 
             });
             if (response && response.success) {
                 this.showNotification(CONSTANTS.SUCCESS_MESSAGES.COLOR_SET);
-                // 更新UI状态
                 this.updateUI();
+                return { success: true };
             } else {
-                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
+                throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
             }
-        } catch (error) {
-            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
-        }
+        }, { showNotification: true });
     }
     
     async updatePetSize(newSize) {
         this.petStatus.size = newSize;
-        const sizeValue = document.getElementById('sizeValue');
-        if (sizeValue) {
-            sizeValue.textContent = newSize;
-        }
+        DomHelper.setText(DomHelper.getElement('sizeValue'), newSize);
         
-        try {
-            // 更新全局状态
+        await ErrorHandler.safeExecute(async () => {
             await this.updateGlobalState();
-            
             const response = await this.sendMessageToContentScript({ 
                 action: 'changeSize', 
                 size: newSize 
             });
             if (response && response.success) {
-                // 大小更新成功，更新UI状态
                 this.updateUI();
+                return { success: true };
             } else {
-                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
+                throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
             }
-        } catch (error) {
-            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
-        }
+        }, { showNotification: true });
     }
     
     async resetPetPosition() {
         this.setButtonLoading('resetBtn', true);
         
-        try {
+        const result = await ErrorHandler.safeExecute(async () => {
             const response = await this.sendMessageToContentScript({ action: 'resetPosition' });
             if (response && response.success) {
                 this.petStatus.position = getPetDefaultPosition();
                 this.updateUI();
                 this.showNotification(CONSTANTS.SUCCESS_MESSAGES.POSITION_RESET);
+                return { success: true };
             } else {
-                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
+                throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
             }
-        } catch (error) {
-            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
-        } finally {
-            this.setButtonLoading('resetBtn', false);
-        }
+        }, { showNotification: true });
+        
+        this.setButtonLoading('resetBtn', false);
+        return result;
     }
     
     async centerPet() {
         this.setButtonLoading('centerBtn', true);
         
-        try {
-                const response = await this.sendMessageToContentScript({ action: 'centerPet' });
-                if (response && response.success) {
-                    // 从content script获取实际的位置信息
-                    const statusResponse = await this.sendMessageToContentScript({ action: 'getStatus' });
-                    if (statusResponse && statusResponse.position) {
-                        this.petStatus.position = statusResponse.position;
-                    }
-                    this.updateUI();
-                    this.showNotification(CONSTANTS.SUCCESS_MESSAGES.CENTERED);
+        const result = await ErrorHandler.safeExecute(async () => {
+            const response = await this.sendMessageToContentScript({ action: 'centerPet' });
+            if (response && response.success) {
+                const statusResponse = await this.sendMessageToContentScript({ action: 'getStatus' });
+                if (statusResponse && statusResponse.position) {
+                    this.petStatus.position = statusResponse.position;
+                }
+                this.updateUI();
+                this.showNotification(CONSTANTS.SUCCESS_MESSAGES.CENTERED);
+                return { success: true };
             } else {
-                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
+                throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
             }
-        } catch (error) {
-            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
-        } finally {
-            this.setButtonLoading('centerBtn', false);
-        }
+        }, { showNotification: true });
+        
+        this.setButtonLoading('centerBtn', false);
+        return result;
     }
     
     async setPetRole(role) {
         this.petStatus.role = role || '教师';
         
-        try {
-            // 更新全局状态
+        await ErrorHandler.safeExecute(async () => {
             await this.updateGlobalState();
-            
             const response = await this.sendMessageToContentScript({ 
                 action: 'setRole', 
                 role: role 
             });
             if (response && response.success) {
                 this.showNotification(`${CONSTANTS.SUCCESS_MESSAGES.ROLE_CHANGED}：${role}`);
-                // 更新UI状态
                 this.updateUI();
+                return { success: true };
             } else {
-                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
+                throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
             }
-        } catch (error) {
-            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
-        }
+        }, { showNotification: true });
     }
     
     setButtonLoading(buttonId, loading) {
-        const button = document.getElementById(buttonId);
-        if (button) {
-            if (loading) {
-                button.classList.add('loading');
-                button.disabled = true;
-            } else {
-                button.classList.remove('loading');
-                button.disabled = false;
-            }
-        }
+        DomHelper.setButtonLoading(buttonId, loading);
     }
     
     startStatusSync() {
@@ -676,6 +566,8 @@ window.addEventListener('beforeunload', () => {
         popupController.stopStatusSync();
     }
 });
+
+
 
 
 

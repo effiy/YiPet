@@ -5783,14 +5783,56 @@ if (typeof getCenterPosition === 'undefined') {
                 // 为用户消息添加按钮
                 for (const userMsg of userMessages) {
                     try {
+                        // 确保copyButtonContainer存在（如果不存在，addActionButtonsToMessage会创建它）
                         // 添加动作按钮（包括机器人按钮）
                         await this.addActionButtonsToMessage(userMsg);
                         
                         // 为用户消息添加复制按钮
                         const userBubble = userMsg.querySelector('[data-message-type="user-bubble"]');
-                        const copyButtonContainer = userMsg.querySelector('[data-copy-button-container]');
+                        let copyButtonContainer = userMsg.querySelector('[data-copy-button-container]');
+                        
+                        // 如果copyButtonContainer不存在，尝试创建它
+                        if (!copyButtonContainer && userBubble) {
+                            // 查找用户消息的content容器
+                            const content = userMsg.querySelector('div[style*="flex: 1"]') || 
+                                           userMsg.querySelector('div:last-child');
+                            if (content) {
+                                // 查找是否已有timeAndCopyContainer
+                                let timeAndCopyContainer = content.querySelector('div[style*="justify-content: space-between"]');
+                                if (!timeAndCopyContainer) {
+                                    // 创建timeAndCopyContainer
+                                    timeAndCopyContainer = document.createElement('div');
+                                    timeAndCopyContainer.style.cssText = `
+                                        display: flex !important;
+                                        align-items: center !important;
+                                        justify-content: space-between !important;
+                                        max-width: 80% !important;
+                                        width: 100% !important;
+                                        margin-top: 4px !important;
+                                        margin-left: auto !important;
+                                        box-sizing: border-box !important;
+                                    `;
+                                    content.appendChild(timeAndCopyContainer);
+                                }
+                                
+                                // 创建copyButtonContainer
+                                copyButtonContainer = document.createElement('div');
+                                copyButtonContainer.setAttribute('data-copy-button-container', 'true');
+                                copyButtonContainer.style.cssText = 'display: flex;';
+                                timeAndCopyContainer.insertBefore(copyButtonContainer, timeAndCopyContainer.firstChild);
+                            }
+                        }
+                        
                         if (copyButtonContainer && userBubble && !copyButtonContainer.querySelector('.copy-button')) {
                             this.addCopyButton(copyButtonContainer, userBubble);
+                        }
+                        
+                        // 为用户消息添加删除、编辑和重新发送按钮
+                        if (copyButtonContainer && userBubble) {
+                            // 检查是否已经添加过这些按钮（通过检查是否有删除按钮）
+                            if (!copyButtonContainer.querySelector('.delete-button')) {
+                                this.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
+                            }
                         }
                         
                         // 为用户消息添加导出按钮
@@ -37672,15 +37714,62 @@ ${pageContent || '无内容'}
                 if (timeAndCopyContainer) break;
             }
         }
-        if (!timeAndCopyContainer) {
-            console.warn('无法找到消息时间容器，按钮添加失败');
-            return;
-        }
         
         // 如果强制刷新，先移除现有按钮容器
         const existingContainer = messageDiv.querySelector('[data-message-actions]');
         const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
-        const copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+        
+        // 对于用户消息，如果找不到timeAndCopyContainer，尝试直接从messageDiv查找copyButtonContainer
+        let copyButtonContainer = null;
+        if (timeAndCopyContainer) {
+            copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
+        } else if (isUserMessage) {
+            // 用户消息：直接从messageDiv查找copyButtonContainer
+            copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]');
+            // 如果找到了copyButtonContainer，尝试找到它的父容器作为timeAndCopyContainer
+            if (copyButtonContainer && copyButtonContainer.parentElement) {
+                timeAndCopyContainer = copyButtonContainer.parentElement;
+            }
+        }
+        
+        // 如果仍然找不到timeAndCopyContainer（且不是用户消息），则返回
+        if (!timeAndCopyContainer && !isUserMessage) {
+            console.warn('无法找到消息时间容器，按钮添加失败');
+            return;
+        }
+        
+        // 对于用户消息，如果仍然找不到copyButtonContainer，尝试创建它
+        if (isUserMessage && !copyButtonContainer) {
+            // 尝试找到用户消息的content容器
+            const content = messageDiv.querySelector('div[style*="flex: 1"]') || 
+                           messageDiv.querySelector('div:last-child');
+            if (content) {
+                // 查找是否已有timeAndCopyContainer
+                let existingTimeAndCopyContainer = content.querySelector('div[style*="justify-content: space-between"]');
+                if (!existingTimeAndCopyContainer) {
+                    // 创建timeAndCopyContainer
+                    existingTimeAndCopyContainer = document.createElement('div');
+                    existingTimeAndCopyContainer.style.cssText = `
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: space-between !important;
+                        max-width: 80% !important;
+                        width: 100% !important;
+                        margin-top: 4px !important;
+                        margin-left: auto !important;
+                        box-sizing: border-box !important;
+                    `;
+                    content.appendChild(existingTimeAndCopyContainer);
+                }
+                timeAndCopyContainer = existingTimeAndCopyContainer;
+                
+                // 创建copyButtonContainer
+                copyButtonContainer = document.createElement('div');
+                copyButtonContainer.setAttribute('data-copy-button-container', 'true');
+                copyButtonContainer.style.cssText = 'display: flex;';
+                timeAndCopyContainer.insertBefore(copyButtonContainer, timeAndCopyContainer.firstChild);
+            }
+        }
         
         if (forceRefresh && existingContainer) {
             // 对于用户消息，如果按钮已经在 copyButtonContainer 内部，需要移除它们
@@ -44765,6 +44854,16 @@ ${messageContent}`;
             
             // 为用户消息添加操作按钮（包括机器人按钮）
             await this.addActionButtonsToMessage(userMessage);
+            
+            // 为用户消息添加删除、编辑和重新发送按钮
+            const userBubble = userMessage.querySelector('[data-message-type="user-bubble"]');
+            const copyButtonContainer = userMessage.querySelector('[data-copy-button-container]');
+            if (copyButtonContainer && userBubble) {
+                // 检查是否已经添加过这些按钮（通过检查是否有删除按钮）
+                if (!copyButtonContainer.querySelector('.delete-button')) {
+                    this.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
+                }
+            }
 
             // 清空输入框并重置高度
             messageInput.value = '';
@@ -47872,6 +47971,9 @@ ${messageContent}`;
                 this.addCopyButton(copyButtonContainer, messageText);
             }
             
+            // 为用户消息添加删除、编辑和重新发送按钮
+            this.addDeleteButtonForUserMessage(copyButtonContainer, messageText);
+            
             // 为用户消息添加导出图片按钮（在编辑按钮后面）
             this.addExportButtonForMessage(copyButtonContainer, messageDiv, 'user');
             
@@ -48256,28 +48358,24 @@ ${messageContent}`;
                 }
             });
 
-            if (isPetMessage) {
-                const editButton = document.createElement('button');
-                editButton.className = 'edit-button';
-                editButton.innerHTML = '✏️';
-                editButton.setAttribute('title', '编辑消息');
+            // 创建编辑按钮（用户消息和宠物消息都显示）
+            const editButton = document.createElement('button');
+            editButton.className = 'edit-button';
+            editButton.innerHTML = '✏️';
+            editButton.setAttribute('title', '编辑消息');
 
-                // 点击编辑 - 打开弹窗编辑器（类似上下文编辑器）
-                editButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.openMessageEditor(messageTextElement, 'pet');
-                });
+            // 点击编辑 - 打开弹窗编辑器
+            editButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const messageType = isPetMessage ? 'pet' : 'user';
+                this.openMessageEditor(messageTextElement, messageType);
+            });
 
-                container.innerHTML = '';
-                container.appendChild(copyButton);
-                container.appendChild(editButton);
-                container.appendChild(deleteButton);
-            } else {
-                // 用户消息只显示复制和删除按钮
-                container.innerHTML = '';
-                container.appendChild(copyButton);
-                container.appendChild(deleteButton);
-            }
+            // 清空容器并添加所有按钮
+            container.innerHTML = '';
+            container.appendChild(copyButton);
+            container.appendChild(editButton);
+            container.appendChild(deleteButton);
         }
         
         container.style.display = 'flex';
@@ -48636,7 +48734,9 @@ ${messageContent}`;
     // 为用户消息添加删除和编辑按钮
     addDeleteButtonForUserMessage(container, messageTextElement) {
         // 如果已经添加过，就不再添加
-        if (container.querySelector('.delete-button')) {
+        if (container.querySelector('.delete-button') && 
+            container.querySelector('.edit-button') && 
+            container.querySelector('.resend-button')) {
             return;
         }
 
@@ -48964,10 +49064,16 @@ ${messageContent}`;
             }
         });
 
-        container.innerHTML = '';
-        container.appendChild(editButton);
-        container.appendChild(resendButton);
-        container.appendChild(deleteButton);
+        // 只添加缺失的按钮，不清空容器（保留已有的复制按钮等）
+        if (!container.querySelector('.edit-button')) {
+            container.appendChild(editButton);
+        }
+        if (!container.querySelector('.resend-button')) {
+            container.appendChild(resendButton);
+        }
+        if (!container.querySelector('.delete-button')) {
+            container.appendChild(deleteButton);
+        }
         container.style.display = 'flex';
         container.style.gap = '8px';
     }
@@ -49191,6 +49297,16 @@ ${messageContent}`;
         
         // 为用户消息添加操作按钮（包括机器人按钮）
         await this.addActionButtonsToMessage(userMessage);
+        
+        // 为用户消息添加删除、编辑和重新发送按钮
+        const userBubble = userMessage.querySelector('[data-message-type="user-bubble"]');
+        const copyButtonContainer = userMessage.querySelector('[data-copy-button-container]');
+        if (copyButtonContainer && userBubble) {
+            // 检查是否已经添加过这些按钮（通过检查是否有删除按钮）
+            if (!copyButtonContainer.querySelector('.delete-button')) {
+                this.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
+            }
+        }
 
         // 调用 session/save 保存会话到后端
         try {
@@ -51994,6 +52110,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

@@ -5,15 +5,15 @@
 
 class ErrorHandler {
     constructor() {
-        this.errorCallbacks = [];
+        this.registeredErrorCallbacks = [];
     }
     
     /**
      * 注册错误回调
      */
-    onError(callback) {
+    registerErrorCallback(callback) {
         if (typeof callback === 'function') {
-            this.errorCallbacks.push(callback);
+            this.registeredErrorCallbacks.push(callback);
         }
     }
     
@@ -29,7 +29,7 @@ class ErrorHandler {
         };
         
         // 调用所有注册的回调
-        this.errorCallbacks.forEach(callback => {
+        this.registeredErrorCallbacks.forEach(callback => {
             try {
                 callback(errorInfo);
             } catch (e) {
@@ -51,7 +51,7 @@ class ErrorHandler {
     /**
      * 安全执行函数（自动捕获错误）
      */
-    async safeExecute(fn, context = '', defaultValue = null) {
+    async executeSafely(fn, context = '', defaultValue = null) {
         try {
             return await fn();
         } catch (error) {
@@ -63,7 +63,7 @@ class ErrorHandler {
     /**
      * 安全执行同步函数（自动捕获错误）
      */
-    safeExecuteSync(fn, context = '', defaultValue = null) {
+    executeSafelySync(fn, context = '', defaultValue = null) {
         try {
             return fn();
         } catch (error) {
@@ -75,7 +75,7 @@ class ErrorHandler {
     /**
      * 包装异步函数，自动处理错误
      */
-    wrapAsync(fn, context = '') {
+    wrapAsyncFunction(fn, context = '') {
         return async (...args) => {
             try {
                 return await fn(...args);
@@ -89,7 +89,7 @@ class ErrorHandler {
     /**
      * 包装同步函数，自动处理错误
      */
-    wrapSync(fn, context = '') {
+    wrapSyncFunction(fn, context = '') {
         return (...args) => {
             try {
                 return fn(...args);

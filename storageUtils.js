@@ -146,7 +146,7 @@ class StorageUtils {
                     
                     // 如果是配额错误，尝试清理后重试
                     if (this.isQuotaError(error)) {
-                        this._handleQuotaError(key, value, resolve);
+                        this._handleStorageQuotaError(key, value, resolve);
                         return;
                     }
                     
@@ -164,9 +164,9 @@ class StorageUtils {
     }
     
     /**
-     * 处理配额错误
+     * 处理存储配额错误
      */
-    async _handleQuotaError(key, value, resolve) {
+    async _handleStorageQuotaError(key, value, resolve) {
         try {
             // 尝试清理OSS文件列表
             chrome.storage.local.remove('petOssFiles', () => {

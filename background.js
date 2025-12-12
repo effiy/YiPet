@@ -43,37 +43,37 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 // 消息处理函数（拆分后的各个处理函数）
-function handleGetExtensionInfo(sendResponse) {
+function handleGetExtensionInfoRequest(sendResponse) {
     sendResponse({
         version: chrome.runtime.getManifest().version,
         name: chrome.runtime.getManifest().name
     });
 }
 
-function handleOpenOptionsPage(sendResponse) {
+function handleOpenOptionsPageRequest(sendResponse) {
     chrome.runtime.openOptionsPage();
     sendResponse({ success: true });
 }
 
-function handleGetActiveTab(sendResponse) {
+function handleGetActiveTabRequest(sendResponse) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         sendResponse({ tab: tabs[0] });
     });
 }
 
-function handleInjectPet(request, sender, sendResponse) {
+function handleInjectPetRequest(request, sender, sendResponse) {
     const tabId = request.tabId || sender.tab.id;
     console.log('注入宠物到标签页:', tabId);
     injectPetToTab(tabId);
     sendResponse({ success: true });
 }
 
-function handleRemovePet(sender, sendResponse) {
+function handleRemovePetRequest(sender, sendResponse) {
     removePetFromTab(sender.tab.id);
     sendResponse({ success: true });
 }
 
-function handleCaptureVisibleTab(sendResponse) {
+function handleCaptureVisibleTabRequest(sendResponse) {
     console.log('处理截图请求');
     
     chrome.permissions.contains({
@@ -88,7 +88,7 @@ function handleCaptureVisibleTab(sendResponse) {
             }, (granted) => {
                 console.log('Background权限请求结果:', granted);
                 if (granted) {
-                    performScreenshot(sendResponse);
+                    captureTabScreenshot(sendResponse);
                 } else {
                     console.error('权限请求被拒绝');
                     sendResponse({ 
@@ -98,12 +98,12 @@ function handleCaptureVisibleTab(sendResponse) {
                 }
             });
         } else {
-            performScreenshot(sendResponse);
+            captureTabScreenshot(sendResponse);
         }
     });
 }
 
-function handleCheckPermissions(sendResponse) {
+function handleCheckPermissionsRequest(sendResponse) {
     chrome.permissions.getAll((permissions) => {
         console.log('所有权限:', permissions);
         sendResponse({ 
@@ -113,7 +113,7 @@ function handleCheckPermissions(sendResponse) {
     });
 }
 
-function handleForwardToContentScript(request, sendResponse) {
+function handleForwardToContentScriptRequest(request, sendResponse) {
     console.log('转发消息到content script:', request.tabId, request.message);
     chrome.tabs.sendMessage(request.tabId, request.message, (response) => {
         if (chrome.runtime.lastError) {
@@ -141,9 +141,9 @@ function handleForwardToContentScript(request, sendResponse) {
     });
 }
 
-function handleSendToWeWorkRobot(request, sendResponse) {
+function handleSendToWeWorkRobotRequest(request, sendResponse) {
     console.log('发送消息到企微机器人:', request.webhookUrl);
-    sendToWeWorkRobot(request.webhookUrl, request.content)
+    sendMessageToWeWorkRobot(request.webhookUrl, request.content)
         .then((result) => {
             sendResponse({ success: true, result: result });
         })
@@ -153,7 +153,7 @@ function handleSendToWeWorkRobot(request, sendResponse) {
         });
 }
 
-function handleOpenLinkInNewTab(request, sendResponse) {
+function handleOpenLinkInNewTabRequest(request, sendResponse) {
     if (!request.url) {
         sendResponse({ success: false, error: 'URL参数缺失' });
         return;
@@ -180,32 +180,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Background收到消息:', request);
     
     const actionHandlers = {
-        'getExtensionInfo': () => handleGetExtensionInfo(sendResponse),
-        'openOptionsPage': () => handleOpenOptionsPage(sendResponse),
+        'getExtensionInfo': () => handleGetExtensionInfoRequest(sendResponse),
+        'openOptionsPage': () => handleOpenOptionsPageRequest(sendResponse),
         'getActiveTab': () => {
-            handleGetActiveTab(sendResponse);
+            handleGetActiveTabRequest(sendResponse);
             return true; // 保持消息通道开放
         },
-        'injectPet': () => handleInjectPet(request, sender, sendResponse),
-        'removePet': () => handleRemovePet(sender, sendResponse),
+        'injectPet': () => handleInjectPetRequest(request, sender, sendResponse),
+        'removePet': () => handleRemovePetRequest(sender, sendResponse),
         'captureVisibleTab': () => {
-            handleCaptureVisibleTab(sendResponse);
+            handleCaptureVisibleTabRequest(sendResponse);
             return true; // 保持消息通道开放
         },
         'checkPermissions': () => {
-            handleCheckPermissions(sendResponse);
+            handleCheckPermissionsRequest(sendResponse);
             return true; // 保持消息通道开放
         },
         'forwardToContentScript': () => {
-            handleForwardToContentScript(request, sendResponse);
+            handleForwardToContentScriptRequest(request, sendResponse);
             return true; // 保持消息通道开放
         },
         'sendToWeWorkRobot': () => {
-            handleSendToWeWorkRobot(request, sendResponse);
+            handleSendToWeWorkRobotRequest(request, sendResponse);
             return true; // 保持消息通道开放
         },
         'openLinkInNewTab': () => {
-            handleOpenLinkInNewTab(request, sendResponse);
+            handleOpenLinkInNewTabRequest(request, sendResponse);
             return true; // 保持消息通道开放
         }
     };
@@ -301,8 +301,8 @@ function removePetFromTab(tabId) {
     });
 }
 
-// 获取所有活动标签页
-function getAllTabs() {
+// 获取所有浏览器标签页
+function getAllBrowserTabs() {
     return new Promise((resolve) => {
         chrome.tabs.query({}, (tabs) => {
             resolve(tabs);
@@ -311,8 +311,8 @@ function getAllTabs() {
 }
 
 // 在所有标签页中执行操作
-async function executeInAllTabs(action, data = {}) {
-    const tabs = await getAllTabs();
+async function executeActionInAllTabs(action, data = {}) {
+    const tabs = await getAllBrowserTabs();
     const promises = tabs.map(tab => {
         return new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, { action, ...data }, (response) => {
@@ -325,7 +325,7 @@ async function executeInAllTabs(action, data = {}) {
 }
 
 // 执行截图的方法
-function performScreenshot(sendResponse) {
+function captureTabScreenshot(sendResponse) {
     // 检查是否有活动标签页
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (!tabs || tabs.length === 0) {
@@ -400,14 +400,14 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
             console.log('宠物设置已更新');
             
             // 通知所有标签页设置已更新
-            executeInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
         }
         
         if (changes.petGlobalState) {
             console.log('宠物全局状态已更新');
             
             // 通知所有标签页全局状态已更新
-            executeInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
             
             // 立即同步到所有活动标签页
             chrome.tabs.query({}, (tabs) => {
@@ -431,12 +431,12 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'sync') {
         if (changes.petSettings) {
             console.log('宠物设置已更新（sync）');
-            executeInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
         }
         
         if (changes.petGlobalState) {
             console.log('宠物全局状态已更新（sync，兼容旧版本）');
-            executeInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
         }
     }
 });
@@ -503,7 +503,7 @@ chrome.runtime.onSuspend.addListener(() => {
 });
 
 // 发送消息到企微机器人
-async function sendToWeWorkRobot(webhookUrl, content) {
+async function sendMessageToWeWorkRobot(webhookUrl, content) {
     try {
         // 企微机器人 markdown.content 的最大长度限制为 4096
         const MAX_LENGTH = 4096;
@@ -714,7 +714,7 @@ function rebuildRequestIndex(requests) {
  * @param {Object} newRequest - 新请求
  * @returns {Array} 去重后的请求列表
  */
-function mergeRequestToList(requests, newRequest) {
+function mergeRequestIntoList(requests, newRequest) {
     // 验证请求对象是否有效
     if (!newRequest || typeof newRequest !== 'object' || !newRequest.url || !newRequest.method) {
         return requests;
@@ -779,7 +779,7 @@ async function recordRequestToStorage(request) {
         }
         
         // 合并新请求（自动去重）
-        requests = mergeRequestToList(requests, request);
+        requests = mergeRequestIntoList(requests, request);
         
         // 保存到存储
         await chrome.storage.local.set({ apiRequests: requests });
@@ -886,8 +886,8 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         injectPetToTab,
         removePetFromTab,
-        executeInAllTabs,
-        sendToWeWorkRobot
+        executeActionInAllTabs,
+        sendMessageToWeWorkRobot
     };
 }
 

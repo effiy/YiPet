@@ -68,7 +68,7 @@
 class PopupController {
     constructor() {
         this.currentTab = null;
-        this.petStatus = {
+        this.currentPetStatus = {
             visible: CONSTANTS.DEFAULTS.PET_VISIBLE,
             color: CONSTANTS.DEFAULTS.PET_COLOR,
             size: CONSTANTS.DEFAULTS.PET_SIZE,
@@ -123,12 +123,12 @@ class PopupController {
     setupEventListeners() {
         // 使用工具类简化事件监听器设置
         const eventMap = [
-            { id: 'toggleBtn', event: 'click', handler: () => this.togglePet() },
+            { id: 'toggleBtn', event: 'click', handler: () => this.togglePetVisibility() },
             { id: 'colorBtn', event: 'click', handler: () => this.changePetColor() },
             { id: 'sizeSlider', event: 'input', handler: (e) => this.updatePetSize(parseInt(e.target.value)) },
             { id: 'colorSelect', event: 'change', handler: (e) => this.setPetColor(parseInt(e.target.value)) },
             { id: 'resetBtn', event: 'click', handler: () => this.resetPetPosition() },
-            { id: 'centerBtn', event: 'click', handler: () => this.centerPet() },
+            { id: 'centerBtn', event: 'click', handler: () => this.centerPetPosition() },
             { id: 'roleSelect', event: 'change', handler: (e) => this.setPetRole(e.target.value) }
         ];
 
@@ -147,7 +147,7 @@ class PopupController {
             const globalState = await storageUtils.loadGlobalState();
             
             if (globalState) {
-                this.petStatus = globalState;
+                this.currentPetStatus = globalState;
                 console.log('从全局存储加载状态:', globalState);
             } else {
                 // 向content script发送消息获取宠物状态
@@ -156,7 +156,7 @@ class PopupController {
                 if (response && response.success !== false) {
                     console.log('成功获取宠物状态:', response);
                     const storageUtils = new StorageUtils();
-                    this.petStatus = storageUtils.normalizeState({
+                    this.currentPetStatus = storageUtils.normalizeState({
                         visible: response.visible,
                         color: response.color,
                         size: response.size,
@@ -178,7 +178,7 @@ class PopupController {
     
     async updateGlobalState() {
         const storageUtils = new StorageUtils();
-        await storageUtils.saveGlobalState(this.petStatus);
+        await storageUtils.saveGlobalState(this.currentPetStatus);
     }
     
     async initializePet() {
@@ -232,7 +232,7 @@ class PopupController {
             const btnIcon = DomHelper.querySelector(toggleBtn, '.btn-icon');
             
             if (btnText && btnIcon) {
-                if (this.petStatus.visible) {
+                if (this.currentPetStatus.visible) {
                     DomHelper.setText(btnText, '隐藏陪伴');
                     DomHelper.setText(btnIcon, '👁️');
                 } else {
@@ -245,12 +245,12 @@ class PopupController {
         // 更新大小滑块和显示值
         const sizeSlider = DomHelper.getElement('sizeSlider');
         const sizeValue = DomHelper.getElement('sizeValue');
-        DomHelper.setValue(sizeSlider, this.petStatus.size);
-        DomHelper.setText(sizeValue, this.petStatus.size);
+        DomHelper.setValue(sizeSlider, this.currentPetStatus.size);
+        DomHelper.setText(sizeValue, this.currentPetStatus.size);
         
         // 更新颜色和角色选择
-        DomHelper.setValue(DomHelper.getElement('colorSelect'), this.petStatus.color);
-        DomHelper.setValue(DomHelper.getElement('roleSelect'), this.petStatus.role || '教师');
+        DomHelper.setValue(DomHelper.getElement('colorSelect'), this.currentPetStatus.color);
+        DomHelper.setValue(DomHelper.getElement('roleSelect'), this.currentPetStatus.role || '教师');
         
         // 更新状态指示器
         this.updateStatusIndicator();
@@ -264,7 +264,7 @@ class PopupController {
         const statusDot = DomHelper.querySelector(statusIndicator, '.status-dot');
         
         if (statusText && statusDot) {
-            if (this.petStatus.visible) {
+            if (this.currentPetStatus.visible) {
                 DomHelper.setText(statusText, '已激活');
                 statusDot.style.background = CONSTANTS.UI.STATUS_DOT_ACTIVE;
             } else {
@@ -282,7 +282,7 @@ class PopupController {
         return await MessageHelper.sendToContentScript(this.currentTab.id, message, { maxRetries: retries });
     }
     
-    async togglePet() {
+    async togglePetVisibility() {
         this.setButtonLoading('toggleBtn', true);
         
         const result = await ErrorHandler.safeExecute(async () => {
@@ -290,12 +290,12 @@ class PopupController {
             const response = await this.sendMessageToContentScript({ action: 'toggleVisibility' });
             
             if (response && response.success) {
-                this.petStatus.visible = response.visible !== undefined ? response.visible : !this.petStatus.visible;
+                this.currentPetStatus.visible = response.visible !== undefined ? response.visible : !this.currentPetStatus.visible;
                 await this.updateGlobalState();
                 this.updateUI();
-                const message = this.petStatus.visible ? CONSTANTS.SUCCESS_MESSAGES.SHOWN : CONSTANTS.SUCCESS_MESSAGES.HIDDEN;
+                const message = this.currentPetStatus.visible ? CONSTANTS.SUCCESS_MESSAGES.SHOWN : CONSTANTS.SUCCESS_MESSAGES.HIDDEN;
                 this.showNotification(message);
-                console.log('宠物状态切换成功:', this.petStatus.visible);
+                console.log('宠物状态切换成功:', this.currentPetStatus.visible);
                 return { success: true };
             } else {
                 throw new Error(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED);
@@ -312,7 +312,7 @@ class PopupController {
         const result = await ErrorHandler.safeExecute(async () => {
             const response = await this.sendMessageToContentScript({ action: 'changeColor' });
             if (response && response.success) {
-                this.petStatus.color = (this.petStatus.color + 1) % 5;
+                this.currentPetStatus.color = (this.currentPetStatus.color + 1) % 5;
                 this.updateUI();
                 this.showNotification(CONSTANTS.SUCCESS_MESSAGES.COLOR_CHANGED);
                 return { success: true };
@@ -326,7 +326,7 @@ class PopupController {
     }
     
     async setPetColor(colorIndex) {
-        this.petStatus.color = colorIndex;
+        this.currentPetStatus.color = colorIndex;
         
         await ErrorHandler.safeExecute(async () => {
             await this.updateGlobalState();
@@ -345,7 +345,7 @@ class PopupController {
     }
     
     async updatePetSize(newSize) {
-        this.petStatus.size = newSize;
+        this.currentPetStatus.size = newSize;
         DomHelper.setText(DomHelper.getElement('sizeValue'), newSize);
         
         await ErrorHandler.safeExecute(async () => {
@@ -369,7 +369,7 @@ class PopupController {
         const result = await ErrorHandler.safeExecute(async () => {
             const response = await this.sendMessageToContentScript({ action: 'resetPosition' });
             if (response && response.success) {
-                this.petStatus.position = getPetDefaultPosition();
+                this.currentPetStatus.position = getPetDefaultPosition();
                 this.updateUI();
                 this.showNotification(CONSTANTS.SUCCESS_MESSAGES.POSITION_RESET);
                 return { success: true };
@@ -382,7 +382,7 @@ class PopupController {
         return result;
     }
     
-    async centerPet() {
+    async centerPetPosition() {
         this.setButtonLoading('centerBtn', true);
         
         const result = await ErrorHandler.safeExecute(async () => {
@@ -390,7 +390,7 @@ class PopupController {
             if (response && response.success) {
                 const statusResponse = await this.sendMessageToContentScript({ action: 'getStatus' });
                 if (statusResponse && statusResponse.position) {
-                    this.petStatus.position = statusResponse.position;
+                    this.currentPetStatus.position = statusResponse.position;
                 }
                 this.updateUI();
                 this.showNotification(CONSTANTS.SUCCESS_MESSAGES.CENTERED);
@@ -405,7 +405,7 @@ class PopupController {
     }
     
     async setPetRole(role) {
-        this.petStatus.role = role || '教师';
+        this.currentPetStatus.role = role || '教师';
         
         await ErrorHandler.safeExecute(async () => {
             await this.updateGlobalState();
@@ -438,13 +438,13 @@ class PopupController {
                             const newState = changes.petGlobalState.newValue;
                             if (newState) {
                                 // 更新本地状态（所有属性都同步）
-                                this.petStatus.visible = newState.visible !== undefined ? newState.visible : this.petStatus.visible;
-                                this.petStatus.color = newState.color !== undefined ? newState.color : this.petStatus.color;
-                                this.petStatus.size = newState.size !== undefined ? newState.size : this.petStatus.size;
-                                this.petStatus.role = newState.role || this.petStatus.role || '教师';
+                                this.currentPetStatus.visible = newState.visible !== undefined ? newState.visible : this.currentPetStatus.visible;
+                                this.currentPetStatus.color = newState.color !== undefined ? newState.color : this.currentPetStatus.color;
+                                this.currentPetStatus.size = newState.size !== undefined ? newState.size : this.currentPetStatus.size;
+                                this.currentPetStatus.role = newState.role || this.currentPetStatus.role || '教师';
                                 // 位置也进行跨页面同步
                                 if (newState.position) {
-                                    this.petStatus.position = newState.position;
+                                    this.currentPetStatus.position = newState.position;
                                 }
                                 
                                 console.log('收到全局状态更新 (', namespace, '):', newState);
@@ -467,10 +467,10 @@ class PopupController {
                 const response = await this.sendMessageToContentScript({ action: 'getStatus' });
                 if (response && response.success !== false) {
                     // 更新本地状态
-                    this.petStatus.visible = response.visible !== undefined ? response.visible : this.petStatus.visible;
-                    this.petStatus.color = response.color !== undefined ? response.color : this.petStatus.color;
-                    this.petStatus.size = response.size !== undefined ? response.size : this.petStatus.size;
-                    this.petStatus.position = response.position || this.petStatus.position;
+                    this.currentPetStatus.visible = response.visible !== undefined ? response.visible : this.currentPetStatus.visible;
+                    this.currentPetStatus.color = response.color !== undefined ? response.color : this.currentPetStatus.color;
+                    this.currentPetStatus.size = response.size !== undefined ? response.size : this.currentPetStatus.size;
+                    this.currentPetStatus.position = response.position || this.currentPetStatus.position;
                     
                     // 更新UI
                     this.updateUI();

@@ -77,11 +77,11 @@ class PopupController {
     constructor() {
         this.currentTab = null;
         this.petStatus = {
-            visible: false,
-            color: 0,
-            size: 180,
+            visible: CONSTANTS.DEFAULTS.PET_VISIBLE,
+            color: CONSTANTS.DEFAULTS.PET_COLOR,
+            size: CONSTANTS.DEFAULTS.PET_SIZE,
             position: { x: 0, y: 0 },
-            role: '教师' // 默认角色
+            role: CONSTANTS.DEFAULTS.PET_ROLE
         };
         
         this.init();
@@ -94,8 +94,8 @@ class PopupController {
             this.currentTab = tabs[0];
             
             if (!this.currentTab) {
-                console.error('无法获取当前标签页');
-                this.showNotification('无法获取当前标签页，请刷新页面后重试', 'error');
+                console.error(CONSTANTS.ERROR_MESSAGES.TAB_NOT_FOUND);
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.TAB_NOT_FOUND, 'error');
                 return;
             }
             
@@ -114,7 +114,7 @@ class PopupController {
                 setTimeout(async () => {
                     await this.loadPetStatus();
                     this.updateUI();
-                }, 1000);
+                }, CONSTANTS.TIMING.CONTENT_SCRIPT_WAIT);
             } else {
                 await this.loadPetStatus();
                 this.updateUI();
@@ -124,7 +124,7 @@ class PopupController {
             this.startStatusSync();
         } catch (error) {
             console.error('初始化失败:', error);
-            this.showNotification('初始化失败，请刷新页面后重试', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.INIT_FAILED, 'error');
         }
     }
     
@@ -191,8 +191,10 @@ class PopupController {
         try {
             console.log('尝试获取宠物状态...');
             
-            // 首先尝试从Chrome存储API加载全局状态
-            const globalState = await this.loadGlobalState();
+            // 使用存储工具类加载全局状态
+            const storageUtils = new StorageUtils();
+            const globalState = await storageUtils.loadGlobalState();
+            
             if (globalState) {
                 this.petStatus = globalState;
                 console.log('从全局存储加载状态:', globalState);
@@ -202,13 +204,14 @@ class PopupController {
                 
                 if (response && response.success !== false) {
                     console.log('成功获取宠物状态:', response);
-                    this.petStatus = {
-                        visible: response.visible !== undefined ? response.visible : false,
-                        color: response.color !== undefined ? response.color : 0,
-                        size: response.size !== undefined ? response.size : 180,
-                        position: response.position || getPetDefaultPosition(),
-                        role: response.role || '教师'
-                    };
+                    const storageUtils = new StorageUtils();
+                    this.petStatus = storageUtils.normalizeState({
+                        visible: response.visible,
+                        color: response.color,
+                        size: response.size,
+                        position: response.position,
+                        role: response.role
+                    });
                 } else {
                     console.log('无法获取宠物状态，使用默认值');
                     // 如果无法获取状态，尝试初始化宠物
@@ -222,273 +225,9 @@ class PopupController {
         }
     }
     
-    async loadGlobalState() {
-        return new Promise((resolve) => {
-            // 检查 chrome.storage 是否可用
-            const isChromeStorageAvailable = () => {
-                try {
-                    return typeof chrome !== 'undefined' && 
-                           chrome.storage && 
-                           chrome.storage.local && 
-                           chrome.runtime && 
-                           chrome.runtime.id;
-                } catch (error) {
-                    return false;
-                }
-            };
-            
-            if (!isChromeStorageAvailable()) {
-                console.debug('扩展上下文已失效，从localStorage加载');
-                try {
-                    const localValue = localStorage.getItem('petGlobalState');
-                    if (localValue) {
-                        const state = JSON.parse(localValue);
-                        resolve({
-                            visible: state.visible !== undefined ? state.visible : false,
-                            color: state.color !== undefined ? state.color : 0,
-                            size: state.size !== undefined ? state.size : 180,
-                            position: state.position || getPetDefaultPosition(),
-                            role: state.role || '教师'
-                        });
-                    } else {
-                        resolve(null);
-                    }
-                } catch (error) {
-                    console.warn('从localStorage加载失败:', error);
-                    resolve(null);
-                }
-                return;
-            }
-            
-            // 优先从 local 存储加载
-            chrome.storage.local.get(['petGlobalState'], (result) => {
-                if (chrome.runtime.lastError) {
-                    console.debug('从chrome.storage.local加载失败，尝试localStorage');
-                    try {
-                        const localValue = localStorage.getItem('petGlobalState');
-                        if (localValue) {
-                            const state = JSON.parse(localValue);
-                            resolve({
-                                visible: state.visible !== undefined ? state.visible : false,
-                                color: state.color !== undefined ? state.color : 0,
-                                size: state.size !== undefined ? state.size : 180,
-                                position: state.position || getPetDefaultPosition(),
-                                role: state.role || '教师'
-                            });
-                        } else {
-                            resolve(null);
-                        }
-                    } catch (error) {
-                        console.warn('从localStorage加载失败:', error);
-                        resolve(null);
-                    }
-                    return;
-                }
-                
-                if (result.petGlobalState) {
-                    const state = result.petGlobalState;
-                    resolve({
-                        visible: state.visible !== undefined ? state.visible : false,
-                        color: state.color !== undefined ? state.color : 0,
-                        size: state.size !== undefined ? state.size : 180,
-                        position: state.position || getPetDefaultPosition(),
-                        role: state.role || '教师'
-                    });
-                } else {
-                    // 如果 local 中没有，尝试从 sync 加载（兼容旧版本）
-                    chrome.storage.sync.get(['petGlobalState'], (syncResult) => {
-                        if (chrome.runtime.lastError) {
-                            console.debug('从chrome.storage.sync加载失败，尝试localStorage');
-                            try {
-                                const localValue = localStorage.getItem('petGlobalState');
-                                if (localValue) {
-                                    const state = JSON.parse(localValue);
-                            resolve({
-                                visible: state.visible !== undefined ? state.visible : false,
-                                color: state.color !== undefined ? state.color : 0,
-                                size: state.size !== undefined ? state.size : 180,
-                                position: state.position || getPetDefaultPosition(),
-                                role: state.role || '教师'
-                            });
-                                } else {
-                                    resolve(null);
-                                }
-                            } catch (error) {
-                                console.warn('从localStorage加载失败:', error);
-                                resolve(null);
-                            }
-                            return;
-                        }
-                        
-                        if (syncResult.petGlobalState) {
-                            const state = syncResult.petGlobalState;
-                            resolve({
-                                visible: state.visible !== undefined ? state.visible : false,
-                                color: state.color !== undefined ? state.color : 0,
-                                size: state.size !== undefined ? state.size : 180,
-                                position: state.position || getPetDefaultPosition(),
-                                role: state.role || '教师'
-                            });
-                        } else {
-                            resolve(null);
-                        }
-                    });
-                }
-            });
-        });
-    }
-    
     async updateGlobalState() {
-        return new Promise(async (resolve) => {
-            const globalState = {
-                visible: this.petStatus.visible,
-                color: this.petStatus.color,
-                size: this.petStatus.size,
-                position: this.petStatus.position,
-                role: this.petStatus.role || '教师',
-                timestamp: Date.now()
-            };
-            
-            // 检查 chrome.storage 是否可用
-            const isChromeStorageAvailable = () => {
-                try {
-                    return typeof chrome !== 'undefined' && 
-                           chrome.storage && 
-                           chrome.storage.local && 
-                           chrome.runtime && 
-                           chrome.runtime.id;
-                } catch (error) {
-                    return false;
-                }
-            };
-            
-            // 检查是否是扩展上下文失效错误
-            const isContextInvalidatedError = (error) => {
-                if (!error) return false;
-                const errorMsg = (error.message || error.toString() || '').toLowerCase();
-                return errorMsg.includes('extension context invalidated') ||
-                       errorMsg.includes('context invalidated');
-            };
-            
-            // 检查是否是配额错误
-            const isQuotaError = (error) => {
-                if (!error) return false;
-                const errorMsg = error.message || error.toString();
-                return errorMsg.includes('QUOTA_BYTES') || 
-                       errorMsg.includes('quota exceeded') ||
-                       errorMsg.includes('MAX_WRITE_OPERATIONS') ||
-                       errorMsg.includes('QUOTA_BYTES_PER_HOUR');
-            };
-            
-            // 如果 chrome.storage 不可用，直接使用 localStorage
-            if (!isChromeStorageAvailable()) {
-                console.debug('扩展上下文已失效，使用localStorage保存');
-                try {
-                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                    resolve();
-                } catch (localError) {
-                    console.error('保存到localStorage失败:', localError);
-                    resolve();
-                }
-                return;
-            }
-            
-            try {
-                // 使用 chrome.storage.local 避免写入配额限制
-                chrome.storage.local.set({ petGlobalState: globalState }, async () => {
-                    if (chrome.runtime.lastError) {
-                        const error = chrome.runtime.lastError;
-                        const errorMsg = error.message || error.toString();
-                        
-                        // 检查是否是扩展上下文失效错误
-                        if (isContextInvalidatedError(error)) {
-                            console.debug('扩展上下文已失效，使用localStorage保存');
-                            try {
-                                localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                            } catch (localError) {
-                                console.error('保存到localStorage失败:', localError);
-                            }
-                            resolve();
-                            return;
-                        }
-                        
-                        console.warn('保存全局状态失败:', errorMsg);
-                        
-                        // 检查是否是配额错误
-                        if (isQuotaError(error)) {
-                            console.warn('存储配额超出，尝试清理旧数据...');
-                            // 尝试清理一些旧数据
-                            try {
-                                // 清理OSS文件列表（可以重新加载）
-                                chrome.storage.local.remove('petOssFiles', () => {
-                                    // 重试保存
-                                    chrome.storage.local.set({ petGlobalState: globalState }, (retryError) => {
-                                        if (chrome.runtime.lastError) {
-                                            const retryErr = chrome.runtime.lastError;
-                                            if (isContextInvalidatedError(retryErr)) {
-                                                console.debug('扩展上下文已失效，使用localStorage保存');
-                                                try {
-                                                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                                                } catch (localError) {
-                                                    console.error('保存到localStorage失败:', localError);
-                                                }
-                                            } else if (isQuotaError(retryErr)) {
-                                                console.warn('清理后仍然配额不足，降级到localStorage');
-                                                try {
-                                                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                                                } catch (localError) {
-                                                    console.error('保存到localStorage也失败:', localError);
-                                                }
-                                            }
-                                        }
-                                        resolve();
-                                    });
-                                });
-                            } catch (cleanupError) {
-                                console.error('清理存储失败:', cleanupError);
-                                // 降级到localStorage
-                                try {
-                                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                                } catch (localError) {
-                                    console.error('保存到localStorage也失败:', localError);
-                                }
-                                resolve();
-                            }
-                        } else {
-                            // 其他错误，直接降级到localStorage
-                            try {
-                                localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                            } catch (localError) {
-                                console.error('保存到localStorage也失败:', localError);
-                            }
-                            resolve();
-                        }
-                    } else {
-                        console.log('全局状态已更新到local存储:', globalState);
-                        // 同时保存到 localStorage 作为备份
-                        try {
-                            localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                        } catch (localError) {
-                            console.debug('保存到localStorage备份失败（可忽略）:', localError);
-                        }
-                        resolve();
-                    }
-                });
-            } catch (error) {
-                // 捕获外层错误
-                if (isContextInvalidatedError(error)) {
-                    console.debug('扩展上下文已失效，使用localStorage保存');
-                } else {
-                    console.warn('保存全局状态异常:', error.message);
-                }
-                try {
-                    localStorage.setItem('petGlobalState', JSON.stringify(globalState));
-                } catch (localError) {
-                    console.error('保存到localStorage失败:', localError);
-                }
-                resolve();
-            }
-        });
+        const storageUtils = new StorageUtils();
+        await storageUtils.saveGlobalState(this.petStatus);
     }
     
     async initializePet() {
@@ -591,16 +330,16 @@ class PopupController {
             if (statusText && statusDot) {
                 if (this.petStatus.visible) {
                     statusText.textContent = '已激活';
-                    statusDot.style.background = '#4CAF50';
+                    statusDot.style.background = CONSTANTS.UI.STATUS_DOT_ACTIVE;
                 } else {
                     statusText.textContent = '已隐藏';
-                    statusDot.style.background = '#FF9800';
+                    statusDot.style.background = CONSTANTS.UI.STATUS_DOT_INACTIVE;
                 }
             }
         }
     }
     
-    async sendMessageToContentScript(message, retries = 3) {
+    async sendMessageToContentScript(message, retries = CONSTANTS.RETRY.MAX_RETRIES) {
         for (let i = 0; i < retries; i++) {
             try {
                 console.log(`发送消息到content script (尝试 ${i + 1}/${retries}):`, message);
@@ -623,8 +362,9 @@ class PopupController {
                     return null;
                 }
                 
-                // 等待一段时间后重试
-                await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+                // 等待一段时间后重试（指数退避）
+                const delay = CONSTANTS.RETRY.INITIAL_DELAY * (i + 1);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
         return null;
@@ -644,15 +384,16 @@ class PopupController {
                 await this.updateGlobalState();
                 
                 this.updateUI();
-                this.showNotification(this.petStatus.visible ? '已显示' : '已隐藏');
+                const message = this.petStatus.visible ? CONSTANTS.SUCCESS_MESSAGES.SHOWN : CONSTANTS.SUCCESS_MESSAGES.HIDDEN;
+                this.showNotification(message);
                 console.log('宠物状态切换成功:', this.petStatus.visible);
             } else {
                 console.log('切换宠物状态失败，响应:', response);
-                this.showNotification('操作失败，请刷新页面后重试', 'error');
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
             }
         } catch (error) {
             console.error('切换宠物状态时出错:', error);
-            this.showNotification('操作失败，请刷新页面后重试', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
         } finally {
             this.setButtonLoading('toggleBtn', false);
         }
@@ -666,12 +407,12 @@ class PopupController {
             if (response && response.success) {
                 this.petStatus.color = (this.petStatus.color + 1) % 5;
                 this.updateUI();
-                this.showNotification('颜色已更换');
+                this.showNotification(CONSTANTS.SUCCESS_MESSAGES.COLOR_CHANGED);
             } else {
-                this.showNotification('操作失败，请刷新页面后重试', 'error');
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
             }
         } catch (error) {
-            this.showNotification('操作失败，请刷新页面后重试', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
         } finally {
             this.setButtonLoading('colorBtn', false);
         }
@@ -689,14 +430,14 @@ class PopupController {
                 color: colorIndex 
             });
             if (response && response.success) {
-                this.showNotification('颜色主题已设置');
+                this.showNotification(CONSTANTS.SUCCESS_MESSAGES.COLOR_SET);
                 // 更新UI状态
                 this.updateUI();
             } else {
-                this.showNotification('操作失败，请刷新页面后重试', 'error');
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
             }
         } catch (error) {
-            this.showNotification('操作失败，请刷新页面后重试', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
         }
     }
     
@@ -719,10 +460,10 @@ class PopupController {
                 // 大小更新成功，更新UI状态
                 this.updateUI();
             } else {
-                this.showNotification('大小设置失败', 'error');
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
             }
         } catch (error) {
-            this.showNotification('大小设置失败', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
         }
     }
     
@@ -734,12 +475,12 @@ class PopupController {
             if (response && response.success) {
                 this.petStatus.position = getPetDefaultPosition();
                 this.updateUI();
-                this.showNotification('位置已重置');
+                this.showNotification(CONSTANTS.SUCCESS_MESSAGES.POSITION_RESET);
             } else {
-                this.showNotification('操作失败，请刷新页面后重试', 'error');
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
             }
         } catch (error) {
-            this.showNotification('操作失败，请刷新页面后重试', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
         } finally {
             this.setButtonLoading('resetBtn', false);
         }
@@ -757,12 +498,12 @@ class PopupController {
                         this.petStatus.position = statusResponse.position;
                     }
                     this.updateUI();
-                    this.showNotification('已居中');
+                    this.showNotification(CONSTANTS.SUCCESS_MESSAGES.CENTERED);
             } else {
-                this.showNotification('操作失败，请刷新页面后重试', 'error');
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
             }
         } catch (error) {
-            this.showNotification('操作失败，请刷新页面后重试', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
         } finally {
             this.setButtonLoading('centerBtn', false);
         }
@@ -780,14 +521,14 @@ class PopupController {
                 role: role 
             });
             if (response && response.success) {
-                this.showNotification(`角色已切换为：${role}`);
+                this.showNotification(`${CONSTANTS.SUCCESS_MESSAGES.ROLE_CHANGED}：${role}`);
                 // 更新UI状态
                 this.updateUI();
             } else {
-                this.showNotification('操作失败，请刷新页面后重试', 'error');
+                this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
             }
         } catch (error) {
-            this.showNotification('操作失败，请刷新页面后重试', 'error');
+            this.showNotification(CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED, 'error');
         }
     }
     
@@ -838,7 +579,7 @@ class PopupController {
             console.debug('无法设置存储变化监听器:', error);
         }
         
-        // 每5秒同步一次状态（作为备用）
+        // 定期同步状态（作为备用）
         this.statusSyncInterval = setInterval(async () => {
             try {
                 const response = await this.sendMessageToContentScript({ action: 'getStatus' });
@@ -856,7 +597,7 @@ class PopupController {
                 // 静默处理同步错误
                 console.debug('状态同步失败:', error);
             }
-        }, 5000);
+        }, CONSTANTS.TIMING.STATUS_SYNC_INTERVAL);
     }
     
     stopStatusSync() {
@@ -872,8 +613,8 @@ class PopupController {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.textContent = message;
-        const backgroundColor = type === 'error' ? '#f44336' : 
-                               type === 'info' ? '#2196F3' : '#4CAF50';
+        const backgroundColor = type === 'error' ? CONSTANTS.UI.NOTIFICATION_ERROR : 
+                               type === 'info' ? CONSTANTS.UI.NOTIFICATION_INFO : CONSTANTS.UI.NOTIFICATION_SUCCESS;
         
         notification.style.cssText = `
             position: fixed;
@@ -914,12 +655,12 @@ class PopupController {
             document.body.appendChild(notification);
         }
         
-        // 3秒后移除通知
+        // 延迟移除通知
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
             }
-        }, 3000);
+        }, CONSTANTS.TIMING.NOTIFICATION_DURATION);
     }
 }
 

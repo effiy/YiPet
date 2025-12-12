@@ -60,19 +60,26 @@ try {
 }
 
 /**
- * 引入公共请求工具类（如果可用）
- * 优先使用全局RequestUtils，否则尝试require，最后使用本地实现
+ * 加载模块化组件
+ * Service Worker 需要使用 importScripts 来加载其他文件
  */
-let RequestUtils;
-if (typeof window !== 'undefined' && window.RequestUtils) {
-    RequestUtils = window.RequestUtils;
-} else if (typeof require !== 'undefined') {
-    try {
-        RequestUtils = require('./utils/requestUtils.js');
-    } catch (e) {
-        // 如果无法加载，使用本地实现
-        RequestUtils = null;
-    }
+try {
+    // 加载服务
+    importScripts('background/services/injectionService.js');
+    importScripts('background/services/weworkService.js');
+    
+    // 加载处理器
+    importScripts('background/handlers/extensionHandler.js');
+    importScripts('background/handlers/petHandler.js');
+    importScripts('background/handlers/screenshotHandler.js');
+    importScripts('background/handlers/messageForwardHandler.js');
+    importScripts('background/handlers/weworkHandler.js');
+    importScripts('background/handlers/tabHandler.js');
+    
+    // 加载路由
+    importScripts('background/routers/messageRouter.js');
+} catch (e) {
+    console.error('无法加载模块化组件:', e);
 }
 
 // ==================== 扩展生命周期管理 ====================
@@ -106,236 +113,78 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
 });
 
-// ==================== 消息处理函数 ====================
+// ==================== 消息路由初始化 ====================
 
 /**
- * 处理获取扩展信息请求
- * @param {Function} sendResponse - 响应回调函数
+ * 初始化消息路由
+ * 将所有消息处理器注册到路由系统中
  */
-function handleGetExtensionInfoRequest(sendResponse) {
-    sendResponse({
-        version: chrome.runtime.getManifest().version,
-        name: chrome.runtime.getManifest().name
-    });
-}
-
-/**
- * 处理打开选项页面请求
- * @param {Function} sendResponse - 响应回调函数
- */
-function handleOpenOptionsPageRequest(sendResponse) {
-    chrome.runtime.openOptionsPage();
-    sendResponse({ success: true });
-}
-
-/**
- * 处理获取活动标签页请求
- * @param {Function} sendResponse - 响应回调函数
- */
-function handleGetActiveTabRequest(sendResponse) {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        sendResponse({ tab: tabs[0] });
-    });
-}
-
-/**
- * 处理注入宠物请求
- * @param {Object} request - 请求对象
- * @param {Object} sender - 发送者信息
- * @param {Function} sendResponse - 响应回调函数
- */
-function handleInjectPetRequest(request, sender, sendResponse) {
-    const tabId = request.tabId || sender.tab.id;
-    console.log('注入宠物到标签页:', tabId);
-    injectPetToTab(tabId);
-    sendResponse({ success: true });
-}
-
-/**
- * 处理移除宠物请求
- * @param {Object} sender - 发送者信息
- * @param {Function} sendResponse - 响应回调函数
- */
-function handleRemovePetRequest(sender, sendResponse) {
-    removePetFromTab(sender.tab.id);
-    sendResponse({ success: true });
-}
-
-/**
- * 处理截图请求
- * 检查权限后执行截图操作
- * @param {Function} sendResponse - 响应回调函数
- */
-function handleCaptureVisibleTabRequest(sendResponse) {
-    console.log('处理截图请求');
+function initializeMessageRouter() {
+    const router = new MessageRouter();
     
-    // 检查是否已有activeTab权限
-    chrome.permissions.contains({
-        permissions: ['activeTab']
-    }, (hasPermission) => {
-        console.log('Background权限检查结果:', hasPermission);
-        
-        if (!hasPermission) {
-            // 如果没有权限，尝试请求权限
-            console.error('缺少activeTab权限，尝试请求权限...');
-            chrome.permissions.request({
-                permissions: ['activeTab']
-            }, (granted) => {
-                console.log('Background权限请求结果:', granted);
-                if (granted) {
-                    captureTabScreenshot(sendResponse);
-                } else {
-                    console.error('权限请求被拒绝');
-                    sendResponse({ 
-                        success: false, 
-                        error: '权限请求被拒绝，请手动在扩展管理页面中启用权限' 
-                    });
-                }
-            });
-        } else {
-            // 已有权限，直接执行截图
-            captureTabScreenshot(sendResponse);
-        }
+    // 注册扩展相关处理器
+    router.register('getExtensionInfo', (request, sender, sendResponse) => {
+        ExtensionHandler.handleGetExtensionInfo(sendResponse);
     });
-}
-
-function handleCheckPermissionsRequest(sendResponse) {
-    chrome.permissions.getAll((permissions) => {
-        console.log('所有权限:', permissions);
-        sendResponse({ 
-            success: true, 
-            permissions: permissions 
-        });
-    });
-}
-
-function handleForwardToContentScriptRequest(request, sendResponse) {
-    console.log('转发消息到content script:', request.tabId, request.message);
-    chrome.tabs.sendMessage(request.tabId, request.message, (response) => {
-        if (chrome.runtime.lastError) {
-            console.log('转发消息失败:', chrome.runtime.lastError.message);
-            if (chrome.runtime.lastError.message.includes('Could not establish connection')) {
-                console.log('尝试直接注入content script...');
-                injectContentScript(request.tabId).then(() => {
-                    setTimeout(() => {
-                        chrome.tabs.sendMessage(request.tabId, request.message, (retryResponse) => {
-                            if (chrome.runtime.lastError) {
-                                sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                            } else {
-                                sendResponse(retryResponse);
-                            }
-                        });
-                    }, CONSTANTS.TIMING.INJECT_PET_DELAY);
-                });
-                return;
-            }
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-            console.log('转发消息成功:', response);
-            sendResponse(response);
-        }
-    });
-}
-
-function handleSendToWeWorkRobotRequest(request, sendResponse) {
-    console.log('发送消息到企微机器人:', request.webhookUrl);
-    sendMessageToWeWorkRobot(request.webhookUrl, request.content)
-        .then((result) => {
-            sendResponse({ success: true, result: result });
-        })
-        .catch((error) => {
-            console.error('发送到企微机器人失败:', error);
-            sendResponse({ success: false, error: error.message || '发送失败' });
-        });
-}
-
-function handleOpenLinkInNewTabRequest(request, sendResponse) {
-    if (!request.url) {
-        sendResponse({ success: false, error: 'URL参数缺失' });
-        return;
-    }
     
-    try {
-        chrome.tabs.create({ url: request.url }, (tab) => {
-            if (chrome.runtime.lastError) {
-                console.error('打开链接失败:', chrome.runtime.lastError.message);
-                sendResponse({ success: false, error: chrome.runtime.lastError.message });
-            } else {
-                console.log('链接已在新标签页打开:', request.url);
-                sendResponse({ success: true, tabId: tab.id });
-            }
-        });
-    } catch (error) {
-        console.error('打开链接异常:', error);
-        sendResponse({ success: false, error: error.message || '打开链接失败' });
-    }
+    router.register('openOptionsPage', (request, sender, sendResponse) => {
+        ExtensionHandler.handleOpenOptionsPage(sendResponse);
+    });
+    
+    router.register('getActiveTab', (request, sender, sendResponse) => {
+        ExtensionHandler.handleGetActiveTab(sendResponse);
+    }, true); // 异步操作
+    
+    // 注册宠物相关处理器
+    router.register('injectPet', (request, sender, sendResponse) => {
+        PetHandler.handleInjectPet(request, sender, sendResponse);
+    });
+    
+    router.register('removePet', (request, sender, sendResponse) => {
+        PetHandler.handleRemovePet(sender, sendResponse);
+    });
+    
+    // 注册截图相关处理器
+    router.register('captureVisibleTab', (request, sender, sendResponse) => {
+        ScreenshotHandler.handleCaptureVisibleTab(sendResponse);
+    }, true); // 异步操作
+    
+    router.register('checkPermissions', (request, sender, sendResponse) => {
+        ScreenshotHandler.handleCheckPermissions(sendResponse);
+    }, true); // 异步操作
+    
+    // 注册消息转发处理器
+    router.register('forwardToContentScript', (request, sender, sendResponse) => {
+        MessageForwardHandler.handleForwardToContentScript(request, sendResponse);
+    }, true); // 异步操作
+    
+    // 注册企微机器人处理器
+    router.register('sendToWeWorkRobot', (request, sender, sendResponse) => {
+        WeWorkHandler.handleSendToWeWorkRobot(request, sendResponse);
+    }, true); // 异步操作
+    
+    // 注册标签页处理器
+    router.register('openLinkInNewTab', (request, sender, sendResponse) => {
+        TabHandler.handleOpenLinkInNewTab(request, sendResponse);
+    }, true); // 异步操作
+    
+    return router;
 }
 
 // ==================== 消息路由 ====================
 
 /**
+ * 初始化消息路由器
+ */
+const messageRouter = initializeMessageRouter();
+
+/**
  * 处理来自popup和content script的消息
- * 
- * 消息路由机制：
- * - 根据request.action字段路由到对应的处理函数
- * - 支持同步和异步消息处理
- * - 异步操作需要返回true以保持消息通道开放
- * 
- * 支持的消息类型：
- * - getExtensionInfo: 获取扩展信息
- * - openOptionsPage: 打开选项页面
- * - getActiveTab: 获取活动标签页（异步）
- * - injectPet: 注入宠物到标签页
- * - removePet: 移除宠物
- * - captureVisibleTab: 截图（异步）
- * - checkPermissions: 检查权限（异步）
- * - forwardToContentScript: 转发消息到content script（异步）
- * - sendToWeWorkRobot: 发送消息到企微机器人（异步）
- * - openLinkInNewTab: 在新标签页打开链接（异步）
+ * 使用统一的消息路由系统
  */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Background收到消息:', request);
-    
-    // 消息处理器映射表：action -> handler函数
-    const actionHandlers = {
-        'getExtensionInfo': () => handleGetExtensionInfoRequest(sendResponse),
-        'openOptionsPage': () => handleOpenOptionsPageRequest(sendResponse),
-        'getActiveTab': () => {
-            handleGetActiveTabRequest(sendResponse);
-            return true; // 保持消息通道开放（异步操作）
-        },
-        'injectPet': () => handleInjectPetRequest(request, sender, sendResponse),
-        'removePet': () => handleRemovePetRequest(sender, sendResponse),
-        'captureVisibleTab': () => {
-            handleCaptureVisibleTabRequest(sendResponse);
-            return true; // 保持消息通道开放（异步操作）
-        },
-        'checkPermissions': () => {
-            handleCheckPermissionsRequest(sendResponse);
-            return true; // 保持消息通道开放（异步操作）
-        },
-        'forwardToContentScript': () => {
-            handleForwardToContentScriptRequest(request, sendResponse);
-            return true; // 保持消息通道开放（异步操作）
-        },
-        'sendToWeWorkRobot': () => {
-            handleSendToWeWorkRobotRequest(request, sendResponse);
-            return true; // 保持消息通道开放（异步操作）
-        },
-        'openLinkInNewTab': () => {
-            handleOpenLinkInNewTabRequest(request, sendResponse);
-            return true; // 保持消息通道开放（异步操作）
-        }
-    };
-    
-    // 执行对应的处理器
-    const handler = actionHandlers[request.action];
-    if (handler) {
-        return handler();
-    } else {
-        // 未知的action，返回错误
-        sendResponse({ success: false, error: 'Unknown action' });
-    }
+    return messageRouter.handle(request, sender, sendResponse);
 });
 
 // ==================== 标签页管理 ====================
@@ -360,7 +209,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                 // 延迟注入，确保页面完全加载
                 setTimeout(() => {
                     console.log('自动注入宠物到标签页:', tabId);
-                    injectPetToTab(tabId);
+                    // 使用注入服务
+                    if (typeof self !== 'undefined' && self.InjectionService) {
+                        self.InjectionService.injectPetToTab(tabId);
+                    } else {
+                        injectPetToTab(tabId); // 降级方案
+                    }
                 }, CONSTANTS.TIMING.INJECT_PET_DELAY);
             } else {
                 console.log('自动注入已禁用或宠物不可见');
@@ -376,161 +230,73 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
-// ==================== 注入功能 ====================
+// ==================== 注入功能（已迁移到 InjectionService） ====================
+// 保留向后兼容的函数，实际调用服务
 
 /**
- * 直接注入content script到指定标签页
- * @param {number} tabId - 标签页ID
- * @returns {Promise<boolean>} 是否注入成功
+ * 向后兼容的注入函数
+ * @deprecated 使用 InjectionService.injectContentScript 代替
  */
 async function injectContentScript(tabId) {
-    try {
-        console.log('直接注入content script到标签页:', tabId);
-        await chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ['content.js']
-        });
-        console.log('Content script 注入成功');
-        return true;
-    } catch (error) {
-        console.log('Content script 注入失败:', error);
-        return false;
+    if (typeof self !== 'undefined' && self.InjectionService) {
+        return await self.InjectionService.injectContentScript(tabId);
+    }
+    console.warn('InjectionService 未加载，使用降级方案');
+    return false;
+}
+
+/**
+ * 向后兼容的注入宠物函数
+ * @deprecated 使用 InjectionService.injectPetToTab 代替
+ */
+function injectPetToTab(tabId) {
+    if (typeof self !== 'undefined' && self.InjectionService) {
+        self.InjectionService.injectPetToTab(tabId);
+    } else {
+        console.warn('InjectionService 未加载');
     }
 }
 
 /**
- * 向指定标签页注入宠物
- * 如果content script未加载，会先尝试注入content script
- * @param {number} tabId - 标签页ID
- */
-function injectPetToTab(tabId) {
-    console.log('尝试注入宠物到标签页:', tabId);
-    chrome.tabs.sendMessage(tabId, { action: 'initPet' }, (response) => {
-        if (chrome.runtime.lastError) {
-            console.log('无法注入宠物到标签页:', chrome.runtime.lastError.message);
-            // 如果content script还没有加载，尝试重新注入
-            if (chrome.runtime.lastError.message.includes('Could not establish connection')) {
-                console.log('Content script 可能未加载，尝试重新注入...');
-                injectContentScript(tabId).then(() => {
-                    setTimeout(() => {
-                        chrome.tabs.sendMessage(tabId, { action: 'initPet' }, (retryResponse) => {
-                            if (chrome.runtime.lastError) {
-                                console.log('重试注入失败:', chrome.runtime.lastError.message);
-                            } else {
-                                console.log('重试注入成功');
-                            }
-                        });
-                    }, CONSTANTS.TIMING.INJECT_PET_DELAY);
-                });
-            }
-        } else {
-            console.log('宠物注入成功:', response);
-        }
-    });
-}
-
-/**
- * 从指定标签页移除宠物
- * @param {number} tabId - 标签页ID
+ * 向后兼容的移除宠物函数
+ * @deprecated 使用 InjectionService.removePetFromTab 代替
  */
 function removePetFromTab(tabId) {
-    chrome.tabs.sendMessage(tabId, { action: 'removePet' }, (response) => {
-        if (chrome.runtime.lastError) {
-            console.log('无法从标签页移除宠物:', chrome.runtime.lastError.message);
-        }
-    });
+    if (typeof self !== 'undefined' && self.InjectionService) {
+        self.InjectionService.removePetFromTab(tabId);
+    } else {
+        console.warn('InjectionService 未加载');
+    }
 }
 
 /**
- * 获取所有浏览器标签页
- * @returns {Promise<Array>} 标签页数组
- */
-function getAllBrowserTabs() {
-    return new Promise((resolve) => {
-        chrome.tabs.query({}, (tabs) => {
-            resolve(tabs);
-        });
-    });
-}
-
-/**
- * 在所有标签页中执行操作
- * @param {string} action - 要执行的操作
- * @param {Object} data - 附加数据
- * @returns {Promise<Array>} 执行结果数组
+ * 向后兼容的执行所有标签页操作函数
+ * @deprecated 使用 InjectionService.executeActionInAllTabs 代替
  */
 async function executeActionInAllTabs(action, data = {}) {
-    const tabs = await getAllBrowserTabs();
-    const promises = tabs.map(tab => {
-        return new Promise((resolve) => {
-            chrome.tabs.sendMessage(tab.id, { action, ...data }, (response) => {
-                resolve({ tabId: tab.id, success: !chrome.runtime.lastError });
-            });
-        });
-    });
-    
-    return Promise.all(promises);
+    if (typeof self !== 'undefined' && self.InjectionService) {
+        return await self.InjectionService.executeActionInAllTabs(action, data);
+    }
+    console.warn('InjectionService 未加载');
+    return [];
 }
 
-// ==================== 截图功能 ====================
+// ==================== 截图功能（已迁移到 ScreenshotHandler） ====================
+// 保留向后兼容的函数，实际调用处理器
 
 /**
- * 执行标签页截图
- * 检查标签页有效性后执行截图操作
- * @param {Function} sendResponse - 响应回调函数
+ * 向后兼容的截图函数
+ * @deprecated 使用 ScreenshotHandler.captureTabScreenshot 代替
  */
 function captureTabScreenshot(sendResponse) {
-    // 检查是否有活动标签页
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs || tabs.length === 0) {
-            console.error('没有找到活动标签页');
-            sendResponse({ 
-                success: false, 
-                error: '没有找到活动标签页' 
-            });
-            return;
-        }
-        
-        const activeTab = tabs[0];
-        console.log('活动标签页:', activeTab.id, activeTab.url);
-        
-        // 检查标签页URL是否允许截图
-        if (CONSTANTS.URLS.isSystemPage(activeTab.url)) {
-            console.error('无法截取系统页面:', activeTab.url);
-            sendResponse({ 
-                success: false, 
-                error: '无法截取系统页面，请在其他网页中使用截图功能' 
-            });
-            return;
-        }
-        
-        // 使用captureVisibleTab API截图
-        chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-            if (chrome.runtime.lastError) {
-                console.error('截图失败:', chrome.runtime.lastError.message);
-                console.error('错误详情:', chrome.runtime.lastError);
-                
-                let errorMessage = chrome.runtime.lastError.message;
-                
-                // 提供更友好的错误信息
-                if (errorMessage.includes('permission') || errorMessage.includes('denied')) {
-                    errorMessage = '权限不足，请重新加载扩展或手动授予权限';
-                } else if (errorMessage.includes('not allowed')) {
-                    errorMessage = '当前页面不允许截图，请在其他网页中尝试';
-                } else if (errorMessage.includes('timeout')) {
-                    errorMessage = '截图超时，请重试';
-                }
-                
-                sendResponse({ success: false, error: errorMessage });
-            } else if (dataUrl) {
-                console.log('截图成功，数据长度:', dataUrl.length);
-                sendResponse({ success: true, dataUrl: dataUrl });
-            } else {
-                console.error('截图返回空数据');
-                sendResponse({ success: false, error: '截图返回空数据' });
-            }
-        });
-    });
+    if (typeof self !== 'undefined' && self.ScreenshotHandler) {
+        // 注意：这里需要直接调用内部函数，因为 sendResponse 需要传递
+        // 实际实现已在 ScreenshotHandler 中
+        ScreenshotHandler.handleCaptureVisibleTab(sendResponse);
+    } else {
+        console.warn('ScreenshotHandler 未加载');
+        sendResponse({ success: false, error: '截图功能未加载' });
+    }
 }
 
 // ==================== 扩展图标点击处理 ====================
@@ -560,13 +326,27 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
         if (changes.petSettings) {
             console.log('宠物设置已更新');
             // 通知所有标签页设置已更新
-            executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            const injectionService = typeof self !== 'undefined' && self.InjectionService 
+                ? self.InjectionService 
+                : null;
+            if (injectionService) {
+                injectionService.executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            } else {
+                executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            }
         }
         
         if (changes.petGlobalState) {
             console.log('宠物全局状态已更新');
             // 通知所有标签页全局状态已更新
-            executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            const injectionService = typeof self !== 'undefined' && self.InjectionService 
+                ? self.InjectionService 
+                : null;
+            if (injectionService) {
+                injectionService.executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            } else {
+                executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            }
             
             // 立即同步到所有活动标签页（确保实时性）
             chrome.tabs.query({}, (tabs) => {
@@ -589,14 +369,26 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     
     // 兼容旧版本的 sync 存储
     if (namespace === 'sync') {
+        const injectionService = typeof self !== 'undefined' && self.InjectionService 
+            ? self.InjectionService 
+            : null;
+            
         if (changes.petSettings) {
             console.log('宠物设置已更新（sync）');
-            executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            if (injectionService) {
+                injectionService.executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            } else {
+                executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
+            }
         }
         
         if (changes.petGlobalState) {
             console.log('宠物全局状态已更新（sync，兼容旧版本）');
-            executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            if (injectionService) {
+                injectionService.executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            } else {
+                executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
+            }
         }
     }
 });
@@ -685,83 +477,19 @@ chrome.runtime.onSuspend.addListener(() => {
     console.log('扩展即将被挂起');
 });
 
-// ==================== 企微机器人集成 ====================
+// ==================== 企微机器人集成（已迁移到 WeWorkService） ====================
+// 保留向后兼容的函数，实际调用服务
 
 /**
- * 发送消息到企微机器人
- * @param {string} webhookUrl - 企微机器人webhook地址
- * @param {string} content - 消息内容（Markdown格式）
- * @returns {Promise<Object>} 发送结果
+ * 向后兼容的企微机器人发送函数
+ * @deprecated 使用 WeWorkService.sendMessage 代替
  */
 async function sendMessageToWeWorkRobot(webhookUrl, content) {
-    try {
-        // 企微机器人 markdown.content 的最大长度限制
-        const MAX_LENGTH = CONSTANTS.API.MAX_WEWORK_CONTENT_LENGTH;
-        
-        // 参数验证
-        if (!webhookUrl || typeof webhookUrl !== 'string') {
-            throw new Error('webhookUrl 参数无效');
-        }
-        
-        if (!content || typeof content !== 'string') {
-            throw new Error('content 参数无效');
-        }
-        
-        // 最终长度检查：确保不超过限制（这是最后一道防线）
-        let finalContent = content;
-        const contentLength = finalContent.length;
-        
-        if (contentLength > MAX_LENGTH) {
-            console.warn(`[企微机器人] 内容长度 ${contentLength} 超过限制 ${MAX_LENGTH}，进行截断`);
-            // 在最后一个合适的断点处截断，避免截断 Markdown 语法
-            let truncated = finalContent.substring(0, MAX_LENGTH);
-            
-            // 尝试在最后一个换行符处截断
-            const lastNewline = truncated.lastIndexOf('\n');
-            if (lastNewline > MAX_LENGTH - CONSTANTS.API.MAX_WEWORK_CONTENT_TRUNCATE_MARGIN) {
-                truncated = truncated.substring(0, lastNewline);
-            }
-            
-            finalContent = truncated;
-            console.log(`[企微机器人] 截断后长度: ${finalContent.length}`);
-        }
-        
-        // 再次验证长度（双重保险）
-        if (finalContent.length > MAX_LENGTH) {
-            console.error(`[企微机器人] 截断后仍然超过限制: ${finalContent.length} > ${MAX_LENGTH}`);
-            finalContent = finalContent.substring(0, MAX_LENGTH);
-        }
-        
-        // 根据企微机器人文档，发送 markdown 消息
-        const payload = {
-            msgtype: "markdown",
-            markdown: {
-                content: finalContent
-            }
-        };
-
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-        }
-
-        const result = await response.json();
-        if (result.errcode !== 0) {
-            throw new Error(result.errmsg || '发送失败');
-        }
-
-        return result;
-    } catch (error) {
-        console.error('发送到企微机器人失败:', error);
-        throw error;
+    if (typeof self !== 'undefined' && self.WeWorkService) {
+        return await self.WeWorkService.sendMessage(webhookUrl, content);
+    } else {
+        console.warn('WeWorkService 未加载');
+        throw new Error('企微机器人服务未加载');
     }
 }
 
@@ -786,29 +514,46 @@ const MAX_REQUESTS = CONSTANTS.STORAGE.MAX_REQUESTS;
 // value: 请求在数组中的索引
 const requestIndexMap = new Map();
 
-// 使用公共工具函数（如果可用，否则使用本地实现）
-const isExtensionRequest = RequestUtils ? RequestUtils.isExtensionRequest : function(url) {
-    if (!url || typeof url !== 'string') {
-        return false;
+// ==================== 请求工具函数（已迁移到 RequestUtils） ====================
+// 这些函数现在应该从 RequestUtils 工具类中获取
+// 保留向后兼容的引用，但优先使用 RequestUtils
+
+/**
+ * 获取请求工具函数（向后兼容）
+ * 优先使用全局 RequestUtils，否则使用降级实现
+ */
+function getRequestUtils() {
+    // 尝试从全局获取
+    if (typeof self !== 'undefined' && self.RequestUtils) {
+        return self.RequestUtils;
     }
-    const extensionUrlPatterns = [
-        /^chrome-extension:\/\//i,
-        /^chrome:\/\//i,
-        /^moz-extension:\/\//i,
-        /api\.effiy\.cn/i,
-    ];
-    for (const pattern of extensionUrlPatterns) {
-        if (pattern.test(url)) {
-            return true;
-        }
+    // 尝试从 window 获取（如果可用）
+    if (typeof window !== 'undefined' && window.RequestUtils) {
+        return window.RequestUtils;
     }
-    return false;
+    // 降级：返回空对象，调用者需要处理
+    return null;
+}
+
+// 向后兼容的函数（使用 RequestUtils）
+const isExtensionRequest = function(url) {
+    const utils = getRequestUtils();
+    if (utils && utils.isExtensionRequest) {
+        return utils.isExtensionRequest(url);
+    }
+    // 降级实现
+    if (!url || typeof url !== 'string') return false;
+    const patterns = [/^chrome-extension:\/\//i, /^chrome:\/\//i, /^moz-extension:\/\//i, /api\.effiy\.cn/i];
+    return patterns.some(pattern => pattern.test(url));
 };
 
-const normalizeUrl = RequestUtils ? RequestUtils.normalizeUrl : function(url) {
-    if (!url || typeof url !== 'string') {
-        return '';
+const normalizeUrl = function(url) {
+    const utils = getRequestUtils();
+    if (utils && utils.normalizeUrl) {
+        return utils.normalizeUrl(url);
     }
+    // 降级实现
+    if (!url || typeof url !== 'string') return '';
     try {
         const urlObj = new URL(url);
         return `${urlObj.origin}${urlObj.pathname}`;
@@ -816,48 +561,43 @@ const normalizeUrl = RequestUtils ? RequestUtils.normalizeUrl : function(url) {
         const hashIndex = url.indexOf('#');
         const queryIndex = url.indexOf('?');
         let endIndex = url.length;
-        if (hashIndex !== -1) {
-            endIndex = Math.min(endIndex, hashIndex);
-        }
-        if (queryIndex !== -1) {
-            endIndex = Math.min(endIndex, queryIndex);
-        }
+        if (hashIndex !== -1) endIndex = Math.min(endIndex, hashIndex);
+        if (queryIndex !== -1) endIndex = Math.min(endIndex, queryIndex);
         return url.substring(0, endIndex);
     }
 };
 
-const formatHeaders = RequestUtils ? RequestUtils.formatHeaders : function(headers) {
+const formatHeaders = function(headers) {
+    const utils = getRequestUtils();
+    if (utils && utils.formatHeaders) {
+        return utils.formatHeaders(headers);
+    }
+    // 降级实现
     if (!headers) return {};
     if (Array.isArray(headers)) {
         const result = {};
-        headers.forEach(header => {
-            result[header.name] = header.value;
-        });
+        headers.forEach(header => { result[header.name] = header.value; });
         return result;
     }
-    if (typeof headers === 'object') {
-        return { ...headers };
-    }
-    return {};
+    return typeof headers === 'object' ? { ...headers } : {};
 };
 
-const generateCurl = RequestUtils ? RequestUtils.generateCurl : function(url, method, headers, body) {
+const generateCurl = function(url, method, headers, body) {
+    const utils = getRequestUtils();
+    if (utils && utils.generateCurl) {
+        return utils.generateCurl(url, method, headers, body);
+    }
+    // 降级实现
     let curl = `curl -X ${method}`;
-    
     if (headers && typeof headers === 'object') {
         Object.entries(headers).forEach(([key, value]) => {
             curl += ` \\\n  -H "${key}: ${value}"`;
         });
     }
-    
     if (body) {
-        if (typeof body === 'string') {
-            curl += ` \\\n  -d '${body.replace(/'/g, "\\'")}'`;
-        } else if (typeof body === 'object') {
-            curl += ` \\\n  -d '${JSON.stringify(body).replace(/'/g, "\\'")}'`;
-        }
+        const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+        curl += ` \\\n  -d '${bodyStr.replace(/'/g, "\\'")}'`;
     }
-    
     curl += ` \\\n  "${url}"`;
     return curl;
 };
@@ -1079,13 +819,18 @@ setInterval(() => {
     }
 }, CONSTANTS.TIMING.REQUEST_CLEANUP_INTERVAL);
 
-// 导出函数供其他脚本使用
+// 导出函数供其他脚本使用（向后兼容）
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         injectPetToTab,
         removePetFromTab,
         executeActionInAllTabs,
-        sendMessageToWeWorkRobot
+        sendMessageToWeWorkRobot,
+        injectContentScript,
+        captureTabScreenshot,
+        // 导出服务（如果可用）
+        InjectionService: typeof self !== 'undefined' && self.InjectionService ? self.InjectionService : null,
+        WeWorkService: typeof self !== 'undefined' && self.WeWorkService ? self.WeWorkService : null
     };
 }
 

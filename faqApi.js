@@ -123,11 +123,12 @@ class FaqApiManager {
     
     /**
      * 获取所有常见问题
-     * @returns {Promise<Array>} FAQ列表
+     * @returns {Promise<Array>} FAQ列表（按order字段排序）
      */
     async getFaqs() {
         try {
-            const url = `${this.baseUrl}/?cname=${this.cname}`;
+            // 添加排序参数，按order字段升序排序
+            const url = `${this.baseUrl}/?cname=${this.cname}&orderBy=order&orderType=asc`;
             const result = await this._request(url, { method: 'GET' });
             
             // 处理响应格式，数据在 result.data.list 里面
@@ -140,7 +141,7 @@ class FaqApiManager {
             }
             
             // 统一处理ID字段：将 id 转换为 _id（如果存在）
-            return faqs.map(faq => {
+            faqs = faqs.map(faq => {
                 if (faq.id && !faq._id) {
                     faq._id = faq.id;
                 }
@@ -150,6 +151,15 @@ class FaqApiManager {
                 }
                 return faq;
             });
+            
+            // 确保按order字段排序（双重保险）
+            faqs.sort((a, b) => {
+                const orderA = a.order !== undefined && a.order !== null ? a.order : 999999;
+                const orderB = b.order !== undefined && b.order !== null ? b.order : 999999;
+                return orderA - orderB;
+            });
+            
+            return faqs;
         } catch (error) {
             console.warn('获取常见问题列表失败:', error.message);
             return [];
@@ -158,7 +168,7 @@ class FaqApiManager {
     
     /**
      * 创建常见问题
-     * @param {Object} faqData - FAQ数据 { text: string, tags: Array<string> }
+     * @param {Object} faqData - FAQ数据 { text: string, tags: Array<string>, order: number }
      * @returns {Promise<Object>} 创建的FAQ对象
      */
     async createFaq(faqData) {
@@ -168,12 +178,18 @@ class FaqApiManager {
         
         try {
             const url = `${this.baseUrl}/?cname=${this.cname}`;
+            const requestBody = {
+                text: faqData.text,
+                tags: faqData.tags || [],
+            };
+            // 如果提供了order字段，添加到请求体中
+            if (faqData.order !== undefined && faqData.order !== null) {
+                requestBody.order = faqData.order;
+            }
+            
             const result = await this._request(url, {
                 method: 'POST',
-                body: JSON.stringify({
-                    text: faqData.text,
-                    tags: faqData.tags || [],
-                }),
+                body: JSON.stringify(requestBody),
             });
             
             // 处理不同的响应格式
@@ -193,6 +209,10 @@ class FaqApiManager {
             // 确保 tags 字段存在
             if (faq && (!faq.tags || !Array.isArray(faq.tags))) {
                 faq.tags = [];
+            }
+            // 如果返回的FAQ没有order字段，但请求中有，则设置它
+            if (faq && (faq.order === undefined || faq.order === null) && faqData.order !== undefined && faqData.order !== null) {
+                faq.order = faqData.order;
             }
             
             return faq;
@@ -308,6 +328,32 @@ class FaqApiManager {
     }
     
     /**
+     * 批量更新常见问题排序
+     * @param {Array<Object>} orders - 排序数据数组，每个项包含 { key: string, order: number }
+     * @returns {Promise<Object>} 更新结果
+     */
+    async batchUpdateOrder(orders) {
+        if (!Array.isArray(orders)) {
+            throw new Error('排序数据必须是数组');
+        }
+        
+        try {
+            const url = `${this.baseUrl}/batch-order?cname=${this.cname}`;
+            const result = await this._request(url, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    orders: orders,
+                }),
+            });
+            
+            return result;
+        } catch (error) {
+            console.error('批量更新排序失败:', error);
+            throw error;
+        }
+    }
+    
+    /**
      * 清除GET请求的缓存（用于在添加/更新/删除后刷新列表）
      */
     clearGetCache() {
@@ -345,4 +391,5 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.FaqApiManager = FaqApiManager;
 }
+
 

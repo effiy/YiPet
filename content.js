@@ -544,6 +544,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.tagFilterExpanded = false; // 标签列表是否展开（会话）
         this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量（会话）
         this.tagFilterSearchKeyword = ''; // 标签搜索关键词
+        this.tagOrder = null; // 标签顺序（从localStorage加载）
         
         // OSS文件标签过滤相关
         this.selectedOssFilterTags = []; // 选中的OSS文件过滤标签
@@ -676,6 +677,8 @@ if (typeof getCenterPosition === 'undefined') {
     }
 
     async init() {
+        // 加载标签顺序
+        this.loadTagOrder();
         console.log('初始化宠物管理器');
         
         // 初始化会话API管理器
@@ -5741,8 +5744,11 @@ if (typeof getCenterPosition === 'undefined') {
                         
                         // 添加复制按钮（编辑和删除按钮）
                         const copyButtonContainer = petMsg.querySelector('[data-copy-button-container]');
-                        if (copyButtonContainer && !copyButtonContainer.querySelector('.edit-button')) {
-                            this.addCopyButton(copyButtonContainer, petBubble);
+                        if (copyButtonContainer) {
+                            // 如果还没有复制按钮，就添加（包括复制、编辑、删除按钮）
+                            if (!copyButtonContainer.querySelector('.copy-button')) {
+                                this.addCopyButton(copyButtonContainer, petBubble);
+                            }
                         }
                         
                         // 为宠物消息添加导出按钮
@@ -5780,8 +5786,14 @@ if (typeof getCenterPosition === 'undefined') {
                         // 添加动作按钮（包括机器人按钮）
                         await this.addActionButtonsToMessage(userMsg);
                         
-                        // 为用户消息添加导出按钮
+                        // 为用户消息添加复制按钮
+                        const userBubble = userMsg.querySelector('[data-message-type="user-bubble"]');
                         const copyButtonContainer = userMsg.querySelector('[data-copy-button-container]');
+                        if (copyButtonContainer && userBubble && !copyButtonContainer.querySelector('.copy-button')) {
+                            this.addCopyButton(copyButtonContainer, userBubble);
+                        }
+                        
+                        // 为用户消息添加导出按钮
                         if (copyButtonContainer) {
                             this.addExportButtonForMessage(copyButtonContainer, userMsg, 'user');
                         }
@@ -5843,6 +5855,31 @@ if (typeof getCenterPosition === 'undefined') {
     }
 
     // 更新会话侧边栏
+    // 加载标签顺序
+    loadTagOrder() {
+        try {
+            const savedOrder = localStorage.getItem('pet_session_tag_order');
+            if (savedOrder) {
+                this.tagOrder = JSON.parse(savedOrder);
+            } else {
+                this.tagOrder = null;
+            }
+        } catch (error) {
+            console.warn('加载标签顺序失败:', error);
+            this.tagOrder = null;
+        }
+    }
+
+    // 保存标签顺序
+    saveTagOrder(tagOrder) {
+        try {
+            localStorage.setItem('pet_session_tag_order', JSON.stringify(tagOrder));
+            this.tagOrder = tagOrder;
+        } catch (error) {
+            console.warn('保存标签顺序失败:', error);
+        }
+    }
+
     // 收集所有会话的标签
     getAllTags() {
         // 使用与updateSessionSidebar相同的过滤逻辑，确保只从当前可见的会话中提取标签
@@ -5875,11 +5912,34 @@ if (typeof getCenterPosition === 'undefined') {
             }
         });
         
-        // 优先标签列表（按顺序）
-        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
-        
-        // 分离优先标签和其他标签
         const allTags = Array.from(tagSet);
+        
+        // 如果已保存标签顺序，使用保存的顺序
+        if (this.tagOrder && Array.isArray(this.tagOrder)) {
+            // 按保存的顺序排序，新标签追加到末尾
+            const orderedTags = [];
+            const unorderedTags = [];
+            
+            // 先添加已排序的标签（按保存的顺序）
+            this.tagOrder.forEach(tag => {
+                if (allTags.includes(tag)) {
+                    orderedTags.push(tag);
+                }
+            });
+            
+            // 添加未排序的新标签（按字母顺序）
+            allTags.forEach(tag => {
+                if (!this.tagOrder.includes(tag)) {
+                    unorderedTags.push(tag);
+                }
+            });
+            unorderedTags.sort();
+            
+            return [...orderedTags, ...unorderedTags];
+        }
+        
+        // 如果没有保存的顺序，使用默认优先标签列表
+        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
         const priorityTagSet = new Set(priorityTags);
         const priorityTagList = [];
         const otherTags = [];
@@ -7630,38 +7690,253 @@ if (typeof getCenterPosition === 'undefined') {
             }
         });
         
-        // 创建标签按钮
-        visibleTags.forEach(tag => {
+        // 设置标签列表为可拖拽容器
+        tagFilterList.style.cssText += `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            position: relative !important;
+        `;
+        
+        // 添加拖拽样式表（如果还没有）
+        if (!document.getElementById('tag-drag-styles')) {
+            const style = document.createElement('style');
+            style.id = 'tag-drag-styles';
+            style.textContent = `
+                .tag-filter-item {
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                }
+                .tag-filter-item:hover:not(.dragging) {
+                    transform: translateY(-1px) !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+                }
+                .tag-filter-item.dragging {
+                    opacity: 0.5 !important;
+                    transform: scale(0.92) rotate(2deg) !important;
+                    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+                    cursor: grabbing !important;
+                    z-index: 1000 !important;
+                }
+                .tag-filter-item.drag-over-top {
+                    border-top: 3px solid #4CAF50 !important;
+                    margin-top: 4px !important;
+                    padding-top: 2px !important;
+                    animation: pulse-top 0.3s ease !important;
+                }
+                .tag-filter-item.drag-over-bottom {
+                    border-bottom: 3px solid #4CAF50 !important;
+                    margin-bottom: 4px !important;
+                    padding-bottom: 2px !important;
+                    animation: pulse-bottom 0.3s ease !important;
+                }
+                @keyframes pulse-top {
+                    0%, 100% { border-top-width: 3px; margin-top: 4px; }
+                    50% { border-top-width: 4px; margin-top: 6px; }
+                }
+                @keyframes pulse-bottom {
+                    0%, 100% { border-bottom-width: 3px; margin-bottom: 4px; }
+                    50% { border-bottom-width: 4px; margin-bottom: 6px; }
+                }
+                .tag-filter-item.drag-hover {
+                    background: #f0fdf4 !important;
+                    border-color: #86efac !important;
+                    transform: scale(1.05) !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // 创建标签按钮（支持拖拽排序）
+        visibleTags.forEach((tag, index) => {
             const tagBtn = document.createElement('button');
             tagBtn.className = 'tag-filter-item';
+            tagBtn.draggable = true;
+            tagBtn.dataset.tagName = tag;
             const count = tagCounts[tag] || 0;
             tagBtn.textContent = `${tag} (${count})`;
+            tagBtn.title = `拖拽调整顺序 | 点击筛选`;
             const isSelected = this.selectedFilterTags && this.selectedFilterTags.includes(tag);
             
             tagBtn.style.cssText = `
-                padding: 3px 8px !important;
-                border-radius: 10px !important;
-                border: 1px solid ${isSelected ? '#4CAF50' : '#e5e7eb'} !important;
+                padding: 4px 10px !important;
+                border-radius: 12px !important;
+                border: 1.5px solid ${isSelected ? '#4CAF50' : '#e5e7eb'} !important;
                 background: ${isSelected ? '#4CAF50' : '#f9fafb'} !important;
                 color: ${isSelected ? 'white' : '#6b7280'} !important;
                 font-size: 10px !important;
                 font-weight: ${isSelected ? '500' : '400'} !important;
-                cursor: pointer !important;
-                transition: all 0.15s ease !important;
+                cursor: grab !important;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
                 white-space: nowrap !important;
                 line-height: 1.4 !important;
+                position: relative !important;
+                user-select: none !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
             `;
             
-            tagBtn.addEventListener('mouseenter', () => {
+            // 拖拽开始
+            tagBtn.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', tagBtn.outerHTML);
+                e.dataTransfer.setData('text/plain', tag);
+                
+                // 添加拖拽中的类名（CSS会处理样式）
+                tagBtn.classList.add('dragging');
+                
+                // 设置自定义拖拽图像
+                const dragImage = tagBtn.cloneNode(true);
+                dragImage.style.opacity = '0.8';
+                dragImage.style.transform = 'rotate(3deg)';
+                dragImage.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.2)';
+                dragImage.style.position = 'absolute';
+                dragImage.style.top = '-1000px';
+                document.body.appendChild(dragImage);
+                e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
+                
+                // 延迟移除拖拽图像
+                setTimeout(() => {
+                    if (dragImage.parentNode) {
+                        dragImage.parentNode.removeChild(dragImage);
+                    }
+                }, 0);
+            });
+            
+            // 拖拽结束
+            tagBtn.addEventListener('dragend', (e) => {
+                tagBtn.classList.remove('dragging');
+                tagBtn.style.cursor = 'grab';
+                
+                // 移除所有拖拽相关的样式和类名
+                document.querySelectorAll('.tag-filter-item').forEach(item => {
+                    item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover');
+                    item.style.borderTop = '';
+                    item.style.borderBottom = '';
+                    item.style.marginTop = '';
+                    item.style.marginBottom = '';
+                    item.style.paddingTop = '';
+                    item.style.paddingBottom = '';
+                });
+            });
+            
+            // 拖拽经过
+            tagBtn.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                
+                // 如果当前元素正在被拖拽，跳过
+                if (tagBtn.classList.contains('dragging')) {
+                    return;
+                }
+                
+                const rect = tagBtn.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                
+                // 移除所有拖拽指示样式和类名
+                document.querySelectorAll('.tag-filter-item').forEach(item => {
+                    if (!item.classList.contains('dragging')) {
+                        item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover');
+                    }
+                });
+                
+                // 根据鼠标位置显示插入位置指示
+                if (e.clientY < midY) {
+                    tagBtn.classList.add('drag-over-top');
+                    tagBtn.classList.remove('drag-over-bottom');
+                } else {
+                    tagBtn.classList.add('drag-over-bottom');
+                    tagBtn.classList.remove('drag-over-top');
+                }
+                
+                // 添加悬停效果
+                tagBtn.classList.add('drag-hover');
+            });
+            
+            // 拖拽离开
+            tagBtn.addEventListener('dragleave', (e) => {
+                // 检查鼠标是否真的离开了元素
+                const rect = tagBtn.getBoundingClientRect();
+                const x = e.clientX;
+                const y = e.clientY;
+                
+                if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                    tagBtn.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover');
+                }
+            });
+            
+            // 放置
+            tagBtn.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const draggedTag = e.dataTransfer.getData('text/plain');
+                const targetTag = tagBtn.dataset.tagName;
+                
+                if (draggedTag === targetTag) {
+                    return;
+                }
+                
+                // 获取所有标签（包括不可见的）
+                const allTags = this.getAllTags();
+                const draggedIndex = allTags.indexOf(draggedTag);
+                const targetIndex = allTags.indexOf(targetTag);
+                
+                if (draggedIndex === -1 || targetIndex === -1) {
+                    return;
+                }
+                
+                // 计算新的插入位置
+                const rect = tagBtn.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                let insertIndex = targetIndex;
+                if (e.clientY < midY) {
+                    insertIndex = targetIndex;
+                } else {
+                    insertIndex = targetIndex + 1;
+                }
+                
+                // 调整插入位置（如果拖拽的元素在目标位置之前，需要减1）
+                if (draggedIndex < insertIndex) {
+                    insertIndex -= 1;
+                }
+                
+                // 重新排序标签数组
+                const newOrder = [...allTags];
+                newOrder.splice(draggedIndex, 1);
+                newOrder.splice(insertIndex, 0, draggedTag);
+                
+                // 保存新的顺序
+                this.saveTagOrder(newOrder);
+                
+                // 显示成功提示
+                this.showNotification('标签顺序已更新', 'success');
+                
+                // 更新UI（添加平滑过渡效果）
+                setTimeout(() => {
+                    this.updateTagFilterUI();
+                }, 100);
+            });
+            
+            tagBtn.addEventListener('mouseenter', (e) => {
+                // 如果正在拖拽，不改变样式
+                if (document.querySelector('.tag-filter-item.dragging')) {
+                    return;
+                }
+                
                 if (!isSelected) {
                     tagBtn.style.borderColor = '#4CAF50';
                     tagBtn.style.background = '#f0fdf4';
                     tagBtn.style.color = '#4CAF50';
                 } else {
-                    tagBtn.style.opacity = '0.9';
+                    tagBtn.style.opacity = '0.95';
                 }
             });
             tagBtn.addEventListener('mouseleave', () => {
+                // 如果正在拖拽，不改变样式
+                if (document.querySelector('.tag-filter-item.dragging')) {
+                    return;
+                }
+                
                 if (!isSelected) {
                     tagBtn.style.borderColor = '#e5e7eb';
                     tagBtn.style.background = '#f9fafb';
@@ -7670,7 +7945,12 @@ if (typeof getCenterPosition === 'undefined') {
                     tagBtn.style.opacity = '1';
                 }
             });
-            tagBtn.addEventListener('click', () => {
+            tagBtn.addEventListener('click', (e) => {
+                // 如果是在拖拽过程中点击，不触发选中逻辑
+                if (e.detail === 0) {
+                    return;
+                }
+                
                 if (!this.selectedFilterTags) {
                     this.selectedFilterTags = [];
                 }
@@ -9319,7 +9599,7 @@ if (typeof getCenterPosition === 'undefined') {
             display: none !important;
             align-items: center !important;
             justify-content: center !important;
-            z-index: 10000 !important;
+            z-index: ${PET_CONFIG.ui.zIndex.modal + 1} !important;
         `;
         
         // 点击背景关闭（仅关闭，不进行任何操作）
@@ -10793,10 +11073,10 @@ if (typeof getCenterPosition === 'undefined') {
             this.faqSelectedFilterTags = [];
         }
         
-        // 计算每个标签对应的FAQ数量
+        // 计算每个标签对应的FAQ数量（从当前弹框中的常见问题列表获取）
         const tagCounts = {};
-        if (this.faqApi && this.faqApi.faqs) {
-            this.faqApi.faqs.forEach(faq => {
+        if (modal._currentFaqs && Array.isArray(modal._currentFaqs)) {
+            modal._currentFaqs.forEach(faq => {
                 if (faq.tags && Array.isArray(faq.tags)) {
                     faq.tags.forEach(t => {
                         if (t && t.trim()) {
@@ -10907,12 +11187,23 @@ if (typeof getCenterPosition === 'undefined') {
             }
         }
 
-        // 确保每个常见问题都有tags字段
-        faqs = faqs.map(faq => {
+        // 确保每个常见问题都有tags字段和order字段
+        faqs = faqs.map((faq, index) => {
             if (!faq.tags || !Array.isArray(faq.tags)) {
                 faq.tags = [];
             }
+            // 如果没有order字段，使用索引作为初始order值
+            if (faq.order === undefined || faq.order === null) {
+                faq.order = index;
+            }
             return faq;
+        });
+
+        // 按order字段排序（order值越小越靠前）
+        faqs.sort((a, b) => {
+            const orderA = a.order !== undefined && a.order !== null ? a.order : 999999;
+            const orderB = b.order !== undefined && b.order !== null ? b.order : 999999;
+            return orderA - orderB;
         });
 
         // 保存到modal的临时数据中
@@ -10979,149 +11270,384 @@ if (typeof getCenterPosition === 'undefined') {
 
         const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
 
-        // 使用原始索引（用于编辑和删除）
-        filteredFaqs.forEach((faq) => {
-            // 使用文本匹配
-            let originalIndex = modal._currentFaqs.findIndex(f => f.text === faq.text);
-            const index = originalIndex >= 0 ? originalIndex : 0;
+        // 使用原始索引（用于编辑、删除和排序）
+        filteredFaqs.forEach((faq, filteredIndex) => {
+            // 使用文本匹配找到原始索引
+            let originalIndex = modal._currentFaqs.findIndex(f => {
+                // 优先使用key匹配，如果没有key则使用text匹配
+                if (f.key && faq.key) {
+                    return f.key === faq.key;
+                }
+                return f.text === faq.text;
+            });
+            
+            // 如果找不到匹配项，跳过该项
+            if (originalIndex < 0) {
+                console.warn('无法找到常见问题的原始索引:', faq.text);
+                return; // 在forEach中使用return会跳过当前迭代
+            }
+            
+            const index = originalIndex;
+            
+            // 常见问题项容器（参考会话列表的布局结构）
             const faqItem = document.createElement('div');
+            faqItem.className = 'faq-item';
             faqItem.style.cssText = `
-                display: flex !important;
-                align-items: flex-start !important;
-                gap: 12px !important;
-                padding: 16px !important;
-                background: #f8fafc !important;
-                border-radius: 12px !important;
-                margin-bottom: 12px !important;
-                border: 1px solid #e2e8f0 !important;
+                padding: 12px !important;
+                margin-bottom: 8px !important;
+                background: #ffffff !important;
+                border: 1px solid #e5e7eb !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
                 transition: all 0.2s ease !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+                position: relative !important;
             `;
             
+            // 悬停效果（参考会话列表）
             faqItem.addEventListener('mouseenter', () => {
-                faqItem.style.background = '#f1f5f9';
-                faqItem.style.borderColor = '#cbd5e1';
+                faqItem.style.background = '#f9fafb !important';
+                faqItem.style.borderColor = '#d1d5db !important';
                 faqItem.style.transform = 'translateY(-1px)';
-                faqItem.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+                faqItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1) !important';
             });
             faqItem.addEventListener('mouseleave', () => {
-                faqItem.style.background = '#f8fafc';
-                faqItem.style.borderColor = '#e2e8f0';
+                faqItem.style.background = '#ffffff !important';
+                faqItem.style.borderColor = '#e5e7eb !important';
                 faqItem.style.transform = 'translateY(0)';
-                faqItem.style.boxShadow = 'none';
+                faqItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05) !important';
             });
 
-            const faqContent = document.createElement('div');
-            faqContent.style.cssText = `
-                flex: 1 !important;
+            // 常见问题信息容器（参考会话列表的session-info结构）
+            const faqInfo = document.createElement('div');
+            faqInfo.className = 'faq-info';
+            faqInfo.style.cssText = `
+                margin-bottom: 8px !important;
+            `;
+
+            // 创建标题行容器（只包含标题，不包含按钮）
+            const titleRow = document.createElement('div');
+            titleRow.style.cssText = `
                 display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
-                padding-right: 8px !important;
+                align-items: center !important;
+                width: 100% !important;
+                margin-bottom: 6px !important;
             `;
 
-            const faqText = document.createElement('div');
-            faqText.textContent = faq.text;
-            faqText.style.cssText = `
+            // 标题
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'faq-title';
+            titleDiv.textContent = faq.text;
+            titleDiv.style.cssText = `
                 font-size: 14px !important;
-                color: #1e293b !important;
-                line-height: 1.6 !important;
-                word-break: break-word !important;
+                font-weight: 600 !important;
+                color: #111827 !important;
+                line-height: 1.4 !important;
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important;
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+                flex: 1 !important;
+                min-width: 0 !important;
             `;
+            titleRow.appendChild(titleDiv);
 
-            // 标签显示
-            const faqTagsContainer = document.createElement('div');
-            faqTagsContainer.style.cssText = `
+            faqInfo.appendChild(titleRow);
+
+            // 标签区域（参考会话列表的标签样式）
+            const tagsContainer = document.createElement('div');
+            tagsContainer.className = 'faq-tags';
+            tagsContainer.style.cssText = `
                 display: flex !important;
                 flex-wrap: wrap !important;
                 gap: 4px !important;
+                margin-bottom: 8px !important;
             `;
-
-            if (faq.tags && faq.tags.length > 0) {
-                faq.tags.forEach(tag => {
-                    if (tag && tag.trim()) {
-                        const tagElement = document.createElement('span');
-                        tagElement.textContent = tag.trim();
-                        tagElement.style.cssText = `
-                            padding: 2px 6px !important;
-                            background: #f1f5f9 !important;
-                            color: #475569 !important;
-                            border-radius: 4px !important;
-                            font-size: 10px !important;
-                            border: 1px solid #e2e8f0 !important;
-                        `;
-                        faqTagsContainer.appendChild(tagElement);
-                    }
+            // 如果有标签，显示标签
+            const tags = faq.tags || [];
+            if (tags.length > 0) {
+                // 规范化标签（trim处理）
+                const normalizedTags = tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                
+                normalizedTags.forEach(tag => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'faq-tag-item';
+                    tagElement.textContent = tag;
+                    // 根据标签内容生成颜色（使用哈希函数确保相同标签颜色一致）
+                    const tagColor = this.getTagColor(tag);
+                    tagElement.style.cssText = `
+                        display: inline-block !important;
+                        padding: 3px 10px !important;
+                        background: ${tagColor.background} !important;
+                        color: ${tagColor.text} !important;
+                        border-radius: 12px !important;
+                        font-size: 11px !important;
+                        font-weight: 500 !important;
+                        border: 1px solid ${tagColor.border} !important;
+                        transition: all 0.2s ease !important;
+                        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+                    `;
+                    // 添加悬停效果
+                    tagElement.addEventListener('mouseenter', () => {
+                        tagElement.style.transform = 'translateY(-1px)';
+                        tagElement.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                    });
+                    tagElement.addEventListener('mouseleave', () => {
+                        tagElement.style.transform = 'translateY(0)';
+                        tagElement.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    });
+                    tagsContainer.appendChild(tagElement);
                 });
             }
+            faqInfo.appendChild(tagsContainer);
 
-            faqContent.appendChild(faqText);
-            if (faqTagsContainer.children.length > 0) {
-                faqContent.appendChild(faqTagsContainer);
-            }
-
-            const faqActions = document.createElement('div');
-            faqActions.style.cssText = `
+            // 底部信息（操作按钮，右对齐）
+            const footer = document.createElement('div');
+            footer.style.cssText = `
                 display: flex !important;
-                gap: 6px !important;
-                flex-shrink: 0 !important;
+                justify-content: flex-end !important;
                 align-items: center !important;
+                font-size: 11px !important;
+                color: #9ca3af !important;
+                margin-top: 8px !important;
             `;
+
+            // 操作按钮容器（右对齐）
+            const footerButtonContainer = document.createElement('div');
+            footerButtonContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                opacity: 0.7 !important;
+                transition: opacity 0.2s ease !important;
+            `;
+
+            // 上移按钮
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.className = 'faq-move-up-btn';
+            moveUpBtn.innerHTML = '↑';
+            moveUpBtn.title = '上移';
+            moveUpBtn.style.cssText = `
+                background: rgba(100, 116, 139, 0.1) !important;
+                border: 1px solid rgba(100, 116, 139, 0.2) !important;
+                cursor: pointer !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 4px !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                color: #64748b !important;
+                min-width: 28px !important;
+                height: 24px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            `;
+            // 如果是第一个，禁用上移按钮
+            const isFirst = index === 0;
+            if (isFirst) {
+                moveUpBtn.disabled = true;
+                moveUpBtn.style.opacity = '0.4';
+                moveUpBtn.style.cursor = 'not-allowed';
+            }
+            moveUpBtn.addEventListener('mouseenter', () => {
+                if (!moveUpBtn.disabled) {
+                    moveUpBtn.style.background = 'rgba(100, 116, 139, 0.2)';
+                    moveUpBtn.style.borderColor = 'rgba(100, 116, 139, 0.4)';
+                }
+            });
+            moveUpBtn.addEventListener('mouseleave', () => {
+                if (!moveUpBtn.disabled) {
+                    moveUpBtn.style.background = 'rgba(100, 116, 139, 0.1)';
+                    moveUpBtn.style.borderColor = 'rgba(100, 116, 139, 0.2)';
+                }
+            });
+            moveUpBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!moveUpBtn.disabled) {
+                    console.log('上移常见问题，索引:', index, '问题:', faq.text);
+                    await this.moveFaqUp(index);
+                }
+            });
+
+            // 下移按钮
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.className = 'faq-move-down-btn';
+            moveDownBtn.innerHTML = '↓';
+            moveDownBtn.title = '下移';
+            moveDownBtn.style.cssText = `
+                background: rgba(100, 116, 139, 0.1) !important;
+                border: 1px solid rgba(100, 116, 139, 0.2) !important;
+                cursor: pointer !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 4px !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                color: #64748b !important;
+                min-width: 28px !important;
+                height: 24px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            `;
+            // 如果是最后一个，禁用下移按钮
+            const isLast = index === modal._currentFaqs.length - 1;
+            if (isLast) {
+                moveDownBtn.disabled = true;
+                moveDownBtn.style.opacity = '0.4';
+                moveDownBtn.style.cursor = 'not-allowed';
+            }
+            moveDownBtn.addEventListener('mouseenter', () => {
+                if (!moveDownBtn.disabled) {
+                    moveDownBtn.style.background = 'rgba(100, 116, 139, 0.2)';
+                    moveDownBtn.style.borderColor = 'rgba(100, 116, 139, 0.4)';
+                }
+            });
+            moveDownBtn.addEventListener('mouseleave', () => {
+                if (!moveDownBtn.disabled) {
+                    moveDownBtn.style.background = 'rgba(100, 116, 139, 0.1)';
+                    moveDownBtn.style.borderColor = 'rgba(100, 116, 139, 0.2)';
+                }
+            });
+            moveDownBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!moveDownBtn.disabled) {
+                    console.log('下移常见问题，索引:', index, '问题:', faq.text);
+                    await this.moveFaqDown(index);
+                }
+            });
 
             // 使用按钮（点击追加到输入框）
             const useBtn = document.createElement('button');
             useBtn.textContent = '使用';
             useBtn.title = '追加到输入框';
             useBtn.style.cssText = `
-                padding: 6px 14px !important;
-                border-radius: 6px !important;
+                padding: 4px 12px !important;
+                border-radius: 4px !important;
                 background: ${mainColor} !important;
                 color: white !important;
                 border: none !important;
                 cursor: pointer !important;
-                font-size: 12px !important;
+                font-size: 11px !important;
                 font-weight: 500 !important;
                 transition: all 0.2s ease !important;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+                height: 24px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
             `;
             useBtn.addEventListener('mouseenter', () => {
+                useBtn.style.opacity = '0.9';
                 useBtn.style.transform = 'translateY(-1px)';
-                useBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.15)';
             });
             useBtn.addEventListener('mouseleave', () => {
+                useBtn.style.opacity = '1';
                 useBtn.style.transform = 'translateY(0)';
-                useBtn.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
             });
             useBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.useFaq(faq.text);
             });
 
-            // 编辑按钮
-            const editBtn = document.createElement('button');
-            editBtn.innerHTML = '✏️';
-            editBtn.title = '编辑';
-            editBtn.style.cssText = `
-                width: 32px !important;
-                height: 32px !important;
-                border-radius: 6px !important;
-                background: white !important;
-                border: 1px solid #e2e8f0 !important;
+            // 标签管理按钮
+            const tagManageBtn = document.createElement('button');
+            tagManageBtn.className = 'faq-tag-btn';
+            tagManageBtn.innerHTML = '🏷️';
+            tagManageBtn.title = '管理标签';
+            tagManageBtn.style.cssText = `
+                background: rgba(100, 116, 139, 0.1) !important;
+                border: 1px solid rgba(100, 116, 139, 0.2) !important;
                 cursor: pointer !important;
-                font-size: 14px !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 4px !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                min-width: 28px !important;
+                height: 24px !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
+            `;
+            tagManageBtn.addEventListener('mouseenter', () => {
+                tagManageBtn.style.background = 'rgba(100, 116, 139, 0.2)';
+                tagManageBtn.style.borderColor = 'rgba(100, 116, 139, 0.4)';
+            });
+            tagManageBtn.addEventListener('mouseleave', () => {
+                tagManageBtn.style.background = 'rgba(100, 116, 139, 0.1)';
+                tagManageBtn.style.borderColor = 'rgba(100, 116, 139, 0.2)';
+            });
+            tagManageBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openFaqTagManager(index);
+            });
+
+            // 复制按钮
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'faq-copy-btn';
+            copyBtn.innerHTML = '📋';
+            copyBtn.title = '复制';
+            copyBtn.style.cssText = `
+                background: rgba(100, 116, 139, 0.1) !important;
+                border: 1px solid rgba(100, 116, 139, 0.2) !important;
+                cursor: pointer !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 4px !important;
                 transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                min-width: 28px !important;
+                height: 24px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            `;
+            copyBtn.addEventListener('mouseenter', () => {
+                copyBtn.style.background = 'rgba(100, 116, 139, 0.2)';
+                copyBtn.style.borderColor = 'rgba(100, 116, 139, 0.4)';
+            });
+            copyBtn.addEventListener('mouseleave', () => {
+                copyBtn.style.background = 'rgba(100, 116, 139, 0.1)';
+                copyBtn.style.borderColor = 'rgba(100, 116, 139, 0.2)';
+            });
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.copyFaq(faq.text, copyBtn);
+            });
+
+            // 编辑按钮
+            const editBtn = document.createElement('button');
+            editBtn.className = 'faq-edit-btn';
+            editBtn.innerHTML = '✏️';
+            editBtn.title = '编辑';
+            editBtn.style.cssText = `
+                background: rgba(100, 116, 139, 0.1) !important;
+                border: 1px solid rgba(100, 116, 139, 0.2) !important;
+                cursor: pointer !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 4px !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                min-width: 28px !important;
+                height: 24px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
             `;
             editBtn.addEventListener('mouseenter', () => {
-                editBtn.style.background = '#f1f5f9';
-                editBtn.style.borderColor = '#cbd5e1';
-                editBtn.style.transform = 'scale(1.05)';
+                editBtn.style.background = 'rgba(100, 116, 139, 0.2)';
+                editBtn.style.borderColor = 'rgba(100, 116, 139, 0.4)';
             });
             editBtn.addEventListener('mouseleave', () => {
-                editBtn.style.background = 'white';
-                editBtn.style.borderColor = '#e2e8f0';
-                editBtn.style.transform = 'scale(1)';
+                editBtn.style.background = 'rgba(100, 116, 139, 0.1)';
+                editBtn.style.borderColor = 'rgba(100, 116, 139, 0.2)';
             });
             editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -11130,76 +11656,60 @@ if (typeof getCenterPosition === 'undefined') {
 
             // 删除按钮
             const removeBtn = document.createElement('button');
+            removeBtn.className = 'faq-delete-btn';
             removeBtn.innerHTML = '✕';
             removeBtn.title = '删除';
             removeBtn.style.cssText = `
-                width: 32px !important;
-                height: 32px !important;
-                border-radius: 6px !important;
-                background: white !important;
-                border: 1px solid #fee2e2 !important;
-                color: #dc2626 !important;
+                background: rgba(220, 38, 38, 0.1) !important;
+                border: 1px solid rgba(220, 38, 38, 0.2) !important;
                 cursor: pointer !important;
-                font-size: 16px !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                border-radius: 4px !important;
+                transition: all 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+                color: #dc2626 !important;
+                min-width: 28px !important;
+                height: 24px !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                transition: all 0.2s ease !important;
             `;
             removeBtn.addEventListener('mouseenter', () => {
-                removeBtn.style.background = '#fee2e2';
-                removeBtn.style.borderColor = '#fecaca';
-                removeBtn.style.transform = 'scale(1.05)';
+                removeBtn.style.background = 'rgba(220, 38, 38, 0.2)';
+                removeBtn.style.borderColor = 'rgba(220, 38, 38, 0.4)';
             });
             removeBtn.addEventListener('mouseleave', () => {
-                removeBtn.style.background = 'white';
-                removeBtn.style.borderColor = '#fee2e2';
-                removeBtn.style.transform = 'scale(1)';
+                removeBtn.style.background = 'rgba(220, 38, 38, 0.1)';
+                removeBtn.style.borderColor = 'rgba(220, 38, 38, 0.2)';
             });
             removeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.removeFaq(index);
             });
 
-            // 标签管理按钮
-            const tagManageBtn = document.createElement('button');
-            tagManageBtn.innerHTML = '🏷️';
-            tagManageBtn.title = '管理标签';
-            tagManageBtn.style.cssText = `
-                width: 32px !important;
-                height: 32px !important;
-                border-radius: 6px !important;
-                background: white !important;
-                border: 1px solid #e2e8f0 !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                transition: all 0.2s ease !important;
-            `;
-            tagManageBtn.addEventListener('mouseenter', () => {
-                tagManageBtn.style.background = '#f1f5f9';
-                tagManageBtn.style.borderColor = '#cbd5e1';
-                tagManageBtn.style.transform = 'scale(1.05)';
+            footerButtonContainer.appendChild(moveUpBtn);
+            footerButtonContainer.appendChild(moveDownBtn);
+            footerButtonContainer.appendChild(useBtn);
+            footerButtonContainer.appendChild(tagManageBtn);
+            footerButtonContainer.appendChild(copyBtn);
+            footerButtonContainer.appendChild(editBtn);
+            footerButtonContainer.appendChild(removeBtn);
+
+            footer.appendChild(footerButtonContainer);
+
+            // 悬停时显示按钮
+            faqItem.addEventListener('mouseenter', () => {
+                footerButtonContainer.style.opacity = '1';
             });
-            tagManageBtn.addEventListener('mouseleave', () => {
-                tagManageBtn.style.background = 'white';
-                tagManageBtn.style.borderColor = '#e2e8f0';
-                tagManageBtn.style.transform = 'scale(1)';
-            });
-            tagManageBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openFaqTagManager(index);
+            faqItem.addEventListener('mouseleave', () => {
+                footerButtonContainer.style.opacity = '0.7';
             });
 
-            faqActions.appendChild(useBtn);
-            faqActions.appendChild(tagManageBtn);
-            faqActions.appendChild(editBtn);
-            faqActions.appendChild(removeBtn);
+            faqInfo.appendChild(footer);
 
-            faqItem.appendChild(faqContent);
-            faqItem.appendChild(faqActions);
+            faqItem.appendChild(faqInfo);
 
             faqsContainer.appendChild(faqItem);
         });
@@ -11232,9 +11742,25 @@ if (typeof getCenterPosition === 'undefined') {
         }
 
         try {
+            // 计算新项的order值（使用当前列表的最大order值+1，如果没有则使用列表长度）
+            let maxOrder = -1;
+            if (modal._currentFaqs && modal._currentFaqs.length > 0) {
+                modal._currentFaqs.forEach(faq => {
+                    const order = faq.order !== undefined && faq.order !== null ? faq.order : -1;
+                    if (order > maxOrder) {
+                        maxOrder = order;
+                    }
+                });
+            }
+            const newOrder = maxOrder + 1;
+            
             // 使用API创建常见问题
             if (this.faqApi && this.faqApi.isEnabled()) {
-                const newFaq = await this.faqApi.createFaq({ text, tags: [] });
+                const newFaq = await this.faqApi.createFaq({ text, tags: [], order: newOrder });
+                // 如果API返回的FAQ没有order字段，手动设置
+                if (newFaq && (newFaq.order === undefined || newFaq.order === null)) {
+                    newFaq.order = newOrder;
+                }
                 // 清除GET请求缓存，确保下次加载获取最新数据
                 if (this.faqApi.clearGetCache) {
                     this.faqApi.clearGetCache();
@@ -11250,7 +11776,7 @@ if (typeof getCenterPosition === 'undefined') {
                 this.showNotification('常见问题已添加', 'success');
             } else {
                 // 降级方案：添加到列表并保存到本地存储
-                const newFaq = { text, tags: [] };
+                const newFaq = { text, tags: [], order: newOrder };
                 modal._currentFaqs.push(newFaq);
                 await this.saveFaqs(modal._currentFaqs);
                 // 重新加载显示
@@ -11270,7 +11796,7 @@ if (typeof getCenterPosition === 'undefined') {
         faqInput.focus();
     }
 
-    // 打开常见问题标签管理器
+    // 打开常见问题标签管理器（参考会话列表的标签管理功能）
     openFaqTagManager(faqIndex) {
         const modal = this.chatWindow?.querySelector('#pet-faq-manager');
         if (!modal || !modal._currentFaqs) return;
@@ -11289,9 +11815,14 @@ if (typeof getCenterPosition === 'undefined') {
         }
 
         // 显示弹窗
-        tagModal.style.setProperty('display', 'flex', 'important');
-        tagModal.style.setProperty('opacity', '1', 'important');
+        tagModal.style.display = 'flex';
         tagModal.dataset.faqIndex = faqIndex;
+
+        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
 
         // 加载当前标签
         this.loadFaqTagsIntoManager(faqIndex, currentTags);
@@ -11308,9 +11839,10 @@ if (typeof getCenterPosition === 'undefined') {
             saveBtn.onclick = () => this.saveFaqTags(faqIndex);
         }
 
-        // 添加输入框回车事件
+        // 添加输入框回车事件（兼容中文输入法）
         const tagInput = tagModal.querySelector('.faq-tag-manager-input');
         if (tagInput) {
+            // 确保输入法组合状态已初始化（如果输入框是新创建的）
             if (tagInput._isComposing === undefined) {
                 tagInput._isComposing = false;
                 tagInput.addEventListener('compositionstart', () => {
@@ -11320,25 +11852,28 @@ if (typeof getCenterPosition === 'undefined') {
                     tagInput._isComposing = false;
                 });
             }
-
+            
+            // 添加回车键事件处理（移除旧的监听器，避免重复绑定）
             const existingHandler = tagInput._enterKeyHandler;
             if (existingHandler) {
                 tagInput.removeEventListener('keydown', existingHandler);
             }
-
+            
             const enterKeyHandler = (e) => {
+                // 如果在输入法组合过程中，忽略回车键
                 if (tagInput._isComposing) {
                     return;
                 }
-
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+                
+                if (e.key === 'Enter') {
                     e.preventDefault();
                     this.addFaqTagFromInput(faqIndex);
                 }
             };
-
+            
             tagInput._enterKeyHandler = enterKeyHandler;
             tagInput.addEventListener('keydown', enterKeyHandler);
+            
             tagInput.focus();
         }
 
@@ -11353,31 +11888,27 @@ if (typeof getCenterPosition === 'undefined') {
         tagModal._escHandler = escHandler;
     }
 
-    // 确保常见问题标签管理器UI存在
+    // 确保常见问题标签管理器UI存在（参考会话列表的标签管理功能）
     ensureFaqTagManagerUi() {
         if (!this.chatWindow) return;
         if (this.chatWindow.querySelector('#pet-faq-tag-manager')) return;
 
-        const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-
         const modal = document.createElement('div');
         modal.id = 'pet-faq-tag-manager';
         modal.style.cssText = `
-            position: absolute !important;
+            position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
             bottom: 0 !important;
-            background: rgba(0, 0, 0, 0.4) !important;
-            backdrop-filter: blur(2px) !important;
+            background: rgba(0, 0, 0, 0.5) !important;
             display: none !important;
             align-items: center !important;
             justify-content: center !important;
             z-index: ${PET_CONFIG.ui.zIndex.modal + 1} !important;
-            opacity: 0 !important;
-            transition: opacity 0.2s ease !important;
         `;
-
+        
+        // 点击背景关闭
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeFaqTagManager();
@@ -11385,20 +11916,15 @@ if (typeof getCenterPosition === 'undefined') {
         });
 
         const panel = document.createElement('div');
-        panel.className = 'faq-tag-manager-panel';
         panel.style.cssText = `
             background: white !important;
-            border-radius: 16px !important;
-            padding: 0 !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
             width: 90% !important;
-            max-width: 500px !important;
-            max-height: 80% !important;
-            overflow: hidden !important;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-            display: flex !important;
-            flex-direction: column !important;
-            transform: scale(0.95) !important;
-            transition: transform 0.2s ease !important;
+            max-width: 800px !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
         `;
 
         // 标题
@@ -11407,103 +11933,219 @@ if (typeof getCenterPosition === 'undefined') {
             display: flex !important;
             justify-content: space-between !important;
             align-items: center !important;
-            padding: 20px 24px !important;
-            border-bottom: 1px solid #e5e7eb !important;
+            margin-bottom: 20px !important;
         `;
-
+        
         const title = document.createElement('h3');
-        title.textContent = '🏷️ 管理标签';
+        title.textContent = '管理标签';
         title.style.cssText = `
             margin: 0 !important;
             font-size: 18px !important;
             font-weight: 600 !important;
-            color: #1e293b !important;
+            color: #333 !important;
         `;
 
         const closeBtn = document.createElement('button');
         closeBtn.className = 'faq-tag-manager-close';
         closeBtn.innerHTML = '✕';
         closeBtn.style.cssText = `
-            background: rgba(0, 0, 0, 0.05) !important;
+            background: none !important;
             border: none !important;
-            font-size: 20px !important;
+            font-size: 24px !important;
             cursor: pointer !important;
-            color: #64748b !important;
+            color: #999 !important;
             padding: 0 !important;
-            width: 32px !important;
-            height: 32px !important;
+            width: 30px !important;
+            height: 30px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            border-radius: 8px !important;
+            border-radius: 4px !important;
             transition: all 0.2s ease !important;
         `;
         closeBtn.addEventListener('mouseenter', () => {
-            closeBtn.style.background = 'rgba(0, 0, 0, 0.1)';
-            closeBtn.style.color = '#1e293b';
+            closeBtn.style.background = '#f0f0f0';
+            closeBtn.style.color = '#333';
         });
         closeBtn.addEventListener('mouseleave', () => {
-            closeBtn.style.background = 'rgba(0, 0, 0, 0.05)';
-            closeBtn.style.color = '#64748b';
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#999';
         });
 
         header.appendChild(title);
         header.appendChild(closeBtn);
 
-        // 内容区域
-        const content = document.createElement('div');
-        content.style.cssText = `
-            padding: 24px !important;
-            overflow-y: auto !important;
-            flex: 1 !important;
-            min-height: 0 !important;
-        `;
-
         // 输入区域
         const inputGroup = document.createElement('div');
+        inputGroup.className = 'faq-tag-manager-input-group';
         inputGroup.style.cssText = `
             display: flex !important;
             gap: 8px !important;
-            margin-bottom: 16px !important;
+            margin-bottom: 20px !important;
         `;
 
         const tagInput = document.createElement('input');
-        tagInput.type = 'text';
         tagInput.className = 'faq-tag-manager-input';
-        tagInput.placeholder = '输入标签，按 Ctrl+Enter 添加';
+        tagInput.type = 'text';
+        tagInput.placeholder = '输入标签名称，按回车添加';
         tagInput.style.cssText = `
             flex: 1 !important;
-            padding: 10px 14px !important;
-            border: 2px solid #e2e8f0 !important;
-            border-radius: 8px !important;
+            padding: 10px 12px !important;
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 6px !important;
             font-size: 14px !important;
             outline: none !important;
-            transition: all 0.2s ease !important;
+            transition: border-color 0.2s ease !important;
         `;
-
+        
+        // 输入法组合状态跟踪（用于处理中文输入）
+        tagInput._isComposing = false;
+        tagInput.addEventListener('compositionstart', () => {
+            tagInput._isComposing = true;
+        });
+        tagInput.addEventListener('compositionend', () => {
+            tagInput._isComposing = false;
+        });
+        
         tagInput.addEventListener('focus', () => {
-            tagInput.style.borderColor = mainColor;
-            tagInput.style.boxShadow = `0 0 0 3px ${mainColor}20`;
+            tagInput.style.borderColor = '#4CAF50';
         });
         tagInput.addEventListener('blur', () => {
-            tagInput.style.borderColor = '#e2e8f0';
-            tagInput.style.boxShadow = 'none';
+            tagInput.style.borderColor = '#e0e0e0';
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加';
+        addBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #4CAF50 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+        `;
+        addBtn.addEventListener('mouseenter', () => {
+            addBtn.style.background = '#45a049';
+        });
+        addBtn.addEventListener('mouseleave', () => {
+            addBtn.style.background = '#4CAF50';
+        });
+        addBtn.addEventListener('click', () => {
+            const faqIndex = modal.dataset.faqIndex;
+            if (faqIndex !== undefined) {
+                this.addFaqTagFromInput(parseInt(faqIndex));
+            }
+        });
+
+        // 智能生成标签按钮
+        const smartGenerateBtn = document.createElement('button');
+        smartGenerateBtn.className = 'faq-tag-manager-smart-generate';
+        smartGenerateBtn.textContent = '✨ 智能生成';
+        smartGenerateBtn.style.cssText = `
+            padding: 10px 20px !important;
+            background: #9C27B0 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: background 0.2s ease !important;
+            white-space: nowrap !important;
+        `;
+        smartGenerateBtn.addEventListener('mouseenter', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#7B1FA2';
+            }
+        });
+        smartGenerateBtn.addEventListener('mouseleave', () => {
+            if (!smartGenerateBtn.disabled) {
+                smartGenerateBtn.style.background = '#9C27B0';
+            }
+        });
+        smartGenerateBtn.addEventListener('click', () => {
+            const faqIndex = modal.dataset.faqIndex;
+            if (faqIndex !== undefined) {
+                this.generateFaqSmartTags(parseInt(faqIndex), smartGenerateBtn);
+            }
         });
 
         inputGroup.appendChild(tagInput);
+        inputGroup.appendChild(addBtn);
+        inputGroup.appendChild(smartGenerateBtn);
+
+        // 快捷标签按钮容器
+        const quickTagsContainer = document.createElement('div');
+        quickTagsContainer.className = 'faq-tag-manager-quick-tags';
+        quickTagsContainer.style.cssText = `
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            margin-bottom: 20px !important;
+        `;
+
+        // 快捷标签列表
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        
+        quickTags.forEach(tagName => {
+            const quickTagBtn = document.createElement('button');
+            quickTagBtn.textContent = tagName;
+            quickTagBtn.className = 'faq-tag-manager-quick-tag-btn';
+            quickTagBtn.dataset.tagName = tagName;
+            quickTagBtn.style.cssText = `
+                padding: 6px 12px !important;
+                background: #f0f0f0 !important;
+                color: #333 !important;
+                border: 1px solid #d0d0d0 !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 13px !important;
+                transition: all 0.2s ease !important;
+            `;
+            quickTagBtn.addEventListener('mouseenter', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#e0e0e0';
+                quickTagBtn.style.borderColor = '#4CAF50';
+            });
+            quickTagBtn.addEventListener('mouseleave', () => {
+                // 如果标签已添加，不改变样式
+                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
+                    return;
+                }
+                quickTagBtn.style.background = '#f0f0f0';
+                quickTagBtn.style.borderColor = '#d0d0d0';
+            });
+            quickTagBtn.addEventListener('click', () => {
+                // 如果标签已添加，不执行操作
+                if (quickTagBtn.style.cursor === 'not-allowed') {
+                    return;
+                }
+                const faqIndex = modal.dataset.faqIndex;
+                if (faqIndex !== undefined) {
+                    this.addFaqQuickTag(parseInt(faqIndex), tagName);
+                }
+            });
+            quickTagsContainer.appendChild(quickTagBtn);
+        });
 
         // 标签列表
         const tagsContainer = document.createElement('div');
         tagsContainer.className = 'faq-tag-manager-tags';
         tagsContainer.style.cssText = `
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 8px !important;
-            min-height: 40px !important;
+            min-height: 100px !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            margin-bottom: 20px !important;
+            padding: 12px !important;
+            background: #f8f9fa !important;
+            border-radius: 6px !important;
         `;
-
-        content.appendChild(inputGroup);
-        content.appendChild(tagsContainer);
 
         // 底部按钮
         const footer = document.createElement('div');
@@ -11511,23 +12153,26 @@ if (typeof getCenterPosition === 'undefined') {
             display: flex !important;
             justify-content: flex-end !important;
             gap: 10px !important;
-            padding: 16px 24px !important;
-            border-top: 1px solid #e5e7eb !important;
         `;
 
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = '取消';
         cancelBtn.style.cssText = `
             padding: 10px 20px !important;
-            background: white !important;
-            color: #64748b !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 8px !important;
+            background: #f0f0f0 !important;
+            color: #333 !important;
+            border: none !important;
+            border-radius: 6px !important;
             cursor: pointer !important;
             font-size: 14px !important;
-            font-weight: 500 !important;
-            transition: all 0.2s ease !important;
+            transition: background 0.2s ease !important;
         `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#e0e0e0';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#f0f0f0';
+        });
         cancelBtn.addEventListener('click', () => this.closeFaqTagManager());
 
         const saveBtn = document.createElement('button');
@@ -11535,33 +12180,35 @@ if (typeof getCenterPosition === 'undefined') {
         saveBtn.textContent = '保存';
         saveBtn.style.cssText = `
             padding: 10px 20px !important;
-            background: ${mainColor} !important;
+            background: #2196F3 !important;
             color: white !important;
             border: none !important;
-            border-radius: 8px !important;
+            border-radius: 6px !important;
             cursor: pointer !important;
             font-size: 14px !important;
             font-weight: 500 !important;
-            transition: all 0.2s ease !important;
+            transition: background 0.2s ease !important;
         `;
         saveBtn.addEventListener('mouseenter', () => {
-            saveBtn.style.opacity = '0.9';
+            saveBtn.style.background = '#1976D2';
         });
         saveBtn.addEventListener('mouseleave', () => {
-            saveBtn.style.opacity = '1';
+            saveBtn.style.background = '#2196F3';
         });
 
         footer.appendChild(cancelBtn);
         footer.appendChild(saveBtn);
 
         panel.appendChild(header);
-        panel.appendChild(content);
+        panel.appendChild(inputGroup);
+        panel.appendChild(quickTagsContainer);
+        panel.appendChild(tagsContainer);
         panel.appendChild(footer);
         modal.appendChild(panel);
         this.chatWindow.appendChild(modal);
     }
 
-    // 加载常见问题标签到管理器
+    // 加载常见问题标签到管理器（参考会话列表的标签显示样式）
     loadFaqTagsIntoManager(faqIndex, tags) {
         const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
         if (!tagModal) return;
@@ -11575,69 +12222,91 @@ if (typeof getCenterPosition === 'undefined') {
         tagModal._currentTags = tags ? [...tags] : [];
 
         if (!tags || tags.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.textContent = '暂无标签';
+            emptyMsg.style.cssText = `
+                text-align: center !important;
+                color: #999 !important;
+                padding: 20px !important;
+                font-size: 14px !important;
+            `;
+            tagsContainer.appendChild(emptyMsg);
             return;
         }
 
         tags.forEach((tag, index) => {
             if (!tag || !tag.trim()) return;
 
-            const tagElement = document.createElement('div');
-            tagElement.style.cssText = `
-                display: flex !important;
+            const tagItem = document.createElement('div');
+            tagItem.style.cssText = `
+                display: inline-flex !important;
                 align-items: center !important;
-                gap: 6px !important;
+                gap: 8px !important;
+                background: #4CAF50 !important;
+                color: white !important;
                 padding: 6px 12px !important;
-                background: #f1f5f9 !important;
-                border: 1px solid #e2e8f0 !important;
-                border-radius: 6px !important;
-                font-size: 12px !important;
-                color: #475569 !important;
+                border-radius: 20px !important;
+                margin: 4px !important;
+                font-size: 13px !important;
             `;
 
             const tagText = document.createElement('span');
             tagText.textContent = tag.trim();
-            tagText.style.cssText = `
-                flex: 1 !important;
-            `;
 
             const removeBtn = document.createElement('button');
             removeBtn.innerHTML = '✕';
             removeBtn.style.cssText = `
-                background: none !important;
+                background: rgba(255, 255, 255, 0.3) !important;
                 border: none !important;
-                color: #94a3b8 !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                padding: 0 !important;
+                color: white !important;
                 width: 18px !important;
                 height: 18px !important;
+                border-radius: 50% !important;
+                cursor: pointer !important;
+                font-size: 12px !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                border-radius: 3px !important;
-                transition: all 0.2s ease !important;
+                padding: 0 !important;
+                transition: background 0.2s ease !important;
             `;
             removeBtn.addEventListener('mouseenter', () => {
-                removeBtn.style.background = '#fee2e2';
-                removeBtn.style.color = '#dc2626';
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.5)';
             });
             removeBtn.addEventListener('mouseleave', () => {
-                removeBtn.style.background = 'none';
-                removeBtn.style.color = '#94a3b8';
+                removeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
             });
-            removeBtn.addEventListener('click', () => {
-                // 根据标签值删除，避免索引错位问题
-                const tagValue = tag.trim();
-                const currentIndex = tagModal._currentTags.findIndex(t => t && t.trim() === tagValue);
-                if (currentIndex !== -1) {
-                    tagModal._currentTags.splice(currentIndex, 1);
-                    this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const faqIndex = tagModal.dataset.faqIndex;
+                if (faqIndex !== undefined) {
+                    this.removeFaqTag(parseInt(faqIndex), index);
                 }
             });
 
-            tagElement.appendChild(tagText);
-            tagElement.appendChild(removeBtn);
-            tagsContainer.appendChild(tagElement);
+            tagItem.appendChild(tagText);
+            tagItem.appendChild(removeBtn);
+            tagsContainer.appendChild(tagItem);
+        });
+
+        // 更新快捷标签按钮状态
+        const quickTagButtons = tagModal.querySelectorAll('.faq-tag-manager-quick-tag-btn');
+        quickTagButtons.forEach(btn => {
+            const tagName = btn.dataset.tagName;
+            const isAdded = tags && tags.includes(tagName);
+            if (isAdded) {
+                btn.style.background = '#4CAF50';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#4CAF50';
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+            } else {
+                btn.style.background = '#f0f0f0';
+                btn.style.color = '#333';
+                btn.style.borderColor = '#d0d0d0';
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            }
         });
     }
 
@@ -11649,33 +12318,57 @@ if (typeof getCenterPosition === 'undefined') {
         const tagInput = tagModal.querySelector('.faq-tag-manager-input');
         if (!tagInput) return;
 
-        const tagText = tagInput.value.trim();
-        if (!tagText) {
-            return;
-        }
+        const tagName = tagInput.value.trim();
+        if (!tagName) return;
 
         if (!tagModal._currentTags) {
             tagModal._currentTags = [];
         }
 
-        // 检查是否已存在（不区分大小写）
-        const tagExists = tagModal._currentTags.some(tag => 
-            tag && tag.trim().toLowerCase() === tagText.toLowerCase()
-        );
-        if (tagExists) {
-            this.showNotification('标签已存在', 'warning');
+        // 检查标签是否已存在
+        if (tagModal._currentTags.includes(tagName)) {
+            tagInput.value = '';
+            tagInput.focus();
             return;
         }
 
-        // 添加到列表
-        tagModal._currentTags.push(tagText);
-
-        // 重新加载显示
-        this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
-
-        // 清空输入框
+        // 添加标签
+        tagModal._currentTags.push(tagName);
         tagInput.value = '';
         tagInput.focus();
+
+        // 重新加载标签列表
+        this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+    }
+
+    // 添加快捷标签
+    addFaqQuickTag(faqIndex, tagName) {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (!tagModal) return;
+
+        if (!tagModal._currentTags) {
+            tagModal._currentTags = [];
+        }
+
+        // 检查标签是否已存在
+        if (tagModal._currentTags.includes(tagName)) {
+            return;
+        }
+
+        // 添加标签
+        tagModal._currentTags.push(tagName);
+
+        // 重新加载标签列表
+        this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+    }
+
+    // 删除标签
+    removeFaqTag(faqIndex, index) {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (!tagModal || !tagModal._currentTags) return;
+
+        tagModal._currentTags.splice(index, 1);
+        this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
     }
 
     // 保存常见问题标签
@@ -11691,7 +12384,8 @@ if (typeof getCenterPosition === 'undefined') {
         const newTags = (tagModal._currentTags || [])
             .map(tag => tag ? tag.trim() : '')
             .filter(tag => tag.length > 0);
-        faq.tags = newTags;
+        // 去重
+        faq.tags = [...new Set(newTags)];
 
         try {
             // 使用API保存常见问题标签
@@ -11699,7 +12393,7 @@ if (typeof getCenterPosition === 'undefined') {
                 // 使用列表对应的key来更新，key会在payload中传递
                 await this.faqApi.updateFaq(faq.key || faq.text, {
                     text: faq.text,
-                    tags: newTags
+                    tags: faq.tags
                 });
                 
                 // 清除GET请求缓存，确保下次加载获取最新数据
@@ -11709,7 +12403,7 @@ if (typeof getCenterPosition === 'undefined') {
                 // 立即更新本地数据（优化用户体验）
                 const targetFaq = modal._currentFaqs.find(f => f.text === faq.text);
                 if (targetFaq) {
-                    targetFaq.tags = newTags;
+                    targetFaq.tags = faq.tags;
                 }
                 // 重新加载显示（确保数据一致性）
                 await this.loadFaqsIntoManager();
@@ -11735,21 +12429,391 @@ if (typeof getCenterPosition === 'undefined') {
         }
     }
 
-    // 关闭常见问题标签管理器
-    closeFaqTagManager() {
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
-
-        // 移除ESC监听器
-        if (tagModal._escHandler) {
-            document.removeEventListener('keydown', tagModal._escHandler);
-            delete tagModal._escHandler;
+    // 智能生成常见问题标签（参考会话列表的智能生成功能）
+    async generateFaqSmartTags(faqIndex, buttonElement) {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal || !modal._currentFaqs) {
+            console.warn('常见问题管理器未找到，无法生成标签');
+            return;
         }
 
-        tagModal.style.setProperty('opacity', '0', 'important');
-        setTimeout(() => {
-            tagModal.style.setProperty('display', 'none', 'important');
-        }, 200);
+        const faq = modal._currentFaqs[faqIndex];
+        if (!faq) {
+            console.warn('常见问题不存在，无法生成标签:', faqIndex);
+            return;
+        }
+
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        
+        if (!tagModal) {
+            console.error('常见问题标签管理弹窗未找到');
+            return;
+        }
+
+        // 禁用按钮，显示加载状态
+        if (buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.style.background = '#ccc';
+            buttonElement.style.cursor = 'not-allowed';
+            const originalText = buttonElement.textContent;
+            buttonElement.textContent = '生成中...';
+            
+            try {
+                // 构建系统提示词
+                const systemPrompt = `你是一个专业的标签生成助手。根据用户提供的常见问题内容，生成合适的标签。
+
+标签要求：
+1. 标签应该简洁明了，每个标签2-6个汉字或3-12个英文字符
+2. 标签应该准确反映问题的核心主题
+3. 生成3-8个标签
+4. 标签之间用逗号分隔
+5. 只返回标签，不要返回其他说明文字
+6. 如果已有标签，避免生成重复的标签
+
+输出格式示例：技术,编程,前端开发,JavaScript`;
+
+                // 构建用户提示词
+                let userPrompt = `常见问题内容：\n${faq.text || ''}`;
+
+                const currentTags = tagModal._currentTags || [];
+                if (currentTags.length > 0) {
+                    userPrompt += `\n\n已有标签：${currentTags.join(', ')}\n请避免生成重复的标签。`;
+                }
+
+                userPrompt += `\n\n请根据以上信息生成合适的标签。`;
+
+                // 构建 payload
+                const payload = this.buildPromptPayload(
+                    systemPrompt,
+                    userPrompt,
+                    this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                );
+
+                // 调用 prompt 接口
+                const response = await fetch(PET_CONFIG.api.promptUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                // 先读取响应文本，判断是否为流式响应（SSE格式）
+                const responseText = await response.text();
+                let result;
+                
+                // 检查是否包含SSE格式（包含 "data: "）
+                if (responseText.includes('data: ')) {
+                    // 处理SSE流式响应
+                    const lines = responseText.split('\n');
+                    let accumulatedData = '';
+                    let lastValidData = null;
+                    
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.startsWith('data: ')) {
+                            try {
+                                const dataStr = trimmedLine.substring(6).trim();
+                                if (dataStr === '[DONE]' || dataStr === '') {
+                                    continue;
+                                }
+                                
+                                // 尝试解析JSON
+                                const chunk = JSON.parse(dataStr);
+                                
+                                // 检查是否完成
+                                if (chunk.done === true) {
+                                    break;
+                                }
+                                
+                                // 累积内容（处理流式内容块）
+                                if (chunk.data) {
+                                    accumulatedData += chunk.data;
+                                } else if (chunk.content) {
+                                    accumulatedData += chunk.content;
+                                } else if (chunk.message && chunk.message.content) {
+                                    // Ollama格式
+                                    accumulatedData += chunk.message.content;
+                                } else if (typeof chunk === 'string') {
+                                    accumulatedData += chunk;
+                                }
+                                
+                                // 保存最后一个有效的数据块（用于提取其他字段如status等）
+                                lastValidData = chunk;
+                            } catch (e) {
+                                // 如果不是JSON，可能是纯文本内容
+                                const dataStr = trimmedLine.substring(6).trim();
+                                if (dataStr && dataStr !== '[DONE]') {
+                                    accumulatedData += dataStr;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果累积了内容，创建结果对象
+                    if (accumulatedData || lastValidData) {
+                        if (lastValidData && lastValidData.status) {
+                            // 如果有status字段，保留原有结构，但替换data/content
+                            result = {
+                                ...lastValidData,
+                                data: accumulatedData || lastValidData.data || '',
+                                content: accumulatedData || lastValidData.content || ''
+                            };
+                        } else {
+                            // 否则创建新的结果对象
+                            result = {
+                                data: accumulatedData,
+                                content: accumulatedData
+                            };
+                        }
+                    } else {
+                        // 如果无法解析SSE格式，尝试直接解析整个响应
+                        try {
+                            result = JSON.parse(responseText);
+                        } catch (e) {
+                            throw new Error('无法解析响应格式');
+                        }
+                    }
+                } else {
+                    // 非SSE格式，直接解析JSON
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        // 如果解析失败，尝试查找SSE格式的数据
+                        const sseMatch = responseText.match(/data:\s*({.+?})/s);
+                        if (sseMatch) {
+                            result = JSON.parse(sseMatch[1]);
+                        } else {
+                            throw new Error(`无法解析响应: ${responseText.substring(0, 100)}`);
+                        }
+                    }
+                }
+                
+                // 解析返回的标签
+                let generatedTags = [];
+                // 适配响应格式: {status, msg, data, pagination} 或 {content} 或 {response}
+                let content = '';
+                if (result.data) {
+                    content = result.data;
+                } else if (result.content) {
+                    content = result.content;
+                } else if (result.response) {
+                    content = result.response;
+                }
+                
+                if (content) {
+                    const trimmedContent = content.trim();
+                    
+                    // 尝试解析 JSON 格式
+                    try {
+                        const parsed = JSON.parse(trimmedContent);
+                        if (Array.isArray(parsed)) {
+                            generatedTags = parsed;
+                        } else if (typeof parsed === 'object' && parsed.tags) {
+                            generatedTags = Array.isArray(parsed.tags) ? parsed.tags : [];
+                        }
+                    } catch (e) {
+                        // 如果不是 JSON，尝试按逗号分割
+                        generatedTags = trimmedContent.split(/[,，、]/).map(tag => tag.trim()).filter(tag => tag.length > 0);
+                    }
+                }
+
+                if (generatedTags.length === 0) {
+                    throw new Error('未能生成有效标签，请重试');
+                }
+
+                // 确保标签数组存在
+                if (!tagModal._currentTags) {
+                    tagModal._currentTags = [];
+                }
+
+                // 添加新标签（排除已存在的标签）
+                let addedCount = 0;
+                generatedTags.forEach(tag => {
+                    const trimmedTag = tag.trim();
+                    if (trimmedTag && !tagModal._currentTags.includes(trimmedTag)) {
+                        tagModal._currentTags.push(trimmedTag);
+                        addedCount++;
+                    }
+                });
+
+                if (addedCount > 0) {
+                    // 重新加载标签列表
+                    this.loadFaqTagsIntoManager(faqIndex, tagModal._currentTags);
+                    console.log(`成功生成并添加 ${addedCount} 个标签:`, generatedTags.filter(tag => tagModal._currentTags.includes(tag.trim())));
+                } else {
+                    console.log('生成的标签都已存在，未添加新标签');
+                }
+
+            } catch (error) {
+                console.error('智能生成标签失败:', error);
+                
+                // 使用非阻塞的错误提示，避免阻塞弹框交互
+                const errorMessage = error.message || '未知错误';
+                const errorText = errorMessage.includes('Failed to fetch') 
+                    ? '网络连接失败，请检查网络后重试' 
+                    : `生成标签失败：${errorMessage}`;
+                
+                // 在弹框内显示错误提示，而不是使用 alert（alert 会阻塞）
+                if (tagModal) {
+                    // 移除已存在的错误提示
+                    const existingError = tagModal.querySelector('.faq-tag-error-message');
+                    if (existingError) {
+                        existingError.remove();
+                    }
+                    
+                    // 创建错误提示元素
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'faq-tag-error-message';
+                    errorDiv.textContent = errorText;
+                    errorDiv.style.cssText = `
+                        padding: 10px 15px !important;
+                        margin: 10px 0 !important;
+                        background: #ffebee !important;
+                        color: #c62828 !important;
+                        border: 1px solid #ef5350 !important;
+                        border-radius: 6px !important;
+                        font-size: 13px !important;
+                        animation: fadeIn 0.3s ease !important;
+                    `;
+                    
+                    // 插入到输入组下方
+                    const inputGroup = tagModal.querySelector('.faq-tag-manager-input-group');
+                    if (inputGroup && inputGroup.parentNode) {
+                        // 插入到输入组和标签容器之间
+                        const tagsContainer = tagModal.querySelector('.faq-tag-manager-tags');
+                        if (tagsContainer && tagsContainer.parentNode) {
+                            tagsContainer.parentNode.insertBefore(errorDiv, tagsContainer);
+                        } else {
+                            inputGroup.parentNode.insertBefore(errorDiv, inputGroup.nextSibling);
+                        }
+                        
+                        // 3秒后自动移除错误提示
+                        setTimeout(() => {
+                            if (errorDiv.parentNode) {
+                                errorDiv.style.opacity = '0';
+                                errorDiv.style.transition = 'opacity 0.3s ease';
+                                setTimeout(() => {
+                                    if (errorDiv.parentNode) {
+                                        errorDiv.remove();
+                                    }
+                                }, 300);
+                            }
+                        }, 3000);
+                    }
+                } else {
+                    // 如果弹框不存在，使用 alert 作为后备方案
+                    alert(errorText);
+                }
+            } finally {
+                // 恢复按钮状态
+                if (buttonElement) {
+                    buttonElement.disabled = false;
+                    buttonElement.style.background = '#9C27B0';
+                    buttonElement.style.cursor = 'pointer';
+                    buttonElement.textContent = '✨ 智能生成';
+                }
+                
+                // 确保弹框本身没有被禁用（防止其他按钮失效）
+                if (tagModal) {
+                    tagModal.style.pointerEvents = 'auto';
+                    // 确保所有按钮都是可用的
+                    const allButtons = tagModal.querySelectorAll('button');
+                    allButtons.forEach(btn => {
+                        if (btn !== buttonElement) {
+                            btn.disabled = false;
+                            btn.style.pointerEvents = 'auto';
+                            btn.style.cursor = 'pointer';
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    // 关闭常见问题标签管理器（自动保存，参考会话列表的实现）
+    async closeFaqTagManager() {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (tagModal) {
+            const faqIndex = tagModal.dataset.faqIndex;
+            // 关闭前自动保存
+            if (faqIndex !== undefined) {
+                try {
+                    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+                    if (modal && modal._currentFaqs) {
+                        const faq = modal._currentFaqs[parseInt(faqIndex)];
+                        if (faq && tagModal._currentTags) {
+                            // 规范化标签（trim处理，去重，过滤空标签）
+                            const normalizedTags = tagModal._currentTags
+                                .map(tag => tag ? tag.trim() : '')
+                                .filter(tag => tag.length > 0);
+                            // 去重
+                            faq.tags = [...new Set(normalizedTags)];
+                            
+                            // 保存到后端
+                            try {
+                                // 使用API保存常见问题标签
+                                if (this.faqApi && this.faqApi.isEnabled()) {
+                                    // 使用列表对应的key来更新，key会在payload中传递
+                                    await this.faqApi.updateFaq(faq.key || faq.text, {
+                                        text: faq.text,
+                                        tags: faq.tags
+                                    });
+                                    
+                                    // 清除GET请求缓存，确保下次加载获取最新数据
+                                    if (this.faqApi.clearGetCache) {
+                                        this.faqApi.clearGetCache();
+                                    }
+                                    // 立即更新本地数据（优化用户体验）
+                                    const targetFaq = modal._currentFaqs.find(f => f.text === faq.text);
+                                    if (targetFaq) {
+                                        targetFaq.tags = faq.tags;
+                                    }
+                                    // 重新加载显示（确保数据一致性）
+                                    await this.loadFaqsIntoManager();
+                                    // 更新标签过滤器UI
+                                    this.updateFaqTagFilterUI();
+                                } else {
+                                    // 降级方案：保存到本地存储
+                                    await this.saveFaqs(modal._currentFaqs);
+                                    // 重新加载显示
+                                    await this.loadFaqsIntoManager();
+                                    // 更新标签过滤器UI
+                                    this.updateFaqTagFilterUI();
+                                }
+                            } catch (error) {
+                                console.error('自动保存标签失败:', error);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('自动保存标签失败:', error);
+                }
+            }
+            
+            // 移除ESC监听器
+            if (tagModal._escHandler) {
+                document.removeEventListener('keydown', tagModal._escHandler);
+                delete tagModal._escHandler;
+            }
+            
+            // 恢复折叠按钮显示
+            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+            if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
+            if (inputToggleBtn) inputToggleBtn.style.display = '';
+            
+            tagModal.style.display = 'none';
+            const tagInput = tagModal.querySelector('.faq-tag-manager-input');
+            if (tagInput) {
+                tagInput.value = '';
+            }
+        }
     }
 
     // 删除常见问题
@@ -12265,6 +13329,237 @@ if (typeof getCenterPosition === 'undefined') {
         this.closeFaqManagerOnly();
         
         this.showNotification('已追加到输入框', 'success');
+    }
+
+    // 复制常见问题文本到剪贴板
+    async copyFaq(text, buttonElement) {
+        if (!text) {
+            this.showNotification('没有可复制的内容', 'warning');
+            return;
+        }
+
+        try {
+            // 优先使用 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                
+                // 更新按钮文本显示已复制
+                if (buttonElement) {
+                    const originalHTML = buttonElement.innerHTML;
+                    buttonElement.innerHTML = '✓';
+                    buttonElement.title = '已复制';
+                    setTimeout(() => {
+                        buttonElement.innerHTML = originalHTML;
+                        buttonElement.title = '复制';
+                    }, 2000);
+                }
+                
+                this.showNotification('已复制到剪贴板', 'success');
+            } else {
+                // 降级方案：使用传统方法
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    if (successful) {
+                        // 更新按钮文本显示已复制
+                        if (buttonElement) {
+                            const originalHTML = buttonElement.innerHTML;
+                            buttonElement.innerHTML = '✓';
+                            buttonElement.title = '已复制';
+                            setTimeout(() => {
+                                buttonElement.innerHTML = originalHTML;
+                                buttonElement.title = '复制';
+                            }, 2000);
+                        }
+                        
+                        this.showNotification('已复制到剪贴板', 'success');
+                    } else {
+                        throw new Error('复制命令执行失败');
+                    }
+                } catch (err) {
+                    document.body.removeChild(textArea);
+                    throw err;
+                }
+            }
+        } catch (error) {
+            console.error('复制失败:', error);
+            this.showNotification('复制失败，请重试', 'error');
+        }
+    }
+
+    // 上移常见问题
+    async moveFaqUp(index) {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal || !modal._currentFaqs) {
+            console.warn('常见问题管理器未找到或数据为空');
+            return;
+        }
+
+        if (index <= 0) {
+            return; // 已经是第一个，无法上移
+        }
+
+        const faqs = modal._currentFaqs;
+        if (!Array.isArray(faqs) || faqs.length === 0) {
+            console.warn('常见问题列表为空');
+            return;
+        }
+
+        if (index >= faqs.length) {
+            console.warn('索引超出范围:', index, faqs.length);
+            return;
+        }
+
+        // 交换位置
+        const temp = faqs[index];
+        faqs[index] = faqs[index - 1];
+        faqs[index - 1] = temp;
+
+        // 更新order字段：交换两个项的order值
+        const tempOrder = faqs[index].order !== undefined && faqs[index].order !== null ? faqs[index].order : index;
+        const prevOrder = faqs[index - 1].order !== undefined && faqs[index - 1].order !== null ? faqs[index - 1].order : index - 1;
+        faqs[index].order = prevOrder;
+        faqs[index - 1].order = tempOrder;
+
+        try {
+            // 使用API批量更新排序
+            if (this.faqApi && this.faqApi.isEnabled()) {
+                // 获取需要更新的两个项的key
+                const currentKey = faqs[index].key || faqs[index].text;
+                const prevKey = faqs[index - 1].key || faqs[index - 1].text;
+                
+                if (currentKey && prevKey) {
+                    console.log('更新排序:', { currentKey, currentOrder: faqs[index].order, prevKey, prevOrder: faqs[index - 1].order });
+                    await this.faqApi.batchUpdateOrder([
+                        { key: currentKey, order: faqs[index].order },
+                        { key: prevKey, order: faqs[index - 1].order }
+                    ]);
+                } else {
+                    // 如果没有key，使用批量保存整个列表
+                    console.log('保存排序后的常见问题列表:', faqs.length);
+                    await this.faqApi.saveFaqs(faqs);
+                }
+                
+                // 清除GET请求缓存，确保下次加载获取最新数据
+                if (this.faqApi.clearGetCache) {
+                    this.faqApi.clearGetCache();
+                }
+                // 更新本地数据，避免重新加载时丢失排序
+                modal._currentFaqs = faqs.map(faq => ({ ...faq }));
+                // 重新加载显示（确保数据一致性）
+                await this.loadFaqsIntoManager();
+                this.showNotification('顺序已更新', 'success');
+            } else {
+                // 降级方案：保存到本地存储
+                await this.saveFaqs(faqs);
+                // 更新本地数据
+                modal._currentFaqs = faqs.map(faq => ({ ...faq }));
+                // 重新加载显示
+                await this.loadFaqsIntoManager();
+                this.showNotification('顺序已更新', 'success');
+            }
+        } catch (error) {
+            console.error('保存顺序失败:', error);
+            this.showNotification('保存顺序失败，请重试', 'error');
+            // 恢复原顺序
+            const tempRestore = faqs[index];
+            faqs[index] = faqs[index - 1];
+            faqs[index - 1] = tempRestore;
+            // 恢复order值
+            faqs[index].order = tempOrder;
+            faqs[index - 1].order = prevOrder;
+            await this.loadFaqsIntoManager();
+        }
+    }
+
+    // 下移常见问题
+    async moveFaqDown(index) {
+        const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+        if (!modal || !modal._currentFaqs) {
+            console.warn('常见问题管理器未找到或数据为空');
+            return;
+        }
+
+        const faqs = modal._currentFaqs;
+        if (!Array.isArray(faqs) || faqs.length === 0) {
+            console.warn('常见问题列表为空');
+            return;
+        }
+
+        if (index >= faqs.length - 1) {
+            return; // 已经是最后一个，无法下移
+        }
+
+        // 交换位置
+        const temp = faqs[index];
+        faqs[index] = faqs[index + 1];
+        faqs[index + 1] = temp;
+
+        // 更新order字段：交换两个项的order值
+        const tempOrder = faqs[index].order !== undefined && faqs[index].order !== null ? faqs[index].order : index;
+        const nextOrder = faqs[index + 1].order !== undefined && faqs[index + 1].order !== null ? faqs[index + 1].order : index + 1;
+        faqs[index].order = nextOrder;
+        faqs[index + 1].order = tempOrder;
+
+        try {
+            // 使用API批量更新排序
+            if (this.faqApi && this.faqApi.isEnabled()) {
+                // 获取需要更新的两个项的key
+                const currentKey = faqs[index].key || faqs[index].text;
+                const nextKey = faqs[index + 1].key || faqs[index + 1].text;
+                
+                if (currentKey && nextKey) {
+                    console.log('更新排序:', { currentKey, currentOrder: faqs[index].order, nextKey, nextOrder: faqs[index + 1].order });
+                    await this.faqApi.batchUpdateOrder([
+                        { key: currentKey, order: faqs[index].order },
+                        { key: nextKey, order: faqs[index + 1].order }
+                    ]);
+                } else {
+                    // 如果没有key，使用批量保存整个列表
+                    console.log('保存排序后的常见问题列表:', faqs.length);
+                    await this.faqApi.saveFaqs(faqs);
+                }
+                
+                // 清除GET请求缓存，确保下次加载获取最新数据
+                if (this.faqApi.clearGetCache) {
+                    this.faqApi.clearGetCache();
+                }
+                // 更新本地数据，避免重新加载时丢失排序
+                modal._currentFaqs = faqs.map(faq => ({ ...faq }));
+                // 重新加载显示（确保数据一致性）
+                await this.loadFaqsIntoManager();
+                this.showNotification('顺序已更新', 'success');
+            } else {
+                // 降级方案：保存到本地存储
+                await this.saveFaqs(faqs);
+                // 更新本地数据
+                modal._currentFaqs = faqs.map(faq => ({ ...faq }));
+                // 重新加载显示
+                await this.loadFaqsIntoManager();
+                this.showNotification('顺序已更新', 'success');
+            }
+        } catch (error) {
+            console.error('保存顺序失败:', error);
+            this.showNotification('保存顺序失败，请重试', 'error');
+            // 恢复原顺序
+            const tempRestore = faqs[index];
+            faqs[index] = faqs[index + 1];
+            faqs[index + 1] = tempRestore;
+            // 恢复order值
+            faqs[index].order = tempOrder;
+            faqs[index + 1].order = nextOrder;
+            await this.loadFaqsIntoManager();
+        }
     }
 
     // 保存常见问题到存储（降级方案，用于API不可用时）
@@ -46572,8 +47867,10 @@ ${messageContent}`;
 
             content.appendChild(timeAndCopyContainer);
 
-            // 为用户消息添加删除和编辑按钮
-            this.addDeleteButtonForUserMessage(copyButtonContainer, messageText);
+            // 为用户消息添加复制按钮（包括复制和删除按钮）
+            if (text && text.trim()) {
+                this.addCopyButton(copyButtonContainer, messageText);
+            }
             
             // 为用户消息添加导出图片按钮（在编辑按钮后面）
             this.addExportButtonForMessage(copyButtonContainer, messageDiv, 'user');
@@ -46793,88 +48090,196 @@ ${messageContent}`;
 
     // 添加复制按钮的辅助方法
     addCopyButton(container, messageTextElement) {
-        // 如果已经添加过，就不再添加
-        // 注意：现在只添加编辑、删除按钮
-        if (container.querySelector('.edit-button')) {
+        // 如果已经有复制按钮，就不再添加
+        if (container.querySelector('.copy-button')) {
             return;
         }
+        
+        // 检查是否已经有编辑按钮（说明之前已经添加过其他按钮）
+        const hasEditButton = container.querySelector('.edit-button');
+        const hasDeleteButton = container.querySelector('.delete-button');
 
-        // 创建删除按钮
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'delete-button';
-        deleteButton.innerHTML = '🗑️';
-        deleteButton.setAttribute('title', '删除消息');
+        // 创建复制按钮
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.innerHTML = '📋';
+        copyButton.setAttribute('title', '复制消息');
 
-        // 点击删除
-        deleteButton.addEventListener('click', async (e) => {
+        // 点击复制
+        copyButton.addEventListener('click', async (e) => {
             e.stopPropagation();
-
-            // 确认删除
-            if (confirm('确定要删除这条消息吗？')) {
-                // 找到包含复制按钮容器的消息元素
-                let currentMessage = container.parentElement;
-                while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
-                    currentMessage = currentMessage.parentElement;
-                }
-
-                if (currentMessage) {
-                    // 从会话中删除对应的消息
-                    if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                        const session = this.sessions[this.currentSessionId];
-                        if (session.messages && Array.isArray(session.messages)) {
-                            // 获取消息内容，用于匹配会话中的消息
-                            const petBubble = currentMessage.querySelector('[data-message-type="pet-bubble"]');
-                            if (petBubble) {
-                                const messageContent = petBubble.getAttribute('data-original-text') || 
-                                                      petBubble.textContent || '';
-                                
-                                // 找到并删除对应的消息
-                                const messageIndex = session.messages.findIndex(msg => 
-                                    msg.type === 'pet' && 
-                                    (msg.content === messageContent || msg.content.trim() === messageContent.trim())
-                                );
-                                
-                                if (messageIndex !== -1) {
-                                    // 从本地会话中删除消息
-                                    session.messages.splice(messageIndex, 1);
-                                    session.updatedAt = Date.now();
-                                    // 保存会话
-                                    await this.saveAllSessions();
-                                    console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
-                                }
-                            }
+            
+            try {
+                // 获取消息的原始文本内容
+                // 首先尝试从传入的元素获取
+                let messageContent = messageTextElement.getAttribute('data-original-text') || 
+                                    messageTextElement.innerText || 
+                                    messageTextElement.textContent || '';
+                
+                // 如果获取不到内容，尝试从消息容器中查找气泡元素
+                if (!messageContent || !messageContent.trim()) {
+                    const messageDiv = container.closest('[style*="margin-bottom: 15px"]') || 
+                                      container.closest('[data-message-type]')?.parentElement ||
+                                      container.parentElement?.parentElement;
+                    
+                    if (messageDiv) {
+                        const petBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
+                        const userBubble = messageDiv.querySelector('[data-message-type="user-bubble"]');
+                        const messageBubble = petBubble || userBubble;
+                        
+                        if (messageBubble) {
+                            messageContent = messageBubble.getAttribute('data-original-text') || 
+                                          messageBubble.innerText || 
+                                          messageBubble.textContent || '';
                         }
                     }
-                    
-                    // 动画删除消息
-                    currentMessage.style.transition = 'opacity 0.3s ease';
-                    currentMessage.style.opacity = '0';
-                    setTimeout(() => {
-                        currentMessage.remove();
-                        // 删除后保存会话（确保数据同步）
-                        this.saveCurrentSession().catch(err => {
-                            console.error('删除消息后保存会话失败:', err);
-                        });
-                    }, 300);
                 }
+                
+                if (!messageContent || !messageContent.trim()) {
+                    this.showNotification('消息内容为空，无法复制', 'error');
+                    return;
+                }
+                
+                // 使用 Clipboard API 复制文本
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(messageContent.trim());
+                    this.showNotification('已复制到剪贴板', 'success');
+                    
+                    // 临时改变按钮图标，表示复制成功
+                    const originalHTML = copyButton.innerHTML;
+                    copyButton.innerHTML = '✓';
+                    copyButton.style.color = '#4caf50';
+                    setTimeout(() => {
+                        copyButton.innerHTML = originalHTML;
+                        copyButton.style.color = '';
+                    }, 1000);
+                } else {
+                    // 降级方案：使用传统的复制方法
+                    const textArea = document.createElement('textarea');
+                    textArea.value = messageContent.trim();
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    this.showNotification('已复制到剪贴板', 'success');
+                    
+                    // 临时改变按钮图标，表示复制成功
+                    const originalHTML = copyButton.innerHTML;
+                    copyButton.innerHTML = '✓';
+                    copyButton.style.color = '#4caf50';
+                    setTimeout(() => {
+                        copyButton.innerHTML = originalHTML;
+                        copyButton.style.color = '';
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('复制失败:', error);
+                this.showNotification('复制失败，请重试', 'error');
             }
         });
 
-        // 创建编辑按钮
-        const editButton = document.createElement('button');
-        editButton.className = 'edit-button';
-        editButton.innerHTML = '✏️';
-        editButton.setAttribute('title', '编辑消息');
+        // 创建编辑按钮（仅对宠物消息显示）
+        const isPetMessage = messageTextElement.closest('[data-message-type="pet-bubble"]');
+        
+        // 如果已经有编辑和删除按钮，只添加复制按钮
+        if (hasEditButton && hasDeleteButton) {
+            // 在编辑按钮之前插入复制按钮
+            container.insertBefore(copyButton, hasEditButton);
+        } else {
+            // 如果没有其他按钮，创建完整的按钮组
+            // 创建删除按钮
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'delete-button';
+            deleteButton.innerHTML = '🗑️';
+            deleteButton.setAttribute('title', '删除消息');
 
-        // 点击编辑 - 打开弹窗编辑器（类似上下文编辑器）
-        editButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.openMessageEditor(messageTextElement, 'pet');
-        });
+            // 点击删除
+            deleteButton.addEventListener('click', async (e) => {
+                e.stopPropagation();
 
-        container.innerHTML = '';
-        container.appendChild(editButton);
-        container.appendChild(deleteButton);
+                // 确认删除
+                if (confirm('确定要删除这条消息吗？')) {
+                    // 找到包含复制按钮容器的消息元素
+                    let currentMessage = container.parentElement;
+                    while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
+                        currentMessage = currentMessage.parentElement;
+                    }
+
+                    if (currentMessage) {
+                        // 从会话中删除对应的消息
+                        if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                            const session = this.sessions[this.currentSessionId];
+                            if (session.messages && Array.isArray(session.messages)) {
+                                // 获取消息内容，用于匹配会话中的消息
+                                const petBubble = currentMessage.querySelector('[data-message-type="pet-bubble"]');
+                                const userBubble = currentMessage.querySelector('[data-message-type="user-bubble"]');
+                                const messageBubble = petBubble || userBubble;
+                                
+                                if (messageBubble) {
+                                    const messageContent = messageBubble.getAttribute('data-original-text') || 
+                                                          messageBubble.textContent || '';
+                                    
+                                    // 确定消息类型
+                                    const messageType = petBubble ? 'pet' : 'user';
+                                    
+                                    // 找到并删除对应的消息
+                                    const messageIndex = session.messages.findIndex(msg => 
+                                        msg.type === messageType && 
+                                        (msg.content === messageContent || msg.content.trim() === messageContent.trim())
+                                    );
+                                    
+                                    if (messageIndex !== -1) {
+                                        // 从本地会话中删除消息
+                                        session.messages.splice(messageIndex, 1);
+                                        session.updatedAt = Date.now();
+                                        // 保存会话
+                                        await this.saveAllSessions();
+                                        console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 动画删除消息
+                        currentMessage.style.transition = 'opacity 0.3s ease';
+                        currentMessage.style.opacity = '0';
+                        setTimeout(() => {
+                            currentMessage.remove();
+                            // 删除后保存会话（确保数据同步）
+                            this.saveCurrentSession().catch(err => {
+                                console.error('删除消息后保存会话失败:', err);
+                            });
+                        }, 300);
+                    }
+                }
+            });
+
+            if (isPetMessage) {
+                const editButton = document.createElement('button');
+                editButton.className = 'edit-button';
+                editButton.innerHTML = '✏️';
+                editButton.setAttribute('title', '编辑消息');
+
+                // 点击编辑 - 打开弹窗编辑器（类似上下文编辑器）
+                editButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openMessageEditor(messageTextElement, 'pet');
+                });
+
+                container.innerHTML = '';
+                container.appendChild(copyButton);
+                container.appendChild(editButton);
+                container.appendChild(deleteButton);
+            } else {
+                // 用户消息只显示复制和删除按钮
+                container.innerHTML = '';
+                container.appendChild(copyButton);
+                container.appendChild(deleteButton);
+            }
+        }
+        
         container.style.display = 'flex';
         container.style.gap = '8px';
     }
@@ -50589,6 +51994,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

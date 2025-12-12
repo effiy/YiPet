@@ -133,6 +133,19 @@ class NewsManager {
                 console.warn('未能从API返回数据中提取新闻列表，返回的数据结构:', Object.keys(result || {}));
             }
             
+            // 为每条新闻自动添加"网文"标签
+            newsList = newsList.map(newsItem => {
+                // 确保tags字段存在且为数组
+                if (!newsItem.tags || !Array.isArray(newsItem.tags)) {
+                    newsItem.tags = [];
+                }
+                // 如果还没有"网文"标签，则添加
+                if (!newsItem.tags.includes('网文')) {
+                    newsItem.tags.push('网文');
+                }
+                return newsItem;
+            });
+            
             this.news = newsList;
             this.lastNewsLoadTime = now;
             
@@ -291,4 +304,5 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.NewsManager = NewsManager;
 }
+
 

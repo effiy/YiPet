@@ -572,7 +572,7 @@ if (typeof getCenterPosition === 'undefined') {
         
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
-        this.calendarCollapsed = false; // 日历是否折叠
+        this.calendarCollapsed = true; // 日历是否折叠
         this.calendarMonth = null; // 当前显示的日历月份
         
         // 批量操作相关
@@ -8878,9 +8878,14 @@ if (typeof getCenterPosition === 'undefined') {
             const saved = localStorage.getItem('petCalendarCollapsed');
             if (saved !== null) {
                 this.calendarCollapsed = saved === 'true';
+            } else {
+                // 如果没有保存的值，默认折叠
+                this.calendarCollapsed = true;
             }
         } catch (error) {
             console.warn('加载日历折叠状态失败:', error);
+            // 出错时也默认折叠
+            this.calendarCollapsed = true;
         }
     }
     

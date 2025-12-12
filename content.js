@@ -11290,10 +11290,6 @@ if (typeof getCenterPosition === 'undefined') {
                 font-weight: 600 !important;
                 color: #111827 !important;
                 line-height: 1.4 !important;
-                display: -webkit-box !important;
-                -webkit-line-clamp: 2 !important;
-                -webkit-box-orient: vertical !important;
-                overflow: hidden !important;
                 flex: 1 !important;
                 min-width: 0 !important;
             `;

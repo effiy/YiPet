@@ -2,72 +2,64 @@
  * Chrome扩展弹窗控制脚本
  */
 
+// 使用公共日志工具（如果可用）
 (function() {
     try {
-        // 检查 chrome.storage 是否可用
-        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.runtime) {
-            return;
-        }
-        
-        // 检查扩展上下文是否有效
-        try {
-            if (!chrome.runtime.id) {
+        if (typeof LoggerUtils !== 'undefined' && LoggerUtils.initMuteLogger) {
+            LoggerUtils.initMuteLogger('petDevMode', false);
+        } else {
+            // 降级到本地实现
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.runtime) {
                 return;
             }
-        } catch (error) {
-            // 扩展上下文已失效
-            return;
-        }
-        
-        const keyName = 'petDevMode';
-        const defaultEnabled = false;
-        const original = {
-            log: console.log,
-            info: console.info,
-            debug: console.debug,
-            warn: console.warn
-        };
-        const muteIfNeeded = (enabled) => {
-            if (enabled) return;
-            const noop = () => {};
-            console.log = noop;
-            console.info = noop;
-            console.debug = noop;
-            console.warn = noop;
-        };
-        
-        chrome.storage.sync.get([keyName], (res) => {
-            if (chrome.runtime.lastError) {
-                // 忽略错误，使用默认值
-                muteIfNeeded(defaultEnabled);
-                return;
-            }
-            const enabled = res[keyName];
-            muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
-        });
-        
-        chrome.storage.onChanged.addListener((changes, namespace) => {
             try {
-                if (namespace !== 'sync') return;
-                if (changes[keyName]) {
-                    const enabled = changes[keyName].newValue;
-                    if (enabled) {
-                        console.log = original.log;
-                        console.info = original.info;
-                        console.debug = original.debug;
-                        console.warn = original.warn;
-                    } else {
-                        const noop = () => {};
-                        console.log = noop;
-                        console.info = noop;
-                        console.debug = noop;
-                        console.warn = noop;
-                    }
+                if (!chrome.runtime.id) {
+                    return;
                 }
             } catch (error) {
-                // 静默处理错误
+                return;
             }
-        });
+            const keyName = 'petDevMode';
+            const defaultEnabled = false;
+            const original = {
+                log: console.log,
+                info: console.info,
+                debug: console.debug,
+                warn: console.warn
+            };
+            const muteIfNeeded = (enabled) => {
+                if (enabled) {
+                    console.log = original.log;
+                    console.info = original.info;
+                    console.debug = original.debug;
+                    console.warn = original.warn;
+                } else {
+                    const noop = () => {};
+                    console.log = noop;
+                    console.info = noop;
+                    console.debug = noop;
+                    console.warn = noop;
+                }
+            };
+            chrome.storage.sync.get([keyName], (res) => {
+                if (chrome.runtime.lastError) {
+                    muteIfNeeded(defaultEnabled);
+                    return;
+                }
+                const enabled = res[keyName];
+                muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
+            });
+            chrome.storage.onChanged.addListener((changes, namespace) => {
+                try {
+                    if (namespace !== 'sync') return;
+                    if (changes[keyName]) {
+                        muteIfNeeded(changes[keyName].newValue);
+                    }
+                } catch (error) {
+                    // 静默处理错误
+                }
+            });
+        }
     } catch (e) {
         // 静默处理初始化错误
     }

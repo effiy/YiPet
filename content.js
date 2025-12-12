@@ -4,40 +4,22 @@
  * 负责在网页中创建和管理宠物
  */
 
+// 使用公共日志工具（如果可用）
 (function() {
     try {
-        const keyName = 'petDevMode';
-        const defaultEnabled = false;
-        const original = {
-            log: console.log,
-            info: console.info,
-            debug: console.debug,
-            warn: console.warn
-        };
-        const muteIfNeeded = (enabled) => {
-            if (enabled) {
-                // 恢复原始日志方法
-                console.log = original.log;
-                console.info = original.info;
-                console.debug = original.debug;
-                console.warn = original.warn;
-            } else {
-                // 禁用日志
-                const noop = () => {};
-                console.log = noop;
-                console.info = noop;
-                console.debug = noop;
-                console.warn = noop;
-            }
-        };
-        chrome.storage.sync.get([keyName], (res) => {
-            const enabled = res[keyName];
-            muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
-        });
-        chrome.storage.onChanged.addListener((changes, namespace) => {
-            if (namespace !== 'sync') return;
-            if (changes[keyName]) {
-                const enabled = changes[keyName].newValue;
+        if (typeof LoggerUtils !== 'undefined' && LoggerUtils.initMuteLogger) {
+            LoggerUtils.initMuteLogger('petDevMode', false);
+        } else {
+            // 降级到本地实现
+            const keyName = 'petDevMode';
+            const defaultEnabled = false;
+            const original = {
+                log: console.log,
+                info: console.info,
+                debug: console.debug,
+                warn: console.warn
+            };
+            const muteIfNeeded = (enabled) => {
                 if (enabled) {
                     console.log = original.log;
                     console.info = original.info;
@@ -50,8 +32,18 @@
                     console.debug = noop;
                     console.warn = noop;
                 }
-            }
-        });
+            };
+            chrome.storage.sync.get([keyName], (res) => {
+                const enabled = res[keyName];
+                muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
+            });
+            chrome.storage.onChanged.addListener((changes, namespace) => {
+                if (namespace !== 'sync') return;
+                if (changes[keyName]) {
+                    muteIfNeeded(changes[keyName].newValue);
+                }
+            });
+        }
     } catch (e) {}
 })();
 
@@ -248,19 +240,60 @@ if (typeof window.StorageHelper === 'undefined') {
             }
         },
         
+        // 降级到localStorage的辅助函数
+        _fallbackToLocalStorage(key, value, contextInvalidated = false) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+                return { success: true, fallback: 'localStorage', contextInvalidated };
+            } catch (localError) {
+                console.error('localStorage存储失败:', localError);
+                return { success: false, error: localError.message || '存储失败' };
+            }
+        },
+        
+        // 处理存储错误的辅助函数
+        _handleStorageError(key, value, error, resolve) {
+            if (this.isContextInvalidatedError(error)) {
+                resolve(this._fallbackToLocalStorage(key, value, true));
+                return true;
+            }
+            
+            if (this.isQuotaError(error)) {
+                console.warn('存储配额超出，尝试清理旧数据...');
+                this.cleanupOldData().then(() => {
+                    if (!this.isChromeStorageAvailable()) {
+                        resolve(this._fallbackToLocalStorage(key, value, true));
+                        return;
+                    }
+                    // 重试保存
+                    chrome.storage.local.set({ [key]: value }, (retryError) => {
+                        if (chrome.runtime.lastError) {
+                            const retryErr = chrome.runtime.lastError;
+                            if (this.isContextInvalidatedError(retryErr) || this.isQuotaError(retryErr)) {
+                                resolve(this._fallbackToLocalStorage(key, value, this.isContextInvalidatedError(retryErr)));
+                            } else {
+                                resolve({ success: false, error: retryErr.message });
+                            }
+                        } else {
+                            resolve({ success: true, retried: true });
+                        }
+                    });
+                });
+                return true;
+            }
+            
+            // 其他错误，降级到localStorage
+            console.debug('存储操作已降级到localStorage');
+            resolve(this._fallbackToLocalStorage(key, value));
+            return true;
+        },
+        
         // 安全的存储设置函数
         async set(key, value, options = {}) {
             return new Promise(async (resolve) => {
-                // 其他键可以降级到 localStorage
+                // 如果chrome.storage不可用，直接降级到localStorage
                 if (!this.isChromeStorageAvailable()) {
-                    console.debug('扩展已重新加载，自动使用localStorage');
-                    try {
-                        localStorage.setItem(key, JSON.stringify(value));
-                        resolve({ success: true, fallback: 'localStorage' });
-                    } catch (localError) {
-                        console.error('localStorage存储失败:', localError);
-                        resolve({ success: false, error: localError.message || '存储失败' });
-                    }
+                    resolve(this._fallbackToLocalStorage(key, value, true));
                     return;
                 }
                 
@@ -268,143 +301,41 @@ if (typeof window.StorageHelper === 'undefined') {
                     chrome.storage.local.set({ [key]: value }, async () => {
                         if (chrome.runtime.lastError) {
                             const error = chrome.runtime.lastError;
-                            
-                            // 检查是否是上下文失效错误
-                            if (this.isContextInvalidatedError(error)) {
-                                // 其他键可以降级到 localStorage
-                                console.debug('扩展已重新加载，自动使用localStorage');
-                                try {
-                                    localStorage.setItem(key, JSON.stringify(value));
-                                    resolve({ success: true, fallback: 'localStorage', contextInvalidated: true });
-                                } catch (localError) {
-                                    console.warn('localStorage也失败:', localError);
-                                    resolve({ success: false, error: '存储失败' });
-                                }
-                                return;
-                            }
-                            
-                            if (this.isQuotaError(error)) {
-                                console.warn('存储配额超出，尝试清理旧数据...');
-                                
-                                // 检查chrome.storage是否仍然可用
-                                if (!this.isChromeStorageAvailable()) {
-                                    // 其他键可以降级到 localStorage
-                                    console.debug('扩展已重新加载，自动使用localStorage');
-                                    try {
-                                        localStorage.setItem(key, JSON.stringify(value));
-                                        resolve({ success: true, fallback: 'localStorage', contextInvalidated: true });
-                                    } catch (localError) {
-                                        resolve({ success: false, error: localError.message });
-                                    }
-                                    return;
-                                }
-                                
-                                // 尝试清理旧数据
-                                await this.cleanupOldData();
-                                
-                                // 再次检查chrome.storage是否可用
-                                if (!this.isChromeStorageAvailable()) {
-                                    // 其他键可以降级到 localStorage
-                                    console.debug('扩展已重新加载，自动使用localStorage');
-                                    try {
-                                        localStorage.setItem(key, JSON.stringify(value));
-                                        resolve({ success: true, fallback: 'localStorage', contextInvalidated: true });
-                                    } catch (localError) {
-                                        resolve({ success: false, error: localError.message });
-                                    }
-                                    return;
-                                }
-                                
-                                // 重试保存
-                                chrome.storage.local.set({ [key]: value }, async (retryError) => {
-                                    if (chrome.runtime.lastError) {
-                                        const retryErr = chrome.runtime.lastError;
-                                        if (this.isContextInvalidatedError(retryErr)) {
-                                            console.debug('扩展已重新加载，自动使用localStorage');
-                                            try {
-                                                localStorage.setItem(key, JSON.stringify(value));
-                                                resolve({ success: true, fallback: 'localStorage', contextInvalidated: true });
-                                            } catch (localError) {
-                                                resolve({ success: false, error: localError.message });
-                                            }
-                                        } else if (this.isQuotaError(retryErr)) {
-                                            // 其他键可以降级到 localStorage
-                                            console.warn('清理后仍配额不足，已降级到localStorage');
-                                            try {
-                                                localStorage.setItem(key, JSON.stringify(value));
-                                                resolve({ success: true, fallback: 'localStorage' });
-                                            } catch (localError) {
-                                                console.error('localStorage也失败:', localError);
-                                                resolve({ success: false, error: localError });
-                                            }
-                                        } else {
-                                            resolve({ success: false, error: retryErr.message });
-                                        }
-                                    } else {
-                                        resolve({ success: true, retried: true });
-                                    }
-                                });
-                            } else {
-                                // 其他错误
-                                // 其他键可以降级到 localStorage
-                                console.debug('存储操作已降级到localStorage');
-                                try {
-                                    localStorage.setItem(key, JSON.stringify(value));
-                                    resolve({ success: true, fallback: 'localStorage' });
-                                } catch (localError) {
-                                    console.error('存储失败（chrome.storage和localStorage都不可用）');
-                                    resolve({ success: false, error: error.message });
-                                }
+                            if (!this._handleStorageError(key, value, error, resolve)) {
+                                resolve({ success: true });
                             }
                         } else {
                             resolve({ success: true });
                         }
                     });
                 } catch (error) {
-                    // 检查是否是上下文失效错误
                     const errorMsg = (error.message || error.toString() || '').toLowerCase();
                     const isContextInvalidated = this.isContextInvalidatedError(error) || 
                                                 !this.isChromeStorageAvailable() ||
                                                 errorMsg.includes('invalidated');
-                    
-                    if (isContextInvalidated) {
-                        // 其他键可以降级到 localStorage
-                        console.debug('扩展已重新加载，自动使用localStorage');
-                        try {
-                            localStorage.setItem(key, JSON.stringify(value));
-                            resolve({ success: true, fallback: 'localStorage', contextInvalidated: true });
-                        } catch (localError) {
-                            console.warn('localStorage也失败:', localError);
-                            resolve({ success: false, error: '存储失败' });
-                        }
-                    } else {
-                        // 其他键可以降级到 localStorage
-                        console.debug('存储操作已降级到localStorage:', error.message);
-                        try {
-                            localStorage.setItem(key, JSON.stringify(value));
-                            resolve({ success: true, fallback: 'localStorage' });
-                        } catch (localError) {
-                            console.error('存储失败（chrome.storage和localStorage都不可用）:', error.message);
-                            resolve({ success: false, error: error.message || '存储失败' });
-                        }
-                    }
+                    resolve(this._fallbackToLocalStorage(key, value, isContextInvalidated));
                 }
             });
+        },
+        
+        // 从localStorage读取的辅助函数
+        _getFromLocalStorage(key) {
+            try {
+                const localValue = localStorage.getItem(key);
+                return localValue ? JSON.parse(localValue) : null;
+            } catch (error) {
+                console.warn('从localStorage读取失败:', error);
+                return null;
+            }
         },
         
         // 安全的存储获取函数
         async get(key) {
             return new Promise((resolve) => {
-                // 首先检查chrome.storage是否可用
+                // 如果chrome.storage不可用，直接使用localStorage
                 if (!this.isChromeStorageAvailable()) {
                     console.debug('扩展已重新加载，自动使用localStorage');
-                    try {
-                        const localValue = localStorage.getItem(key);
-                        resolve(localValue ? JSON.parse(localValue) : null);
-                    } catch (error) {
-                        console.warn('从localStorage读取失败:', error);
-                        resolve(null);
-                    }
+                    resolve(this._getFromLocalStorage(key));
                     return;
                 }
                 
@@ -412,58 +343,27 @@ if (typeof window.StorageHelper === 'undefined') {
                     chrome.storage.local.get([key], (result) => {
                         if (chrome.runtime.lastError) {
                             const error = chrome.runtime.lastError;
-                            
-                            // 检查是否是上下文失效错误
                             if (this.isContextInvalidatedError(error)) {
                                 console.debug('扩展已重新加载，自动使用localStorage');
-                                try {
-                                    const localValue = localStorage.getItem(key);
-                                    resolve(localValue ? JSON.parse(localValue) : null);
-                                } catch (localError) {
-                                    console.warn('从localStorage读取失败:', localError);
-                                    resolve(null);
-                                }
-                                return;
+                            } else {
+                                console.debug('已自动降级到localStorage');
                             }
-                            
-                            console.debug('已自动降级到localStorage');
-                            // 降级到localStorage
-                            try {
-                                const localValue = localStorage.getItem(key);
-                                resolve(localValue ? JSON.parse(localValue) : null);
-                            } catch (localError) {
-                                console.warn('从localStorage读取失败:', localError);
-                                resolve(null);
-                            }
+                            resolve(this._getFromLocalStorage(key));
                         } else {
                             resolve(result[key] || null);
                         }
                     });
                 } catch (error) {
-                    // 检查是否是上下文失效错误
                     const errorMsg = (error.message || error.toString() || '').toLowerCase();
-                    if (this.isContextInvalidatedError(error) || 
-                        !this.isChromeStorageAvailable() || 
-                        errorMsg.includes('invalidated')) {
+                    const isContextInvalidated = this.isContextInvalidatedError(error) || 
+                                                !this.isChromeStorageAvailable() || 
+                                                errorMsg.includes('invalidated');
+                    if (isContextInvalidated) {
                         console.debug('扩展已重新加载，自动使用localStorage');
-                        try {
-                            const localValue = localStorage.getItem(key);
-                            resolve(localValue ? JSON.parse(localValue) : null);
-                        } catch (localError) {
-                            console.warn('从localStorage读取失败:', localError);
-                            resolve(null);
-                        }
                     } else {
-                        // 降级到localStorage
                         console.debug('已自动降级到localStorage');
-                        try {
-                            const localValue = localStorage.getItem(key);
-                            resolve(localValue ? JSON.parse(localValue) : null);
-                        } catch (localError) {
-                            console.warn('从localStorage读取失败:', localError);
-                            resolve(null);
-                        }
                     }
+                    resolve(this._getFromLocalStorage(key));
                 }
             });
         }

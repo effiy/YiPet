@@ -3,6 +3,19 @@
  * 处理扩展的安装、更新和消息传递
  */
 
+// 引入公共工具（如果可用）
+let RequestUtils;
+if (typeof window !== 'undefined' && window.RequestUtils) {
+    RequestUtils = window.RequestUtils;
+} else if (typeof require !== 'undefined') {
+    try {
+        RequestUtils = require('./utils/requestUtils.js');
+    } catch (e) {
+        // 如果无法加载，使用本地实现
+        RequestUtils = null;
+    }
+}
+
 // 扩展安装时的处理
 chrome.runtime.onInstalled.addListener((details) => {
     console.log('可拖拽小宠物扩展已安装');
@@ -29,157 +42,179 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
 });
 
+// 消息处理函数（拆分后的各个处理函数）
+function handleGetExtensionInfo(sendResponse) {
+    sendResponse({
+        version: chrome.runtime.getManifest().version,
+        name: chrome.runtime.getManifest().name
+    });
+}
+
+function handleOpenOptionsPage(sendResponse) {
+    chrome.runtime.openOptionsPage();
+    sendResponse({ success: true });
+}
+
+function handleGetActiveTab(sendResponse) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        sendResponse({ tab: tabs[0] });
+    });
+}
+
+function handleInjectPet(request, sender, sendResponse) {
+    const tabId = request.tabId || sender.tab.id;
+    console.log('注入宠物到标签页:', tabId);
+    injectPetToTab(tabId);
+    sendResponse({ success: true });
+}
+
+function handleRemovePet(sender, sendResponse) {
+    removePetFromTab(sender.tab.id);
+    sendResponse({ success: true });
+}
+
+function handleCaptureVisibleTab(sendResponse) {
+    console.log('处理截图请求');
+    
+    chrome.permissions.contains({
+        permissions: ['activeTab']
+    }, (hasPermission) => {
+        console.log('Background权限检查结果:', hasPermission);
+        
+        if (!hasPermission) {
+            console.error('缺少activeTab权限，尝试请求权限...');
+            chrome.permissions.request({
+                permissions: ['activeTab']
+            }, (granted) => {
+                console.log('Background权限请求结果:', granted);
+                if (granted) {
+                    performScreenshot(sendResponse);
+                } else {
+                    console.error('权限请求被拒绝');
+                    sendResponse({ 
+                        success: false, 
+                        error: '权限请求被拒绝，请手动在扩展管理页面中启用权限' 
+                    });
+                }
+            });
+        } else {
+            performScreenshot(sendResponse);
+        }
+    });
+}
+
+function handleCheckPermissions(sendResponse) {
+    chrome.permissions.getAll((permissions) => {
+        console.log('所有权限:', permissions);
+        sendResponse({ 
+            success: true, 
+            permissions: permissions 
+        });
+    });
+}
+
+function handleForwardToContentScript(request, sendResponse) {
+    console.log('转发消息到content script:', request.tabId, request.message);
+    chrome.tabs.sendMessage(request.tabId, request.message, (response) => {
+        if (chrome.runtime.lastError) {
+            console.log('转发消息失败:', chrome.runtime.lastError.message);
+            if (chrome.runtime.lastError.message.includes('Could not establish connection')) {
+                console.log('尝试直接注入content script...');
+                injectContentScript(request.tabId).then(() => {
+                    setTimeout(() => {
+                        chrome.tabs.sendMessage(request.tabId, request.message, (retryResponse) => {
+                            if (chrome.runtime.lastError) {
+                                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                            } else {
+                                sendResponse(retryResponse);
+                            }
+                        });
+                    }, 1000);
+                });
+                return;
+            }
+            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        } else {
+            console.log('转发消息成功:', response);
+            sendResponse(response);
+        }
+    });
+}
+
+function handleSendToWeWorkRobot(request, sendResponse) {
+    console.log('发送消息到企微机器人:', request.webhookUrl);
+    sendToWeWorkRobot(request.webhookUrl, request.content)
+        .then((result) => {
+            sendResponse({ success: true, result: result });
+        })
+        .catch((error) => {
+            console.error('发送到企微机器人失败:', error);
+            sendResponse({ success: false, error: error.message || '发送失败' });
+        });
+}
+
+function handleOpenLinkInNewTab(request, sendResponse) {
+    if (!request.url) {
+        sendResponse({ success: false, error: 'URL参数缺失' });
+        return;
+    }
+    
+    try {
+        chrome.tabs.create({ url: request.url }, (tab) => {
+            if (chrome.runtime.lastError) {
+                console.error('打开链接失败:', chrome.runtime.lastError.message);
+                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            } else {
+                console.log('链接已在新标签页打开:', request.url);
+                sendResponse({ success: true, tabId: tab.id });
+            }
+        });
+    } catch (error) {
+        console.error('打开链接异常:', error);
+        sendResponse({ success: false, error: error.message || '打开链接失败' });
+    }
+}
+
 // 处理来自popup和content script的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Background收到消息:', request);
     
-    switch (request.action) {
-        case 'getExtensionInfo':
-            sendResponse({
-                version: chrome.runtime.getManifest().version,
-                name: chrome.runtime.getManifest().name
-            });
-            break;
-            
-        case 'openOptionsPage':
-            chrome.runtime.openOptionsPage();
-            sendResponse({ success: true });
-            break;
-            
-        case 'getActiveTab':
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                sendResponse({ tab: tabs[0] });
-            });
+    const actionHandlers = {
+        'getExtensionInfo': () => handleGetExtensionInfo(sendResponse),
+        'openOptionsPage': () => handleOpenOptionsPage(sendResponse),
+        'getActiveTab': () => {
+            handleGetActiveTab(sendResponse);
             return true; // 保持消息通道开放
-            
-        case 'injectPet':
-            const tabId = request.tabId || sender.tab.id;
-            console.log('注入宠物到标签页:', tabId);
-            injectPetToTab(tabId);
-            sendResponse({ success: true });
-            break;
-            
-        case 'removePet':
-            removePetFromTab(sender.tab.id);
-            sendResponse({ success: true });
-            break;
-            
-        case 'captureVisibleTab':
-            // 处理截图请求
-            console.log('处理截图请求');
-            
-            // 首先检查权限
-            chrome.permissions.contains({
-                permissions: ['activeTab']
-            }, (hasPermission) => {
-                console.log('Background权限检查结果:', hasPermission);
-                
-                if (!hasPermission) {
-                    console.error('缺少activeTab权限，尝试请求权限...');
-                    
-                    // 尝试请求权限
-                    chrome.permissions.request({
-                        permissions: ['activeTab']
-                    }, (granted) => {
-                        console.log('Background权限请求结果:', granted);
-                        
-                        if (granted) {
-                            // 权限请求成功，继续截图流程
-                            performScreenshot(sendResponse);
-                        } else {
-                            console.error('权限请求被拒绝');
-                            sendResponse({ 
-                                success: false, 
-                                error: '权限请求被拒绝，请手动在扩展管理页面中启用权限' 
-                            });
-                        }
-                    });
-                } else {
-                    // 权限已存在，直接截图
-                    performScreenshot(sendResponse);
-                }
-            });
+        },
+        'injectPet': () => handleInjectPet(request, sender, sendResponse),
+        'removePet': () => handleRemovePet(sender, sendResponse),
+        'captureVisibleTab': () => {
+            handleCaptureVisibleTab(sendResponse);
             return true; // 保持消息通道开放
-            
-        case 'checkPermissions':
-            // 检查权限状态
-            chrome.permissions.getAll((permissions) => {
-                console.log('所有权限:', permissions);
-                sendResponse({ 
-                    success: true, 
-                    permissions: permissions 
-                });
-            });
-            return true;
-            
-        case 'forwardToContentScript':
-            // 转发消息到content script
-            console.log('转发消息到content script:', request.tabId, request.message);
-            chrome.tabs.sendMessage(request.tabId, request.message, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.log('转发消息失败:', chrome.runtime.lastError.message);
-                    // 如果content script未加载，尝试直接注入
-                    if (chrome.runtime.lastError.message.includes('Could not establish connection')) {
-                        console.log('尝试直接注入content script...');
-                        injectContentScript(request.tabId).then(() => {
-                            // 重新尝试发送消息
-                            setTimeout(() => {
-                                chrome.tabs.sendMessage(request.tabId, request.message, (retryResponse) => {
-                                    if (chrome.runtime.lastError) {
-                                        sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                                    } else {
-                                        sendResponse(retryResponse);
-                                    }
-                                });
-                            }, 1000);
-                        });
-                        return;
-                    }
-                    sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                } else {
-                    console.log('转发消息成功:', response);
-                    sendResponse(response);
-                }
-            });
+        },
+        'checkPermissions': () => {
+            handleCheckPermissions(sendResponse);
             return true; // 保持消息通道开放
-            
-        case 'sendToWeWorkRobot':
-            // 通过 background script 发送消息到企微机器人（避免 CORS 问题）
-            console.log('发送消息到企微机器人:', request.webhookUrl);
-            sendToWeWorkRobot(request.webhookUrl, request.content)
-                .then((result) => {
-                    sendResponse({ success: true, result: result });
-                })
-                .catch((error) => {
-                    console.error('发送到企微机器人失败:', error);
-                    sendResponse({ success: false, error: error.message || '发送失败' });
-                });
+        },
+        'forwardToContentScript': () => {
+            handleForwardToContentScript(request, sendResponse);
             return true; // 保持消息通道开放
-            
-        case 'openLinkInNewTab':
-            // 在新标签页中打开链接
-            if (request.url) {
-                try {
-                    chrome.tabs.create({ url: request.url }, (tab) => {
-                        if (chrome.runtime.lastError) {
-                            console.error('打开链接失败:', chrome.runtime.lastError.message);
-                            sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                        } else {
-                            console.log('链接已在新标签页打开:', request.url);
-                            sendResponse({ success: true, tabId: tab.id });
-                        }
-                    });
-                } catch (error) {
-                    console.error('打开链接异常:', error);
-                    sendResponse({ success: false, error: error.message || '打开链接失败' });
-                }
-            } else {
-                sendResponse({ success: false, error: 'URL参数缺失' });
-            }
+        },
+        'sendToWeWorkRobot': () => {
+            handleSendToWeWorkRobot(request, sendResponse);
             return true; // 保持消息通道开放
-            
-        default:
-            sendResponse({ success: false, error: 'Unknown action' });
+        },
+        'openLinkInNewTab': () => {
+            handleOpenLinkInNewTab(request, sendResponse);
+            return true; // 保持消息通道开放
+        }
+    };
+    
+    const handler = actionHandlers[request.action];
+    if (handler) {
+        return handler();
+    } else {
+        sendResponse({ success: false, error: 'Unknown action' });
     }
 });
 
@@ -553,33 +588,26 @@ const MAX_REQUESTS = 1000; // 最大请求记录数
 // key: `${method}:${normalizedUrl}:${timestampRange}`，value: 请求在数组中的索引
 const requestIndexMap = new Map();
 
-// 扩展相关的URL模式（用于过滤）
-const extensionUrlPatterns = [
-    /^chrome-extension:\/\//i,
-    /^chrome:\/\//i,
-    /^moz-extension:\/\//i,
-    /api\.effiy\.cn/i, // 扩展使用的API域名
-];
-
-/**
- * 检查是否是扩展请求
- */
-function isExtensionRequest(url) {
+// 使用公共工具函数（如果可用，否则使用本地实现）
+const isExtensionRequest = RequestUtils ? RequestUtils.isExtensionRequest : function(url) {
     if (!url || typeof url !== 'string') {
         return false;
     }
+    const extensionUrlPatterns = [
+        /^chrome-extension:\/\//i,
+        /^chrome:\/\//i,
+        /^moz-extension:\/\//i,
+        /api\.effiy\.cn/i,
+    ];
     for (const pattern of extensionUrlPatterns) {
         if (pattern.test(url)) {
             return true;
         }
     }
     return false;
-}
+};
 
-/**
- * 规范化URL（移除hash和query参数，用于匹配）
- */
-function normalizeUrl(url) {
+const normalizeUrl = RequestUtils ? RequestUtils.normalizeUrl : function(url) {
     if (!url || typeof url !== 'string') {
         return '';
     }
@@ -598,12 +626,9 @@ function normalizeUrl(url) {
         }
         return url.substring(0, endIndex);
     }
-}
+};
 
-/**
- * 格式化请求头
- */
-function formatHeaders(headers) {
+const formatHeaders = RequestUtils ? RequestUtils.formatHeaders : function(headers) {
     if (!headers) return {};
     if (Array.isArray(headers)) {
         const result = {};
@@ -616,12 +641,9 @@ function formatHeaders(headers) {
         return { ...headers };
     }
     return {};
-}
+};
 
-/**
- * 生成 curl 命令
- */
-function generateCurl(url, method, headers, body) {
+const generateCurl = RequestUtils ? RequestUtils.generateCurl : function(url, method, headers, body) {
     let curl = `curl -X ${method}`;
     
     if (headers && typeof headers === 'object') {
@@ -640,7 +662,7 @@ function generateCurl(url, method, headers, body) {
     
     curl += ` \\\n  "${url}"`;
     return curl;
-}
+};
 
 /**
  * 生成请求的唯一标识符（用于去重）

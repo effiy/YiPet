@@ -11,6 +11,18 @@
  * - 优化索引重建逻辑
  */
 
+// 引入公共工具（如果可用）
+let RequestUtils;
+if (typeof window !== 'undefined' && window.RequestUtils) {
+    RequestUtils = window.RequestUtils;
+} else if (typeof require !== 'undefined') {
+    try {
+        RequestUtils = require('./utils/requestUtils.js');
+    } catch (e) {
+        RequestUtils = null;
+    }
+}
+
 class ApiRequestManager {
     constructor(options = {}) {
         // 配置选项
@@ -34,13 +46,8 @@ class ApiRequestManager {
             enableBodyDedup: true, // 是否基于请求体进行去重
         };
         
-        // 扩展相关的URL模式（用于过滤）
-        this.extensionUrlPatterns = [
-            /^chrome-extension:\/\//i,
-            /^chrome:\/\//i,
-            /^moz-extension:\/\//i,
-            /api\.effiy\.cn/i, // 扩展使用的API域名
-        ];
+        // 使用公共工具或本地实现
+        this._requestUtils = RequestUtils || null;
         
         // 初始化
         this._initialized = false;
@@ -565,11 +572,14 @@ class ApiRequestManager {
     }
     
     /**
-     * 格式化请求头（优化版本：缓存结果）
+     * 格式化请求头（使用公共工具）
      */
     _formatHeaders(headers) {
+        return this._requestUtils ? this._requestUtils.formatHeaders(headers) : this._formatHeadersLocal(headers);
+    }
+    
+    _formatHeadersLocal(headers) {
         if (!headers) return {};
-        
         if (headers instanceof Headers) {
             const result = {};
             headers.forEach((value, key) => {
@@ -577,29 +587,28 @@ class ApiRequestManager {
             });
             return result;
         }
-        
         if (typeof headers === 'object') {
             return { ...headers };
         }
-        
         return {};
     }
     
     /**
-     * 格式化请求体
+     * 格式化请求体（使用公共工具）
      */
     _formatBody(body) {
+        return this._requestUtils ? this._requestUtils.formatBody(body) : this._formatBodyLocal(body);
+    }
+    
+    _formatBodyLocal(body) {
         if (!body) return null;
-        
         if (typeof body === 'string') {
             try {
-                // 尝试解析为JSON
                 return JSON.parse(body);
             } catch (e) {
                 return body;
             }
         }
-        
         if (body instanceof FormData) {
             const result = {};
             body.forEach((value, key) => {
@@ -607,7 +616,6 @@ class ApiRequestManager {
             });
             return result;
         }
-        
         if (body instanceof URLSearchParams) {
             const result = {};
             body.forEach((value, key) => {
@@ -615,24 +623,25 @@ class ApiRequestManager {
             });
             return result;
         }
-        
         return body;
     }
     
     /**
-     * 生成 curl 命令（延迟执行，只在需要时调用）
+     * 生成 curl 命令（使用公共工具）
      */
     _generateCurl(url, method, headers, body) {
+        return this._requestUtils ? 
+            this._requestUtils.generateCurl(url, method, headers, body) : 
+            this._generateCurlLocal(url, method, headers, body);
+    }
+    
+    _generateCurlLocal(url, method, headers, body) {
         let curl = `curl -X ${method}`;
-        
-        // 添加请求头
         if (headers && typeof headers === 'object') {
             Object.entries(headers).forEach(([key, value]) => {
                 curl += ` \\\n  -H "${key}: ${value}"`;
             });
         }
-        
-        // 添加请求体
         if (body) {
             if (typeof body === 'string') {
                 curl += ` \\\n  -d '${body.replace(/'/g, "\\'")}'`;
@@ -640,29 +649,34 @@ class ApiRequestManager {
                 curl += ` \\\n  -d '${JSON.stringify(body).replace(/'/g, "\\'")}'`;
             }
         }
-        
         curl += ` \\\n  "${url}"`;
-        
         return curl;
     }
     
     /**
-     * 检查是否是扩展请求
-     * @param {string} url - 请求URL
-     * @returns {boolean} 是否是扩展请求
+     * 检查是否是扩展请求（使用公共工具）
      */
     _isExtensionRequest(url) {
+        return this._requestUtils ? 
+            this._requestUtils.isExtensionRequest(url) : 
+            this._isExtensionRequestLocal(url);
+    }
+    
+    _isExtensionRequestLocal(url) {
         if (!url || typeof url !== 'string') {
             return false;
         }
-        
-        // 检查URL是否匹配扩展相关的模式
-        for (const pattern of this.extensionUrlPatterns) {
+        const extensionUrlPatterns = [
+            /^chrome-extension:\/\//i,
+            /^chrome:\/\//i,
+            /^moz-extension:\/\//i,
+            /api\.effiy\.cn/i,
+        ];
+        for (const pattern of extensionUrlPatterns) {
             if (pattern.test(url)) {
                 return true;
             }
         }
-        
         return false;
     }
     
@@ -1508,20 +1522,22 @@ class ApiRequestManager {
     }
     
     /**
-     * 规范化URL（移除hash和query参数，用于匹配）
-     * @param {string} url - 原始URL
-     * @returns {string} 规范化后的URL
+     * 规范化URL（使用公共工具）
      */
     _normalizeUrl(url) {
+        return this._requestUtils ? 
+            this._requestUtils.normalizeUrl(url) : 
+            this._normalizeUrlLocal(url);
+    }
+    
+    _normalizeUrlLocal(url) {
         if (!url || typeof url !== 'string') {
             return '';
         }
         try {
             const urlObj = new URL(url);
-            // 只保留 origin + pathname，忽略 hash 和 search
             return `${urlObj.origin}${urlObj.pathname}`;
         } catch (e) {
-            // 如果URL解析失败，尝试简单处理
             const hashIndex = url.indexOf('#');
             const queryIndex = url.indexOf('?');
             let endIndex = url.length;

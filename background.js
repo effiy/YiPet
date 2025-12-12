@@ -12,6 +12,54 @@
 // ==================== 工具类引入 ====================
 
 /**
+ * 加载常量定义文件
+ * Service Worker 需要使用 importScripts 来加载其他文件
+ */
+try {
+    importScripts('constants.js');
+} catch (e) {
+    console.error('无法加载 constants.js:', e);
+    // 如果加载失败，定义最小化的 CONSTANTS 对象以避免错误
+    if (typeof CONSTANTS === 'undefined') {
+        // 在 service worker 中，直接赋值给全局作用域
+        self.CONSTANTS = {
+            TIMING: {
+                INJECT_PET_DELAY: 1000,
+                REQUEST_DEDUP_WINDOW: 5000,
+                REQUEST_CLEANUP_INTERVAL: 30000,
+                REQUEST_CLEANUP_TIMEOUT: 60000,
+                STORAGE_CLEANUP_INTERVAL: 86400000,
+                STORAGE_CLEANUP_AGE: 604800000
+            },
+            STORAGE: {
+                MAX_REQUESTS: 1000
+            },
+            URLS: {
+                CHROME_PROTOCOL: 'chrome://',
+                CHROME_EXTENSION_PROTOCOL: 'chrome-extension://',
+                MOZ_EXTENSION_PROTOCOL: 'moz-extension://',
+                ABOUT_PROTOCOL: 'about:',
+                isSystemPage: function(url) {
+                    if (!url || typeof url !== 'string') return false;
+                    return url.startsWith(this.CHROME_PROTOCOL) ||
+                           url.startsWith(this.CHROME_EXTENSION_PROTOCOL) ||
+                           url.startsWith(this.MOZ_EXTENSION_PROTOCOL) ||
+                           url.startsWith(this.ABOUT_PROTOCOL);
+                }
+            },
+            API: {
+                MAX_WEWORK_CONTENT_LENGTH: 4096,
+                MAX_WEWORK_CONTENT_TRUNCATE_MARGIN: 100
+            }
+        };
+        // 同时设置 globalThis 以确保兼容性
+        if (typeof globalThis !== 'undefined') {
+            globalThis.CONSTANTS = self.CONSTANTS;
+        }
+    }
+}
+
+/**
  * 引入公共请求工具类（如果可用）
  * 优先使用全局RequestUtils，否则尝试require，最后使用本地实现
  */
@@ -177,7 +225,7 @@ function handleForwardToContentScriptRequest(request, sendResponse) {
                                 sendResponse(retryResponse);
                             }
                         });
-                    }, 1000);
+                    }, CONSTANTS.TIMING.INJECT_PET_DELAY);
                 });
                 return;
             }
@@ -227,12 +275,28 @@ function handleOpenLinkInNewTabRequest(request, sendResponse) {
 
 /**
  * 处理来自popup和content script的消息
- * 根据action字段路由到对应的处理函数
+ * 
+ * 消息路由机制：
+ * - 根据request.action字段路由到对应的处理函数
+ * - 支持同步和异步消息处理
+ * - 异步操作需要返回true以保持消息通道开放
+ * 
+ * 支持的消息类型：
+ * - getExtensionInfo: 获取扩展信息
+ * - openOptionsPage: 打开选项页面
+ * - getActiveTab: 获取活动标签页（异步）
+ * - injectPet: 注入宠物到标签页
+ * - removePet: 移除宠物
+ * - captureVisibleTab: 截图（异步）
+ * - checkPermissions: 检查权限（异步）
+ * - forwardToContentScript: 转发消息到content script（异步）
+ * - sendToWeWorkRobot: 发送消息到企微机器人（异步）
+ * - openLinkInNewTab: 在新标签页打开链接（异步）
  */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Background收到消息:', request);
     
-    // 消息处理器映射表
+    // 消息处理器映射表：action -> handler函数
     const actionHandlers = {
         'getExtensionInfo': () => handleGetExtensionInfoRequest(sendResponse),
         'openOptionsPage': () => handleOpenOptionsPageRequest(sendResponse),
@@ -284,7 +348,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     console.log('标签页更新:', tabId, changeInfo.status, tab.url);
     
     // 只在页面完全加载完成且不是系统页面时处理
-    if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+    if (changeInfo.status === 'complete' && tab.url && !CONSTANTS.URLS.isSystemPage(tab.url)) {
         console.log('页面加载完成，检查是否需要注入宠物');
         
         // 检查是否需要自动注入宠物
@@ -297,7 +361,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                 setTimeout(() => {
                     console.log('自动注入宠物到标签页:', tabId);
                     injectPetToTab(tabId);
-                }, 1000); // 延迟1秒，确保页面DOM已准备好
+                }, CONSTANTS.TIMING.INJECT_PET_DELAY);
             } else {
                 console.log('自动注入已禁用或宠物不可见');
             }
@@ -307,7 +371,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         console.log('跳过注入:', {
             status: changeInfo.status,
             url: tab.url,
-            isChromePage: tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://'))
+            isSystemPage: tab.url && CONSTANTS.URLS.isSystemPage(tab.url)
         });
     }
 });
@@ -356,7 +420,7 @@ function injectPetToTab(tabId) {
                                 console.log('重试注入成功');
                             }
                         });
-                    }, 1000);
+                    }, CONSTANTS.TIMING.INJECT_PET_DELAY);
                 });
             }
         } else {
@@ -431,10 +495,7 @@ function captureTabScreenshot(sendResponse) {
         console.log('活动标签页:', activeTab.id, activeTab.url);
         
         // 检查标签页URL是否允许截图
-        if (activeTab.url.startsWith('chrome://') || 
-            activeTab.url.startsWith('chrome-extension://') ||
-            activeTab.url.startsWith('moz-extension://') ||
-            activeTab.url.startsWith('about:')) {
+        if (CONSTANTS.URLS.isSystemPage(activeTab.url)) {
             console.error('无法截取系统页面:', activeTab.url);
             sendResponse({ 
                 success: false, 
@@ -511,7 +572,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
             chrome.tabs.query({}, (tabs) => {
                 tabs.forEach(tab => {
                     // 跳过系统页面
-                    if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+                    if (tab.url && !CONSTANTS.URLS.isSystemPage(tab.url)) {
                         chrome.tabs.sendMessage(tab.id, {
                             action: 'globalStateUpdated',
                             data: changes.petGlobalState.newValue
@@ -602,7 +663,8 @@ try {
 setInterval(() => {
     chrome.storage.local.get(null, (items) => {
         const now = Date.now();
-        const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000); // 7天前的时间戳
+        const cleanupAge = CONSTANTS.TIMING.STORAGE_CLEANUP_AGE;
+        const oneWeekAgo = now - cleanupAge;
         
         Object.keys(items).forEach(key => {
             // 清理过期的位置数据
@@ -611,7 +673,7 @@ setInterval(() => {
             }
         });
     });
-}, 24 * 60 * 60 * 1000); // 每24小时执行一次
+}, CONSTANTS.TIMING.STORAGE_CLEANUP_INTERVAL);
 
 // ==================== 错误处理 ====================
 
@@ -633,8 +695,8 @@ chrome.runtime.onSuspend.addListener(() => {
  */
 async function sendMessageToWeWorkRobot(webhookUrl, content) {
     try {
-        // 企微机器人 markdown.content 的最大长度限制为 4096 字符
-        const MAX_LENGTH = 4096;
+        // 企微机器人 markdown.content 的最大长度限制
+        const MAX_LENGTH = CONSTANTS.API.MAX_WEWORK_CONTENT_LENGTH;
         
         // 参数验证
         if (!webhookUrl || typeof webhookUrl !== 'string') {
@@ -656,7 +718,7 @@ async function sendMessageToWeWorkRobot(webhookUrl, content) {
             
             // 尝试在最后一个换行符处截断
             const lastNewline = truncated.lastIndexOf('\n');
-            if (lastNewline > MAX_LENGTH - 100) {
+            if (lastNewline > MAX_LENGTH - CONSTANTS.API.MAX_WEWORK_CONTENT_TRUNCATE_MARGIN) {
                 truncated = truncated.substring(0, lastNewline);
             }
             
@@ -717,7 +779,7 @@ async function sendMessageToWeWorkRobot(webhookUrl, content) {
 
 // 存储所有标签页的请求数据
 let globalApiRequests = [];
-const MAX_REQUESTS = 1000; // 最大请求记录数
+const MAX_REQUESTS = CONSTANTS.STORAGE.MAX_REQUESTS;
 
 // 去重索引：使用 Map 存储请求的唯一标识，提高查找效率
 // key格式: `${method}:${normalizedUrl}:${timestampRange}`
@@ -814,10 +876,10 @@ function generateRequestKey(request) {
     const normalizedUrl = normalizeUrl(request.url);
     const method = (request.method || 'GET').toUpperCase();
     
-    // 对于相同URL和方法的请求，如果时间戳在5秒内，视为重复请求
-    // 将时间戳向下取整到5秒区间，这样5秒内的相同请求会有相同的key
+    // 对于相同URL和方法的请求，如果时间戳在时间窗口内，视为重复请求
+    // 将时间戳向下取整到时间窗口区间，这样窗口内的相同请求会有相同的key
     const timestamp = request.timestamp || Date.now();
-    const timeWindow = 5000; // 5秒时间窗口
+    const timeWindow = CONSTANTS.TIMING.REQUEST_DEDUP_WINDOW;
     const timeRange = Math.floor(timestamp / timeWindow);
     
     return `${method}:${normalizedUrl}:${timeRange}`;
@@ -926,7 +988,7 @@ async function recordRequestToStorage(request) {
         // 通知所有标签页有新请求
         chrome.tabs.query({}, (tabs) => {
             tabs.forEach(tab => {
-                if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+                if (tab.url && !CONSTANTS.URLS.isSystemPage(tab.url)) {
                     chrome.tabs.sendMessage(tab.id, {
                         action: 'apiRequestRecorded',
                         request: request
@@ -1008,14 +1070,14 @@ chrome.webRequest.onBeforeRequest.addListener(
  */
 setInterval(() => {
     const now = Date.now();
-    const timeout = 60000; // 60秒超时
+    const timeout = CONSTANTS.TIMING.REQUEST_CLEANUP_TIMEOUT;
     
     for (const [requestId, info] of requestStartInfo.entries()) {
         if (now - info.startTime > timeout) {
             requestStartInfo.delete(requestId);
         }
     }
-}, 30000); // 每30秒清理一次
+}, CONSTANTS.TIMING.REQUEST_CLEANUP_INTERVAL);
 
 // 导出函数供其他脚本使用
 if (typeof module !== 'undefined' && module.exports) {

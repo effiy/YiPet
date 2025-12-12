@@ -11,79 +11,12 @@
 /**
  * 初始化日志工具
  * 根据开发模式设置控制控制台输出
- * 如果LoggerUtils可用则使用，否则使用本地降级实现
+ * 优先使用 LoggerUtils，如果不可用则静默失败（不影响主功能）
  */
 (function() {
     try {
         if (typeof LoggerUtils !== 'undefined' && LoggerUtils.initMuteLogger) {
             LoggerUtils.initMuteLogger('petDevMode', false);
-        } else {
-            // 降级到本地实现：检查Chrome扩展环境是否可用
-            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.runtime) {
-                return;
-            }
-            try {
-                if (!chrome.runtime.id) {
-                    return;
-                }
-            } catch (error) {
-                return;
-            }
-            
-            // 日志控制配置
-            const keyName = 'petDevMode';
-            const defaultEnabled = false;
-            
-            // 保存原始控制台方法
-            const original = {
-                log: console.log,
-                info: console.info,
-                debug: console.debug,
-                warn: console.warn
-            };
-            
-            /**
-             * 根据开发模式设置启用或禁用控制台输出
-             * @param {boolean} enabled - 是否启用日志输出
-             */
-            const muteIfNeeded = (enabled) => {
-                if (enabled) {
-                    // 恢复原始控制台方法
-                    console.log = original.log;
-                    console.info = original.info;
-                    console.debug = original.debug;
-                    console.warn = original.warn;
-                } else {
-                    // 禁用控制台输出（使用空函数）
-                    const noop = () => {};
-                    console.log = noop;
-                    console.info = noop;
-                    console.debug = noop;
-                    console.warn = noop;
-                }
-            };
-            
-            // 从存储中读取开发模式设置
-            chrome.storage.sync.get([keyName], (res) => {
-                if (chrome.runtime.lastError) {
-                    muteIfNeeded(defaultEnabled);
-                    return;
-                }
-                const enabled = res[keyName];
-                muteIfNeeded(typeof enabled === 'boolean' ? enabled : defaultEnabled);
-            });
-            
-            // 监听开发模式设置变化
-            chrome.storage.onChanged.addListener((changes, namespace) => {
-                try {
-                    if (namespace !== 'sync') return;
-                    if (changes[keyName]) {
-                        muteIfNeeded(changes[keyName].newValue);
-                    }
-                } catch (error) {
-                    // 静默处理错误，避免影响主流程
-                }
-            });
         }
     } catch (e) {
         // 静默处理初始化错误，确保不影响弹窗功能
@@ -695,29 +628,14 @@ class PopupController {
 
 /**
  * 页面加载完成后初始化弹窗控制器
+ * 页面卸载时清理资源，停止状态同步定时器，防止内存泄漏
  */
 let popupController;
+
 document.addEventListener('DOMContentLoaded', () => {
     popupController = new PopupController();
 });
 
-/**
- * 页面卸载时清理资源
- * 停止状态同步定时器，防止内存泄漏
- */
-window.addEventListener('beforeunload', () => {
-    if (popupController) {
-        popupController.stopStatusSync();
-    }
-});
-
-// 页面加载完成后初始化
-let popupController;
-document.addEventListener('DOMContentLoaded', () => {
-    popupController = new PopupController();
-});
-
-// 页面卸载时清理
 window.addEventListener('beforeunload', () => {
     if (popupController) {
         popupController.stopStatusSync();

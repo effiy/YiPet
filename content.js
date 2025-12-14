@@ -5675,6 +5675,11 @@ if (typeof getCenterPosition === 'undefined') {
                         
                         // 添加动作按钮（包括角色按钮和设置按钮）
                         await this.addActionButtonsToMessage(petMsg);
+                        
+                        // 为宠物消息添加排序按钮
+                        if (copyButtonContainer) {
+                            this.addSortButtons(copyButtonContainer, petMsg);
+                        }
                     } catch (error) {
                         console.error('为消息添加按钮时出错:', error);
                     }
@@ -5733,6 +5738,11 @@ if (typeof getCenterPosition === 'undefined') {
                             if (!copyButtonContainer.querySelector('.delete-button')) {
                                 this.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
                             }
+                        }
+                        
+                        // 为用户消息添加排序按钮
+                        if (copyButtonContainer) {
+                            this.addSortButtons(copyButtonContainer, userMsg);
                         }
                         
                         // 为用户消息添加导出按钮
@@ -39671,6 +39681,11 @@ ${pageContent || '无内容'}
                 }
             }
         }
+        
+        // 添加排序按钮（在动作按钮之后）
+        if (copyButtonContainer) {
+            this.addSortButtons(copyButtonContainer, messageDiv);
+        }
     }
     
     // 刷新所有消息的动作按钮（在角色设置更新后调用）
@@ -44970,6 +44985,8 @@ ${messageContent}`;
                 if (!copyButtonContainer.querySelector('.delete-button')) {
                     this.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
                 }
+                // 添加排序按钮
+                this.addSortButtons(copyButtonContainer, userMessage);
             }
 
             // 清空输入框并重置高度
@@ -48489,6 +48506,249 @@ ${messageContent}`;
         container.style.gap = '8px';
     }
 
+    // 添加排序按钮（上移和下移）
+    addSortButtons(container, messageDiv) {
+        // 如果已经有排序按钮，就不再添加
+        if (container.querySelector('.sort-up-button') || container.querySelector('.sort-down-button')) {
+            return;
+        }
+
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        if (!messagesContainer) return;
+
+        // 获取所有消息元素（排除欢迎消息）
+        const allMessages = Array.from(messagesContainer.children).filter(msg => 
+            !msg.hasAttribute('data-welcome-message')
+        );
+        const currentIndex = allMessages.indexOf(messageDiv);
+
+        // 创建上移按钮
+        const sortUpButton = document.createElement('button');
+        sortUpButton.className = 'sort-up-button';
+        sortUpButton.innerHTML = '⬆️';
+        sortUpButton.setAttribute('title', '上移消息');
+        sortUpButton.style.cssText = `
+            background: transparent !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 4px 8px !important;
+            opacity: ${currentIndex > 0 ? '0.7' : '0.3'} !important;
+            transition: opacity 0.2s ease, transform 0.2s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 14px !important;
+            min-width: 24px !important;
+            min-height: 24px !important;
+            pointer-events: ${currentIndex > 0 ? 'auto' : 'none'} !important;
+        `;
+
+        // 悬停效果
+        sortUpButton.addEventListener('mouseenter', () => {
+            if (currentIndex > 0) {
+                sortUpButton.style.opacity = '1';
+                sortUpButton.style.transform = 'scale(1.1)';
+            }
+        });
+        sortUpButton.addEventListener('mouseleave', () => {
+            if (currentIndex > 0) {
+                sortUpButton.style.opacity = '0.7';
+                sortUpButton.style.transform = 'scale(1)';
+            }
+        });
+
+        // 点击上移
+        sortUpButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (currentIndex > 0) {
+                await this.moveMessageUp(messageDiv, currentIndex);
+            }
+        });
+
+        // 创建下移按钮
+        const sortDownButton = document.createElement('button');
+        sortDownButton.className = 'sort-down-button';
+        sortDownButton.innerHTML = '⬇️';
+        sortDownButton.setAttribute('title', '下移消息');
+        sortDownButton.style.cssText = `
+            background: transparent !important;
+            border: none !important;
+            cursor: pointer !important;
+            padding: 4px 8px !important;
+            opacity: ${currentIndex < allMessages.length - 1 ? '0.7' : '0.3'} !important;
+            transition: opacity 0.2s ease, transform 0.2s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 14px !important;
+            min-width: 24px !important;
+            min-height: 24px !important;
+            pointer-events: ${currentIndex < allMessages.length - 1 ? 'auto' : 'none'} !important;
+        `;
+
+        // 悬停效果
+        sortDownButton.addEventListener('mouseenter', () => {
+            if (currentIndex < allMessages.length - 1) {
+                sortDownButton.style.opacity = '1';
+                sortDownButton.style.transform = 'scale(1.1)';
+            }
+        });
+        sortDownButton.addEventListener('mouseleave', () => {
+            if (currentIndex < allMessages.length - 1) {
+                sortDownButton.style.opacity = '0.7';
+                sortDownButton.style.transform = 'scale(1)';
+            }
+        });
+
+        // 点击下移
+        sortDownButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (currentIndex < allMessages.length - 1) {
+                await this.moveMessageDown(messageDiv, currentIndex);
+            }
+        });
+
+        // 将排序按钮添加到容器中（在复制按钮之前）
+        const copyButton = container.querySelector('.copy-button');
+        if (copyButton) {
+            container.insertBefore(sortUpButton, copyButton);
+            container.insertBefore(sortDownButton, copyButton);
+        } else {
+            // 如果没有复制按钮，直接添加到容器末尾
+            container.appendChild(sortUpButton);
+            container.appendChild(sortDownButton);
+        }
+    }
+
+    // 上移消息
+    async moveMessageUp(messageDiv, currentIndex) {
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        if (!messagesContainer || !this.currentSessionId) return;
+
+        // 获取所有消息元素（排除欢迎消息）
+        const allMessages = Array.from(messagesContainer.children).filter(msg => 
+            !msg.hasAttribute('data-welcome-message')
+        );
+
+        if (currentIndex <= 0 || currentIndex >= allMessages.length) return;
+
+        const previousMessage = allMessages[currentIndex - 1];
+        
+        // 在DOM中交换位置
+        messageDiv.style.transition = 'transform 0.3s ease';
+        previousMessage.style.transition = 'transform 0.3s ease';
+        
+        // 使用 insertBefore 交换位置
+        messagesContainer.insertBefore(messageDiv, previousMessage);
+        
+        // 更新会话中的消息顺序
+        const session = this.sessions[this.currentSessionId];
+        if (session && session.messages && Array.isArray(session.messages)) {
+            // 交换数组中的位置
+            const temp = session.messages[currentIndex];
+            session.messages[currentIndex] = session.messages[currentIndex - 1];
+            session.messages[currentIndex - 1] = temp;
+            
+            session.updatedAt = Date.now();
+            
+            // 保存会话
+            await this.saveAllSessions();
+            
+            // 同步到后端
+            if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                await this.syncSessionToBackend(this.currentSessionId, true);
+            }
+            
+            // 更新所有消息的排序按钮状态
+            setTimeout(() => {
+                this.updateAllSortButtons();
+            }, 100);
+        }
+    }
+
+    // 下移消息
+    async moveMessageDown(messageDiv, currentIndex) {
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        if (!messagesContainer || !this.currentSessionId) return;
+
+        // 获取所有消息元素（排除欢迎消息）
+        const allMessages = Array.from(messagesContainer.children).filter(msg => 
+            !msg.hasAttribute('data-welcome-message')
+        );
+
+        if (currentIndex < 0 || currentIndex >= allMessages.length - 1) return;
+
+        const nextMessage = allMessages[currentIndex + 1];
+        
+        // 在DOM中交换位置
+        messageDiv.style.transition = 'transform 0.3s ease';
+        nextMessage.style.transition = 'transform 0.3s ease';
+        
+        // 使用 insertBefore 交换位置（将当前消息插入到下一个消息之后）
+        // 先移除当前消息，然后插入到下一个消息之后
+        messageDiv.remove();
+        if (nextMessage.nextSibling) {
+            messagesContainer.insertBefore(messageDiv, nextMessage.nextSibling);
+        } else {
+            messagesContainer.appendChild(messageDiv);
+        }
+        
+        // 更新会话中的消息顺序
+        const session = this.sessions[this.currentSessionId];
+        if (session && session.messages && Array.isArray(session.messages)) {
+            // 交换数组中的位置
+            const temp = session.messages[currentIndex];
+            session.messages[currentIndex] = session.messages[currentIndex + 1];
+            session.messages[currentIndex + 1] = temp;
+            
+            session.updatedAt = Date.now();
+            
+            // 保存会话
+            await this.saveAllSessions();
+            
+            // 同步到后端
+            if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                await this.syncSessionToBackend(this.currentSessionId, true);
+            }
+            
+            // 更新所有消息的排序按钮状态
+            setTimeout(() => {
+                this.updateAllSortButtons();
+            }, 100);
+        }
+    }
+
+    // 更新所有消息的排序按钮状态
+    updateAllSortButtons() {
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        if (!messagesContainer) return;
+
+        // 获取所有消息元素（排除欢迎消息）
+        const allMessages = Array.from(messagesContainer.children).filter(msg => 
+            !msg.hasAttribute('data-welcome-message')
+        );
+
+        allMessages.forEach((messageDiv, index) => {
+            const copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]');
+            if (!copyButtonContainer) return;
+
+            const sortUpButton = copyButtonContainer.querySelector('.sort-up-button');
+            const sortDownButton = copyButtonContainer.querySelector('.sort-down-button');
+
+            if (sortUpButton) {
+                const canMoveUp = index > 0;
+                sortUpButton.style.opacity = canMoveUp ? '0.7' : '0.3';
+                sortUpButton.style.pointerEvents = canMoveUp ? 'auto' : 'none';
+            }
+
+            if (sortDownButton) {
+                const canMoveDown = index < allMessages.length - 1;
+                sortDownButton.style.opacity = canMoveDown ? '0.7' : '0.3';
+                sortDownButton.style.pointerEvents = canMoveDown ? 'auto' : 'none';
+            }
+        });
+    }
+
     /**
      * 查找与宠物消息对应的用户消息
      * @param {HTMLElement} messageDiv - 宠物消息元素
@@ -49083,6 +49343,11 @@ ${messageContent}`;
                 if (copyButtonContainer && reply && reply.trim()) {
                     this.addCopyButton(copyButtonContainer, finalMessageBubble);
                 }
+                
+                // 添加排序按钮
+                if (copyButtonContainer) {
+                    this.addSortButtons(copyButtonContainer, petMessage);
+                }
 
                 // 添加重试按钮
                 const tryAgainButtonContainer = petMessage.querySelector('[data-try-again-button-container]');
@@ -49413,6 +49678,8 @@ ${messageContent}`;
             if (!copyButtonContainer.querySelector('.delete-button')) {
                 this.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
             }
+            // 添加排序按钮
+            this.addSortButtons(copyButtonContainer, userMessage);
         }
 
         // 调用 session/save 保存会话到后端

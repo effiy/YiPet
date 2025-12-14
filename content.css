@@ -716,6 +716,43 @@
     background: rgba(76, 175, 80, 0.3) !important;
 }
 
+/* 排序按钮样式 */
+.sort-up-button,
+.sort-down-button {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 4px 8px !important;
+    opacity: 0.7 !important;
+    transition: opacity 0.2s ease, transform 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+    border-radius: 4px !important;
+}
+
+.sort-up-button:hover,
+.sort-down-button:hover {
+    opacity: 1 !important;
+    transform: scale(1.1) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sort-up-button:active,
+.sort-down-button:active {
+    transform: scale(0.95) !important;
+}
+
+.sort-up-button:disabled,
+.sort-down-button:disabled {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
 /* 第一条欢迎消息的优化样式 */
 [data-welcome-message] {
     margin-bottom: 20px !important;

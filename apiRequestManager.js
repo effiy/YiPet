@@ -1243,6 +1243,113 @@ class ApiRequestManager {
             this._syncInterval = null;
         }
     }
+
+    /**
+     * 确保扩展上下文有效；若无效则统一标记失效并返回 false
+     * 所有错误都静默处理
+     * @returns {boolean}
+     */
+    _ensureContext() {
+        try {
+            if (!this._isContextValid()) {
+                this._handleContextInvalidated();
+                return false;
+            }
+            return true;
+        } catch (e) {
+            try { this._handleContextInvalidated(); } catch (_) {}
+            return false;
+        }
+    }
+
+    /**
+     * 安全读取 chrome.storage.local
+     * - 上下文失效/运行时错误会返回 fallback
+     * - 所有错误静默处理
+     * @param {string[]} keys
+     * @param {Object} fallback
+     * @returns {Promise<Object>}
+     */
+    async _storageLocalGetSafe(keys, fallback) {
+        // 快速检查
+        if (this._contextInvalidated || typeof chrome === 'undefined' || !chrome?.storage?.local) {
+            return fallback;
+        }
+        if (!this._ensureContext()) {
+            return fallback;
+        }
+
+        try {
+            const result = await new Promise((resolve) => {
+                try {
+                    if (!this._ensureContext()) {
+                        resolve(fallback);
+                        return;
+                    }
+                    chrome.storage.local.get(keys, (items) => {
+                        try {
+                            if (chrome.runtime?.lastError) {
+                                this._handleContextInvalidated();
+                                resolve(fallback);
+                                return;
+                            }
+                            resolve(items || fallback);
+                        } catch (e) {
+                            try { this._handleContextInvalidated(); } catch (_) {}
+                            resolve(fallback);
+                        }
+                    });
+                } catch (e) {
+                    try { this._handleContextInvalidated(); } catch (_) {}
+                    resolve(fallback);
+                }
+            });
+            return result || fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    /**
+     * 安全写入 chrome.storage.local
+     * 所有错误静默处理
+     * @param {Object} data
+     * @returns {Promise<void>}
+     */
+    async _storageLocalSetSafe(data) {
+        if (this._contextInvalidated || typeof chrome === 'undefined' || !chrome?.storage?.local) {
+            return;
+        }
+        if (!this._ensureContext()) {
+            return;
+        }
+
+        try {
+            await new Promise((resolve) => {
+                try {
+                    if (!this._ensureContext()) {
+                        resolve();
+                        return;
+                    }
+                    chrome.storage.local.set(data, () => {
+                        try {
+                            if (chrome.runtime?.lastError) {
+                                this._handleContextInvalidated();
+                            }
+                        } catch (e) {
+                            try { this._handleContextInvalidated(); } catch (_) {}
+                        }
+                        resolve();
+                    });
+                } catch (e) {
+                    try { this._handleContextInvalidated(); } catch (_) {}
+                    resolve();
+                }
+            });
+        } catch (e) {
+            // 静默处理
+        }
+    }
     
     /**
      * 从 storage 加载请求数据
@@ -1250,68 +1357,21 @@ class ApiRequestManager {
      */
     async _loadRequestsFromStorage() {
         // 快速检查：如果上下文已失效或 chrome.storage 不可用，直接返回
-        if (this._contextInvalidated || typeof chrome === 'undefined' || !chrome?.storage) {
+        if (this._contextInvalidated || typeof chrome === 'undefined' || !chrome?.storage?.local) {
             return;
         }
-        
+
         // 整个方法用 try-catch 包裹，确保所有错误都被静默处理
         try {
-            // 检查上下文是否有效（静默处理所有错误）
-            try {
-                if (!this._isContextValid()) {
-                    this._handleContextInvalidated();
-                    return;
-                }
-            } catch (e) {
-                this._handleContextInvalidated();
+            if (!this._ensureContext()) {
                 return;
             }
-            
-            // 从 storage 获取数据，所有错误都静默处理
-            const result = await new Promise((resolve) => {
-                try {
-                    // 再次检查上下文
-                    if (!this._isContextValid()) {
-                        this._handleContextInvalidated();
-                        resolve({ apiRequests: [] });
-                        return;
-                    }
-                    
-                    chrome.storage.local.get(['apiRequests'], (items) => {
-                        try {
-                            // 检查运行时错误（所有错误都静默处理）
-                            if (chrome.runtime?.lastError) {
-                                this._handleContextInvalidated();
-                                resolve({ apiRequests: [] });
-                                return;
-                            }
-                            resolve(items || { apiRequests: [] });
-                        } catch (e) {
-                            // 回调中任何错误都静默处理
-                            this._handleContextInvalidated();
-                            resolve({ apiRequests: [] });
-                        }
-                    });
-                } catch (e) {
-                    // 任何错误都静默处理
-                    this._handleContextInvalidated();
-                    resolve({ apiRequests: [] });
-                }
-            }).catch(() => {
-                // Promise reject 也静默处理
-                return { apiRequests: [] };
-            });
-            
-            // 检查上下文是否在 Promise 执行期间失效
-            try {
-                if (this._contextInvalidated || !this._isContextValid()) {
-                    if (!this._contextInvalidated) {
-                        this._handleContextInvalidated();
-                    }
-                    return;
-                }
-            } catch (e) {
-                this._handleContextInvalidated();
+
+            // 从 storage 获取数据（安全版本）
+            const result = await this._storageLocalGetSafe(['apiRequests'], { apiRequests: [] });
+
+            // 读取完成后再次确认上下文（避免执行期间失效）
+            if (!this._ensureContext()) {
                 return;
             }
             
@@ -1395,67 +1455,21 @@ class ApiRequestManager {
      */
     async _saveRequestToStorage(request) {
         // 快速检查：如果上下文已失效或 chrome.storage 不可用，直接返回
-        if (this._contextInvalidated || typeof chrome === 'undefined' || !chrome?.storage) {
+        if (this._contextInvalidated || typeof chrome === 'undefined' || !chrome?.storage?.local) {
             return;
         }
-        
+
         // 整个方法用 try-catch 包裹，确保所有错误都被静默处理
         try {
-            // 检查上下文是否有效（静默处理所有错误）
-            try {
-                if (!this._isContextValid()) {
-                    this._handleContextInvalidated();
-                    return;
-                }
-            } catch (e) {
-                this._handleContextInvalidated();
+            if (!this._ensureContext()) {
                 return;
             }
-            
-            // 获取当前存储的请求列表，所有错误都静默处理
-            const result = await new Promise((resolve) => {
-                try {
-                    if (!this._isContextValid()) {
-                        this._handleContextInvalidated();
-                        resolve({ apiRequests: [] });
-                        return;
-                    }
-                    
-                    chrome.storage.local.get(['apiRequests'], (items) => {
-                        try {
-                            // 检查运行时错误（所有错误都静默处理）
-                            if (chrome.runtime?.lastError) {
-                                this._handleContextInvalidated();
-                                resolve({ apiRequests: [] });
-                                return;
-                            }
-                            resolve(items || { apiRequests: [] });
-                        } catch (e) {
-                            // 回调中任何错误都静默处理
-                            this._handleContextInvalidated();
-                            resolve({ apiRequests: [] });
-                        }
-                    });
-                } catch (e) {
-                    // 任何错误都静默处理
-                    this._handleContextInvalidated();
-                    resolve({ apiRequests: [] });
-                }
-            }).catch(() => {
-                // Promise reject 也静默处理
-                return { apiRequests: [] };
-            });
-            
-            // 检查上下文是否在 Promise 执行期间失效
-            try {
-                if (this._contextInvalidated || !this._isContextValid()) {
-                    if (!this._contextInvalidated) {
-                        this._handleContextInvalidated();
-                    }
-                    return;
-                }
-            } catch (e) {
-                this._handleContextInvalidated();
+
+            // 获取当前存储的请求列表（安全版本）
+            const result = await this._storageLocalGetSafe(['apiRequests'], { apiRequests: [] });
+
+            // 读取完成后再次确认上下文（避免执行期间失效）
+            if (!this._ensureContext()) {
                 return;
             }
             
@@ -1481,36 +1495,8 @@ class ApiRequestManager {
                 return;
             }
             
-            // 保存到 storage，所有错误都静默处理
-            await new Promise((resolve) => {
-                try {
-                    if (!this._isContextValid()) {
-                        this._handleContextInvalidated();
-                        resolve();
-                        return;
-                    }
-                    
-                    chrome.storage.local.set({ apiRequests: storageRequests }, () => {
-                        try {
-                            // 检查运行时错误（所有错误都静默处理）
-                            if (chrome.runtime?.lastError) {
-                                this._handleContextInvalidated();
-                            }
-                            resolve();
-                        } catch (e) {
-                            // 回调中任何错误都静默处理
-                            this._handleContextInvalidated();
-                            resolve();
-                        }
-                    });
-                } catch (e) {
-                    // 任何错误都静默处理
-                    this._handleContextInvalidated();
-                    resolve();
-                }
-            }).catch(() => {
-                // Promise reject 也静默处理
-            });
+            // 保存到 storage（安全版本）
+            await this._storageLocalSetSafe({ apiRequests: storageRequests });
         } catch (error) {
             // 所有错误都静默处理，不输出任何错误日志
             try {

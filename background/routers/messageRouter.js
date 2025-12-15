@@ -56,22 +56,69 @@ class MessageRouter {
         }
 
         const { handler, isAsync } = handlerInfo;
+        // 包装 sendResponse：记录是否已经响应，避免 Promise 处理器重复响应
+        let responded = false;
+        const safeSendResponse = (payload) => {
+            if (responded) return;
+            responded = true;
+            try {
+                sendResponse(payload);
+            } catch (e) {
+                // sendResponse 本身失败时，避免再次抛错导致 service worker 崩溃
+                try { console.error('sendResponse 调用失败:', e); } catch (_) {}
+            }
+        };
         
         try {
-            const result = handler(request, sender, sendResponse);
+            const result = handler(request, sender, safeSendResponse);
             
             // 如果是异步操作，返回true保持消息通道开放
             if (isAsync) {
                 return true;
             }
             
+            // 兼容：处理器如果返回 Promise，也应保持通道开放并在 resolve/reject 后响应
+            if (result && typeof result.then === 'function') {
+                result.then((resolved) => {
+                    if (resolved !== undefined) {
+                        safeSendResponse(resolved);
+                    }
+                }).catch((error) => {
+                    try {
+                        console.error(`处理消息失败 (${action}):`, error);
+                    } catch (_) {}
+                    // 尝试使用统一错误处理器（如果存在）
+                    try {
+                        const EH = (typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler :
+                                   (typeof globalThis !== 'undefined' && globalThis.ErrorHandler) ? globalThis.ErrorHandler : null;
+                        if (EH && typeof EH.handle === 'function') {
+                            const handled = EH.handle(error, { showNotification: false, fallback: 'Handler execution failed' });
+                            safeSendResponse({ success: false, error: handled.error || 'Handler execution failed' });
+                            return;
+                        }
+                    } catch (_) {}
+                    safeSendResponse({ success: false, error: (error && error.message) ? error.message : 'Handler execution failed' });
+                });
+                return true;
+            }
+
             // 如果处理器返回了值，自动发送响应
             if (result !== undefined) {
-                sendResponse(result);
+                safeSendResponse(result);
             }
         } catch (error) {
             console.error(`处理消息失败 (${action}):`, error);
-            sendResponse({ 
+            // 尝试使用统一错误处理器（如果存在）
+            try {
+                const EH = (typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler :
+                           (typeof globalThis !== 'undefined' && globalThis.ErrorHandler) ? globalThis.ErrorHandler : null;
+                if (EH && typeof EH.handle === 'function') {
+                    const handled = EH.handle(error, { showNotification: false, fallback: 'Handler execution failed' });
+                    safeSendResponse({ success: false, error: handled.error || 'Handler execution failed' });
+                    return;
+                }
+            } catch (_) {}
+            safeSendResponse({ 
                 success: false, 
                 error: error.message || 'Handler execution failed' 
             });

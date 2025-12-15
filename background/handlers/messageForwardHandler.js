@@ -9,46 +9,26 @@
 function handleForwardToContentScript(request, sendResponse) {
     console.log('转发消息到content script:', request.tabId, request.message);
     
-    chrome.tabs.sendMessage(request.tabId, request.message, (response) => {
-        if (chrome.runtime.lastError) {
-            console.log('转发消息失败:', chrome.runtime.lastError.message);
-            
-            if (chrome.runtime.lastError.message.includes('Could not establish connection')) {
-                console.log('尝试直接注入content script...');
-                
-                // 使用注入服务
-                const injectService = typeof self !== 'undefined' && self.InjectionService 
-                    ? self.InjectionService 
-                    : null;
-                
-                const injectFn = injectService 
-                    ? (tabId) => injectService.injectContentScript(tabId)
-                    : (typeof injectContentScript === 'function' ? injectContentScript : null);
-                
-                if (injectFn) {
-                    injectFn(request.tabId).then(() => {
-                        setTimeout(() => {
-                            chrome.tabs.sendMessage(request.tabId, request.message, (retryResponse) => {
-                                if (chrome.runtime.lastError) {
-                                    sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                                } else {
-                                    sendResponse(retryResponse);
-                                }
-                            });
-                        }, CONSTANTS.TIMING.INJECT_PET_DELAY);
-                    });
-                } else {
-                    console.error('无法注入content script：InjectionService 未加载且 injectContentScript 函数不存在');
-                    sendResponse({ success: false, error: '无法注入content script' });
-                }
+    const injectionService = typeof self !== 'undefined' ? self.InjectionService : null;
+    if (injectionService && typeof injectionService.sendMessageToTabWithAutoInject === 'function') {
+        injectionService.sendMessageToTabWithAutoInject(request.tabId, request.message).then((result) => {
+            if (!result.ok) {
+                sendResponse({ success: false, error: result.error || '转发消息失败' });
                 return;
             }
-            
+            console.log('转发消息成功:', result.response);
+            sendResponse(result.response);
+        });
+        return;
+    }
+
+    // 降级：没有 InjectionService 时，直接发送一次
+    chrome.tabs.sendMessage(request.tabId, request.message, (response) => {
+        if (chrome.runtime.lastError) {
             sendResponse({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-            console.log('转发消息成功:', response);
-            sendResponse(response);
+            return;
         }
+        sendResponse(response);
     });
 }
 

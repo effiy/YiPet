@@ -25,32 +25,48 @@ class InjectionService {
     }
 
     /**
+     * 向指定标签页发送消息（必要时自动注入 content script 并重试一次）
+     * @param {number} tabId
+     * @param {Object} message
+     * @returns {Promise<{ok: boolean, response?: any, error?: string, injected?: boolean}>}
+     */
+    async sendMessageToTabWithAutoInject(tabId, message) {
+        const helper = typeof self !== 'undefined' ? self.TabMessaging : null;
+        if (!helper || typeof helper.sendMessageToTabWithAutoInject !== 'function') {
+            // 降级：直接发送一次
+            return new Promise((resolve) => {
+                try {
+                    chrome.tabs.sendMessage(tabId, message, (response) => {
+                        if (chrome.runtime.lastError) {
+                            resolve({ ok: false, error: chrome.runtime.lastError.message });
+                        } else {
+                            resolve({ ok: true, response });
+                        }
+                    });
+                } catch (e) {
+                    resolve({ ok: false, error: e?.message || String(e) });
+                }
+            });
+        }
+
+        return await helper.sendMessageToTabWithAutoInject(tabId, message, {
+            injectContentScript: (id) => this.injectContentScript(id),
+            retryDelayMs: CONSTANTS?.TIMING?.INJECT_PET_DELAY
+        });
+    }
+
+    /**
      * 向指定标签页注入宠物
      * 如果content script未加载，会先尝试注入content script
      * @param {number} tabId - 标签页ID
      */
     injectPetToTab(tabId) {
         console.log('尝试注入宠物到标签页:', tabId);
-        chrome.tabs.sendMessage(tabId, { action: 'initPet' }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.log('无法注入宠物到标签页:', chrome.runtime.lastError.message);
-                // 如果content script还没有加载，尝试重新注入
-                if (chrome.runtime.lastError.message.includes('Could not establish connection')) {
-                    console.log('Content script 可能未加载，尝试重新注入...');
-                    this.injectContentScript(tabId).then(() => {
-                        setTimeout(() => {
-                            chrome.tabs.sendMessage(tabId, { action: 'initPet' }, (retryResponse) => {
-                                if (chrome.runtime.lastError) {
-                                    console.log('重试注入失败:', chrome.runtime.lastError.message);
-                                } else {
-                                    console.log('重试注入成功');
-                                }
-                            });
-                        }, CONSTANTS.TIMING.INJECT_PET_DELAY);
-                    });
-                }
+        this.sendMessageToTabWithAutoInject(tabId, { action: 'initPet' }).then((result) => {
+            if (!result.ok) {
+                console.log('无法注入宠物到标签页:', result.error);
             } else {
-                console.log('宠物注入成功:', response);
+                console.log('宠物注入成功:', result.response);
             }
         });
     }
@@ -60,7 +76,17 @@ class InjectionService {
      * @param {number} tabId - 标签页ID
      */
     removePetFromTab(tabId) {
-        chrome.tabs.sendMessage(tabId, { action: 'removePet' }, (response) => {
+        const helper = typeof self !== 'undefined' ? self.TabMessaging : null;
+        if (helper && typeof helper.sendMessageToTab === 'function') {
+            helper.sendMessageToTab(tabId, { action: 'removePet' }).then((result) => {
+                if (!result.ok) {
+                    console.log('无法从标签页移除宠物:', result.error);
+                }
+            });
+            return;
+        }
+
+        chrome.tabs.sendMessage(tabId, { action: 'removePet' }, () => {
             if (chrome.runtime.lastError) {
                 console.log('无法从标签页移除宠物:', chrome.runtime.lastError.message);
             }
@@ -89,7 +115,14 @@ class InjectionService {
         const tabs = await this.getAllBrowserTabs();
         const promises = tabs.map(tab => {
             return new Promise((resolve) => {
-                chrome.tabs.sendMessage(tab.id, { action, ...data }, (response) => {
+                const helper = typeof self !== 'undefined' ? self.TabMessaging : null;
+                if (helper && typeof helper.sendMessageToTab === 'function') {
+                    helper.sendMessageToTab(tab.id, { action, ...data }).then((result) => {
+                        resolve({ tabId: tab.id, success: !!result.ok });
+                    });
+                    return;
+                }
+                chrome.tabs.sendMessage(tab.id, { action, ...data }, () => {
                     resolve({ tabId: tab.id, success: !chrome.runtime.lastError });
                 });
             });

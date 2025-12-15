@@ -27,13 +27,6 @@ class RequestUtils {
     /**
      * 扩展相关的URL模式（用于过滤）
      */
-    static EXTENSION_URL_PATTERNS = [
-        /^chrome-extension:\/\//i,
-        /^chrome:\/\//i,
-        /^moz-extension:\/\//i,
-        /api\.effiy\.cn/i, // 扩展使用的API域名
-    ];
-
     /**
      * 检查是否是扩展请求
      * @param {string} url - 请求URL
@@ -177,10 +170,32 @@ class RequestUtils {
     }
 }
 
+// 静态属性：避免使用 class fields 语法，提升兼容性（尤其是某些扩展运行环境/打包配置）
+RequestUtils.EXTENSION_URL_PATTERNS = [
+    /^chrome-extension:\/\//i,
+    /^chrome:\/\//i,
+    /^moz-extension:\/\//i,
+    /api\.effiy\.cn/i, // 扩展使用的API域名
+];
+
 // 导出
 if (typeof module !== "undefined" && module.exports) {
     module.exports = RequestUtils;
-} else {
+} else if (typeof self !== "undefined") {
+    // Service Worker / Web Worker 环境
+    self.RequestUtils = RequestUtils;
+    if (typeof globalThis !== "undefined") {
+        globalThis.RequestUtils = RequestUtils;
+    }
+} else if (typeof window !== "undefined") {
+    // 浏览器环境
     window.RequestUtils = RequestUtils;
+} else {
+    // 最后兜底
+    try {
+        globalThis.RequestUtils = RequestUtils;
+    } catch (e) {
+        this.RequestUtils = RequestUtils;
+    }
 }
 

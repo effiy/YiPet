@@ -98,7 +98,21 @@ class ErrorHandler {
 // 导出
 if (typeof module !== "undefined" && module.exports) {
     module.exports = ErrorHandler;
-} else {
+} else if (typeof self !== "undefined") {
+    // Service Worker / Web Worker 环境
+    self.ErrorHandler = ErrorHandler;
+    if (typeof globalThis !== "undefined") {
+        globalThis.ErrorHandler = ErrorHandler;
+    }
+} else if (typeof window !== "undefined") {
+    // 浏览器环境
     window.ErrorHandler = ErrorHandler;
+} else {
+    // 最后兜底
+    try {
+        globalThis.ErrorHandler = ErrorHandler;
+    } catch (e) {
+        this.ErrorHandler = ErrorHandler;
+    }
 }
 

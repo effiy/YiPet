@@ -94,7 +94,21 @@ class LoggerUtils {
 // 导出
 if (typeof module !== "undefined" && module.exports) {
     module.exports = LoggerUtils;
-} else {
+} else if (typeof self !== "undefined") {
+    // Service Worker / Web Worker 环境
+    self.LoggerUtils = LoggerUtils;
+    if (typeof globalThis !== "undefined") {
+        globalThis.LoggerUtils = LoggerUtils;
+    }
+} else if (typeof window !== "undefined") {
+    // 浏览器环境
     window.LoggerUtils = LoggerUtils;
+} else {
+    // 最后兜底
+    try {
+        globalThis.LoggerUtils = LoggerUtils;
+    } catch (e) {
+        this.LoggerUtils = LoggerUtils;
+    }
 }
 

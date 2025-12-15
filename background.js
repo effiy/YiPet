@@ -64,7 +64,13 @@ try {
  * Service Worker 需要使用 importScripts 来加载其他文件
  */
 try {
+    // 加载通用工具（供 service/handler 复用）
+    importScripts('utils/requestUtils.js');
+    importScripts('utils/loggerUtils.js');
+    importScripts('utils/errorHandler.js');
+
     // 加载服务
+    importScripts('background/services/tabMessaging.js');
     importScripts('background/services/injectionService.js');
     importScripts('background/services/weworkService.js');
     
@@ -80,6 +86,18 @@ try {
     importScripts('background/routers/messageRouter.js');
 } catch (e) {
     console.error('无法加载模块化组件:', e);
+}
+
+// ==================== 日志控制（可选） ====================
+// 通过 sync storage 的 petDevMode 开关控制 console.log/info/debug/warn
+try {
+    if (typeof self !== 'undefined' && self.LoggerUtils && typeof self.LoggerUtils.initMuteLogger === 'function') {
+        self.LoggerUtils.initMuteLogger('petDevMode', false);
+    } else if (typeof LoggerUtils !== 'undefined' && LoggerUtils.initMuteLogger) {
+        LoggerUtils.initMuteLogger('petDevMode', false);
+    }
+} catch (e) {
+    // 静默处理
 }
 
 // ==================== 扩展生命周期管理 ====================
@@ -541,10 +559,9 @@ const isExtensionRequest = function(url) {
     if (utils && utils.isExtensionRequest) {
         return utils.isExtensionRequest(url);
     }
-    // 降级实现
+    // 降级实现（尽量保守：无法判断时不当作扩展请求）
     if (!url || typeof url !== 'string') return false;
-    const patterns = [/^chrome-extension:\/\//i, /^chrome:\/\//i, /^moz-extension:\/\//i, /api\.effiy\.cn/i];
-    return patterns.some(pattern => pattern.test(url));
+    return url.startsWith('chrome-extension://') || url.startsWith('moz-extension://') || url.startsWith('chrome://');
 };
 
 const normalizeUrl = function(url) {
@@ -552,18 +569,13 @@ const normalizeUrl = function(url) {
     if (utils && utils.normalizeUrl) {
         return utils.normalizeUrl(url);
     }
-    // 降级实现
+    // 降级实现：解析失败则返回原始字符串（不做去重增强）
     if (!url || typeof url !== 'string') return '';
     try {
         const urlObj = new URL(url);
         return `${urlObj.origin}${urlObj.pathname}`;
     } catch (e) {
-        const hashIndex = url.indexOf('#');
-        const queryIndex = url.indexOf('?');
-        let endIndex = url.length;
-        if (hashIndex !== -1) endIndex = Math.min(endIndex, hashIndex);
-        if (queryIndex !== -1) endIndex = Math.min(endIndex, queryIndex);
-        return url.substring(0, endIndex);
+        return url;
     }
 };
 
@@ -572,11 +584,13 @@ const formatHeaders = function(headers) {
     if (utils && utils.formatHeaders) {
         return utils.formatHeaders(headers);
     }
-    // 降级实现
+    // 降级实现：仅处理 object/array
     if (!headers) return {};
     if (Array.isArray(headers)) {
         const result = {};
-        headers.forEach(header => { result[header.name] = header.value; });
+        headers.forEach(header => {
+            if (header && header.name) result[header.name] = header.value;
+        });
         return result;
     }
     return typeof headers === 'object' ? { ...headers } : {};

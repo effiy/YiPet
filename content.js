@@ -21999,7 +21999,6 @@ ${originalText}`;
             const requestOptions = {
                 method: method,
                 headers: {
-                    'Content-Type': 'application/json',
                     ...headers
                 }
             };
@@ -22008,11 +22007,19 @@ ${originalText}`;
             if (body) {
                 if (bodyTypeSelect && bodyTypeSelect.value === 'json') {
                     requestOptions.body = JSON.stringify(body);
+                    // 只有在没有设置 Content-Type 时才设置默认值
+                    if (!requestOptions.headers['Content-Type'] && !requestOptions.headers['content-type']) {
+                        requestOptions.headers['Content-Type'] = 'application/json';
+                    }
                 } else if (bodyTypeSelect && bodyTypeSelect.value === 'x-www-form-urlencoded') {
                     requestOptions.headers['Content-Type'] = 'application/x-www-form-urlencoded';
                     requestOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
                 } else {
                     requestOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+                    // 只有在没有设置 Content-Type 时才设置默认值
+                    if (!requestOptions.headers['Content-Type'] && !requestOptions.headers['content-type']) {
+                        requestOptions.headers['Content-Type'] = 'application/json';
+                    }
                 }
             }
             
@@ -22121,7 +22128,6 @@ ${originalText}`;
             const requestOptions = {
                 method: method,
                 headers: {
-                    'Content-Type': 'application/json',
                     ...headers
                 }
             };
@@ -22133,12 +22139,24 @@ ${originalText}`;
                         // 尝试解析为JSON
                         const parsed = JSON.parse(body);
                         requestOptions.body = JSON.stringify(parsed);
+                        // 只有在没有设置 Content-Type 时才设置默认值
+                        if (!requestOptions.headers['Content-Type'] && !requestOptions.headers['content-type']) {
+                            requestOptions.headers['Content-Type'] = 'application/json';
+                        }
                     } catch (e) {
                         // 如果不是JSON，直接使用字符串
                         requestOptions.body = body;
+                        // 只有在没有设置 Content-Type 时才设置默认值
+                        if (!requestOptions.headers['Content-Type'] && !requestOptions.headers['content-type']) {
+                            requestOptions.headers['Content-Type'] = 'text/plain';
+                        }
                     }
                 } else {
                     requestOptions.body = JSON.stringify(body);
+                    // 只有在没有设置 Content-Type 时才设置默认值
+                    if (!requestOptions.headers['Content-Type'] && !requestOptions.headers['content-type']) {
+                        requestOptions.headers['Content-Type'] = 'application/json';
+                    }
                 }
             }
             
@@ -52484,6 +52502,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

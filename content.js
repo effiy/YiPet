@@ -479,7 +479,7 @@ if (typeof getCenterPosition === 'undefined') {
         this.batchMode = false; // 是否处于批量选择模式
         this.selectedSessionIds = new Set(); // 选中的会话ID集合
         this.selectedFileNames = new Set(); // 选中的文件名称集合
-        this.selectedApiRequestIds = new Set(); // 选中的请求接口ID集合（使用_id或key作为唯一标识）
+        this.selectedApiRequestIds = new Set(); // 选中的请求接口 key 集合（使用 key 字段作为唯一标识）
         this.selectedNewsIds = new Set(); // 选中的新闻ID集合（使用link作为唯一标识）
         this.currentFile = null; // 当前选中的文件
         
@@ -4722,20 +4722,22 @@ if (typeof getCenterPosition === 'undefined') {
             // 如果是接口会话，优先使用接口本身的标题、网址等信息
             if (session._isApiRequestSession && session._apiRequestInfo) {
                 // 优先使用接口信息中的标题和网址，确保保存的会话信息与接口一致
-                if (session._apiRequestInfo.url) {
-                    // 使用接口的pageUrl（如果有），否则使用接口的url
-                    sessionUrl = session._apiRequestInfo.pageUrl || session._apiRequestInfo.url;
+                // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                const requestUrl = session._apiRequestInfo.requestUrl || session._apiRequestInfo.url || '';
+                if (requestUrl) {
+                    // 使用接口的pageUrl（如果有），否则使用接口的requestUrl
+                    sessionUrl = session._apiRequestInfo.pageUrl || requestUrl;
                     // 同时更新会话对象本身，确保保存到后端的数据和会话显示的网址一致
                     session.url = sessionUrl;
                 }
                 // 构建接口标题：方法 + 路径
-                const apiPath = this._extractApiPath(session._apiRequestInfo.url);
+                const apiPath = this._extractApiPath(requestUrl);
                 pageTitle = `${session._apiRequestInfo.method || 'GET'} ${apiPath}`;
                 // 同时更新会话对象本身，确保保存到后端的数据和会话显示的标题一致
                 session.pageTitle = pageTitle;
                 
                 // 使用接口的描述
-                pageDescription = `接口请求：${session._apiRequestInfo.url || ''}`;
+                pageDescription = `接口请求：${requestUrl}`;
                 // 同时更新会话对象本身，确保保存到后端的数据和会话显示的描述一致
                 session.pageDescription = pageDescription;
                 
@@ -4899,9 +4901,13 @@ if (typeof getCenterPosition === 'undefined') {
                         let fallbackSessionUrl = '';
                         if (session._isOssFileSession && session._ossFileInfo?.url) {
                             fallbackSessionUrl = session._ossFileInfo.url;
-                        } else if (session._isApiRequestSession && session._apiRequestInfo?.url) {
-                            // 使用接口的pageUrl（如果有），否则使用接口的url
-                            fallbackSessionUrl = session._apiRequestInfo.pageUrl || session._apiRequestInfo.url;
+                        } else if (session._isApiRequestSession && session._apiRequestInfo) {
+                            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                            const requestUrl = session._apiRequestInfo.requestUrl || session._apiRequestInfo.url || '';
+                            if (requestUrl) {
+                                // 使用接口的pageUrl（如果有），否则使用接口的requestUrl
+                                fallbackSessionUrl = session._apiRequestInfo.pageUrl || requestUrl;
+                            }
                         } else if (isBlankSession) {
                             // 对于空白会话，优先使用保存的原始URL，防止被意外更新为当前页面URL
                             if (session._originalUrl && session._originalUrl.startsWith('blank-session://')) {
@@ -4958,17 +4964,19 @@ if (typeof getCenterPosition === 'undefined') {
                         
                         // 如果是接口会话，优先使用接口本身的标题、网址等信息
                         if (session._isApiRequestSession && session._apiRequestInfo) {
+                            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                            const requestUrl = session._apiRequestInfo.requestUrl || session._apiRequestInfo.url || '';
                             // 优先使用接口信息中的标题和网址，确保保存的会话信息与接口一致
-                            if (session._apiRequestInfo.url) {
-                                // 使用接口的pageUrl（如果有），否则使用接口的url
-                                fallbackSessionUrl = session._apiRequestInfo.pageUrl || session._apiRequestInfo.url;
+                            if (requestUrl) {
+                                // 使用接口的pageUrl（如果有），否则使用接口的requestUrl
+                                fallbackSessionUrl = session._apiRequestInfo.pageUrl || requestUrl;
                             }
                             // 构建接口标题：方法 + 路径
-                            const apiPath = this._extractApiPath(session._apiRequestInfo.url);
+                            const apiPath = this._extractApiPath(requestUrl);
                             fallbackPageTitle = `${session._apiRequestInfo.method || 'GET'} ${apiPath}`;
                             
                             // 使用接口的描述
-                            fallbackPageDescription = `接口请求：${session._apiRequestInfo.url || ''}`;
+                            fallbackPageDescription = `接口请求：${requestUrl}`;
                             
                             // 使用接口的pageContent（如果存在）
                             if (session.pageContent && session.pageContent.trim() !== '') {
@@ -7310,11 +7318,13 @@ if (typeof getCenterPosition === 'undefined') {
             // 获取过滤后的请求接口列表
             let requests = this._getFilteredApiRequests();
             
-            // 如果有选中的请求接口，只导出选中的
+            // 如果有选中的请求接口，只导出选中的（使用 key 字段）
             if (this.batchMode && this.selectedApiRequestIds && this.selectedApiRequestIds.size > 0) {
                 requests = requests.filter(req => {
-                    const requestId = req._id || req.key || '';
-                    return requestId && this.selectedApiRequestIds.has(requestId);
+                    // 确保请求有 key 字段
+                    this._ensureRequestKey(req);
+                    const requestKey = this._getRequestKey(req);
+                    return requestKey && this.selectedApiRequestIds.has(requestKey);
                 });
             }
             
@@ -18440,6 +18450,56 @@ ${originalText}`;
      * 获取过滤后的接口请求列表（统一过滤逻辑）
      * @returns {Array} 过滤后的请求列表
      */
+    /**
+     * 获取请求的唯一标识（使用 key 字段）
+     * @param {Object} req - 请求对象
+     * @returns {string|null} 唯一标识（key 字段）
+     */
+    _getRequestKey(req) {
+        if (!req) return null;
+        // 只返回"可持久化"的唯一标识（来自后端/API的数据）
+        // 规则：优先使用 req.key，其次 _id / id（并同步写回 req.key 以便后续一致使用）
+        // 确保返回的 key 是有效的非空字符串
+        if (req.key && typeof req.key === 'string' && req.key.trim() !== '') {
+            return req.key;
+        }
+        if (req._id && typeof req._id === 'string' && req._id.trim() !== '') {
+            req.key = req._id;
+            return req.key;
+        }
+        if (req.id && typeof req.id === 'string' && req.id.trim() !== '') {
+            req.key = req.id;
+            return req.key;
+        }
+        // 非API数据（本地拦截/临时数据）不生成 key，避免重渲染后 key 变化导致"选中丢失/错位"
+        return null;
+    }
+    
+    /**
+     * 确保请求有 key 字段（如果没有则生成一个）
+     * @param {Object} req - 请求对象
+     * @returns {string|null} key 值
+     */
+    _ensureRequestKey(req) {
+        if (!req) return null;
+        // 仅为后端/API数据补齐 key；不为本地/临时数据生成 key（避免 key 不稳定）
+        // 如果已有 key，直接返回（确保是有效的非空字符串）
+        if (req.key && typeof req.key === 'string' && req.key.trim() !== '') {
+            return req.key;
+        }
+        // 如果有 _id，使用 _id 作为 key（确保是有效的非空字符串）
+        if (req._id && typeof req._id === 'string' && req._id.trim() !== '') {
+            req.key = req._id;
+            return req.key;
+        }
+        // 如果有 id，使用 id 作为 key（确保是有效的非空字符串）
+        if (req.id && typeof req.id === 'string' && req.id.trim() !== '') {
+            req.key = req.id;
+            return req.key;
+        }
+        return null;
+    }
+    
     _getFilteredApiRequests() {
         if (!this.apiRequestManager) {
             return [];
@@ -18447,6 +18507,9 @@ ${originalText}`;
         
         // 获取所有请求
         let requests = this.apiRequestManager.getAllRequests();
+        
+        // 尝试为API数据补齐 key（不会为本地/临时数据生成 key）
+        requests.forEach(req => this._ensureRequestKey(req));
         
         // 确保每个请求都有域名标签（为旧请求自动添加）
         requests.forEach(req => {
@@ -18543,32 +18606,35 @@ ${originalText}`;
             });
         }
         
-        // 只保留从API获取的数据（有_id或key标记），过滤掉所有本地拦截的数据
+        // 只保留从API获取的数据（拥有可持久化 key 或 source=api），过滤掉本地拦截/临时数据
         requests = requests.filter(req => {
-            // 只保留API返回的数据（有_id或key标记）
-            return !!(req._id || req.key || req.source === 'api');
+            const key = this._getRequestKey(req);
+            return !!(key || req.source === 'api');
         });
         
-        // 分离API数据（有_id或key）和本地数据（没有_id或key）
+        // 分离API数据（source=api 或有可持久化 key）和本地数据（没有 key）
         const apiRequests = []; // 来自API的数据
         const localRequests = []; // 本地拦截的数据
         
         requests.forEach(req => {
-            if (req._id || req.key) {
-                // 有_id或key，说明来自API
+            const key = this._getRequestKey(req);
+            const isApi = req && req.source === 'api' || !!key;
+            if (isApi) {
+                // source=api 或有key，说明来自API
                 apiRequests.push(req);
             } else {
-                // 没有_id或key，说明是本地拦截的数据
+                // 没有key，说明是本地拦截的数据
                 localRequests.push(req);
             }
         });
         
-        // 对API数据进行去重（使用_id或key作为唯一标识）
+        // 对API数据进行去重（使用 key 作为唯一标识）
         const apiUniqueMap = new Map();
         apiRequests.forEach(req => {
-            const uniqueKey = req._id || req.key;
+            // 确保请求有 key 字段
+            const uniqueKey = this._ensureRequestKey(req);
             if (uniqueKey) {
-                // 有_id或key，使用_id或key作为唯一标识
+                // 使用 key 作为唯一标识
                 const existingReq = apiUniqueMap.get(uniqueKey);
                 if (!existingReq) {
                     apiUniqueMap.set(uniqueKey, req);
@@ -18581,7 +18647,7 @@ ${originalText}`;
                     }
                 }
             } else {
-                // 没有_id或key，使用URL+method作为唯一标识（但保留这些数据）
+                // 如果无法生成 key，使用URL+method作为唯一标识（但保留这些数据）
                 const url = req.url || '';
                 const method = req.method || 'GET';
                 const urlMethodKey = `api_${method}:${url}`;
@@ -18750,9 +18816,12 @@ ${originalText}`;
                     apiRequests.forEach(apiRequest => {
                         // 确保数据格式正确，字段名与本地拦截的数据格式保持一致
                         // 统一处理所有可能的字段名变体
+                        // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                        const requestUrl = apiRequest.requestUrl || apiRequest.url || apiRequest.endpoint || '';
                         const requestData = {
                             ...apiRequest, // 先保留所有原始字段
-                            url: apiRequest.url || apiRequest.endpoint || '',
+                            url: requestUrl,
+                            requestUrl: requestUrl, // 确保requestUrl字段存在
                             method: apiRequest.method || 'GET',
                             status: apiRequest.status || 200,
                             statusText: apiRequest.statusText || '',
@@ -18776,7 +18845,8 @@ ${originalText}`;
                             type: apiRequest.type || 'api',
                             source: 'api', // 标记为API数据
                             _id: apiRequest._id || apiRequest.id,
-                            key: apiRequest.key
+                            // 优先使用 key，如果没有则使用 _id 作为 key
+                            key: apiRequest.key || apiRequest._id || apiRequest.id
                         };
                         
                         // 确保 responseText 是字符串格式（用于显示）
@@ -18812,7 +18882,7 @@ ${originalText}`;
                         
                         // 调试日志：记录API数据转换
                         if (!requestData.url) {
-                            console.log('API数据URL为空，但保留该请求（有_id或key）:', {
+                            console.log('API数据URL为空，但保留该请求（有 key）:', {
                                 _id: requestData._id,
                                 key: requestData.key,
                                 method: requestData.method
@@ -18869,6 +18939,25 @@ ${originalText}`;
         
         // 使用统一的过滤方法获取请求列表
         let requests = this._getFilteredApiRequests();
+
+        // 刷新/删除/重新拉取后，清理不存在的选中项，避免“选中数量不对 / 选中失效”
+        if (this.selectedApiRequestIds && this.selectedApiRequestIds.size > 0) {
+            const allKeys = new Set(
+                (this.apiRequestManager?.requests || [])
+                    .map(r => this._getRequestKey(r))
+                    .filter(Boolean)
+            );
+            let changed = false;
+            for (const key of Array.from(this.selectedApiRequestIds)) {
+                if (!allKeys.has(key)) {
+                    this.selectedApiRequestIds.delete(key);
+                    changed = true;
+                }
+            }
+            if (changed && this.batchMode) {
+                this.updateBatchToolbar();
+            }
+        }
         
         // 输出调试信息
         if (this.apiRequestManager) {
@@ -18913,11 +19002,11 @@ ${originalText}`;
             return;
         }
         
-        // 排序：API返回的数据（有_id或key）优先显示在最前面，然后按时间排序（最新的在前）
+        // 排序：API返回的数据（有 key）优先显示在最前面，然后按时间排序（最新的在前）
         const sortedRequests = requests.sort((a, b) => {
-            // 检查是否是API返回的数据（有_id或key字段）
-            const aIsApiData = !!(a._id || a.key);
-            const bIsApiData = !!(b._id || b.key);
+            // 检查是否是API返回的数据（有 key 字段）
+            const aIsApiData = !!this._getRequestKey(a);
+            const bIsApiData = !!this._getRequestKey(b);
             
             // 如果一个是API数据，另一个不是，API数据排在前面
             if (aIsApiData && !bIsApiData) {
@@ -18932,14 +19021,31 @@ ${originalText}`;
         });
         
         // 创建接口请求列表项
+        // 用于跟踪已使用的 requestKey，确保每个复选框都有唯一的 key
+        const usedRequestKeys = new Set();
+        
         for (let index = 0; index < sortedRequests.length; index++) {
             const req = sortedRequests[index];
+            // 确保请求有 key 字段
+            this._ensureRequestKey(req);
+            
             const requestItem = document.createElement('div');
             requestItem.className = 'api-request-item';
             requestItem.setAttribute('data-request-index', index);
             
-            // 获取请求接口的唯一标识（_id 或 key）
-            const requestId = req._id || req.key;
+            // 获取请求接口的唯一标识（使用 key 字段）
+            let requestKey = this._getRequestKey(req);
+            
+            // 如果 requestKey 已存在，生成一个唯一的 key（添加索引后缀）
+            if (requestKey && usedRequestKeys.has(requestKey)) {
+                console.warn('发现重复的 requestKey，生成唯一 key:', requestKey, '索引:', index);
+                requestKey = `${requestKey}_${index}_${Date.now()}`;
+                req.key = requestKey; // 更新 req.key 以便后续使用
+            }
+            
+            if (requestKey) {
+                usedRequestKeys.add(requestKey);
+            }
             
             // 添加选中状态类：检查当前会话是否是该接口请求的会话
             let isActive = false;
@@ -18947,16 +19053,28 @@ ${originalText}`;
                 const currentSession = this.sessions[this.currentSessionId];
                 if (currentSession && currentSession._isApiRequestSession && currentSession._apiRequestInfo) {
                     // 当前会话是接口请求会话，检查接口请求URL和方法是否匹配
-                    if (currentSession._apiRequestInfo.url === req.url &&
-                        currentSession._apiRequestInfo.method === req.method) {
+                    // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                    const sessionRequestUrl = currentSession._apiRequestInfo.requestUrl || currentSession._apiRequestInfo.url || '';
+                    const sessionPageUrl = currentSession._apiRequestInfo.pageUrl || '';
+                    const reqUrl = req.requestUrl || req.url || '';
+                    const reqPageUrl = req.pageUrl || '';
+
+                    // 新建接口（blank-request）优先按 pageUrl 匹配，避免同 URL/方法时高亮错位
+                    const isBlankApiRequest = (typeof reqPageUrl === 'string' && reqPageUrl.startsWith('blank-request:')) ||
+                                              (typeof sessionPageUrl === 'string' && sessionPageUrl.startsWith('blank-request:'));
+                    const isMatch = isBlankApiRequest
+                        ? (sessionPageUrl === reqPageUrl && currentSession._apiRequestInfo.method === req.method)
+                        : (sessionRequestUrl === reqUrl && currentSession._apiRequestInfo.method === req.method);
+
+                    if (isMatch) {
                         isActive = true;
                         requestItem.classList.add('active');
                     }
                 }
             }
             
-            // 批量模式下添加选中状态类
-            if (this.batchMode && requestId && this.selectedApiRequestIds.has(requestId)) {
+            // 批量模式下添加选中状态类（使用 key 字段）
+            if (this.batchMode && requestKey && this.selectedApiRequestIds.has(requestKey)) {
                 requestItem.classList.add('selected');
             }
             
@@ -18965,8 +19083,8 @@ ${originalText}`;
             const isError = req.status >= 400 || req.status === 0;
             const statusColor = isSuccess ? '#4CAF50' : isError ? '#f44336' : '#FF9800';
             
-            // 批量模式下选中状态的背景色
-            const isSelected = this.batchMode && requestId && this.selectedApiRequestIds.has(requestId);
+            // 批量模式下选中状态的背景色（使用 key 字段）
+            const isSelected = this.batchMode && requestKey && this.selectedApiRequestIds.has(requestKey);
             const backgroundColor = isSelected ? '#eff6ff' : (isActive ? '#eff6ff' : '#ffffff');
             const borderColor = isSelected ? '#3b82f6' : (isActive ? '#3b82f6' : '#e5e7eb');
             
@@ -18985,43 +19103,68 @@ ${originalText}`;
             
             // 创建复选框（仅在批量模式下显示，且仅对API数据有效）
             let checkbox = null;
-            const isApiData = !!(req._id || req.key);
-            if (this.batchMode && isApiData && requestId) {
+            const isApiData = !!requestKey;
+            if (this.batchMode && isApiData && requestKey) {
                 checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'api-request-checkbox';
-                checkbox.dataset.requestId = requestId;
-                checkbox.checked = this.selectedApiRequestIds.has(requestId);
-                checkbox.style.cssText = `
-                    width: 16px !important;
-                    height: 16px !important;
-                    cursor: pointer !important;
-                    margin-right: 12px !important;
-                    flex-shrink: 0 !important;
-                    display: block !important;
-                `;
-                
-                checkbox.addEventListener('change', (e) => {
-                    e.stopPropagation();
-                    const reqId = e.target.dataset.requestId;
-                    if (e.target.checked) {
-                        this.selectedApiRequestIds.add(reqId);
-                        requestItem.classList.add('selected');
-                        requestItem.style.background = '#eff6ff';
-                        requestItem.style.borderColor = '#3b82f6';
-                    } else {
-                        this.selectedApiRequestIds.delete(reqId);
-                        requestItem.classList.remove('selected');
-                        requestItem.style.background = isActive ? '#eff6ff' : '#ffffff';
-                        requestItem.style.borderColor = isActive ? '#3b82f6' : '#e5e7eb';
-                    }
-                    this.updateBatchToolbar();
-                });
-                
-                // 阻止复选框点击事件冒泡
-                checkbox.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
+                // 确保 requestKey 是有效的非空字符串
+                const validRequestKey = (typeof requestKey === 'string' && requestKey.trim() !== '') ? requestKey : null;
+                if (!validRequestKey) {
+                    console.warn('请求接口缺少有效的 key，跳过创建复选框:', req);
+                    checkbox = null;
+                } else {
+                    checkbox.dataset.requestKey = validRequestKey; // 使用 data-request-key 存储 key 字段
+                    checkbox.checked = this.selectedApiRequestIds.has(validRequestKey);
+                    checkbox.style.cssText = `
+                        width: 16px !important;
+                        height: 16px !important;
+                        cursor: pointer !important;
+                        margin-right: 12px !important;
+                        flex-shrink: 0 !important;
+                        display: block !important;
+                    `;
+                    
+                    // 使用闭包保存当前项的 requestKey 和 requestItem，避免事件处理中的变量引用问题
+                    const currentRequestKey = validRequestKey;
+                    const currentRequestItem = requestItem;
+                    const currentIsActive = isActive;
+                    
+                    checkbox.addEventListener('change', (e) => {
+                        e.stopPropagation();
+                        const reqKey = currentRequestKey; // 使用闭包中的 key，而不是从 dataset 读取
+                        
+                        // 双重验证：确保 reqKey 有效
+                        if (!reqKey || typeof reqKey !== 'string' || reqKey.trim() === '') {
+                            console.warn('复选框缺少有效的 requestKey:', reqKey);
+                            // 恢复复选框状态
+                            e.target.checked = !e.target.checked;
+                            return;
+                        }
+                        
+                        // 只更新当前复选框和对应的列表项，不影响其他复选框
+                        const wasChecked = e.target.checked;
+                        if (wasChecked) {
+                            this.selectedApiRequestIds.add(reqKey);
+                            currentRequestItem.classList.add('selected');
+                            currentRequestItem.style.background = '#eff6ff';
+                            currentRequestItem.style.borderColor = '#3b82f6';
+                        } else {
+                            this.selectedApiRequestIds.delete(reqKey);
+                            currentRequestItem.classList.remove('selected');
+                            currentRequestItem.style.background = currentIsActive ? '#eff6ff' : '#ffffff';
+                            currentRequestItem.style.borderColor = currentIsActive ? '#3b82f6' : '#e5e7eb';
+                        }
+                        
+                        // 更新工具栏，但不更新其他复选框状态
+                        this.updateBatchToolbar();
+                    });
+                    
+                    // 阻止复选框点击事件冒泡
+                    checkbox.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                }
             }
             
             // 请求信息容器
@@ -19790,8 +19933,37 @@ ${originalText}`;
                     return;
                 }
                 
-                // 如果点击的是按钮或详情面板内的内容，不触发创建会话
-                if (e.target.closest('button') || e.target.closest('.api-request-tags') || detailPanel.contains(e.target)) {
+                // 如果点击的是按钮、复选框或详情面板内的内容，不触发创建会话
+                if (e.target.closest('button') || e.target.closest('.api-request-tags') || e.target.closest('.api-request-checkbox') || e.target.type === 'checkbox' || detailPanel.contains(e.target)) {
+                    return;
+                }
+
+                // 批量模式：点击列表项用于切换选中状态（使用 key 字段），不创建会话
+                if (this.batchMode) {
+                    // 仅对有 key 的 API 数据允许批量选中
+                    if (!isApiData || !requestKey) {
+                        return;
+                    }
+
+                    const willSelect = !this.selectedApiRequestIds.has(requestKey);
+                    if (willSelect) {
+                        this.selectedApiRequestIds.add(requestKey);
+                        requestItem.classList.add('selected');
+                        requestItem.style.background = '#eff6ff';
+                        requestItem.style.borderColor = '#3b82f6';
+                    } else {
+                        this.selectedApiRequestIds.delete(requestKey);
+                        requestItem.classList.remove('selected');
+                        requestItem.style.background = isActive ? '#eff6ff' : '#ffffff';
+                        requestItem.style.borderColor = isActive ? '#3b82f6' : '#e5e7eb';
+                    }
+
+                    // 同步复选框状态（如果存在）
+                    if (checkbox) {
+                        checkbox.checked = willSelect;
+                    }
+
+                    this.updateBatchToolbar();
                     return;
                 }
                 
@@ -20313,18 +20485,30 @@ ${originalText}`;
                 return;
             }
             
+            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+            const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+            // 对于“新建请求接口”（pageUrl 为 blank-request:xxx），用 pageUrl 作为会话唯一标识，避免与同URL的其他接口会话冲突
+            const pageUrl = apiRequest.pageUrl || '';
+            const isBlankApiRequest = typeof pageUrl === 'string' && pageUrl.startsWith('blank-request:');
+            const sessionIdentity = isBlankApiRequest ? pageUrl : requestUrl;
             // 生成会话ID（基于请求URL和方法）
-            const requestId = `${apiRequest.method || 'GET'}:${apiRequest.url || ''}`;
+            const requestId = `${apiRequest.method || 'GET'}:${sessionIdentity}`;
             const sessionId = await this.generateSessionId(requestId);
             
             // 检查是否已存在相同请求接口的会话
             let matchedSessionId = null;
             for (const [sid, session] of Object.entries(this.sessions)) {
-                if (session._isApiRequestSession && session._apiRequestInfo && 
-                    session._apiRequestInfo.url === apiRequest.url &&
-                    session._apiRequestInfo.method === apiRequest.method) {
-                    matchedSessionId = sid;
-                    break;
+                if (session._isApiRequestSession && session._apiRequestInfo) {
+                    // 新建接口（blank-request）按 pageUrl 匹配；其他按 requestUrl 匹配
+                    const sessionPageUrl = session._apiRequestInfo.pageUrl || '';
+                    const sessionRequestUrl = session._apiRequestInfo.requestUrl || session._apiRequestInfo.url || '';
+                    const isMatch = isBlankApiRequest
+                        ? (sessionPageUrl === pageUrl && session._apiRequestInfo.method === apiRequest.method)
+                        : (sessionRequestUrl === requestUrl && session._apiRequestInfo.method === apiRequest.method);
+                    if (isMatch) {
+                        matchedSessionId = sid;
+                        break;
+                    }
                 }
             }
             
@@ -20342,6 +20526,11 @@ ${originalText}`;
                     skipBackendFetch: false,
                     keepApiRequestListView: isApiRequestListVisible // 如果当前显示请求接口列表，保持该视图
                 });
+
+                // 如果当前显示的是请求接口列表，刷新列表以更新 active 高亮（对齐新闻列表的行为）
+                if (isApiRequestListVisible) {
+                    await this.updateApiRequestSidebar(false);
+                }
                 
                 console.log('请求接口会话已激活（使用匹配的会话）:', matchedSessionId);
                 return;
@@ -20357,11 +20546,13 @@ ${originalText}`;
             
             if (!session) {
                 // 创建新会话
+                // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
                 session = this.createSessionObject(sessionId, {
-                    url: apiRequest.pageUrl || apiRequest.url || '',
-                    title: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
-                    pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
-                    pageDescription: `接口请求：${apiRequest.url || ''}`,
+                    url: apiRequest.pageUrl || requestUrl || '',
+                    title: `${apiRequest.method || 'GET'} ${this._extractApiPath(requestUrl)}`,
+                    pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(requestUrl)}`,
+                    pageDescription: `接口请求：${requestUrl}`,
                     pageContent: pageContent || ''
                 });
                 this.sessions[sessionId] = session;
@@ -20369,7 +20560,8 @@ ${originalText}`;
                 // 标记为请求接口会话
                 session._isApiRequestSession = true;
                 session._apiRequestInfo = {
-                    url: apiRequest.url || '',
+                    url: requestUrl || '',
+                    requestUrl: requestUrl, // 确保requestUrl字段存在
                     method: apiRequest.method || 'GET',
                     status: apiRequest.status || 0,
                     statusText: apiRequest.statusText || '',
@@ -20390,9 +20582,12 @@ ${originalText}`;
                 await this.saveAllSessions(false, false);
             } else {
                 // 更新现有会话的请求接口信息
+                // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
                 session._isApiRequestSession = true;
                 session._apiRequestInfo = {
-                    url: apiRequest.url || '',
+                    url: requestUrl || '',
+                    requestUrl: requestUrl, // 确保requestUrl字段存在
                     method: apiRequest.method || 'GET',
                     status: apiRequest.status || 0,
                     statusText: apiRequest.statusText || '',
@@ -20408,8 +20603,9 @@ ${originalText}`;
                     pageUrl: apiRequest.pageUrl || '',
                     tags: apiRequest.tags || []
                 };
-                session.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`;
-                session.pageDescription = `接口请求：${apiRequest.url || ''}`;
+                // 使用上面已经定义的 requestUrl
+                session.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(requestUrl)}`;
+                session.pageDescription = `接口请求：${requestUrl}`;
                 // 只有在pageContent为空时才更新，保留已追加的响应内容
                 if (shouldBuildPageContent && pageContent) {
                     session.pageContent = pageContent;
@@ -20428,13 +20624,21 @@ ${originalText}`;
                 skipBackendFetch: true,
                 keepApiRequestListView: isApiRequestListVisible // 如果当前显示请求接口列表，保持该视图
             });
+
+            // 如果当前显示的是请求接口列表，刷新列表以更新 active 高亮（对齐新闻列表的行为）
+            if (isApiRequestListVisible) {
+                await this.updateApiRequestSidebar(false);
+            }
             
             // 确保会话信息已更新（在激活会话后）
             const activatedSession = this.sessions[sessionId];
             if (activatedSession) {
                 activatedSession._isApiRequestSession = true;
+                // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
                 activatedSession._apiRequestInfo = {
-                    url: apiRequest.url || '',
+                    url: requestUrl || '',
+                    requestUrl: requestUrl, // 确保requestUrl字段存在
                     method: apiRequest.method || 'GET',
                     status: apiRequest.status || 0,
                     statusText: apiRequest.statusText || '',
@@ -20450,8 +20654,8 @@ ${originalText}`;
                     pageUrl: apiRequest.pageUrl || '',
                     tags: apiRequest.tags || []
                 };
-                activatedSession.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`;
-                activatedSession.pageDescription = `接口请求：${apiRequest.url || ''}`;
+                activatedSession.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(requestUrl)}`;
+                activatedSession.pageDescription = `接口请求：${requestUrl}`;
                 // 只有在pageContent为空时才更新，保留已追加的响应内容
                 if (shouldBuildPageContent && pageContent) {
                     activatedSession.pageContent = pageContent;
@@ -20470,14 +20674,19 @@ ${originalText}`;
         try {
             if (!apiRequest) {
                 this.showNotification('请求接口数据无效', 'error');
-                return;
+                return false;
             }
             
             // 先创建或激活会话
             await this.handleApiRequestClick(apiRequest);
             
+            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+            const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+            const pageUrl = apiRequest.pageUrl || '';
+            const isBlankApiRequest = typeof pageUrl === 'string' && pageUrl.startsWith('blank-request:');
+            const sessionIdentity = isBlankApiRequest ? pageUrl : requestUrl;
             // 获取会话ID
-            const requestId = `${apiRequest.method || 'GET'}:${apiRequest.url || ''}`;
+            const requestId = `${apiRequest.method || 'GET'}:${sessionIdentity}`;
             const sessionId = await this.generateSessionId(requestId);
             
             // 确保会话存在
@@ -20490,7 +20699,7 @@ ${originalText}`;
             
             if (!session) {
                 this.showNotification('无法创建会话', 'error');
-                return;
+                return false;
             }
             
             // 保存请求接口到后端（通过 apiRequestApi）
@@ -20498,7 +20707,9 @@ ${originalText}`;
                 try {
                     // 准备请求接口数据
                     const apiRequestData = {
-                        url: apiRequest.url || '',
+                        // 新建接口：url 保存为 pageUrl（blank-request:xxx），requestUrl 保存为真实接口地址
+                        url: apiRequest.url || apiRequest.pageUrl || '',
+                        requestUrl: apiRequest.requestUrl || requestUrl || '',
                         method: apiRequest.method || 'GET',
                         status: apiRequest.status || 0,
                         statusText: apiRequest.statusText || '',
@@ -20546,11 +20757,13 @@ ${originalText}`;
                     }
                     
                     // 准备会话数据
+                    // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+                    const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
                     const sessionData = {
                         id: session.id || sessionId,
-                        url: apiRequest.pageUrl || apiRequest.url || '',
-                        pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(apiRequest.url)}`,
-                        pageDescription: `接口请求：${apiRequest.url || ''}`,
+                        url: apiRequest.pageUrl || requestUrl || '',
+                        pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(requestUrl)}`,
+                        pageDescription: `接口请求：${requestUrl}`,
                         pageContent: pageContent,
                         messages: session.messages || [],
                         tags: session.tags || apiRequest.tags || [],
@@ -20562,7 +20775,7 @@ ${originalText}`;
                     // 标记为请求接口会话
                     sessionData._isApiRequestSession = true;
                     sessionData._apiRequestInfo = {
-                        url: apiRequest.url || '',
+                        url: requestUrl || '',
                         method: apiRequest.method || 'GET',
                         status: apiRequest.status || 0,
                         statusText: apiRequest.statusText || '',
@@ -20584,18 +20797,61 @@ ${originalText}`;
                     
                     console.log('请求接口会话已保存到后端:', sessionId);
                     this.showNotification('会话已保存', 'success');
+                    return true;
                 } catch (error) {
                     console.error('保存请求接口会话到后端失败:', error);
                     this.showNotification('保存会话失败，请重试', 'error');
+                    return false;
                 }
             } else {
                 // 如果没有启用后端同步，只保存到本地
                 await this.saveAllSessions(true, false);
                 this.showNotification('会话已保存到本地', 'success');
+                return true;
             }
         } catch (error) {
             console.error('保存请求接口会话失败:', error);
             this.showNotification('保存会话失败，请重试', 'error');
+            return false;
+        }
+    }
+
+    /**
+     * 接口会话：欢迎消息里的“保存会话”按钮点击（避免使用通用 handleManualSaveSession 覆盖接口会话的 URL/上下文）
+     * @param {HTMLElement} button
+     */
+    async handleManualSaveApiRequestSession(button) {
+        const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
+        const apiRequestInfo = session && session._apiRequestInfo ? session._apiRequestInfo : null;
+        if (!session || !apiRequestInfo) {
+            console.warn('当前不是接口会话或缺少接口信息，无法保存');
+            this._showManualSaveStatus(button, false);
+            return;
+        }
+
+        const iconEl = button.querySelector('.save-btn-icon');
+        const textEl = button.querySelector('.save-btn-text');
+        const loaderEl = button.querySelector('.save-btn-loader');
+
+        try {
+            // loading 状态
+            button.disabled = true;
+            button.classList.add('loading');
+            if (iconEl) iconEl.style.display = 'none';
+            if (textEl) textEl.textContent = '保存中...';
+            if (loaderEl) loaderEl.style.display = 'block';
+
+            const ok = await this.handleApiRequestSaveSession(apiRequestInfo);
+            if (ok) {
+                // 标记已保存到后端（用于隐藏按钮）
+                this.backendSessionIds.add(this.currentSessionId);
+                await this.refreshWelcomeMessage();
+            }
+
+            this._showManualSaveStatus(button, ok);
+        } catch (e) {
+            console.error('接口会话手动保存失败:', e);
+            this._showManualSaveStatus(button, false);
         }
     }
     
@@ -20607,8 +20863,9 @@ ${originalText}`;
                 return;
             }
             
-            // 检查是否有_id或key字段（只有API数据才能删除）
-            if (!apiRequest._id && !apiRequest.key && !apiRequest.id) {
+            // 检查是否有 key 字段（只有API数据才能删除）
+            const requestKey = this._getRequestKey(apiRequest);
+            if (!requestKey) {
                 this.showNotification('该请求无法删除（缺少标识符）', 'error');
                 return;
             }
@@ -20619,10 +20876,10 @@ ${originalText}`;
                 return;
             }
             
-            // 准备删除数据（需要key或url字段）
+            // 准备删除数据（使用 key 字段）
             const deleteData = {
-                key: apiRequest.key || apiRequest._id || apiRequest.id,
-                url: apiRequest.url || ''
+                key: requestKey,
+                url: apiRequest.url || apiRequest.requestUrl || ''
             };
             
             // 显示加载提示
@@ -20637,9 +20894,10 @@ ${originalText}`;
                 // 从本地请求列表中移除
                 if (this.apiRequestManager) {
                     const index = this.apiRequestManager.requests.findIndex(req => {
-                        // 优先使用_id或key匹配
+                        // 优先使用 key 匹配
                         if (deleteData.key) {
-                            return (req._id === deleteData.key) || (req.key === deleteData.key) || (req.id === deleteData.key);
+                            const reqKey = this._getRequestKey(req);
+                            return reqKey === deleteData.key;
                         }
                         // 如果没有key，使用URL匹配
                         return req.url === deleteData.url;
@@ -20676,7 +20934,9 @@ ${originalText}`;
         // 基本信息
         content += `## 基本信息\n\n`;
         content += `- **方法**: ${apiRequest.method || 'GET'}\n`;
-        content += `- **URL**: ${apiRequest.url || ''}\n`;
+        // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+        const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+        content += `- **URL**: ${requestUrl}\n`;
         content += `- **状态**: ${apiRequest.status || 0} ${apiRequest.statusText || ''}\n`;
         content += `- **耗时**: ${apiRequest.duration || 0}ms\n`;
         content += `- **时间**: ${new Date(apiRequest.timestamp || Date.now()).toLocaleString()}\n`;
@@ -20747,6 +21007,17 @@ ${originalText}`;
         return content;
     }
     
+    /**
+     * 生成唯一的 blank-request 标识符
+     * @returns {string} 格式为 blank-request:xxx 的唯一字符串
+     */
+    _generateBlankRequestId() {
+        // 使用时间戳和随机数生成唯一标识符
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 11);
+        return `blank-request:${timestamp}_${random}`;
+    }
+    
     // 新建请求接口（类似Postman）
     async createNewApiRequest() {
         // 创建空的请求对象
@@ -20804,7 +21075,8 @@ ${originalText}`;
             methodSelect.value = apiRequest.method || 'GET';
         }
         if (urlInput) {
-            urlInput.value = apiRequest.url || '';
+            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+            urlInput.value = apiRequest.requestUrl || apiRequest.url || '';
         }
         if (titleInput) {
             titleInput.value = apiRequest.title || '';
@@ -20915,7 +21187,9 @@ ${originalText}`;
         // 显示对话框
         modal.style.display = 'flex';
         modal.dataset.apiRequestKey = apiRequest.key || apiRequest._id || apiRequest.id;
-        modal.dataset.apiRequestUrl = apiRequest.url || '';
+        // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+        const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+        modal.dataset.apiRequestUrl = requestUrl;
         
         // 填充当前值
         const titleInput = modal.querySelector('.api-request-editor-title-input');
@@ -21826,21 +22100,31 @@ ${originalText}`;
             
             // 准备保存数据
             const apiRequestData = {
-                url: url,
                 method: method,
                 headers: headers,
                 body: body,
                 title: title || `${method} ${this._extractApiPath(url)}`,
                 description: description || `接口请求：${url}`,
-                pageUrl: window.location.href,
                 tags: originalRequest.tags || [],
                 timestamp: Date.now()
             };
             
-            // 如果是编辑模式，设置key
-            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
-                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
-                apiRequestData.type = originalRequest.type || 'api';
+            // 如果是新建模式，使用requestUrl字段，并生成唯一的pageUrl
+            if (isNew) {
+                apiRequestData.requestUrl = url;
+                // 新建模式：生成 blank-request:xxx 格式的唯一pageUrl
+                apiRequestData.pageUrl = this._generateBlankRequestId();
+                // 添加 url 字段，和 pageUrl 内容保持一致
+                apiRequestData.url = apiRequestData.pageUrl;
+            } else {
+                // 编辑模式，保留url字段以兼容旧数据
+                apiRequestData.url = url;
+                if (originalRequest.key || originalRequest._id || originalRequest.id) {
+                    apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
+                    apiRequestData.type = originalRequest.type || 'api';
+                    // 编辑模式保留pageUrl
+                    apiRequestData.pageUrl = originalRequest.pageUrl || window.location.href;
+                }
             }
             
             // 根据当前编辑器内容重新生成 curl 命令，确保与方法一致
@@ -22108,13 +22392,15 @@ ${originalText}`;
     
     // 从请求列表项发送请求
     async sendApiRequestFromItem(apiRequest) {
-        if (!apiRequest || !apiRequest.url) {
+        // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+        const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+        if (!apiRequest || !requestUrl) {
             this.showNotification('请求URL不能为空', 'error');
             return;
         }
         
         const method = apiRequest.method || 'GET';
-        const url = apiRequest.url.trim();
+        const url = requestUrl.trim();
         const headers = apiRequest.headers || {};
         const body = apiRequest.body || null;
         
@@ -22340,21 +22626,31 @@ ${originalText}`;
             
             // 准备保存数据
             const apiRequestData = {
-                url: url,
                 method: method,
                 headers: headers,
                 body: body,
                 title: title || `${method} ${this._extractApiPath(url)}`,
                 description: description || `接口请求：${url}`,
-                pageUrl: window.location.href,
                 tags: originalRequest.tags || [],
                 timestamp: Date.now()
             };
             
-            // 如果是编辑模式，设置key
-            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
-                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
-                apiRequestData.type = originalRequest.type || 'api';
+            // 如果是新建模式，使用requestUrl字段，并生成唯一的pageUrl
+            if (isNew) {
+                apiRequestData.requestUrl = url;
+                // 新建模式：生成 blank-request:xxx 格式的唯一pageUrl
+                apiRequestData.pageUrl = this._generateBlankRequestId();
+                // 添加 url 字段，和 pageUrl 内容保持一致
+                apiRequestData.url = apiRequestData.pageUrl;
+            } else {
+                // 编辑模式，保留url字段以兼容旧数据
+                apiRequestData.url = url;
+                if (originalRequest.key || originalRequest._id || originalRequest.id) {
+                    apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
+                    apiRequestData.type = originalRequest.type || 'api';
+                    // 编辑模式保留pageUrl
+                    apiRequestData.pageUrl = originalRequest.pageUrl || window.location.href;
+                }
             }
             
             // 根据当前编辑器内容重新生成 curl 命令，确保与方法一致
@@ -23658,21 +23954,31 @@ ${originalText}`;
             
             // 准备保存数据
             const apiRequestData = {
-                url: url,
                 method: method,
                 headers: headers,
                 body: body,
                 title: title || `${method} ${this._extractApiPath(url)}`,
                 description: description || `接口请求：${url}`,
-                pageUrl: window.location.href,
                 tags: originalRequest.tags || [],
                 timestamp: Date.now()
             };
             
-            // 如果是编辑模式，设置key
-            if (!isNew && (originalRequest.key || originalRequest._id || originalRequest.id)) {
-                apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
-                apiRequestData.type = originalRequest.type || 'api';
+            // 如果是新建模式，使用requestUrl字段，并生成唯一的pageUrl
+            if (isNew) {
+                apiRequestData.requestUrl = url;
+                // 新建模式：生成 blank-request:xxx 格式的唯一pageUrl
+                apiRequestData.pageUrl = this._generateBlankRequestId();
+                // 添加 url 字段，和 pageUrl 内容保持一致
+                apiRequestData.url = apiRequestData.pageUrl;
+            } else {
+                // 编辑模式，保留url字段以兼容旧数据
+                apiRequestData.url = url;
+                if (originalRequest.key || originalRequest._id || originalRequest.id) {
+                    apiRequestData.key = originalRequest.key || originalRequest._id || originalRequest.id;
+                    apiRequestData.type = originalRequest.type || 'api';
+                    // 编辑模式保留pageUrl
+                    apiRequestData.pageUrl = originalRequest.pageUrl || window.location.href;
+                }
             }
             
             // 根据当前编辑器内容重新生成 curl 命令，确保与方法一致
@@ -24059,9 +24365,12 @@ ${originalText}`;
             }
             
             // 准备更新数据
+            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+            const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
             const apiRequestData = {
                 key: apiRequest.key || apiRequest._id || apiRequest.id,
-                url: apiRequest.url || '',
+                url: requestUrl,
+                requestUrl: requestUrl, // 确保requestUrl字段存在
                 method: apiRequest.method || 'GET',
                 status: apiRequest.status || 0,
                 statusText: apiRequest.statusText || '',
@@ -24091,9 +24400,10 @@ ${originalText}`;
                 
                 // 更新本地数据
                 if (this.apiRequestManager) {
+                    const apiRequestKey = this._getRequestKey(apiRequest) || apiRequest.key || apiRequest._id || apiRequest.id;
                     const index = this.apiRequestManager.requests.findIndex(req => {
-                        const key = apiRequest.key || apiRequest._id || apiRequest.id;
-                        return (req._id === key) || (req.key === key) || (req.id === key);
+                        const reqKey = this._getRequestKey(req);
+                        return reqKey === apiRequestKey;
                     });
                     
                     if (index >= 0) {
@@ -24162,8 +24472,10 @@ ${originalText}`;
             if (apiRequest.method) {
                 userPrompt += `请求方法：${apiRequest.method}\n`;
             }
-            if (apiRequest.url) {
-                userPrompt += `请求URL：${apiRequest.url}\n`;
+            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+            const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+            if (requestUrl) {
+                userPrompt += `请求URL：${requestUrl}\n`;
             }
             if (apiRequest.pageUrl) {
                 userPrompt += `页面URL：${apiRequest.pageUrl}\n`;
@@ -24379,8 +24691,10 @@ ${originalText}`;
             if (apiRequest.method) {
                 userPrompt += `请求方法：${apiRequest.method}\n`;
             }
-            if (apiRequest.url) {
-                userPrompt += `请求URL：${apiRequest.url}\n`;
+            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+            const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+            if (requestUrl) {
+                userPrompt += `请求URL：${requestUrl}\n`;
             }
             if (apiRequest.pageUrl) {
                 userPrompt += `页面URL：${apiRequest.pageUrl}\n`;
@@ -24992,9 +25306,12 @@ ${originalText}`;
             }
             
             // 准备更新数据
+            // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+            const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
             const apiRequestData = {
                 key: apiRequest.key || apiRequest._id || apiRequest.id,
-                url: apiRequest.url || '',
+                url: requestUrl,
+                requestUrl: requestUrl, // 确保requestUrl字段存在
                 method: apiRequest.method || 'GET',
                 status: apiRequest.status || 0,
                 statusText: apiRequest.statusText || '',
@@ -25024,9 +25341,10 @@ ${originalText}`;
                 
                 // 更新本地数据
                 if (this.apiRequestManager) {
+                    const apiRequestKey = this._getRequestKey(apiRequest) || apiRequest.key || apiRequest._id || apiRequest.id;
                     const index = this.apiRequestManager.requests.findIndex(req => {
-                        const key = apiRequest.key || apiRequest._id || apiRequest.id;
-                        return (req._id === key) || (req.key === key) || (req.id === key);
+                        const reqKey = this._getRequestKey(req);
+                        return reqKey === apiRequestKey;
                     });
                     
                     if (index >= 0) {
@@ -25154,7 +25472,9 @@ ${originalText}`;
         // 显示弹窗
         modal.style.display = 'flex';
         modal.dataset.apiRequestKey = apiRequest.key || apiRequest._id || apiRequest.id;
-        modal.dataset.apiRequestUrl = apiRequest.url || '';
+        // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+        const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
+        modal.dataset.apiRequestUrl = requestUrl;
         
         // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
@@ -25293,7 +25613,8 @@ ${originalText}`;
             return '';
         }
         
-        const url = apiRequest.url || '';
+        // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+        const url = apiRequest.requestUrl || apiRequest.url || '';
         const method = (apiRequest.method || 'GET').toUpperCase();
         const headers = apiRequest.headers || apiRequest.requestHeaders || {};
         let body = apiRequest.body || apiRequest.requestBody || null;
@@ -30390,10 +30711,14 @@ ${originalText}
                              filteredFiles.every(file => this.selectedFileNames.has(file.name));
             } else if (isApiRequestListMode) {
                 const filteredApiRequests = this._getFilteredApiRequests();
+                // 确保所有请求都有 key 字段
+                filteredApiRequests.forEach(req => {
+                    this._ensureRequestKey(req);
+                });
                 allSelected = filteredApiRequests.length > 0 && 
                             filteredApiRequests.every(req => {
-                                const requestId = req._id || req.key;
-                                return requestId && this.selectedApiRequestIds.has(requestId);
+                                const requestKey = this._getRequestKey(req);
+                                return requestKey && this.selectedApiRequestIds.has(requestKey);
                             });
             } else if (isNewsListMode) {
                 const filteredNews = this._getFilteredNews();
@@ -30923,43 +31248,60 @@ ${originalText}
                     }
                 }
             });
-        } else if (isApiRequestListMode) {
-            // 请求接口列表模式
-            const filteredApiRequests = this._getFilteredApiRequests();
-            const allSelected = filteredApiRequests.length > 0 && 
+            } else if (isApiRequestListMode) {
+                // 请求接口列表模式
+                const filteredApiRequests = this._getFilteredApiRequests();
+                // 确保所有请求都有 key 字段
+                filteredApiRequests.forEach(req => {
+                    this._ensureRequestKey(req);
+                });
+                
+                const allSelected = filteredApiRequests.length > 0 && 
                               filteredApiRequests.every(req => {
-                                  const requestId = req._id || req.key;
-                                  return requestId && this.selectedApiRequestIds.has(requestId);
+                                  const requestKey = this._getRequestKey(req);
+                                  return requestKey && this.selectedApiRequestIds.has(requestKey);
                               });
+                
+                if (allSelected) {
+                    // 取消全选：只取消当前显示的请求接口
+                    filteredApiRequests.forEach(req => {
+                        const requestKey = this._getRequestKey(req);
+                        if (requestKey) {
+                            this.selectedApiRequestIds.delete(requestKey);
+                        }
+                    });
+                } else {
+                    // 全选：选中所有当前显示的请求接口（仅API数据）
+                    filteredApiRequests.forEach(req => {
+                        const requestKey = this._getRequestKey(req);
+                        if (requestKey) {
+                            this.selectedApiRequestIds.add(requestKey);
+                        }
+                    });
+                }
             
-            if (allSelected) {
-                // 取消全选：只取消当前显示的请求接口
-                filteredApiRequests.forEach(req => {
-                    const requestId = req._id || req.key;
-                    if (requestId) {
-                        this.selectedApiRequestIds.delete(requestId);
-                    }
-                });
-            } else {
-                // 全选：选中所有当前显示的请求接口（仅API数据）
-                filteredApiRequests.forEach(req => {
-                    const requestId = req._id || req.key;
-                    if (requestId) {
-                        this.selectedApiRequestIds.add(requestId);
-                    }
-                });
-            }
-            
-            // 更新所有复选框状态
+            // 更新所有复选框状态（使用 key 字段）
             const checkboxes = document.querySelectorAll('.api-request-checkbox');
             checkboxes.forEach(checkbox => {
-                const requestId = checkbox.dataset.requestId;
-                checkbox.checked = this.selectedApiRequestIds.has(requestId);
+                const requestKey = checkbox.dataset.requestKey; // 使用 data-request-key
+                if (!requestKey) {
+                    // 兼容旧代码：尝试使用 requestId
+                    const requestId = checkbox.dataset.requestId;
+                    if (requestId) {
+                        checkbox.dataset.requestKey = requestId; // 迁移到新的属性名
+                        checkbox.checked = this.selectedApiRequestIds.has(requestId);
+                    } else {
+                        return; // 跳过无效的复选框
+                    }
+                } else {
+                    checkbox.checked = this.selectedApiRequestIds.has(requestKey);
+                }
                 
                 // 更新请求接口项的选中状态类
                 const requestItem = checkbox.closest('.api-request-item');
                 if (requestItem) {
-                    if (this.selectedApiRequestIds.has(requestId)) {
+                    const key = requestKey || checkbox.dataset.requestId;
+                    if (key && this.selectedApiRequestIds.has(key)) {
                         requestItem.classList.add('selected');
                         requestItem.style.background = '#eff6ff';
                         requestItem.style.borderColor = '#3b82f6';
@@ -31171,34 +31513,45 @@ ${originalText}
                 // 获取所有请求接口数据，用于删除
                 const allRequests = this.apiRequestManager ? this.apiRequestManager.getAllRequests() : [];
                 
-                for (const requestId of requestIds) {
+                for (const requestKey of requestIds) {
                     try {
-                        // 查找对应的请求接口数据
+                        // 查找对应的请求接口数据（使用 key 字段）
                         const apiRequest = allRequests.find(req => {
-                            const reqId = req._id || req.key || req.id;
-                            return reqId === requestId;
+                            // 确保请求有 key 字段
+                            this._ensureRequestKey(req);
+                            const reqKey = this._getRequestKey(req);
+                            return reqKey === requestKey;
                         });
                         
                         if (!apiRequest) {
-                            console.warn(`未找到请求接口数据: ${requestId}`);
+                            console.warn(`未找到请求接口数据: ${requestKey}`);
                             failCount++;
                             continue;
                         }
                         
-                        // 准备删除数据（需要key或url字段）
+                        // 确保请求有 key 字段
+                        const finalKey = this._ensureRequestKey(apiRequest);
+                        if (!finalKey) {
+                            console.warn(`请求接口缺少 key 字段:`, apiRequest);
+                            failCount++;
+                            continue;
+                        }
+                        
+                        // 准备删除数据（使用 key 字段）
                         const deleteData = {
-                            key: apiRequest.key || apiRequest._id || apiRequest.id,
-                            url: apiRequest.url || ''
+                            key: finalKey,
+                            url: apiRequest.url || apiRequest.requestUrl || ''
                         };
                         
                         // 调用API删除
                         await this.apiRequestApi.deleteApiRequest(deleteData);
                         
-                        // 从本地请求列表中移除
+                        // 从本地请求列表中移除（使用 key 字段）
                         if (this.apiRequestManager) {
                             const index = this.apiRequestManager.requests.findIndex(req => {
-                                const reqId = req._id || req.key || req.id;
-                                return reqId === requestId;
+                                this._ensureRequestKey(req);
+                                const reqKey = this._getRequestKey(req);
+                                return reqKey === requestKey;
                             });
                             
                             if (index >= 0) {
@@ -31208,7 +31561,7 @@ ${originalText}
                         
                         successCount++;
                     } catch (error) {
-                        console.error(`删除请求接口 ${requestId} 失败:`, error);
+                        console.error(`删除请求接口 ${requestKey} 失败:`, error);
                         failCount++;
                     }
                 }
@@ -50436,8 +50789,10 @@ ${messageContent}`;
     
     // 创建接口请求欢迎消息
     async createApiRequestWelcomeMessage(messagesContainer, apiRequestInfo) {
+        // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+        const requestUrl = apiRequestInfo.requestUrl || apiRequestInfo.url || '';
         // 构建接口请求信息显示内容
-        const apiPath = this._extractApiPath(apiRequestInfo.url);
+        const apiPath = this._extractApiPath(requestUrl);
         const method = apiRequestInfo.method || 'GET';
         const status = apiRequestInfo.status || 0;
         const statusText = apiRequestInfo.statusText || '';
@@ -50471,7 +50826,7 @@ ${messageContent}`;
                             <span style="font-size: 14px; opacity: 0.9;">🔗</span>
                             <span style="font-size: 12px; color: rgba(255, 255, 255, 0.7); font-weight: 500;">接口地址</span>
                         </div>
-                        <a href="${apiRequestInfo.url}" target="_blank" style="word-break: break-all; color: rgba(255, 255, 255, 0.9); text-decoration: none; font-size: 13px; line-height: 1.5; padding: 8px 10px; background: rgba(0, 0, 0, 0.15); border-radius: 6px; transition: all 0.2s ease; display: block;" onmouseover="this.style.background='rgba(0, 0, 0, 0.25)'; this.style.textDecoration='underline'" onmouseout="this.style.background='rgba(0, 0, 0, 0.15)'; this.style.textDecoration='none'">${this.escapeHtml(apiRequestInfo.url)}</a>
+                        <a href="${requestUrl}" target="_blank" style="word-break: break-all; color: rgba(255, 255, 255, 0.9); text-decoration: none; font-size: 13px; line-height: 1.5; padding: 8px 10px; background: rgba(0, 0, 0, 0.15); border-radius: 6px; transition: all 0.2s ease; display: block;" onmouseover="this.style.background='rgba(0, 0, 0, 0.25)'; this.style.textDecoration='underline'" onmouseout="this.style.background='rgba(0, 0, 0, 0.15)'; this.style.textDecoration='none'">${this.escapeHtml(requestUrl)}</a>
                     </div>
         `;
         
@@ -50635,7 +50990,7 @@ ${messageContent}`;
             const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
             if (saveBtn) {
                 saveBtn.addEventListener('click', () => {
-                    this.handleManualSaveSession(saveBtn);
+                    this.handleManualSaveApiRequestSession(saveBtn);
                 });
             }
         }
@@ -52502,6 +52857,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 console.log('Content Script 完成');
+
 
 
 

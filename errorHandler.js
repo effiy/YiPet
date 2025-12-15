@@ -1,108 +1,82 @@
 /**
- * 错误处理工具类
- * 统一处理错误，提供一致的错误处理机制
+ * 兼容层：保留旧的 `YiPet/errorHandler.js` 导出形态（{ ErrorHandler, globalErrorHandler }），
+ * 但实际实现统一委托给 `YiPet/utils/errorHandler.js`，避免项目内出现两套 ErrorHandler 逻辑。
  */
 
-class ErrorHandler {
-    constructor() {
-        this.registeredErrorCallbacks = [];
+// 优先使用 utils 版（提供 ErrorHandler.safeExecute / isContextInvalidated 等静态能力）
+let ErrorHandler;
+try {
+    if (typeof require !== 'undefined') {
+        ErrorHandler = require('./utils/errorHandler.js');
     }
-    
-    /**
-     * 注册错误回调
-     */
-    registerErrorCallback(callback) {
-        if (typeof callback === 'function') {
-            this.registeredErrorCallbacks.push(callback);
-        }
-    }
-    
-    /**
-     * 处理错误
-     */
-    handleError(error, context = '') {
-        const errorInfo = {
-            message: error?.message || error?.toString() || '未知错误',
-            stack: error?.stack,
-            context: context,
-            timestamp: Date.now()
-        };
-        
-        // 调用所有注册的回调
-        this.registeredErrorCallbacks.forEach(callback => {
-            try {
-                callback(errorInfo);
-            } catch (e) {
-                // 静默处理回调错误
-                console.error('错误回调执行失败:', e);
-            }
-        });
-        
-        // 默认错误处理：输出到控制台
-        if (context) {
-            console.error(`[${context}]`, errorInfo.message, error);
-        } else {
-            console.error(errorInfo.message, error);
-        }
-        
-        return errorInfo;
-    }
-    
-    /**
-     * 安全执行函数（自动捕获错误）
-     */
-    async executeSafely(fn, context = '', defaultValue = null) {
-        try {
-            return await fn();
-        } catch (error) {
-            this.handleError(error, context);
-            return defaultValue;
-        }
-    }
-    
-    /**
-     * 安全执行同步函数（自动捕获错误）
-     */
-    executeSafelySync(fn, context = '', defaultValue = null) {
-        try {
-            return fn();
-        } catch (error) {
-            this.handleError(error, context);
-            return defaultValue;
-        }
-    }
-    
-    /**
-     * 包装异步函数，自动处理错误
-     */
-    wrapAsyncFunction(fn, context = '') {
-        return async (...args) => {
-            try {
-                return await fn(...args);
-            } catch (error) {
-                this.handleError(error, context);
-                throw error;
-            }
-        };
-    }
-    
-    /**
-     * 包装同步函数，自动处理错误
-     */
-    wrapSyncFunction(fn, context = '') {
-        return (...args) => {
-            try {
-                return fn(...args);
-            } catch (error) {
-                this.handleError(error, context);
-                throw error;
-            }
-        };
+} catch (e) {
+    // ignore
+}
+if (!ErrorHandler) {
+    // 浏览器环境：优先 globalThis / window 上的 ErrorHandler（可能由 utils/errorHandler.js 注入）
+    try {
+        ErrorHandler = (typeof globalThis !== 'undefined' && globalThis.ErrorHandler) ? globalThis.ErrorHandler : null;
+    } catch (e) {
+        ErrorHandler = null;
     }
 }
 
-// 创建全局错误处理器实例
-const globalErrorHandler = new ErrorHandler();
+// 提供与旧实现一致的全局错误处理器（实例 API：registerErrorCallback / handleError）
+const globalErrorHandler = (() => {
+    const registeredErrorCallbacks = [];
+
+    const buildErrorInfo = (error, context = '') => ({
+        message: error?.message || error?.toString?.() || '未知错误',
+        stack: error?.stack,
+        context,
+        timestamp: Date.now(),
+    });
+
+    const notifyCallbacks = (errorInfo) => {
+        registeredErrorCallbacks.forEach((cb) => {
+            try {
+                cb(errorInfo);
+            } catch (e) {
+                // 静默处理回调错误（避免二次错误放大）
+                console.error('错误回调执行失败:', e);
+            }
+        });
+    };
+
+    return {
+        registerErrorCallback(callback) {
+            if (typeof callback === 'function') {
+                registeredErrorCallbacks.push(callback);
+            }
+        },
+
+        handleError(error, context = '') {
+            const errorInfo = buildErrorInfo(error, context);
+            notifyCallbacks(errorInfo);
+
+            // 统一交给 utils ErrorHandler 处理（若存在），否则退回到 console
+            try {
+                if (ErrorHandler && typeof ErrorHandler.handle === 'function') {
+                    // 这里不强制弹通知，保持旧行为主要为控制台输出
+                    ErrorHandler.handle(error, { showNotification: false, fallback: errorInfo.message });
+                } else {
+                    if (context) {
+                        console.error(`[${context}]`, errorInfo.message, error);
+                    } else {
+                        console.error(errorInfo.message, error);
+                    }
+                }
+            } catch (e) {
+                // 兜底：绝不因为错误处理器本身报错而中断
+                try {
+                    console.error(errorInfo.message, error);
+                } catch (_) {}
+            }
+
+            return errorInfo;
+        },
+    };
+})();
 
 // 全局错误监听
 if (typeof window !== 'undefined') {

@@ -23,6 +23,21 @@
 
 class ErrorHandler {
     /**
+     * 获取默认兜底错误文案（避免对 CONSTANTS 的隐式强依赖导致运行时异常）
+     * @returns {string}
+     */
+    static getDefaultFallback() {
+        try {
+            // 优先使用全局 CONSTANTS（如果存在）
+            const c = (typeof globalThis !== 'undefined' && globalThis.CONSTANTS) ? globalThis.CONSTANTS : null;
+            const msg = c && c.ERROR_MESSAGES && c.ERROR_MESSAGES.OPERATION_FAILED;
+            return typeof msg === 'string' && msg.trim() ? msg : '操作失败';
+        } catch (e) {
+            return '操作失败';
+        }
+    }
+
+    /**
      * 处理操作错误
      * @param {Error|string} error - 错误对象或错误消息
      * @param {Object} options - 选项 {showNotification, fallback}
@@ -30,7 +45,7 @@ class ErrorHandler {
      */
     static handle(error, options = {}) {
         const showNotification = options.showNotification !== false;
-        const fallback = options.fallback || CONSTANTS.ERROR_MESSAGES.OPERATION_FAILED;
+        const fallback = options.fallback || this.getDefaultFallback();
 
         let errorMessage = fallback;
         

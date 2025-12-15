@@ -3,7 +3,8 @@
  *
  * 说明：
  * - `content/bootstrap.js`：日志开关、PET_CONFIG 兜底、StorageHelper、默认位置工具函数
- * - `content/petManager.js`：PetManager 类定义（IIFE，挂到 window.PetManager）
+ * - `content/petManager.core.js`：PetManager 类定义（IIFE，挂到 window.PetManager）
+ * - `content/petManager.js`：PetManager 轻量入口/装配文件（校验加载顺序、后续拆分模块的聚合点）
  * - `content.js`（本文件）：只负责实例化与生命周期清理
  */
 

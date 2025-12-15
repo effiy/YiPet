@@ -1,5 +1,5 @@
 /**
- * PetManager - 截图/权限相关逻辑（从 `content/petManager.js` 拆分）
+ * PetManager - 截图/权限相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
 (function () {

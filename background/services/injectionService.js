@@ -27,8 +27,13 @@ class InjectionService {
         'html2canvas.min.js',
         'export-chat-to-png.js',
         'content/bootstrap.js',
-        'content/petManager.js',
+        'content/petManager.core.js',
+        'content/petManager.pet.js',
+        'content/petManager.state.js',
+        'content/petManager.chat.js',
+        'content/petManager.message.js',
         'content/petManager.screenshot.js',
+        'content/petManager.js',
         'content.js'
     ];
 

@@ -20702,80 +20702,32 @@ ${originalText}`;
                 return false;
             }
             
-            // 保存请求接口到后端（通过 apiRequestApi）
-            if (this.apiRequestApi && this.apiRequestApi.isEnabled()) {
+            // 保存会话到后端（参考新闻/通用保存逻辑：统一走 /session/save）
+            // 说明：统一通过 syncSessionToBackend() -> sessionApi.saveSession()，避免分支逻辑导致未走 /session/save
+            if (this.sessionApi && PET_CONFIG?.api?.syncSessionsToBackend) {
                 try {
-                    // 准备请求接口数据
-                    const apiRequestData = {
-                        // 新建接口：url 保存为 pageUrl（blank-request:xxx），requestUrl 保存为真实接口地址
-                        url: apiRequest.url || apiRequest.pageUrl || '',
-                        requestUrl: apiRequest.requestUrl || requestUrl || '',
-                        method: apiRequest.method || 'GET',
-                        status: apiRequest.status || 0,
-                        statusText: apiRequest.statusText || '',
-                        headers: apiRequest.headers || {},
-                        body: apiRequest.body || null,
-                        responseHeaders: apiRequest.responseHeaders || {},
-                        responseBody: apiRequest.responseBody || null,
-                        responseText: apiRequest.responseText || '',
-                        duration: apiRequest.duration || 0,
-                        timestamp: apiRequest.timestamp || Date.now(),
-                        type: apiRequest.type || 'fetch',
-                        curl: apiRequest.curl || '',
-                        pageUrl: apiRequest.pageUrl || window.location.href,
-                        tags: apiRequest.tags || []
-                    };
-                    
-                    // 如果有key，使用它作为唯一标识
-                    if (apiRequest.key) {
-                        apiRequestData.key = apiRequest.key;
-                    } else if (apiRequest._id) {
-                        apiRequestData.key = apiRequest._id;
-                    } else if (apiRequest.id) {
-                        apiRequestData.key = apiRequest.id;
-                    }
-                    
-                    // 保存到后端
-                    const result = await this.apiRequestApi.saveApiRequest(apiRequestData);
-                    
-                    if (result && result.success) {
-                        console.log('请求接口已保存到后端:', result.data);
-                    }
-                } catch (error) {
-                    console.warn('保存请求接口到后端失败:', error);
-                    // 不阻止会话保存，继续执行
-                }
-            }
-            
-            // 保存会话到后端（通过 sessionApi）
-            if (this.sessionApi && this.enableBackendSync) {
-                try {
-                    // 优先使用会话中已有的pageContent，如果为空才构建新的
+                    // 优先使用会话中已有的 pageContent，如果为空才构建新的（接口详情）
                     let pageContent = session.pageContent;
                     if (!pageContent || pageContent.trim() === '') {
                         pageContent = this._buildApiRequestPageContent(apiRequest);
                     }
-                    
-                    // 准备会话数据
-                    // 优先使用 requestUrl 字段（新建的请求接口），兼容 url 字段（旧数据）
+
+                    // 写回会话对象，确保 syncSessionToBackend 能拿到完整信息并正确包含 pageContent
                     const requestUrl = apiRequest.requestUrl || apiRequest.url || '';
-                    const sessionData = {
-                        id: session.id || sessionId,
-                        url: apiRequest.pageUrl || requestUrl || '',
-                        pageTitle: `${apiRequest.method || 'GET'} ${this._extractApiPath(requestUrl)}`,
-                        pageDescription: `接口请求：${requestUrl}`,
-                        pageContent: pageContent,
-                        messages: session.messages || [],
-                        tags: session.tags || apiRequest.tags || [],
-                        createdAt: session.createdAt || Date.now(),
-                        updatedAt: Date.now(),
-                        lastAccessTime: Date.now()
-                    };
-                    
-                    // 标记为请求接口会话
-                    sessionData._isApiRequestSession = true;
-                    sessionData._apiRequestInfo = {
+                    const sessionUrl = apiRequest.pageUrl || requestUrl || '';
+                    session.url = sessionUrl;
+                    session.pageTitle = `${apiRequest.method || 'GET'} ${this._extractApiPath(requestUrl)}`;
+                    session.pageDescription = `接口请求：${requestUrl}`;
+                    session.pageContent = pageContent || '';
+                    session.updatedAt = Date.now();
+                    session.lastAccessTime = Date.now();
+
+                    // 确保接口会话标记与元数据齐全
+                    session._isApiRequestSession = true;
+                    session._apiRequestInfo = {
+                        // 兼容旧字段：url，同时补齐 requestUrl
                         url: requestUrl || '',
+                        requestUrl: apiRequest.requestUrl || requestUrl || '',
                         method: apiRequest.method || 'GET',
                         status: apiRequest.status || 0,
                         statusText: apiRequest.statusText || '',
@@ -20791,11 +20743,14 @@ ${originalText}`;
                         pageUrl: apiRequest.pageUrl || '',
                         tags: apiRequest.tags || []
                     };
-                    
-                    // 保存会话到后端
-                    await this.sessionApi.saveSession(sessionData);
-                    
-                    console.log('请求接口会话已保存到后端:', sessionId);
+
+                    // 先落本地，避免后端失败导致用户内容丢失
+                    await this.saveAllSessions(true, false);
+
+                    // 同步到后端：immediate=true，includePageContent=true（确保接口详情被保存）
+                    await this.syncSessionToBackend(sessionId, true, true);
+
+                    console.log('请求接口会话已通过 /session/save 保存到后端:', sessionId);
                     this.showNotification('会话已保存', 'success');
                     return true;
                 } catch (error) {
@@ -20803,12 +20758,12 @@ ${originalText}`;
                     this.showNotification('保存会话失败，请重试', 'error');
                     return false;
                 }
-            } else {
-                // 如果没有启用后端同步，只保存到本地
-                await this.saveAllSessions(true, false);
-                this.showNotification('会话已保存到本地', 'success');
-                return true;
             }
+
+            // 如果没有启用后端同步，只保存到本地
+            await this.saveAllSessions(true, false);
+            this.showNotification('会话已保存到本地', 'success');
+            return true;
         } catch (error) {
             console.error('保存请求接口会话失败:', error);
             this.showNotification('保存会话失败，请重试', 'error');

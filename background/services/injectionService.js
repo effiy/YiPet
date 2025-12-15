@@ -5,6 +5,34 @@
 
 class InjectionService {
     /**
+     * 注入 content scripts 需要的文件列表（必须按依赖顺序）
+     * 注意：这里要与 manifest.json 里的 content_scripts.js 保持一致，
+     * 否则可能出现 window.PetManager 未定义等问题。
+     */
+    static CONTENT_SCRIPT_FILES = [
+        'config.js',
+        'md5.js',
+        'loadingAnimation.js',
+        'sessionApi.js',
+        'sessionManager.js',
+        'ossApi.js',
+        'ossFileManager.js',
+        'newsManager.js',
+        'rssSourceManager.js',
+        'faqApi.js',
+        'apiRequestManager.js',
+        'apiRequestApi.js',
+        'turndown.js',
+        'marked.min.js',
+        'html2canvas.min.js',
+        'export-chat-to-png.js',
+        'content/bootstrap.js',
+        'content/petManager.js',
+        'content/petManager.screenshot.js',
+        'content.js'
+    ];
+
+    /**
      * 直接注入content script到指定标签页
      * @param {number} tabId - 标签页ID
      * @returns {Promise<boolean>} 是否注入成功
@@ -14,7 +42,7 @@ class InjectionService {
             console.log('直接注入content script到标签页:', tabId);
             await chrome.scripting.executeScript({
                 target: { tabId: tabId },
-                files: ['content.js']
+                files: InjectionService.CONTENT_SCRIPT_FILES
             });
             console.log('Content script 注入成功');
             return true;

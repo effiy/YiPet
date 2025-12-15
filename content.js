@@ -6315,9 +6315,40 @@ if (typeof getCenterPosition === 'undefined') {
                 return;
             }
 
-            // 使用注入脚本在页面上下文中加载 JSZip
-            const scriptUrl = chrome.runtime.getURL('jszip.min.js');
-            const loadScriptUrl = chrome.runtime.getURL('load-jszip.js');
+            // 检查扩展上下文是否有效
+            let scriptUrl, loadScriptUrl;
+            try {
+                // 检查 chrome 对象和 runtime 是否存在
+                if (typeof chrome === 'undefined' || !chrome.runtime) {
+                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
+                }
+                
+                // 尝试访问 runtime.id 来检查上下文是否有效
+                try {
+                    const runtimeId = chrome.runtime.id;
+                    if (!runtimeId) {
+                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    }
+                } catch (idError) {
+                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                    if (errorMsg.includes('extension context invalidated') || 
+                        errorMsg.includes('context invalidated')) {
+                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                    }
+                    throw idError;
+                }
+                
+                // 获取脚本 URL
+                scriptUrl = chrome.runtime.getURL('jszip.min.js');
+                loadScriptUrl = chrome.runtime.getURL('load-jszip.js');
+            } catch (error) {
+                this.jszipLoading = false;
+                const errorMsg = error.message || '扩展上下文无效';
+                console.error('获取JSZip脚本URL失败:', error);
+                reject(new Error(errorMsg));
+                return;
+            }
+            
             console.log('尝试在页面上下文中加载 JSZip.js，URL:', scriptUrl);
             
             // 通过 data 属性传递 URL（避免内联脚本）
@@ -6594,6 +6625,38 @@ if (typeof getCenterPosition === 'undefined') {
             
             console.log(`导入超时时间设置为: ${Math.round(finalTimeout / 1000)}秒 (文件大小: ${fileSizeMB.toFixed(2)}MB)`);
             
+            // 检查扩展上下文是否有效
+            let importScriptUrl;
+            try {
+                // 检查 chrome 对象和 runtime 是否存在
+                if (typeof chrome === 'undefined' || !chrome.runtime) {
+                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
+                }
+                
+                // 尝试访问 runtime.id 来检查上下文是否有效
+                try {
+                    const runtimeId = chrome.runtime.id;
+                    if (!runtimeId) {
+                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    }
+                } catch (idError) {
+                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                    if (errorMsg.includes('extension context invalidated') || 
+                        errorMsg.includes('context invalidated')) {
+                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                    }
+                    throw idError;
+                }
+                
+                // 获取导入脚本 URL
+                importScriptUrl = chrome.runtime.getURL('import-sessions.js');
+            } catch (error) {
+                const errorMsg = error.message || '扩展上下文无效';
+                console.error('获取导入脚本URL失败:', error);
+                this.showNotification('导入失败: ' + errorMsg + '。请刷新页面后重试。', 'error');
+                throw new Error(errorMsg);
+            }
+            
             return new Promise((resolve, reject) => {
                 // 创建数据容器
                 const dataContainer = document.createElement('div');
@@ -6603,7 +6666,6 @@ if (typeof getCenterPosition === 'undefined') {
                 (document.head || document.documentElement).appendChild(dataContainer);
                 
                 // 加载外部导入脚本
-                const importScriptUrl = chrome.runtime.getURL('import-sessions.js');
                 const importScript = document.createElement('script');
                 importScript.src = importScriptUrl;
                 importScript.charset = 'UTF-8';
@@ -7078,6 +7140,38 @@ if (typeof getCenterPosition === 'undefined') {
             // 在页面上下文中执行导出逻辑
             this.showNotification('正在生成ZIP文件...', 'info');
             
+            // 检查扩展上下文是否有效
+            let exportScriptUrl;
+            try {
+                // 检查 chrome 对象和 runtime 是否存在
+                if (typeof chrome === 'undefined' || !chrome.runtime) {
+                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
+                }
+                
+                // 尝试访问 runtime.id 来检查上下文是否有效
+                try {
+                    const runtimeId = chrome.runtime.id;
+                    if (!runtimeId) {
+                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    }
+                } catch (idError) {
+                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                    if (errorMsg.includes('extension context invalidated') || 
+                        errorMsg.includes('context invalidated')) {
+                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                    }
+                    throw idError;
+                }
+                
+                // 获取导出脚本 URL
+                exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+            } catch (error) {
+                const errorMsg = error.message || '扩展上下文无效';
+                console.error('获取导出脚本URL失败:', error);
+                this.showNotification('导出失败: ' + errorMsg + '。请刷新页面后重试。', 'error');
+                throw new Error(errorMsg);
+            }
+            
             // 使用注入外部脚本的方式（避免CSP限制）
             return new Promise((resolve, reject) => {
                 // 创建数据容器（通过data属性传递数据，避免内联脚本）
@@ -7089,7 +7183,6 @@ if (typeof getCenterPosition === 'undefined') {
                 (document.head || document.documentElement).appendChild(dataContainer);
                 
                 // 加载外部导出脚本
-                const exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
                 const exportScript = document.createElement('script');
                 exportScript.src = exportScriptUrl;
                 exportScript.charset = 'UTF-8';
@@ -7200,6 +7293,38 @@ if (typeof getCenterPosition === 'undefined') {
             // 在页面上下文中执行导出逻辑
             this.showNotification('正在生成ZIP文件...', 'info');
             
+            // 检查扩展上下文是否有效
+            let exportScriptUrl;
+            try {
+                // 检查 chrome 对象和 runtime 是否存在
+                if (typeof chrome === 'undefined' || !chrome.runtime) {
+                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
+                }
+                
+                // 尝试访问 runtime.id 来检查上下文是否有效
+                try {
+                    const runtimeId = chrome.runtime.id;
+                    if (!runtimeId) {
+                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    }
+                } catch (idError) {
+                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                    if (errorMsg.includes('extension context invalidated') || 
+                        errorMsg.includes('context invalidated')) {
+                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                    }
+                    throw idError;
+                }
+                
+                // 获取导出脚本 URL
+                exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+            } catch (error) {
+                const errorMsg = error.message || '扩展上下文无效';
+                console.error('获取导出脚本URL失败:', error);
+                this.showNotification('导出失败: ' + errorMsg + '。请刷新页面后重试。', 'error');
+                throw new Error(errorMsg);
+            }
+            
             // 使用注入外部脚本的方式（避免CSP限制）
             return new Promise((resolve, reject) => {
                 // 创建数据容器（通过data属性传递数据，避免内联脚本）
@@ -7211,7 +7336,6 @@ if (typeof getCenterPosition === 'undefined') {
                 (document.head || document.documentElement).appendChild(dataContainer);
                 
                 // 加载外部导出脚本
-                const exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
                 const exportScript = document.createElement('script');
                 exportScript.src = exportScriptUrl;
                 exportScript.charset = 'UTF-8';
@@ -7366,6 +7490,38 @@ if (typeof getCenterPosition === 'undefined') {
             // 在页面上下文中执行导出逻辑
             this.showNotification('正在生成ZIP文件...', 'info');
             
+            // 检查扩展上下文是否有效
+            let exportScriptUrl;
+            try {
+                // 检查 chrome 对象和 runtime 是否存在
+                if (typeof chrome === 'undefined' || !chrome.runtime) {
+                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
+                }
+                
+                // 尝试访问 runtime.id 来检查上下文是否有效
+                try {
+                    const runtimeId = chrome.runtime.id;
+                    if (!runtimeId) {
+                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    }
+                } catch (idError) {
+                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                    if (errorMsg.includes('extension context invalidated') || 
+                        errorMsg.includes('context invalidated')) {
+                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                    }
+                    throw idError;
+                }
+                
+                // 获取导出脚本 URL
+                exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+            } catch (error) {
+                const errorMsg = error.message || '扩展上下文无效';
+                console.error('获取导出脚本URL失败:', error);
+                this.showNotification('导出失败: ' + errorMsg + '。请刷新页面后重试。', 'error');
+                throw new Error(errorMsg);
+            }
+            
             // 使用注入外部脚本的方式（避免CSP限制）
             return new Promise((resolve, reject) => {
                 // 创建数据容器（通过data属性传递数据，避免内联脚本）
@@ -7377,7 +7533,6 @@ if (typeof getCenterPosition === 'undefined') {
                 (document.head || document.documentElement).appendChild(dataContainer);
                 
                 // 加载外部导出脚本
-                const exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
                 const exportScript = document.createElement('script');
                 exportScript.src = exportScriptUrl;
                 exportScript.charset = 'UTF-8';

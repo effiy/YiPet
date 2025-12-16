@@ -24,30 +24,8 @@ class WeWorkService {
                 throw new Error('content 参数无效');
             }
             
-            // 最终长度检查：确保不超过限制（这是最后一道防线）
+            // 不再限制消息长度，发送完整内容
             let finalContent = content;
-            const contentLength = finalContent.length;
-            
-            if (contentLength > MAX_LENGTH) {
-                console.warn(`[企微机器人] 内容长度 ${contentLength} 超过限制 ${MAX_LENGTH}，进行截断`);
-                // 在最后一个合适的断点处截断，避免截断 Markdown 语法
-                let truncated = finalContent.substring(0, MAX_LENGTH);
-                
-                // 尝试在最后一个换行符处截断
-                const lastNewline = truncated.lastIndexOf('\n');
-                if (lastNewline > MAX_LENGTH - CONSTANTS.API.MAX_WEWORK_CONTENT_TRUNCATE_MARGIN) {
-                    truncated = truncated.substring(0, lastNewline);
-                }
-                
-                finalContent = truncated;
-                console.log(`[企微机器人] 截断后长度: ${finalContent.length}`);
-            }
-            
-            // 再次验证长度（双重保险）
-            if (finalContent.length > MAX_LENGTH) {
-                console.error(`[企微机器人] 截断后仍然超过限制: ${finalContent.length} > ${MAX_LENGTH}`);
-                finalContent = finalContent.substring(0, MAX_LENGTH);
-            }
             
             // 根据企微机器人文档，发送 markdown 消息
             const payload = {
@@ -91,4 +69,5 @@ if (typeof module !== "undefined" && module.exports) {
         self.WeWorkService = new WeWorkService();
     }
 }
+
 

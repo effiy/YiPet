@@ -22237,10 +22237,8 @@ ${originalText}`;
         responseContent += `**响应时间:** ${duration}ms\n\n`;
         
         if (responseText) {
-            // 限制响应内容长度，避免过长
-            const maxLength = 5000;
-            const displayText = responseText.length > maxLength ? responseText.substring(0, maxLength) + '\n...[已截断]' : responseText;
-            responseContent += `**响应内容:**\n\`\`\`json\n${displayText}\n\`\`\`\n`;
+            // 不再限制响应内容长度，显示完整内容
+            responseContent += `**响应内容:**\n\`\`\`json\n${responseText}\n\`\`\`\n`;
         }
         
         // 追加到会话的pageContent字段
@@ -35279,9 +35277,8 @@ ${originalText}
                     messageSummary = recentMessages.map((msg, idx) => {
                         const role = msg.role === 'user' ? '用户' : '助手';
                         const content = msg.content || '';
-                        // 限制每条消息长度，避免过长
-                        const truncatedContent = content.length > 100 ? content.substring(0, 100) + '...' : content;
-                        return `${idx + 1}. ${role}: ${truncatedContent}`;
+                        // 不再限制每条消息长度，显示完整内容
+                        return `${idx + 1}. ${role}: ${content}`;
                     }).join('\n');
                 }
 
@@ -37863,12 +37860,7 @@ ${pageContent || '无内容'}
                         console.log(`[企微机器人] 转换后长度: ${finalContent.length}`);
                     }
                     
-                    // 确保不超过 4096 字符限制（企业微信机器人的硬性限制）
-                    const MAX_MARKDOWN_LENGTH = 4096;
-                    if (finalContent.length > MAX_MARKDOWN_LENGTH) {
-                        console.warn(`[企微机器人] 转换后长度 ${finalContent.length} 超过 ${MAX_MARKDOWN_LENGTH}，进行截断`);
-                        finalContent = this.limitMarkdownLength(finalContent, MAX_MARKDOWN_LENGTH);
-                    }
+                    // 不再限制消息长度，发送完整内容
                     
                     // 发送到企微机器人
                     await this.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
@@ -39675,12 +39667,7 @@ ${pageContent || '无内容'}
                         console.log(`[企微机器人] 转换后长度: ${finalContent.length}`);
                     }
                     
-                    // 确保不超过 4096 字符限制（企业微信机器人的硬性限制）
-                    const MAX_MARKDOWN_LENGTH = 4096;
-                    if (finalContent.length > MAX_MARKDOWN_LENGTH) {
-                        console.warn(`[企微机器人] 转换后长度 ${finalContent.length} 超过 ${MAX_MARKDOWN_LENGTH}，进行截断`);
-                        finalContent = this.limitMarkdownLength(finalContent, MAX_MARKDOWN_LENGTH);
-                    }
+                    // 不再限制消息长度，发送完整内容
                     
                     // 发送到企微机器人
                     await this.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
@@ -41414,65 +41401,11 @@ ${messageContent}`;
 
     // 限制 Markdown 内容长度，确保不超过指定字数
     limitMarkdownLength(content, maxLength) {
+        // 不再限制内容长度，直接返回完整内容
         if (!content || typeof content !== 'string') {
             return '';
         }
-
-        // 如果内容长度已经小于等于限制，直接返回
-        if (content.length <= maxLength) {
-            return content;
-        }
-
-        // 计算截断提示文本（固定格式，长度可预测）
-        const truncateHint = '\n\n*(内容已截断)*';
-        const hintLength = truncateHint.length;
-        
-        // 预留空间：提示文本 + 可能的换行符
-        const reservedLength = hintLength + 1; // +1 为可能的换行符预留
-        const availableLength = maxLength - reservedLength;
-        
-        // 如果可用长度太小，直接截断到最大长度（不添加提示）
-        if (availableLength < 50) {
-            return content.substring(0, maxLength);
-        }
-
-        // 截断内容到可用长度
-        let truncated = content.substring(0, availableLength);
-
-        // 尝试在最后一个完整的句子或段落处截断，避免截断 Markdown 语法
-        // 查找最后一个换行符、句号、问号或感叹号
-        const searchStart = Math.max(0, availableLength - 200);
-        const lastBreak = Math.max(
-            truncated.lastIndexOf('\n\n', availableLength - 1),
-            truncated.lastIndexOf('\n', availableLength - 1),
-            truncated.lastIndexOf('。', availableLength - 1),
-            truncated.lastIndexOf('！', availableLength - 1),
-            truncated.lastIndexOf('？', availableLength - 1),
-            truncated.lastIndexOf('.', availableLength - 1),
-            truncated.lastIndexOf('!', availableLength - 1),
-            truncated.lastIndexOf('?', availableLength - 1)
-        );
-
-        // 如果找到了合适的截断点（在搜索范围内），使用该点截断
-        if (lastBreak >= searchStart && lastBreak > 0) {
-            truncated = truncated.substring(0, lastBreak + 1);
-        }
-
-        // 确保截断后的内容以换行符结尾（但要确保加上提示后不超过限制）
-        if (!truncated.endsWith('\n') && truncated.length + hintLength + 1 <= maxLength) {
-            truncated += '\n';
-        }
-
-        // 添加截断提示
-        truncated += truncateHint;
-
-        // 最终严格检查：确保不超过最大长度（这是最后一道防线）
-        if (truncated.length > maxLength) {
-            // 如果仍然超过，强制截断到最大长度（去掉提示文本）
-            truncated = content.substring(0, maxLength);
-        }
-
-        return truncated;
+        return content;
     }
 
     // 发送消息到企微机器人（通过 background script 避免 CORS 问题）
@@ -41497,21 +41430,7 @@ ${messageContent}`;
                 console.log(`[企微机器人] 转换后长度: ${markdownContent.length}`);
             }
             
-            // 最终长度检查：确保不超过企微机器人的 4096 字符限制
-            const MAX_LENGTH = 4096;
-            const originalLength = markdownContent.length;
-            
-            if (originalLength > MAX_LENGTH) {
-                console.warn(`[企微机器人] 内容长度 ${originalLength} 超过限制 ${MAX_LENGTH}，进行截断`);
-                markdownContent = this.limitMarkdownLength(markdownContent, MAX_LENGTH);
-                console.log(`[企微机器人] 截断后长度: ${markdownContent.length}`);
-            }
-            
-            // 再次验证长度（双重保险）
-            if (markdownContent.length > MAX_LENGTH) {
-                console.error(`[企微机器人] 截断后仍然超过限制: ${markdownContent.length} > ${MAX_LENGTH}，强制截断`);
-                markdownContent = markdownContent.substring(0, MAX_LENGTH);
-            }
+            // 不再限制消息长度，发送完整内容
             
             // 通过 background script 发送请求，避免 CORS 问题
             const response = await chrome.runtime.sendMessage({
@@ -51396,3 +51315,4 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+

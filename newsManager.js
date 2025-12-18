@@ -13,6 +13,31 @@ class NewsManager {
         // 新闻数据
         this.news = []; // 存储所有新闻列表
         this.cname = options.cname || 'rss'; // 集合名称
+
+        // 轻量列表加载配置（默认不拉取大字段 content，节省流量）
+        this.lightweightList = options.lightweightList !== false;
+        this.listFields = options.listFields || [
+            'key',
+            'title',
+            'link',
+            'description',
+            'tags',
+            'source_name',
+            'source_url',
+            'published',
+            'published_parsed',
+            'createdTime',
+            'updatedTime',
+        ];
+        this.excludeFields = options.excludeFields || ['content'];
+        this.pageSize = options.pageSize || 500; // 单次最多拉取条数（可按需调整）
+        this.maxPages = options.maxPages || 10; // 最多翻页次数，避免异常数据导致无限拉取
+
+        // 详情缓存（key -> newsDetail）
+        this.detailCache = new Map();
+
+        // 请求去重
+        this.pendingRequests = new Map();
         
         // 同步和保存优化
         this.lastNewsLoadTime = 0;
@@ -29,6 +54,97 @@ class NewsManager {
         
         // 加载动画计数器
         this.activeRequestCount = 0;
+    }
+
+    /**
+     * 构建请求key用于去重
+     */
+    _getRequestKey(method, url, body) {
+        const bodyStr = body ? JSON.stringify(body) : '';
+        return `${method}:${url}:${bodyStr}`;
+    }
+
+    /**
+     * 统一请求（带去重）
+     */
+    async _request(url, options = {}) {
+        const method = options.method || 'GET';
+        const requestKey = this._getRequestKey(method, url, options.body);
+
+        if (this.pendingRequests.has(requestKey)) {
+            return await this.pendingRequests.get(requestKey);
+        }
+
+        this._showLoadingAnimation();
+
+        const requestPromise = (async () => {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(options.headers || {}),
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                return await response.json();
+            } finally {
+                this.pendingRequests.delete(requestKey);
+                this._hideLoadingAnimation();
+            }
+        })();
+
+        this.pendingRequests.set(requestKey, requestPromise);
+        return await requestPromise;
+    }
+
+    _normalizeApiBase() {
+        // 允许传入 .../mongodb 或 .../mongodb/
+        return (this.apiUrl || '').replace(/\/+$/, '');
+    }
+
+    _getCacheKey(isoDate) {
+        return `pet_news_cache:v2:${this._normalizeApiBase()}:${this.cname}:${isoDate || ''}`;
+    }
+
+    async _storageGet(key) {
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                return await new Promise(resolve => {
+                    chrome.storage.local.get([key], (result) => resolve(result ? result[key] : null));
+                });
+            }
+        } catch (e) {}
+
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : null;
+            }
+        } catch (e) {}
+
+        return null;
+    }
+
+    async _storageSet(key, value) {
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                return await new Promise(resolve => {
+                    chrome.storage.local.set({ [key]: value }, () => resolve());
+                });
+            }
+        } catch (e) {}
+
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(key, JSON.stringify(value));
+            }
+        } catch (e) {}
     }
     
     /**
@@ -82,55 +198,85 @@ class NewsManager {
                 const dateStr = this.formatDate(today);
                 isoDate = `${dateStr},${dateStr}`;
             }
-            
-            const url = `${this.apiUrl}?cname=${this.cname}&isoDate=${isoDate}`;
-            
-            // 显示加载动画
-            this._showLoadingAnimation();
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
+
+            // 先尝试读缓存（非强制刷新时）
+            if (this.enableCache && !forceRefresh) {
+                const cacheKey = this._getCacheKey(isoDate);
+                const cached = await this._storageGet(cacheKey);
+                if (cached && cached.data && Array.isArray(cached.data) && typeof cached.savedAt === 'number') {
+                    // 有缓存则先用缓存快速渲染
+                    this.news = cached.data;
+                    // 若缓存仍在有效期内，直接返回，节省网络请求
+                    if ((now - cached.savedAt) < this.NEWS_RELOAD_INTERVAL) {
+                        this.lastNewsLoadTime = now;
+                        return;
+                    }
                 }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
-            const result = await response.json();
-            
-            // 隐藏加载动画
-            this._hideLoadingAnimation();
+
+            const apiBase = this._normalizeApiBase();
+            const params = new URLSearchParams();
+            params.set('cname', this.cname);
+            params.set('isoDate', isoDate);
+            params.set('pageNum', '1');
+            params.set('pageSize', String(this.pageSize));
+            params.set('orderBy', 'updatedTime');
+            params.set('orderType', 'desc');
+
+            // 轻量列表：尽量不拉 content 等大字段
+            if (this.lightweightList) {
+                if (this.listFields && this.listFields.length > 0) {
+                    params.set('fields', this.listFields.join(','));
+                } else if (this.excludeFields && this.excludeFields.length > 0) {
+                    params.set('excludeFields', this.excludeFields.join(','));
+                }
+            }
+
+            const firstPageUrl = `${apiBase}?${params.toString()}`;
+            const firstResult = await this._request(firstPageUrl, { method: 'GET' });
             
             // 处理返回的数据
             let newsList = [];
-            
-            // 调试：输出原始返回数据
-            console.log('新闻API返回的原始数据:', result);
-            
-            if (Array.isArray(result)) {
-                newsList = result;
-            } else if (result && typeof result === 'object') {
-                // 尝试多种可能的数据字段
-                if (Array.isArray(result?.data?.list)) {
-                    newsList = result?.data?.list;
-                } else {
-                    // 如果都不匹配，尝试查找所有数组类型的属性
-                    for (const key in result) {
-                        if (Array.isArray(result[key]) && result[key].length > 0) {
-                            console.log('发现数组字段:', key, '包含', result[key].length, '条数据');
-                            newsList = result[key];
-                            break;
+
+            // 兼容不同返回结构
+            const extractList = (res) => {
+                if (Array.isArray(res)) return { list: res, totalPages: 1 };
+                if (res && typeof res === 'object') {
+                    if (Array.isArray(res?.data?.list)) {
+                        const totalPages = res?.data?.totalPages || 1;
+                        return { list: res.data.list, totalPages };
+                    }
+                    // 兜底：找第一个数组字段
+                    for (const k in res) {
+                        if (Array.isArray(res[k]) && res[k].length > 0) {
+                            return { list: res[k], totalPages: 1 };
                         }
+                    }
+                }
+                return { list: [], totalPages: 1 };
+            };
+
+            const extracted = extractList(firstResult);
+            newsList = extracted.list || [];
+
+            // 如果有分页信息，最多再拉若干页（仍然是轻量字段）
+            const totalPages = Math.min(extracted.totalPages || 1, this.maxPages);
+            if (!Array.isArray(firstResult) && totalPages > 1) {
+                for (let page = 2; page <= totalPages; page++) {
+                    const p = new URLSearchParams(params);
+                    p.set('pageNum', String(page));
+                    const pageUrl = `${apiBase}?${p.toString()}`;
+                    const pageResult = await this._request(pageUrl, { method: 'GET' });
+                    const pageExtracted = extractList(pageResult);
+                    if (pageExtracted.list && pageExtracted.list.length > 0) {
+                        newsList = newsList.concat(pageExtracted.list);
                     }
                 }
             }
             
             // 如果仍然没有找到数据，输出警告
             if (newsList.length === 0) {
-                console.warn('未能从API返回数据中提取新闻列表，返回的数据结构:', Object.keys(result || {}));
+                console.warn('未能从API返回数据中提取新闻列表');
             }
             
             // 为每条新闻自动添加"网文"标签
@@ -148,14 +294,64 @@ class NewsManager {
             
             this.news = newsList;
             this.lastNewsLoadTime = now;
+
+            // 写缓存
+            if (this.enableCache) {
+                const cacheKey = this._getCacheKey(isoDate);
+                await this._storageSet(cacheKey, {
+                    savedAt: now,
+                    isoDate,
+                    data: newsList
+                });
+            }
             
             console.log('新闻列表已加载，共', newsList.length, '条新闻');
         } catch (error) {
-            // 隐藏加载动画
-            this._hideLoadingAnimation();
             console.warn('从API加载新闻列表失败:', error);
             // 如果加载失败，保持现有数据
         }
+    }
+
+    /**
+     * 获取新闻详情（按 key 懒加载，用于需要 content 等大字段的场景）
+     */
+    async getNewsDetail(key, forceRefresh = false) {
+        if (!key) return null;
+        if (!forceRefresh && this.detailCache.has(key)) {
+            return this.detailCache.get(key);
+        }
+
+        const apiBase = this._normalizeApiBase();
+        // 后端 mongodb 详情接口：/mongodb/detail?cname=rss&id=xxx
+        const url = `${apiBase}/detail?cname=${encodeURIComponent(this.cname)}&id=${encodeURIComponent(key)}`;
+        const result = await this._request(url, { method: 'GET' });
+
+        const detail = (result && result.data) ? result.data : result;
+        if (detail && typeof detail === 'object') {
+            this.detailCache.set(key, detail);
+            return detail;
+        }
+        return null;
+    }
+
+    /**
+     * 确保 newsItem 具备详情字段（例如 content）。会在原对象上 merge，保证外部引用不失效。
+     */
+    async ensureNewsDetail(newsItem, forceRefresh = false) {
+        if (!newsItem || typeof newsItem !== 'object') return newsItem;
+        // 已有正文则认为详情已就绪
+        if (newsItem.content && !forceRefresh) return newsItem;
+        if (!newsItem.key) return newsItem;
+
+        try {
+            const detail = await this.getNewsDetail(newsItem.key, forceRefresh);
+            if (detail) {
+                Object.assign(newsItem, detail);
+            }
+        } catch (e) {
+            console.warn('加载新闻详情失败:', e?.message || e);
+        }
+        return newsItem;
     }
     
     /**
@@ -202,7 +398,8 @@ class NewsManager {
         const results = this.getAllNews().filter(news => {
             const title = (news.title || '').toLowerCase();
             const description = (news.description || '').toLowerCase();
-            const content = (news.content || '').toLowerCase();
+            // 轻量列表可能不包含 content，避免强行依赖正文字段
+            const content = news.content ? String(news.content).toLowerCase() : '';
             return title.includes(queryLower) || 
                    description.includes(queryLower) || 
                    content.includes(queryLower);

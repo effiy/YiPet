@@ -238,10 +238,13 @@
         
         // 初始化新闻管理器
         if (typeof NewsManager !== 'undefined') {
+            const yiaiBaseUrl = PET_CONFIG?.api?.yiaiBaseUrl || 'https://api.effiy.cn';
             this.newsManager = new NewsManager({
-                apiUrl: 'https://api.effiy.cn/mongodb/',
+                apiUrl: `${yiaiBaseUrl}/mongodb/`,
                 cname: 'rss',
-                enableCache: true
+                enableCache: true,
+                // 默认启用轻量列表（通过 fields/excludeFields 控制不拉取 content）
+                lightweightList: true
             });
             await this.newsManager.initialize();
             console.log('新闻管理器已初始化');
@@ -25645,12 +25648,21 @@ ${originalText}`;
     }
     
     // 打开新闻编辑模态框
-    openNewsEditModal(newsItem, index) {
+    async openNewsEditModal(newsItem, index) {
         // 确保模态框UI存在
         this.ensureNewsEditModalUi();
         
         const modal = document.getElementById('pet-news-edit-modal');
         if (!modal) return;
+
+        // 轻量列表可能不包含 content，编辑前按需补齐详情（不阻塞太久，失败则继续显示）
+        try {
+            if (this.newsManager && newsItem && !newsItem.content && newsItem.key) {
+                await this.newsManager.ensureNewsDetail(newsItem);
+            }
+        } catch (e) {
+            console.warn('打开编辑前加载新闻详情失败:', e?.message || e);
+        }
         
         // 填充当前新闻数据
         const titleInput = modal.querySelector('#news-edit-title');

@@ -19469,11 +19469,80 @@ ${originalText}`;
                 font-size: 11px !important;
             `;
             
-            // 折叠/展开按钮点击事件
-            expandBtn.addEventListener('click', (e) => {
+            // 渲染详情面板内容（可重复调用：用于“展开时按需拉取详情”后刷新）
+            const renderDetailPanel = () => {
+                try {
+                    detailPanel.innerHTML = '';
+
+                    const requestUrl = req.url || '';
+                    const requestMethod = req.method || 'GET';
+                    const headers = req.headers || req.requestHeaders || {};
+                    const body = req.body || req.requestBody || null;
+                    const responseHeaders = req.responseHeaders || {};
+                    const responseText = req.responseText ||
+                                       (req.responseBody ? (typeof req.responseBody === 'string' ? req.responseBody : JSON.stringify(req.responseBody, null, 2)) : '') ||
+                                       req.response || '';
+
+                    // 生成curl命令（如果没有则自动生成）
+                    let curl = req.curl || '';
+                    if (!curl && requestUrl) {
+                        curl = this.generateCurlCommand(req);
+                    }
+
+                    // 按顺序显示：Request URL、Request Method、Request Headers、Curl
+                    if (requestUrl) {
+                        detailPanel.appendChild(createDetailSection('Request URL', requestUrl, true, true));
+                    }
+                    if (requestMethod) {
+                        detailPanel.appendChild(createDetailSection('Request Method', requestMethod, false));
+                    }
+                    if (headers && Object.keys(headers).length > 0) {
+                        detailPanel.appendChild(createDetailSection('Request Headers', headers, true, true));
+                    }
+                    if (body) {
+                        // 如果body是对象，转换为JSON字符串显示
+                        const bodyContent = typeof body === 'object' ? JSON.stringify(body, null, 2) : body;
+                        detailPanel.appendChild(createDetailSection('Request Body', bodyContent, true, true));
+                    }
+                    if (curl) {
+                        detailPanel.appendChild(createDetailSection('Curl', curl, true, true));
+                    }
+                    if (responseHeaders && Object.keys(responseHeaders).length > 0) {
+                        detailPanel.appendChild(createDetailSection('Response Headers', responseHeaders, true, true));
+                    }
+                    if (responseText) {
+                        detailPanel.appendChild(createDetailSection('Response Body', responseText, true, true));
+                    } else if (isApiData && req && req.key && this.apiRequestApi && this.apiRequestApi.getApiRequestDetail) {
+                        // 轻量列表数据的兜底提示
+                        detailPanel.appendChild(createDetailSection('Response Body', '（该条目为轻量列表数据，展开时将按需加载详情）', false));
+                    }
+                } catch (e) {
+                    // 静默失败，避免影响列表渲染
+                }
+            };
+
+            // 折叠/展开按钮点击事件（展开时按需拉取详情，减少初始流量）
+            expandBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 isExpanded = !isExpanded;
+
                 if (isExpanded) {
+                    // 若是 API 数据且可能是轻量列表，按需拉取单条详情
+                    if (isApiData && req && req.key && !req._detailFetched && this.apiRequestApi && this.apiRequestApi.getApiRequestDetail) {
+                        try {
+                            const detail = await this.apiRequestApi.getApiRequestDetail(req.key);
+                            if (detail && typeof detail === 'object') {
+                                Object.assign(req, detail);
+                            }
+                            req._detailFetched = true;
+                        } catch (err) {
+                            // 失败静默处理：仍展示已有内容
+                        }
+                    }
+
+                    // 每次展开都刷新一次详情内容（保证拿到详情后能更新 UI）
+                    renderDetailPanel();
+
                     detailPanel.style.display = 'block';
                     expandBtn.innerHTML = `
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -19637,45 +19706,8 @@ ${originalText}`;
             
             // 添加详情内容
             // 统一处理字段名，确保API数据和本地数据都能正确显示
-            const requestUrl = req.url || '';
-            const requestMethod = req.method || 'GET';
-            const headers = req.headers || req.requestHeaders || {};
-            const body = req.body || req.requestBody || null;
-            const responseHeaders = req.responseHeaders || {};
-            const responseText = req.responseText || 
-                               (req.responseBody ? (typeof req.responseBody === 'string' ? req.responseBody : JSON.stringify(req.responseBody, null, 2)) : '') ||
-                               req.response || '';
-            
-            // 生成curl命令（如果没有则自动生成）
-            let curl = req.curl || '';
-            if (!curl && requestUrl) {
-                curl = this.generateCurlCommand(req);
-            }
-            
-            // 按顺序显示：Request URL、Request Method、Request Headers、Curl
-            if (requestUrl) {
-                detailPanel.appendChild(createDetailSection('Request URL', requestUrl, true, true));
-            }
-            if (requestMethod) {
-                detailPanel.appendChild(createDetailSection('Request Method', requestMethod, false));
-            }
-            if (headers && Object.keys(headers).length > 0) {
-                detailPanel.appendChild(createDetailSection('Request Headers', headers, true, true));
-            }
-            if (body) {
-                // 如果body是对象，转换为JSON字符串显示
-                const bodyContent = typeof body === 'object' ? JSON.stringify(body, null, 2) : body;
-                detailPanel.appendChild(createDetailSection('Request Body', bodyContent, true, true));
-            }
-            if (curl) {
-                detailPanel.appendChild(createDetailSection('Curl', curl, true, true));
-            }
-            if (responseHeaders && Object.keys(responseHeaders).length > 0) {
-                detailPanel.appendChild(createDetailSection('Response Headers', responseHeaders, true, true));
-            }
-            if (responseText) {
-                detailPanel.appendChild(createDetailSection('Response Body', responseText, true, true));
-            }
+            // 初次渲染（未展开时也预渲染一次：可避免展开瞬间空白）
+            renderDetailPanel();
             
             requestItem.appendChild(detailPanel);
             

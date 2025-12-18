@@ -371,7 +371,10 @@ class ApiRequestApiManager {
      */
     async getApiRequests() {
         try {
-            const url = `${this.baseUrl}/?cname=${this.cname}`;
+            // 默认只拉取“列表所需”的轻量字段，避免一次性传输 responseText/responseBody 等大字段
+            // 需要详情时通过 getApiRequestDetail() 单条拉取
+            const excludeFields = encodeURIComponent('headers,body,responseHeaders,responseText,responseBody,curl');
+            const url = `${this.baseUrl}/?cname=${this.cname}&pageNum=1&pageSize=200&orderBy=timestamp&orderType=desc&excludeFields=${excludeFields}`;
             const result = await this._request(url, { method: 'GET' });
             
             // 处理响应格式，数据在 result.data.list 里面
@@ -394,11 +397,35 @@ class ApiRequestApiManager {
                 if (!apiRequest.tags || !Array.isArray(apiRequest.tags)) {
                     apiRequest.tags = [];
                 }
+                // 标记为轻量列表数据（展开时可按需拉取详情）
+                apiRequest._lite = true;
                 return apiRequest;
             });
         } catch (error) {
             console.warn('获取请求接口列表失败:', error.message);
             return [];
+        }
+    }
+
+    /**
+     * 获取单条请求接口详情（完整字段）
+     * @param {string} key - 请求接口 key（优先使用 key）
+     * @returns {Promise<Object|null>}
+     */
+    async getApiRequestDetail(key) {
+        if (!key) return null;
+        try {
+            const url = `${this.baseUrl}/detail?cname=${this.cname}&id=${encodeURIComponent(key)}`;
+            const result = await this._request(url, { method: 'GET' });
+
+            // 兼容后端返回格式：RespOk -> {data:{...}} / 直接对象
+            if (result && result.data) {
+                return result.data;
+            }
+            return result || null;
+        } catch (error) {
+            console.warn('获取请求接口详情失败:', error.message);
+            return null;
         }
     }
 }

@@ -137,14 +137,23 @@ class SessionApiManager {
             const url = `${this.baseUrl}/session/`;
             const result = await this._request(url, { method: 'GET' });
             
-            if (result.success && Array.isArray(result.sessions)) {
+            // 兼容不同的返回格式（与 YiH5 保持一致）
+            if (Array.isArray(result)) {
+                return result;
+            } else if (result && Array.isArray(result.sessions)) {
                 return result.sessions;
+            } else if (result && Array.isArray(result.data)) {
+                return result.data;
+            } else if (result && result.data && Array.isArray(result.data.sessions)) {
+                return result.data.sessions;
             } else {
-                throw new Error('返回数据格式错误');
+                console.warn('获取会话列表：返回数据格式异常', result);
+                return [];
             }
         } catch (error) {
             console.warn('获取会话列表失败:', error.message);
-            throw error;
+            // 返回空数组而不是抛出错误，避免影响主流程
+            return [];
         }
     }
     

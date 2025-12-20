@@ -17462,26 +17462,42 @@ ${originalText}`;
         let news = this.newsManager ? this.newsManager.getAllNews() : [];
         
         // 为每个新闻检查是否已有对应的会话，设置 sessionId 字段
-        // 使用 Promise.all 等待所有检查完成
-        await Promise.all(news.map(async (newsItem) => {
+        // 使用新闻的 link 直接作为会话ID（与 YiH5 保持一致）
+        news.forEach((newsItem) => {
             if (newsItem.link) {
                 try {
-                    // 使用新闻的 link 作为会话ID查找对应的会话
-                    const newsId = newsItem.link || newsItem.title || `news_${Date.now()}`;
-                    // 生成会话ID（与 handleNewsClick 中的逻辑一致）
-                    const sessionId = await this.generateSessionId(newsId);
-                    // 检查是否存在对应的会话
-                    const existingSession = this.sessions[sessionId];
-                    if (existingSession && existingSession._isNewsSession) {
+                    // 使用新闻的 link 直接作为会话ID（后端会自动将URL转换为MD5）
+                    const sessionId = String(newsItem.link).trim();
+                    // 检查是否存在对应的会话（本地查找）
+                    let existingSession = this.sessions[sessionId];
+                    
+                    // 如果本地没有找到，尝试通过URL匹配查找（兼容后端可能转换了ID的情况）
+                    if (!existingSession) {
+                        for (const [sid, session] of Object.entries(this.sessions)) {
+                            if (session._isNewsSession && session._newsInfo && 
+                                session._newsInfo.link === newsItem.link) {
+                                existingSession = session;
+                                // 使用找到的会话ID
+                                newsItem.sessionId = sid;
+                                break;
+                            }
+                            // 也检查 session.url 是否匹配
+                            if (session.url && String(session.url).trim() === sessionId) {
+                                existingSession = session;
+                                newsItem.sessionId = sid;
+                                break;
+                            }
+                        }
+                    } else {
                         // 如果找到会话，设置 sessionId 字段
                         newsItem.sessionId = sessionId;
                     }
                 } catch (error) {
-                    // 如果生成会话ID失败，忽略
+                    // 如果检查失败，忽略
                     console.debug('检查新闻会话ID失败:', error);
                 }
             }
-        }));
+        });
         
         // 确保标签过滤器UI已更新（即使没有加载新闻，也要更新一次以确保数量正确）
         this.updateNewsTagFilterUI();
@@ -17588,15 +17604,30 @@ ${originalText}`;
             newsItem.className = 'news-item';
             newsItem.setAttribute('data-news-index', index);
             
-            // 添加选中状态类：检查当前会话是否是该新闻的会话
+            // 添加选中状态类：检查当前会话是否是该新闻的会话（与 YiH5 保持一致）
             let isActive = false;
             if (this.currentSessionId) {
-                const currentSession = this.sessions[this.currentSessionId];
-                if (currentSession && currentSession._isNewsSession && currentSession._newsInfo) {
-                    // 当前会话是新闻会话，检查新闻链接是否匹配
-                    if (currentSession._newsInfo.link === item.link) {
-                        isActive = true;
-                        newsItem.classList.add('active');
+                // 方法1：检查新闻的 sessionId 字段是否匹配当前会话ID
+                if (item.sessionId && String(item.sessionId) === String(this.currentSessionId)) {
+                    isActive = true;
+                    newsItem.classList.add('active');
+                } else {
+                    // 方法2：检查当前会话是否是新闻会话，且新闻链接匹配
+                    const currentSession = this.sessions[this.currentSessionId];
+                    if (currentSession && currentSession._isNewsSession && currentSession._newsInfo) {
+                        if (currentSession._newsInfo.link === item.link) {
+                            isActive = true;
+                            newsItem.classList.add('active');
+                        }
+                    }
+                    // 方法3：检查当前会话的URL是否匹配新闻链接（兼容后端可能转换了ID的情况）
+                    if (!isActive && currentSession && currentSession.url) {
+                        const sessionUrl = String(currentSession.url).trim();
+                        const newsLink = String(item.link || "").trim();
+                        if (sessionUrl === newsLink) {
+                            isActive = true;
+                            newsItem.classList.add('active');
+                        }
                     }
                 }
             }
@@ -20164,7 +20195,7 @@ ${originalText}`;
         return 0;
     }
     
-    // 处理新闻点击，创建会话并打开聊天窗口（类似OSS文件）
+    // 处理新闻点击，创建会话并打开聊天窗口（与 YiH5 保持一致）
     async handleNewsClick(newsItem) {
         try {
             if (!newsItem) {
@@ -20177,7 +20208,18 @@ ${originalText}`;
                 await this.openChatWindow();
             }
             
-            // 如果新闻已经有 sessionId 字段，说明已经转换为会话，直接激活会话
+            // 获取新闻的link作为会话ID（后端会自动将URL转换为MD5）
+            const newsLink = String(newsItem.link || "").trim();
+            if (!newsLink) {
+                console.warn('新闻没有link，无法创建会话');
+                this.showNotification('新闻缺少链接，无法创建会话', 'error');
+                return;
+            }
+            
+            // 使用新闻link作为会话ID（后端会自动处理URL到MD5的转换）
+            const sessionId = newsLink;
+            
+            // 如果新闻已经有 sessionId 字段，说明已经转换为会话，直接进入会话聊天页面
             if (newsItem.sessionId) {
                 const existingSession = this.sessions[newsItem.sessionId];
                 if (existingSession) {
@@ -20210,38 +20252,92 @@ ${originalText}`;
                 }
             }
             
-            // 生成会话ID（基于新闻链接或标题）
-            const newsId = newsItem.link || newsItem.title || `news_${Date.now()}`;
-            const sessionId = await this.generateSessionId(newsId);
+            // 检查会话是否已存在（本地查找）
+            let existingSession = this.sessions[sessionId];
             
-            // 检查是否已存在相同新闻的会话
-            let matchedSessionId = null;
-            for (const [sid, session] of Object.entries(this.sessions)) {
-                if (session._isNewsSession && session._newsInfo && 
-                    session._newsInfo.link === newsItem.link) {
-                    matchedSessionId = sid;
-                    break;
+            // 如果本地没有找到，尝试从后端获取（确保会话列表已加载）
+            if (!existingSession && this.sessionApi && this.sessionApi.isEnabled()) {
+                try {
+                    const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
+                    // 在后端会话列表中查找
+                    const foundBackendSession = backendSessions.find(s => {
+                        const backendSessionId = String(s.id || "");
+                        return backendSessionId === String(sessionId) || 
+                               (s.url && String(s.url).trim() === newsLink);
+                    });
+                    
+                    if (foundBackendSession) {
+                        // 使用后端返回的实际会话ID（可能和原始sessionId不同，比如后端转换为MD5）
+                        const actualSessionId = String(foundBackendSession.id || sessionId);
+                        
+                        // 检查本地是否已有该会话
+                        existingSession = this.sessions[actualSessionId];
+                        
+                        // 如果本地没有，创建会话对象并添加到本地
+                        if (!existingSession) {
+                            const mappedSession = {
+                                id: actualSessionId,
+                                title: (foundBackendSession.title ?? foundBackendSession.pageTitle ?? newsItem.title ?? "未命名会话").trim(),
+                                preview: (foundBackendSession.pageDescription ?? foundBackendSession.preview ?? newsItem.description ?? "").trim(),
+                                tags: Array.isArray(foundBackendSession.tags) ? foundBackendSession.tags : (newsItem.tags || []),
+                                url: foundBackendSession.url || newsLink,
+                                pageTitle: foundBackendSession.pageTitle || newsItem.title || '新闻',
+                                pageDescription: foundBackendSession.pageDescription || newsItem.description || '',
+                                pageContent: foundBackendSession.pageContent || newsItem.description || '',
+                                messageCount: Array.isArray(foundBackendSession.messages) ? foundBackendSession.messages.length : 0,
+                                messages: Array.isArray(foundBackendSession.messages) ? foundBackendSession.messages : [],
+                                createdAt: Number(foundBackendSession.createdAt || Date.now()),
+                                updatedAt: Number(foundBackendSession.updatedAt || Date.now()),
+                                lastAccessTime: Number(foundBackendSession.lastAccessTime || Date.now()),
+                                lastActiveAt: Number(foundBackendSession.lastAccessTime || Date.now()),
+                            };
+                            
+                            // 标记为新闻会话
+                            mappedSession._isNewsSession = true;
+                            mappedSession._newsInfo = {
+                                title: newsItem.title || '',
+                                link: newsItem.link || '',
+                                description: newsItem.description || '',
+                                content: newsItem.content || '',
+                                pubDate: newsItem.pubDate || newsItem.publishedAt || null,
+                                tags: newsItem.tags || []
+                            };
+                            
+                            this.sessions[actualSessionId] = mappedSession;
+                            existingSession = mappedSession;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('从后端获取会话列表失败:', error);
                 }
             }
             
-            // 如果找到匹配的会话，直接激活并更新新闻的 sessionId 字段
-            if (matchedSessionId) {
+            // 如果会话已存在，更新新闻的 sessionId 字段并进入会话聊天页面
+            if (existingSession) {
+                // 使用实际的会话ID（可能和原始sessionId不同，比如后端转换为MD5）
+                const actualSessionId = String(existingSession.id || sessionId);
+                
                 // 更新新闻的 sessionId 字段
-                newsItem.sessionId = matchedSessionId;
+                newsItem.sessionId = actualSessionId;
                 // 同时更新 newsManager 中的新闻数据
                 if (this.newsManager) {
                     const allNews = this.newsManager.getAllNews();
-                    const newsInManager = allNews.find(n => n.link === newsItem.link);
+                    const newsInManager = allNews.find(n => {
+                        const nKey = String(n.key || "");
+                        const itemKey = String(newsItem.key || "");
+                        return nKey === itemKey || n.link === newsItem.link;
+                    });
                     if (newsInManager) {
-                        newsInManager.sessionId = matchedSessionId;
+                        newsInManager.sessionId = actualSessionId;
                     }
                 }
+                
                 // 检查当前是否显示新闻列表
                 const newsList = this.sessionSidebar?.querySelector('.news-list');
                 const isNewsListVisible = newsList && newsList.style.display !== 'none';
                 
                 // 激活会话
-                await this.activateSession(matchedSessionId, {
+                await this.activateSession(actualSessionId, {
                     saveCurrent: false,
                     updateConsistency: false,
                     updateUI: true,
@@ -20260,27 +20356,159 @@ ${originalText}`;
                     await this.updateNewsSidebar(false);
                 }
                 
-                console.log('新闻会话已激活（使用匹配的会话）:', matchedSessionId);
+                console.log('新闻会话已激活（使用已存在的会话）:', actualSessionId);
                 return;
             }
             
-            // 如果没有找到匹配的会话，创建新会话
-            let session = this.sessions[sessionId];
+            // 如果会话不存在，创建新会话
+            const newsDescription = String(newsItem.description || "").trim();
+            const newsTitle = String(newsItem.title || "").trim();
+            const now = Date.now();
             
-            if (!session) {
-                // 创建新会话
-                session = this.createSessionObject(sessionId, {
-                    url: newsItem.link || '',
-                    title: newsItem.title || '新闻',
-                    pageTitle: newsItem.title || '新闻',
-                    pageDescription: newsItem.description || newsItem.content || '',
-                    pageContent: newsItem.content || newsItem.description || ''
-                });
-                this.sessions[sessionId] = session;
+            // 创建新会话数据
+            const newSessionData = {
+                id: sessionId,
+                url: newsLink,
+                pageTitle: newsTitle || "新闻",
+                pageDescription: newsDescription,
+                pageContent: newsDescription, // 新闻描述也赋值给会话上下文字段
+                messages: [],
+                tags: Array.isArray(newsItem.tags) ? newsItem.tags : [],
+                createdAt: now,
+                updatedAt: now,
+                lastAccessTime: now,
+            };
+            
+            // 保存会话到后端
+            let actualSessionId = sessionId;
+            if (this.sessionApi && this.sessionApi.isEnabled()) {
+                try {
+                    const resp = await this.sessionApi.saveSession(newSessionData);
+                    
+                    if (resp && resp.success) {
+                        console.log('新闻会话已创建并保存到后端:', resp);
+                        
+                        // 如果后端返回了会话数据，更新到本地状态
+                        if (resp.data && resp.data.session) {
+                            const savedSession = resp.data.session;
+                            // 使用后端返回的会话ID（可能和原始sessionId不同，比如后端转换为MD5）
+                            actualSessionId = String(savedSession.id || sessionId);
+                            
+                            // 检查会话是否已存在（避免重复添加）
+                            let foundSession = this.sessions[actualSessionId];
+                            if (!foundSession && actualSessionId !== String(sessionId)) {
+                                foundSession = this.sessions[sessionId];
+                            }
+                            
+                            if (foundSession) {
+                                // 如果已存在，更新现有会话
+                                existingSession = foundSession;
+                                // 更新会话信息
+                                if (savedSession.title) foundSession.title = savedSession.title;
+                                if (savedSession.pageTitle) foundSession.pageTitle = savedSession.pageTitle;
+                                if (savedSession.pageDescription) foundSession.pageDescription = savedSession.pageDescription;
+                                if (Array.isArray(savedSession.messages)) {
+                                    foundSession.messages = savedSession.messages;
+                                    foundSession.messageCount = savedSession.messages.length;
+                                }
+                            } else {
+                                // 映射为页面使用的统一结构
+                                const mappedSession = {
+                                    id: actualSessionId,
+                                    title: ((savedSession.title ?? savedSession.pageTitle ?? newsTitle ?? "").trim() || "未命名会话"),
+                                    preview: (savedSession.pageDescription ?? savedSession.preview ?? newsDescription).trim(),
+                                    tags: Array.isArray(savedSession.tags) ? savedSession.tags : [],
+                                    url: savedSession.url || newsLink,
+                                    pageTitle: savedSession.pageTitle || newsTitle,
+                                    pageDescription: savedSession.pageDescription || newsDescription,
+                                    pageContent: savedSession.pageContent || newsDescription,
+                                    messageCount: Array.isArray(savedSession.messages) ? savedSession.messages.length : 0,
+                                    messages: Array.isArray(savedSession.messages) ? savedSession.messages : [],
+                                    createdAt: Number(savedSession.createdAt || now),
+                                    updatedAt: Number(savedSession.updatedAt || now),
+                                    lastAccessTime: Number(savedSession.lastAccessTime || now),
+                                    lastActiveAt: Number(savedSession.lastAccessTime || now),
+                                };
+                                
+                                // 标记为新闻会话
+                                mappedSession._isNewsSession = true;
+                                mappedSession._newsInfo = {
+                                    title: newsItem.title || '',
+                                    link: newsItem.link || '',
+                                    description: newsItem.description || '',
+                                    content: newsItem.content || '',
+                                    pubDate: newsItem.pubDate || newsItem.publishedAt || null,
+                                    tags: newsItem.tags || []
+                                };
+                                
+                                // 添加到本地会话列表
+                                this.sessions[actualSessionId] = mappedSession;
+                                existingSession = mappedSession;
+                            }
+                        } else {
+                            // 如果后端没有返回会话数据，使用本地创建的数据
+                            const mappedSession = {
+                                id: actualSessionId,
+                                title: newsTitle || "未命名会话",
+                                preview: newsDescription,
+                                tags: Array.isArray(newsItem.tags) ? newsItem.tags : [],
+                                url: newsLink,
+                                pageTitle: newsTitle,
+                                pageDescription: newsDescription,
+                                pageContent: newsDescription,
+                                messageCount: 0,
+                                messages: [],
+                                createdAt: now,
+                                updatedAt: now,
+                                lastAccessTime: now,
+                                lastActiveAt: now,
+                            };
+                            
+                            // 标记为新闻会话
+                            mappedSession._isNewsSession = true;
+                            mappedSession._newsInfo = {
+                                title: newsItem.title || '',
+                                link: newsItem.link || '',
+                                description: newsItem.description || '',
+                                content: newsItem.content || '',
+                                pubDate: newsItem.pubDate || newsItem.publishedAt || null,
+                                tags: newsItem.tags || []
+                            };
+                            
+                            this.sessions[actualSessionId] = mappedSession;
+                            existingSession = mappedSession;
+                        }
+                    } else {
+                        console.warn('保存新闻会话到后端失败');
+                    }
+                } catch (e) {
+                    console.warn('保存新闻会话到后端失败：', e);
+                    // 即使保存失败，也继续使用本地会话
+                }
+            }
+            
+            // 如果后端保存失败或未启用，使用本地创建的数据
+            if (!existingSession) {
+                const mappedSession = {
+                    id: actualSessionId,
+                    title: newsTitle || "未命名会话",
+                    preview: newsDescription,
+                    tags: Array.isArray(newsItem.tags) ? newsItem.tags : [],
+                    url: newsLink,
+                    pageTitle: newsTitle,
+                    pageDescription: newsDescription,
+                    pageContent: newsDescription,
+                    messageCount: 0,
+                    messages: [],
+                    createdAt: now,
+                    updatedAt: now,
+                    lastAccessTime: now,
+                    lastActiveAt: now,
+                };
                 
                 // 标记为新闻会话
-                session._isNewsSession = true;
-                session._newsInfo = {
+                mappedSession._isNewsSession = true;
+                mappedSession._newsInfo = {
                     title: newsItem.title || '',
                     link: newsItem.link || '',
                     description: newsItem.description || '',
@@ -20289,41 +20517,34 @@ ${originalText}`;
                     tags: newsItem.tags || []
                 };
                 
-                // 更新新闻的 sessionId 字段，标记已转换为会话
-                newsItem.sessionId = sessionId;
-                // 同时更新 newsManager 中的新闻数据
-                if (this.newsManager) {
-                    const allNews = this.newsManager.getAllNews();
-                    const newsInManager = allNews.find(n => n.link === newsItem.link);
-                    if (newsInManager) {
-                        newsInManager.sessionId = sessionId;
-                    }
-                }
-                
-                // 保存会话到本地
-                await this.saveAllSessions(false, false);
-            } else {
-                // 更新现有会话的新闻信息
-                session._isNewsSession = true;
-                session._newsInfo = {
-                    title: newsItem.title || '',
-                    link: newsItem.link || '',
-                    description: newsItem.description || '',
-                    content: newsItem.content || '',
-                    pubDate: newsItem.pubDate || newsItem.publishedAt || null,
-                    tags: newsItem.tags || []
-                };
-                session.pageTitle = newsItem.title || '新闻';
-                session.pageDescription = newsItem.description || newsItem.content || '';
-                session.pageContent = newsItem.content || newsItem.description || '';
+                this.sessions[actualSessionId] = mappedSession;
+                existingSession = mappedSession;
             }
+            
+            // 更新新闻的 sessionId 字段，使用后端返回的实际ID
+            newsItem.sessionId = actualSessionId;
+            // 同时更新 newsManager 中的新闻数据
+            if (this.newsManager) {
+                const allNews = this.newsManager.getAllNews();
+                const newsInManager = allNews.find(n => {
+                    const nKey = String(n.key || "");
+                    const itemKey = String(newsItem.key || "");
+                    return nKey === itemKey || n.link === newsItem.link;
+                });
+                if (newsInManager) {
+                    newsInManager.sessionId = actualSessionId;
+                }
+            }
+            
+            // 保存会话到本地
+            await this.saveAllSessions(false, false);
             
             // 检查当前是否显示新闻列表
             const newsList = this.sessionSidebar?.querySelector('.news-list');
             const isNewsListVisible = newsList && newsList.style.display !== 'none';
             
             // 激活会话
-            await this.activateSession(sessionId, {
+            await this.activateSession(actualSessionId, {
                 saveCurrent: false,
                 updateConsistency: false,
                 updateUI: true,
@@ -20331,23 +20552,6 @@ ${originalText}`;
                 skipBackendFetch: true,
                 keepNewsListView: isNewsListVisible
             });
-            
-            // 确保会话信息已更新（在激活会话后）
-            const activatedSession = this.sessions[sessionId];
-            if (activatedSession) {
-                activatedSession._isNewsSession = true;
-                activatedSession._newsInfo = {
-                    title: newsItem.title || '',
-                    link: newsItem.link || '',
-                    description: newsItem.description || '',
-                    content: newsItem.content || '',
-                    pubDate: newsItem.pubDate || newsItem.publishedAt || null,
-                    tags: newsItem.tags || []
-                };
-                activatedSession.pageTitle = newsItem.title || '新闻';
-                activatedSession.pageDescription = newsItem.description || newsItem.content || '';
-                activatedSession.pageContent = newsItem.content || newsItem.description || '';
-            }
             
             // 加载会话消息
             if (this.isChatOpen && this.chatWindow) {
@@ -20359,7 +20563,7 @@ ${originalText}`;
                 await this.updateNewsSidebar(false);
             }
             
-            console.log('新闻会话已创建并激活:', sessionId);
+            console.log('新闻会话已创建并激活:', actualSessionId);
         } catch (error) {
             console.error('处理新闻点击失败:', error);
             this.showNotification('打开新闻会话失败，请重试', 'error');
@@ -50224,8 +50428,12 @@ ${messageContent}`;
 
         pageInfoHtml += `</div>`;
         
+        // 检查是否是新闻会话
+        const isNewsSession = session && session._isNewsSession;
+        
         // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
-        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        // 新闻会话不显示保存按钮
+        const shouldShowSaveButton = !isNewsSession && !(await this.isSessionInBackendList(this.currentSessionId));
         
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {
@@ -51118,8 +51326,12 @@ ${messageContent}`;
 
         pageInfoHtml += `</div>`;
         
+        // 检查是否是新闻会话
+        const isNewsSession = session && session._isNewsSession;
+        
         // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
-        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        // 新闻会话不显示保存按钮
+        const shouldShowSaveButton = !isNewsSession && !(await this.isSessionInBackendList(this.currentSessionId));
         
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {

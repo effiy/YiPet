@@ -17461,6 +17461,28 @@ ${originalText}`;
         
         let news = this.newsManager ? this.newsManager.getAllNews() : [];
         
+        // 为每个新闻检查是否已有对应的会话，设置 sessionId 字段
+        // 使用 Promise.all 等待所有检查完成
+        await Promise.all(news.map(async (newsItem) => {
+            if (newsItem.link) {
+                try {
+                    // 使用新闻的 link 作为会话ID查找对应的会话
+                    const newsId = newsItem.link || newsItem.title || `news_${Date.now()}`;
+                    // 生成会话ID（与 handleNewsClick 中的逻辑一致）
+                    const sessionId = await this.generateSessionId(newsId);
+                    // 检查是否存在对应的会话
+                    const existingSession = this.sessions[sessionId];
+                    if (existingSession && existingSession._isNewsSession) {
+                        // 如果找到会话，设置 sessionId 字段
+                        newsItem.sessionId = sessionId;
+                    }
+                } catch (error) {
+                    // 如果生成会话ID失败，忽略
+                    console.debug('检查新闻会话ID失败:', error);
+                }
+            }
+        }));
+        
         // 确保标签过滤器UI已更新（即使没有加载新闻，也要更新一次以确保数量正确）
         this.updateNewsTagFilterUI();
         
@@ -20150,6 +20172,44 @@ ${originalText}`;
                 return;
             }
             
+            // 确保聊天窗口已打开
+            if (!this.chatWindow || !this.isChatOpen) {
+                await this.openChatWindow();
+            }
+            
+            // 如果新闻已经有 sessionId 字段，说明已经转换为会话，直接激活会话
+            if (newsItem.sessionId) {
+                const existingSession = this.sessions[newsItem.sessionId];
+                if (existingSession) {
+                    // 检查当前是否显示新闻列表
+                    const newsList = this.sessionSidebar?.querySelector('.news-list');
+                    const isNewsListVisible = newsList && newsList.style.display !== 'none';
+                    
+                    // 激活会话
+                    await this.activateSession(newsItem.sessionId, {
+                        saveCurrent: false,
+                        updateConsistency: false,
+                        updateUI: true,
+                        syncToBackend: false,
+                        skipBackendFetch: false,
+                        keepNewsListView: isNewsListVisible
+                    });
+                    
+                    // 加载会话消息
+                    if (this.isChatOpen && this.chatWindow) {
+                        await this.loadSessionMessages();
+                    }
+                    
+                    // 如果当前显示的是新闻列表，更新新闻列表的active状态
+                    if (isNewsListVisible) {
+                        await this.updateNewsSidebar(false);
+                    }
+                    
+                    console.log('新闻会话已激活（使用 sessionId 字段）:', newsItem.sessionId);
+                    return;
+                }
+            }
+            
             // 生成会话ID（基于新闻链接或标题）
             const newsId = newsItem.link || newsItem.title || `news_${Date.now()}`;
             const sessionId = await this.generateSessionId(newsId);
@@ -20164,8 +20224,18 @@ ${originalText}`;
                 }
             }
             
-            // 如果找到匹配的会话，直接激活
+            // 如果找到匹配的会话，直接激活并更新新闻的 sessionId 字段
             if (matchedSessionId) {
+                // 更新新闻的 sessionId 字段
+                newsItem.sessionId = matchedSessionId;
+                // 同时更新 newsManager 中的新闻数据
+                if (this.newsManager) {
+                    const allNews = this.newsManager.getAllNews();
+                    const newsInManager = allNews.find(n => n.link === newsItem.link);
+                    if (newsInManager) {
+                        newsInManager.sessionId = matchedSessionId;
+                    }
+                }
                 // 检查当前是否显示新闻列表
                 const newsList = this.sessionSidebar?.querySelector('.news-list');
                 const isNewsListVisible = newsList && newsList.style.display !== 'none';
@@ -20179,6 +20249,11 @@ ${originalText}`;
                     skipBackendFetch: false,
                     keepNewsListView: isNewsListVisible
                 });
+                
+                // 加载会话消息
+                if (this.isChatOpen && this.chatWindow) {
+                    await this.loadSessionMessages();
+                }
                 
                 // 如果当前显示的是新闻列表，更新新闻列表的active状态
                 if (isNewsListVisible) {
@@ -20213,6 +20288,17 @@ ${originalText}`;
                     pubDate: newsItem.pubDate || newsItem.publishedAt || null,
                     tags: newsItem.tags || []
                 };
+                
+                // 更新新闻的 sessionId 字段，标记已转换为会话
+                newsItem.sessionId = sessionId;
+                // 同时更新 newsManager 中的新闻数据
+                if (this.newsManager) {
+                    const allNews = this.newsManager.getAllNews();
+                    const newsInManager = allNews.find(n => n.link === newsItem.link);
+                    if (newsInManager) {
+                        newsInManager.sessionId = sessionId;
+                    }
+                }
                 
                 // 保存会话到本地
                 await this.saveAllSessions(false, false);
@@ -20261,6 +20347,11 @@ ${originalText}`;
                 activatedSession.pageTitle = newsItem.title || '新闻';
                 activatedSession.pageDescription = newsItem.description || newsItem.content || '';
                 activatedSession.pageContent = newsItem.content || newsItem.description || '';
+            }
+            
+            // 加载会话消息
+            if (this.isChatOpen && this.chatWindow) {
+                await this.loadSessionMessages();
             }
             
             // 如果当前显示的是新闻列表，更新新闻列表的active状态

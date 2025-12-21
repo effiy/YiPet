@@ -1998,62 +1998,8 @@
     }
 
     // 从消息 DOM 元素找到对应的消息对象
-    findMessageObjectByDiv(messageDiv) {
-        if (!messageDiv || !this.currentSessionId || !this.sessions[this.currentSessionId]) {
-            return null;
-        }
-
-        const session = this.sessions[this.currentSessionId];
-        if (!session.messages || !Array.isArray(session.messages)) {
-            return null;
-        }
-
-        // 获取消息内容（文本和图片）
-        const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
-        const messageBubble = isUserMessage 
-            ? messageDiv.querySelector('[data-message-type="user-bubble"]')
-            : messageDiv.querySelector('[data-message-type="pet-bubble"]');
-        
-        if (!messageBubble) {
-            return null;
-        }
-
-        // 获取消息文本内容
-        const messageContent = messageBubble.getAttribute('data-original-text') || 
-                              messageBubble.innerText || 
-                              messageBubble.textContent || '';
-        
-        // 获取消息类型
-        const messageType = isUserMessage ? 'user' : 'pet';
-
-        // 在会话消息列表中查找匹配的消息对象
-        // 优先匹配内容和类型，如果有多条匹配，选择最近的一条
-        for (let i = session.messages.length - 1; i >= 0; i--) {
-            const msg = session.messages[i];
-            if (msg.type === messageType) {
-                // 比较消息内容（去除首尾空白）
-                const msgContent = (msg.content || '').trim();
-                const divContent = messageContent.trim();
-                
-                // 如果内容匹配，返回该消息对象
-                if (msgContent === divContent || 
-                    (msgContent && divContent && msgContent.includes(divContent)) ||
-                    (divContent && msgContent && divContent.includes(msgContent))) {
-                    return msg;
-                }
-            }
-        }
-
-        // 如果找不到完全匹配的，返回最后一条同类型的消息
-        for (let i = session.messages.length - 1; i >= 0; i--) {
-            const msg = session.messages[i];
-            if (msg.type === messageType) {
-                return msg;
-            }
-        }
-
-        return null;
-    }
+    // 注意：findMessageObjectByDiv 方法已在 petManager.message.js 中通过 proto 定义
+    // 这里保留此方法是为了向后兼容，但实际使用的是 petManager.message.js 中的实现
 
     // 构建 prompt 请求 payload，自动包含会话 ID
     buildPromptPayload(fromSystem, fromUser, model = null, options = {}) {
@@ -2101,9 +2047,9 @@
                 
                 // 如果从 DOM 中没有找到，尝试从消息对象中获取（作为备选方案）
                 if (imageDataUrls.length === 0) {
-                    const messageObj = this.findMessageObjectByDiv(options.messageDiv);
-                    if (messageObj && messageObj.imageDataUrl) {
-                        const imgUrl = messageObj.imageDataUrl;
+                    const messageResult = this.findMessageObjectByDiv(options.messageDiv);
+                    if (messageResult && messageResult.message && messageResult.message.imageDataUrl) {
+                        const imgUrl = messageResult.message.imageDataUrl;
                         if (typeof imgUrl === 'string') {
                             imageDataUrls.push(imgUrl);
                         } else if (Array.isArray(imgUrl)) {
@@ -48772,59 +48718,134 @@ ${messageContent}`;
             deleteButton.addEventListener('click', async (e) => {
                 e.stopPropagation();
 
+                // 防止重复点击
+                if (deleteButton.disabled || deleteButton.dataset.deleting === 'true') {
+                    return;
+                }
+
                 // 确认删除
-                if (confirm('确定要删除这条消息吗？')) {
-                    // 找到包含复制按钮容器的消息元素
+                if (!confirm('确定要删除这条消息吗？')) {
+                    return;
+                }
+
+                // 标记为正在删除
+                deleteButton.disabled = true;
+                deleteButton.dataset.deleting = 'true';
+                const originalHTML = deleteButton.innerHTML;
+                deleteButton.innerHTML = '...';
+                deleteButton.style.opacity = '0.5';
+
+                try {
+                    // 找到包含删除按钮容器的消息元素
+                    // 通过查找包含 data-message-type 属性的父元素来定位消息元素
                     let currentMessage = container.parentElement;
-                    while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
+                    while (currentMessage && 
+                           !currentMessage.querySelector('[data-message-type="user-bubble"]') && 
+                           !currentMessage.querySelector('[data-message-type="pet-bubble"]')) {
                         currentMessage = currentMessage.parentElement;
+                        // 防止无限循环，如果到达了 body 或 html 元素就停止
+                        if (!currentMessage || currentMessage === document.body || currentMessage === document.documentElement) {
+                            currentMessage = null;
+                            break;
+                        }
                     }
 
-                    if (currentMessage) {
-                        // 从会话中删除对应的消息
-                        if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                            const session = this.sessions[this.currentSessionId];
-                            if (session.messages && Array.isArray(session.messages)) {
-                                // 获取消息内容，用于匹配会话中的消息
-                                const petBubble = currentMessage.querySelector('[data-message-type="pet-bubble"]');
-                                const userBubble = currentMessage.querySelector('[data-message-type="user-bubble"]');
-                                const messageBubble = petBubble || userBubble;
+                    if (!currentMessage) {
+                        console.warn('无法找到消息元素');
+                        // 恢复按钮状态
+                        deleteButton.disabled = false;
+                        deleteButton.dataset.deleting = 'false';
+                        deleteButton.innerHTML = originalHTML;
+                        deleteButton.style.opacity = '';
+                        return;
+                    }
+
+                    // 从会话中删除对应的消息
+                    if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                        const session = this.sessions[this.currentSessionId];
+                        if (session.messages && Array.isArray(session.messages)) {
+                            // 使用改进的消息匹配方法
+                            const messageResult = this.findMessageObjectByDiv(currentMessage);
+                            
+                            if (messageResult && messageResult.index !== undefined && messageResult.index >= 0) {
+                                // 从本地会话中删除消息
+                                session.messages.splice(messageResult.index, 1);
+                                session.updatedAt = Date.now();
                                 
-                                if (messageBubble) {
-                                    const messageContent = messageBubble.getAttribute('data-original-text') || 
-                                                          messageBubble.textContent || '';
-                                    
-                                    // 确定消息类型
-                                    const messageType = petBubble ? 'pet' : 'user';
-                                    
-                                    // 找到并删除对应的消息
-                                    const messageIndex = session.messages.findIndex(msg => 
-                                        msg.type === messageType && 
-                                        (msg.content === messageContent || msg.content.trim() === messageContent.trim())
-                                    );
-                                    
-                                    if (messageIndex !== -1) {
-                                        // 从本地会话中删除消息
-                                        session.messages.splice(messageIndex, 1);
+                                console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                
+                                // 动画删除消息
+                                currentMessage.style.transition = 'opacity 0.3s ease';
+                                currentMessage.style.opacity = '0';
+                                setTimeout(() => {
+                                    currentMessage.remove();
+                                    // 删除后保存会话（确保数据同步）
+                                    this.saveCurrentSession().catch(err => {
+                                        console.error('删除消息后保存会话失败:', err);
+                                    });
+                                }, 300);
+                            } else {
+                                console.warn('无法找到对应的消息对象，尝试通过DOM索引删除');
+                                // 如果找不到消息对象，尝试通过DOM索引来删除
+                                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                                if (messagesContainer) {
+                                    const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
+                                        return !div.hasAttribute('data-welcome-message') && 
+                                               (div.querySelector('[data-message-type="user-bubble"]') || 
+                                                div.querySelector('[data-message-type="pet-bubble"]'));
+                                    });
+                                    const domIndex = allMessageDivs.indexOf(currentMessage);
+                                    if (domIndex >= 0 && domIndex < session.messages.length) {
+                                        // 通过DOM索引删除消息
+                                        session.messages.splice(domIndex, 1);
                                         session.updatedAt = Date.now();
-                                        // 保存会话
-                                        await this.saveAllSessions();
-                                        console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                        console.log(`已通过DOM索引从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                        
+                                        // 动画删除消息
+                                        currentMessage.style.transition = 'opacity 0.3s ease';
+                                        currentMessage.style.opacity = '0';
+                                        setTimeout(() => {
+                                            currentMessage.remove();
+                                            // 删除后保存会话（确保数据同步）
+                                            this.saveCurrentSession().catch(err => {
+                                                console.error('删除消息后保存会话失败:', err);
+                                            });
+                                        }, 300);
+                                    } else {
+                                        // 即使找不到消息对象，也尝试删除DOM元素
+                                        currentMessage.style.transition = 'opacity 0.3s ease';
+                                        currentMessage.style.opacity = '0';
+                                        setTimeout(() => {
+                                            currentMessage.remove();
+                                        }, 300);
                                     }
+                                } else {
+                                    // 即使找不到消息对象，也尝试删除DOM元素
+                                    currentMessage.style.transition = 'opacity 0.3s ease';
+                                    currentMessage.style.opacity = '0';
+                                    setTimeout(() => {
+                                        currentMessage.remove();
+                                    }, 300);
                                 }
                             }
                         }
-                        
-                        // 动画删除消息
+                    } else {
+                        // 如果没有会话，直接删除DOM元素
                         currentMessage.style.transition = 'opacity 0.3s ease';
                         currentMessage.style.opacity = '0';
                         setTimeout(() => {
                             currentMessage.remove();
-                            // 删除后保存会话（确保数据同步）
-                            this.saveCurrentSession().catch(err => {
-                                console.error('删除消息后保存会话失败:', err);
-                            });
                         }, 300);
+                    }
+                } catch (error) {
+                    console.error('删除消息时发生错误:', error);
+                } finally {
+                    // 恢复按钮状态
+                    if (deleteButton.isConnected) {
+                        deleteButton.disabled = false;
+                        deleteButton.dataset.deleting = 'false';
+                        deleteButton.innerHTML = originalHTML;
+                        deleteButton.style.opacity = '';
                     }
                 }
             });
@@ -49463,53 +49484,134 @@ ${messageContent}`;
         deleteButton.addEventListener('click', async (e) => {
             e.stopPropagation();
 
+            // 防止重复点击
+            if (deleteButton.disabled || deleteButton.dataset.deleting === 'true') {
+                return;
+            }
+
             // 确认删除
-            if (confirm('确定要删除这条消息吗？')) {
+            if (!confirm('确定要删除这条消息吗？')) {
+                return;
+            }
+
+            // 标记为正在删除
+            deleteButton.disabled = true;
+            deleteButton.dataset.deleting = 'true';
+            const originalHTML = deleteButton.innerHTML;
+            deleteButton.innerHTML = '...';
+            deleteButton.style.opacity = '0.5';
+
+            try {
                 // 找到包含删除按钮容器的消息元素
+                // 通过查找包含 data-message-type 属性的父元素来定位消息元素
                 let currentMessage = container.parentElement;
-                while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
+                while (currentMessage && 
+                       !currentMessage.querySelector('[data-message-type="user-bubble"]') && 
+                       !currentMessage.querySelector('[data-message-type="pet-bubble"]')) {
                     currentMessage = currentMessage.parentElement;
+                    // 防止无限循环，如果到达了 body 或 html 元素就停止
+                    if (!currentMessage || currentMessage === document.body || currentMessage === document.documentElement) {
+                        currentMessage = null;
+                        break;
+                    }
                 }
 
-                if (currentMessage) {
-                    // 从会话中删除对应的消息
-                    if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                        const session = this.sessions[this.currentSessionId];
-                        if (session.messages && Array.isArray(session.messages)) {
-                            // 获取消息内容，用于匹配会话中的消息
-                            const userBubble = currentMessage.querySelector('[data-message-type="user-bubble"]');
-                            if (userBubble) {
-                                const messageContent = userBubble.getAttribute('data-original-text') || 
-                                                      userBubble.textContent || '';
-                                
-                                // 找到并删除对应的消息
-                                const messageIndex = session.messages.findIndex(msg => 
-                                    msg.type === 'user' && 
-                                    (msg.content === messageContent || msg.content.trim() === messageContent.trim())
-                                );
-                                
-                                if (messageIndex !== -1) {
-                                    // 从本地会话中删除消息
-                                    session.messages.splice(messageIndex, 1);
+                if (!currentMessage) {
+                    console.warn('无法找到消息元素');
+                    // 恢复按钮状态
+                    deleteButton.disabled = false;
+                    deleteButton.dataset.deleting = 'false';
+                    deleteButton.innerHTML = originalHTML;
+                    deleteButton.style.opacity = '';
+                    return;
+                }
+
+                // 从会话中删除对应的消息
+                if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                    const session = this.sessions[this.currentSessionId];
+                    if (session.messages && Array.isArray(session.messages)) {
+                        // 使用改进的消息匹配方法
+                        const messageResult = this.findMessageObjectByDiv(currentMessage);
+                        
+                        if (messageResult && messageResult.index !== undefined && messageResult.index >= 0) {
+                            // 从本地会话中删除消息
+                            session.messages.splice(messageResult.index, 1);
+                            session.updatedAt = Date.now();
+                            
+                            console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                            
+                            // 动画删除消息
+                            currentMessage.style.transition = 'opacity 0.3s ease';
+                            currentMessage.style.opacity = '0';
+                            setTimeout(() => {
+                                currentMessage.remove();
+                                // 删除后保存会话（确保数据同步）
+                                this.saveCurrentSession().catch(err => {
+                                    console.error('删除消息后保存会话失败:', err);
+                                });
+                            }, 300);
+                        } else {
+                            console.warn('无法找到对应的消息对象，尝试通过DOM索引删除');
+                            // 如果找不到消息对象，尝试通过DOM索引来删除
+                            const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                            if (messagesContainer) {
+                                const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
+                                    return !div.hasAttribute('data-welcome-message') && 
+                                           (div.querySelector('[data-message-type="user-bubble"]') || 
+                                            div.querySelector('[data-message-type="pet-bubble"]'));
+                                });
+                                const domIndex = allMessageDivs.indexOf(currentMessage);
+                                if (domIndex >= 0 && domIndex < session.messages.length) {
+                                    // 通过DOM索引删除消息
+                                    session.messages.splice(domIndex, 1);
                                     session.updatedAt = Date.now();
-                                    // 保存会话
-                                    await this.saveAllSessions();
-                                    console.log(`已从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                    console.log(`已通过DOM索引从会话 ${this.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
+                                    
+                                    // 动画删除消息
+                                    currentMessage.style.transition = 'opacity 0.3s ease';
+                                    currentMessage.style.opacity = '0';
+                                    setTimeout(() => {
+                                        currentMessage.remove();
+                                        // 删除后保存会话（确保数据同步）
+                                        this.saveCurrentSession().catch(err => {
+                                            console.error('删除消息后保存会话失败:', err);
+                                        });
+                                    }, 300);
+                                } else {
+                                    // 即使找不到消息对象，也尝试删除DOM元素
+                                    currentMessage.style.transition = 'opacity 0.3s ease';
+                                    currentMessage.style.opacity = '0';
+                                    setTimeout(() => {
+                                        currentMessage.remove();
+                                    }, 300);
                                 }
+                            } else {
+                                // 即使找不到消息对象，也尝试删除DOM元素
+                                currentMessage.style.transition = 'opacity 0.3s ease';
+                                currentMessage.style.opacity = '0';
+                                setTimeout(() => {
+                                    currentMessage.remove();
+                                }, 300);
                             }
                         }
                     }
-                    
-                    // 动画删除消息
+                } else {
+                    // 如果没有会话，直接删除DOM元素
                     currentMessage.style.transition = 'opacity 0.3s ease';
                     currentMessage.style.opacity = '0';
                     setTimeout(() => {
                         currentMessage.remove();
-                        // 删除后保存会话（确保数据同步）
-                        this.saveCurrentSession().catch(err => {
-                            console.error('删除消息后保存会话失败:', err);
-                        });
                     }, 300);
+                }
+            } catch (error) {
+                console.error('删除消息时发生错误:', error);
+            } finally {
+                // 恢复按钮状态
+                if (deleteButton.isConnected) {
+                    deleteButton.disabled = false;
+                    deleteButton.dataset.deleting = 'false';
+                    deleteButton.innerHTML = originalHTML;
+                    deleteButton.style.opacity = '';
                 }
             }
         });

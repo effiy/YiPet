@@ -72,6 +72,46 @@
         return { images, videos, cleanedText };
     };
 
+    // 从消息 DOM 元素找到对应的消息索引（更准确的方法）
+    proto.findMessageIndexByDiv = function(messageDiv) {
+        if (!messageDiv || !this.currentSessionId || !this.sessions[this.currentSessionId]) {
+            return -1;
+        }
+
+        const session = this.sessions[this.currentSessionId];
+        if (!session.messages || !Array.isArray(session.messages)) {
+            return -1;
+        }
+
+        // 获取消息容器
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        if (!messagesContainer) {
+            return -1;
+        }
+
+        // 获取所有消息DOM元素（排除欢迎消息）
+        const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
+            // 排除欢迎消息和其他非消息元素
+            return !div.hasAttribute('data-welcome-message') && 
+                   (div.querySelector('[data-message-type="user-bubble"]') || 
+                    div.querySelector('[data-message-type="pet-bubble"]'));
+        });
+
+        // 找到当前消息在DOM中的索引
+        const domIndex = allMessageDivs.indexOf(messageDiv);
+        if (domIndex < 0) {
+            return -1;
+        }
+
+        // DOM中的消息顺序应该与session.messages数组顺序一致
+        // 但需要排除欢迎消息，所以直接使用domIndex
+        if (domIndex >= 0 && domIndex < session.messages.length) {
+            return domIndex;
+        }
+
+        return -1;
+    };
+
     // 从消息 DOM 元素找到对应的消息对象
     proto.findMessageObjectByDiv = function(messageDiv) {
         if (!messageDiv || !this.currentSessionId || !this.sessions[this.currentSessionId]) {
@@ -83,7 +123,19 @@
             return null;
         }
 
-        // 获取消息内容（文本和图片）
+        // 首先尝试通过索引匹配（更准确）
+        const messageIndex = this.findMessageIndexByDiv(messageDiv);
+        if (messageIndex >= 0 && messageIndex < session.messages.length) {
+            const msg = session.messages[messageIndex];
+            // 验证消息类型是否匹配
+            const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
+            const messageType = isUserMessage ? 'user' : 'pet';
+            if (msg && msg.type === messageType) {
+                return { message: msg, index: messageIndex };
+            }
+        }
+
+        // 如果索引匹配失败，回退到内容匹配（兼容旧逻辑）
         const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
         const messageBubble = isUserMessage 
             ? messageDiv.querySelector('[data-message-type="user-bubble"]')
@@ -114,7 +166,7 @@
                 if (msgContent === divContent || 
                     (msgContent && divContent && msgContent.includes(divContent)) ||
                     (divContent && msgContent && divContent.includes(msgContent))) {
-                    return msg;
+                    return { message: msg, index: i };
                 }
             }
         }
@@ -123,7 +175,7 @@
         for (let i = session.messages.length - 1; i >= 0; i--) {
             const msg = session.messages[i];
             if (msg.type === messageType) {
-                return msg;
+                return { message: msg, index: i };
             }
         }
 

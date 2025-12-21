@@ -2001,6 +2001,21 @@
     // 注意：findMessageObjectByDiv 方法已在 petManager.message.js 中通过 proto 定义
     // 这里保留此方法是为了向后兼容，但实际使用的是 petManager.message.js 中的实现
 
+    // 去除 think 内容（思考过程）
+    stripThinkContent(content) {
+        if (!content || typeof content !== 'string') {
+            return content;
+        }
+        let cleaned = String(content);
+        // 去除 <think>...</think> 格式
+        cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+        // 去除 <think>...</think> 格式
+        cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+        // 去除 ```think ... ``` 格式
+        cleaned = cleaned.replace(/```think[\s\S]*?```/gi, '');
+        return cleaned.trim();
+    }
+
     // 构建 prompt 请求 payload，自动包含会话 ID
     buildPromptPayload(fromSystem, fromUser, model = null, options = {}) {
         const payload = {
@@ -2272,14 +2287,16 @@
                             else if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
                                 if (onContent) {
-                                    onContent(chunk.message.content, fullContent);
+                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
+                                    onContent(chunk.message.content, this.stripThinkContent(fullContent));
                                 }
                             }
                             // 支持旧的自定义格式: data.type === 'content'
                             else if (chunk.type === 'content') {
                                 fullContent += chunk.data;
                                 if (onContent) {
-                                    onContent(chunk.data, fullContent);
+                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
+                                    onContent(chunk.data, this.stripThinkContent(fullContent));
                                 }
                             }
                             // 检查是否完成
@@ -2331,7 +2348,8 @@
                 }
             }
 
-            return fullContent;
+            // 返回去除 think 内容后的完整内容
+            return this.stripThinkContent(fullContent);
         } catch (error) {
             // 如果是中止错误，不记录为错误
             if (error.name === 'AbortError' || error.message === '请求已取消') {
@@ -2453,6 +2471,9 @@
                 // 未知格式，尝试提取可能的文本内容
                 responseContent = JSON.stringify(result);
             }
+            
+            // 去除 think 内容
+            responseContent = this.stripThinkContent(responseContent);
 
             // prompt 接口调用后触发 session/save
             if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
@@ -12281,6 +12302,11 @@
                     content = result.response;
                 }
                 
+                // 去除 think 内容
+                if (content) {
+                    content = this.stripThinkContent(content);
+                }
+                
                 if (content) {
                     const trimmedContent = content.trim();
                     
@@ -12996,6 +13022,9 @@ ${originalText}`;
                 } else {
                     throw new Error('无法解析API响应');
                 }
+                
+                // 去除 think 内容
+                optimizedText = this.stripThinkContent(optimizedText);
 
                 // 如果优化后的文本为空或与原文相同，提示用户
                 if (!optimizedText || optimizedText === originalText) {
@@ -24621,6 +24650,9 @@ ${originalText}`;
             } else if (typeof result === 'string') {
                 generatedTitle = result.trim();
             }
+            
+            // 去除 think 内容
+            generatedTitle = this.stripThinkContent(generatedTitle);
 
             // 清理标题（移除可能的引号、换行等）
             generatedTitle = generatedTitle.replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim();
@@ -24845,6 +24877,9 @@ ${originalText}`;
             } else if (typeof result === 'string') {
                 generatedDescription = result.trim();
             }
+            
+            // 去除 think 内容
+            generatedDescription = this.stripThinkContent(generatedDescription);
 
             // 清理描述（移除可能的引号等）
             generatedDescription = generatedDescription.replace(/^["']|["']$/g, '').trim();
@@ -26255,6 +26290,9 @@ ${originalText}
                 }
             }
             
+            // 去除 think 内容
+            optimizedText = this.stripThinkContent(optimizedText);
+            
             // 清理优化后的文本（更彻底的清理）
             optimizedText = optimizedText.trim();
             
@@ -26568,6 +26606,9 @@ ${originalText}
                 }
             }
             
+            // 去除 think 内容
+            optimizedText = this.stripThinkContent(optimizedText);
+            
             // 清理优化后的文本（更彻底的清理）
             optimizedText = optimizedText.trim();
             
@@ -26876,6 +26917,9 @@ ${originalText}
                 }
             }
             
+            // 去除 think 内容
+            translatedText = this.stripThinkContent(translatedText);
+            
             // 清理翻译后的文本（更彻底的清理）
             translatedText = translatedText.trim();
             
@@ -27169,6 +27213,9 @@ ${originalText}
                     throw new Error('无法解析响应内容，请检查服务器响应格式');
                 }
             }
+            
+            // 去除 think 内容
+            translatedText = this.stripThinkContent(translatedText);
             
             // 清理翻译后的文本
             translatedText = translatedText.trim();
@@ -34272,6 +34319,9 @@ ${originalText}
             } else if (typeof result === 'string') {
                 generatedTitle = result.trim();
             }
+            
+            // 去除 think 内容
+            generatedTitle = this.stripThinkContent(generatedTitle);
 
             // 清理标题（移除可能的引号、换行等）
             generatedTitle = generatedTitle.replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim();
@@ -34462,6 +34512,9 @@ ${originalText}
             } else if (typeof result === 'string') {
                 generatedDescription = result.trim();
             }
+            
+            // 去除 think 内容
+            generatedDescription = this.stripThinkContent(generatedDescription);
 
             // 清理描述（移除可能的引号等）
             generatedDescription = generatedDescription.replace(/^["']|["']$/g, '').trim();
@@ -34874,6 +34927,9 @@ ${originalText}
                     throw new Error('无法解析响应内容，请检查服务器响应格式');
                 }
             }
+            
+            // 去除 think 内容
+            translatedText = this.stripThinkContent(translatedText);
             
             // 清理翻译后的文本
             translatedText = translatedText.trim();

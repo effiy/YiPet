@@ -3888,7 +3888,9 @@
                         tags: backendSession.tags || [],
                         createdAt: backendSession.createdAt || backendSession.created_time || Date.now(),
                         updatedAt: backendSession.updatedAt || backendSession.updated_time || Date.now(),
-                        lastAccessTime: backendSession.lastAccessTime || backendSession.last_access_time || Date.now()
+                        lastAccessTime: backendSession.lastAccessTime || backendSession.last_access_time || Date.now(),
+                        // 收藏状态：从后端返回的 isFavorite 字段
+                        isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : false
                     };
                     
                     // 如果是空白会话，保存原始URL和标记
@@ -3936,6 +3938,10 @@
                                         }
                                         if (fullSession.tags && Array.isArray(fullSession.tags)) {
                                             backendSessions[sessionId].tags = fullSession.tags;
+                                        }
+                                        // 更新收藏状态
+                                        if (fullSession.isFavorite !== undefined) {
+                                            backendSessions[sessionId].isFavorite = !!fullSession.isFavorite;
                                         }
                                     }
                                     console.log(`已获取会话 ${sessionId} 的完整数据，包含 ${fullSession.messages?.length || 0} 条消息`);
@@ -4010,7 +4016,9 @@
                                 // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
                                 pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                     ? localSession.pageContent
-                                    : (backendSession.pageContent || '')
+                                    : (backendSession.pageContent || ''),
+                                // 收藏状态：优先使用后端的 isFavorite（如果后端更新）
+                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false)
                             };
                         } else {
                             // 本地更新，保留本地数据，但更新其他字段（如果后端有更新的元数据）
@@ -4023,7 +4031,9 @@
                                 pageContent: localSession.pageContent || backendSession.pageContent,
                                 // 消息始终使用本地的（因为本地更新）
                                 messages: localMessages,
-                                tags: finalTags
+                                tags: finalTags,
+                                // 收藏状态：优先使用后端的 isFavorite（即使本地更新，也使用后端的最新状态）
+                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false)
                             };
                         }
                     }
@@ -4495,6 +4505,10 @@
                                     pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
                                         ? localSession.pageTitle
                                         : (updatedSession.pageTitle || localSession.pageTitle || ''),
+                                    // 优先保留本地的 isFavorite（如果本地有值），确保用户操作立即生效
+                                    isFavorite: localSession.isFavorite !== undefined 
+                                        ? !!localSession.isFavorite 
+                                        : (updatedSession.isFavorite !== undefined ? !!updatedSession.isFavorite : false),
                                     // 保留OSS文件会话信息（优先使用后端的，如果后端没有则使用本地的）
                                     _isOssFileSession: updatedSession._isOssFileSession !== undefined 
                                         ? updatedSession._isOssFileSession 

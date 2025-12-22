@@ -147,6 +147,47 @@
         }
     };
 
+    // 检查是否接近底部（阈值：50px）
+    proto.isNearBottom = function(container, threshold = 50) {
+        if (!container) return true;
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        return scrollHeight - scrollTop - clientHeight <= threshold;
+    };
+
+    // 滚动到底部（优化版）
+    proto.scrollToBottom = function(smooth = false, force = false) {
+        if (!this.chatWindow) return;
+        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        if (!messagesContainer) return;
+
+        // 如果不是强制滚动，且用户不在底部附近，则不自动滚动
+        if (!force && !this.isNearBottom(messagesContainer, 100)) {
+            return;
+        }
+
+        const scrollToBottom = () => {
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        };
+
+        if (smooth) {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        } else {
+            // 使用 requestAnimationFrame 优化性能
+            requestAnimationFrame(() => {
+                scrollToBottom();
+                // 延迟一次确保异步内容加载后也能滚动到底部
+                requestAnimationFrame(() => {
+                    scrollToBottom();
+                });
+            });
+        }
+    };
+
     // 初始化聊天窗口滚动
     proto.initializeChatScroll = function() {
         if (!this.chatWindow) return;
@@ -156,18 +197,13 @@
             // 确保滚动功能正常
             messagesContainer.style.overflowY = 'auto';
 
-            // 滚动到底部显示最新消息
-            setTimeout(() => {
+            // 使用 requestAnimationFrame 优化滚动性能
+            requestAnimationFrame(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }, 100);
-
-            // 强制重新计算布局
-            messagesContainer.style.height = 'auto';
-            messagesContainer.offsetHeight; // 触发重排
-
-            // 添加滚动事件监听器，确保滚动功能正常
-            messagesContainer.addEventListener('scroll', () => {
-                // 可以在这里添加滚动相关的逻辑
+                // 再次确保滚动（处理异步内容加载）
+                requestAnimationFrame(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                });
             });
         }
     };

@@ -261,6 +261,13 @@
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;
+    /* 优化滚动性能 */
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    contain: paint layout style !important;
+    transform: translateZ(0) !important;
+    will-change: scroll-position !important;
+    scroll-behavior: auto !important;
 }
 
 [data-message-type="pet-bubble"],

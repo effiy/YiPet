@@ -5597,6 +5597,54 @@
         return [...priorityTagList, ...otherTags];
     }
 
+    // ========== 已读新闻管理（与YiH5保持一致） ==========
+    // 已读新闻存储key
+    get NEWS_READ_STORAGE_KEY() {
+        return 'YiPet.newsRead.v1';
+    }
+
+    // 加载已读新闻列表
+    async loadReadNews() {
+        try {
+            const result = await chrome.storage.local.get([this.NEWS_READ_STORAGE_KEY]);
+            const raw = result[this.NEWS_READ_STORAGE_KEY];
+            if (!raw) return new Set();
+            const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const keys = obj && typeof obj === 'object' && Array.isArray(obj.keys) ? obj.keys : [];
+            return new Set(keys.filter((k) => k && String(k).trim()));
+        } catch (error) {
+            console.debug('加载已读新闻列表失败:', error);
+            return new Set();
+        }
+    }
+
+    // 保存已读新闻列表
+    async saveReadNews(readNewsSet) {
+        try {
+            const keys = Array.from(readNewsSet).filter((k) => k && String(k).trim());
+            await chrome.storage.local.set({
+                [this.NEWS_READ_STORAGE_KEY]: JSON.stringify({ v: 1, savedAt: Date.now(), keys })
+            });
+        } catch (error) {
+            console.debug('保存已读新闻列表失败:', error);
+        }
+    }
+
+    // 标记新闻为已读
+    async markNewsAsRead(newsKey) {
+        if (!newsKey) return;
+        const readNews = await this.loadReadNews();
+        readNews.add(String(newsKey));
+        await this.saveReadNews(readNews);
+    }
+
+    // 检查新闻是否已读
+    async isNewsRead(newsKey) {
+        if (!newsKey) return false;
+        const readNews = await this.loadReadNews();
+        return readNews.has(String(newsKey));
+    }
+
     getAllOssTags() {
         if (!this.ossFileManager) {
             return [];
@@ -8470,7 +8518,7 @@
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return `${year}/${month}/${day}`;
     }
     
     /**
@@ -13833,28 +13881,47 @@ ${originalText}`;
             return;
         }
         
-        // 按文件名排序会话（使用显示标题进行排序）
+        // 判断是否有筛选条件
+        const hasFilter = this.tagFilterNoTags || 
+                         (this.selectedFilterTags && this.selectedFilterTags.length > 0) ||
+                         (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') ||
+                         this.dateRangeFilter;
+        
+        // 排序逻辑
         const sortedSessions = allSessions.sort((a, b) => {
-            const aTitle = this._getSessionDisplayTitle(a) || '';
-            const bTitle = this._getSessionDisplayTitle(b) || '';
-            
-            // 按文件名（标题）排序（不区分大小写）
-            const titleCompare = aTitle.localeCompare(bTitle, 'zh-CN', { numeric: true, sensitivity: 'base' });
-            if (titleCompare !== 0) {
-                return titleCompare;
+            if (!hasFilter) {
+                // 没有筛选条件：按修改时间倒序排序（最新的在前面）
+                const aTime = a.updatedAt || a.lastAccessTime || a.lastActiveAt || a.createdAt || 0;
+                const bTime = b.updatedAt || b.lastAccessTime || b.lastActiveAt || b.createdAt || 0;
+                if (aTime !== bTime) {
+                    return bTime - aTime;
+                }
+                // 如果时间相同，按会话ID排序（确保完全稳定）
+                const aId = a.id || '';
+                const bId = b.id || '';
+                return aId.localeCompare(bId);
+            } else {
+                // 有筛选条件：按文件名（标题）排序（不区分大小写）
+                const aTitle = this._getSessionDisplayTitle(a) || '';
+                const bTitle = this._getSessionDisplayTitle(b) || '';
+                
+                const titleCompare = aTitle.localeCompare(bTitle, 'zh-CN', { numeric: true, sensitivity: 'base' });
+                if (titleCompare !== 0) {
+                    return titleCompare;
+                }
+                
+                // 如果文件名相同，按更新时间排序（最新更新的在前）
+                const aUpdated = a.updatedAt || a.createdAt || 0;
+                const bUpdated = b.updatedAt || b.createdAt || 0;
+                if (aUpdated !== bUpdated) {
+                    return bUpdated - aUpdated;
+                }
+                
+                // 如果更新时间也相同，按会话ID排序（确保完全稳定）
+                const aId = a.id || '';
+                const bId = b.id || '';
+                return aId.localeCompare(bId);
             }
-            
-            // 如果文件名相同，按更新时间排序（最新更新的在前）
-            const aUpdated = a.updatedAt || a.createdAt || 0;
-            const bUpdated = b.updatedAt || b.createdAt || 0;
-            if (aUpdated !== bUpdated) {
-                return bUpdated - aUpdated;
-            }
-            
-            // 如果更新时间也相同，按会话ID排序（确保完全稳定）
-            const aId = a.id || '';
-            const bId = b.id || '';
-            return aId.localeCompare(bId);
         });
         
         // 创建会话列表项
@@ -14328,23 +14395,15 @@ ${originalText}`;
             `;
             
             const time = document.createElement('span');
-            const sessionTime = session.updatedAt || session.createdAt || 0;
+            // 优先使用 lastAccessTime 或 lastActiveAt，与 YiH5 保持一致
+            const sessionTime = session.lastAccessTime || session.lastActiveAt || session.updatedAt || session.createdAt || 0;
             if (sessionTime) {
                 const date = new Date(sessionTime);
-                const now = new Date();
-                const diff = now - date;
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor(diff / (1000 * 60 * 60));
-                const minutes = Math.floor(diff / (1000 * 60));
-                
-                if (days > 0) {
-                    time.textContent = `${days}天前`;
-                } else if (hours > 0) {
-                    time.textContent = `${hours}小时前`;
-                } else if (minutes > 0) {
-                    time.textContent = `${minutes}分钟前`;
+                // 检查日期是否有效
+                if (!isNaN(date.getTime())) {
+                    time.textContent = this.formatDate(date);
                 } else {
-                    time.textContent = '刚刚';
+                    time.textContent = '';
                 }
             } else {
                 time.textContent = '';
@@ -17436,106 +17495,176 @@ ${originalText}`;
         
         let news = this.newsManager ? this.newsManager.getAllNews() : [];
         
-        // 为每个新闻检查是否已有对应的会话，设置 sessionId 字段
-        // 使用新闻的 link 直接作为会话ID（与 YiH5 保持一致）
+        // 加载已读新闻列表
+        const readNews = await this.loadReadNews();
+        
+        // 为每个新闻检查是否已有对应的会话，设置 sessionId 和 isRead 字段
+        // 与 YiH5 保持一致：优先使用 sessionId 字段，然后通过 link 查找
         news.forEach((newsItem) => {
-            if (newsItem.link) {
-                try {
-                    // 使用新闻的 link 直接作为会话ID（后端会自动将URL转换为MD5）
-                    const sessionId = String(newsItem.link).trim();
-                    // 检查是否存在对应的会话（本地查找）
-                    let existingSession = this.sessions[sessionId];
-                    
-                    // 如果本地没有找到，尝试通过URL匹配查找（兼容后端可能转换了ID的情况）
-                    if (!existingSession) {
+            try {
+                // 获取新闻的key用于检查已读状态
+                const newsKey = String(newsItem.key || newsItem._id || newsItem.id || newsItem.link || newsItem.title || '').trim();
+                // 检查是否已读
+                newsItem.isRead = readNews.has(newsKey);
+                
+                let existingSession = null;
+                let sessionIdToCheck = null;
+                
+                // 优先使用新闻的 sessionId 字段查找（与 YiH5 保持一致）
+                if (newsItem.sessionId) {
+                    const sessionId = String(newsItem.sessionId).trim();
+                    existingSession = this.sessions[sessionId];
+                    if (existingSession) {
+                        sessionIdToCheck = sessionId;
+                    }
+                }
+                
+                // 如果通过 sessionId 找不到，尝试使用 link 通过URL查找（与 YiH5 保持一致）
+                if (!existingSession && newsItem.link) {
+                    const linkStr = String(newsItem.link).trim();
+                    // 先尝试直接使用 link 作为 sessionId
+                    existingSession = this.sessions[linkStr];
+                    if (existingSession) {
+                        sessionIdToCheck = linkStr;
+                    } else {
+                        // 遍历所有会话，通过 URL 匹配查找
                         for (const [sid, session] of Object.entries(this.sessions)) {
+                            // 检查是否是新闻会话且链接匹配
                             if (session._isNewsSession && session._newsInfo && 
-                                session._newsInfo.link === newsItem.link) {
+                                session._newsInfo.link === linkStr) {
                                 existingSession = session;
-                                // 使用找到的会话ID
-                                newsItem.sessionId = sid;
+                                sessionIdToCheck = sid;
                                 break;
                             }
                             // 也检查 session.url 是否匹配
-                            if (session.url && String(session.url).trim() === sessionId) {
+                            if (session.url && String(session.url).trim() === linkStr) {
                                 existingSession = session;
-                                newsItem.sessionId = sid;
+                                sessionIdToCheck = sid;
                                 break;
                             }
                         }
-                    } else {
-                        // 如果找到会话，设置 sessionId 字段
-                        newsItem.sessionId = sessionId;
                     }
-                } catch (error) {
-                    // 如果检查失败，忽略
-                    console.debug('检查新闻会话ID失败:', error);
                 }
+                
+                // 如果找到会话，设置 sessionId 字段（用于后续显示标识）
+                if (existingSession && sessionIdToCheck) {
+                    newsItem.sessionId = sessionIdToCheck;
+                }
+            } catch (error) {
+                // 如果检查失败，忽略
+                console.debug('检查新闻会话ID失败:', error);
             }
         });
         
         // 确保标签过滤器UI已更新（即使没有加载新闻，也要更新一次以确保数量正确）
         this.updateNewsTagFilterUI();
         
-        // 调试：输出获取到的新闻数据
-        console.log('从newsManager获取到的新闻数量:', news.length);
-        if (news.length > 0) {
-            console.log('第一条新闻示例:', news[0]);
-            // 调试：输出第一条新闻的所有时间相关字段
-            const firstNews = news[0];
-            const parsedTime = this.getNewsTime(firstNews);
-            console.log('第一条新闻的时间字段:', {
-                published: firstNews.published,
-                pubDate: firstNews.pubDate,
-                publishedAt: firstNews.publishedAt,
-                date: firstNews.date,
-                created_at: firstNews.created_at,
-                createdAt: firstNews.createdAt,
-                publishDate: firstNews.publishDate,
-                pub_date: firstNews.pub_date,
-                publish_date: firstNews.publish_date,
-                allKeys: Object.keys(firstNews),
-                parsedTime: parsedTime,
-                formattedTime: parsedTime > 0 ? this.formatNewsTime(parsedTime) : '无时间'
-            });
-        }
+        // ========== 实现与YiH5一致的排序显示逻辑 ==========
+        // 分离已读和未读新闻
+        const unreadNews = [];
+        const readNewsWithSessions = [];
+        const addedSessionIds = new Set(); // 用于去重，避免同一会话重复显示
         
-        // 根据搜索关键词过滤新闻（本地过滤）
+        news.forEach((n) => {
+            // 先检查新闻是否有对应的会话（无论是否已读）
+            let session = null;
+            let sessionIdToCheck = null;
+            // 优先使用 sessionId 查找
+            if (n.sessionId) {
+                session = this.sessions[n.sessionId];
+                if (session) {
+                    sessionIdToCheck = n.sessionId;
+                }
+            }
+            // 如果通过 sessionId 找不到，尝试使用 link 通过URL查找
+            if (!session && n.link) {
+                const linkStr = String(n.link).trim();
+                // 先尝试直接使用 link 作为 sessionId
+                session = this.sessions[linkStr];
+                if (session) {
+                    sessionIdToCheck = linkStr;
+                } else {
+                    // 遍历所有会话，通过 URL 匹配查找
+                    for (const [sid, s] of Object.entries(this.sessions)) {
+                        // 检查是否是新闻会话且链接匹配
+                        if (s._isNewsSession && s._newsInfo && 
+                            s._newsInfo.link === linkStr) {
+                            session = s;
+                            sessionIdToCheck = sid;
+                            break;
+                        }
+                        // 也检查 session.url 是否匹配
+                        if (s.url && String(s.url).trim() === linkStr) {
+                            session = s;
+                            sessionIdToCheck = sid;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 如果找到会话，显示会话（不显示新闻本身）
+            if (session && sessionIdToCheck && !addedSessionIds.has(String(sessionIdToCheck))) {
+                // 标记会话来自新闻，用于显示图标
+                readNewsWithSessions.push({ 
+                    ...session, 
+                    fromNews: true, 
+                    newsKey: n.key || n._id || n.id || n.link || n.title 
+                });
+                addedSessionIds.add(String(sessionIdToCheck));
+            } else {
+                // 如果没有会话，根据已读状态决定是否显示新闻
+                const isRead = n.isRead === true;
+                if (!isRead) {
+                    // 未读且没有会话的新闻正常显示
+                    unreadNews.push(n);
+                }
+                // 已读且没有会话的新闻不显示
+            }
+        });
+        
+        // 合并未读新闻和已读新闻对应的会话
+        let arr = [...unreadNews, ...readNewsWithSessions];
+        
+        // 根据搜索关键词过滤（本地过滤）
         if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
-            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
-            news = news.filter(item => {
-                const title = (item.title || '').toLowerCase();
-                const description = (item.description || '').toLowerCase();
-                const content = (item.content || '').toLowerCase();
-                return title.includes(filterKeyword) || 
-                       description.includes(filterKeyword) || 
-                       content.includes(filterKeyword);
+            const q = this.sessionTitleFilter.trim().toLowerCase();
+            arr = arr.filter((item) => {
+                // 如果是会话（fromNews），搜索会话的标题和描述
+                if (item.fromNews) {
+                    const hay = `${item.title || ""} ${item.pageTitle || ""} ${item.preview || ""} ${item.pageDescription || ""} ${(item.tags || []).join(" ")}`.toLowerCase();
+                    return hay.includes(q);
+                } else {
+                    // 如果是新闻，搜索新闻的标题、描述等
+                    const hay = `${item.title} ${item.description || ""} ${item.link || ""} ${(item.tags || []).join(" ")}`.toLowerCase();
+                    return hay.includes(q);
+                }
             });
         }
         
         // 应用无标签筛选
         if (this.newsTagFilterNoTags) {
-            news = news.filter(item => {
+            arr = arr.filter(item => {
                 const itemTags = item.tags || [];
                 const hasTags = itemTags.length > 0 && itemTags.some(tag => tag && tag.trim().length > 0);
-                return !hasTags; // 只显示没有标签的新闻
+                return !hasTags; // 只显示没有标签的
             });
         }
         
         // 应用标签过滤
         if (this.selectedNewsFilterTags && this.selectedNewsFilterTags.length > 0) {
-            news = news.filter(item => {
-                const itemTags = (item.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+            arr = arr.filter((item) => {
+                const itemTags = Array.isArray(item.tags) ? item.tags.map((t) => String(t).trim()) : [];
                 const normalizedSelectedTags = this.selectedNewsFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
                 const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
                     itemTags.includes(selectedTag)
                 );
                 
                 if (this.newsTagFilterReverse) {
-                    // 反向过滤：排除包含选中标签的新闻
+                    // 反向过滤：排除包含选中标签的
                     return !hasSelectedTags;
                 } else {
-                    // 正向过滤：只显示包含选中标签的新闻
+                    // 正向过滤：只显示包含选中标签的
                     return hasSelectedTags;
                 }
             });
@@ -17543,10 +17672,30 @@ ${originalText}`;
         
         // 注意：日期区间过滤已通过API调用实现，不再需要本地过滤
         
+        // 按创建时间倒序排序（会话使用 lastAccessTime 或 updatedAt，新闻使用 createdTime 或 published）
+        arr.sort((a, b) => {
+            let timeA, timeB;
+            if (a.fromNews) {
+                // 会话使用 lastAccessTime 或 updatedAt
+                timeA = new Date(a.lastAccessTime || a.updatedAt || a.createdAt || 0).getTime();
+            } else {
+                // 新闻使用 createdTime 或 published
+                const newsTimeA = this.getNewsTime(a);
+                timeA = newsTimeA > 0 ? newsTimeA : 0;
+            }
+            if (b.fromNews) {
+                timeB = new Date(b.lastAccessTime || b.updatedAt || b.createdAt || 0).getTime();
+            } else {
+                const newsTimeB = this.getNewsTime(b);
+                timeB = newsTimeB > 0 ? newsTimeB : 0;
+            }
+            return timeB - timeA;
+        });
+        
         // 清空列表
         newsList.innerHTML = '';
         
-        if (news.length === 0) {
+        if (arr.length === 0) {
             const emptyMsg = document.createElement('div');
             emptyMsg.style.cssText = `
                 padding: 20px !important;
@@ -17559,12 +17708,7 @@ ${originalText}`;
             return;
         }
         
-        // 按时间排序（最新的在前）
-        const sortedNews = news.sort((a, b) => {
-            const aTime = this.getNewsTime(a);
-            const bTime = this.getNewsTime(b);
-            return bTime - aTime;
-        });
+        const sortedNews = arr;
         
         // 保存当前新闻列表（用于长按删除等功能）
         if (!window.currentNews) {
@@ -17684,6 +17828,9 @@ ${originalText}`;
                 min-width: 0 !important;
             `;
             
+            // 判断是会话项还是新闻项
+            const isSessionItem = item.fromNews === true;
+            
             // 创建标题行容器（标题和按钮在同一行）
             const titleRow = document.createElement('div');
             titleRow.style.cssText = `
@@ -17695,58 +17842,169 @@ ${originalText}`;
                 margin-bottom: 6px !important;
             `;
             
-            // 标题
-            const title = document.createElement('div');
-            title.style.cssText = `
-                font-size: 14px !important;
-                font-weight: 600 !important;
-                color: #111827 !important;
-                line-height: 1.4 !important;
-                display: -webkit-box !important;
-                -webkit-line-clamp: 2 !important;
-                -webkit-box-orient: vertical !important;
-                overflow: hidden !important;
-                flex: 1 !important;
+            // 标题容器（包含图标和标题文本，与YiH5保持一致）
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'news-item-title';
+            titleContainer.style.cssText = `
                 min-width: 0 !important;
+                font-weight: 800 !important;
+                font-size: 15px !important;
+                line-height: 1.35 !important;
             `;
-            title.textContent = item.title || '无标题';
-            titleRow.appendChild(title);
             
+            // 如果是会话项（fromNews），显示📰图标标识（与YiH5保持一致）
+            // 标识作为标题的一部分，显示在标题前面，与标题在同一行
+            if (isSessionItem) {
+                const newsIcon = document.createElement('span');
+                newsIcon.className = 'news-item-icon';
+                newsIcon.textContent = '📰';
+                newsIcon.title = '来自新闻';
+                newsIcon.style.cssText = `
+                    font-size: 14px !important;
+                    line-height: 1 !important;
+                    margin: 0 4px 0 0;
+                    opacity: 0.7 !important;
+                    cursor: default !important;
+                `;
+                // 图标应该在标题前面，作为标题的一部分
+                titleContainer.appendChild(newsIcon);
+            }
+
+            // 标题文本（与标识在同一行）
+            // 如果是普通新闻项且有链接，标题应该是可点击的链接（与YiH5保持一致）
+            const displayTitle = isSessionItem 
+                ? ((item.pageTitle && item.pageTitle.trim()) || item.title || "未命名会话")
+                : (item.title || '无标题');
+            
+            let titleElement;
+            if (isSessionItem) {
+                // 会话项：普通文本标题
+                titleElement = document.createElement('span');
+                titleElement.style.cssText = `
+                    font-size: 15px !important;
+                    font-weight: 800 !important;
+                    color: #111827 !important;
+                    line-height: 1.35 !important;
+                `;
+                titleElement.textContent = displayTitle;
+            } else {
+                // 普通新闻项：如果有链接，使用可点击的链接（与YiH5保持一致）
+                if (item.link) {
+                    titleElement = document.createElement('a');
+                    titleElement.className = 'news-title-link';
+                    titleElement.href = item.link;
+                    titleElement.target = '_blank';
+                    titleElement.rel = 'noopener noreferrer';
+                    titleElement.style.cssText = `
+                        font-size: 15px !important;
+                        font-weight: 800 !important;
+                        color: #111827 !important;
+                        line-height: 1.35 !important;
+                        text-decoration: none !important;
+                        cursor: pointer !important;
+                    `;
+                    titleElement.textContent = displayTitle;
+                    // 添加点击事件，阻止冒泡（避免触发新闻项的点击事件）
+                    titleElement.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                    // 添加active状态样式
+                    titleElement.addEventListener('mousedown', () => {
+                        titleElement.style.opacity = '0.85';
+                    });
+                    titleElement.addEventListener('mouseup', () => {
+                        titleElement.style.opacity = '1';
+                    });
+                    titleElement.addEventListener('mouseleave', () => {
+                        titleElement.style.opacity = '1';
+                    });
+                } else {
+                    // 没有链接的新闻：普通文本标题
+                    titleElement = document.createElement('span');
+                    titleElement.style.cssText = `
+                        font-size: 15px !important;
+                        font-weight: 800 !important;
+                        color: #111827 !important;
+                        line-height: 1.35 !important;
+                        display: -webkit-box !important;
+                        -webkit-line-clamp: 2 !important;
+                        -webkit-box-orient: vertical !important;
+                        overflow: hidden !important;
+                        flex: 1 !important;
+                        min-width: 0 !important;
+                    `;
+                    titleElement.textContent = displayTitle;
+                }
+            }
+
+            titleContainer.appendChild(titleElement);
+            titleRow.appendChild(titleContainer);
+
             contentWrapper.appendChild(titleRow);
             
-            // 描述
-            if (item.description || item.content) {
-                const description = document.createElement('div');
-                description.style.cssText = `
-                    font-size: 12px !important;
-                    color: #6b7280 !important;
-                    margin-bottom: 8px !important;
-                    line-height: 1.5 !important;
-                    display: -webkit-box !important;
-                    -webkit-line-clamp: 2 !important;
-                    -webkit-box-orient: vertical !important;
-                    overflow: hidden !important;
-                `;
-                description.textContent = item.description || item.content || '';
-                contentWrapper.appendChild(description);
+            // 描述（与YiH5保持一致）
+            if (isSessionItem) {
+                // 会话项：使用 pageDescription 或 preview
+                const displayDesc = (item.pageDescription && item.pageDescription.trim()) || item.preview || "";
+                if (displayDesc) {
+                    const description = document.createElement('div');
+                    description.className = 'news-item-desc';
+                    description.style.cssText = `
+                        margin: 6px 0 !important;
+                        color: #6b7280 !important;
+                        font-size: 13px !important;
+                        line-height: 1.45 !important;
+                        display: -webkit-box !important;
+                        -webkit-line-clamp: 2 !important;
+                        -webkit-box-orient: vertical !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                    `;
+                    description.textContent = displayDesc;
+                    contentWrapper.appendChild(description);
+                }
+            } else {
+                // 普通新闻项：使用 description
+                if (item.description) {
+                    const description = document.createElement('div');
+                    description.className = 'news-item-desc';
+                    description.style.cssText = `
+                        margin: 6px 0 !important;
+                        color: #6b7280 !important;
+                        font-size: 13px !important;
+                        line-height: 1.45 !important;
+                        display: -webkit-box !important;
+                        -webkit-line-clamp: 2 !important;
+                        -webkit-box-orient: vertical !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                    `;
+                    description.textContent = item.description;
+                    contentWrapper.appendChild(description);
+                }
             }
             
-            // 标签区域（预留，后续可以添加标签功能）
+            // 标签区域（与会话列表保持一致，显示在描述之后、footer之前）
             const tagsContainer = document.createElement('div');
-            tagsContainer.className = 'news-tags';
+            tagsContainer.className = 'news-item-tags';
             tagsContainer.style.cssText = `
                 display: flex !important;
                 flex-wrap: wrap !important;
                 gap: 4px !important;
                 margin-bottom: 8px !important;
             `;
-            // 如果有标签，显示标签
-            if (item.tags && Array.isArray(item.tags) && item.tags.length > 0) {
-                item.tags.forEach(tag => {
+            
+            // 获取标签并显示（与会话列表保持一致）
+            const tags = item.tags || [];
+            if (tags.length > 0) {
+                // 规范化标签（trim处理，与会话列表保持一致）
+                const normalizedTags = tags.map(tag => tag ? String(tag).trim() : '').filter(tag => tag.length > 0);
+                
+                normalizedTags.forEach(tag => {
                     const tagElement = document.createElement('span');
-                    tagElement.className = 'news-tag';
+                    tagElement.className = 'news-tag-item';
                     tagElement.textContent = tag;
-                    // 根据标签内容生成颜色（使用哈希函数确保相同标签颜色一致）
+                    // 根据标签内容生成颜色（使用哈希函数确保相同标签颜色一致，与会话列表保持一致）
                     const tagColor = this.getTagColor(tag);
                     tagElement.style.cssText = `
                         display: inline-block !important;
@@ -17760,7 +18018,7 @@ ${originalText}`;
                         transition: all 0.2s ease !important;
                         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
                     `;
-                    // 添加悬停效果
+                    // 添加悬停效果（与会话列表保持一致）
                     tagElement.addEventListener('mouseenter', () => {
                         tagElement.style.transform = 'translateY(-1px)';
                         tagElement.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
@@ -17774,8 +18032,9 @@ ${originalText}`;
             }
             contentWrapper.appendChild(tagsContainer);
             
-            // 底部信息（时间和来源）
+            // 底部信息（时间和操作按钮，与会话列表保持一致）
             const footer = document.createElement('div');
+            footer.className = 'news-item-meta';
             footer.style.cssText = `
                 display: flex !important;
                 justify-content: space-between !important;
@@ -17786,20 +18045,39 @@ ${originalText}`;
             `;
             
             const time = document.createElement('span');
-            const newsTime = this.getNewsTime(item);
-            // 即使 newsTime 为 0 也尝试格式化（formatNewsTime 会处理无效时间戳）
-            time.textContent = this.formatNewsTime(newsTime);
+            if (isSessionItem) {
+                // 会话项：使用 lastAccessTime 或 updatedAt（与会话列表保持一致）
+                const sessionTime = item.lastAccessTime || item.lastActiveAt || item.updatedAt || item.createdAt || 0;
+                if (sessionTime) {
+                    const date = new Date(sessionTime);
+                    // 检查日期是否有效
+                    if (!isNaN(date.getTime())) {
+                        time.textContent = this.formatDate(date);
+                    } else {
+                        time.textContent = '';
+                    }
+                } else {
+                    time.textContent = '';
+                }
+            } else {
+                // 普通新闻项：使用 createdTime 或 published
+                const newsTime = this.getNewsTime(item);
+                // 即使 newsTime 为 0 也尝试格式化（formatNewsTime 会处理无效时间戳）
+                time.textContent = this.formatNewsTime(newsTime);
+            }
             footer.appendChild(time);
             
-            // 操作按钮容器（移动到footer中）
+            // 操作按钮容器（与会话列表保持一致，移动到footer中）
             const footerButtonContainer = document.createElement('div');
             footerButtonContainer.style.cssText = `
                 display: flex !important;
                 align-items: center !important;
                 gap: 4px !important;
+                opacity: 0.6 !important;
+                transition: opacity 0.2s ease !important;
             `;
             
-            // 编辑按钮
+            // 编辑按钮（与会话列表保持一致）
             const editBtn = document.createElement('button');
             editBtn.className = 'news-edit-btn';
             editBtn.innerHTML = '✏️';
@@ -17827,7 +18105,7 @@ ${originalText}`;
             });
             footerButtonContainer.appendChild(editBtn);
             
-            // 标签管理按钮
+            // 标签管理按钮（与会话列表保持一致）
             const tagBtn = document.createElement('button');
             tagBtn.className = 'news-tag-btn';
             tagBtn.innerHTML = '🏷️';
@@ -17855,53 +18133,69 @@ ${originalText}`;
             });
             footerButtonContainer.appendChild(tagBtn);
             
-            // 跳转按钮（在新标签页打开链接）
-            if (item.link) {
-                const linkBtn = document.createElement('button');
-                linkBtn.className = 'news-link-btn';
-                linkBtn.innerHTML = '🔗';
-                linkBtn.title = '在新标签页打开链接';
-                linkBtn.style.cssText = `
+            // 打开URL按钮（如果URL以https://开头，与会话列表保持一致）
+            let openUrlBtn = null;
+            if (item.link && item.link.startsWith('https://')) {
+                openUrlBtn = document.createElement('button');
+                openUrlBtn.className = 'news-open-url-btn';
+                openUrlBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                `;
+                openUrlBtn.title = '在新标签页打开';
+                openUrlBtn.style.cssText = `
                     background: none !important;
                     border: none !important;
                     cursor: pointer !important;
-                    padding: 2px 4px !important;
-                    font-size: 12px !important;
+                    padding: 4px !important;
                     opacity: 0.6 !important;
-                    transition: opacity 0.2s ease !important;
+                    transition: all 0.2s ease !important;
                     line-height: 1 !important;
                     flex-shrink: 0 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    color: inherit !important;
+                    border-radius: 4px !important;
                 `;
-                linkBtn.addEventListener('click', async (e) => {
+                
+                // 按钮悬停时增加不透明度和背景色（与会话列表保持一致）
+                openUrlBtn.addEventListener('mouseenter', () => {
+                    openUrlBtn.style.opacity = '1';
+                    openUrlBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+                });
+                openUrlBtn.addEventListener('mouseleave', () => {
+                    openUrlBtn.style.opacity = '0.6';
+                    openUrlBtn.style.background = 'none !important';
+                });
+                
+                // 阻止打开URL按钮点击事件冒泡到 newsItem
+                openUrlBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     try {
-                        // 在新标签页中打开链接
-                        await chrome.runtime.sendMessage({
+                        // 通过 background script 在新标签页中打开URL
+                        const response = await chrome.runtime.sendMessage({
                             action: 'openLinkInNewTab',
                             url: item.link
                         });
-                    } catch (error) {
-                        console.error('打开链接失败:', error);
-                        // 如果消息发送失败（例如扩展上下文失效），使用 window.open 作为降级方案
-                        if (item.link) {
-                            try {
-                                window.open(item.link, '_blank');
-                            } catch (openError) {
-                                console.error('使用window.open打开链接失败:', openError);
-                            }
+                        if (response && response.success) {
+                            console.log('URL已在新标签页打开:', item.link);
+                        } else {
+                            console.error('打开URL失败:', response?.error || '未知错误');
                         }
+                    } catch (error) {
+                        console.error('打开URL时出错:', error);
+                        // 降级方案：使用 window.open
+                        window.open(item.link, '_blank');
                     }
                 });
-                linkBtn.addEventListener('mouseenter', () => {
-                    linkBtn.style.opacity = '1';
-                });
-                linkBtn.addEventListener('mouseleave', () => {
-                    linkBtn.style.opacity = '0.6';
-                });
-                footerButtonContainer.appendChild(linkBtn);
+                footerButtonContainer.appendChild(openUrlBtn);
             }
             
-            // 上下文按钮（参考会话列表中的上下文按钮）
+            // 上下文按钮（与会话列表保持一致）
             const contextBtn = document.createElement('button');
             contextBtn.className = 'news-context-btn';
             contextBtn.innerHTML = `
@@ -17929,6 +18223,18 @@ ${originalText}`;
                 color: inherit !important;
                 border-radius: 4px !important;
             `;
+            
+            // 按钮悬停时增加不透明度和背景色（与会话列表保持一致）
+            contextBtn.addEventListener('mouseenter', () => {
+                contextBtn.style.opacity = '1';
+                contextBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
+            });
+            contextBtn.addEventListener('mouseleave', () => {
+                contextBtn.style.opacity = '0.6';
+                contextBtn.style.background = 'none !important';
+            });
+            
+            // 阻止页面上下文按钮点击事件冒泡到 newsItem
             contextBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 // 先激活或创建该新闻的会话
@@ -17939,14 +18245,6 @@ ${originalText}`;
                 }
                 // 打开页面上下文编辑器
                 this.openContextEditor();
-            });
-            contextBtn.addEventListener('mouseenter', () => {
-                contextBtn.style.opacity = '1';
-                contextBtn.style.background = 'rgba(255, 255, 255, 0.1) !important';
-            });
-            contextBtn.addEventListener('mouseleave', () => {
-                contextBtn.style.opacity = '0.6';
-                contextBtn.style.background = 'none !important';
             });
             footerButtonContainer.appendChild(contextBtn);
             
@@ -18211,23 +18509,43 @@ ${originalText}`;
                     return;
                 }
                 
-                // 处理新闻点击，创建会话并打开聊天窗口
-                this.handleNewsClick(item);
+                // 处理点击：如果是会话项，激活会话；如果是新闻项，创建会话并打开聊天窗口
+                if (item.fromNews) {
+                    // 会话项：激活会话
+                    const sessionId = item.id || item.sessionId;
+                    if (sessionId && this.sessions[sessionId]) {
+                        this.activateSession(sessionId, {
+                            skipBackendFetch: false,
+                            keepNewsListView: true
+                        }).catch(err => {
+                            console.error('激活会话失败:', err);
+                        });
+                    }
+                } else {
+                    // 普通新闻项：创建会话并打开聊天窗口
+                    this.handleNewsClick(item);
+                }
             });
             
-            // 悬停效果
+            // 悬停效果（与会话列表保持一致）
             newsItem.addEventListener('mouseenter', () => {
-                newsItem.style.background = '#f9fafb !important';
-                newsItem.style.borderColor = '#d1d5db !important';
-                newsItem.style.transform = 'translateY(-1px)';
-                newsItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1) !important';
+                if (!isActive) {
+                    newsItem.style.background = '#f9fafb !important';
+                    newsItem.style.borderColor = '#d1d5db !important';
+                    newsItem.style.transform = 'translateY(-1px)';
+                    newsItem.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1) !important';
+                }
+                footerButtonContainer.style.opacity = '1';
             });
             
             newsItem.addEventListener('mouseleave', () => {
-                newsItem.style.background = '#ffffff !important';
-                newsItem.style.borderColor = '#e5e7eb !important';
-                newsItem.style.transform = 'translateY(0)';
-                newsItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05) !important';
+                if (!isActive) {
+                    newsItem.style.background = '#ffffff !important';
+                    newsItem.style.borderColor = '#e5e7eb !important';
+                    newsItem.style.transform = 'translateY(0)';
+                    newsItem.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05) !important';
+                }
+                footerButtonContainer.style.opacity = '0.6';
             });
             
             newsList.appendChild(newsItem);
@@ -51820,5 +52138,6 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 

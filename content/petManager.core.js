@@ -4434,7 +4434,8 @@
                 tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),
-                lastAccessTime: session.lastAccessTime || Date.now()
+                lastAccessTime: session.lastAccessTime || Date.now(),
+                isFavorite: session.isFavorite !== undefined ? !!session.isFavorite : false
             };
             
             // 包含 pageContent 字段的情况：

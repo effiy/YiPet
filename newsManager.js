@@ -79,10 +79,24 @@ class NewsManager {
 
         const requestPromise = (async () => {
             try {
+                // 获取 API Token（从 localStorage）
+                const getApiToken = () => {
+                    try {
+                        const token = localStorage.getItem('YiPet.apiToken.v1');
+                        return token ? String(token).trim() : '';
+                    } catch (error) {
+                        return '';
+                    }
+                };
+
+                const token = getApiToken();
+                const authHeaders = token ? { 'X-Token': token } : {};
+
                 const response = await fetch(url, {
                     ...options,
                     headers: {
                         'Content-Type': 'application/json',
+                        ...authHeaders,
                         ...(options.headers || {}),
                     }
                 });
@@ -445,10 +459,24 @@ class NewsManager {
                 url = `${this.apiUrl}?cname=${this.cname}&link=${encodeURIComponent(link)}`;
             }
             
+            // 获取 API Token（从 localStorage）
+            const getApiToken = () => {
+                try {
+                    const token = localStorage.getItem('YiPet.apiToken.v1');
+                    return token ? String(token).trim() : '';
+                } catch (error) {
+                    return '';
+                }
+            };
+
+            const token = getApiToken();
+            const authHeaders = token ? { 'X-Token': token } : {};
+            
             const response = await fetch(url, {
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...authHeaders
                 }
             });
             

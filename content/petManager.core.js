@@ -3662,7 +3662,9 @@
                         tags: backendSession.tags || [],
                         createdAt: backendSession.createdAt || Date.now(),
                         updatedAt: backendSession.updatedAt || Date.now(),
-                        lastAccessTime: backendSession.lastAccessTime || Date.now()
+                        lastAccessTime: backendSession.lastAccessTime || Date.now(),
+                        // 收藏状态：从后端返回的 isFavorite 字段
+                        isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : false
                     };
                     
                     // 如果是空白会话，保存原始URL和标记
@@ -3722,6 +3724,8 @@
                                 pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                     ? localSession.pageContent
                                     : (backendSession.pageContent || ''),
+                                // 收藏状态：优先使用后端的 isFavorite（如果后端更新）
+                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
                                 // 保留OSS文件会话信息（优先使用后端的，如果后端没有则使用本地的）
                                 _isOssFileSession: backendSession._isOssFileSession || localSession._isOssFileSession || false,
                                 _ossFileInfo: backendSession._ossFileInfo || localSession._ossFileInfo || null
@@ -3735,6 +3739,8 @@
                                 pageContent: localSession.pageContent || backendSession.pageContent,
                                 messages: localMessages,
                                 tags: finalTags,
+                                // 收藏状态：优先使用后端的 isFavorite（即使本地更新，也使用后端的最新状态）
+                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
                                 // 保留OSS文件会话信息（优先使用本地的，如果本地没有则使用后端的）
                                 _isOssFileSession: localSession._isOssFileSession || backendSession._isOssFileSession || false,
                                 _ossFileInfo: localSession._ossFileInfo || backendSession._ossFileInfo || null
@@ -13964,7 +13970,16 @@ ${originalText}`;
         // 排序逻辑
         const sortedSessions = allSessions.sort((a, b) => {
             if (!hasFilter) {
-                // 没有筛选条件：按修改时间倒序排序（最新的在前面）
+                // 没有筛选条件：收藏的会话优先显示在最前面
+                const aFavorite = a.isFavorite || false;
+                const bFavorite = b.isFavorite || false;
+                
+                // 如果收藏状态不同，收藏的排在前面
+                if (aFavorite !== bFavorite) {
+                    return bFavorite ? 1 : -1;
+                }
+                
+                // 如果都是收藏或都不是收藏，按修改时间倒序排序（最新的在前面）
                 const aTime = a.updatedAt || a.lastAccessTime || a.lastActiveAt || a.createdAt || 0;
                 const bTime = b.updatedAt || b.lastAccessTime || b.lastActiveAt || b.createdAt || 0;
                 if (aTime !== bTime) {
@@ -14347,6 +14362,43 @@ ${originalText}`;
                 });
             }
             
+            // 创建收藏按钮
+            const favoriteBtn = document.createElement('button');
+            favoriteBtn.className = 'session-favorite-btn';
+            const isFavorite = session.isFavorite || false;
+            favoriteBtn.innerHTML = isFavorite ? '❤️' : '🤍';
+            favoriteBtn.title = isFavorite ? '取消收藏' : '收藏';
+            favoriteBtn.style.cssText = `
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                padding: 2px 4px !important;
+                font-size: 14px !important;
+                opacity: ${isFavorite ? '1' : '0.6'} !important;
+                transition: opacity 0.2s ease, transform 0.2s ease !important;
+                line-height: 1 !important;
+                flex-shrink: 0 !important;
+            `;
+            
+            // 按钮悬停时增加不透明度
+            favoriteBtn.addEventListener('mouseenter', () => {
+                favoriteBtn.style.opacity = '1';
+                favoriteBtn.style.transform = 'scale(1.1)';
+            });
+            favoriteBtn.addEventListener('mouseleave', () => {
+                favoriteBtn.style.opacity = isFavorite ? '1' : '0.6';
+                favoriteBtn.style.transform = 'scale(1)';
+            });
+            
+            // 阻止收藏按钮点击事件冒泡到 sessionItem
+            favoriteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.toggleSessionFavorite(session.id);
+            });
+            
+            // 将收藏按钮直接添加到标题行（始终显示）
+            titleRow.appendChild(favoriteBtn);
+            
             // 创建按钮容器（在标题行中，但默认隐藏，悬停时显示）
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
@@ -14365,7 +14417,7 @@ ${originalText}`;
             buttonContainer.appendChild(duplicateBtn);
             buttonContainer.appendChild(contextBtn);
             
-            // 将标题和按钮容器添加到标题行
+            // 将按钮容器添加到标题行
             titleRow.appendChild(buttonContainer);
             
             // 悬停效果（参考新闻列表）
@@ -32687,6 +32739,34 @@ ${originalText}
         
         // 打开编辑对话框
         this.openSessionInfoEditor(sessionId, originalTitle, originalDescription);
+    }
+
+    // 切换会话收藏状态
+    async toggleSessionFavorite(sessionId) {
+        if (!sessionId || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法切换收藏状态:', sessionId);
+            return;
+        }
+
+        const session = this.sessions[sessionId];
+        const currentFavorite = session.isFavorite || false;
+        session.isFavorite = !currentFavorite;
+        session.updatedAt = Date.now();
+
+        // 同步到后端
+        if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+            try {
+                await this.syncSessionToBackend(sessionId, true);
+                console.log(`会话 ${sessionId} 收藏状态已更新: ${session.isFavorite}`);
+            } catch (error) {
+                console.warn('同步收藏状态到后端失败:', error);
+            }
+        }
+
+        // 更新侧边栏显示
+        if (this.sessionSidebar) {
+            await this.updateSessionSidebar();
+        }
     }
 
     // 打开会话信息编辑对话框
@@ -52318,6 +52398,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

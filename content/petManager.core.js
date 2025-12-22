@@ -5901,24 +5901,24 @@
                     throw new Error('扩展上下文无效：chrome.runtime 不可用');
                 }
                 
-                // 尝试访问 runtime.id 来检查上下文是否有效
+                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
                 try {
-                    const runtimeId = chrome.runtime.id;
-                    if (!runtimeId) {
-                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    scriptUrl = chrome.runtime.getURL('jszip.min.js');
+                    loadScriptUrl = chrome.runtime.getURL('load-jszip.js');
+                    
+                    // 验证 URL 是否有效
+                    if (!scriptUrl || !loadScriptUrl) {
+                        throw new Error('扩展上下文无效：无法获取脚本 URL');
                     }
-                } catch (idError) {
-                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                } catch (getUrlError) {
+                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
                     if (errorMsg.includes('extension context invalidated') || 
-                        errorMsg.includes('context invalidated')) {
+                        errorMsg.includes('context invalidated') ||
+                        errorMsg.includes('could not establish connection')) {
                         throw new Error('扩展上下文已失效，请刷新页面后重试');
                     }
-                    throw idError;
+                    throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
-                
-                // 获取脚本 URL
-                scriptUrl = chrome.runtime.getURL('jszip.min.js');
-                loadScriptUrl = chrome.runtime.getURL('load-jszip.js');
             } catch (error) {
                 this.jszipLoading = false;
                 const errorMsg = error.message || '扩展上下文无效';
@@ -6211,23 +6211,23 @@
                     throw new Error('扩展上下文无效：chrome.runtime 不可用');
                 }
                 
-                // 尝试访问 runtime.id 来检查上下文是否有效
+                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
                 try {
-                    const runtimeId = chrome.runtime.id;
-                    if (!runtimeId) {
-                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    importScriptUrl = chrome.runtime.getURL('import-sessions.js');
+                    
+                    // 验证 URL 是否有效
+                    if (!importScriptUrl) {
+                        throw new Error('扩展上下文无效：无法获取脚本 URL');
                     }
-                } catch (idError) {
-                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                } catch (getUrlError) {
+                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
                     if (errorMsg.includes('extension context invalidated') || 
-                        errorMsg.includes('context invalidated')) {
+                        errorMsg.includes('context invalidated') ||
+                        errorMsg.includes('could not establish connection')) {
                         throw new Error('扩展上下文已失效，请刷新页面后重试');
                     }
-                    throw idError;
+                    throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
-                
-                // 获取导入脚本 URL
-                importScriptUrl = chrome.runtime.getURL('import-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导入脚本URL失败:', error);
@@ -6726,23 +6726,23 @@
                     throw new Error('扩展上下文无效：chrome.runtime 不可用');
                 }
                 
-                // 尝试访问 runtime.id 来检查上下文是否有效
+                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
                 try {
-                    const runtimeId = chrome.runtime.id;
-                    if (!runtimeId) {
-                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+                    
+                    // 验证 URL 是否有效
+                    if (!exportScriptUrl) {
+                        throw new Error('扩展上下文无效：无法获取脚本 URL');
                     }
-                } catch (idError) {
-                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                } catch (getUrlError) {
+                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
                     if (errorMsg.includes('extension context invalidated') || 
-                        errorMsg.includes('context invalidated')) {
+                        errorMsg.includes('context invalidated') ||
+                        errorMsg.includes('could not establish connection')) {
                         throw new Error('扩展上下文已失效，请刷新页面后重试');
                     }
-                    throw idError;
+                    throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
-                
-                // 获取导出脚本 URL
-                exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导出脚本URL失败:', error);
@@ -6879,23 +6879,23 @@
                     throw new Error('扩展上下文无效：chrome.runtime 不可用');
                 }
                 
-                // 尝试访问 runtime.id 来检查上下文是否有效
+                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
                 try {
-                    const runtimeId = chrome.runtime.id;
-                    if (!runtimeId) {
-                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+                    
+                    // 验证 URL 是否有效
+                    if (!exportScriptUrl) {
+                        throw new Error('扩展上下文无效：无法获取脚本 URL');
                     }
-                } catch (idError) {
-                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                } catch (getUrlError) {
+                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
                     if (errorMsg.includes('extension context invalidated') || 
-                        errorMsg.includes('context invalidated')) {
+                        errorMsg.includes('context invalidated') ||
+                        errorMsg.includes('could not establish connection')) {
                         throw new Error('扩展上下文已失效，请刷新页面后重试');
                     }
-                    throw idError;
+                    throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
-                
-                // 获取导出脚本 URL
-                exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导出脚本URL失败:', error);
@@ -7076,23 +7076,23 @@
                     throw new Error('扩展上下文无效：chrome.runtime 不可用');
                 }
                 
-                // 尝试访问 runtime.id 来检查上下文是否有效
+                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
                 try {
-                    const runtimeId = chrome.runtime.id;
-                    if (!runtimeId) {
-                        throw new Error('扩展上下文无效：runtime.id 为空');
+                    exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
+                    
+                    // 验证 URL 是否有效
+                    if (!exportScriptUrl) {
+                        throw new Error('扩展上下文无效：无法获取脚本 URL');
                     }
-                } catch (idError) {
-                    const errorMsg = (idError.message || idError.toString() || '').toLowerCase();
+                } catch (getUrlError) {
+                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
                     if (errorMsg.includes('extension context invalidated') || 
-                        errorMsg.includes('context invalidated')) {
+                        errorMsg.includes('context invalidated') ||
+                        errorMsg.includes('could not establish connection')) {
                         throw new Error('扩展上下文已失效，请刷新页面后重试');
                     }
-                    throw idError;
+                    throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
-                
-                // 获取导出脚本 URL
-                exportScriptUrl = chrome.runtime.getURL('export-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导出脚本URL失败:', error);
@@ -51820,4 +51820,5 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 

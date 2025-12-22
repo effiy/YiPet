@@ -781,6 +781,21 @@
     max-height: none !important;
 }
 
+/* 刷新按钮旋转动画 */
+.pet-chat-refresh-btn.is-spinning svg {
+    animation: pet-refresh-spin 0.9s linear infinite !important;
+}
+
+@keyframes pet-refresh-spin {
+    from {
+        transform: rotate(0deg) !important;
+    }
+    to {
+        transform: rotate(360deg) !important;
+    }
+}
+
+
 
 
 

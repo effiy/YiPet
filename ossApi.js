@@ -80,10 +80,24 @@ class OssApiManager {
             try {
                 this.stats.totalRequests++;
                 
+                // 获取 API Token（从 localStorage）
+                const getApiToken = () => {
+                    try {
+                        const token = localStorage.getItem('YiPet.apiToken.v1');
+                        return token ? String(token).trim() : '';
+                    } catch (error) {
+                        return '';
+                    }
+                };
+
+                const token = getApiToken();
+                const authHeaders = token ? { 'X-Token': token } : {};
+
                 const response = await fetch(url, {
                     ...options,
                     headers: {
                         'Content-Type': 'application/json',
+                        ...authHeaders,
                         ...options.headers,
                     },
                 });
@@ -472,4 +486,5 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.OssApiManager = OssApiManager;
 }
+
 

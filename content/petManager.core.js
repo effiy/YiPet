@@ -2216,6 +2216,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             };
@@ -2435,6 +2436,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        ...this.getAuthHeaders(),
                     },
                     body: JSON.stringify(payload)
                 });
@@ -3505,6 +3507,77 @@
 
         // 检查会话ID是否在后端列表中
         return this.backendSessionIds.has(targetSessionId);
+    }
+
+    // Token 存储相关方法
+    getApiTokenKey() {
+        return 'YiPet.apiToken.v1';
+    }
+
+    // 获取存储的 API Token
+    getApiToken() {
+        try {
+            const token = localStorage.getItem(this.getApiTokenKey());
+            return token ? String(token).trim() : '';
+        } catch (error) {
+            console.warn('获取 API Token 失败:', error);
+            return '';
+        }
+    }
+
+    // 保存 API Token
+    saveApiToken(token) {
+        try {
+            localStorage.setItem(this.getApiTokenKey(), String(token || '').trim());
+            console.log('API Token 已保存');
+        } catch (error) {
+            console.warn('保存 API Token 失败:', error);
+        }
+    }
+
+    // 获取鉴权请求头
+    getAuthHeaders() {
+        const token = this.getApiToken();
+        if (!token) return {};
+        return { 'X-Token': token };
+    }
+
+    // 打开鉴权对话框
+    openAuth() {
+        const curToken = this.getApiToken();
+        const token = window.prompt('请输入 X-Token（用于访问 api.effiy.cn）', curToken);
+        if (token == null) return; // 用户取消
+        this.saveApiToken(token);
+        // 配置完立即尝试刷新会话列表
+        this.manualRefresh();
+    }
+
+    // 手动刷新
+    async manualRefresh() {
+        const refreshBtn = document.getElementById('pet-chat-refresh-btn');
+        if (!refreshBtn) return;
+
+        // 防止重复刷新
+        if (refreshBtn.classList.contains('is-spinning')) {
+            return;
+        }
+
+        refreshBtn.classList.add('is-spinning');
+        try {
+            // 刷新会话列表
+            await this.loadSessionsFromBackend(true);
+            // 重新加载所有会话（包括本地存储的会话）
+            await this.loadAllSessions();
+            // 更新会话侧边栏
+            if (this.sessionSidebar) {
+                await this.updateSessionSidebar();
+            }
+            console.log('手动刷新完成');
+        } catch (error) {
+            console.warn('手动刷新失败:', error);
+        } finally {
+            refreshBtn.classList.remove('is-spinning');
+        }
     }
 
     // 从后端加载会话列表（使用API管理器）
@@ -12238,6 +12311,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        ...this.getAuthHeaders(),
                     },
                     body: JSON.stringify(payload)
                 });
@@ -24877,6 +24951,7 @@ ${originalText}`;
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload),
             });
@@ -25104,6 +25179,7 @@ ${originalText}`;
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload),
             });
@@ -26477,6 +26553,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -26794,6 +26871,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -27105,6 +27183,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -27401,6 +27480,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -34546,6 +34626,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload),
             });
@@ -34739,6 +34820,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload),
             });
@@ -34945,6 +35027,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload),
             });
@@ -35115,6 +35198,7 @@ ${originalText}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -37749,6 +37833,7 @@ ${pageContent || '无内容'}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -38124,10 +38209,11 @@ ${pageContent || '无内容'}
                         
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
+                },
+                body: JSON.stringify(payload),
                             signal: abortController.signal
                         });
                         
@@ -38867,10 +38953,11 @@ ${pageContent || '无内容'}
                         
                         const response = await fetch(PET_CONFIG.api.promptUrl, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
+                },
+                body: JSON.stringify(payload),
                             signal: abortController.signal
                         });
                         
@@ -39212,10 +39299,11 @@ ${pageContent || '无内容'}
                             
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
                                 method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
+                },
+                body: JSON.stringify(payload),
                                 signal: abortController.signal
                             });
                             
@@ -39609,10 +39697,11 @@ ${pageContent || '无内容'}
                             
                             const response = await fetch(PET_CONFIG.api.promptUrl, {
                                 method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
+                },
+                body: JSON.stringify(payload),
                                 signal: abortController.signal
                             });
                             
@@ -39972,10 +40061,11 @@ ${pageContent || '无内容'}
                     
                     const response = await fetch(PET_CONFIG.api.promptUrl, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
+                },
+                body: JSON.stringify(payload),
                         signal: abortController.signal
                     });
                     
@@ -40648,10 +40738,11 @@ ${pageContent || '无内容'}
                 
                 const response = await fetch(PET_CONFIG.api.promptUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
+                },
+                body: JSON.stringify(payload),
                     signal: abortController.signal
                 });
 
@@ -41767,6 +41858,7 @@ ${pageContent || '无内容'}
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -41921,6 +42013,7 @@ ${messageContent}`;
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(payload)
             });
@@ -43476,6 +43569,88 @@ ${messageContent}`;
             toggleInputContainerBtn.style.transform = 'translateX(-50%) translateY(-8px) scale(1.1)';
         });
 
+        // 创建按钮容器（用于放置 authBtn、refreshBtn 和 closeBtn）
+        const headerButtons = document.createElement('div');
+        headerButtons.style.cssText = `
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+        `;
+
+        // 创建 API 鉴权按钮
+        const authBtn = document.createElement('button');
+        authBtn.id = 'pet-chat-auth-btn';
+        authBtn.className = 'pet-chat-header-btn';
+        authBtn.setAttribute('aria-label', 'API 鉴权');
+        authBtn.setAttribute('title', 'API 鉴权（X-Token）');
+        authBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px; fill: currentColor;">
+                <path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z"/>
+            </svg>
+        `;
+        authBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            color: white !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            padding: 5px !important;
+            border-radius: 10px !important;
+            width: 36px !important;
+            height: 36px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: background 0.3s ease !important;
+        `;
+        authBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openAuth();
+        });
+        authBtn.addEventListener('mouseenter', () => {
+            authBtn.style.background = 'rgba(255,255,255,0.2)';
+        });
+        authBtn.addEventListener('mouseleave', () => {
+            authBtn.style.background = 'none';
+        });
+
+        // 创建刷新按钮
+        const refreshBtn = document.createElement('button');
+        refreshBtn.id = 'pet-chat-refresh-btn';
+        refreshBtn.className = 'pet-chat-header-btn pet-chat-refresh-btn';
+        refreshBtn.setAttribute('aria-label', '刷新');
+        refreshBtn.setAttribute('title', '刷新');
+        refreshBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px; fill: currentColor;">
+                <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z"/>
+            </svg>
+        `;
+        refreshBtn.style.cssText = `
+            background: none !important;
+            border: none !important;
+            color: white !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            padding: 5px !important;
+            border-radius: 10px !important;
+            width: 36px !important;
+            height: 36px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: background 0.3s ease !important;
+        `;
+        refreshBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.manualRefresh();
+        });
+        refreshBtn.addEventListener('mouseenter', () => {
+            refreshBtn.style.background = 'rgba(255,255,255,0.2)';
+        });
+        refreshBtn.addEventListener('mouseleave', () => {
+            refreshBtn.style.background = 'none';
+        });
+
         // 创建关闭按钮（保持在右侧）
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = '✕';
@@ -43502,8 +43677,13 @@ ${messageContent}`;
             closeBtn.style.background = 'none';
         });
 
+        // 将按钮添加到按钮容器
+        headerButtons.appendChild(authBtn);
+        headerButtons.appendChild(refreshBtn);
+        headerButtons.appendChild(closeBtn);
+
         chatHeader.appendChild(headerTitle);
-        chatHeader.appendChild(closeBtn);
+        chatHeader.appendChild(headerButtons);
 
         // 创建主内容容器（包含侧边栏和消息区域）
         const mainContentContainer = document.createElement('div');
@@ -52138,6 +52318,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

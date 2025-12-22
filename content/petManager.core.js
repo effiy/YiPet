@@ -25154,7 +25154,7 @@ ${originalText}`;
         try {
             // 构建生成描述的 prompt
             let systemPrompt = '你是一个专业的助手，擅长根据接口请求信息生成简洁、准确的描述。';
-            let userPrompt = '请根据以下接口请求信息，生成一个简洁、准确的描述（50-200字）：\n\n';
+            let userPrompt = '请根据以下接口请求信息，生成一个简洁、准确的描述：\n\n';
 
             // 添加接口请求信息
             if (apiRequest.method) {
@@ -25330,10 +25330,7 @@ ${originalText}`;
             // 清理描述（移除可能的引号等）
             generatedDescription = generatedDescription.replace(/^["']|["']$/g, '').trim();
             
-            // 限制长度
-            if (generatedDescription.length > 500) {
-                generatedDescription = generatedDescription.substring(0, 500);
-            }
+            // 不再限制长度，保留完整内容
 
             if (generatedDescription) {
                 descriptionInput.value = generatedDescription;
@@ -34860,7 +34857,7 @@ ${originalText}
             
             // 构建生成描述的 prompt
             let systemPrompt = '你是一个专业的助手，擅长根据会话内容生成简洁、准确的网页描述。';
-            let userPrompt = '请根据以下会话内容，生成一个简洁、准确的网页描述（50-200字）：\n\n';
+            let userPrompt = '请根据以下会话内容，生成一个简洁、准确的网页描述：\n\n';
 
             // 添加页面信息
             if (context.pageTitle) {
@@ -34999,10 +34996,7 @@ ${originalText}
             // 清理描述（移除可能的引号等）
             generatedDescription = generatedDescription.replace(/^["']|["']$/g, '').trim();
             
-            // 限制长度
-            if (generatedDescription.length > 500) {
-                generatedDescription = generatedDescription.substring(0, 500);
-            }
+            // 不再限制长度，保留完整内容
 
             if (generatedDescription) {
                 descriptionInput.value = generatedDescription;

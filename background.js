@@ -284,6 +284,29 @@ chrome.action.onClicked.addListener((tab) => {
 // ==================== 存储变化监听 ====================
 
 /**
+ * 获取注入服务实例（统一获取逻辑，避免重复代码）
+ * @returns {InjectionService|null} 注入服务实例，如果不可用则返回null
+ */
+function getInjectionService() {
+    if (typeof self !== 'undefined' && self.InjectionService) {
+        return self.InjectionService;
+    }
+    return null;
+}
+
+/**
+ * 通知所有标签页执行操作
+ * @param {string} action - 操作名称
+ * @param {*} data - 操作数据
+ */
+function notifyAllTabs(action, data) {
+    const injectionService = getInjectionService();
+    if (injectionService) {
+        injectionService.executeActionInAllTabs(action, data);
+    }
+}
+
+/**
  * 监听存储变化
  * 当设置或全局状态变化时，同步到所有标签页
  */
@@ -292,24 +315,12 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'local') {
         if (changes.petSettings) {
             console.log('宠物设置已更新');
-            // 通知所有标签页设置已更新
-            const injectionService = typeof self !== 'undefined' && self.InjectionService 
-                ? self.InjectionService 
-                : null;
-            if (injectionService) {
-                injectionService.executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
-            }
+            notifyAllTabs('settingsUpdated', changes.petSettings.newValue);
         }
         
         if (changes.petGlobalState) {
             console.log('宠物全局状态已更新');
-            // 通知所有标签页全局状态已更新
-            const injectionService = typeof self !== 'undefined' && self.InjectionService 
-                ? self.InjectionService 
-                : null;
-            if (injectionService) {
-                injectionService.executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
-            }
+            notifyAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
             
             // 立即同步到所有活动标签页（确保实时性）
             chrome.tabs.query({}, (tabs) => {
@@ -332,22 +343,14 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     
     // 兼容旧版本的 sync 存储
     if (namespace === 'sync') {
-        const injectionService = typeof self !== 'undefined' && self.InjectionService 
-            ? self.InjectionService 
-            : null;
-            
         if (changes.petSettings) {
             console.log('宠物设置已更新（sync）');
-            if (injectionService) {
-                injectionService.executeActionInAllTabs('settingsUpdated', changes.petSettings.newValue);
-            }
+            notifyAllTabs('settingsUpdated', changes.petSettings.newValue);
         }
         
         if (changes.petGlobalState) {
             console.log('宠物全局状态已更新（sync，兼容旧版本）');
-            if (injectionService) {
-                injectionService.executeActionInAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
-            }
+            notifyAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
         }
     }
 });

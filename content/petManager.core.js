@@ -14461,8 +14461,10 @@ ${originalText}`;
             sessionInfo.appendChild(titleRow);
             
             // 描述（如果有pageDescription）
-            if (session.pageDescription && session.pageDescription.trim()) {
+            const descriptionText = session.pageDescription && session.pageDescription.trim();
+            if (descriptionText) {
                 const description = document.createElement('div');
+                description.className = 'session-description';
                 description.style.cssText = `
                     font-size: 12px !important;
                     color: #6b7280 !important;
@@ -14472,8 +14474,10 @@ ${originalText}`;
                     -webkit-line-clamp: 2 !important;
                     -webkit-box-orient: vertical !important;
                     overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    word-break: break-word !important;
                 `;
-                description.textContent = session.pageDescription.trim();
+                description.textContent = descriptionText;
                 sessionInfo.appendChild(description);
             }
             

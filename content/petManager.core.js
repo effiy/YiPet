@@ -11355,6 +11355,16 @@
 
             faqInfo.appendChild(titleRow);
 
+            // 标签和操作按钮行（同一行显示）
+            const tagsAndActionsRow = document.createElement('div');
+            tagsAndActionsRow.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 12px !important;
+                margin-top: 6px !important;
+            `;
+
             // 标签区域（参考会话列表的标签样式）
             const tagsContainer = document.createElement('div');
             tagsContainer.className = 'faq-tags';
@@ -11362,7 +11372,8 @@
                 display: flex !important;
                 flex-wrap: wrap !important;
                 gap: 4px !important;
-                margin-bottom: 8px !important;
+                flex: 1 !important;
+                min-width: 0 !important;
             `;
             // 如果有标签，显示标签
             const tags = faq.tags || [];
@@ -11400,18 +11411,7 @@
                     tagsContainer.appendChild(tagElement);
                 });
             }
-            faqInfo.appendChild(tagsContainer);
-
-            // 底部信息（操作按钮，右对齐）
-            const footer = document.createElement('div');
-            footer.style.cssText = `
-                display: flex !important;
-                justify-content: flex-end !important;
-                align-items: center !important;
-                font-size: 11px !important;
-                color: #9ca3af !important;
-                margin-top: 8px !important;
-            `;
+            tagsAndActionsRow.appendChild(tagsContainer);
 
             // 操作按钮容器（右对齐）
             const footerButtonContainer = document.createElement('div');
@@ -11421,6 +11421,7 @@
                 gap: 6px !important;
                 opacity: 0.7 !important;
                 transition: opacity 0.2s ease !important;
+                flex-shrink: 0 !important;
             `;
 
             // 上移按钮
@@ -11698,7 +11699,7 @@
             footerButtonContainer.appendChild(editBtn);
             footerButtonContainer.appendChild(removeBtn);
 
-            footer.appendChild(footerButtonContainer);
+            tagsAndActionsRow.appendChild(footerButtonContainer);
 
             // 悬停时显示按钮
             faqItem.addEventListener('mouseenter', () => {
@@ -11708,7 +11709,7 @@
                 footerButtonContainer.style.opacity = '0.7';
             });
 
-            faqInfo.appendChild(footer);
+            faqInfo.appendChild(tagsAndActionsRow);
 
             faqItem.appendChild(faqInfo);
 
@@ -52540,6 +52541,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

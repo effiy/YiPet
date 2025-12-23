@@ -96,7 +96,15 @@ class FaqApiManager {
                     }
                 };
 
-                const token = await getApiToken();
+                // 检查并确保 token 已设置
+                let token = await getApiToken();
+                if (!token && typeof TokenUtils !== 'undefined' && TokenUtils.ensureTokenSet) {
+                    const hasToken = await TokenUtils.ensureTokenSet();
+                    if (hasToken) {
+                        token = await getApiToken();
+                    }
+                }
+
                 const authHeaders = token ? { 'X-Token': token } : {};
                 
                 const response = await fetch(url, {
@@ -410,6 +418,7 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.FaqApiManager = FaqApiManager;
 }
+
 
 
 

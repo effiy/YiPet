@@ -143,36 +143,36 @@ class TokenUtilsClass {
     }
     
     /**
-     * 获取 API Token（优先从 chrome.storage 获取，降级到 localStorage）
-     * 支持同步和异步两种方式
-     * 
-     * @param {boolean} sync - 是否同步获取（默认 false，使用异步）
-     * @returns {Promise<string>|string} token 字符串
+     * 获取 API Token（同步方式，从 localStorage 快速获取）
+     * @returns {string} token 字符串
      */
-    async getApiToken(sync = false) {
-        if (sync) {
-            // 同步方式：优先从 localStorage 获取（快速）
-            // 然后异步从 chrome.storage 同步（如果不同则更新）
-            const localToken = this.getTokenFromLocalStorage();
-            
-            // 异步从 chrome.storage 同步（不阻塞）
-            if (this.isChromeStorageAvailable()) {
-                this.getTokenFromChromeStorage().then(chromeToken => {
-                    // 如果 chrome.storage 中的 token 与 localStorage 不同，更新 localStorage
-                    if (chromeToken && chromeToken !== localToken) {
-                        this.saveTokenToLocalStorage(chromeToken);
-                    }
-                }).catch(() => {
-                    // 静默处理错误
-                });
-            }
-            
-            return localToken;
-        } else {
-            // 异步方式：优先从 chrome.storage 获取
-            const chromeToken = await this.getTokenFromChromeStorage();
-            return chromeToken;
+    getApiTokenSync() {
+        // 同步方式：优先从 localStorage 获取（快速）
+        const localToken = this.getTokenFromLocalStorage();
+        
+        // 异步从 chrome.storage 同步（不阻塞，后台更新）
+        if (this.isChromeStorageAvailable()) {
+            this.getTokenFromChromeStorage().then(chromeToken => {
+                // 如果 chrome.storage 中的 token 与 localStorage 不同，更新 localStorage
+                if (chromeToken && chromeToken !== localToken) {
+                    this.saveTokenToLocalStorage(chromeToken);
+                }
+            }).catch(() => {
+                // 静默处理错误
+            });
         }
+        
+        return localToken;
+    }
+    
+    /**
+     * 获取 API Token（异步方式，从 chrome.storage 获取最新值）
+     * @returns {Promise<string>} token 字符串
+     */
+    async getApiToken() {
+        // 异步方式：优先从 chrome.storage 获取
+        const chromeToken = await this.getTokenFromChromeStorage();
+        return chromeToken;
     }
     
     /**
@@ -190,6 +190,24 @@ class TokenUtilsClass {
         
         return true;
     }
+    
+    /**
+     * 检查 token 是否存在（同步方式）
+     * @returns {boolean} token 是否存在
+     */
+    hasApiTokenSync() {
+        const token = this.getApiTokenSync();
+        return token && token.trim().length > 0;
+    }
+    
+    /**
+     * 检查 token 是否存在（异步方式）
+     * @returns {Promise<boolean>} token 是否存在
+     */
+    async hasApiToken() {
+        const token = await this.getApiToken();
+        return token && token.trim().length > 0;
+    }
 }
 
 // 创建单例实例
@@ -202,7 +220,7 @@ const TokenUtils = {
      * @returns {Promise<string>}
      */
     async getApiToken() {
-        return await tokenUtilsInstance.getApiToken(false);
+        return await tokenUtilsInstance.getApiToken();
     },
     
     /**
@@ -210,7 +228,7 @@ const TokenUtils = {
      * @returns {string}
      */
     getApiTokenSync() {
-        return tokenUtilsInstance.getApiToken(true);
+        return tokenUtilsInstance.getApiTokenSync();
     },
     
     /**
@@ -220,6 +238,43 @@ const TokenUtils = {
      */
     async saveApiToken(token) {
         return await tokenUtilsInstance.saveApiToken(token);
+    },
+    
+    /**
+     * 检查 token 是否存在（异步）
+     * @returns {Promise<boolean>}
+     */
+    async hasApiToken() {
+        return await tokenUtilsInstance.hasApiToken();
+    },
+    
+    /**
+     * 检查 token 是否存在（同步）
+     * @returns {boolean}
+     */
+    hasApiTokenSync() {
+        return tokenUtilsInstance.hasApiTokenSync();
+    },
+    
+    /**
+     * 确保 token 已设置，如果未设置则尝试弹出设置框
+     * @returns {Promise<boolean>} 返回 token 是否已设置
+     */
+    async ensureTokenSet() {
+        const hasToken = await tokenUtilsInstance.hasApiToken();
+        if (!hasToken) {
+            // 尝试调用 PetManager 的 ensureTokenSet 方法
+            if (typeof window !== 'undefined' && window.petManager) {
+                try {
+                    await window.petManager.ensureTokenSet();
+                    // 再次检查
+                    return await tokenUtilsInstance.hasApiToken();
+                } catch (error) {
+                    console.warn('调用 PetManager.ensureTokenSet 失败:', error);
+                }
+            }
+        }
+        return hasToken;
     }
 };
 
@@ -229,5 +284,6 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.TokenUtils = TokenUtils;
 }
+
 
 

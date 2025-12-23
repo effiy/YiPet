@@ -3570,14 +3570,261 @@
         return { 'X-Token': token };
     }
 
-    // 打开鉴权对话框
+    // 打开鉴权对话框（使用友好的弹框 UI）
     async openAuth() {
-        const curToken = this.getApiToken();
-        const token = window.prompt('请输入 X-Token（用于访问 api.effiy.cn）', curToken);
-        if (token == null) return; // 用户取消
-        await this.saveApiToken(token);
-        // 配置完立即尝试刷新会话列表
-        this.manualRefresh();
+        return new Promise((resolve) => {
+            // 如果已经存在弹框，先关闭
+            const existingModal = document.getElementById('token-settings-modal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // 确保 CSS 动画已定义
+            if (!document.getElementById('token-modal-animations')) {
+                const style = document.createElement('style');
+                style.id = 'token-modal-animations';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes scaleIn {
+                        from { transform: scale(0.9); opacity: 0; }
+                        to { transform: scale(1); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // 获取当前 token
+            const curToken = this.getApiToken();
+
+            // 创建模态框
+            const modal = document.createElement('div');
+            modal.id = 'token-settings-modal';
+            modal.style.cssText = `
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                background: rgba(0, 0, 0, 0.7) !important;
+                z-index: ${PET_CONFIG.ui.zIndex.modal} !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                animation: fadeIn 0.3s ease-out !important;
+            `;
+
+            // 创建弹框容器
+            const container = document.createElement('div');
+            container.style.cssText = `
+                background: white !important;
+                border-radius: 16px !important;
+                padding: 30px !important;
+                max-width: 500px !important;
+                width: 90% !important;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
+                position: relative !important;
+                animation: scaleIn 0.3s ease-out !important;
+            `;
+
+            // 创建标题
+            const title = document.createElement('h3');
+            title.innerHTML = '🔑 设置 X-Token';
+            title.style.cssText = `
+                margin: 0 0 10px 0 !important;
+                color: #333 !important;
+                font-size: 20px !important;
+                font-weight: 600 !important;
+                text-align: center !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+            `;
+
+            // 创建说明文字
+            const description = document.createElement('p');
+            description.textContent = '请输入 X-Token 以访问 api.effiy.cn 服务';
+            description.style.cssText = `
+                margin: 0 0 20px 0 !important;
+                color: #666 !important;
+                font-size: 14px !important;
+                text-align: center !important;
+            `;
+
+            // 创建输入框容器
+            const inputContainer = document.createElement('div');
+            inputContainer.style.cssText = `
+                margin-bottom: 20px !important;
+            `;
+
+            // 创建输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = '请输入 X-Token';
+            input.value = curToken || '';
+            input.style.cssText = `
+                width: 100% !important;
+                padding: 12px 16px !important;
+                border: 2px solid #e0e0e0 !important;
+                border-radius: 8px !important;
+                font-size: 14px !important;
+                box-sizing: border-box !important;
+                transition: border-color 0.3s ease !important;
+            `;
+            input.addEventListener('focus', () => {
+                input.style.borderColor = '#4CAF50';
+            });
+            input.addEventListener('blur', () => {
+                input.style.borderColor = '#e0e0e0';
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveButton.click();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelButton.click();
+                }
+            });
+
+            // 创建按钮容器
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex !important;
+                gap: 12px !important;
+                justify-content: center !important;
+            `;
+
+            // 保存按钮
+            const saveButton = document.createElement('button');
+            saveButton.textContent = '保存';
+            saveButton.style.cssText = `
+                flex: 1 !important;
+                padding: 12px 24px !important;
+                background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 8px !important;
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+            `;
+            saveButton.addEventListener('mouseenter', () => {
+                saveButton.style.transform = 'translateY(-2px)';
+                saveButton.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.3)';
+            });
+            saveButton.addEventListener('mouseleave', () => {
+                saveButton.style.transform = 'translateY(0)';
+                saveButton.style.boxShadow = 'none';
+            });
+            saveButton.addEventListener('click', async () => {
+                const token = input.value.trim();
+                if (!token) {
+                    input.style.borderColor = '#f44336';
+                    input.focus();
+                    return;
+                }
+                
+                // 保存 token
+                await this.saveApiToken(token);
+                
+                // 关闭弹框
+                modal.remove();
+                
+                // 配置完立即尝试刷新会话列表
+                this.manualRefresh();
+                
+                resolve(token);
+            });
+
+            // 取消按钮
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = '取消';
+            cancelButton.style.cssText = `
+                flex: 1 !important;
+                padding: 12px 24px !important;
+                background: #f5f5f5 !important;
+                color: #666 !important;
+                border: none !important;
+                border-radius: 8px !important;
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+            `;
+            cancelButton.addEventListener('mouseenter', () => {
+                cancelButton.style.background = '#e0e0e0';
+            });
+            cancelButton.addEventListener('mouseleave', () => {
+                cancelButton.style.background = '#f5f5f5';
+            });
+            cancelButton.addEventListener('click', () => {
+                modal.remove();
+                resolve(null);
+            });
+
+            // 点击背景关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                    resolve(null);
+                }
+            });
+
+            // 组装弹框
+            inputContainer.appendChild(input);
+            buttonContainer.appendChild(saveButton);
+            buttonContainer.appendChild(cancelButton);
+            
+            container.appendChild(title);
+            container.appendChild(description);
+            container.appendChild(inputContainer);
+            container.appendChild(buttonContainer);
+            
+            modal.appendChild(container);
+            document.body.appendChild(modal);
+
+            // 自动聚焦输入框
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 100);
+        });
+    }
+
+    // 检查并提示设置 token（如果未设置则自动弹出设置框）
+    async ensureTokenSet() {
+        // 使用同步方法快速检查
+        let hasToken = false;
+        if (typeof TokenUtils !== 'undefined' && TokenUtils.hasApiTokenSync) {
+            hasToken = TokenUtils.hasApiTokenSync();
+        } else {
+            const token = this.getApiToken();
+            hasToken = token && token.trim().length > 0;
+        }
+        
+        if (!hasToken) {
+            // 如果 token 未设置，自动弹出设置框
+            const result = await this.openAuth();
+            // 如果用户设置了 token，等待一小段时间确保保存完成
+            if (result) {
+                // 等待保存完成（chrome.storage 是异步的）
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        // 再次检查（用户可能取消了设置，或需要从 chrome.storage 同步）
+        // 使用异步方法获取最新值
+        if (typeof TokenUtils !== 'undefined' && TokenUtils.hasApiToken) {
+            return await TokenUtils.hasApiToken();
+        } else {
+            const token = this.getApiToken();
+            return token && token.trim().length > 0;
+        }
     }
 
     // 手动刷新
@@ -52557,6 +52804,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

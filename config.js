@@ -84,13 +84,13 @@ const PET_CONFIG = {
 
     // 输入框配置
     input: {
-      maxLength: 200,              // 最大输入长度
+      maxLength: 0,                // 最大输入长度（0表示无限制）
       placeholder: "输入消息...",   // 占位符文本
     },
 
     // 消息配置
     message: {
-      maxLength: 1000,            // 单条消息最大长度
+      maxLength: 0,               // 单条消息最大长度（0表示无限制）
       thinkingDelay: {            // AI思考延迟（模拟真实对话）
         min: 1000,                 // 最小延迟（毫秒）
         max: 2000,                 // 最大延迟（毫秒）
@@ -330,5 +330,6 @@ if (typeof module !== "undefined" && module.exports) {
   window.getPetDefaultPosition = getPetDefaultPosition;
   window.getChatWindowDefaultPosition = getChatWindowDefaultPosition;
 }
+
 
 

@@ -12906,7 +12906,8 @@
 
         const existingText = faq.text;
         const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-        const MAX_LENGTH = 500; // 最大字符数限制
+        // 不设置字符数限制，允许无限制输入
+        // const MAX_LENGTH = 500; // 最大字符数限制
 
         // 确保 chatWindow 有正确的定位上下文
         const currentPosition = window.getComputedStyle(this.chatWindow).position;
@@ -13041,7 +13042,8 @@
         const textarea = document.createElement('textarea');
         textarea.value = existingText;
         textarea.placeholder = '输入问题内容...';
-        textarea.maxLength = MAX_LENGTH;
+        // 不设置 maxLength，允许无限制输入
+        // textarea.maxLength = MAX_LENGTH;
         textarea.style.cssText = `
             width: 100% !important;
             min-height: 120px !important;
@@ -13064,8 +13066,9 @@
         charCount.className = 'pet-faq-edit-char-count';
         const updateCharCount = () => {
             const length = textarea.value.length;
-            charCount.textContent = `${length}/${MAX_LENGTH}`;
-            charCount.style.color = length > MAX_LENGTH * 0.9 ? '#ef4444' : '#94a3b8';
+            // 只显示字符数，不显示限制
+            charCount.textContent = `${length} 字符`;
+            charCount.style.color = '#94a3b8';
         };
         updateCharCount();
         charCount.style.cssText = `
@@ -38793,15 +38796,7 @@ ${pageContent || '无内容'}
                 const trimmedContent = messageContent.trim();
                 const contentLength = trimmedContent.length;
                 
-                // 检查内容长度限制（4000字符）
-                const MAX_CONTENT_LENGTH = 4000;
-                if (contentLength > MAX_CONTENT_LENGTH) {
-                    this.showNotification(
-                        `消息内容过长（${contentLength} 字符），超过限制（${MAX_CONTENT_LENGTH} 字符），无法发送到企微机器人`,
-                        'error'
-                    );
-                    return;
-                }
+                // 不再检查内容长度限制，允许发送任意长度的消息
                 
                 // 显示发送状态
                 const originalIcon = robotButton.innerHTML;
@@ -40604,15 +40599,7 @@ ${pageContent || '无内容'}
                 const trimmedContent = messageContent.trim();
                 const contentLength = trimmedContent.length;
                 
-                // 检查内容长度限制（4000字符）
-                const MAX_CONTENT_LENGTH = 4000;
-                if (contentLength > MAX_CONTENT_LENGTH) {
-                    this.showNotification(
-                        `消息内容过长（${contentLength} 字符），超过限制（${MAX_CONTENT_LENGTH} 字符），无法发送到企微机器人`,
-                        'error'
-                    );
-                    return;
-                }
+                // 不再检查内容长度限制，允许发送任意长度的消息
                 
                 // 显示发送状态
                 const originalIcon = robotButton.innerHTML;
@@ -45885,7 +45872,8 @@ ${messageContent}`;
 
         const messageInput = document.createElement('textarea');
         messageInput.placeholder = '输入消息... (Enter发送, Shift+Enter换行)';
-        messageInput.maxLength = PET_CONFIG.chatWindow.input.maxLength;
+        // 不设置 maxLength，允许无限制输入
+        // messageInput.maxLength = PET_CONFIG.chatWindow.input.maxLength;
         messageInput.className = 'chat-message-input';
         messageInput.rows = 2; // 初始2行
         messageInput.style.cssText = `
@@ -52569,6 +52557,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

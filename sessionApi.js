@@ -87,9 +87,14 @@ class SessionApiManager {
             try {
                 this.stats.totalRequests++;
                 
-                // 获取 API Token（从 localStorage）
-                const getApiToken = () => {
+                // 获取 API Token（优先从 chrome.storage，支持跨 tab 和跨域共享）
+                const getApiToken = async () => {
                     try {
+                        // 优先使用 TokenUtils（如果可用）
+                        if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiToken) {
+                            return await TokenUtils.getApiToken();
+                        }
+                        // 降级方案：从 localStorage 获取
                         const token = localStorage.getItem('YiPet.apiToken.v1');
                         return token ? String(token).trim() : '';
                     } catch (error) {
@@ -97,7 +102,7 @@ class SessionApiManager {
                     }
                 };
 
-                const token = getApiToken();
+                const token = await getApiToken();
                 const authHeaders = token ? { 'X-Token': token } : {};
 
                 const response = await fetch(url, {
@@ -450,6 +455,7 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionApiManager = SessionApiManager;
 }
+
 
 
 

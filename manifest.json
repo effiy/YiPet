@@ -18,6 +18,7 @@
       "js": [
         "config.js",
         "md5.js",
+        "utils/tokenUtils.js",
         "loadingAnimation.js",
         "sessionApi.js",
         "sessionManager.js",
@@ -75,6 +76,7 @@
     }
   ]
 }
+
 
 
 

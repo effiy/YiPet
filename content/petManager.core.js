@@ -49480,8 +49480,15 @@ ${messageContent}`;
                                 currentMessage.style.opacity = '0';
                                 setTimeout(() => {
                                     currentMessage.remove();
-                                    // 删除后保存会话（确保数据同步）
-                                    this.saveCurrentSession().catch(err => {
+                                    // 删除后保存会话并同步到后端（确保数据同步）
+                                    this.saveCurrentSession().then(() => {
+                                        // 同步到后端
+                                        if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
+                                            this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
+                                                console.error('删除消息后同步到后端失败:', err);
+                                            });
+                                        }
+                                    }).catch(err => {
                                         console.error('删除消息后保存会话失败:', err);
                                     });
                                 }, 300);
@@ -49507,8 +49514,15 @@ ${messageContent}`;
                                         currentMessage.style.opacity = '0';
                                         setTimeout(() => {
                                             currentMessage.remove();
-                                            // 删除后保存会话（确保数据同步）
-                                            this.saveCurrentSession().catch(err => {
+                                            // 删除后保存会话并同步到后端（确保数据同步）
+                                            this.saveCurrentSession().then(() => {
+                                                // 同步到后端
+                                                if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
+                                                    this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
+                                                        console.error('删除消息后同步到后端失败:', err);
+                                                    });
+                                                }
+                                            }).catch(err => {
                                                 console.error('删除消息后保存会话失败:', err);
                                             });
                                         }, 300);
@@ -50246,8 +50260,15 @@ ${messageContent}`;
                             currentMessage.style.opacity = '0';
                             setTimeout(() => {
                                 currentMessage.remove();
-                                // 删除后保存会话（确保数据同步）
-                                this.saveCurrentSession().catch(err => {
+                                // 删除后保存会话并同步到后端（确保数据同步）
+                                this.saveCurrentSession().then(() => {
+                                    // 同步到后端
+                                    if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
+                                        this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
+                                            console.error('删除消息后同步到后端失败:', err);
+                                        });
+                                    }
+                                }).catch(err => {
                                     console.error('删除消息后保存会话失败:', err);
                                 });
                             }, 300);
@@ -50273,8 +50294,15 @@ ${messageContent}`;
                                     currentMessage.style.opacity = '0';
                                     setTimeout(() => {
                                         currentMessage.remove();
-                                        // 删除后保存会话（确保数据同步）
-                                        this.saveCurrentSession().catch(err => {
+                                        // 删除后保存会话并同步到后端（确保数据同步）
+                                        this.saveCurrentSession().then(() => {
+                                            // 同步到后端
+                                            if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
+                                                this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
+                                                    console.error('删除消息后同步到后端失败:', err);
+                                                });
+                                            }
+                                        }).catch(err => {
                                             console.error('删除消息后保存会话失败:', err);
                                         });
                                     }, 300);
@@ -52465,6 +52493,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

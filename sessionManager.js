@@ -98,6 +98,7 @@ class SessionManager {
             pageDescription: pageInfo.pageDescription || '',
             pageContent: pageInfo.pageContent || '',
             messages: [],
+            tags: pageInfo.tags && Array.isArray(pageInfo.tags) && pageInfo.tags.length > 0 ? pageInfo.tags : ['网文'],
             createdAt: now,
             updatedAt: now,
             lastAccessTime: now
@@ -177,13 +178,20 @@ class SessionManager {
                 this.sessions[unifiedSessionId] = session;
             }
             
+            // 确保tags不为空，如果为空则添加"网文"标签
+            let tags = session.tags || [];
+            if (!Array.isArray(tags) || tags.length === 0) {
+                tags = ['网文'];
+            }
+            
             const sessionData = {
                 id: unifiedSessionId,
                 url: session.url || '',
                 pageTitle: session.pageTitle || '',
                 pageDescription: session.pageDescription || '',
                 messages: session.messages || [],
-                tags: session.tags || [],
+                tags: tags,
+                isFavorite: session.isFavorite !== undefined ? session.isFavorite : false,
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),
                 lastAccessTime: session.lastAccessTime || Date.now()
@@ -695,6 +703,7 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionManager = SessionManager;
 }
+
 
 
 

@@ -363,13 +363,19 @@ class SessionManager {
             }
         }
         
-        // 转换为数组并按文件名排序
+        // 转换为数组，收藏的会话优先显示在最前面，然后按文件名排序
         return Array.from(sessionMap.values()).sort((a, b) => {
-            // 获取会话的显示标题（文件名）
+            const aFavorite = a.isFavorite || false;
+            const bFavorite = b.isFavorite || false;
+            
+            // 如果收藏状态不同，收藏的排在前面
+            if (aFavorite !== bFavorite) {
+                return bFavorite ? 1 : -1;
+            }
+            
+            // 如果收藏状态相同，按文件名排序（不区分大小写，支持中文和数字）
             const aTitle = (a.pageTitle || '').trim();
             const bTitle = (b.pageTitle || '').trim();
-            
-            // 按文件名排序（不区分大小写，支持中文和数字）
             const titleCompare = aTitle.localeCompare(bTitle, 'zh-CN', { numeric: true, sensitivity: 'base' });
             if (titleCompare !== 0) {
                 return titleCompare;
@@ -689,6 +695,7 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionManager = SessionManager;
 }
+
 
 
 

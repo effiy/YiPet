@@ -4374,9 +4374,14 @@
                     // 同时更新会话对象本身，确保保存到后端的数据和会话显示的内容一致
                     session.pageContent = session._newsInfo.content;
                 }
-                // 如果新闻有标签，使用新闻的标签
+                // 如果新闻有标签，使用新闻的标签，并自动追加"网文"标签
                 if (session._newsInfo.tags && Array.isArray(session._newsInfo.tags)) {
-                    session.tags = session._newsInfo.tags;
+                    // 从新闻标签中过滤掉"网文"标签，然后追加"网文"标签
+                    const newsTags = session._newsInfo.tags.filter((t) => t !== "网文");
+                    session.tags = [...newsTags];
+                    if (!session.tags.includes("网文")) {
+                        session.tags.push("网文");
+                    }
                 }
                 console.log('新闻会话保存时使用新闻本身的信息:', {
                     pageTitle: pageTitle,
@@ -5845,18 +5850,33 @@
             });
         }
         
-        // 应用无标签筛选
+        // 分离收藏的会话和非收藏的会话
+        const favoriteSessions = [];
+        const nonFavoriteSessions = [];
+        
+        for (const session of allSessions) {
+            if (session.isFavorite) {
+                favoriteSessions.push(session);
+            } else {
+                nonFavoriteSessions.push(session);
+            }
+        }
+        
+        // 对非收藏的会话进行筛选
+        let filteredNonFavorite = nonFavoriteSessions;
+        
+        // 应用无标签筛选（只对非收藏的会话生效）
         if (this.tagFilterNoTags) {
-            allSessions = allSessions.filter(session => {
+            filteredNonFavorite = filteredNonFavorite.filter(session => {
                 const sessionTags = session.tags || [];
                 const hasTags = sessionTags.length > 0 && sessionTags.some(tag => tag && tag.trim().length > 0);
                 return !hasTags; // 只显示没有标签的会话
             });
         }
         
-        // 应用标签过滤（与updateSessionSidebar中的逻辑一致）
+        // 应用标签过滤（只对非收藏的会话生效，收藏的会话不受标签筛选影响）
         if (this.selectedFilterTags && this.selectedFilterTags.length > 0) {
-            allSessions = allSessions.filter(session => {
+            filteredNonFavorite = filteredNonFavorite.filter(session => {
                 const sessionTags = (session.tags || []).map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
                 const normalizedSelectedTags = this.selectedFilterTags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
                 const hasSelectedTags = normalizedSelectedTags.some(selectedTag => 
@@ -5873,10 +5893,11 @@
             });
         }
         
-        // 应用标题和网址模糊匹配过滤
+        // 对收藏的会话也进行搜索筛选（如果有搜索关键词）
+        let filteredFavorite = favoriteSessions;
         if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
             const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
-            allSessions = allSessions.filter(session => {
+            filteredFavorite = filteredFavorite.filter(session => {
                 const sessionTitle = this._getSessionDisplayTitle(session);
                 const sessionUrl = (session.url || '').toLowerCase();
                 return sessionTitle.toLowerCase().includes(filterKeyword) || 
@@ -5884,7 +5905,19 @@
             });
         }
         
-        return allSessions;
+        // 对非收藏的会话应用标题和网址模糊匹配过滤
+        if (this.sessionTitleFilter && this.sessionTitleFilter.trim() !== '') {
+            const filterKeyword = this.sessionTitleFilter.trim().toLowerCase();
+            filteredNonFavorite = filteredNonFavorite.filter(session => {
+                const sessionTitle = this._getSessionDisplayTitle(session);
+                const sessionUrl = (session.url || '').toLowerCase();
+                return sessionTitle.toLowerCase().includes(filterKeyword) || 
+                       sessionUrl.includes(filterKeyword);
+            });
+        }
+        
+        // 合并：收藏的会话在最前面，然后是非收藏的会话
+        return [...filteredFavorite, ...filteredNonFavorite];
     }
     
     // 获取筛选后的文件列表
@@ -7135,9 +7168,10 @@
             content += `**来源**: ${newsItem.source}\n\n`;
         }
         
-        // 标签
-        if (newsItem.tags && newsItem.tags.length > 0) {
-            content += `**标签**: ${newsItem.tags.join(', ')}\n\n`;
+        // 标签（过滤掉"网文"标签）
+        const filteredTags = (newsItem.tags || []).filter(tag => tag !== "网文");
+        if (filteredTags.length > 0) {
+            content += `**标签**: ${filteredTags.join(', ')}\n\n`;
         }
         
         // 描述
@@ -7795,6 +7829,11 @@
                 const index = this.selectedFilterTags.indexOf(tag);
                 if (index > -1) {
                     // 取消选中
+                    // 但至少需要保留一个标签，如果当前只有一个标签，则不允许取消
+                    if (this.selectedFilterTags.length <= 1) {
+                        // 至少保留一个标签，不允许取消
+                        return;
+                    }
                     this.selectedFilterTags.splice(index, 1);
                 } else {
                     // 选中
@@ -13847,6 +13886,14 @@ ${originalText}`;
             searchInput.placeholder = '搜索会话...';
         }
         
+        // 如果筛选标签为空，且存在"网文"标签，则默认选择"网文"标签
+        if (!this.selectedFilterTags || this.selectedFilterTags.length === 0) {
+            const allTags = this.getAllTags();
+            if (allTags.includes('网文')) {
+                this.selectedFilterTags = ['网文'];
+            }
+        }
+        
         // 更新标签过滤器UI
         this.updateTagFilterUI();
         
@@ -18140,7 +18187,8 @@ ${originalText}`;
             `;
             
             // 获取标签并显示（与会话列表保持一致）
-            const tags = item.tags || [];
+            // 过滤掉"网文"标签，不在新闻列表中显示
+            const tags = (item.tags || []).filter(tag => tag !== "网文");
             if (tags.length > 0) {
                 // 规范化标签（trim处理，与会话列表保持一致）
                 const normalizedTags = tags.map(tag => tag ? String(tag).trim() : '').filter(tag => tag.length > 0);
@@ -44793,7 +44841,13 @@ ${messageContent}`;
             const hasSearchKeyword = this.tagFilterSearchKeyword && this.tagFilterSearchKeyword.trim() !== '';
             const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags || hasSearchKeyword;
             if (hasActiveFilter) {
-                this.selectedFilterTags = [];
+                // 清除筛选时，如果存在"网文"标签，则默认选择"网文"标签
+                const allTags = this.getAllTags();
+                if (allTags.includes('网文')) {
+                    this.selectedFilterTags = ['网文'];
+                } else {
+                    this.selectedFilterTags = [];
+                }
                 this.tagFilterNoTags = false;
                 this.tagFilterSearchKeyword = '';
                 // 更新搜索输入框的值和清除按钮状态
@@ -52411,6 +52465,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

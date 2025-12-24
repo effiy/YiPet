@@ -45749,13 +45749,23 @@ ${messageContent}`;
         // 在所有内容添加完成后，创建拖拽调整边框（确保在最上层）
         this.createSidebarResizer();
 
+        // 创建右侧内容容器（包含消息区域和输入框）
+        const rightContentContainer = document.createElement('div');
+        rightContentContainer.style.cssText = `
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            position: relative !important;
+        `;
+
         // 创建消息区域
         const messagesContainer = document.createElement('div');
         messagesContainer.id = 'pet-chat-messages';
         messagesContainer.style.cssText = `
             flex: 1 !important;
             padding: 20px !important;
-            padding-bottom: 160px !important;
+            padding-bottom: 20px !important;
             overflow-y: auto !important;
             background: linear-gradient(135deg, #f8f9fa, #ffffff) !important;
             position: relative !important;
@@ -45763,9 +45773,12 @@ ${messageContent}`;
             user-select: text !important;
         `;
 
-        // 将侧边栏和消息区域添加到主容器
+        // 将消息区域添加到右侧容器
+        rightContentContainer.appendChild(messagesContainer);
+
+        // 将侧边栏和右侧内容容器添加到主容器
         mainContentContainer.appendChild(this.sessionSidebar);
-        mainContentContainer.appendChild(messagesContainer);
+        mainContentContainer.appendChild(rightContentContainer);
         
         // 将侧边栏折叠按钮添加到主容器（定位在侧边栏右侧）
         // 确保按钮存在：如果找不到，使用之前创建的按钮变量
@@ -45841,15 +45854,15 @@ ${messageContent}`;
         // 统一的 AbortController，用于终止所有正在进行的请求
         let currentAbortController = null;
 
-        // 动态更新底部padding，确保内容不被输入框遮住
+        // 动态更新底部padding（现在输入框在 flex 布局中，不再需要动态调整 padding）
         const updatePaddingBottom = () => {
+            // 输入框现在在 flex 布局中，消息区域会自动调整，不需要额外的 padding
+            // 保留此函数以保持兼容性，但不再需要执行任何操作
             if (!this.chatWindow) return;
-            const inputContainer = this.chatWindow.querySelector('.chat-input-container');
             const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
-            if (inputContainer && messagesContainer) {
-                const inputHeight = inputContainer.offsetHeight || 160;
-                // 添加额外20px的缓冲空间
-                messagesContainer.style.paddingBottom = (inputHeight + 20) + 'px';
+            if (messagesContainer) {
+                // 只需要保持基本的底部 padding
+                messagesContainer.style.paddingBottom = '20px';
             }
         };
 
@@ -45918,10 +45931,7 @@ ${messageContent}`;
         const inputContainer = document.createElement('div');
         inputContainer.className = 'chat-input-container';
         inputContainer.style.cssText = `
-            position: absolute !important;
-            bottom: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
+            flex-shrink: 0 !important;
             padding: 20px !important;
             background: white !important;
             border-top: 1px solid #e5e7eb !important;
@@ -46902,12 +46912,14 @@ ${messageContent}`;
 		const resizeHandleB = createResizeHandle('bottom');
 		const resizeHandleT = createResizeHandle('top');
 
+        // 将输入容器添加到右侧内容容器（在消息区域下方）
+        rightContentContainer.appendChild(inputContainer);
+
         // 组装聊天窗口
         this.chatWindow.appendChild(chatHeader);
         this.chatWindow.appendChild(mainContentContainer);
-        this.chatWindow.appendChild(inputContainer);
         
-        // 将输入框折叠按钮添加到聊天窗口（定位在输入框容器上方）
+        // 将输入框折叠按钮添加到右侧内容容器（定位在输入框容器上方）
         // 如果按钮还没有被添加到 DOM，则通过 querySelector 查找
         if (!toggleInputContainerBtn.parentNode) {
             const existingBtn = this.chatWindow.querySelector('#input-container-toggle-btn');
@@ -46915,8 +46927,8 @@ ${messageContent}`;
                 toggleInputContainerBtn = existingBtn;
             }
         }
-        if (toggleInputContainerBtn && this.chatWindow) {
-            // 更新按钮定位，相对于chatWindow
+        if (toggleInputContainerBtn && rightContentContainer) {
+            // 更新按钮定位，相对于右侧内容容器
             const updateInputToggleBtnPosition = () => {
                 const inputHeight = inputContainer.offsetHeight || 160;
                 if (this.inputContainerCollapsed) {
@@ -46946,7 +46958,7 @@ ${messageContent}`;
                 z-index: 10001 !important;
                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
             `;
-            this.chatWindow.appendChild(toggleInputContainerBtn);
+            rightContentContainer.appendChild(toggleInputContainerBtn);
             
             // 延迟更新位置，确保输入框已渲染
             setTimeout(() => {
@@ -47027,12 +47039,10 @@ ${messageContent}`;
     // 更新消息容器的底部padding（公共方法）
     updateMessagesPaddingBottom() {
         if (!this.chatWindow) return;
-        const inputContainer = this.chatWindow.querySelector('.chat-input-container');
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
-        if (inputContainer && messagesContainer) {
-            const inputHeight = inputContainer.offsetHeight || 160;
-            // 添加额外20px的缓冲空间
-            messagesContainer.style.paddingBottom = (inputHeight + 20) + 'px';
+        if (messagesContainer) {
+            // 输入框现在在 flex 布局中，消息区域会自动调整，只需要保持基本的底部 padding
+            messagesContainer.style.paddingBottom = '20px';
             // 确保内容完全可见，滚动到底部
             setTimeout(() => {
                 if (messagesContainer) {

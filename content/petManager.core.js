@@ -3093,7 +3093,7 @@
         const blankSession = {
             id: finalSessionId,
             url: finalUrl, // 空白会话使用唯一的随机URL（不会与基于URL的会话冲突）
-            pageTitle: formatDateForTitle(now), // 使用日期时间格式作为标题
+            pageTitle: `会话_${formatDateForTitle(now)}`, // 使用日期时间格式作为标题，添加"会话_"前缀
             pageDescription: pageInfo.description || '', // 使用当前页面描述
             pageContent: pageContent, // 保存筛选会话列表的结构化内容或当前页面内容
             messages: [], // 空的对话列表

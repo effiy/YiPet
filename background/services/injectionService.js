@@ -12,6 +12,8 @@ class InjectionService {
     static CONTENT_SCRIPT_FILES = [
         'config.js',
         'md5.js',
+        'utils/tokenUtils.js',
+        'utils/imageResourceManager.js',
         'loadingAnimation.js',
         'sessionApi.js',
         'sessionManager.js',
@@ -173,4 +175,5 @@ if (typeof module !== "undefined" && module.exports) {
         self.InjectionService = new InjectionService();
     }
 }
+
 

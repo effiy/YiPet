@@ -105,35 +105,78 @@
         `;
     };
 
-    // 显示加载动画（使用角色run目录下的连续图片）
-    proto.showLoadingAnimation = function() {
+    // 显示加载动画（使用角色run目录下的连续图片，优化版：避免重复请求）
+    proto.showLoadingAnimation = async function() {
         if (!this.pet) return;
-        
-        const role = this.role || '教师';
-        const runImages = [
-            chrome.runtime.getURL(`roles/${role}/run/1.png`),
-            chrome.runtime.getURL(`roles/${role}/run/2.png`),
-            chrome.runtime.getURL(`roles/${role}/run/3.png`)
-        ];
-        
-        // 保存原始背景图片
-        if (!this.originalBackgroundImage) {
-            const role = this.role || '教师';
-            this.originalBackgroundImage = chrome.runtime.getURL(`roles/${role}/icon.png`);
-        }
         
         // 如果当前已经有动画在运行，不重复启动
         if (this.loadingAnimationInterval) {
             return;
         }
         
+        const role = this.role || '教师';
+        
+        // 保存原始背景图片
+        if (!this.originalBackgroundImage) {
+            try {
+                const iconImg = await window.imageResourceManager?.loadRoleIcon(role);
+                if (iconImg && iconImg.src) {
+                    this.originalBackgroundImage = iconImg.src;
+                } else {
+                    this.originalBackgroundImage = chrome.runtime.getURL(`roles/${role}/icon.png`);
+                }
+            } catch (error) {
+                console.warn('加载角色图标失败，使用默认URL:', error);
+                this.originalBackgroundImage = chrome.runtime.getURL(`roles/${role}/icon.png`);
+            }
+        }
+        
+        // 预加载所有动画帧（使用图片资源管理器，避免重复请求）
+        let runFrameUrls = [];
+        try {
+            if (window.imageResourceManager) {
+                // 预加载所有帧
+                await window.imageResourceManager.preloadRunFrames(role, 3);
+                
+                // 获取所有帧的 URL（优先使用 data URL）
+                const framePromises = [1, 2, 3].map(frame => 
+                    window.imageResourceManager.getRunFrameUrl(role, frame)
+                );
+                runFrameUrls = await Promise.all(framePromises);
+            } else {
+                // 降级：使用原始 URL
+                runFrameUrls = [
+                    chrome.runtime.getURL(`roles/${role}/run/1.png`),
+                    chrome.runtime.getURL(`roles/${role}/run/2.png`),
+                    chrome.runtime.getURL(`roles/${role}/run/3.png`)
+                ];
+            }
+        } catch (error) {
+            console.warn('预加载动画帧失败，使用原始URL:', error);
+            runFrameUrls = [
+                chrome.runtime.getURL(`roles/${role}/run/1.png`),
+                chrome.runtime.getURL(`roles/${role}/run/2.png`),
+                chrome.runtime.getURL(`roles/${role}/run/3.png`)
+            ];
+        }
+        
+        if (runFrameUrls.length === 0 || !runFrameUrls[0]) {
+            console.warn('无法获取动画帧URL，取消显示动画');
+            return;
+        }
+        
         let currentFrame = 0;
+        let lastSetUrl = null; // 记录上次设置的 URL，避免重复设置
         
         // 设置初始帧
-        this.pet.style.backgroundImage = `url(${runImages[currentFrame]})`;
-        this.pet.style.backgroundSize = 'contain';
-        this.pet.style.backgroundPosition = 'center';
-        this.pet.style.backgroundRepeat = 'no-repeat';
+        const initialUrl = runFrameUrls[currentFrame];
+        if (initialUrl && initialUrl !== lastSetUrl) {
+            this.pet.style.backgroundImage = `url(${initialUrl})`;
+            this.pet.style.backgroundSize = 'contain';
+            this.pet.style.backgroundPosition = 'center';
+            this.pet.style.backgroundRepeat = 'no-repeat';
+            lastSetUrl = initialUrl;
+        }
         
         // 创建动画循环（每200ms切换一帧）
         this.loadingAnimationInterval = setInterval(() => {
@@ -142,11 +185,17 @@
                 return;
             }
             
-            currentFrame = (currentFrame + 1) % runImages.length;
-            this.pet.style.backgroundImage = `url(${runImages[currentFrame]})`;
+            currentFrame = (currentFrame + 1) % runFrameUrls.length;
+            const frameUrl = runFrameUrls[currentFrame];
+            
+            // 避免重复设置相同的 URL（防止触发重复请求）
+            if (frameUrl && frameUrl !== lastSetUrl) {
+                this.pet.style.backgroundImage = `url(${frameUrl})`;
+                lastSetUrl = frameUrl;
+            }
         }, 200);
         
-        console.log('开始显示加载动画');
+        console.log('开始显示加载动画（已预加载）');
     };
 
     // 停止加载动画，恢复原始图片
@@ -276,18 +325,6 @@
         }
     };
 
-    // 设置模型
-    proto.setModel = function(modelId) {
-        if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models && PET_CONFIG.chatModels.models.some(m => m.id === modelId)) {
-            this.currentModel = modelId;
-            this.saveState();
-            this.syncToGlobalState();
-            this.updateChatModelSelector(); // 更新聊天窗口中的模型选择器
-            console.log('聊天模型设置为:', modelId);
-        } else {
-            console.error('无效的模型ID:', modelId);
-        }
-    };
 
     // 重置位置
     proto.resetPosition = function() {
@@ -319,4 +356,5 @@
     };
 
 })();
+
 

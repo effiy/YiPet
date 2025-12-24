@@ -403,11 +403,6 @@
                     sendResponse({ success: true, role: this.role });
                     break;
 
-                case 'setModel':
-                    this.setModel(request.model);
-                    sendResponse({ success: true, model: this.currentModel });
-                    break;
-
                 case 'getStatus':
                     sendResponse({
                         visible: this.isVisible,
@@ -874,35 +869,78 @@
         `;
     }
 
-    // 显示加载动画（使用角色run目录下的连续图片）
-    showLoadingAnimation() {
+    // 显示加载动画（使用角色run目录下的连续图片，优化版：避免重复请求）
+    async showLoadingAnimation() {
         if (!this.pet) return;
-        
-        const role = this.role || '教师';
-        const runImages = [
-            chrome.runtime.getURL(`roles/${role}/run/1.png`),
-            chrome.runtime.getURL(`roles/${role}/run/2.png`),
-            chrome.runtime.getURL(`roles/${role}/run/3.png`)
-        ];
-        
-        // 保存原始背景图片
-        if (!this.originalBackgroundImage) {
-            const role = this.role || '教师';
-            this.originalBackgroundImage = chrome.runtime.getURL(`roles/${role}/icon.png`);
-        }
         
         // 如果当前已经有动画在运行，不重复启动
         if (this.loadingAnimationInterval) {
             return;
         }
         
+        const role = this.role || '教师';
+        
+        // 保存原始背景图片
+        if (!this.originalBackgroundImage) {
+            try {
+                const iconImg = await window.imageResourceManager?.loadRoleIcon(role);
+                if (iconImg && iconImg.src) {
+                    this.originalBackgroundImage = iconImg.src;
+                } else {
+                    this.originalBackgroundImage = chrome.runtime.getURL(`roles/${role}/icon.png`);
+                }
+            } catch (error) {
+                console.warn('加载角色图标失败，使用默认URL:', error);
+                this.originalBackgroundImage = chrome.runtime.getURL(`roles/${role}/icon.png`);
+            }
+        }
+        
+        // 预加载所有动画帧（使用图片资源管理器，避免重复请求）
+        let runFrameUrls = [];
+        try {
+            if (window.imageResourceManager) {
+                // 预加载所有帧
+                await window.imageResourceManager.preloadRunFrames(role, 3);
+                
+                // 获取所有帧的 URL（优先使用 data URL）
+                const framePromises = [1, 2, 3].map(frame => 
+                    window.imageResourceManager.getRunFrameUrl(role, frame)
+                );
+                runFrameUrls = await Promise.all(framePromises);
+            } else {
+                // 降级：使用原始 URL
+                runFrameUrls = [
+                    chrome.runtime.getURL(`roles/${role}/run/1.png`),
+                    chrome.runtime.getURL(`roles/${role}/run/2.png`),
+                    chrome.runtime.getURL(`roles/${role}/run/3.png`)
+                ];
+            }
+        } catch (error) {
+            console.warn('预加载动画帧失败，使用原始URL:', error);
+            runFrameUrls = [
+                chrome.runtime.getURL(`roles/${role}/run/1.png`),
+                chrome.runtime.getURL(`roles/${role}/run/2.png`),
+                chrome.runtime.getURL(`roles/${role}/run/3.png`)
+            ];
+        }
+        
+        if (runFrameUrls.length === 0 || !runFrameUrls[0]) {
+            console.warn('无法获取动画帧URL，取消显示动画');
+            return;
+        }
+        
         let currentFrame = 0;
+        let lastSetUrl = null; // 记录上次设置的 URL，避免重复设置
         
         // 设置初始帧
-        this.pet.style.backgroundImage = `url(${runImages[currentFrame]})`;
-        this.pet.style.backgroundSize = 'contain';
-        this.pet.style.backgroundPosition = 'center';
-        this.pet.style.backgroundRepeat = 'no-repeat';
+        const initialUrl = runFrameUrls[currentFrame];
+        if (initialUrl && initialUrl !== lastSetUrl) {
+            this.pet.style.backgroundImage = `url(${initialUrl})`;
+            this.pet.style.backgroundSize = 'contain';
+            this.pet.style.backgroundPosition = 'center';
+            this.pet.style.backgroundRepeat = 'no-repeat';
+            lastSetUrl = initialUrl;
+        }
         
         // 创建动画循环（每200ms切换一帧）
         this.loadingAnimationInterval = setInterval(() => {
@@ -911,11 +949,17 @@
                 return;
             }
             
-            currentFrame = (currentFrame + 1) % runImages.length;
-            this.pet.style.backgroundImage = `url(${runImages[currentFrame]})`;
+            currentFrame = (currentFrame + 1) % runFrameUrls.length;
+            const frameUrl = runFrameUrls[currentFrame];
+            
+            // 避免重复设置相同的 URL（防止触发重复请求）
+            if (frameUrl && frameUrl !== lastSetUrl) {
+                this.pet.style.backgroundImage = `url(${frameUrl})`;
+                lastSetUrl = frameUrl;
+            }
         }, 200);
         
-        console.log('开始显示加载动画');
+        console.log('开始显示加载动画（已预加载）');
     }
 
     // 停止加载动画，恢复原始图片
@@ -1039,17 +1083,6 @@
         }
     }
 
-    setModel(modelId) {
-        if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models && PET_CONFIG.chatModels.models.some(m => m.id === modelId)) {
-            this.currentModel = modelId;
-            this.saveState();
-            this.syncToGlobalState();
-            this.updateChatModelSelector(); // 更新聊天窗口中的模型选择器
-            console.log('聊天模型设置为:', modelId);
-        } else {
-            console.error('无效的模型ID:', modelId);
-        }
-    }
 
     resetPosition() {
         this.position = getPetDefaultPosition();
@@ -2037,20 +2070,14 @@
     }
 
     // 构建 prompt 请求 payload，自动包含会话 ID
-    buildPromptPayload(fromSystem, fromUser, model = null, options = {}) {
+    buildPromptPayload(fromSystem, fromUser, options = {}) {
         const payload = {
             fromSystem: fromSystem || '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
             fromUser: fromUser
         };
         
-        // 添加模型名称（如果提供）
-        const modelName = model || this.currentModel;
-        if (modelName) {
-            payload.model = modelName;
-        }
-        
-        // 当模型是 qwen3-vl 时，从 fromUser 中提取图片和视频
-        if (modelName === 'qwen3-vl' && fromUser && typeof fromUser === 'string') {
+        // 从 fromUser 中提取图片和视频（不再依赖模型类型）
+        if (fromUser && typeof fromUser === 'string') {
             const { images, videos, cleanedText } = this.extractMediaUrls(fromUser);
             
             // 更新 fromUser 为清理后的文本
@@ -2168,8 +2195,10 @@
 
     // 生成宠物响应（流式版本）
     async generatePetResponseStream(message, onContent, abortController = null) {
-        // 开始加载动画
-        this.showLoadingAnimation();
+        // 开始加载动画（不等待，避免阻塞）
+        this.showLoadingAnimation().catch(err => {
+            console.warn('显示加载动画失败:', err);
+        });
         
         try {
             // 检查开关状态
@@ -2225,11 +2254,10 @@
             // 调用 API，使用配置中的 URL
             const apiUrl = PET_CONFIG.api.streamPromptUrl;
 
-            // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl（如果是 qwen3-vl 模型）
+            // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl
             const payload = this.buildPromptPayload(
                 '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
-                userMessage,
-                this.currentModel
+                userMessage
             );
             
             const fetchOptions = {
@@ -2387,8 +2415,10 @@
 
     // 生成宠物响应
     async generatePetResponse(message) {
-        // 开始加载动画
-        this.showLoadingAnimation();
+        // 开始加载动画（不等待，避免阻塞）
+        this.showLoadingAnimation().catch(err => {
+            console.warn('显示加载动画失败:', err);
+        });
         
         try {
             // 检查开关状态
@@ -2442,8 +2472,7 @@
             // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl（如果是 qwen3-vl 模型）
             const payload = this.buildPromptPayload(
                 '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
-                userMessage,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userMessage
             );
             
             // 显示加载动画
@@ -2599,7 +2628,6 @@
             this.initializeChatScroll();
 
             // 更新模型选择器显示
-            this.updateChatModelSelector();
 
             // 更新聊天窗口颜色
             this.updateChatWindowColor();
@@ -6210,44 +6238,89 @@
             });
         }
         
-        // 日期过滤：只有在没有选中标签时才生效，且只对非收藏的会话生效
-        // 收藏的会话不受日期筛选影响
-        // 支持单日筛选（当dateRangeFilter只有开始日期或开始和结束日期是同一天时）
-        const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
-        if (!hasSelectedTags && this.dateRangeFilter) {
-            let selectedDate = null;
-            
-            // 判断是否为单日筛选
-            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
-                // 如果开始和结束日期是同一天，视为单日筛选
-                const startTime = this.dateRangeFilter.startDate.getTime();
-                const endTime = this.dateRangeFilter.endDate.getTime();
-                const startDay = Math.floor(startTime / (24 * 60 * 60 * 1000));
-                const endDay = Math.floor(endTime / (24 * 60 * 60 * 1000));
-                if (startDay === endDay) {
-                    selectedDate = this.dateRangeFilter.startDate;
+        // 日期过滤：对收藏和非收藏的会话都生效
+        // 使用会话的 updatedAt（更新时间）字段进行筛选
+        // 注意：日期过滤可以与标签过滤同时生效（交集逻辑）
+        // 辅助函数：将日期值转换为时间戳
+        const getTimestamp = (dateValue) => {
+            if (!dateValue) return null;
+            // 如果已经是数字（时间戳），直接返回
+            if (typeof dateValue === 'number' && dateValue > 0) {
+                return dateValue;
+            }
+            // 如果是字符串，尝试转换为Date对象
+            if (typeof dateValue === 'string') {
+                const date = new Date(dateValue);
+                if (!isNaN(date.getTime())) {
+                    return date.getTime();
                 }
-            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
-                // 只有开始日期，视为单日筛选
-                selectedDate = this.dateRangeFilter.startDate;
+            }
+            // 如果已经是Date对象
+            if (dateValue instanceof Date) {
+                return dateValue.getTime();
+            }
+            return null;
+        };
+        
+        // 日期过滤函数：用于筛选会话
+        const filterByDateRange = (sessions) => {
+            if (!this.dateRangeFilter) {
+                return sessions;
             }
             
-            if (selectedDate) {
-                const selectedYear = selectedDate.getFullYear();
-                const selectedMonth = selectedDate.getMonth();
-                const selectedDay = selectedDate.getDate();
+            if (this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 有开始和结束日期：筛选区间内的记录（基于 updatedAt）
+                const startDate = this.dateRangeFilter.startDate;
+                const endDate = this.dateRangeFilter.endDate;
+                // 确保日期的时间部分为 00:00:00
+                const startTime = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
+                const endTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime() + 24 * 60 * 60 * 1000 - 1; // 包含结束日期的整天
                 
-                filteredNonFavorite = filteredNonFavorite.filter(session => {
-                    // 使用lastActiveAt或lastAccessTime或updatedAt或createdAt
-                    const sessionTime = session.lastActiveAt || session.lastAccessTime || session.updatedAt || session.createdAt || 0;
-                    const sessionDate = new Date(sessionTime);
-                    return (
-                        sessionDate.getFullYear() === selectedYear &&
-                        sessionDate.getMonth() === selectedMonth &&
-                        sessionDate.getDate() === selectedDay
-                    );
+                return sessions.filter(session => {
+                    const sessionTime = getTimestamp(session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt);
+                    // 如果没有有效的时间戳，跳过该会话
+                    if (!sessionTime || sessionTime <= 0) {
+                        return false;
+                    }
+                    return sessionTime >= startTime && sessionTime <= endTime;
+                });
+            } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
+                // 只有开始日期：筛选开始日期当天的记录（基于 updatedAt）
+                const startDate = this.dateRangeFilter.startDate;
+                // 确保日期的时间部分为 00:00:00
+                const startTime = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
+                const endTime = startTime + 24 * 60 * 60 * 1000 - 1; // 包含开始日期的整天
+                
+                return sessions.filter(session => {
+                    const sessionTime = getTimestamp(session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt);
+                    // 如果没有有效的时间戳，跳过该会话
+                    if (!sessionTime || sessionTime <= 0) {
+                        return false;
+                    }
+                    return sessionTime >= startTime && sessionTime <= endTime;
+                });
+            } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
+                // 只有结束日期：筛选结束日期之前的记录（基于 updatedAt）
+                const endDate = this.dateRangeFilter.endDate;
+                // 确保日期的时间部分为 00:00:00，不包含结束日期当天
+                const endTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
+                
+                return sessions.filter(session => {
+                    const sessionTime = getTimestamp(session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt);
+                    // 如果没有有效的时间戳，跳过该会话
+                    if (!sessionTime || sessionTime <= 0) {
+                        return false;
+                    }
+                    return sessionTime < endTime;
                 });
             }
+            
+            return sessions;
+        };
+        
+        // 对非收藏的会话应用日期过滤
+        if (this.dateRangeFilter) {
+            filteredNonFavorite = filterByDateRange(filteredNonFavorite);
         }
         
         // 对收藏的会话也进行搜索筛选（如果有搜索关键词）
@@ -6263,6 +6336,11 @@
                 const hay = `${title} ${pageTitle} ${preview} ${url} ${tags}`.toLowerCase();
                 return hay.includes(q);
             });
+        }
+        
+        // 对收藏的会话也应用日期过滤
+        if (this.dateRangeFilter) {
+            filteredFavorite = filterByDateRange(filteredFavorite);
         }
         
         // 合并：收藏的会话在最前面，然后是非收藏的会话
@@ -8277,6 +8355,12 @@
     createCalendarComponent() {
         const mainColor = PET_CONFIG?.theme?.primaryColor || '#6366f1';
         
+        // 初始化日历月份（如果还没有设置）
+        if (!this.calendarMonth) {
+            const today = new Date();
+            this.calendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        }
+        
         // 日历容器
         const calendarContainer = document.createElement('div');
         calendarContainer.className = 'date-range-calendar-container';
@@ -8359,10 +8443,18 @@
         
         clearDateBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             this.dateRangeFilter = null;
-            this.updateDateRangeDisplay(dateRangeDisplay);
-            clearDateBtn.style.display = 'none';
-            this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            if (this.dateRangeDisplay) {
+                this.updateDateRangeDisplay(this.dateRangeDisplay);
+            }
+            if (this.clearDateBtn) {
+                this.clearDateBtn.style.display = 'none';
+            }
+            if (this.calendarDaysGrid && this.calendarMonth) {
+                this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            }
+            // 应用日期过滤（清除后刷新列表）
             this.applyDateFilter();
         });
         
@@ -8428,7 +8520,9 @@
             e.stopPropagation();
             const oldMonth = this.calendarMonth ? new Date(this.calendarMonth) : null;
             this.navigateDay(-1);
-            this.updateDateRangeDisplay(dateRangeDisplay);
+            if (this.dateRangeDisplay) {
+                this.updateDateRangeDisplay(this.dateRangeDisplay);
+            }
             if (this.clearDateBtn) {
                 this.clearDateBtn.style.display = this.dateRangeFilter ? 'flex' : 'none';
             }
@@ -8440,7 +8534,9 @@
                     this.updateMonthTitle(this.calendarMonthTitle, this.calendarMonth);
                 }
             }
-            this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            if (this.calendarDaysGrid && this.calendarMonth) {
+                this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            }
             this.applyDateFilter();
         });
         
@@ -8491,7 +8587,9 @@
             e.stopPropagation();
             const oldMonth = this.calendarMonth ? new Date(this.calendarMonth) : null;
             this.navigateDay(1);
-            this.updateDateRangeDisplay(dateRangeDisplay);
+            if (this.dateRangeDisplay) {
+                this.updateDateRangeDisplay(this.dateRangeDisplay);
+            }
             if (this.clearDateBtn) {
                 this.clearDateBtn.style.display = this.dateRangeFilter ? 'flex' : 'none';
             }
@@ -8503,7 +8601,9 @@
                     this.updateMonthTitle(this.calendarMonthTitle, this.calendarMonth);
                 }
             }
-            this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            if (this.calendarDaysGrid && this.calendarMonth) {
+                this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+            }
             this.applyDateFilter();
         });
         
@@ -8683,16 +8783,24 @@
             const baseMonth = this.calendarMonth || currentMonth;
             const newMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() - 1, 1);
             this.calendarMonth = newMonth;
-            this.updateCalendarDays(calendarDaysGrid, newMonth);
-            this.updateMonthTitle(monthTitle, newMonth);
+            if (this.calendarDaysGrid) {
+                this.updateCalendarDays(this.calendarDaysGrid, newMonth);
+            }
+            if (this.calendarMonthTitle) {
+                this.updateMonthTitle(this.calendarMonthTitle, newMonth);
+            }
         });
         
         nextMonthBtn.addEventListener('click', () => {
             const baseMonth = this.calendarMonth || currentMonth;
             const newMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + 1, 1);
             this.calendarMonth = newMonth;
-            this.updateCalendarDays(calendarDaysGrid, newMonth);
-            this.updateMonthTitle(monthTitle, newMonth);
+            if (this.calendarDaysGrid) {
+                this.updateCalendarDays(this.calendarDaysGrid, newMonth);
+            }
+            if (this.calendarMonthTitle) {
+                this.updateMonthTitle(this.calendarMonthTitle, newMonth);
+            }
         });
         
         monthNav.appendChild(prevMonthBtn);
@@ -8918,45 +9026,58 @@
      * 处理日期点击
      */
     handleDateClick(date) {
+        // 确保日期的时间部分为 00:00:00，以便正确比较和显示
+        const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        
         if (!this.dateRangeFilter) {
             // 开始选择日期区间，默认作为结束日期（支持筛选结束日期之前）
             this.dateRangeFilter = {
                 startDate: null,
-                endDate: date
+                endDate: normalizedDate
             };
         } else if (!this.dateRangeFilter.startDate && this.dateRangeFilter.endDate) {
             // 如果只有结束日期，现在选择开始日期
-            if (date.getTime() > this.dateRangeFilter.endDate.getTime()) {
+            const endDate = new Date(this.dateRangeFilter.endDate.getFullYear(), this.dateRangeFilter.endDate.getMonth(), this.dateRangeFilter.endDate.getDate());
+            if (normalizedDate.getTime() > endDate.getTime()) {
                 // 如果选择的日期晚于结束日期，交换它们
                 this.dateRangeFilter = {
-                    startDate: this.dateRangeFilter.endDate,
-                    endDate: date
+                    startDate: endDate,
+                    endDate: normalizedDate
                 };
             } else {
-                this.dateRangeFilter.startDate = date;
+                this.dateRangeFilter.startDate = normalizedDate;
             }
         } else if (this.dateRangeFilter.startDate && !this.dateRangeFilter.endDate) {
             // 如果只有开始日期，现在选择结束日期
-            if (date.getTime() < this.dateRangeFilter.startDate.getTime()) {
+            const startDate = new Date(this.dateRangeFilter.startDate.getFullYear(), this.dateRangeFilter.startDate.getMonth(), this.dateRangeFilter.startDate.getDate());
+            if (normalizedDate.getTime() < startDate.getTime()) {
                 // 如果选择的日期早于开始日期，交换它们
                 this.dateRangeFilter = {
-                    startDate: date,
-                    endDate: this.dateRangeFilter.startDate
+                    startDate: normalizedDate,
+                    endDate: startDate
                 };
             } else {
-                this.dateRangeFilter.endDate = date;
+                this.dateRangeFilter.endDate = normalizedDate;
             }
         } else {
             // 重新开始选择，默认作为结束日期
             this.dateRangeFilter = {
                 startDate: null,
-                endDate: date
+                endDate: normalizedDate
             };
         }
         
         // 更新日历显示
-        this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
-        this.updateDateRangeDisplay(this.dateRangeDisplay);
+        if (this.calendarDaysGrid && this.calendarMonth) {
+            this.updateCalendarDays(this.calendarDaysGrid, this.calendarMonth);
+        }
+        if (this.dateRangeDisplay) {
+            this.updateDateRangeDisplay(this.dateRangeDisplay);
+        }
+        // 确保清除按钮显示
+        if (this.clearDateBtn) {
+            this.clearDateBtn.style.display = 'flex';
+        }
         
         // 应用日期过滤
         this.applyDateFilter();
@@ -9043,20 +9164,21 @@
      * 判断日期是否在区间内
      */
     isDateInRange(date, startDate, endDate) {
-        const dateTime = date.getTime();
+        // 确保日期的时间部分为 00:00:00，以便正确比较
+        const dateTime = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
         
         if (startDate && endDate) {
-            // 有开始和结束日期：判断是否在区间内
-            const startTime = startDate.getTime();
-            const endTime = endDate.getTime();
+            // 有开始和结束日期：判断是否在区间内（包含开始和结束日期）
+            const startTime = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
+            const endTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
             return dateTime >= startTime && dateTime <= endTime;
         } else if (startDate && !endDate) {
             // 只有开始日期：判断是否等于开始日期
-            const startTime = startDate.getTime();
+            const startTime = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
             return dateTime === startTime;
         } else if (!startDate && endDate) {
-            // 只有结束日期：判断是否在结束日期之前
-            const endTime = endDate.getTime();
+            // 只有结束日期：判断是否在结束日期之前（不包含结束日期）
+            const endTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
             return dateTime < endTime;
         }
         
@@ -12782,8 +12904,7 @@
                 // 构建 payload
                 const payload = this.buildPromptPayload(
                     systemPrompt,
-                    userPrompt,
-                    this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                    userPrompt
                 );
 
                 // 调用 prompt 接口
@@ -13511,8 +13632,7 @@ ${originalText}`;
                 // 构建请求payload
                 const payload = this.buildPromptPayload(
                     systemPrompt,
-                    userPrompt,
-                    this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                    userPrompt
                 );
 
                 // 调用API
@@ -25409,8 +25529,7 @@ ${originalText}`;
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
 
             // 调用 prompt 接口
@@ -25637,8 +25756,7 @@ ${originalText}`;
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
 
             // 调用 prompt 接口
@@ -27005,8 +27123,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
             
             // 显示加载动画
@@ -27323,8 +27440,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
             
             // 显示加载动画
@@ -27635,8 +27751,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
             
             // 显示加载动画
@@ -27932,8 +28047,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
             
             // 显示加载动画
@@ -35130,8 +35244,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
 
             // 调用 prompt 接口
@@ -35324,8 +35437,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
 
             // 调用 prompt 接口
@@ -35528,8 +35640,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
 
             // 调用 prompt 接口
@@ -35696,8 +35807,7 @@ ${originalText}
             // 构建请求 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
             
             // 显示加载动画
@@ -38333,8 +38443,7 @@ ${pageContent || '无内容'}
             // 使用统一的 payload 构建函数，自动包含会话 ID
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel
+                userPrompt
             );
             
             // 调用大模型 API（使用流式接口）
@@ -38713,7 +38822,6 @@ ${pageContent || '无内容'}
                         const payload = this.buildPromptPayload(
                             systemPrompt,
                             fromUser,
-                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
                             { messageDiv: userMessageDiv }
                         );
                         
@@ -39449,7 +39557,6 @@ ${pageContent || '无内容'}
                         const payload = this.buildPromptPayload(
                             roleInfo.systemPrompt,
                             fromUser,
-                            this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
                             { messageDiv: messageDiv }
                         );
                         
@@ -39795,7 +39902,6 @@ ${pageContent || '无内容'}
                             const payload = this.buildPromptPayload(
                                 systemPrompt,
                                 fromUser,
-                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
                                 { messageDiv: messageDiv }
                             );
                             
@@ -40193,7 +40299,6 @@ ${pageContent || '无内容'}
                             const payload = this.buildPromptPayload(
                                 roleInfo.systemPrompt,
                                 fromUser,
-                                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
                                 { messageDiv: messageDiv }
                             );
                             
@@ -40557,7 +40662,6 @@ ${pageContent || '无内容'}
                     const payload = this.buildPromptPayload(
                         systemPrompt,
                         fromUser,
-                        this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
                         { messageDiv: messageDiv }
                     );
                     
@@ -41226,7 +41330,6 @@ ${pageContent || '无内容'}
                 const payload = this.buildPromptPayload(
                     roleInfo.systemPrompt,
                     fromUser,
-                    this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'),
                     { messageDiv: userMessageDiv }
                 );
                 
@@ -42344,8 +42447,7 @@ ${pageContent || '无内容'}
             
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
             
             const response = await fetch(PET_CONFIG.api.promptUrl, {
@@ -42498,8 +42600,7 @@ ${messageContent}`;
             // 构建 payload
             const payload = this.buildPromptPayload(
                 systemPrompt,
-                userPrompt,
-                this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+                userPrompt
             );
 
             // 调用 prompt 接口
@@ -43866,14 +43967,6 @@ ${messageContent}`;
     }
 
     // 更新聊天窗口中的模型选择器显示
-    updateChatModelSelector() {
-        if (!this.chatWindow) return;
-
-        const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
-        if (modelSelector) {
-            modelSelector.value = this.currentModel;
-        }
-    }
 
     // 创建聊天窗口
     async createChatWindow() {
@@ -46084,6 +46177,208 @@ ${messageContent}`;
 
         inputLeftButtonGroup.appendChild(mentionButton);
         inputLeftButtonGroup.appendChild(imageUploadButton);
+        
+        // 创建请求状态按钮（使用宠物颜色主题）
+        const requestStatusButton = document.createElement('button');
+        requestStatusButton.className = 'chat-request-status-button';
+        requestStatusButton.innerHTML = '⏹️';
+        requestStatusButton.title = '请求状态：空闲';
+        requestStatusButton.style.cssText = `
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 6px !important;
+            background: white !important;
+            color: ${mainColor} !important;
+            border: 1px solid ${mainColor} !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            opacity: 0.5 !important;
+            pointer-events: none !important;
+        `;
+
+        // 更新请求状态按钮的函数（使用上面定义的 currentAbortController）
+        const updateRequestStatus = (status) => {
+            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
+            if (status === 'idle') {
+                // 空闲状态
+                requestStatusButton.innerHTML = '⏹️';
+                requestStatusButton.title = '请求状态：空闲';
+                requestStatusButton.style.opacity = '0.5';
+                requestStatusButton.style.pointerEvents = 'none';
+                requestStatusButton.disabled = true;
+                requestStatusButton.style.background = 'white';
+                requestStatusButton.style.color = currentMainColor;
+            } else if (status === 'loading') {
+                // 请求进行中
+                requestStatusButton.innerHTML = '⏸️';
+                requestStatusButton.title = '点击终止请求';
+                requestStatusButton.style.opacity = '1';
+                requestStatusButton.style.pointerEvents = 'auto';
+                requestStatusButton.disabled = false;
+                requestStatusButton.style.background = '#fee2e2';
+                requestStatusButton.style.color = '#dc2626';
+                requestStatusButton.style.borderColor = '#dc2626';
+            } else if (status === 'stopping') {
+                // 正在终止
+                requestStatusButton.innerHTML = '⏹️';
+                requestStatusButton.title = '正在终止请求...';
+                requestStatusButton.style.opacity = '0.7';
+                requestStatusButton.style.pointerEvents = 'none';
+                requestStatusButton.disabled = true;
+            }
+        };
+
+        // 终止请求的处理函数
+        const abortRequest = () => {
+            // 获取当前的 AbortController（可能在其他作用域中）
+            const controller = currentAbortController || (this.chatWindow && this.chatWindow._currentAbortController ? this.chatWindow._currentAbortController() : null);
+            
+            if (controller) {
+                updateRequestStatus('stopping');
+                controller.abort();
+                
+                // 清除 AbortController 引用
+                currentAbortController = null;
+                if (this.chatWindow && this.chatWindow._setAbortController) {
+                    this.chatWindow._setAbortController(null);
+                }
+                
+                // 清理打字指示器
+                const typingIndicator = messagesContainer.querySelector('[data-typing-indicator="true"]');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+                
+                // 显示取消提示
+                this.showNotification('请求已取消', 'info');
+                
+                // 延迟恢复空闲状态
+                setTimeout(() => {
+                    updateRequestStatus('idle');
+                }, 500);
+            }
+        };
+
+        requestStatusButton.addEventListener('mouseenter', () => {
+            if (!requestStatusButton.disabled && requestStatusButton.title.includes('终止')) {
+                requestStatusButton.style.background = '#dc2626';
+                requestStatusButton.style.color = 'white';
+                requestStatusButton.style.borderColor = '#dc2626';
+            }
+        });
+        requestStatusButton.addEventListener('mouseleave', () => {
+            if (!requestStatusButton.disabled && requestStatusButton.title.includes('终止')) {
+                requestStatusButton.style.background = '#fee2e2';
+                requestStatusButton.style.color = '#dc2626';
+                requestStatusButton.style.borderColor = '#dc2626';
+            }
+        });
+
+        // 点击按钮终止请求
+        requestStatusButton.addEventListener('click', abortRequest);
+
+        // 添加企微机器人设置按钮
+        let robotSettingsButton = this.robotSettingsButton;
+        if (!robotSettingsButton) {
+            robotSettingsButton = document.createElement('span');
+            robotSettingsButton.innerHTML = '🤖';
+            robotSettingsButton.title = '企微机器人设置';
+            robotSettingsButton.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 18px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 24px !important;
+                height: 24px !important;
+                line-height: 24px !important;
+            `;
+            robotSettingsButton.addEventListener('mouseenter', function() {
+                this.style.color = '#10b981';
+                this.style.transform = 'scale(1.1)';
+            });
+            robotSettingsButton.addEventListener('mouseleave', function() {
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            robotSettingsButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openWeWorkRobotSettingsModal();
+            });
+            this.robotSettingsButton = robotSettingsButton;
+        }
+        
+        // 添加企微机器人设置按钮
+        // 如果企微机器人设置按钮已经在其他容器中，先移除它
+        if (robotSettingsButton.parentNode && robotSettingsButton.parentNode !== rightStatusGroup) {
+            robotSettingsButton.parentNode.removeChild(robotSettingsButton);
+        }
+        
+        // 添加角色设置按钮
+        let settingsButton = this.settingsButton;
+        if (!settingsButton) {
+            settingsButton = document.createElement('span');
+            settingsButton.innerHTML = '👤';
+            settingsButton.title = '角色设置';
+            settingsButton.style.cssText = `
+                padding: 4px !important;
+                cursor: pointer !important;
+                font-size: 18px !important;
+                color: #666 !important;
+                font-weight: 300 !important;
+                transition: all 0.2s ease !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                user-select: none !important;
+                width: 24px !important;
+                height: 24px !important;
+                line-height: 24px !important;
+            `;
+            settingsButton.addEventListener('mouseenter', function() {
+                this.style.color = '#2196F3';
+                this.style.transform = 'scale(1.1)';
+            });
+            settingsButton.addEventListener('mouseleave', function() {
+                this.style.color = '#666';
+                this.style.transform = 'scale(1)';
+            });
+            settingsButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openRoleSettingsModal();
+            });
+            this.settingsButton = settingsButton;
+        }
+        
+        // 如果设置按钮已经在其他容器中，先移除它
+        if (settingsButton.parentNode && settingsButton.parentNode !== rightStatusGroup) {
+            settingsButton.parentNode.removeChild(settingsButton);
+        }
+        
+        // 按顺序将三个按钮添加到 rightStatusGroup（在页面上下文开关之前）
+        // 1. 请求状态按钮
+        if (requestStatusButton.parentNode !== rightStatusGroup) {
+            rightStatusGroup.appendChild(requestStatusButton);
+        }
+        // 2. 企微机器人设置按钮
+        if (robotSettingsButton.parentNode !== rightStatusGroup) {
+            rightStatusGroup.appendChild(robotSettingsButton);
+        }
+        // 3. 角色设置按钮
+        if (settingsButton.parentNode !== rightStatusGroup) {
+            rightStatusGroup.appendChild(settingsButton);
+        }
+        
+        // 4. 最后添加页面上下文开关
         rightStatusGroup.appendChild(contextSwitchContainer);
         
         // 添加：页面上下文预览/编辑按钮
@@ -46462,274 +46757,24 @@ ${messageContent}`;
             width: 100% !important;
         `;
 
-        // 左侧：模型选择器
+        // 左侧：预留空间（已移除模型选择器）
         const leftBottomGroup = document.createElement('div');
         leftBottomGroup.style.cssText = `
             display: flex !important;
             gap: 6px !important;
             align-items: center !important;
         `;
-
-        // 创建模型选择器（使用宠物颜色主题）
-        const modelSelector = document.createElement('select');
-        modelSelector.className = 'chat-model-selector';
-        modelSelector.style.cssText = `
-            padding: 6px 10px !important;
-            background: white !important;
-            color: #1f2937 !important;
-            border: 1px solid ${mainColor} !important;
-            border-radius: 6px !important;
-            font-size: 12px !important;
-            font-weight: 500 !important;
-            cursor: pointer !important;
-            outline: none !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            min-width: 100px !important;
-        `;
-
-        // 添加模型选项
-        if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models) {
-            PET_CONFIG.chatModels.models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model.id;
-                option.textContent = `${model.icon} ${model.name}`;
-                option.selected = model.id === this.currentModel;
-                modelSelector.appendChild(option);
-            });
-        }
-
-        // 模型切换事件
-        modelSelector.addEventListener('change', (e) => {
-            const selectedModel = e.target.value;
-            this.setModel(selectedModel);
-            // 显示切换提示
-            const modelConfig = (PET_CONFIG.chatModels && PET_CONFIG.chatModels.models) ? PET_CONFIG.chatModels.models.find(m => m.id === selectedModel) : null;
-            if (modelConfig) {
-                this.showNotification(`已切换到 ${modelConfig.name}`, 'info');
-            }
-        });
-
-        // 添加悬停效果
-        modelSelector.addEventListener('mouseenter', () => {
-            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            modelSelector.style.borderColor = currentMainColor;
-            modelSelector.style.background = '#f0f9ff';
-        });
-        modelSelector.addEventListener('mouseleave', () => {
-            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            modelSelector.style.borderColor = currentMainColor;
-            modelSelector.style.background = 'white';
-        });
-
-        leftBottomGroup.appendChild(modelSelector);
+        // 不再添加模型选择器，保留容器以保持布局
         bottomToolbar.appendChild(leftBottomGroup);
 
-        // 右侧：请求状态按钮
+        // 右侧：预留空间（按钮已移动到顶部工具栏）
         const rightBottomGroup = document.createElement('div');
         rightBottomGroup.style.cssText = `
             display: flex !important;
             gap: 6px !important;
             align-items: center !important;
         `;
-
-        // 创建请求状态按钮（使用宠物颜色主题）
-        const requestStatusButton = document.createElement('button');
-        requestStatusButton.className = 'chat-request-status-button';
-        requestStatusButton.innerHTML = '⏹️';
-        requestStatusButton.title = '请求状态：空闲';
-        requestStatusButton.style.cssText = `
-            width: 32px !important;
-            height: 32px !important;
-            border-radius: 6px !important;
-            background: white !important;
-            color: ${mainColor} !important;
-            border: 1px solid ${mainColor} !important;
-            cursor: pointer !important;
-            font-size: 16px !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            opacity: 0.5 !important;
-            pointer-events: none !important;
-        `;
-
-        // 更新请求状态按钮的函数（使用上面定义的 currentAbortController）
-        const updateRequestStatus = (status) => {
-            const currentMainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-            if (status === 'idle') {
-                // 空闲状态
-                requestStatusButton.innerHTML = '⏹️';
-                requestStatusButton.title = '请求状态：空闲';
-                requestStatusButton.style.opacity = '0.5';
-                requestStatusButton.style.pointerEvents = 'none';
-                requestStatusButton.disabled = true;
-                requestStatusButton.style.background = 'white';
-                requestStatusButton.style.color = currentMainColor;
-            } else if (status === 'loading') {
-                // 请求进行中
-                requestStatusButton.innerHTML = '⏸️';
-                requestStatusButton.title = '点击终止请求';
-                requestStatusButton.style.opacity = '1';
-                requestStatusButton.style.pointerEvents = 'auto';
-                requestStatusButton.disabled = false;
-                requestStatusButton.style.background = '#fee2e2';
-                requestStatusButton.style.color = '#dc2626';
-                requestStatusButton.style.borderColor = '#dc2626';
-            } else if (status === 'stopping') {
-                // 正在终止
-                requestStatusButton.innerHTML = '⏹️';
-                requestStatusButton.title = '正在终止请求...';
-                requestStatusButton.style.opacity = '0.7';
-                requestStatusButton.style.pointerEvents = 'none';
-                requestStatusButton.disabled = true;
-            }
-        };
-
-        // 终止请求的处理函数
-        const abortRequest = () => {
-            // 获取当前的 AbortController（可能在其他作用域中）
-            const controller = currentAbortController || (this.chatWindow && this.chatWindow._currentAbortController ? this.chatWindow._currentAbortController() : null);
-            
-            if (controller) {
-                updateRequestStatus('stopping');
-                controller.abort();
-                
-                // 清除 AbortController 引用
-                currentAbortController = null;
-                if (this.chatWindow && this.chatWindow._setAbortController) {
-                    this.chatWindow._setAbortController(null);
-                }
-                
-                // 清理打字指示器
-                const typingIndicator = messagesContainer.querySelector('[data-typing-indicator="true"]');
-                if (typingIndicator) {
-                    typingIndicator.remove();
-                }
-                
-                // 显示取消提示
-                this.showNotification('请求已取消', 'info');
-                
-                // 延迟恢复空闲状态
-                setTimeout(() => {
-                    updateRequestStatus('idle');
-                }, 500);
-            }
-        };
-
-        requestStatusButton.addEventListener('mouseenter', () => {
-            if (!requestStatusButton.disabled && requestStatusButton.title.includes('终止')) {
-                requestStatusButton.style.background = '#dc2626';
-                requestStatusButton.style.color = 'white';
-                requestStatusButton.style.borderColor = '#dc2626';
-            }
-        });
-        requestStatusButton.addEventListener('mouseleave', () => {
-            if (!requestStatusButton.disabled && requestStatusButton.title.includes('终止')) {
-                requestStatusButton.style.background = '#fee2e2';
-                requestStatusButton.style.color = '#dc2626';
-                requestStatusButton.style.borderColor = '#dc2626';
-            }
-        });
-
-        // 点击按钮终止请求
-        requestStatusButton.addEventListener('click', abortRequest);
-
-        // 先添加请求状态按钮
-        rightBottomGroup.appendChild(requestStatusButton);
-        
-        // 添加企微机器人设置按钮（在 requestStatusButton 之后）
-        let robotSettingsButton = this.robotSettingsButton;
-        if (!robotSettingsButton) {
-            robotSettingsButton = document.createElement('span');
-            robotSettingsButton.innerHTML = '🤖';
-            robotSettingsButton.title = '企微机器人设置';
-            robotSettingsButton.style.cssText = `
-                padding: 4px !important;
-                cursor: pointer !important;
-                font-size: 18px !important;
-                color: #666 !important;
-                font-weight: 300 !important;
-                transition: all 0.2s ease !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                user-select: none !important;
-                width: 24px !important;
-                height: 24px !important;
-                line-height: 24px !important;
-            `;
-            robotSettingsButton.addEventListener('mouseenter', function() {
-                this.style.color = '#10b981';
-                this.style.transform = 'scale(1.1)';
-            });
-            robotSettingsButton.addEventListener('mouseleave', function() {
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            });
-            robotSettingsButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openWeWorkRobotSettingsModal();
-            });
-            this.robotSettingsButton = robotSettingsButton;
-        }
-        
-        // 如果企微机器人设置按钮已经在其他容器中，先移除它
-        if (robotSettingsButton.parentNode && robotSettingsButton.parentNode !== rightBottomGroup) {
-            robotSettingsButton.parentNode.removeChild(robotSettingsButton);
-        }
-        
-        // 如果企微机器人设置按钮不在 rightBottomGroup 中，添加它（在 requestStatusButton 之后）
-        if (robotSettingsButton.parentNode !== rightBottomGroup) {
-            rightBottomGroup.appendChild(robotSettingsButton);
-        }
-        
-        // 然后添加角色设置按钮到 rightBottomGroup（在企微机器人设置按钮之后）
-        let settingsButton = this.settingsButton;
-        if (!settingsButton) {
-            settingsButton = document.createElement('span');
-            settingsButton.innerHTML = '👤';
-            settingsButton.title = '角色设置';
-            settingsButton.style.cssText = `
-                padding: 4px !important;
-                cursor: pointer !important;
-                font-size: 18px !important;
-                color: #666 !important;
-                font-weight: 300 !important;
-                transition: all 0.2s ease !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                user-select: none !important;
-                width: 24px !important;
-                height: 24px !important;
-                line-height: 24px !important;
-            `;
-            settingsButton.addEventListener('mouseenter', function() {
-                this.style.color = '#2196F3';
-                this.style.transform = 'scale(1.1)';
-            });
-            settingsButton.addEventListener('mouseleave', function() {
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            });
-            settingsButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openRoleSettingsModal();
-            });
-            this.settingsButton = settingsButton;
-        }
-        
-        // 如果设置按钮已经在其他容器中，先移除它
-        if (settingsButton.parentNode && settingsButton.parentNode !== rightBottomGroup) {
-            settingsButton.parentNode.removeChild(settingsButton);
-        }
-        
-        // 如果设置按钮不在 rightBottomGroup 中，添加它（在企微机器人设置按钮之后）
-        if (settingsButton.parentNode !== rightBottomGroup) {
-            rightBottomGroup.appendChild(settingsButton);
-        }
-        
+        // 不再添加按钮，保留容器以保持布局
         bottomToolbar.appendChild(rightBottomGroup);
         inputContainer.appendChild(bottomToolbar);
 
@@ -46951,7 +46996,6 @@ ${messageContent}`;
         this.initializeChatScroll();
 
         // 初始化模型选择器显示
-        this.updateChatModelSelector();
 
         // 初始化消息容器的底部padding
         this.updateMessagesPaddingBottom = updatePaddingBottom;
@@ -47137,11 +47181,6 @@ ${messageContent}`;
             messageInput.style.setProperty('border-color', mainColor, 'important');
         }
 
-        // 更新模型选择器边框颜色
-        const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
-        if (modelSelector) {
-            modelSelector.style.setProperty('border-color', mainColor, 'important');
-        }
 
         // 更新所有使用颜色的按钮
         const allButtons = this.chatWindow.querySelectorAll('button');
@@ -49801,17 +49840,60 @@ ${messageContent}`;
                 try {
                     // 找到包含删除按钮容器的消息元素
                     // 通过查找包含 data-message-type 属性的父元素来定位消息元素
+                    // 同时确保找到的是包含头像的完整消息容器（messageDiv）
                     let currentMessage = container.parentElement;
+                    let foundMessageDiv = null;
+                    
                     while (currentMessage && 
-                           !currentMessage.querySelector('[data-message-type="user-bubble"]') && 
-                           !currentMessage.querySelector('[data-message-type="pet-bubble"]')) {
+                           currentMessage !== document.body && 
+                           currentMessage !== document.documentElement) {
+                        // 检查是否包含消息气泡
+                        const hasBubble = currentMessage.querySelector('[data-message-type="user-bubble"]') || 
+                                        currentMessage.querySelector('[data-message-type="pet-bubble"]');
+                        
+                        if (hasBubble) {
+                            // 检查是否包含头像（通过检查子元素中是否有包含 👤 或 🐾 的元素）
+                            // messageDiv 的结构：messageDiv > avatar + content
+                            // avatar 是 messageDiv 的直接子元素，包含 👤 或 🐾
+                            const children = Array.from(currentMessage.children);
+                            const hasAvatar = children.some(child => {
+                                const text = child.textContent || '';
+                                return text.includes('👤') || text.includes('🐾');
+                            });
+                            
+                            // 如果同时包含气泡和头像，说明找到了完整的 messageDiv
+                            if (hasAvatar) {
+                                foundMessageDiv = currentMessage;
+                                break;
+                            }
+                        }
+                        
                         currentMessage = currentMessage.parentElement;
-                        // 防止无限循环，如果到达了 body 或 html 元素就停止
-                        if (!currentMessage || currentMessage === document.body || currentMessage === document.documentElement) {
-                            currentMessage = null;
-                            break;
+                    }
+
+                    // 如果没找到包含头像的 messageDiv，回退到只包含气泡的元素
+                    if (!foundMessageDiv && currentMessage) {
+                        // 继续向上查找，找到包含头像的父元素
+                        let parentElement = currentMessage.parentElement;
+                        while (parentElement && 
+                               parentElement !== document.body && 
+                               parentElement !== document.documentElement) {
+                            const children = Array.from(parentElement.children);
+                            const hasAvatar = children.some(child => {
+                                const text = child.textContent || '';
+                                return text.includes('👤') || text.includes('🐾');
+                            });
+                            const hasBubble = parentElement.querySelector('[data-message-type="user-bubble"]') || 
+                                            parentElement.querySelector('[data-message-type="pet-bubble"]');
+                            if (hasAvatar && hasBubble) {
+                                foundMessageDiv = parentElement;
+                                break;
+                            }
+                            parentElement = parentElement.parentElement;
                         }
                     }
+
+                    currentMessage = foundMessageDiv || currentMessage;
 
                     if (!currentMessage) {
                         console.warn('无法找到消息元素');
@@ -50581,17 +50663,60 @@ ${messageContent}`;
             try {
                 // 找到包含删除按钮容器的消息元素
                 // 通过查找包含 data-message-type 属性的父元素来定位消息元素
+                // 同时确保找到的是包含头像的完整消息容器（messageDiv）
                 let currentMessage = container.parentElement;
+                let foundMessageDiv = null;
+                
                 while (currentMessage && 
-                       !currentMessage.querySelector('[data-message-type="user-bubble"]') && 
-                       !currentMessage.querySelector('[data-message-type="pet-bubble"]')) {
+                       currentMessage !== document.body && 
+                       currentMessage !== document.documentElement) {
+                    // 检查是否包含消息气泡
+                    const hasBubble = currentMessage.querySelector('[data-message-type="user-bubble"]') || 
+                                    currentMessage.querySelector('[data-message-type="pet-bubble"]');
+                    
+                    if (hasBubble) {
+                        // 检查是否包含头像（通过检查子元素中是否有包含 👤 或 🐾 的元素）
+                        // messageDiv 的结构：messageDiv > avatar + content
+                        // avatar 是 messageDiv 的直接子元素，包含 👤 或 🐾
+                        const children = Array.from(currentMessage.children);
+                        const hasAvatar = children.some(child => {
+                            const text = child.textContent || '';
+                            return text.includes('👤') || text.includes('🐾');
+                        });
+                        
+                        // 如果同时包含气泡和头像，说明找到了完整的 messageDiv
+                        if (hasAvatar) {
+                            foundMessageDiv = currentMessage;
+                            break;
+                        }
+                    }
+                    
                     currentMessage = currentMessage.parentElement;
-                    // 防止无限循环，如果到达了 body 或 html 元素就停止
-                    if (!currentMessage || currentMessage === document.body || currentMessage === document.documentElement) {
-                        currentMessage = null;
-                        break;
+                }
+
+                // 如果没找到包含头像的 messageDiv，回退到只包含气泡的元素
+                if (!foundMessageDiv && currentMessage) {
+                    // 继续向上查找，找到包含头像的父元素
+                    let parentElement = currentMessage.parentElement;
+                    while (parentElement && 
+                           parentElement !== document.body && 
+                           parentElement !== document.documentElement) {
+                        const children = Array.from(parentElement.children);
+                        const hasAvatar = children.some(child => {
+                            const text = child.textContent || '';
+                            return text.includes('👤') || text.includes('🐾');
+                        });
+                        const hasBubble = parentElement.querySelector('[data-message-type="user-bubble"]') || 
+                                        parentElement.querySelector('[data-message-type="pet-bubble"]');
+                        if (hasAvatar && hasBubble) {
+                            foundMessageDiv = parentElement;
+                            break;
+                        }
+                        parentElement = parentElement.parentElement;
                     }
                 }
+
+                currentMessage = foundMessageDiv || currentMessage;
 
                 if (!currentMessage) {
                     console.warn('无法找到消息元素');
@@ -52855,6 +52980,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

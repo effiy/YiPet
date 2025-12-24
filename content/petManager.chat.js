@@ -82,7 +82,6 @@
             this.initializeChatScroll();
 
             // 更新模型选择器显示
-            this.updateChatModelSelector();
 
             // 更新聊天窗口颜色
             this.updateChatWindowColor();
@@ -208,15 +207,6 @@
         }
     };
 
-    // 更新聊天窗口中的模型选择器显示
-    proto.updateChatModelSelector = function() {
-        if (!this.chatWindow) return;
-
-        const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
-        if (modelSelector) {
-            modelSelector.value = this.currentModel;
-        }
-    };
 
     // 更新聊天窗口标题
     proto.updateChatHeaderTitle = function() {
@@ -259,11 +249,6 @@
             messageInput.style.setProperty('border-color', mainColor, 'important');
         }
 
-        // 更新模型选择器边框颜色
-        const modelSelector = this.chatWindow.querySelector('.chat-model-selector');
-        if (modelSelector) {
-            modelSelector.style.setProperty('border-color', mainColor, 'important');
-        }
 
         // 更新所有使用颜色的按钮
         const allButtons = this.chatWindow.querySelectorAll('button');
@@ -415,4 +400,5 @@
     };
 
 })();
+
 

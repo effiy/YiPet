@@ -176,7 +176,7 @@ class LoadingAnimation {
         this.updateFrame();
         
         // 设置循环（使用更稳定的方式）
-        this.animationInterval = setInterval(() => {
+        this.animationInterval = setInterval(async () => {
             // 检查扩展上下文
             if (!this.extensionContextValid) {
                 this.stopAnimation();
@@ -184,7 +184,7 @@ class LoadingAnimation {
             }
             
             this.currentFrame = (this.currentFrame % this.totalFrames) + 1;
-            this.updateFrame();
+            await this.updateFrame();
         }, this.frameDelay);
     }
     
@@ -199,7 +199,7 @@ class LoadingAnimation {
     }
     
     /**
-     * 预加载所有动画帧图片
+     * 预加载所有动画帧图片（优化版：使用统一的图片资源管理器）
      */
     async preloadImages() {
         if (this.isPreloading) {
@@ -209,7 +209,26 @@ class LoadingAnimation {
         this.isPreloading = true;
         this.preloadPromises = [];
         
-        // 预加载所有帧
+        // 优先使用统一的图片资源管理器
+        if (window.imageResourceManager) {
+            try {
+                const role = '教师';
+                const images = await window.imageResourceManager.preloadRunFrames(role, this.totalFrames);
+                // 同步到本地缓存
+                images.forEach((img, index) => {
+                    if (img) {
+                        this.imageCache.set(index + 1, img);
+                    }
+                });
+                console.log('[LoadingAnimation] 图片预加载完成（使用图片资源管理器）');
+                this.isPreloading = false;
+                return;
+            } catch (error) {
+                console.warn('[LoadingAnimation] 使用图片资源管理器预加载失败，降级到原始方法:', error);
+            }
+        }
+        
+        // 降级：使用原始预加载方法
         for (let frame = 1; frame <= this.totalFrames; frame++) {
             const promise = this.loadImage(frame);
             this.preloadPromises.push(promise);
@@ -226,9 +245,25 @@ class LoadingAnimation {
     }
     
     /**
-     * 加载单张图片（带重试机制）
+     * 加载单张图片（带重试机制，优化版：使用统一的图片资源管理器）
      */
-    loadImage(frame, retries = 3) {
+    async loadImage(frame, retries = 3) {
+        const imagePath = `roles/教师/run/${frame}.png`;
+        
+        // 优先使用统一的图片资源管理器
+        if (window.imageResourceManager) {
+            try {
+                const img = await window.imageResourceManager.loadImage(imagePath, retries);
+                // 同步到本地缓存
+                this.imageCache.set(frame, img);
+                return img;
+            } catch (error) {
+                console.warn(`[LoadingAnimation] 使用图片资源管理器加载失败: ${imagePath}`, error);
+                // 降级到原始方法
+            }
+        }
+        
+        // 降级：使用原始加载方法
         return new Promise((resolve, reject) => {
             // 检查缓存
             if (this.imageCache.has(frame)) {
@@ -239,7 +274,6 @@ class LoadingAnimation {
                 }
             }
             
-            const imagePath = `roles/教师/run/${frame}.png`;
             const imageUrl = this.getExtensionUrl(imagePath);
             
             if (!imageUrl) {
@@ -306,9 +340,9 @@ class LoadingAnimation {
     }
     
     /**
-     * 更新当前帧（优化版：使用预加载的图片）
+     * 更新当前帧（优化版：使用预加载的图片，避免重复请求）
      */
-    updateFrame() {
+    async updateFrame() {
         if (!this.animationImg) {
             return;
         }
@@ -318,7 +352,21 @@ class LoadingAnimation {
             return;
         }
         
-        // 尝试从缓存获取
+        // 优先使用统一的图片资源管理器获取 data URL
+        if (window.imageResourceManager) {
+            try {
+                const role = '教师';
+                const frameUrl = await window.imageResourceManager.getRunFrameUrl(role, this.currentFrame);
+                if (frameUrl && this.animationImg.src !== frameUrl) {
+                    this.animationImg.src = frameUrl;
+                }
+                return;
+            } catch (error) {
+                console.debug(`[LoadingAnimation] 使用图片资源管理器获取帧失败，降级:`, error);
+            }
+        }
+        
+        // 降级：尝试从缓存获取
         const cachedImg = this.imageCache.get(this.currentFrame);
         
         if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
@@ -390,5 +438,6 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.LoadingAnimation = LoadingAnimation;
 }
+
 
 

@@ -68,6 +68,8 @@ try {
     importScripts('utils/requestUtils.js');
     importScripts('utils/loggerUtils.js');
     importScripts('utils/errorHandler.js');
+    importScripts('utils/moduleUtils.js');
+    importScripts('utils/globalAccessor.js');
 
     // 加载服务
     importScripts('background/services/tabMessaging.js');
@@ -307,22 +309,35 @@ function notifyAllTabs(action, data) {
 }
 
 /**
- * 监听存储变化
- * 当设置或全局状态变化时，同步到所有标签页
+ * 处理存储变化（统一处理逻辑，避免重复代码）
+ * @param {Object} changes - 存储变化对象
+ * @param {string} namespace - 存储命名空间
  */
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    // 监听 local 存储的变化（新版本使用 local 避免写入配额限制）
-    if (namespace === 'local') {
-        if (changes.petSettings) {
-            console.log('宠物设置已更新');
-            notifyAllTabs('settingsUpdated', changes.petSettings.newValue);
-        }
+function handleStorageChange(changes, namespace) {
+    const isLocal = namespace === 'local';
+    const isSync = namespace === 'sync';
+    
+    if (!isLocal && !isSync) {
+        return;
+    }
+    
+    // 处理宠物设置变化
+    if (changes.petSettings) {
+        const logPrefix = isLocal ? '宠物设置已更新' : '宠物设置已更新（sync）';
+        console.log(logPrefix);
+        notifyAllTabs('settingsUpdated', changes.petSettings.newValue);
+    }
+    
+    // 处理宠物全局状态变化
+    if (changes.petGlobalState) {
+        const logPrefix = isLocal 
+            ? '宠物全局状态已更新' 
+            : '宠物全局状态已更新（sync，兼容旧版本）';
+        console.log(logPrefix);
+        notifyAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
         
-        if (changes.petGlobalState) {
-            console.log('宠物全局状态已更新');
-            notifyAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
-            
-            // 立即同步到所有活动标签页（确保实时性）
+        // local 存储时，立即同步到所有活动标签页（确保实时性）
+        if (isLocal) {
             chrome.tabs.query({}, (tabs) => {
                 tabs.forEach(tab => {
                     // 跳过系统页面
@@ -340,22 +355,40 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
             });
         }
     }
-    
-    // 兼容旧版本的 sync 存储
-    if (namespace === 'sync') {
-        if (changes.petSettings) {
-            console.log('宠物设置已更新（sync）');
-            notifyAllTabs('settingsUpdated', changes.petSettings.newValue);
-        }
-        
-        if (changes.petGlobalState) {
-            console.log('宠物全局状态已更新（sync，兼容旧版本）');
-            notifyAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
-        }
-    }
-});
+}
+
+/**
+ * 监听存储变化
+ * 当设置或全局状态变化时，同步到所有标签页
+ */
+chrome.storage.onChanged.addListener(handleStorageChange);
 
 // ==================== 键盘快捷键处理 ====================
+
+/**
+ * 向当前活动标签页发送消息（统一处理逻辑）
+ * @param {Object} message - 要发送的消息
+ */
+function sendMessageToActiveTab(message) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, message, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.log('发送消息到活动标签页失败:', chrome.runtime.lastError.message);
+                }
+            });
+        }
+    });
+}
+
+/**
+ * 键盘快捷键命令映射
+ */
+const KEYBOARD_COMMANDS = {
+    'toggle-pet': { action: 'toggleVisibility' },
+    'change-color': { action: 'changeColor' },
+    'reset-position': { action: 'resetPosition' }
+};
 
 /**
  * 处理键盘快捷键
@@ -368,33 +401,11 @@ try {
     if (chrome && chrome.commands && typeof chrome.commands.onCommand === 'object' && chrome.commands.onCommand.addListener) {
         chrome.commands.onCommand.addListener((command) => {
             try {
-                switch (command) {
-                    case 'toggle-pet':
-                        // 切换宠物显示/隐藏
-                        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                            if (tabs && tabs[0]) {
-                                chrome.tabs.sendMessage(tabs[0].id, { action: 'toggleVisibility' });
-                            }
-                        });
-                        break;
-                        
-                    case 'change-color':
-                        // 切换宠物颜色
-                        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                            if (tabs && tabs[0]) {
-                                chrome.tabs.sendMessage(tabs[0].id, { action: 'changeColor' });
-                            }
-                        });
-                        break;
-                        
-                    case 'reset-position':
-                        // 重置宠物位置
-                        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                            if (tabs && tabs[0]) {
-                                chrome.tabs.sendMessage(tabs[0].id, { action: 'resetPosition' });
-                            }
-                        });
-                        break;
+                const commandConfig = KEYBOARD_COMMANDS[command];
+                if (commandConfig) {
+                    sendMessageToActiveTab(commandConfig);
+                } else {
+                    console.warn(`未知的键盘命令: ${command}`);
                 }
             } catch (error) {
                 console.error('处理键盘命令时出错:', error);

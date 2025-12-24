@@ -89,10 +89,11 @@ class MessageRouter {
                     } catch (_) {}
                     // 尝试使用统一错误处理器（如果存在）
                     try {
-                        const EH = (typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler :
-                                   (typeof globalThis !== 'undefined' && globalThis.ErrorHandler) ? globalThis.ErrorHandler : null;
-                        if (EH && typeof EH.handle === 'function') {
-                            const handled = EH.handle(error, { showNotification: false, fallback: 'Handler execution failed' });
+                        const ErrorHandler = (typeof self !== 'undefined' && self.GlobalAccessor) 
+                            ? self.GlobalAccessor.getErrorHandler()
+                            : ((typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler : null);
+                        if (ErrorHandler && typeof ErrorHandler.handle === 'function') {
+                            const handled = ErrorHandler.handle(error, { showNotification: false, fallback: 'Handler execution failed' });
                             safeSendResponse({ success: false, error: handled.error || 'Handler execution failed' });
                             return;
                         }
@@ -110,10 +111,11 @@ class MessageRouter {
             console.error(`处理消息失败 (${action}):`, error);
             // 尝试使用统一错误处理器（如果存在）
             try {
-                const EH = (typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler :
-                           (typeof globalThis !== 'undefined' && globalThis.ErrorHandler) ? globalThis.ErrorHandler : null;
-                if (EH && typeof EH.handle === 'function') {
-                    const handled = EH.handle(error, { showNotification: false, fallback: 'Handler execution failed' });
+                const ErrorHandler = (typeof self !== 'undefined' && self.GlobalAccessor) 
+                    ? self.GlobalAccessor.getErrorHandler()
+                    : ((typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler : null);
+                if (ErrorHandler && typeof ErrorHandler.handle === 'function') {
+                    const handled = ErrorHandler.handle(error, { showNotification: false, fallback: 'Handler execution failed' });
                     safeSendResponse({ success: false, error: handled.error || 'Handler execution failed' });
                     return;
                 }

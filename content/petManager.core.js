@@ -27640,6 +27640,95 @@ ${originalText}
     }
     
     // 优化页面上下文内容
+    /**
+     * 清理和优化文本内容
+     * 去除HTML标签、无意义内容，保留核心信息
+     * @param {string} text - 待清理的文本
+     * @returns {string} 清理后的文本
+     */
+    _cleanAndOptimizeText(text) {
+        if (!text || typeof text !== 'string') return '';
+        
+        let cleaned = text;
+        
+        // 1. 去除HTML标签（保留代码块中的内容）
+        // 先保护代码块
+        const codeBlocks = [];
+        cleaned = cleaned.replace(/```[\s\S]*?```/g, (match) => {
+            const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`;
+            codeBlocks.push(match);
+            return placeholder;
+        });
+        
+        // 去除所有HTML标签，但保留标签内的文本内容
+        cleaned = cleaned.replace(/<[^>]+>/g, '');
+        
+        // 恢复代码块
+        codeBlocks.forEach((block, index) => {
+            cleaned = cleaned.replace(`__CODE_BLOCK_${index}__`, block);
+        });
+        
+        // 2. 去除HTML实体编码（如 &nbsp; &lt; &gt; 等）
+        cleaned = cleaned.replace(/&nbsp;/g, ' ');
+        cleaned = cleaned.replace(/&lt;/g, '<');
+        cleaned = cleaned.replace(/&gt;/g, '>');
+        cleaned = cleaned.replace(/&amp;/g, '&');
+        cleaned = cleaned.replace(/&quot;/g, '"');
+        cleaned = cleaned.replace(/&#39;/g, "'");
+        cleaned = cleaned.replace(/&[a-z]+;/gi, '');
+        
+        // 3. 去除无意义的重复内容
+        // 去除重复的换行（保留代码块中的）
+        const codeBlockPlaceholders = [];
+        cleaned = cleaned.replace(/```[\s\S]*?```/g, (match) => {
+            const placeholder = `__CODE_${codeBlockPlaceholders.length}__`;
+            codeBlockPlaceholders.push(match);
+            return placeholder;
+        });
+        
+        // 去除多个连续换行（保留段落间距）
+        cleaned = cleaned.replace(/\n{4,}/g, '\n\n\n');
+        
+        // 恢复代码块
+        codeBlockPlaceholders.forEach((block, index) => {
+            cleaned = cleaned.replace(`__CODE_${index}__`, block);
+        });
+        
+        // 4. 去除无意义的空白字符（但保留代码块和列表中的）
+        // 保护代码块和列表项
+        const protectedBlocks = [];
+        cleaned = cleaned.replace(/(```[\s\S]*?```|^[\s]*[-*+]\s+|^\s*\d+\.\s+)/gm, (match) => {
+            const placeholder = `__PROTECTED_${protectedBlocks.length}__`;
+            protectedBlocks.push(match);
+            return placeholder;
+        });
+        
+        // 合并多个空格为一个（但保留行首缩进）
+        cleaned = cleaned.replace(/[ \t]+/g, (match, offset, string) => {
+            // 如果是在行首，保留一个空格或制表符
+            const lineStart = string.lastIndexOf('\n', offset - 1) + 1;
+            if (offset === lineStart) {
+                return match.includes('\t') ? '\t' : ' ';
+            }
+            return ' ';
+        });
+        
+        // 恢复受保护的内容
+        protectedBlocks.forEach((block, index) => {
+            cleaned = cleaned.replace(`__PROTECTED_${index}__`, block);
+        });
+        
+        // 5. 去除无意义的标记和符号
+        // 去除多余的Markdown标记（但保留有效的）
+        cleaned = cleaned.replace(/\*\*\*\*/g, ''); // 四个星号
+        cleaned = cleaned.replace(/^#{7,}\s+/gm, ''); // 超过6级的标题标记
+        
+        // 6. 清理首尾空白
+        cleaned = cleaned.trim();
+        
+        return cleaned;
+    }
+
     async optimizeContext() {
         const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
         if (!textarea) return;
@@ -27669,25 +27758,35 @@ ${originalText}
         }
         
         try {
-            // 构建优化提示词
-            const systemPrompt = `你是一个专业的Markdown文档优化专家，擅长：
-1. 优化文档结构和层次，使其逻辑清晰、层次分明
-2. 改进语言表达，使其更加流畅自然、易于理解
-3. 提升可读性，优化段落组织和过渡
-4. 保持原文的核心信息和完整性
-5. 优化Markdown格式，使其更加规范和美观
-6. 确保文档结构合理，标题层级清晰
+            // 构建优化提示词（强调保留原文、去除无意义内容、优化HTML标签）
+            const systemPrompt = `你是一个专业的文档内容优化专家，擅长：
+1. 保留原文的核心信息和完整内容，不丢失重要信息
+2. 去除无意义的重复内容、冗余描述和无关信息
+3. 优化和清理HTML标签，将HTML内容转换为清晰的Markdown格式
+4. 优化文档结构和层次，使其逻辑清晰、层次分明
+5. 改进语言表达，使其更加流畅自然、易于理解
+6. 提升可读性，优化段落组织和过渡
+7. 确保Markdown格式规范美观，标题层级清晰
 
-请优化Markdown格式的页面上下文内容，使其更加清晰、流畅、易读。`;
+请优化页面上下文内容，重点保留原文信息，去除无意义内容，优化HTML标签。`;
 
-            const userPrompt = `请优化以下Markdown格式的页面上下文内容，要求：
-1. 保持原文的核心信息和完整性
-2. 优化文档结构，使逻辑更清晰、层次更分明
-3. 改进语言表达，使其更加流畅自然
-4. 提升可读性，优化段落组织和过渡
-5. 优化Markdown格式，使其更加规范和美观
-6. 确保标题层级清晰，段落之间过渡自然
-7. 保持Markdown格式的有效性
+            const userPrompt = `请优化以下页面上下文内容，要求：
+
+【核心要求】
+1. **必须保留原文的所有核心信息和完整内容**，不能丢失重要信息
+2. **去除无意义的重复内容、冗余描述、无关信息**（如重复的导航链接、广告文本、无意义的装饰性内容等）
+3. **优化HTML标签**：将HTML标签转换为清晰的Markdown格式，去除无用的HTML标签，但保留文本内容
+4. **优化文档结构**：使逻辑更清晰、层次更分明
+5. **改进语言表达**：使其更加流畅自然
+6. **提升可读性**：优化段落组织和过渡
+7. **保持Markdown格式有效性**：确保标题层级清晰，段落之间过渡自然
+
+【注意事项】
+- 不要添加原文中没有的新内容
+- 不要改变原文的核心意思
+- 去除HTML标签时，要保留标签内的文本内容
+- 去除无意义的导航、广告、重复性内容
+- 保持Markdown格式的规范性
 
 原始内容：
 ${originalText}
@@ -27869,17 +27968,17 @@ ${originalText}
                 /^优化结果：?\s*/i,
                 /^优化后的文本：?\s*/i,
                 /^优化后的[内容上下文]如下：?\s*/i,
-                /^[内容上下文]优化如下：?\s*/i
+                /^[内容上下文]优化如下：?\s*/i,
+                /^以下是[优化后的]?[内容上下文]：?\s*/i,
+                /^[内容上下文][已]?优化[结果]?：?\s*/i
             ];
             
             for (const prefix of prefixes) {
                 optimizedText = optimizedText.replace(prefix, '').trim();
             }
             
-            // 清理多余的空白字符（但保留Markdown格式）
-            optimizedText = optimizedText.replace(/\n{4,}/g, '\n\n\n'); // 多个换行符合并为三个（保留Markdown段落间距）
-            optimizedText = optimizedText.replace(/[ \t]+/g, ' '); // 多个空格合并为一个（但保留代码块中的空格）
-            optimizedText = optimizedText.trim();
+            // 使用专门的清理函数去除HTML标签和无意义内容
+            optimizedText = this._cleanAndOptimizeText(optimizedText);
             
             // 验证优化后的文本是否有效
             if (!optimizedText || optimizedText.length < 10) {

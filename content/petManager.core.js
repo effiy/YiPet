@@ -3167,6 +3167,179 @@
         return finalSessionId;
     }
     
+    // 创建包含新闻列表的新会话（从新闻视图创建）
+    async createNewsSession() {
+        // 确保已加载所有会话
+        await this.loadAllSessions();
+        
+        // 生成一个唯一的会话ID（不基于URL，使用时间戳和随机数）
+        const uniqueId = `news_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        const sessionId = await this.generateSessionId(uniqueId);
+        
+        // 检查会话ID是否已存在，如果存在则重新生成
+        let finalSessionId = sessionId;
+        let attempts = 0;
+        while (this.sessions[finalSessionId] && attempts < 10) {
+            const newUniqueId = `news_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            finalSessionId = await this.generateSessionId(newUniqueId);
+            attempts++;
+        }
+        
+        // 生成唯一的新闻会话URL（确保不会重复）
+        // 使用自定义协议格式：news-session://{timestamp}-{random}
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 11); // 9位随机字符串
+        const uniqueUrl = `news-session://${timestamp}-${randomStr}`;
+        
+        // 确保URL唯一：检查是否已存在相同URL的会话
+        let finalUrl = uniqueUrl;
+        let urlAttempts = 0;
+        while (Object.values(this.sessions).some(s => s && s.url === finalUrl) && urlAttempts < 10) {
+            const newTimestamp = Date.now();
+            const newRandomStr = Math.random().toString(36).substring(2, 11);
+            finalUrl = `news-session://${newTimestamp}-${newRandomStr}`;
+            urlAttempts++;
+        }
+        
+        // 获取当前筛选的新闻列表
+        const filteredNews = window.currentNews && Array.isArray(window.currentNews) ? window.currentNews : [];
+        
+        // 构建结构化的新闻列表内容
+        let structuredNewsList = '';
+        if (filteredNews && filteredNews.length > 0) {
+            // 过滤出真正的新闻项（排除会话项）
+            const newsItems = filteredNews.filter(item => item.fromNews !== true);
+            
+            if (newsItems.length > 0) {
+                structuredNewsList = '\n\n## 当前筛选的新闻列表\n\n';
+                
+                newsItems.forEach((newsItem, index) => {
+                    const title = newsItem.title || '未命名新闻';
+                    const link = newsItem.link || '';
+                    const description = newsItem.description || '';
+                    
+                    structuredNewsList += `### ${index + 1}. ${title}\n\n`;
+                    
+                    if (link) {
+                        structuredNewsList += `**链接**: ${link}\n\n`;
+                    }
+                    
+                    if (description) {
+                        structuredNewsList += `**描述**: ${description}\n\n`;
+                    }
+                    
+                    // 如果有标签，也添加进去
+                    if (newsItem.tags && Array.isArray(newsItem.tags) && newsItem.tags.length > 0) {
+                        structuredNewsList += `**标签**: ${newsItem.tags.join(', ')}\n\n`;
+                    }
+                    
+                    structuredNewsList += '---\n\n';
+                });
+            }
+        }
+        
+        // 创建新闻会话对象（包含当前页面信息和筛选的新闻列表）
+        const now = Date.now();
+        // 获取当前页面信息，用于保留页面上下文
+        const pageInfo = this.getPageInfo();
+        
+        // 将筛选的新闻列表追加到当前页面内容之后
+        // 确保即使没有当前页面内容，也要包含筛选新闻列表
+        const basePageContent = (pageInfo.content || '').trim();
+        const pageContent = basePageContent 
+            ? (basePageContent + structuredNewsList)
+            : (structuredNewsList || '');
+        
+        // 格式化日期为 yyyy-MM-dd hh:mm:ss 格式
+        const formatDateForTitle = (timestamp) => {
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        };
+        
+        const newsSession = {
+            id: finalSessionId,
+            url: finalUrl, // 新闻会话使用唯一的随机URL（不会与基于URL的会话冲突）
+            pageTitle: `新闻_${formatDateForTitle(now)}`, // 使用日期时间格式作为标题，添加"新闻_"前缀
+            pageDescription: pageInfo.description || '', // 使用当前页面描述
+            pageContent: pageContent, // 保存筛选新闻列表的结构化内容或当前页面内容
+            messages: [], // 空的对话列表
+            createdAt: now,
+            updatedAt: now,
+            lastAccessTime: now,
+            _isBlankSession: true, // 标记为空白会话，用于后续处理
+            _originalUrl: finalUrl // 保存原始URL，防止被意外更新
+        };
+        
+        // 保存新会话到本地存储
+        this.sessions[finalSessionId] = newsSession;
+        
+        console.log('已创建新闻新会话:', finalSessionId, {
+            filteredNewsCount: filteredNews.length,
+            hasStructuredContent: !!structuredNewsList
+        });
+        
+        // 自动保存新会话到后端（立即保存，包含 pageContent）
+        try {
+            // 确保会话对象已更新到 sessions 中
+            this.sessions[finalSessionId] = newsSession;
+            
+            // 立即保存到后端，包含 pageContent 字段
+            await this.syncSessionToBackend(finalSessionId, true, true);
+            
+            // 将会话ID添加到后端会话ID集合中（表示已保存到后端）
+            // 这样欢迎消息就不会显示保存按钮
+            this.backendSessionIds.add(finalSessionId);
+            
+            console.log('新闻会话已自动保存到后端', {
+                sessionId: finalSessionId,
+                hasPageContent: !!newsSession.pageContent,
+                pageContentLength: newsSession.pageContent ? newsSession.pageContent.length : 0,
+                filteredNewsCount: filteredNews.length
+            });
+        } catch (error) {
+            console.error('自动保存新闻会话到后端失败:', error);
+            // 不阻止流程继续，但记录错误以便调试
+        }
+        
+        // 激活新创建的会话（跳过从后端获取数据，因为这是新创建的空白会话）
+        await this.activateSession(finalSessionId, {
+            saveCurrent: true, // 保存当前会话
+            updateConsistency: false, // 空白会话不需要更新页面一致性
+            updateUI: true, // 更新UI
+            syncToBackend: false, // 已立即同步，不再重复同步
+            skipBackendFetch: true // 跳过从后端获取数据（避免404）
+        });
+        
+        // 更新聊天窗口（如果已打开）
+        if (this.isChatOpen && this.chatWindow) {
+            // 清空消息容器并显示欢迎消息
+            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+            if (messagesContainer) {
+                messagesContainer.innerHTML = '';
+                const welcomeMessage = await this.createWelcomeMessage(messagesContainer);
+            }
+            
+            // 更新聊天窗口标题
+            this.updateChatHeaderTitle();
+            
+        }
+        
+        // 显示成功通知
+        const newsItems = filteredNews ? filteredNews.filter(item => item.fromNews !== true) : [];
+        const notificationMsg = newsItems.length > 0 
+            ? `已创建新会话（已包含 ${newsItems.length} 条新闻的信息）`
+            : '已创建新会话';
+        this.showNotification(notificationMsg, 'success');
+        
+        return finalSessionId;
+    }
+    
     // 切换到会话（统一入口）
     // 重要：确保数据隔离，切换到不同URL的会话时，不会更新该会话的页面信息
     async activateSession(sessionId, options = {}) {
@@ -44808,6 +44981,29 @@ ${messageContent}`;
             // 如果在接口请求视图下，创建新接口
             if (this.apiRequestListVisible) {
                 this.createNewApiRequest();
+                return;
+            }
+            
+            // 如果在新闻视图下，创建包含新闻列表的新会话
+            if (this.newsListVisible) {
+                // 禁用按钮，防止重复点击
+                addSessionBtn.disabled = true;
+                addSessionBtn.style.opacity = '0.6';
+                addSessionBtn.style.cursor = 'wait';
+                
+                try {
+                    await this.createNewsSession();
+                } catch (error) {
+                    console.error('创建新闻会话失败:', error);
+                    this.showNotification('创建新闻会话失败', 'error');
+                } finally {
+                    // 恢复按钮状态
+                    setTimeout(() => {
+                        addSessionBtn.disabled = false;
+                        addSessionBtn.style.opacity = '1';
+                        addSessionBtn.style.cursor = 'pointer';
+                    }, 500);
+                }
                 return;
             }
             

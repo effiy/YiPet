@@ -3034,16 +3034,68 @@
             urlAttempts++;
         }
         
-        // 创建空白会话对象（包含当前页面信息以便保留上下文）
+        // 获取当前筛选的会话列表
+        const filteredSessions = this._getFilteredSessions();
+        
+        // 构建结构化的会话列表内容
+        let structuredSessionList = '';
+        if (filteredSessions && filteredSessions.length > 0) {
+            structuredSessionList = '\n\n## 当前筛选的会话列表\n\n';
+            
+            filteredSessions.forEach((session, index) => {
+                const title = session.pageTitle || session.title || '未命名会话';
+                const url = session.url || session.requestUrl || '';
+                const description = session.pageDescription || session.preview || '';
+                
+                structuredSessionList += `### ${index + 1}. ${title}\n\n`;
+                
+                if (url) {
+                    structuredSessionList += `**链接**: ${url}\n\n`;
+                }
+                
+                if (description) {
+                    structuredSessionList += `**描述**: ${description}\n\n`;
+                }
+                
+                // 如果有标签，也添加进去
+                if (session.tags && Array.isArray(session.tags) && session.tags.length > 0) {
+                    structuredSessionList += `**标签**: ${session.tags.join(', ')}\n\n`;
+                }
+                
+                structuredSessionList += '---\n\n';
+            });
+        }
+        
+        // 创建空白会话对象（包含当前页面信息和筛选的会话列表）
         const now = Date.now();
         // 获取当前页面信息，用于保留页面上下文
         const pageInfo = this.getPageInfo();
+        
+        // 将筛选的会话列表追加到当前页面内容之后
+        // 确保即使没有当前页面内容，也要包含筛选会话列表
+        const basePageContent = (pageInfo.content || '').trim();
+        const pageContent = basePageContent 
+            ? (basePageContent + structuredSessionList)
+            : (structuredSessionList || '');
+        
+        // 格式化日期为 yyyy-MM-dd hh:mm:ss 格式
+        const formatDateForTitle = (timestamp) => {
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        };
+        
         const blankSession = {
             id: finalSessionId,
             url: finalUrl, // 空白会话使用唯一的随机URL（不会与基于URL的会话冲突）
-            pageTitle: pageInfo.title || '新会话', // 使用当前页面标题
+            pageTitle: formatDateForTitle(now), // 使用日期时间格式作为标题
             pageDescription: pageInfo.description || '', // 使用当前页面描述
-            pageContent: pageInfo.content || '', // 保存当前页面内容，以便后续使用
+            pageContent: pageContent, // 保存筛选会话列表的结构化内容或当前页面内容
             messages: [], // 空的对话列表
             createdAt: now,
             updatedAt: now,
@@ -3052,13 +3104,36 @@
             _originalUrl: finalUrl // 保存原始URL，防止被意外更新
         };
         
-        // 保存新会话到本地存储（仅内存，不自动保存）
+        // 保存新会话到本地存储
         this.sessions[finalSessionId] = blankSession;
-        // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
         
-        console.log('已创建空白新会话:', finalSessionId);
+        console.log('已创建空白新会话:', finalSessionId, {
+            filteredSessionsCount: filteredSessions.length,
+            hasStructuredContent: !!structuredSessionList
+        });
         
-        // 注意：已移除创建空白会话后的自动同步，仅在 prompt 接口调用后保存
+        // 自动保存新会话到后端（立即保存，包含 pageContent）
+        try {
+            // 确保会话对象已更新到 sessions 中
+            this.sessions[finalSessionId] = blankSession;
+            
+            // 立即保存到后端，包含 pageContent 字段
+            await this.syncSessionToBackend(finalSessionId, true, true);
+            
+            // 将会话ID添加到后端会话ID集合中（表示已保存到后端）
+            // 这样欢迎消息就不会显示保存按钮
+            this.backendSessionIds.add(finalSessionId);
+            
+            console.log('新会话已自动保存到后端', {
+                sessionId: finalSessionId,
+                hasPageContent: !!blankSession.pageContent,
+                pageContentLength: blankSession.pageContent ? blankSession.pageContent.length : 0,
+                filteredSessionsCount: filteredSessions.length
+            });
+        } catch (error) {
+            console.error('自动保存新会话到后端失败:', error);
+            // 不阻止流程继续，但记录错误以便调试
+        }
         
         // 激活新创建的会话（跳过从后端获取数据，因为这是新创建的空白会话）
         await this.activateSession(finalSessionId, {
@@ -3084,7 +3159,10 @@
         }
         
         // 显示成功通知
-        this.showNotification('已创建新会话', 'success');
+        const notificationMsg = filteredSessions.length > 0 
+            ? `已创建新会话（已包含 ${filteredSessions.length} 个筛选会话的信息）`
+            : '已创建新会话';
+        this.showNotification(notificationMsg, 'success');
         
         return finalSessionId;
     }
@@ -3502,6 +3580,11 @@
         const targetSessionId = sessionId || this.currentSessionId;
         if (!targetSessionId) {
             return false;
+        }
+
+        // 如果会话ID已经在集合中，直接返回true（避免重新加载后端列表导致丢失刚保存的会话ID）
+        if (this.backendSessionIds.has(targetSessionId)) {
+            return true;
         }
 
         // 如果后端列表还没有加载，且聊天窗口已经打开过（不是页面刷新时），才尝试加载
@@ -5110,6 +5193,18 @@
         const previewText = hasTextContent ? message.content.substring(0, 50) : (hasImage ? '[图片消息]' : '');
         console.log(`消息已添加到会话 ${this.currentSessionId} (${session.messages.length} 条):`, 
             message.type, previewText);
+        
+        // 如果是第一条消息（手动新建会话保存后的第一条消息），刷新欢迎消息以隐藏保存按钮
+        if (session.messages.length === 1) {
+            // 异步刷新欢迎消息，避免阻塞
+            setTimeout(async () => {
+                try {
+                    await this.refreshWelcomeMessage();
+                } catch (error) {
+                    console.warn('刷新欢迎消息失败:', error);
+                }
+            }, 100);
+        }
         
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
         // addMessageToSession 不再自动保存，保存逻辑由 prompt 接口调用后统一处理
@@ -43686,7 +43781,13 @@ ${messageContent}`;
             await this.syncSessionToBackend(this.currentSessionId, true, true);
             
             // 将会话ID添加到后端会话ID集合中（表示已保存到后端）
+            // 注意：必须在刷新欢迎消息之前添加，确保 isSessionInBackendList 能正确检查
             this.backendSessionIds.add(this.currentSessionId);
+            
+            // 确保会话ID已添加到集合中（防止异步问题）
+            if (!this.backendSessionIds.has(this.currentSessionId)) {
+                this.backendSessionIds.add(this.currentSessionId);
+            }
             
             // 刷新欢迎消息以隐藏保存按钮（因为现在已存在于后端列表中）
             await this.refreshWelcomeMessage();
@@ -51748,9 +51849,19 @@ ${messageContent}`;
         // 检查是否是新闻会话
         const isNewsSession = session && session._isNewsSession;
         
+        // 检查是否是空白会话（手动新建的会话）
+        const isBlankSession = session && (session._isBlankSession || session.url?.startsWith('blank-session://'));
+        
+        // 检查会话是否已有消息（如果已有消息，说明会话已被使用，不应该显示保存按钮）
+        const hasMessages = session && session.messages && Array.isArray(session.messages) && session.messages.length > 0;
+        
         // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
         // 新闻会话不显示保存按钮
-        const shouldShowSaveButton = !isNewsSession && !(await this.isSessionInBackendList(this.currentSessionId));
+        // 空白会话（手动新建的会话）不显示保存按钮
+        // 如果会话已有消息，也不显示保存按钮（因为会话已经被使用过了）
+        // 先检查 backendSessionIds 集合，如果已包含则直接跳过异步调用
+        const isInBackendList = this.backendSessionIds.has(this.currentSessionId) || await this.isSessionInBackendList(this.currentSessionId);
+        const shouldShowSaveButton = !isNewsSession && !isBlankSession && !isInBackendList && !hasMessages;
         
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {
@@ -51978,8 +52089,15 @@ ${messageContent}`;
         
         fileInfoHtml += `</div>`;
         
+        // 检查会话是否已有消息（如果已有消息，说明会话已被使用，不应该显示保存按钮）
+        const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
+        const hasMessages = session && session.messages && Array.isArray(session.messages) && session.messages.length > 0;
+        
         // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
-        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        // 如果会话已有消息，也不显示保存按钮（因为会话已经被使用过了）
+        // 先检查 backendSessionIds 集合，如果已包含则直接跳过异步调用
+        const isInBackendList = this.backendSessionIds.has(this.currentSessionId) || await this.isSessionInBackendList(this.currentSessionId);
+        const shouldShowSaveButton = !isInBackendList && !hasMessages;
         
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {
@@ -52188,8 +52306,15 @@ ${messageContent}`;
             </div>
         `;
         
+        // 检查会话是否已有消息（如果已有消息，说明会话已被使用，不应该显示保存按钮）
+        const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
+        const hasMessages = session && session.messages && Array.isArray(session.messages) && session.messages.length > 0;
+        
         // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
-        const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+        // 如果会话已有消息，也不显示保存按钮（因为会话已经被使用过了）
+        // 先检查 backendSessionIds 集合，如果已包含则直接跳过异步调用
+        const isInBackendList = this.backendSessionIds.has(this.currentSessionId) || await this.isSessionInBackendList(this.currentSessionId);
+        const shouldShowSaveButton = !isInBackendList && !hasMessages;
         
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {
@@ -52506,8 +52631,14 @@ ${messageContent}`;
             
             fileInfoHtml += `</div>`;
             
+            // 检查会话是否已有消息（如果已有消息，说明会话已被使用，不应该显示保存按钮）
+            const hasMessages = session && session.messages && Array.isArray(session.messages) && session.messages.length > 0;
+            
             // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
-            const shouldShowSaveButton = !(await this.isSessionInBackendList(this.currentSessionId));
+            // 如果会话已有消息，也不显示保存按钮（因为会话已经被使用过了）
+            // 先检查 backendSessionIds 集合，如果已包含则直接跳过异步调用
+            const isInBackendList = this.backendSessionIds.has(this.currentSessionId) || await this.isSessionInBackendList(this.currentSessionId);
+            const shouldShowSaveButton = !isInBackendList && !hasMessages;
             
             // 根据检查结果决定是否添加手动保存会话按钮
             if (shouldShowSaveButton) {
@@ -52646,9 +52777,19 @@ ${messageContent}`;
         // 检查是否是新闻会话
         const isNewsSession = session && session._isNewsSession;
         
+        // 检查是否是空白会话（手动新建的会话）
+        const isBlankSession = session && (session._isBlankSession || session.url?.startsWith('blank-session://'));
+        
+        // 检查会话是否已有消息（如果已有消息，说明会话已被使用，不应该显示保存按钮）
+        const hasMessages = session && session.messages && Array.isArray(session.messages) && session.messages.length > 0;
+        
         // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
         // 新闻会话不显示保存按钮
-        const shouldShowSaveButton = !isNewsSession && !(await this.isSessionInBackendList(this.currentSessionId));
+        // 空白会话（手动新建的会话）不显示保存按钮
+        // 如果会话已有消息，也不显示保存按钮（因为会话已经被使用过了）
+        // 先检查 backendSessionIds 集合，如果已包含则直接跳过异步调用
+        const isInBackendList = this.backendSessionIds.has(this.currentSessionId) || await this.isSessionInBackendList(this.currentSessionId);
+        const shouldShowSaveButton = !isNewsSession && !isBlankSession && !isInBackendList && !hasMessages;
         
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {

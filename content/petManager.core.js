@@ -1575,7 +1575,17 @@
                 '.related-posts', '.related', '.widget', '.sidebar-widget',
                 '[class*="ad"]', '[class*="banner"]', '[class*="promo"]',
                 '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
-                'iframe', 'embed', 'object', 'form', 'button', 'input'
+                'iframe', 'embed', 'object', 'form', 'button', 'input',
+                // 排除插件相关元素
+                '#minimal-pet', '[id^="pet-"]', '[class*="pet-"]',
+                '[id*="pet-chat"]', '[class*="pet-chat"]',
+                '[id*="pet-context"]', '[class*="pet-context"]',
+                '[id*="pet-oss"]', '[class*="pet-oss"]',
+                '[id*="pet-faq"]', '[class*="pet-faq"]',
+                '[id*="pet-news"]', '[class*="pet-news"]',
+                '[id*="pet-api"]', '[class*="pet-api"]',
+                '[id*="pet-session"]', '[class*="pet-session"]',
+                '[id*="pet-rss"]', '[class*="pet-rss"]'
             ];
 
             // 定义主要正文内容选择器，按优先级顺序
@@ -1752,7 +1762,17 @@
                 '.related-posts', '.related', '.widget', '.sidebar-widget',
                 '[class*="ad"]', '[class*="banner"]', '[class*="promo"]',
                 '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
-                'iframe', 'embed', 'object', 'form', 'button', 'input'
+                'iframe', 'embed', 'object', 'form', 'button', 'input',
+                // 排除插件相关元素
+                '#minimal-pet', '[id^="pet-"]', '[class*="pet-"]',
+                '[id*="pet-chat"]', '[class*="pet-chat"]',
+                '[id*="pet-context"]', '[class*="pet-context"]',
+                '[id*="pet-oss"]', '[class*="pet-oss"]',
+                '[id*="pet-faq"]', '[class*="pet-faq"]',
+                '[id*="pet-news"]', '[class*="pet-news"]',
+                '[id*="pet-api"]', '[class*="pet-api"]',
+                '[id*="pet-session"]', '[class*="pet-session"]',
+                '[id*="pet-rss"]', '[class*="pet-rss"]'
             ];
 
             // 定义主要正文内容选择器
@@ -32697,9 +32717,29 @@ ${originalText}
             return;
         }
         
-        const sourceSession = this.sessions[sessionId];
+        let sourceSession = this.sessions[sessionId];
         
         try {
+            // 如果有 sessionApi，先从后端获取源会话的完整数据（包括页面上下文）
+            if (this.sessionApi) {
+                try {
+                    const fullSessionData = await this.sessionApi.getSession(sessionId);
+                    if (fullSessionData) {
+                        // 使用后端返回的完整数据，优先使用后端的 pageContent
+                        sourceSession = {
+                            ...sourceSession,
+                            ...fullSessionData,
+                            // 确保 pageContent 使用后端返回的值（如果存在）
+                            pageContent: fullSessionData.pageContent !== undefined ? fullSessionData.pageContent : sourceSession.pageContent
+                        };
+                        console.log('已从后端获取源会话完整数据，包含页面上下文');
+                    }
+                } catch (error) {
+                    console.warn('从后端获取源会话详情失败，使用本地数据:', error);
+                    // 如果获取失败，继续使用本地数据
+                }
+            }
+            
             // 生成新的会话ID（基于时间戳和随机数）
             const newSessionId = await this.generateSessionId(`duplicate_${Date.now()}_${Math.random()}`);
             
@@ -32716,6 +32756,7 @@ ${originalText}
                 pageContent: sourceSession.pageContent || '',
                 messages: [], // messages为空数组
                 tags: sourceSession.tags ? [...sourceSession.tags] : [],
+                isFavorite: sourceSession.isFavorite !== undefined ? sourceSession.isFavorite : false,
                 createdAt: now,
                 updatedAt: now,
                 lastAccessTime: now
@@ -43390,7 +43431,17 @@ ${messageContent}`;
                 'nav', 'header', 'footer', 'aside',
                 '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
                 '.header', '.footer', '.comment', '.comments', '.social-share',
-                '.related-posts', '.related', '.widget', '.sidebar-widget'
+                '.related-posts', '.related', '.widget', '.sidebar-widget',
+                // 排除插件相关元素
+                '#minimal-pet', '[id^="pet-"]', '[class*="pet-"]',
+                '[id*="pet-chat"]', '[class*="pet-chat"]',
+                '[id*="pet-context"]', '[class*="pet-context"]',
+                '[id*="pet-oss"]', '[class*="pet-oss"]',
+                '[id*="pet-faq"]', '[class*="pet-faq"]',
+                '[id*="pet-news"]', '[class*="pet-news"]',
+                '[id*="pet-api"]', '[class*="pet-api"]',
+                '[id*="pet-session"]', '[class*="pet-session"]',
+                '[id*="pet-rss"]', '[class*="pet-rss"]'
             ];
 
             // 定义主要正文内容选择器（优先级从高到低）
@@ -52804,6 +52855,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

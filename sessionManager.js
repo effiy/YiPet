@@ -437,6 +437,26 @@ class SessionManager {
             throw new Error('源会话不存在');
         }
         
+        // 如果启用后端同步且有 sessionApi，先从后端获取源会话的完整数据（包括页面上下文）
+        if (this.enableBackendSync && this.sessionApi) {
+            try {
+                const fullSessionData = await this.sessionApi.getSession(sourceSessionId);
+                if (fullSessionData) {
+                    // 使用后端返回的完整数据，优先使用后端的 pageContent
+                    sourceSession = {
+                        ...sourceSession,
+                        ...fullSessionData,
+                        // 确保 pageContent 使用后端返回的值（如果存在）
+                        pageContent: fullSessionData.pageContent !== undefined ? fullSessionData.pageContent : sourceSession.pageContent
+                    };
+                    console.log('已从后端获取源会话完整数据，包含页面上下文');
+                }
+            } catch (error) {
+                console.warn('从后端获取源会话详情失败，使用本地数据:', error);
+                // 如果获取失败，继续使用本地数据
+            }
+        }
+        
         // 生成新的会话ID（基于时间戳和随机数）
         const newSessionId = await this.generateSessionId();
         
@@ -450,6 +470,7 @@ class SessionManager {
             pageContent: sourceSession.pageContent || '',
             messages: sourceSession.messages ? JSON.parse(JSON.stringify(sourceSession.messages)) : [],
             tags: sourceSession.tags ? [...sourceSession.tags] : [],
+            isFavorite: sourceSession.isFavorite !== undefined ? sourceSession.isFavorite : false,
             createdAt: now,
             updatedAt: now,
             lastAccessTime: now
@@ -459,9 +480,9 @@ class SessionManager {
         this.sessions[newSessionId] = duplicatedSession;
         await this.saveSession(newSessionId, true);
         
-        // 如果启用后端同步，同步到后端
+        // 如果启用后端同步，同步到后端（包含页面上下文）
         if (this.enableBackendSync && this.sessionApi) {
-            await this.syncSessionToBackend(newSessionId, true);
+            await this.syncSessionToBackend(newSessionId, true, true);
         }
         
         return newSessionId;
@@ -703,6 +724,7 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionManager = SessionManager;
 }
+
 
 
 

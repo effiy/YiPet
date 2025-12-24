@@ -5301,17 +5301,6 @@
             return;
         }
         
-        // 检查当前会话是否显示保存按钮（如果显示，则不允许切换）
-        if (this.currentSessionId) {
-            const isInBackendList = await this.isSessionInBackendList(this.currentSessionId);
-            if (!isInBackendList) {
-                // 当前会话不在后端列表中，显示保存按钮，不允许切换
-                this.showNotification('请先保存当前会话后再切换', 'warning');
-                console.log('当前会话未保存，阻止切换会话');
-                return;
-            }
-        }
-        
         // 验证会话是否存在
         if (!this.sessions[sessionId]) {
             console.error('会话不存在:', sessionId);

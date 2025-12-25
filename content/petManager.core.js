@@ -50424,9 +50424,9 @@ ${messageContent}`;
                                     currentMessage.remove();
                                     // 删除后保存会话并同步到后端（确保数据同步）
                                     this.saveCurrentSession().then(() => {
-                                        // 同步到后端
-                                        if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
-                                            this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
+                                        // 同步到后端，调用 /session/save 接口
+                                        if (this.currentSessionId) {
+                                            this.syncSessionToBackend(this.currentSessionId, true).catch(err => {
                                                 console.error('删除消息后同步到后端失败:', err);
                                             });
                                         }
@@ -50458,9 +50458,9 @@ ${messageContent}`;
                                             currentMessage.remove();
                                             // 删除后保存会话并同步到后端（确保数据同步）
                                             this.saveCurrentSession().then(() => {
-                                                // 同步到后端
-                                                if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
-                                                    this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
+                                                // 同步到后端，调用 /session/save 接口
+                                                if (this.currentSessionId) {
+                                                    this.syncSessionToBackend(this.currentSessionId, true).catch(err => {
                                                         console.error('删除消息后同步到后端失败:', err);
                                                     });
                                                 }
@@ -53521,6 +53521,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

@@ -70,6 +70,51 @@ class RssSourceManager {
     }
     
     /**
+     * 获取 API Token（优先从 chrome.storage，支持跨 tab 和跨域共享）
+     * @returns {Promise<string>} token 字符串
+     */
+    async _getApiToken() {
+        try {
+            // 优先使用 TokenUtils（如果可用）
+            if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiToken) {
+                return await TokenUtils.getApiToken();
+            }
+            
+            // 降级到 localStorage
+            const token = localStorage.getItem('YiPet.apiToken.v1');
+            return token ? String(token).trim() : '';
+        } catch (error) {
+            console.warn('获取 API Token 失败:', error);
+            return '';
+        }
+    }
+    
+    /**
+     * 获取带认证头的请求选项
+     * @param {Object} options - 原始请求选项
+     * @returns {Promise<Object>} 带认证头的请求选项
+     */
+    async _getRequestOptions(options = {}) {
+        const token = await this._getApiToken();
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        };
+        
+        if (token) {
+            headers['X-Token'] = token;
+        } else {
+            // Token 未设置时，给出警告提示
+            console.warn('API Token 未设置，请求可能会失败。请使用 PetManager.ensureTokenSet() 设置 Token。');
+        }
+        
+        return {
+            ...options,
+            headers
+        };
+    }
+    
+    /**
      * 初始化RSS源管理器
      * 注意：不自动加载数据，只有在需要时才调用 loadSources()
      */
@@ -106,12 +151,11 @@ class RssSourceManager {
         try {
             const url = `${this.apiUrl}?cname=${this.cname}`;
             
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const requestOptions = await this._getRequestOptions({
+                method: 'GET'
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -237,13 +281,12 @@ class RssSourceManager {
                 updatedAt: Date.now()
             };
             
-            const response = await fetch(url, {
+            const requestOptions = await this._getRequestOptions({
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(newSourceData)
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -342,13 +385,12 @@ class RssSourceManager {
                 updatePayload.enabled = source.enabled;
             }
             
-            const response = await fetch(url, {
+            const requestOptions = await this._getRequestOptions({
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(updatePayload)
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -414,12 +456,11 @@ class RssSourceManager {
             // DELETE请求通过URL参数传递key
             const url = `${this.apiUrl}?cname=${this.cname}&key=${encodeURIComponent(key)}`;
             
-            const response = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const requestOptions = await this._getRequestOptions({
+                method: 'DELETE'
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -559,12 +600,11 @@ class RssSourceManager {
         
         try {
             const url = `${this.rssApiUrl}/scheduler/status`;
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const requestOptions = await this._getRequestOptions({
+                method: 'GET'
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -619,13 +659,12 @@ class RssSourceManager {
         
         try {
             const url = `${this.rssApiUrl}/scheduler/config`;
-            const response = await fetch(url, {
+            const requestOptions = await this._getRequestOptions({
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(config)
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -676,12 +715,11 @@ class RssSourceManager {
         
         try {
             const url = `${this.rssApiUrl}/scheduler/start`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const requestOptions = await this._getRequestOptions({
+                method: 'POST'
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -720,12 +758,11 @@ class RssSourceManager {
         
         try {
             const url = `${this.rssApiUrl}/scheduler/stop`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const requestOptions = await this._getRequestOptions({
+                method: 'POST'
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -764,13 +801,12 @@ class RssSourceManager {
         
         try {
             const url = `${this.rssApiUrl}/parse-all`;
-            const response = await fetch(url, {
+            const requestOptions = await this._getRequestOptions({
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify({ force: true })
             });
+            
+            const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -798,5 +834,6 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.RssSourceManager = RssSourceManager;
 }
+
 
 

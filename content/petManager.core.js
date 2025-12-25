@@ -31491,6 +31491,31 @@ ${originalText}
     async updateSchedulerStatus() {
         if (!this.rssSourceManager || !this._rssSchedulerStatus) return;
         
+        // 检查 token 是否设置
+        const token = this.getApiToken();
+        if (!token || !token.trim()) {
+            if (this._rssSchedulerStatus) {
+                this._rssSchedulerStatus.textContent = '⚠ 请先设置 X-Token';
+                this._rssSchedulerStatus.style.color = '#ff9800';
+            }
+            // 尝试提示用户设置 token
+            if (typeof this.ensureTokenSet === 'function') {
+                try {
+                    await this.ensureTokenSet();
+                    // 如果用户设置了 token，重新获取状态
+                    const newToken = this.getApiToken();
+                    if (newToken && newToken.trim()) {
+                        // 延迟一下再重试，确保 token 已保存
+                        setTimeout(() => this.updateSchedulerStatus(), 500);
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('提示设置 token 失败:', error);
+                }
+            }
+            return;
+        }
+        
         try {
             const status = await this.rssSourceManager.getSchedulerStatus();
             
@@ -31597,8 +31622,28 @@ ${originalText}
         } catch (error) {
             console.warn('更新定时器状态失败:', error);
             if (this._rssSchedulerStatus) {
-                this._rssSchedulerStatus.textContent = '获取状态失败';
-                this._rssSchedulerStatus.style.color = '#f44336';
+                // 检查是否是 401 未授权错误
+                if (error.message && error.message.includes('401')) {
+                    this._rssSchedulerStatus.textContent = '⚠ 请先设置 X-Token';
+                    this._rssSchedulerStatus.style.color = '#ff9800';
+                    // 尝试提示用户设置 token
+                    if (typeof this.ensureTokenSet === 'function') {
+                        try {
+                            await this.ensureTokenSet();
+                            // 如果用户设置了 token，重新获取状态
+                            const newToken = this.getApiToken();
+                            if (newToken && newToken.trim()) {
+                                // 延迟一下再重试，确保 token 已保存
+                                setTimeout(() => this.updateSchedulerStatus(), 500);
+                            }
+                        } catch (tokenError) {
+                            console.warn('提示设置 token 失败:', tokenError);
+                        }
+                    }
+                } else {
+                    this._rssSchedulerStatus.textContent = '获取状态失败';
+                    this._rssSchedulerStatus.style.color = '#f44336';
+                }
             }
         }
     }
@@ -53521,6 +53566,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

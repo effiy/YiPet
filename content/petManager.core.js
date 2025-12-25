@@ -560,10 +560,14 @@
                                         console.log('会话详情加载成功:', sessionId);
                                         // 更新本地会话数据
                                         if (this.sessions && this.sessions[sessionId]) {
+                                            // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                                            const pageTitle = sessionDetail.pageTitle || sessionDetail.title || '';
                                             this.sessions[sessionId] = {
                                                 ...this.sessions[sessionId],
                                                 ...sessionDetail,
-                                                id: sessionId
+                                                id: sessionId,
+                                                // 确保 pageTitle 字段正确设置
+                                                pageTitle: pageTitle || this.sessions[sessionId].pageTitle || ''
                                             };
                                         }
                                     }
@@ -2778,10 +2782,25 @@
         }
 
         // 确保页面标题一致
-        if (session.pageTitle !== pageInfo.title) {
-            console.log(`修复会话 ${sessionId} 的页面标题不一致:`, session.pageTitle, '->', pageInfo.title);
-            session.pageTitle = pageInfo.title;
+        // 只有当会话的标题为空或者是默认值时，才用当前页面的标题更新
+        // 这样可以保留从后端加载的有效标题，避免被当前页面标题覆盖
+        const currentPageTitle = pageInfo.title || pageInfo.pageTitle || '';
+        const sessionPageTitle = session.pageTitle || session.title || '';
+        const isDefaultTitle = !sessionPageTitle || 
+                              sessionPageTitle.trim() === '' ||
+                              sessionPageTitle === '未命名会话' ||
+                              sessionPageTitle === '新会话' ||
+                              sessionPageTitle === '未命名页面' ||
+                              sessionPageTitle === '当前页面';
+        
+        if (isDefaultTitle && currentPageTitle && currentPageTitle !== sessionPageTitle) {
+            console.log(`修复会话 ${sessionId} 的页面标题（从默认值更新）:`, sessionPageTitle, '->', currentPageTitle);
+            session.pageTitle = currentPageTitle;
             updated = true;
+        } else if (!isDefaultTitle && sessionPageTitle !== currentPageTitle) {
+            // 如果会话已经有有效标题，但当前页面标题不同，记录日志但不强制更新
+            // 这样可以保留从后端加载的标题
+            console.log(`会话 ${sessionId} 的标题与当前页面不同，保留会话标题:`, sessionPageTitle, '（当前页面标题:', currentPageTitle, '）');
         }
 
         // 确保页面描述一致
@@ -3405,8 +3424,11 @@
                         if (fullSession.pageContent) {
                             existingSession.pageContent = fullSession.pageContent;
                         }
-                        if (fullSession.pageTitle || fullSession.title) {
-                            existingSession.pageTitle = fullSession.pageTitle || fullSession.title || '';
+                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                        // 即使 pageTitle 是空字符串，也要更新（因为可能是有效的空值）
+                        const pageTitle = fullSession.pageTitle !== undefined ? fullSession.pageTitle : (fullSession.title !== undefined ? fullSession.title : existingSession.pageTitle);
+                        if (pageTitle !== undefined) {
+                            existingSession.pageTitle = pageTitle;
                         }
                         existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
                         existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
@@ -3419,11 +3441,22 @@
                         }
                     } else {
                         // 如果本地不存在，直接使用后端数据（包括OSS文件信息）
-                        this.sessions[sessionId] = fullSession;
+                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                        const pageTitle = fullSession.pageTitle || fullSession.title || '';
+                        this.sessions[sessionId] = {
+                            ...fullSession,
+                            id: sessionId,
+                            pageTitle: pageTitle
+                        };
                     }
                     
                     // 保存更新后的会话数据到本地
                     await this.saveAllSessions(false, false); // 保存到本地，不同步到后端（因为刚同步过）
+                    
+                    // 如果这是当前会话，立即更新UI标题
+                    if (sessionId === this.currentSessionId && this.isChatOpen) {
+                        this.updateChatHeaderTitle();
+                    }
                 }
             } catch (error) {
                 // 优雅处理404错误和其他错误
@@ -3780,10 +3813,14 @@
                                     console.log('会话详情加载成功:', sessionId);
                                     // 更新本地会话数据
                                     if (this.sessions && this.sessions[sessionId]) {
+                                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                                        const pageTitle = sessionDetail.pageTitle || sessionDetail.title || '';
                                         this.sessions[sessionId] = {
                                             ...this.sessions[sessionId],
                                             ...sessionDetail,
-                                            id: sessionId
+                                            id: sessionId,
+                                            // 确保 pageTitle 字段正确设置
+                                            pageTitle: pageTitle || this.sessions[sessionId].pageTitle || ''
                                         };
                                     }
                                 }
@@ -4231,10 +4268,12 @@
                     
                     const sessionUrl = backendSession.url || '';
                     const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
+                    // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                    const pageTitle = backendSession.pageTitle || backendSession.title || '';
                     const localSession = {
                         id: sessionId,
                         url: sessionUrl,
-                        pageTitle: backendSession.pageTitle || backendSession.title || '',
+                        pageTitle: pageTitle,
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
                         messages: backendSession.messages || [],
@@ -4289,40 +4328,56 @@
                             finalTags = backendSession.tags;
                         }
                         
+                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                        const backendPageTitle = backendSession.pageTitle || backendSession.title || '';
+                        const localPageTitle = localSession.pageTitle || '';
+                        
                         if (backendUpdatedAt >= localUpdatedAt) {
                             this.sessions[sessionId] = {
-                                ...backendSession,
-                                messages: finalMessages,
-                                tags: finalTags,
-                                // 优先保留本地的 pageTitle（如果本地有内容）
-                                pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
-                                    ? localSession.pageTitle
-                                    : (backendSession.pageTitle || backendSession.title || ''),
-                                pageDescription: localSession.pageDescription || backendSession.pageDescription,
+                                id: sessionId,
+                                url: backendSession.url || localSession.url || '',
+                                // 优先保留本地的 pageTitle（如果本地有内容），否则使用后端的
+                                pageTitle: (localPageTitle && localPageTitle.trim() !== '')
+                                    ? localPageTitle
+                                    : backendPageTitle,
+                                pageDescription: localSession.pageDescription || backendSession.pageDescription || '',
                                 // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
                                 pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                     ? localSession.pageContent
                                     : (backendSession.pageContent || ''),
+                                messages: finalMessages,
+                                tags: finalTags,
+                                createdAt: backendSession.createdAt || localSession.createdAt || Date.now(),
+                                updatedAt: backendSession.updatedAt || localSession.updatedAt || Date.now(),
+                                lastAccessTime: backendSession.lastAccessTime || localSession.lastAccessTime || Date.now(),
                                 // 收藏状态：优先使用后端的 isFavorite（如果后端更新）
                                 isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
                                 // 保留OSS文件会话信息（优先使用后端的，如果后端没有则使用本地的）
                                 _isOssFileSession: backendSession._isOssFileSession || localSession._isOssFileSession || false,
-                                _ossFileInfo: backendSession._ossFileInfo || localSession._ossFileInfo || null
+                                _ossFileInfo: backendSession._ossFileInfo || localSession._ossFileInfo || null,
+                                // 保留空白会话标记
+                                _isBlankSession: backendSession._isBlankSession || localSession._isBlankSession || false
                             };
                         } else {
                             this.sessions[sessionId] = {
-                                ...localSession,
-                                url: backendSession.url || localSession.url,
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
-                                pageDescription: localSession.pageDescription || backendSession.pageDescription,
-                                pageContent: localSession.pageContent || backendSession.pageContent,
+                                id: sessionId,
+                                url: backendSession.url || localSession.url || '',
+                                // 优先使用本地的 pageTitle，如果没有则使用后端的
+                                pageTitle: localPageTitle || backendPageTitle,
+                                pageDescription: localSession.pageDescription || backendSession.pageDescription || '',
+                                pageContent: localSession.pageContent || backendSession.pageContent || '',
                                 messages: localMessages,
                                 tags: finalTags,
+                                createdAt: localSession.createdAt || backendSession.createdAt || Date.now(),
+                                updatedAt: localSession.updatedAt || backendSession.updatedAt || Date.now(),
+                                lastAccessTime: localSession.lastAccessTime || backendSession.lastAccessTime || Date.now(),
                                 // 收藏状态：优先使用后端的 isFavorite（即使本地更新，也使用后端的最新状态）
                                 isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
                                 // 保留OSS文件会话信息（优先使用本地的，如果本地没有则使用后端的）
                                 _isOssFileSession: localSession._isOssFileSession || backendSession._isOssFileSession || false,
-                                _ossFileInfo: localSession._ossFileInfo || backendSession._ossFileInfo || null
+                                _ossFileInfo: localSession._ossFileInfo || backendSession._ossFileInfo || null,
+                                // 保留空白会话标记
+                                _isBlankSession: localSession._isBlankSession || backendSession._isBlankSession || false
                             };
                         }
                     }
@@ -4457,10 +4512,12 @@
                     // 注意：后端列表API不返回messages字段，需要单独获取
                     const sessionUrl = backendSession.url || '';
                     const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
+                    // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                    const pageTitle = backendSession.pageTitle || backendSession.title || '';
                     const localSession = {
                         id: sessionId,
                         url: sessionUrl,
-                        pageTitle: backendSession.pageTitle || backendSession.title || '',
+                        pageTitle: pageTitle,
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
                         messages: backendSession.messages || [], // 后端列表API通常不包含messages
@@ -4581,38 +4638,57 @@
                             finalTags = backendSession.tags;
                         }
                         
+                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                        const backendPageTitle = backendSession.pageTitle || backendSession.title || '';
+                        const localPageTitle = localSession.pageTitle || '';
+                        
                         if (backendUpdatedAt >= localUpdatedAt) {
                             // 后端数据更新，使用后端数据，但保留本地消息（如果本地消息更多或更新）
                             this.sessions[sessionId] = {
-                                ...backendSession,
-                                messages: finalMessages, // 使用合并后的消息
-                                tags: finalTags,
-                                // 优先保留本地的 pageTitle（如果本地有内容）
-                                pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
-                                    ? localSession.pageTitle
-                                    : (backendSession.pageTitle || backendSession.title || ''),
-                                pageDescription: localSession.pageDescription || backendSession.pageDescription,
+                                id: sessionId,
+                                url: backendSession.url || localSession.url || '',
+                                // 优先保留本地的 pageTitle（如果本地有内容），否则使用后端的
+                                pageTitle: (localPageTitle && localPageTitle.trim() !== '')
+                                    ? localPageTitle
+                                    : backendPageTitle,
+                                pageDescription: localSession.pageDescription || backendSession.pageDescription || '',
                                 // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
                                 pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                     ? localSession.pageContent
                                     : (backendSession.pageContent || ''),
+                                messages: finalMessages, // 使用合并后的消息
+                                tags: finalTags,
+                                createdAt: backendSession.createdAt || localSession.createdAt || Date.now(),
+                                updatedAt: backendSession.updatedAt || localSession.updatedAt || Date.now(),
+                                lastAccessTime: backendSession.lastAccessTime || localSession.lastAccessTime || Date.now(),
                                 // 收藏状态：优先使用后端的 isFavorite（如果后端更新）
-                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false)
+                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
+                                // 保留OSS文件会话信息和空白会话标记
+                                _isOssFileSession: backendSession._isOssFileSession || localSession._isOssFileSession || false,
+                                _ossFileInfo: backendSession._ossFileInfo || localSession._ossFileInfo || null,
+                                _isBlankSession: backendSession._isBlankSession || localSession._isBlankSession || false
                             };
                         } else {
                             // 本地更新，保留本地数据，但更新其他字段（如果后端有更新的元数据）
                             this.sessions[sessionId] = {
-                                ...localSession,
-                                // 更新元数据字段（如果后端有更新的值）
-                                url: backendSession.url || localSession.url,
-                                pageTitle: localSession.pageTitle || backendSession.pageTitle || backendSession.title || '',
-                                pageDescription: localSession.pageDescription || backendSession.pageDescription,
-                                pageContent: localSession.pageContent || backendSession.pageContent,
+                                id: sessionId,
+                                url: backendSession.url || localSession.url || '',
+                                // 优先使用本地的 pageTitle，如果没有则使用后端的
+                                pageTitle: localPageTitle || backendPageTitle,
+                                pageDescription: localSession.pageDescription || backendSession.pageDescription || '',
+                                pageContent: localSession.pageContent || backendSession.pageContent || '',
                                 // 消息始终使用本地的（因为本地更新）
                                 messages: localMessages,
                                 tags: finalTags,
+                                createdAt: localSession.createdAt || backendSession.createdAt || Date.now(),
+                                updatedAt: localSession.updatedAt || backendSession.updatedAt || Date.now(),
+                                lastAccessTime: localSession.lastAccessTime || backendSession.lastAccessTime || Date.now(),
                                 // 收藏状态：优先使用后端的 isFavorite（即使本地更新，也使用后端的最新状态）
-                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false)
+                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
+                                // 保留OSS文件会话信息和空白会话标记
+                                _isOssFileSession: localSession._isOssFileSession || backendSession._isOssFileSession || false,
+                                _ossFileInfo: localSession._ossFileInfo || backendSession._ossFileInfo || null,
+                                _isBlankSession: localSession._isBlankSession || backendSession._isBlankSession || false
                             };
                         }
                     }
@@ -5504,9 +5580,23 @@
                     session.url = pageInfo.url;
                     hasActualChanges = true;
                 }
-                if (session.pageTitle !== pageInfo.title) {
-                    session.pageTitle = pageInfo.title;
+                // 只有当会话的标题为空或者是默认值时，才用当前页面的标题更新
+                // 这样可以保留从后端加载的有效标题，避免被当前页面标题覆盖
+                const currentPageTitle = pageInfo.title || pageInfo.pageTitle || '';
+                const sessionPageTitle = session.pageTitle || session.title || '';
+                const isDefaultTitle = !sessionPageTitle || 
+                                      sessionPageTitle.trim() === '' ||
+                                      sessionPageTitle === '未命名会话' ||
+                                      sessionPageTitle === '新会话' ||
+                                      sessionPageTitle === '未命名页面' ||
+                                      sessionPageTitle === '当前页面';
+                
+                if (isDefaultTitle && currentPageTitle && currentPageTitle !== sessionPageTitle) {
+                    session.pageTitle = currentPageTitle;
                     hasActualChanges = true;
+                } else if (!isDefaultTitle && sessionPageTitle !== currentPageTitle) {
+                    // 如果会话已经有有效标题，但当前页面标题不同，保留会话标题
+                    console.log(`会话 ${sessionId} 的标题与当前页面不同，保留会话标题:`, sessionPageTitle);
                 }
                 if (session.pageDescription !== (pageInfo.description || '')) {
                     session.pageDescription = pageInfo.description || '';
@@ -6374,8 +6464,8 @@
     _getSessionDisplayTitle(session) {
         if (!session) return '未命名会话';
         
-        // 优先使用会话的 pageTitle
-        let sessionTitle = session.pageTitle || '未命名会话';
+        // 优先使用会话的 pageTitle，如果没有则使用 title（兼容后端可能返回 title 字段的情况）
+        let sessionTitle = session.pageTitle || session.title || '未命名会话';
         
         // 如果是空白会话且标题是默认值，尝试生成更友好的标题
         if (session._isBlankSession || (session.url && session.url.startsWith('blank-session://'))) {
@@ -44037,8 +44127,19 @@ ${messageContent}`;
             session.pageContent = pageContent || '';
             
             // 更新页面信息（确保信息是最新的）
+            // 优先保留会话的 pageTitle（如果已有有效标题），避免覆盖从后端加载的标题
             const pageInfo = this.getPageInfo();
-            session.pageTitle = pageInfo.title || session.pageTitle || document.title || '当前页面';
+            const currentPageTitle = pageInfo.title || pageInfo.pageTitle || document.title || '当前页面';
+            const sessionPageTitle = session.pageTitle || session.title || '';
+            const isDefaultTitle = !sessionPageTitle || 
+                                  sessionPageTitle.trim() === '' ||
+                                  sessionPageTitle === '未命名会话' ||
+                                  sessionPageTitle === '新会话' ||
+                                  sessionPageTitle === '未命名页面' ||
+                                  sessionPageTitle === '当前页面';
+            
+            // 只有当标题是默认值时才更新，否则保留原有标题
+            session.pageTitle = isDefaultTitle ? currentPageTitle : sessionPageTitle;
             session.pageDescription = pageInfo.description || session.pageDescription || '';
             session.url = pageInfo.url || session.url || window.location.href;
             
@@ -47544,7 +47645,9 @@ ${messageContent}`;
         
         // 获取当前会话名称
         if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-            const sessionTitle = this.sessions[this.currentSessionId].pageTitle || '未命名会话';
+            const session = this.sessions[this.currentSessionId];
+            // 优先使用 pageTitle，如果没有则使用 title（兼容后端可能返回 title 字段的情况）
+            const sessionTitle = session.pageTitle || session.title || '未命名会话';
             // 如果标题太长，截断并添加省略号
             const displayTitle = sessionTitle.length > 20 
                 ? sessionTitle.substring(0, 20) + '...' 
@@ -51759,8 +51862,11 @@ ${messageContent}`;
                     if (refreshedSession && this.sessions[this.currentSessionId]) {
                         // 更新本地会话数据，保留本地的最新消息（可能包含未同步的数据）
                         const localSession = this.sessions[this.currentSessionId];
+                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                        const refreshedPageTitle = refreshedSession.pageTitle || refreshedSession.title || '';
                         this.sessions[this.currentSessionId] = {
                             ...refreshedSession,
+                            id: this.currentSessionId,
                             // 如果本地消息更新，保留本地消息
                             messages: localSession.messages?.length > refreshedSession.messages?.length
                                 ? localSession.messages
@@ -51769,10 +51875,10 @@ ${messageContent}`;
                             pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                 ? localSession.pageContent
                                 : (refreshedSession.pageContent || localSession.pageContent || ''),
-                            // 优先保留本地的 pageTitle（如果本地有内容）
+                            // 优先保留本地的 pageTitle（如果本地有内容），否则使用后端的
                             pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
                                 ? localSession.pageTitle
-                                : (refreshedSession.pageTitle || localSession.pageTitle || ''),
+                                : refreshedPageTitle,
                             // 保留OSS文件会话信息
                             _isOssFileSession: localSession._isOssFileSession,
                             _ossFileInfo: localSession._ossFileInfo
@@ -53415,6 +53521,7 @@ ${messageContent}`;
     // 将 PetManager 赋值给 window，防止重复声明
     window.PetManager = PetManager;
 })(); // 结束立即执行函数
+
 
 
 

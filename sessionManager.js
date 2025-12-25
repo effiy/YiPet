@@ -94,9 +94,12 @@ class SessionManager {
         return {
             id: sessionId,
             url: pageInfo.url || window.location.href,
+            // 兼容 pageInfo 中可能只有 title 字段而没有 pageTitle 字段的情况
             pageTitle: pageInfo.pageTitle || pageInfo.title || document.title || '',
-            pageDescription: pageInfo.pageDescription || '',
-            pageContent: pageInfo.pageContent || '',
+            // 兼容 pageInfo 中可能只有 description 字段而没有 pageDescription 字段的情况
+            pageDescription: pageInfo.pageDescription || pageInfo.description || '',
+            // 兼容 pageInfo 中可能只有 content 字段而没有 pageContent 字段的情况
+            pageContent: pageInfo.pageContent || pageInfo.content || '',
             messages: [],
             tags: pageInfo.tags && Array.isArray(pageInfo.tags) && pageInfo.tags.length > 0 ? pageInfo.tags : ['网文'],
             createdAt: now,
@@ -501,9 +504,25 @@ class SessionManager {
         const now = Date.now();
         
         session.url = info.url || session.url;
-        session.pageTitle = info.pageTitle || session.pageTitle;
-        session.pageDescription = info.pageDescription || session.pageDescription;
-        session.pageContent = info.pageContent || session.pageContent;
+        // 兼容 pageInfo 中可能只有 title 字段而没有 pageTitle 字段的情况
+        // 只有当 pageInfo 中有有效标题时，才更新（避免覆盖从后端加载的有效标题）
+        const newPageTitle = info.pageTitle || info.title || '';
+        const currentPageTitle = session.pageTitle || session.title || '';
+        const isDefaultTitle = !currentPageTitle || 
+                              currentPageTitle.trim() === '' ||
+                              currentPageTitle === '未命名会话' ||
+                              currentPageTitle === '新会话' ||
+                              currentPageTitle === '未命名页面' ||
+                              currentPageTitle === '当前页面';
+        
+        // 只有当新标题有效且（当前标题是默认值或新标题与当前标题不同）时才更新
+        if (newPageTitle && newPageTitle.trim() !== '' && (isDefaultTitle || newPageTitle !== currentPageTitle)) {
+            session.pageTitle = newPageTitle;
+        }
+        // 兼容 pageInfo 中可能只有 description 字段而没有 pageDescription 字段的情况
+        session.pageDescription = info.pageDescription || info.description || session.pageDescription;
+        // 兼容 pageInfo 中可能只有 content 字段而没有 pageContent 字段的情况
+        session.pageContent = info.pageContent || info.content || session.pageContent;
         session.lastAccessTime = now;
         
         return true;
@@ -724,6 +743,7 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionManager = SessionManager;
 }
+
 
 
 

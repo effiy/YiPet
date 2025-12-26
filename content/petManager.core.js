@@ -1,11 +1,22 @@
 // 防止重复声明 PetManager
 (function() {
     'use strict';
-    if (typeof window.PetManager !== 'undefined') {
-        return; // 如果已经存在，直接返回
-    }
-    
-    class PetManager {
+    try {
+        if (typeof window.PetManager !== 'undefined') {
+            return; // 如果已经存在，直接返回
+        }
+        
+        // 检查必要的依赖
+        if (typeof window === 'undefined') {
+            console.error('[PetManager.core] window 对象未定义');
+            return;
+        }
+        
+        if (typeof PET_CONFIG === 'undefined') {
+            console.warn('[PetManager.core] PET_CONFIG 未定义，将使用默认值');
+        }
+        
+        class PetManager {
     constructor() {
         this.pet = null;
         this.isVisible = PET_CONFIG.pet.defaultVisible;
@@ -52,14 +63,6 @@
         this.tagFilterSearchKeyword = ''; // 标签搜索关键词
         this.tagOrder = null; // 标签顺序（从localStorage加载）
         
-        // OSS文件标签过滤相关
-        this.selectedOssFilterTags = []; // 选中的OSS文件过滤标签
-        this.ossTagFilterReverse = false; // 是否反向过滤OSS文件
-        this.ossTagFilterNoTags = false; // 是否筛选无标签的OSS文件
-        this.ossTagFilterExpanded = false; // OSS标签列表是否展开
-        this.ossTagFilterVisibleCount = 8; // 折叠时显示的OSS标签数量
-        this.ossTagFilterSearchKeyword = ''; // OSS标签搜索关键词
-        
         // 新闻标签过滤相关
         this.selectedNewsFilterTags = []; // 选中的新闻过滤标签
         this.newsTagFilterReverse = false; // 是否反向过滤新闻
@@ -67,14 +70,6 @@
         this.newsTagFilterExpanded = false; // 新闻标签列表是否展开
         this.newsTagFilterVisibleCount = 8; // 折叠时显示的新闻标签数量
         this.newsTagFilterSearchKeyword = ''; // 新闻标签搜索关键词
-        
-        // 请求接口标签过滤相关
-        this.selectedApiRequestFilterTags = []; // 选中的请求接口过滤标签
-        this.apiRequestTagFilterReverse = false; // 是否反向过滤请求接口
-        this.apiRequestTagFilterNoTags = false; // 是否筛选无标签的请求接口
-        this.apiRequestTagFilterExpanded = false; // 请求接口标签列表是否展开
-        this.apiRequestTagFilterVisibleCount = 8; // 折叠时显示的请求接口标签数量
-        this.apiRequestTagFilterSearchKeyword = ''; // 请求接口标签搜索关键词
         
         this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
         this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
@@ -85,7 +80,6 @@
         this.batchMode = false; // 是否处于批量选择模式
         this.selectedSessionIds = new Set(); // 选中的会话ID集合
         this.selectedFileNames = new Set(); // 选中的文件名称集合
-        this.selectedApiRequestIds = new Set(); // 选中的请求接口 key 集合（使用 key 字段作为唯一标识）
         this.selectedNewsIds = new Set(); // 选中的新闻ID集合（使用link作为唯一标识）
         this.currentFile = null; // 当前选中的文件
         
@@ -98,24 +92,11 @@
         this.backendSessionIds = new Set(); // 存储后端会话ID集合，用于判断是否显示保存按钮
         this.isChatWindowFirstOpen = true; // 标记是否是第一次打开聊天窗口
         
-        // OSS文件管理相关属性
-        this.ossApi = null;
-        this.ossFileManager = null;
-        this.ossFileListVisible = false; // OSS文件列表是否可见
-        this.currentOssDirectory = ''; // 当前OSS目录
-        this.ossImagePreviewEnabled = false; // OSS图片预览开关（默认关闭，用于标签模块的批量控制）
-        this.ossFilePreviewStates = {}; // 每个文件的预览开关状态 { fileName: true/false }
-        this.hasRequestedFiles = false; // 标记是否已经请求过文件列表（用于延迟加载）
-        
         // 新闻管理相关属性
         this.newsManager = null;
         this.newsListVisible = false; // 新闻列表是否可见
         this.hasRequestedNews = false; // 标记是否已经请求过新闻列表（用于延迟加载）
         this.lastNewsDateRange = null; // 上次加载新闻的日期区间（用于判断是否需要重新加载）
-        
-        // 接口请求管理相关属性
-        this.apiRequestManager = null;
-        this.apiRequestListVisible = false; // 接口请求列表是否可见
         
         // RSS源管理器
         this.rssSourceManager = null;
@@ -123,9 +104,6 @@
         
         // FAQ API管理器
         this.faqApi = null;
-        
-        // 请求接口 API管理器
-        this.apiRequestApi = null;
 
         // 状态保存节流相关
         this.lastStateSaveTime = 0; // 上次保存状态的时间
@@ -198,42 +176,12 @@
             console.log('会话API管理器未启用');
         }
         
-        // 初始化OSS API管理器
-        if (typeof OssApiManager !== 'undefined' && PET_CONFIG.api.yiaiBaseUrl) {
-            this.ossApi = new OssApiManager(
-                PET_CONFIG.api.yiaiBaseUrl,
-                true
-            );
-            console.log('OSS API管理器已初始化');
-            
-            // 初始化OSS文件管理器
-            if (typeof OssFileManager !== 'undefined') {
-                this.ossFileManager = new OssFileManager({
-                    ossApi: this.ossApi,
-                    enableBackendSync: true,
-                    directory: this.currentOssDirectory
-                });
-                await this.ossFileManager.initialize();
-                console.log('OSS文件管理器已初始化');
-            }
-        } else {
-            console.log('OSS API管理器未启用');
-        }
-        
         // 初始化FAQ API管理器
         if (typeof FaqApiManager !== 'undefined') {
             this.faqApi = new FaqApiManager('https://api.effiy.cn/mongodb', true);
             console.log('FAQ API管理器已初始化');
         } else {
             console.log('FAQ API管理器未启用');
-        }
-        
-        // 初始化请求接口 API管理器
-        if (typeof ApiRequestApiManager !== 'undefined') {
-            this.apiRequestApi = new ApiRequestApiManager('https://api.effiy.cn/mongodb', true);
-            console.log('请求接口 API管理器已初始化');
-        } else {
-            console.log('请求接口 API管理器未启用');
         }
         
         // 初始化新闻管理器
@@ -252,22 +200,6 @@
             console.log('新闻管理器未启用');
         }
         
-        // 初始化接口请求管理器（仅用于存储从API获取的数据，不拦截本地请求）
-        if (typeof ApiRequestManager !== 'undefined') {
-            this.apiRequestManager = new ApiRequestManager({
-                enableRecording: false, // 禁用请求拦截，不记录本地请求
-                maxRecords: 1000,
-                filterExtensionRequests: true,
-                enableStorageSync: false // 禁用存储同步，不从 storage 同步本地请求
-            });
-            await this.apiRequestManager.initialize();
-            console.log('接口请求管理器已初始化（仅API模式）');
-            
-            // 不再监听接口请求记录事件，因为已禁用本地请求拦截
-        } else {
-            console.log('接口请求管理器未启用');
-        }
-        
         // 初始化RSS源管理器
         if (typeof RssSourceManager !== 'undefined') {
             const yiaiBaseUrl = PET_CONFIG?.api?.yiaiBaseUrl || 'https://api.effiy.cn';
@@ -284,8 +216,6 @@
         }
         
         this.loadState(); // 加载保存的状态
-        this.loadOssImagePreviewState(); // 加载OSS图片预览开关状态
-        this.loadOssFilePreviewStates(); // 加载每个文件的预览开关状态
         this.setupMessageListener();
         this.createPet();
         
@@ -414,14 +344,6 @@
                     });
                     break;
 
-                case 'ossFileClick':
-                    // 处理OSS文件点击
-                    this.handleOssFileClick(request.file).catch(error => {
-                        console.error('处理OSS文件点击失败:', error);
-                    });
-                    sendResponse({ success: true });
-                    break;
-
                 case 'getFullPageText':
                     const text = this.getFullPageText();
                     sendResponse({ text: text });
@@ -478,305 +400,6 @@
                     sendResponse({ success: false, error: 'Unknown action' });
             }
         });
-        
-        // 监听window.postMessage消息（用于OSS文件点击）
-        window.addEventListener('message', (event) => {
-            // 验证消息来源（可选，根据实际需求调整）
-            if (event.data && event.data.type === 'ossFileClick' && event.data.file) {
-                console.log('收到OSS文件点击消息:', event.data.file);
-                this.handleOssFileClick(event.data.file).catch(error => {
-                    console.error('处理OSS文件点击失败:', error);
-                });
-            }
-        });
-    }
-    
-    // 处理OSS文件点击，创建会话并打开聊天窗口
-    async handleOssFileClick(file) {
-        try {
-            console.log('处理OSS文件点击:', file);
-            
-            // 检查文件对象是否有效
-            if (!file) {
-                console.error('文件对象为空');
-                this.showNotification('文件信息无效', 'error');
-                return;
-            }
-            
-            // 确保文件有url字段，如果没有则使用name生成
-            if (!file.url && file.name) {
-                // 如果文件对象没有url，尝试从name生成
-                // 这里假设url格式为：baseUrl + name，但实际应该由后端提供
-                console.warn('文件对象缺少url字段，使用name作为标识');
-                file.url = file.name;
-            }
-            
-            if (!file.url) {
-                console.error('文件对象缺少url和name字段');
-                this.showNotification('文件信息不完整', 'error');
-                return;
-            }
-            
-            // 确保聊天窗口已打开
-            if (!this.chatWindow || !this.isChatOpen) {
-                await this.openChatWindow();
-            }
-            
-            // 生成基于文件URL的会话ID
-            let sessionId = await this.generateSessionId(file.url);
-            
-            // 加载所有会话（包括从后端加载）
-            await this.loadAllSessions();
-            
-            // 检查会话列表中是否有URL匹配的会话
-            let matchedSession = null;
-            let matchedSessionId = null;
-            
-            // 首先检查本地会话
-            for (const [sid, session] of Object.entries(this.sessions)) {
-                if (session && session.url === file.url) {
-                    matchedSession = session;
-                    matchedSessionId = sid;
-                    break;
-                }
-            }
-            
-            // 如果本地没有找到，尝试从后端加载会话列表并查找
-            if (!matchedSession && this.sessionApi && this.sessionApi.isEnabled()) {
-                try {
-                    console.log('本地未找到匹配会话，尝试从后端查找:', file.url);
-                    const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
-                    
-                    // 检查当前页面URL是否在会话列表中，如果是则调用详情接口
-                    const currentPageUrl = window.location.href;
-                    for (const backendSession of backendSessions) {
-                        if (backendSession.url === currentPageUrl) {
-                            const sessionId = backendSession.id || backendSession.conversation_id;
-                            if (sessionId) {
-                                console.log('当前页面URL在会话列表中，正在加载会话详情:', sessionId);
-                                try {
-                                    const sessionDetail = await this.sessionApi.getSession(sessionId, true);
-                                    if (sessionDetail) {
-                                        console.log('会话详情加载成功:', sessionId);
-                                        // 更新本地会话数据
-                                        if (this.sessions && this.sessions[sessionId]) {
-                                            // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                                            const pageTitle = sessionDetail.pageTitle || sessionDetail.title || '';
-                                            this.sessions[sessionId] = {
-                                                ...this.sessions[sessionId],
-                                                ...sessionDetail,
-                                                id: sessionId,
-                                                // 确保 pageTitle 字段正确设置
-                                                pageTitle: pageTitle || this.sessions[sessionId].pageTitle || ''
-                                            };
-                                        }
-                                    }
-                                } catch (error) {
-                                    console.warn('加载会话详情失败:', error);
-                                }
-                            }
-                            break; // 找到匹配的会话后退出循环
-                        }
-                    }
-                    
-                    // 在后端会话列表中查找URL匹配的会话
-                    for (const backendSession of backendSessions) {
-                        if (backendSession.url === file.url) {
-                            const backendSessionId = backendSession.id || backendSession.conversation_id;
-                            if (backendSessionId) {
-                                // 找到匹配的会话，从后端加载完整数据
-                                console.log('在后端找到匹配的会话，正在加载完整数据:', backendSessionId);
-                                try {
-                                    const fullSession = await this.sessionApi.getSession(backendSessionId, true);
-                                    if (fullSession) {
-                                        // 将后端会话数据合并到本地
-                                        this.sessions[backendSessionId] = {
-                                            id: backendSessionId,
-                                            url: fullSession.url || backendSession.url || file.url,
-                                            pageTitle: fullSession.pageTitle || fullSession.title || file.name || 'OSS文件',
-                                            pageDescription: fullSession.pageDescription || '',
-                                            pageContent: fullSession.pageContent || '',
-                                            messages: fullSession.messages || [],
-                                            tags: fullSession.tags || [],
-                                            createdAt: fullSession.createdAt || Date.now(),
-                                            updatedAt: fullSession.updatedAt || Date.now(),
-                                            lastAccessTime: fullSession.lastAccessTime || Date.now(),
-                                            _isOssFileSession: true,
-                                            _ossFileInfo: {
-                                                name: file.name || '',
-                                                url: file.url || '',
-                                                description: file.description || '',
-                                                tags: file.tags || [],
-                                                isImage: file.isImage || false,
-                                                size: file.size || 0,
-                                                size_human: file.size_human || '',
-                                                last_modified_str: file.last_modified_str || ''
-                                            }
-                                        };
-                                        matchedSession = this.sessions[backendSessionId];
-                                        matchedSessionId = backendSessionId;
-                                        console.log('已从后端加载匹配会话的完整数据:', backendSessionId);
-                                        break;
-                                    }
-                                } catch (error) {
-                                    console.warn('从后端加载会话数据失败:', error);
-                                }
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.warn('从后端获取会话列表失败:', error);
-                }
-            }
-            
-            // 如果找到了匹配的会话，使用该会话
-            if (matchedSession && matchedSessionId) {
-                console.log('找到URL匹配的会话，使用该会话:', matchedSessionId);
-                
-                // 更新OSS文件信息
-                matchedSession._isOssFileSession = true;
-                matchedSession._ossFileInfo = {
-                    name: file.name || '',
-                    url: file.url || '',
-                    description: file.description || '',
-                    tags: file.tags || [],
-                    isImage: file.isImage || false,
-                    size: file.size || 0,
-                    size_human: file.size_human || '',
-                    last_modified_str: file.last_modified_str || ''
-                };
-                
-                // 保存到本地
-                await this.saveAllSessions(false, false);
-                
-                // 检查当前是否显示OSS文件列表
-                const ossFileList = this.sessionSidebar?.querySelector('.oss-file-list');
-                const isOssFileListVisible = ossFileList && ossFileList.style.display !== 'none';
-                
-                // 设置当前文件（用于高亮显示）
-                this.currentFile = file.name;
-                
-                // 激活会话（不跳过后端获取，因为我们已经从后端加载了数据）
-                await this.activateSession(matchedSessionId, {
-                    saveCurrent: false,
-                    updateConsistency: false, // OSS文件会话不需要更新页面一致性
-                    updateUI: true,
-                    syncToBackend: false,
-                    skipBackendFetch: false, // 不跳过，确保获取最新数据
-                    keepOssFileListView: isOssFileListVisible // 如果当前显示OSS文件列表，保持该视图
-                });
-                
-                // 如果当前显示的是OSS文件列表，更新OSS文件列表的active状态
-                if (isOssFileListVisible) {
-                    await this.updateOssFileSidebar(false);
-                }
-                
-                console.log('OSS文件会话已激活（使用匹配的会话）:', matchedSessionId);
-                return;
-            }
-            
-            // 如果没有找到匹配的会话，使用原有的逻辑（基于文件URL生成会话ID）
-            let session = this.sessions[sessionId];
-            
-            if (!session) {
-                // 创建新会话
-                // OSS文件会话：pageTitle使用文件名，pageDescription为空
-                // pageContent初始为空，后续可以通过手动保存等方式填充
-                session = this.createSessionObject(sessionId, {
-                    url: file.url,
-                    title: file.name || 'OSS文件',
-                    pageTitle: file.name || 'OSS文件',
-                    pageDescription: '', // OSS文件会话的pageDescription应该为空
-                    pageContent: '' // OSS文件会话的pageContent初始为空，后续可以填充
-                });
-                this.sessions[sessionId] = session;
-                
-                // 标记为OSS文件会话
-                session._isOssFileSession = true;
-                session._ossFileInfo = {
-                    name: file.name || '',
-                    url: file.url || '',
-                    description: file.description || '',
-                    tags: file.tags || [],
-                    isImage: file.isImage || false,
-                    size: file.size || 0,
-                    size_human: file.size_human || '',
-                    last_modified_str: file.last_modified_str || ''
-                };
-                
-                // 保存会话到本地
-                await this.saveAllSessions(false, false);
-            } else {
-                // 更新现有会话的OSS文件信息
-                session._isOssFileSession = true;
-                session._ossFileInfo = {
-                    name: file.name || '',
-                    url: file.url || '',
-                    description: file.description || '',
-                    tags: file.tags || [],
-                    isImage: file.isImage || false,
-                    size: file.size || 0,
-                    size_human: file.size_human || '',
-                    last_modified_str: file.last_modified_str || ''
-                };
-                // 确保OSS文件会话的pageTitle、pageDescription正确
-                // pageContent保留已有内容，如果为空则保持为空
-                session.pageTitle = file.name || 'OSS文件';
-                session.pageDescription = ''; // OSS文件会话的pageDescription应该为空
-                // pageContent保留已有内容，不强制清空
-                // session.pageContent = session.pageContent || '';
-            }
-            
-            // 检查当前是否显示OSS文件列表
-            const ossFileList = this.sessionSidebar?.querySelector('.oss-file-list');
-            const isOssFileListVisible = ossFileList && ossFileList.style.display !== 'none';
-            
-            // 设置当前文件（用于高亮显示）
-            this.currentFile = file.name;
-            
-            // 激活会话
-            await this.activateSession(sessionId, {
-                saveCurrent: false,
-                updateConsistency: false, // OSS文件会话不需要更新页面一致性
-                updateUI: true,
-                syncToBackend: false,
-                skipBackendFetch: true,
-                keepOssFileListView: isOssFileListVisible // 如果当前显示OSS文件列表，保持该视图
-            });
-            
-            // 确保会话信息已更新（在激活会话后）
-            const activatedSession = this.sessions[sessionId];
-            if (activatedSession) {
-                activatedSession._isOssFileSession = true;
-                activatedSession._ossFileInfo = {
-                    name: file.name || '',
-                    url: file.url || '',
-                    description: file.description || '',
-                    tags: file.tags || [],
-                    isImage: file.isImage || false,
-                    size: file.size || 0,
-                    size_human: file.size_human || '',
-                    last_modified_str: file.last_modified_str || ''
-                };
-                // 确保OSS文件会话的pageTitle、pageDescription正确
-                // pageContent保留已有内容，如果为空则保持为空
-                activatedSession.pageTitle = file.name || 'OSS文件';
-                activatedSession.pageDescription = ''; // OSS文件会话的pageDescription应该为空
-                // pageContent保留已有内容，不强制清空
-                // activatedSession.pageContent = activatedSession.pageContent || '';
-            }
-            
-            // 如果当前显示的是OSS文件列表，更新OSS文件列表的active状态，并确保保持OSS文件列表视图
-            if (isOssFileListVisible) {
-                // 更新OSS文件列表的active状态（在激活会话后，确保currentSessionId已设置）
-                await this.updateOssFileSidebar(false);
-            }
-            
-            console.log('OSS文件会话已创建并激活:', sessionId);
-        } catch (error) {
-            console.error('处理OSS文件点击失败:', error);
-            this.showNotification('打开OSS文件会话失败，请重试', 'error');
-        }
     }
 
     // ========== 已拆分到 petManager.pet.js ==========
@@ -1381,61 +1004,6 @@
     }
 
     // 加载OSS图片预览开关状态
-    loadOssImagePreviewState() {
-        try {
-            chrome.storage.local.get(['ossImagePreviewEnabled'], (result) => {
-                if (result.ossImagePreviewEnabled !== undefined) {
-                    this.ossImagePreviewEnabled = result.ossImagePreviewEnabled;
-                } else {
-                    // 默认关闭
-                    this.ossImagePreviewEnabled = false;
-                }
-                console.log('OSS图片预览开关状态已加载:', this.ossImagePreviewEnabled);
-            });
-        } catch (error) {
-            console.log('加载OSS图片预览开关状态失败:', error);
-            this.ossImagePreviewEnabled = false;
-        }
-    }
-
-    // 保存OSS图片预览开关状态
-    saveOssImagePreviewState() {
-        try {
-            chrome.storage.local.set({ ossImagePreviewEnabled: this.ossImagePreviewEnabled }, () => {
-                console.log('OSS图片预览开关状态已保存:', this.ossImagePreviewEnabled);
-            });
-        } catch (error) {
-            console.log('保存OSS图片预览开关状态失败:', error);
-        }
-    }
-
-    // 加载每个文件的预览开关状态
-    loadOssFilePreviewStates() {
-        try {
-            chrome.storage.local.get(['ossFilePreviewStates'], (result) => {
-                if (result.ossFilePreviewStates && typeof result.ossFilePreviewStates === 'object') {
-                    this.ossFilePreviewStates = result.ossFilePreviewStates;
-                } else {
-                    this.ossFilePreviewStates = {};
-                }
-                console.log('每个文件的预览开关状态已加载:', this.ossFilePreviewStates);
-            });
-        } catch (error) {
-            console.log('加载每个文件的预览开关状态失败:', error);
-            this.ossFilePreviewStates = {};
-        }
-    }
-
-    // 保存每个文件的预览开关状态
-    saveOssFilePreviewStates() {
-        try {
-            chrome.storage.local.set({ ossFilePreviewStates: this.ossFilePreviewStates }, () => {
-                console.log('每个文件的预览开关状态已保存:', this.ossFilePreviewStates);
-            });
-        } catch (error) {
-            console.log('保存每个文件的预览开关状态失败:', error);
-        }
-    }
 
     // 获取文件的预览开关状态（如果未设置，默认返回false）
     getFilePreviewEnabled(fileName) {
@@ -2986,14 +2554,15 @@
             if (!keepOssFileListView && !keepNewsListView && !keepApiRequestListView) {
                 await this.updateSessionSidebar();
             } else if (keepOssFileListView) {
-                // 如果保持OSS文件列表视图，只更新OSS文件列表的active状态
-                await this.updateOssFileSidebar(false);
+                // 已移除：OSS文件列表视图功能
+                // await this.updateOssFileSidebar(false);
             } else if (keepNewsListView) {
                 // 如果保持新闻列表视图，只更新新闻列表的active状态
                 await this.updateNewsSidebar(false);
             } else if (keepApiRequestListView) {
                 // 如果保持请求接口列表视图，只更新请求接口列表的active状态
-                await this.updateApiRequestSidebar(false);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(false);
             }
         }
         
@@ -9573,9 +9142,11 @@
         if (this.newsListVisible) {
             this.updateNewsSidebar();
         } else if (this.ossFileListVisible) {
-            this.updateOssFileSidebar();
+            // 已移除：OSS文件列表视图功能
+            // this.updateOssFileSidebar();
         } else if (this.apiRequestListVisible) {
-            this.updateApiRequestSidebar();
+            // 已移除：API请求列表视图功能
+            // this.updateApiRequestSidebar();
         } else {
             this.updateSessionSidebar();
         }
@@ -9667,8 +9238,8 @@
                             }
                         });
                         
-                        // 重新渲染文件列表以应用预览开关状态
-                        this.updateOssFileSidebar();
+                        // 已移除：OSS文件列表视图功能
+                        // this.updateOssFileSidebar();
                     });
                     const reverseFilterBtn = filterActions.querySelector('.oss-tag-filter-reverse');
                     if (reverseFilterBtn) {
@@ -9758,8 +9329,8 @@
                 }
             });
             
-            // 重新渲染文件列表以应用预览开关状态
-            this.updateOssFileSidebar();
+            // 已移除：OSS文件列表视图功能
+            // this.updateOssFileSidebar();
         });
 
         // 反向过滤开关
@@ -9794,7 +9365,8 @@
             reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#4CAF50' : '#9ca3af';
             reverseFilterBtn.style.opacity = this.ossTagFilterReverse ? '1' : '0.6';
             this.updateOssTagFilterUI();
-            this.updateOssFileSidebar();
+            // 已移除：OSS文件列表视图功能
+            // this.updateOssFileSidebar();
         });
 
         // 无标签筛选开关（简化版，使用图标）
@@ -9829,7 +9401,8 @@
             noTagsFilterBtn.style.color = this.ossTagFilterNoTags ? '#667eea' : '#9ca3af';
             noTagsFilterBtn.style.opacity = this.ossTagFilterNoTags ? '1' : '0.6';
             this.updateOssTagFilterUI();
-            this.updateOssFileSidebar();
+            // 已移除：OSS文件列表视图功能
+            // this.updateOssFileSidebar();
         });
 
         // 展开/收起按钮（类似筛选无标签按钮的样式）
@@ -9934,8 +9507,8 @@
                 
                 // 更新UI
                 this.updateOssTagFilterUI();
-                // 强制刷新文件列表（清除筛选后重新加载所有文件）
-                this.updateOssFileSidebar(true);
+                // 已移除：OSS文件列表视图功能
+                // this.updateOssFileSidebar(true);
             }
         });
 
@@ -10332,8 +9905,8 @@
                 
                 // 更新所有标签按钮（确保状态一致）
                 this.updateOssTagFilterUI();
-                // 更新文件列表（应用过滤）
-                this.updateOssFileSidebar();
+                // 已移除：OSS文件列表视图功能
+                // this.updateOssFileSidebar();
             });
             
             tagFilterList.appendChild(tagBtn);
@@ -10931,8 +10504,8 @@
             // 更新原始标签为当前标签，避免关闭时重复保存
             modal._originalTags = [...modal._currentTags];
             
-            // 刷新文件列表和标签筛选器
-            await this.updateOssFileSidebar(true);
+            // 已移除：OSS文件列表视图功能
+            // await this.updateOssFileSidebar(true);
             await this.updateOssTagFilterUI();
             
             // 关闭弹窗（不保存，因为已经保存过了）
@@ -11029,8 +10602,8 @@
                         }
                         
                         this.showNotification('标签已保存', 'success');
-                        // 刷新文件列表和标签筛选器
-                        await this.updateOssFileSidebar(true);
+                        // 已移除：OSS文件列表视图功能
+                        // await this.updateOssFileSidebar(true);
                         await this.updateOssTagFilterUI();
                     } catch (error) {
                         console.error('保存标签失败:', error);
@@ -14674,7 +14247,8 @@ ${originalText}`;
                     if (this.ossFileManager) {
                         await this.ossFileManager.refreshFiles(true);
                     }
-                    await this.updateOssFileSidebar(true);
+                    // 已移除：OSS文件列表视图功能
+                    // await this.updateOssFileSidebar(true);
                 }
             } catch (error) {
                 console.error('上传文件失败:', error);
@@ -15828,8 +15402,9 @@ ${originalText}`;
         return `${originalUrl}${separator}${processParam}`;
     }
     
-    // 更新OSS文件列表侧边栏
-    async updateOssFileSidebar(forceRefresh = false) {
+    // 已移除：updateOssFileSidebar 函数
+    // async updateOssFileSidebar(forceRefresh = false) {
+    /*
         if (!this.sessionSidebar) {
             console.log('侧边栏未创建，跳过更新');
             return;
@@ -16839,7 +16414,8 @@ ${originalText}`;
                                 await this.ossFileManager.deleteFile(file.name);
                                 this.showNotification('文件已删除', 'success');
                                 // 刷新列表
-                                await this.updateOssFileSidebar(true);
+                                // 已移除：OSS文件列表视图功能
+                    // await this.updateOssFileSidebar(true);
                             }
                         } catch (error) {
                             console.error('删除文件失败:', error);
@@ -17012,6 +16588,7 @@ ${originalText}`;
         // 更新视图切换按钮状态
         this.applyViewMode();
     }
+    */
     
     // 更新新闻标签过滤器UI
     updateNewsTagFilterUI() {
@@ -17915,7 +17492,8 @@ ${originalText}`;
                 // 更新所有标签按钮（确保状态一致）
                 this.updateApiRequestTagFilterUI();
                 // 更新请求接口列表（应用过滤）
-                this.updateApiRequestSidebar();
+                // 已移除：API请求列表视图功能
+                // this.updateApiRequestSidebar();
             });
             
             tagFilterList.appendChild(tagBtn);
@@ -18130,7 +17708,8 @@ ${originalText}`;
                     tagSearchIcon.style.opacity = '0.5';
                 }
                 this.updateApiRequestTagFilterUI();
-                this.updateApiRequestSidebar();
+                // 已移除：API请求列表视图功能
+                // this.updateApiRequestSidebar();
             }
         });
 
@@ -21904,7 +21483,8 @@ ${originalText}`;
 
                 // 如果当前显示的是请求接口列表，刷新列表以更新 active 高亮（对齐新闻列表的行为）
                 if (isApiRequestListVisible) {
-                    await this.updateApiRequestSidebar(false);
+                    // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(false);
                 }
                 
                 console.log('请求接口会话已激活（使用匹配的会话）:', matchedSessionId);
@@ -22002,7 +21582,8 @@ ${originalText}`;
 
             // 如果当前显示的是请求接口列表，刷新列表以更新 active 高亮（对齐新闻列表的行为）
             if (isApiRequestListVisible) {
-                await this.updateApiRequestSidebar(false);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(false);
             }
             
             // 确保会话信息已更新（在激活会话后）
@@ -22243,7 +21824,8 @@ ${originalText}`;
                 }
                 
                 // 刷新列表
-                await this.updateApiRequestSidebar(true);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(true);
                 
                 this.showNotification('删除成功', 'success');
             } else {
@@ -23492,7 +23074,8 @@ ${originalText}`;
                 console.log('接口请求已保存:', result.data);
                 
                 // 刷新列表
-                await this.updateApiRequestSidebar(true);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(true);
                 
                 // 关闭编辑器
                 this.closeApiRequestEditor();
@@ -24015,7 +23598,8 @@ ${originalText}`;
                 console.log('接口请求已保存:', result.data);
                 
                 // 刷新列表
-                await this.updateApiRequestSidebar(true);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(true);
                 
                 // 关闭编辑器
                 this.closeApiRequestEditor();
@@ -25344,7 +24928,8 @@ ${originalText}`;
                 console.log('接口请求已保存:', result.data);
                 
                 // 刷新列表
-                await this.updateApiRequestSidebar(true);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(true);
                 
                 // 关闭编辑器
                 this.closeApiRequestEditor();
@@ -25742,7 +25327,8 @@ ${originalText}`;
                 }
                 
                 // 刷新列表
-                await this.updateApiRequestSidebar(true);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(true);
                 
                 // 关闭对话框
                 this.closeApiRequestInfoEditor();
@@ -26685,7 +26271,8 @@ ${originalText}`;
                 }
                 
                 // 刷新列表
-                await this.updateApiRequestSidebar(true);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(true);
                 
                 // 关闭对话框
                 this.closeApiRequestTagManager();
@@ -31971,25 +31558,11 @@ ${originalText}
         // 切换视图时，清空聊天会话内容
         this.clearChatMessages();
         
-        if (mode === 'oss') {
-            this.ossFileListVisible = true;
-            this.newsListVisible = false;
-            this.apiRequestListVisible = false;
-            await this.updateOssFileSidebar();
-            // 确保视图模式状态与列表数据一致
-            this.applyViewMode();
-        } else if (mode === 'news') {
+        if (mode === 'news') {
             this.ossFileListVisible = false;
             this.newsListVisible = true;
             this.apiRequestListVisible = false;
             await this.updateNewsSidebar();
-            // 确保视图模式状态与列表数据一致
-            this.applyViewMode();
-        } else if (mode === 'api') {
-            this.ossFileListVisible = false;
-            this.newsListVisible = false;
-            this.apiRequestListVisible = true;
-            await this.updateApiRequestSidebar(true);
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
         } else {
@@ -32007,11 +31580,9 @@ ${originalText}
         if (!this.sessionSidebar) return;
         
         const btnSession = this.sessionSidebar.querySelector('#view-toggle-session');
-        const btnOss = this.sessionSidebar.querySelector('#view-toggle-oss');
         const btnNews = this.sessionSidebar.querySelector('#view-toggle-news');
-        const btnApi = this.sessionSidebar.querySelector('#view-toggle-api');
         
-        if (!btnSession || !btnOss) return;
+        if (!btnSession) return;
         
         // 获取当前主题色（用于激活态）
         const currentColor = this.colors[this.colorIndex];
@@ -32035,17 +31606,11 @@ ${originalText}
         
         // 重置所有按钮
         resetBtn(btnSession);
-        resetBtn(btnOss);
         if (btnNews) resetBtn(btnNews);
-        if (btnApi) resetBtn(btnApi);
         
         // 激活当前模式的按钮
-        if (this.apiRequestListVisible && btnApi) {
-            activateBtn(btnApi);
-        } else if (this.newsListVisible && btnNews) {
+        if (this.newsListVisible && btnNews) {
             activateBtn(btnNews);
-        } else if (this.ossFileListVisible) {
-            activateBtn(btnOss);
         } else {
             activateBtn(btnSession);
         }
@@ -32088,9 +31653,11 @@ ${originalText}
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
-            this.updateOssFileSidebar();
+            // 已移除：OSS文件列表视图功能
+            // this.updateOssFileSidebar();
         } else if (apiRequestList && apiRequestList.style.display !== 'none') {
-            this.updateApiRequestSidebar();
+            // 已移除：API请求列表视图功能
+            // this.updateApiRequestSidebar();
         } else if (newsList && newsList.style.display !== 'none') {
             this.updateNewsSidebar();
         }
@@ -32141,9 +31708,11 @@ ${originalText}
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
-            this.updateOssFileSidebar();
+            // 已移除：OSS文件列表视图功能
+            // this.updateOssFileSidebar();
         } else if (apiRequestList && apiRequestList.style.display !== 'none') {
-            this.updateApiRequestSidebar();
+            // 已移除：API请求列表视图功能
+            // this.updateApiRequestSidebar();
         } else if (newsList && newsList.style.display !== 'none') {
             this.updateNewsSidebar();
         }
@@ -33074,7 +32643,8 @@ ${originalText}
                 this.exitBatchMode();
                 
                 // 刷新请求接口列表
-                await this.updateApiRequestSidebar(true);
+                // 已移除：API请求列表视图功能
+                // await this.updateApiRequestSidebar(true);
                 
                 // 显示成功通知
                 if (failCount === 0) {
@@ -33124,7 +32694,8 @@ ${originalText}
                     this.exitBatchMode();
                     
                     // 刷新文件列表
-                    await this.updateOssFileSidebar(true);
+                    // 已移除：OSS文件列表视图功能
+                    // await this.updateOssFileSidebar(true);
                     
                     // 显示成功通知
                     if (failCount === 0) {
@@ -44953,7 +44524,8 @@ ${messageContent}`;
             } else if (this.ossFileListVisible) {
                 this.updateOssFileSidebar();
             } else if (this.apiRequestListVisible) {
-                this.updateApiRequestSidebar();
+                // 已移除：API请求列表视图功能
+                // this.updateApiRequestSidebar();
             } else {
                 this.updateSessionSidebar();
             }
@@ -45002,7 +44574,8 @@ ${messageContent}`;
                 } else if (this.ossFileListVisible) {
                     this.updateOssFileSidebar();
                 } else if (this.apiRequestListVisible) {
-                    this.updateApiRequestSidebar();
+                    // 已移除：API请求列表视图功能
+                // this.updateApiRequestSidebar();
                 } else {
                     this.updateSessionSidebar();
                 }
@@ -45026,7 +44599,8 @@ ${messageContent}`;
                 } else if (this.ossFileListVisible) {
                     this.updateOssFileSidebar();
                 } else if (this.apiRequestListVisible) {
-                    this.updateApiRequestSidebar();
+                    // 已移除：API请求列表视图功能
+                // this.updateApiRequestSidebar();
                 } else {
                     this.updateSessionSidebar();
                 }
@@ -45375,14 +44949,10 @@ ${messageContent}`;
         };
         
         const btnSession = makeViewToggleBtn('view-toggle-session', '💬', 'session');
-        const btnOss = makeViewToggleBtn('view-toggle-oss', '📦', 'oss');
         const btnNews = makeViewToggleBtn('view-toggle-news', '📰', 'news');
-        const btnApi = makeViewToggleBtn('view-toggle-api', '🔌', 'api');
         
         viewToggleGroup.appendChild(btnSession);
-        viewToggleGroup.appendChild(btnOss);
         viewToggleGroup.appendChild(btnNews);
-        viewToggleGroup.appendChild(btnApi);
         
         // 第一行：搜索输入框 + 视图切换按钮组
         firstRow.appendChild(searchContainer);
@@ -53542,8 +53112,20 @@ ${messageContent}`;
 
 } // 结束 PetManager 类
     
-    // 将 PetManager 赋值给 window，防止重复声明
-    window.PetManager = PetManager;
+        // 将 PetManager 赋值给 window，防止重复声明
+        window.PetManager = PetManager;
+    } catch (error) {
+        console.error('[PetManager.core] 初始化失败:', error);
+        console.error('[PetManager.core] 错误堆栈:', error.stack);
+        // 即使出错也尝试创建一个基本的 PetManager 类，避免后续代码完全失败
+        if (typeof window !== 'undefined' && typeof window.PetManager === 'undefined') {
+            window.PetManager = class PetManager {
+                constructor() {
+                    console.error('[PetManager] 使用降级版本，某些功能可能不可用');
+                }
+            };
+        }
+    }
 })(); // 结束立即执行函数
 
 

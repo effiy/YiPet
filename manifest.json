@@ -20,6 +20,7 @@
         "md5.js",
         "utils/tokenUtils.js",
         "utils/imageResourceManager.js",
+        "utils/baseApiManager.js",
         "loadingAnimation.js",
         "sessionApi.js",
         "sessionManager.js",

@@ -4,10 +4,9 @@
  * 提供缓存、去重、批量保存等功能
  */
 
-class SessionApiManager {
+class SessionApiManager extends BaseApiManager {
     constructor(baseUrl, enabled = true) {
-        this.baseUrl = baseUrl;
-        this.enabled = enabled;
+        super(baseUrl, enabled);
         
         // 请求队列
         this.saveQueue = new Map(); // sessionId -> sessionData
@@ -15,143 +14,8 @@ class SessionApiManager {
         this.saveBatchSize = 5; // 每批最多保存5个会话
         this.saveInterval = 2000; // 每2秒处理一次批量保存
         
-        // 请求去重
-        this.pendingRequests = new Map(); // 去重用
-        
-        // 统计信息
-        this.stats = {
-            totalRequests: 0,
-            saveCount: 0,
-            errorCount: 0,
-        };
-        
-        // 加载动画计数器
-        this.activeRequestCount = 0;
-    }
-    
-    /**
-     * 检查是否启用
-     */
-    isEnabled() {
-        return this.enabled && !!this.baseUrl;
-    }
-    
-    /**
-     * 创建请求key用于去重
-     */
-    _getRequestKey(method, url, body) {
-        const bodyStr = body ? JSON.stringify(body) : '';
-        return `${method}:${url}:${bodyStr}`;
-    }
-    
-    /**
-     * 显示加载动画
-     */
-    _showLoadingAnimation() {
-        this.activeRequestCount++;
-        if (this.activeRequestCount === 1 && typeof window !== 'undefined' && window.petLoadingAnimation) {
-            window.petLoadingAnimation.show();
-        }
-    }
-    
-    /**
-     * 隐藏加载动画
-     */
-    _hideLoadingAnimation() {
-        this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
-        if (this.activeRequestCount === 0 && typeof window !== 'undefined' && window.petLoadingAnimation) {
-            window.petLoadingAnimation.hide();
-        }
-    }
-    
-    /**
-     * 执行请求（带去重）
-     */
-    async _request(url, options = {}) {
-        if (!this.isEnabled()) {
-            throw new Error('API管理器未启用');
-        }
-        
-        const requestKey = this._getRequestKey(options.method || 'GET', url, options.body);
-        
-        // 检查是否有正在进行的相同请求
-        if (this.pendingRequests.has(requestKey)) {
-            return await this.pendingRequests.get(requestKey);
-        }
-        
-        // 显示加载动画
-        this._showLoadingAnimation();
-        
-        // 创建请求Promise
-        const requestPromise = (async () => {
-            try {
-                this.stats.totalRequests++;
-                
-                // 获取 API Token（优先从 chrome.storage，支持跨 tab 和跨域共享）
-                const getApiToken = async () => {
-                    try {
-                        // 优先使用 TokenUtils（如果可用）
-                        if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiToken) {
-                            return await TokenUtils.getApiToken();
-                        }
-                        // 降级方案：从 localStorage 获取
-                        const token = localStorage.getItem('YiPet.apiToken.v1');
-                        return token ? String(token).trim() : '';
-                    } catch (error) {
-                        return '';
-                    }
-                };
-
-                // 检查并确保 token 已设置
-                let token = await getApiToken();
-                if (!token && typeof TokenUtils !== 'undefined' && TokenUtils.ensureTokenSet) {
-                    const hasToken = await TokenUtils.ensureTokenSet();
-                    if (hasToken) {
-                        token = await getApiToken();
-                    }
-                }
-
-                const authHeaders = token ? { 'X-Token': token } : {};
-
-                const response = await fetch(url, {
-                    ...options,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...authHeaders,
-                        ...options.headers,
-                    },
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-                
-                const result = await response.json();
-                
-                // 从pending中移除
-                this.pendingRequests.delete(requestKey);
-                
-                // 隐藏加载动画
-                this._hideLoadingAnimation();
-                
-                return result;
-            } catch (error) {
-                // 从pending中移除
-                this.pendingRequests.delete(requestKey);
-                
-                // 隐藏加载动画
-                this._hideLoadingAnimation();
-                
-                this.stats.errorCount++;
-                throw error;
-            }
-        })();
-        
-        // 保存到pending中
-        this.pendingRequests.set(requestKey, requestPromise);
-        
-        return requestPromise;
+        // 扩展统计信息
+        this.stats.saveCount = 0;
     }
     
     /**
@@ -439,9 +303,9 @@ class SessionApiManager {
      */
     getStats() {
         return {
-            ...this.stats,
+            ...super.getStats(),
+            saveCount: this.stats.saveCount,
             queueSize: this.saveQueue.size,
-            pendingRequests: this.pendingRequests.size,
         };
     }
     
@@ -449,11 +313,8 @@ class SessionApiManager {
      * 重置统计信息
      */
     resetStats() {
-        this.stats = {
-            totalRequests: 0,
-            saveCount: 0,
-            errorCount: 0,
-        };
+        super.resetStats();
+        this.stats.saveCount = 0;
     }
 }
 

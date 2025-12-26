@@ -44,9 +44,9 @@
         this.SESSION_SAVE_THROTTLE = 1000; // 会话保存节流时间（毫秒）
         
         // 标签过滤相关
-        this.selectedFilterTags = ['网文']; // 选中的过滤标签（会话，默认选中"网文"）
+        this.selectedFilterTags = []; // 选中的过滤标签（会话，默认不选中任何标签）
         this.tagFilterReverse = false; // 是否反向过滤会话
-        this.tagFilterNoTags = true; // 是否筛选无标签的会话（默认选中）
+        this.tagFilterNoTags = false; // 是否筛选无标签的会话（默认不选中）
         this.tagFilterExpanded = false; // 标签列表是否展开（会话）
         this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量（会话）
         this.tagFilterSearchKeyword = ''; // 标签搜索关键词
@@ -8428,11 +8428,7 @@
         noTagsBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            // 如果要取消"没有标签"筛选，需要检查是否至少有一个标签被选中
-            if (this.tagFilterNoTags && (!this.selectedFilterTags || this.selectedFilterTags.length === 0)) {
-                // 如果取消后既没有标签也没有"没有标签"筛选，则不允许取消
-                return;
-            }
+            // 允许反选"没有标签"筛选，即使没有选中其他标签
             this.tagFilterNoTags = !this.tagFilterNoTags;
             this.updateTagFilterUI();
             this.updateSessionSidebar();
@@ -8660,24 +8656,17 @@
                     return;
                 }
                 
-                // 默认同时选中"没有标签"筛选和"网文"标签
-                if (!this.selectedFilterTags) {
-                    const allTags = this.getAllTags();
-                    this.selectedFilterTags = allTags.includes('网文') ? ['网文'] : (allTags.length > 0 ? [allTags[0]] : []);
+                // 初始化 selectedFilterTags 如果为 undefined
+                if (this.selectedFilterTags === undefined) {
+                    this.selectedFilterTags = [];
                 }
                 if (this.tagFilterNoTags === undefined) {
-                    this.tagFilterNoTags = true;
+                    this.tagFilterNoTags = false;
                 }
                 
                 const index = this.selectedFilterTags.indexOf(tag);
                 if (index > -1) {
-                    // 取消选中
-                    // 但至少需要保留一个筛选条件：要么至少有一个标签，要么启用了"没有标签"筛选
-                    if (this.selectedFilterTags.length <= 1 && !this.tagFilterNoTags) {
-                        // 如果取消后既没有标签也没有"没有标签"筛选，则不允许取消
-                        this.showNotification('至少需要保留一个筛选条件', 'warning');
-                        return;
-                    }
+                    // 取消选中：允许取消所有标签，显示所有会话
                     this.selectedFilterTags.splice(index, 1);
                 } else {
                     // 选中
@@ -14776,19 +14765,11 @@ ${originalText}`;
             searchInput.placeholder = '搜索会话...';
         }
         
-        // 如果筛选标签为空，且存在"网文"标签，则默认选择"网文"标签
-        // 默认同时选中"没有标签"筛选和"网文"标签
-        if (!this.selectedFilterTags || this.selectedFilterTags.length === 0) {
-            const allTags = this.getAllTags();
-            if (allTags.includes('网文')) {
-                this.selectedFilterTags = ['网文'];
-            } else if (allTags.length > 0) {
-                this.selectedFilterTags = [allTags[0]];
-            }
-        }
-        // 确保"没有标签"筛选默认选中
+        // 不再自动选中标签，默认显示所有会话
+        // 如果筛选标签为空，不进行自动选择，保持为空数组以显示所有会话
+        // 确保"没有标签"筛选默认不选中
         if (this.tagFilterNoTags === undefined) {
-            this.tagFilterNoTags = true;
+            this.tagFilterNoTags = false;
         }
         
         // 更新标签过滤器UI
@@ -45829,10 +45810,9 @@ ${messageContent}`;
             const hasSearchKeyword = this.tagFilterSearchKeyword && this.tagFilterSearchKeyword.trim() !== '';
             const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags || hasSearchKeyword;
             if (hasActiveFilter) {
-                // 清除筛选时，恢复默认状态：同时选中"没有标签"筛选和"网文"标签
-                const allTags = this.getAllTags();
-                this.selectedFilterTags = allTags.includes('网文') ? ['网文'] : (allTags.length > 0 ? [allTags[0]] : []);
-                this.tagFilterNoTags = true; // 默认选中"没有标签"筛选
+                // 清除筛选时，恢复默认状态：不选中任何标签，显示所有会话
+                this.selectedFilterTags = [];
+                this.tagFilterNoTags = false; // 默认不选中"没有标签"筛选
                 this.tagFilterSearchKeyword = '';
                 // 更新搜索输入框的值和清除按钮状态
                 const tagSearchInput = this.sessionSidebar.querySelector('.tag-filter-search');
@@ -46045,13 +46025,12 @@ ${messageContent}`;
         tagFilterContainer.appendChild(filterHeader);
         tagFilterContainer.appendChild(tagFilterList);
 
-        // 初始化标签过滤器状态：默认同时选中"没有标签"筛选和"网文"标签
+        // 初始化标签过滤器状态：默认不选中任何标签，显示所有会话
         if (this.selectedFilterTags === undefined) {
-            const allTags = this.getAllTags();
-            this.selectedFilterTags = allTags.includes('网文') ? ['网文'] : (allTags.length > 0 ? [allTags[0]] : []);
+            this.selectedFilterTags = [];
         }
         if (this.tagFilterNoTags === undefined) {
-            this.tagFilterNoTags = true;
+            this.tagFilterNoTags = false;
         }
         if (this.tagFilterExpanded === undefined) {
             this.tagFilterExpanded = false;

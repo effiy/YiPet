@@ -80,6 +80,7 @@
         this.batchMode = false; // 是否处于批量选择模式
         this.selectedSessionIds = new Set(); // 选中的会话ID集合
         this.selectedFileNames = new Set(); // 选中的文件名称集合
+        this.selectedApiRequestIds = new Set(); // 选中的API请求ID集合
         this.selectedNewsIds = new Set(); // 选中的新闻ID集合（使用link作为唯一标识）
         this.currentFile = null; // 当前选中的文件
         
@@ -3401,7 +3402,12 @@
                     }
                 }
                 
-                this.backendSessionIds.clear();
+                // 更新后端会话ID集合
+                if (this.backendSessionIds) {
+                    this.backendSessionIds.clear();
+                } else {
+                    this.backendSessionIds = new Set();
+                }
                 backendSessions.forEach(backendSession => {
                     const id = backendSession.id || backendSession.conversation_id;
                     if (id) {
@@ -3810,7 +3816,11 @@
                 }
                 
                 // 更新后端会话ID集合
-                this.backendSessionIds.clear();
+                if (this.backendSessionIds) {
+                    this.backendSessionIds.clear();
+                } else {
+                    this.backendSessionIds = new Set();
+                }
                 backendSessions.forEach(backendSession => {
                     const sessionId = backendSession.id || backendSession.conversation_id;
                     if (sessionId) {
@@ -4054,7 +4064,11 @@
                 console.log(`从后端加载到 ${result.sessions.length} 个会话`);
                 
                 // 更新后端会话ID集合
-                this.backendSessionIds.clear();
+                if (this.backendSessionIds) {
+                    this.backendSessionIds.clear();
+                } else {
+                    this.backendSessionIds = new Set();
+                }
                 result.sessions.forEach(backendSession => {
                     const sessionId = backendSession.id || backendSession.conversation_id;
                     if (sessionId) {
@@ -31619,10 +31633,10 @@ ${originalText}
     // 进入批量选择模式
     enterBatchMode() {
         this.batchMode = true;
-        this.selectedSessionIds.clear();
-        this.selectedFileNames.clear();
-        this.selectedApiRequestIds.clear();
-        this.selectedNewsIds.clear();
+        if (this.selectedSessionIds) this.selectedSessionIds.clear();
+        if (this.selectedFileNames) this.selectedFileNames.clear();
+        if (this.selectedApiRequestIds) this.selectedApiRequestIds.clear();
+        if (this.selectedNewsIds) this.selectedNewsIds.clear();
         
         // 显示批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');
@@ -31674,10 +31688,10 @@ ${originalText}
     // 退出批量选择模式
     exitBatchMode() {
         this.batchMode = false;
-        this.selectedSessionIds.clear();
-        this.selectedFileNames.clear();
-        this.selectedApiRequestIds.clear();
-        this.selectedNewsIds.clear();
+        if (this.selectedSessionIds) this.selectedSessionIds.clear();
+        if (this.selectedFileNames) this.selectedFileNames.clear();
+        if (this.selectedApiRequestIds) this.selectedApiRequestIds.clear();
+        if (this.selectedNewsIds) this.selectedNewsIds.clear();
         
         // 隐藏批量操作工具栏（带动画）
         const batchToolbar = document.getElementById('batch-toolbar');

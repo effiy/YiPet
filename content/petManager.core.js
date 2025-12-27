@@ -32991,8 +32991,49 @@ ${originalText}
                     });
                 }
                 
-                // 如果没有其他aicr会话，删除projectTree
+                // 如果没有其他aicr会话，删除所有projectFiles和projectTree
                 if (!hasOtherAicrSessions) {
+                    // 删除所有projectFiles
+                    try {
+                        const allFilesQueryUrl = `${apiBaseUrl}/mongodb/?cname=projectFiles&projectId=${encodeURIComponent(projectId)}`;
+                        const allFilesResponse = await fetch(allFilesQueryUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...authHeaders
+                            }
+                        });
+                        
+                        if (allFilesResponse.ok) {
+                            const allFilesResult = await allFilesResponse.json();
+                            const allFilesList = allFilesResult?.data?.list || allFilesResult?.list || [];
+                            
+                            // 删除所有projectFiles记录
+                            for (const file of allFilesList) {
+                                const fileKey = file.key || file._id || file.id;
+                                if (fileKey) {
+                                    const deleteUrl = `${allFilesQueryUrl}&key=${encodeURIComponent(fileKey)}`;
+                                    try {
+                                        await fetch(deleteUrl, {
+                                            method: 'DELETE',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                ...authHeaders
+                                            }
+                                        });
+                                        console.log('已删除 aicr projectFiles:', { projectId, fileKey });
+                                    } catch (error) {
+                                        console.warn('删除 aicr projectFiles 失败:', error);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        // 删除所有projectFiles失败不影响删除会话的结果
+                        console.warn('删除所有 aicr projectFiles 失败:', error);
+                    }
+                    
+                    // 删除projectTree
                     try {
                         const treeQueryUrl = `${apiBaseUrl}/mongodb/?cname=projectTree&projectId=${encodeURIComponent(projectId)}`;
                         const treeResponse = await fetch(treeQueryUrl, {

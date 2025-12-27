@@ -28,7 +28,7 @@ class SessionApiManager extends BaseApiManager {
             const url = `${this.baseUrl}/session/`;
             const result = await this._request(url, { method: 'GET' });
             
-            // 兼容不同的返回格式（与 YiH5 保持一致）
+            // 兼容不同的返回格式（与 YiWeb aicr 和 YiH5 保持一致）
             if (Array.isArray(result)) {
                 return result;
             } else if (result && Array.isArray(result.sessions)) {
@@ -37,6 +37,8 @@ class SessionApiManager extends BaseApiManager {
                 return result.data;
             } else if (result && result.data && Array.isArray(result.data.sessions)) {
                 return result.data.sessions;
+            } else if (result && result.data && result.data.list && Array.isArray(result.data.list)) {
+                return result.data.list;
             } else {
                 console.warn('获取会话列表：返回数据格式异常', result);
                 return [];
@@ -51,21 +53,29 @@ class SessionApiManager extends BaseApiManager {
     /**
      * 获取单个会话
      * @param {string} sessionId - 会话ID
-     * @returns {Promise<Object>} 会话数据
+     * @returns {Promise<Object|null>} 会话数据，如果不存在则返回 null
      */
     async getSession(sessionId) {
         try {
             const url = `${this.baseUrl}/session/${encodeURIComponent(sessionId)}`;
             const result = await this._request(url, { method: 'GET' });
             
-            if (result.success && result.data) {
+            // 兼容不同的返回格式（与 YiWeb aicr 保持一致）
+            if (result && result.success && result.data) {
                 return result.data;
+            } else if (result && result.data) {
+                return result.data;
+            } else if (result && !result.success) {
+                // 如果明确返回失败，返回 null
+                return null;
             } else {
-                throw new Error('返回数据格式错误');
+                // 其他情况返回 null
+                return null;
             }
         } catch (error) {
             console.warn(`获取会话 ${sessionId} 失败:`, error.message);
-            throw error;
+            // 返回 null 而不是抛出错误，与 YiWeb aicr 保持一致
+            return null;
         }
     }
     

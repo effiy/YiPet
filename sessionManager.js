@@ -89,10 +89,176 @@ class SessionManager {
     }
     
     /**
+     * 从 aicr 会话ID提取项目ID和文件路径
+     * 格式：aicr_{projectId}_{filePath}（文件路径中的特殊字符替换为下划线）
+     * @param {string} sessionId - 会话ID
+     * @returns {Object|null} {projectId, filePath} 或 null
+     */
+    _extractAicrInfo(sessionId) {
+        if (!sessionId || typeof sessionId !== 'string') {
+            return null;
+        }
+        
+        const prefix = 'aicr_';
+        if (!sessionId.startsWith(prefix)) {
+            return null;
+        }
+        
+        const rest = sessionId.substring(prefix.length);
+        const parts = rest.split('_');
+        
+        if (parts.length < 1) {
+            return null;
+        }
+        
+        const projectId = parts[0];
+        const filePathParts = parts.slice(1);
+        
+        // 将下划线还原为斜杠，恢复文件路径
+        const filePath = filePathParts.length > 0 ? filePathParts.join('/') : null;
+        
+        return { projectId, filePath };
+    }
+    
+    /**
+     * 从文件路径提取标签（目录路径）
+     * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
+     * @param {string} filePath - 文件路径
+     * @returns {Array<string>} 标签数组
+     */
+    _extractTagsFromPath(filePath) {
+        if (!filePath) return [];
+        
+        const parts = filePath.split('/').filter(p => p && p.trim());
+        if (parts.length <= 1) return [];
+        
+        // 移除文件名，只保留目录路径作为标签
+        const dirs = parts.slice(0, -1);
+        return dirs;
+    }
+    
+    /**
+     * 规范化时间戳（转换为毫秒数）
+     * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
+     * @param {string|number|Date} timestamp - 时间戳
+     * @returns {number} 毫秒数
+     */
+    _normalizeTimestamp(timestamp) {
+        if (!timestamp) return Date.now();
+        if (typeof timestamp === 'number') return timestamp;
+        if (typeof timestamp === 'string') {
+            // 尝试解析 ISO 字符串
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+                return date.getTime();
+            }
+            // 尝试解析为数字
+            const num = parseInt(timestamp, 10);
+            if (!isNaN(num)) return num;
+        }
+        return Date.now();
+    }
+    
+    /**
+     * 规范化消息数组（确保格式统一）
+     * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
+     * @param {Array} messages - 消息数组
+     * @returns {Array} 规范化后的消息数组
+     */
+    _normalizeMessages(messages) {
+        if (!Array.isArray(messages)) return [];
+        
+        return messages.map(msg => {
+            // 如果已经是标准格式，直接返回
+            if (msg.type && typeof msg.content === 'string' && typeof msg.timestamp === 'number') {
+                return {
+                    type: msg.type,
+                    content: String(msg.content || '').trim(),
+                    timestamp: Number(msg.timestamp),
+                    imageDataUrl: msg.imageDataUrl || undefined
+                };
+            }
+            
+            // 否则转换为标准格式
+            const type = this._normalizeRole(msg);
+            const content = this._normalizeText(msg);
+            const timestamp = this._normalizeTimestamp(msg.timestamp || msg.ts);
+            
+            return {
+                type: type,
+                content: content,
+                timestamp: timestamp,
+                imageDataUrl: msg.imageDataUrl || msg.image || undefined
+            };
+        }).filter(msg => msg.content); // 过滤空内容
+    }
+    
+    /**
+     * 规范化角色类型（与 YiPet 保持一致）
+     * @param {Object} msg - 消息对象
+     * @returns {string} 'user' 或 'pet'
+     */
+    _normalizeRole(msg) {
+        const author = String(msg.author || '').toLowerCase();
+        const role = String(msg.role || msg.type || '').toLowerCase();
+        
+        // 判断是否为用户消息
+        if (role === 'user' || role === 'me' || author.includes('用户') || author.includes('user')) {
+            return 'user';
+        }
+        // 判断是否为 AI 消息
+        if (role === 'pet' || role === 'assistant' || role === 'bot' || role === 'ai' || 
+            author.includes('AI') || author.includes('助手') || author.includes('assistant')) {
+            return 'pet';
+        }
+        // 默认根据 author 判断
+        return author.includes('AI') ? 'pet' : 'user';
+    }
+    
+    /**
+     * 规范化文本内容（与 YiPet 保持一致）
+     * @param {Object} msg - 消息对象
+     * @returns {string} 规范化后的文本内容
+     */
+    _normalizeText(msg) {
+        return String(msg.content || msg.text || msg.message || '').trim();
+    }
+    
+    /**
+     * 获取会话标签（支持 aicr 目录映射）
+     * @param {string} sessionId - 会话ID
+     * @param {Object} pageInfo - 页面信息（可选）
+     * @returns {Array<string>} 标签数组
+     */
+    _getSessionTags(sessionId, pageInfo = {}) {
+        // 如果 pageInfo 中提供了标签，优先使用
+        if (pageInfo.tags && Array.isArray(pageInfo.tags) && pageInfo.tags.length > 0) {
+            return pageInfo.tags;
+        }
+        
+        // 检查是否是 aicr 会话
+        const aicrInfo = this._extractAicrInfo(sessionId);
+        if (aicrInfo && aicrInfo.filePath) {
+            // 从文件路径提取标签
+            const tags = this._extractTagsFromPath(aicrInfo.filePath);
+            // 如果标签为空，使用项目ID作为标签（与 YiWeb aicr 保持一致）
+            if (tags.length === 0 && aicrInfo.projectId) {
+                return [aicrInfo.projectId];
+            }
+            return tags;
+        }
+        
+        // 默认标签
+        return ['网文'];
+    }
+    
+    /**
      * 创建会话对象
      */
     createSession(sessionId, pageInfo = {}) {
         const now = Date.now();
+        const tags = this._getSessionTags(sessionId, pageInfo);
+        
         return {
             id: sessionId,
             url: pageInfo.url || window.location.href,
@@ -103,7 +269,7 @@ class SessionManager {
             // 兼容 pageInfo 中可能只有 content 字段而没有 pageContent 字段的情况
             pageContent: pageInfo.pageContent || pageInfo.content || '',
             messages: [],
-            tags: pageInfo.tags && Array.isArray(pageInfo.tags) && pageInfo.tags.length > 0 ? pageInfo.tags : ['网文'],
+            tags: tags,
             createdAt: now,
             updatedAt: now,
             lastAccessTime: now
@@ -183,23 +349,27 @@ class SessionManager {
                 this.sessions[unifiedSessionId] = session;
             }
             
-            // 确保tags不为空，如果为空则添加"网文"标签
+            // 获取标签（支持 aicr 目录映射）
             let tags = session.tags || [];
             if (!Array.isArray(tags) || tags.length === 0) {
-                tags = ['网文'];
+                // 如果标签为空，尝试从会话ID提取（针对 aicr 会话）
+                tags = this._getSessionTags(unifiedSessionId);
             }
             
+            // 规范化会话数据（与 YiWeb aicr 的 sessionSyncService.js 保持一致）
             const sessionData = {
-                id: unifiedSessionId,
-                url: session.url || '',
-                pageTitle: session.pageTitle || '',
-                pageDescription: session.pageDescription || '',
-                messages: session.messages || [],
-                tags: tags,
-                isFavorite: session.isFavorite !== undefined ? session.isFavorite : false,
-                createdAt: session.createdAt || Date.now(),
-                updatedAt: session.updatedAt || Date.now(),
-                lastAccessTime: session.lastAccessTime || Date.now()
+                id: String(unifiedSessionId),
+                url: String(session.url || ''),
+                title: String(session.pageTitle || session.title || ''),
+                pageTitle: String(session.pageTitle || session.title || ''),
+                pageDescription: String(session.pageDescription || ''),
+                pageContent: String(session.pageContent || ''),
+                messages: this._normalizeMessages(session.messages || []),
+                tags: Array.isArray(tags) ? tags : [],
+                isFavorite: session.isFavorite !== undefined ? Boolean(session.isFavorite) : false,
+                createdAt: this._normalizeTimestamp(session.createdAt),
+                updatedAt: this._normalizeTimestamp(session.updatedAt),
+                lastAccessTime: this._normalizeTimestamp(session.lastAccessTime)
             };
             
             // 只有在手动保存页面上下文时才包含 pageContent 字段
@@ -301,6 +471,11 @@ class SessionManager {
         // 确保 session.id 与存储键一致（统一标识）
         if (!session.id || session.id !== sessionId) {
             session.id = sessionId;
+        }
+        
+        // 如果会话标签为空，尝试从会话ID提取（针对 aicr 会话）
+        if (!session.tags || !Array.isArray(session.tags) || session.tags.length === 0) {
+            session.tags = this._getSessionTags(sessionId, pageInfo);
         }
         
         // 更新会话页面信息

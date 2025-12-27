@@ -3849,6 +3849,40 @@
                     const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
                     // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
                     const pageTitle = backendSession.pageTitle || backendSession.title || '';
+                    
+                    // 处理标签：如果标签为空，尝试从 aicr 会话ID提取标签
+                    let tags = backendSession.tags || [];
+                    if (!Array.isArray(tags) || tags.length === 0) {
+                        // 检查是否是 aicr 会话
+                        if (sessionId && typeof sessionId === 'string' && sessionId.startsWith('aicr_')) {
+                            const prefix = 'aicr_';
+                            const rest = sessionId.substring(prefix.length);
+                            const parts = rest.split('_');
+                            if (parts.length >= 1) {
+                                const projectId = parts[0];
+                                const filePathParts = parts.slice(1);
+                                if (filePathParts.length > 0) {
+                                    // 将下划线还原为斜杠，恢复文件路径
+                                    const filePath = filePathParts.join('/');
+                                    // 从文件路径提取标签（目录路径）
+                                    const pathParts = filePath.split('/').filter(p => p && p.trim());
+                                    if (pathParts.length > 1) {
+                                        // 移除文件名，只保留目录路径作为标签
+                                        tags = pathParts.slice(0, -1);
+                                    }
+                                }
+                                // 如果标签为空，使用项目ID作为标签（与 YiWeb aicr 保持一致）
+                                if (tags.length === 0) {
+                                    tags = [projectId];
+                                }
+                            }
+                        }
+                        // 如果仍然为空，使用默认标签
+                        if (tags.length === 0) {
+                            tags = ['网文'];
+                        }
+                    }
+                    
                     const localSession = {
                         id: sessionId,
                         url: sessionUrl,
@@ -3856,7 +3890,7 @@
                         pageDescription: backendSession.pageDescription || '',
                         pageContent: backendSession.pageContent || '',
                         messages: backendSession.messages || [],
-                        tags: backendSession.tags || [],
+                        tags: tags,
                         createdAt: backendSession.createdAt || Date.now(),
                         updatedAt: backendSession.updatedAt || Date.now(),
                         lastAccessTime: backendSession.lastAccessTime || Date.now(),

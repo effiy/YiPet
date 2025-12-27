@@ -32949,6 +32949,77 @@ ${originalText}
                 // 删除项目文件失败不影响删除会话的结果
                 console.warn('删除 aicr 项目文件失败:', error);
             }
+            
+            // 检查该projectId是否还有其他aicr会话，如果没有，删除projectTree
+            try {
+                // 查询是否还有其他aicr会话使用这个projectId
+                const sessionsQueryUrl = `${apiBaseUrl}/session?tags=${encodeURIComponent(projectId)}`;
+                const sessionsResponse = await fetch(sessionsQueryUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...authHeaders
+                    }
+                });
+                
+                let hasOtherAicrSessions = false;
+                if (sessionsResponse.ok) {
+                    const sessionsResult = await sessionsResponse.json();
+                    const sessionList = sessionsResult?.data?.list || sessionsResult?.list || [];
+                    // 检查是否有其他aicr_开头的会话（排除当前会话）
+                    hasOtherAicrSessions = sessionList.some(session => {
+                        const sessionKey = session.key || session.id || '';
+                        return sessionKey.startsWith('aicr_') && 
+                               sessionKey !== sessionId &&
+                               sessionKey.split('_')[1] === projectId;
+                    });
+                }
+                
+                // 如果没有其他aicr会话，删除projectTree
+                if (!hasOtherAicrSessions) {
+                    try {
+                        const treeQueryUrl = `${apiBaseUrl}/mongodb/?cname=projectTree&projectId=${encodeURIComponent(projectId)}`;
+                        const treeResponse = await fetch(treeQueryUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...authHeaders
+                            }
+                        });
+                        
+                        if (treeResponse.ok) {
+                            const treeResult = await treeResponse.json();
+                            const treeList = treeResult?.data?.list || treeResult?.list || [];
+                            
+                            // 删除所有projectTree记录
+                            for (const tree of treeList) {
+                                const treeKey = tree.key || tree._id || tree.id;
+                                if (treeKey) {
+                                    const deleteUrl = `${treeQueryUrl}&key=${encodeURIComponent(treeKey)}`;
+                                    try {
+                                        await fetch(deleteUrl, {
+                                            method: 'DELETE',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                ...authHeaders
+                                            }
+                                        });
+                                        console.log('已删除 aicr projectTree:', { projectId, treeKey });
+                                    } catch (error) {
+                                        console.warn('删除 aicr projectTree 失败:', error);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        // 删除projectTree失败不影响删除会话的结果
+                        console.warn('删除 aicr projectTree 失败:', error);
+                    }
+                }
+            } catch (error) {
+                // 检查其他会话失败不影响删除会话的结果
+                console.warn('检查其他aicr会话失败:', error);
+            }
         } catch (error) {
             // 删除项目文件失败不影响删除会话的结果
             console.warn('处理 aicr 项目文件删除失败:', error);

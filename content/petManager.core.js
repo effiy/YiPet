@@ -6136,6 +6136,7 @@
         // 标签筛选（并集逻辑）：如果选中了标签或启用了"没有标签"筛选
         // 显示"没有标签的会话"或"包含选中标签的会话"（并集）
         // 收藏的会话不受标签筛选影响
+        // 注意：如果没有任何标签被选中且未启用"没有标签"筛选，则显示所有会话
         if (this.tagFilterNoTags || (this.selectedFilterTags && this.selectedFilterTags.length > 0)) {
             filteredNonFavorite = filteredNonFavorite.filter(session => {
                 const sessionTags = Array.isArray(session.tags) ? session.tags.map((t) => String(t).trim()) : [];
@@ -6167,6 +6168,7 @@
                 }
             });
         }
+        // 如果没有任何标签被选中且未启用"没有标签"筛选，则不过滤，显示所有会话
         
         // 日期过滤：对收藏和非收藏的会话都生效
         // 使用会话的 updatedAt（更新时间）字段进行筛选

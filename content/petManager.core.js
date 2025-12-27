@@ -32751,6 +32751,28 @@ ${originalText}
             const sessionIds = Array.from(this.selectedSessionIds);
             
             try {
+                // 在删除会话之前，先收集所有会话的 URL，用于更新对应新闻的状态
+                // 同时收集会话信息用于删除 aicr 项目文件
+                const sessionUrls = [];
+                const sessionsToDelete = [];
+                sessionIds.forEach(sessionId => {
+                    const session = this.sessions[sessionId];
+                    if (session) {
+                        if (session.url) {
+                            sessionUrls.push(session.url);
+                        }
+                        sessionsToDelete.push({
+                            sessionId,
+                            unifiedSessionId: session.id || sessionId
+                        });
+                    }
+                });
+                
+                // 处理 aicr 项目文件删除（批量，在删除本地会话之前）
+                for (const { unifiedSessionId } of sessionsToDelete) {
+                    await this.deleteAicrProjectFiles(unifiedSessionId);
+                }
+                
                 // 从本地删除
                 sessionIds.forEach(sessionId => {
                     if (this.sessions[sessionId]) {
@@ -32762,6 +32784,24 @@ ${originalText}
                         this.hasAutoCreatedSessionForPage = false;
                     }
                 });
+                
+                // 如果会话有 URL，清除对应新闻的 sessionId 和 isRead 状态
+                if (sessionUrls.length > 0 && this.newsManager) {
+                    try {
+                        const allNews = this.newsManager.getAllNews();
+                        allNews.forEach((newsItem) => {
+                            if (sessionUrls.includes(newsItem.link)) {
+                                // 清除 sessionId 和 isRead 状态
+                                delete newsItem.sessionId;
+                                newsItem.isRead = false;
+                            }
+                        });
+                        console.log('已更新批量删除会话对应的新闻状态:', sessionUrls);
+                    } catch (error) {
+                        // 更新新闻状态失败不影响删除会话的结果
+                        console.warn('更新新闻状态失败:', error);
+                    }
+                }
                 
                 // 保存本地更改
                 if (this.sessionManager) {
@@ -32804,6 +32844,117 @@ ${originalText}
         }
     }
 
+    /**
+     * 删除 aicr 项目文件（当会话ID以 aicr_ 开头时）
+     * @param {string} sessionId - 会话ID，格式：aicr_{projectId}_{filePath}
+     * @returns {Promise<void>}
+     */
+    async deleteAicrProjectFiles(sessionId) {
+        // 会话ID格式：aicr_{projectId}_{filePath}（filePath中的特殊字符被替换为下划线）
+        if (!sessionId || !sessionId.startsWith('aicr_')) {
+            return;
+        }
+        
+        try {
+            // 提取项目ID和文件路径
+            // 格式：aicr_{projectId}_{filePath}
+            const parts = sessionId.split('_', 2); // 最多分割2次
+            if (parts.length < 3) {
+                console.warn('aicr 会话ID格式不正确:', sessionId);
+                return;
+            }
+            
+            const projectId = parts[1];
+            const filePathNormalized = parts[2];
+            // 将下划线还原为斜杠，得到原始文件路径
+            const filePath = filePathNormalized.replace(/_/g, '/');
+            
+            // 获取 API Token
+            const getApiToken = async () => {
+                try {
+                    if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiToken) {
+                        return await TokenUtils.getApiToken();
+                    }
+                    const token = localStorage.getItem('YiPet.apiToken.v1');
+                    return token ? String(token).trim() : '';
+                } catch (error) {
+                    return '';
+                }
+            };
+            
+            const token = await getApiToken();
+            const authHeaders = token ? { 'X-Token': token } : {};
+            const apiBaseUrl = PET_CONFIG?.api?.yiaiBaseUrl || 'https://api.effiy.cn';
+            
+            // 删除对应的项目文件
+            // 从 projectFiles 集合中删除，通过 fileId 或 path 字段匹配
+            try {
+                // 先查询匹配的文件
+                const filesQueryUrl = `${apiBaseUrl}/mongodb/?cname=projectFiles&projectId=${encodeURIComponent(projectId)}`;
+                const filesResponse = await fetch(filesQueryUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...authHeaders
+                    }
+                });
+                
+                if (filesResponse.ok) {
+                    const filesResult = await filesResponse.json();
+                    const fileList = filesResult?.data?.list || filesResult?.list || [];
+                    
+                    // 查找匹配的文件（通过 fileId、path 或 id 字段）
+                    const matchedFiles = fileList.filter(file => {
+                        const fileId = file.fileId || file.id || '';
+                        const path = file.path || '';
+                        return fileId === filePath || path === filePath;
+                    });
+                    
+                    // 删除匹配的文件
+                    for (const file of matchedFiles) {
+                        const fileKey = file.key || file._id || file.id;
+                        if (fileKey) {
+                            const deleteUrl = `${filesQueryUrl}&key=${encodeURIComponent(fileKey)}`;
+                            try {
+                                await fetch(deleteUrl, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        ...authHeaders
+                                    }
+                                });
+                                console.log('已删除 aicr 项目文件:', { projectId, filePath, fileKey });
+                            } catch (error) {
+                                console.warn('删除 aicr 项目文件失败:', error);
+                            }
+                        } else {
+                            // 如果没有 key，尝试使用 fileId 删除
+                            const deleteUrl = `${filesQueryUrl}&fileId=${encodeURIComponent(filePath)}`;
+                            try {
+                                await fetch(deleteUrl, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        ...authHeaders
+                                    }
+                                });
+                                console.log('已删除 aicr 项目文件（通过 fileId）:', { projectId, filePath });
+                            } catch (error) {
+                                console.warn('删除 aicr 项目文件失败（通过 fileId）:', error);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                // 删除项目文件失败不影响删除会话的结果
+                console.warn('删除 aicr 项目文件失败:', error);
+            }
+        } catch (error) {
+            // 删除项目文件失败不影响删除会话的结果
+            console.warn('处理 aicr 项目文件删除失败:', error);
+        }
+    }
+
     // 删除会话
     async deleteSession(sessionId, skipConfirm = false) {
         if (!sessionId || !this.sessions[sessionId]) return;
@@ -32829,18 +32980,47 @@ ${originalText}
             try {
                 // 确保使用 session.id 作为统一标识
                 const unifiedSessionId = session.id || sessionId;
+                
+                // 处理 aicr 项目文件删除（在删除会话之前）
+                await this.deleteAicrProjectFiles(unifiedSessionId);
+                
                 await this.sessionApi.deleteSession(unifiedSessionId);
                 console.log('会话已从后端删除:', unifiedSessionId);
             } catch (error) {
                 console.warn('从后端删除会话失败:', error);
                 // 即使后端删除失败，也继续本地删除，确保用户界面响应
             }
+        } else {
+            // 即使没有启用后端同步，也要处理 aicr 项目文件删除
+            const unifiedSessionId = session.id || sessionId;
+            await this.deleteAicrProjectFiles(unifiedSessionId);
         }
+        
+        // 在删除会话之前，先获取会话的 URL，用于更新对应新闻的状态
+        const sessionUrl = session?.url;
         
         // 从本地删除会话
         delete this.sessions[sessionId];
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
         // 删除操作通过后端API完成持久化
+        
+        // 如果会话有 URL，清除对应新闻的 sessionId 和 isRead 状态
+        if (sessionUrl && this.newsManager) {
+            try {
+                const allNews = this.newsManager.getAllNews();
+                allNews.forEach((newsItem) => {
+                    if (newsItem.link === sessionUrl) {
+                        // 清除 sessionId 和 isRead 状态
+                        delete newsItem.sessionId;
+                        newsItem.isRead = false;
+                    }
+                });
+                console.log('已更新会话对应的新闻状态:', sessionUrl);
+            } catch (error) {
+                // 更新新闻状态失败不影响删除会话的结果
+                console.warn('更新新闻状态失败:', error);
+            }
+        }
         
         // 删除会话后，重新从接口获取会话列表（强制刷新）
         if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {

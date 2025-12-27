@@ -9,6 +9,8 @@ class SessionManager {
         // 配置选项
         this.sessionApi = options.sessionApi || null; // SessionApiManager 实例
         this.enableBackendSync = options.enableBackendSync || false; // 是否启用后端同步
+        this.newsManager = options.newsManager || null; // NewsManager 实例（可选，用于更新新闻状态）
+        this.deleteAicrProjectFilesCallback = options.deleteAicrProjectFilesCallback || null; // 删除 aicr 项目文件的回调函数（可选）
         
         // 会话数据
         this.sessions = {}; // 存储所有会话，key为sessionId，value为会话数据
@@ -656,17 +658,48 @@ class SessionManager {
         // 确保使用统一的会话ID（session.id 或 sessionId）
         const unifiedSessionId = session.id || sessionId;
         
+        // 处理 aicr 项目文件删除（在删除会话之前）
+        if (this.deleteAicrProjectFilesCallback && typeof this.deleteAicrProjectFilesCallback === 'function') {
+            try {
+                await this.deleteAicrProjectFilesCallback(unifiedSessionId);
+            } catch (error) {
+                // 删除项目文件失败不影响删除会话的结果
+                console.warn('删除 aicr 项目文件失败:', error);
+            }
+        }
+        
         // 如果是当前会话，清空当前会话ID
         if (this.currentSessionId === sessionId || this.currentSessionId === unifiedSessionId) {
             this.currentSessionId = null;
             this.hasAutoCreatedSessionForPage = false;
         }
         
+        // 在删除会话之前，先获取会话的 URL，用于更新对应新闻的状态
+        const sessionUrl = session?.url;
+        
         // 从本地删除
         delete this.sessions[sessionId];
         // 如果 unifiedSessionId 不同，也删除那个键
         if (unifiedSessionId !== sessionId && this.sessions[unifiedSessionId]) {
             delete this.sessions[unifiedSessionId];
+        }
+        
+        // 如果会话有 URL，清除对应新闻的 sessionId 和 isRead 状态
+        if (sessionUrl && this.newsManager) {
+            try {
+                const allNews = this.newsManager.getAllNews();
+                allNews.forEach((newsItem) => {
+                    if (newsItem.link === sessionUrl) {
+                        // 清除 sessionId 和 isRead 状态
+                        delete newsItem.sessionId;
+                        newsItem.isRead = false;
+                    }
+                });
+                console.log('已更新会话对应的新闻状态:', sessionUrl);
+            } catch (error) {
+                // 更新新闻状态失败不影响删除会话的结果
+                console.warn('更新新闻状态失败:', error);
+            }
         }
         
         // 从后端删除

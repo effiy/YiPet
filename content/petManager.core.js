@@ -32889,7 +32889,7 @@ ${originalText}
             // 删除对应的项目文件
             // 从 projectFiles 集合中删除，通过 fileId 或 path 字段匹配
             try {
-                // 先查询匹配的文件
+                // 先查询匹配的文件（使用 projectId 过滤）
                 const filesQueryUrl = `${apiBaseUrl}/mongodb/?cname=projectFiles&projectId=${encodeURIComponent(projectId)}`;
                 const filesResponse = await fetch(filesQueryUrl, {
                     method: 'GET',
@@ -32910,35 +32910,44 @@ ${originalText}
                         return fileId === filePath || path === filePath;
                     });
                     
-                    // 删除匹配的文件
+                    // 删除匹配的文件（使用与 YiWeb 相同的基础 URL 格式）
+                    const filesBaseUrl = `${apiBaseUrl}/mongodb/?cname=projectFiles`;
                     for (const file of matchedFiles) {
                         const fileKey = file.key || file._id || file.id;
                         if (fileKey) {
-                            const deleteUrl = `${filesQueryUrl}&key=${encodeURIComponent(fileKey)}`;
+                            const deleteUrl = `${filesBaseUrl}&key=${encodeURIComponent(fileKey)}`;
                             try {
-                                await fetch(deleteUrl, {
+                                const deleteResponse = await fetch(deleteUrl, {
                                     method: 'DELETE',
                                     headers: {
                                         'Content-Type': 'application/json',
                                         ...authHeaders
                                     }
                                 });
-                                console.log('已删除 aicr 项目文件:', { projectId, filePath, fileKey });
+                                if (deleteResponse.ok) {
+                                    console.log('已删除 aicr 项目文件:', { projectId, filePath, fileKey });
+                                } else {
+                                    console.warn('删除 aicr 项目文件失败，HTTP状态:', deleteResponse.status);
+                                }
                             } catch (error) {
                                 console.warn('删除 aicr 项目文件失败:', error);
                             }
                         } else {
                             // 如果没有 key，尝试使用 fileId 删除
-                            const deleteUrl = `${filesQueryUrl}&fileId=${encodeURIComponent(filePath)}`;
+                            const deleteUrl = `${filesBaseUrl}&fileId=${encodeURIComponent(filePath)}`;
                             try {
-                                await fetch(deleteUrl, {
+                                const deleteResponse = await fetch(deleteUrl, {
                                     method: 'DELETE',
                                     headers: {
                                         'Content-Type': 'application/json',
                                         ...authHeaders
                                     }
                                 });
-                                console.log('已删除 aicr 项目文件（通过 fileId）:', { projectId, filePath });
+                                if (deleteResponse.ok) {
+                                    console.log('已删除 aicr 项目文件（通过 fileId）:', { projectId, filePath });
+                                } else {
+                                    console.warn('删除 aicr 项目文件失败（通过 fileId），HTTP状态:', deleteResponse.status);
+                                }
                             } catch (error) {
                                 console.warn('删除 aicr 项目文件失败（通过 fileId）:', error);
                             }
@@ -33008,20 +33017,25 @@ ${originalText}
                             const allFilesResult = await allFilesResponse.json();
                             const allFilesList = allFilesResult?.data?.list || allFilesResult?.list || [];
                             
-                            // 删除所有projectFiles记录
+                            // 删除所有projectFiles记录（使用与 YiWeb 相同的基础 URL 格式）
+                            const filesBaseUrl = `${apiBaseUrl}/mongodb/?cname=projectFiles`;
                             for (const file of allFilesList) {
                                 const fileKey = file.key || file._id || file.id;
                                 if (fileKey) {
-                                    const deleteUrl = `${allFilesQueryUrl}&key=${encodeURIComponent(fileKey)}`;
+                                    const deleteUrl = `${filesBaseUrl}&key=${encodeURIComponent(fileKey)}`;
                                     try {
-                                        await fetch(deleteUrl, {
+                                        const deleteResponse = await fetch(deleteUrl, {
                                             method: 'DELETE',
                                             headers: {
                                                 'Content-Type': 'application/json',
                                                 ...authHeaders
                                             }
                                         });
-                                        console.log('已删除 aicr projectFiles:', { projectId, fileKey });
+                                        if (deleteResponse.ok) {
+                                            console.log('已删除 aicr projectFiles:', { projectId, fileKey });
+                                        } else {
+                                            console.warn('删除 aicr projectFiles 失败，HTTP状态:', deleteResponse.status);
+                                        }
                                     } catch (error) {
                                         console.warn('删除 aicr projectFiles 失败:', error);
                                     }

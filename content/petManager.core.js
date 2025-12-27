@@ -32193,10 +32193,19 @@ ${originalText}
                         }
                     }
                     
-                    // 获取标签数组，如果没有标签则使用"未分类"（参考会话导出功能）
-                    const tags = fileInfo && fileInfo.tags && Array.isArray(fileInfo.tags) && fileInfo.tags.length > 0
+                    // 获取标签数组，如果没有标签则从文件名路径中提取目录名
+                    let tags = fileInfo && fileInfo.tags && Array.isArray(fileInfo.tags) && fileInfo.tags.length > 0
                         ? fileInfo.tags
-                        : ['未分类'];
+                        : [];
+                    
+                    // 如果仍然没有标签，尝试从文件名路径中提取目录名
+                    if (tags.length === 0 && fileName) {
+                        const parts = fileName.split('/').filter(p => p && p.trim());
+                        if (parts.length > 1) {
+                            // 移除文件名，只保留目录路径作为标签
+                            tags = parts.slice(0, -1);
+                        }
+                    }
                     
                     // 获取文件下载URL
                     const downloadUrl = await this.ossApi.getDownloadUrl(fileName, 3600);

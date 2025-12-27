@@ -45,10 +45,23 @@
     
     // 添加文件到ZIP
     exportData.forEach(function(item, index) {
-        // 获取标签数组，如果没有标签则使用"未分类"
-        const tags = item.tags && Array.isArray(item.tags) && item.tags.length > 0 
+        // 获取标签数组，如果没有标签则尝试从pageDescription中提取目录名
+        let tags = item.tags && Array.isArray(item.tags) && item.tags.length > 0 
             ? item.tags 
-            : ['未分类'];
+            : [];
+        
+        // 如果仍然没有标签，尝试从pageDescription中提取文件路径，然后提取目录名
+        if (tags.length === 0 && item.pageDescription) {
+            const pathMatch = item.pageDescription.match(/文件[：:]\s*(.+)/);
+            if (pathMatch && pathMatch[1]) {
+                const filePath = pathMatch[1].trim();
+                const parts = filePath.split('/').filter(p => p && p.trim());
+                if (parts.length > 1) {
+                    // 移除文件名，只保留目录路径作为标签
+                    tags = parts.slice(0, -1);
+                }
+            }
+        }
         
         // 按标签顺序建立目录层次
         // 每个标签作为一层目录

@@ -661,8 +661,7 @@ class SessionManager {
         // 处理 aicr 项目文件删除（在删除会话之前）
         if (this.deleteAicrProjectFilesCallback && typeof this.deleteAicrProjectFilesCallback === 'function') {
             try {
-                // 传递session对象，以便从tags中获取projectId
-                await this.deleteAicrProjectFilesCallback(unifiedSessionId, session);
+                await this.deleteAicrProjectFilesCallback(unifiedSessionId);
             } catch (error) {
                 // 删除项目文件失败不影响删除会话的结果
                 console.warn('删除 aicr 项目文件失败:', error);

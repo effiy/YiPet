@@ -106,6 +106,18 @@
         // FAQ API管理器
         this.faqApi = null;
 
+        // OSS相关属性
+        this.ossApi = null; // OSS API管理器
+        this.ossFileManager = null; // OSS文件管理器
+        this.ossFileListVisible = false; // OSS文件列表是否可见
+        this.hasRequestedFiles = false; // 标记是否已经请求过文件列表（用于延迟加载）
+        this.currentOssDirectory = ''; // 当前OSS目录
+        this.ossImagePreviewEnabled = true; // 是否启用图片预览（默认启用）
+        this.ossFilePreviewStates = {}; // 每个文件的预览开关状态 { fileName: boolean }
+        this.selectedOssFilterTags = []; // 选中的OSS文件过滤标签
+        this.ossTagFilterReverse = false; // 是否反向过滤OSS文件
+        this.ossTagFilterNoTags = false; // 是否筛选无标签的OSS文件
+
         // 状态保存节流相关
         this.lastStateSaveTime = 0; // 上次保存状态的时间
         this.STATE_SAVE_THROTTLE = 2000; // 状态保存节流时间（毫秒），避免超过chrome.storage.sync的写入限制
@@ -215,6 +227,30 @@
         } else {
             console.log('RSS源管理器未启用');
         }
+        
+        // 初始化OSS API管理器
+        if (typeof OssApiManager !== 'undefined') {
+            const yiaiBaseUrl = PET_CONFIG?.api?.yiaiBaseUrl || 'https://api.effiy.cn';
+            this.ossApi = new OssApiManager(yiaiBaseUrl, true);
+            console.log('OSS API管理器已初始化');
+        } else {
+            console.log('OSS API管理器未启用');
+        }
+        
+        // 初始化OSS文件管理器
+        if (typeof OssFileManager !== 'undefined') {
+            this.ossFileManager = new OssFileManager({
+                ossApi: this.ossApi,
+                enableCache: true
+            });
+            await this.ossFileManager.initialize();
+            console.log('OSS文件管理器已初始化');
+        } else {
+            console.log('OSS文件管理器未启用');
+        }
+        
+        // 加载OSS文件预览状态
+        await this.loadOssFilePreviewStates();
         
         this.loadState(); // 加载保存的状态
         this.setupMessageListener();
@@ -1005,6 +1041,52 @@
     }
 
     // 加载OSS图片预览开关状态
+    async loadOssFilePreviewStates() {
+        try {
+            if (typeof StorageHelper !== 'undefined' && StorageHelper.get) {
+                const states = await StorageHelper.get('petOssFilePreviewStates');
+                if (states && typeof states === 'object') {
+                    this.ossFilePreviewStates = states;
+                }
+            } else if (typeof chrome !== 'undefined' && chrome.storage) {
+                return new Promise((resolve) => {
+                    chrome.storage.local.get(['petOssFilePreviewStates'], (result) => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('加载OSS文件预览状态失败:', chrome.runtime.lastError);
+                            resolve();
+                            return;
+                        }
+                        if (result.petOssFilePreviewStates && typeof result.petOssFilePreviewStates === 'object') {
+                            this.ossFilePreviewStates = result.petOssFilePreviewStates;
+                        }
+                        resolve();
+                    });
+                });
+            }
+        } catch (error) {
+            console.warn('加载OSS文件预览状态失败:', error);
+        }
+    }
+
+    // 保存OSS图片预览开关状态
+    async saveOssFilePreviewStates() {
+        try {
+            if (typeof StorageHelper !== 'undefined' && StorageHelper.set) {
+                await StorageHelper.set('petOssFilePreviewStates', this.ossFilePreviewStates);
+            } else if (typeof chrome !== 'undefined' && chrome.storage) {
+                return new Promise((resolve) => {
+                    chrome.storage.local.set({ petOssFilePreviewStates: this.ossFilePreviewStates }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('保存OSS文件预览状态失败:', chrome.runtime.lastError);
+                        }
+                        resolve();
+                    });
+                });
+            }
+        } catch (error) {
+            console.warn('保存OSS文件预览状态失败:', error);
+        }
+    }
 
     // 获取文件的预览开关状态（如果未设置，默认返回false）
     getFilePreviewEnabled(fileName) {
@@ -2555,15 +2637,13 @@
             if (!keepOssFileListView && !keepNewsListView && !keepApiRequestListView) {
                 await this.updateSessionSidebar();
             } else if (keepOssFileListView) {
-                // 已移除：OSS文件列表视图功能
-                // await this.updateOssFileSidebar(false);
+                await this.updateOssFileSidebar(false);
             } else if (keepNewsListView) {
                 // 如果保持新闻列表视图，只更新新闻列表的active状态
                 await this.updateNewsSidebar(false);
             } else if (keepApiRequestListView) {
                 // 如果保持请求接口列表视图，只更新请求接口列表的active状态
-                // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(false);
+                await this.updateApiRequestSidebar(false);
             }
         }
         
@@ -9192,11 +9272,9 @@
         if (this.newsListVisible) {
             this.updateNewsSidebar();
         } else if (this.ossFileListVisible) {
-            // 已移除：OSS文件列表视图功能
-            // this.updateOssFileSidebar();
+            this.updateOssFileSidebar();
         } else if (this.apiRequestListVisible) {
-            // 已移除：API请求列表视图功能
-            // this.updateApiRequestSidebar();
+            this.updateApiRequestSidebar();
         } else {
             this.updateSessionSidebar();
         }
@@ -9289,7 +9367,7 @@
                         });
                         
                         // 已移除：OSS文件列表视图功能
-                        // this.updateOssFileSidebar();
+                        this.updateOssFileSidebar();
                     });
                     const reverseFilterBtn = filterActions.querySelector('.oss-tag-filter-reverse');
                     if (reverseFilterBtn) {
@@ -9379,8 +9457,7 @@
                 }
             });
             
-            // 已移除：OSS文件列表视图功能
-            // this.updateOssFileSidebar();
+            this.updateOssFileSidebar();
         });
 
         // 反向过滤开关
@@ -9415,8 +9492,7 @@
             reverseFilterBtn.style.color = this.ossTagFilterReverse ? '#4CAF50' : '#9ca3af';
             reverseFilterBtn.style.opacity = this.ossTagFilterReverse ? '1' : '0.6';
             this.updateOssTagFilterUI();
-            // 已移除：OSS文件列表视图功能
-            // this.updateOssFileSidebar();
+            this.updateOssFileSidebar();
         });
 
         // 无标签筛选开关（简化版，使用图标）
@@ -9451,8 +9527,7 @@
             noTagsFilterBtn.style.color = this.ossTagFilterNoTags ? '#667eea' : '#9ca3af';
             noTagsFilterBtn.style.opacity = this.ossTagFilterNoTags ? '1' : '0.6';
             this.updateOssTagFilterUI();
-            // 已移除：OSS文件列表视图功能
-            // this.updateOssFileSidebar();
+            this.updateOssFileSidebar();
         });
 
         // 展开/收起按钮（类似筛选无标签按钮的样式）
@@ -9557,8 +9632,7 @@
                 
                 // 更新UI
                 this.updateOssTagFilterUI();
-                // 已移除：OSS文件列表视图功能
-                // this.updateOssFileSidebar(true);
+                this.updateOssFileSidebar(true);
             }
         });
 
@@ -9956,7 +10030,7 @@
                 // 更新所有标签按钮（确保状态一致）
                 this.updateOssTagFilterUI();
                 // 已移除：OSS文件列表视图功能
-                // this.updateOssFileSidebar();
+                this.updateOssFileSidebar();
             });
             
             tagFilterList.appendChild(tagBtn);
@@ -10554,8 +10628,7 @@
             // 更新原始标签为当前标签，避免关闭时重复保存
             modal._originalTags = [...modal._currentTags];
             
-            // 已移除：OSS文件列表视图功能
-            // await this.updateOssFileSidebar(true);
+            await this.updateOssFileSidebar(true);
             await this.updateOssTagFilterUI();
             
             // 关闭弹窗（不保存，因为已经保存过了）
@@ -10653,7 +10726,7 @@
                         
                         this.showNotification('标签已保存', 'success');
                         // 已移除：OSS文件列表视图功能
-                        // await this.updateOssFileSidebar(true);
+                        await this.updateOssFileSidebar(true);
                         await this.updateOssTagFilterUI();
                     } catch (error) {
                         console.error('保存标签失败:', error);
@@ -14298,7 +14371,7 @@ ${originalText}`;
                         await this.ossFileManager.refreshFiles(true);
                     }
                     // 已移除：OSS文件列表视图功能
-                    // await this.updateOssFileSidebar(true);
+                    await this.updateOssFileSidebar(true);
                 }
             } catch (error) {
                 console.error('上传文件失败:', error);
@@ -15452,9 +15525,7 @@ ${originalText}`;
         return `${originalUrl}${separator}${processParam}`;
     }
     
-    // 已移除：updateOssFileSidebar 函数
-    // async updateOssFileSidebar(forceRefresh = false) {
-    /*
+    async updateOssFileSidebar(forceRefresh = false) {
         if (!this.sessionSidebar) {
             console.log('侧边栏未创建，跳过更新');
             return;
@@ -16465,7 +16536,7 @@ ${originalText}`;
                                 this.showNotification('文件已删除', 'success');
                                 // 刷新列表
                                 // 已移除：OSS文件列表视图功能
-                    // await this.updateOssFileSidebar(true);
+                    await this.updateOssFileSidebar(true);
                             }
                         } catch (error) {
                             console.error('删除文件失败:', error);
@@ -16638,7 +16709,6 @@ ${originalText}`;
         // 更新视图切换按钮状态
         this.applyViewMode();
     }
-    */
     
     // 更新新闻标签过滤器UI
     updateNewsTagFilterUI() {
@@ -17543,7 +17613,7 @@ ${originalText}`;
                 this.updateApiRequestTagFilterUI();
                 // 更新请求接口列表（应用过滤）
                 // 已移除：API请求列表视图功能
-                // this.updateApiRequestSidebar();
+                this.updateApiRequestSidebar();
             });
             
             tagFilterList.appendChild(tagBtn);
@@ -17759,7 +17829,7 @@ ${originalText}`;
                 }
                 this.updateApiRequestTagFilterUI();
                 // 已移除：API请求列表视图功能
-                // this.updateApiRequestSidebar();
+                this.updateApiRequestSidebar();
             }
         });
 
@@ -21534,7 +21604,7 @@ ${originalText}`;
                 // 如果当前显示的是请求接口列表，刷新列表以更新 active 高亮（对齐新闻列表的行为）
                 if (isApiRequestListVisible) {
                     // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(false);
+                await this.updateApiRequestSidebar(false);
                 }
                 
                 console.log('请求接口会话已激活（使用匹配的会话）:', matchedSessionId);
@@ -21633,7 +21703,7 @@ ${originalText}`;
             // 如果当前显示的是请求接口列表，刷新列表以更新 active 高亮（对齐新闻列表的行为）
             if (isApiRequestListVisible) {
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(false);
+                await this.updateApiRequestSidebar(false);
             }
             
             // 确保会话信息已更新（在激活会话后）
@@ -21875,7 +21945,7 @@ ${originalText}`;
                 
                 // 刷新列表
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(true);
+                await this.updateApiRequestSidebar(true);
                 
                 this.showNotification('删除成功', 'success');
             } else {
@@ -23125,7 +23195,7 @@ ${originalText}`;
                 
                 // 刷新列表
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(true);
+                await this.updateApiRequestSidebar(true);
                 
                 // 关闭编辑器
                 this.closeApiRequestEditor();
@@ -23649,7 +23719,7 @@ ${originalText}`;
                 
                 // 刷新列表
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(true);
+                await this.updateApiRequestSidebar(true);
                 
                 // 关闭编辑器
                 this.closeApiRequestEditor();
@@ -24979,7 +25049,7 @@ ${originalText}`;
                 
                 // 刷新列表
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(true);
+                await this.updateApiRequestSidebar(true);
                 
                 // 关闭编辑器
                 this.closeApiRequestEditor();
@@ -25378,7 +25448,7 @@ ${originalText}`;
                 
                 // 刷新列表
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(true);
+                await this.updateApiRequestSidebar(true);
                 
                 // 关闭对话框
                 this.closeApiRequestInfoEditor();
@@ -26322,7 +26392,7 @@ ${originalText}`;
                 
                 // 刷新列表
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(true);
+                await this.updateApiRequestSidebar(true);
                 
                 // 关闭对话框
                 this.closeApiRequestTagManager();
@@ -31600,7 +31670,7 @@ ${originalText}
         }
     }
     
-    // 设置视图模式（会话列表、OSS文件列表或新闻列表）
+    // 设置视图模式（会话列表、OSS文件列表、API请求列表或新闻列表）
     async setViewMode(mode) {
         // 切换视图前，清除所有选中状态
         this.clearAllSelections();
@@ -31615,7 +31685,22 @@ ${originalText}
             await this.updateNewsSidebar();
             // 确保视图模式状态与列表数据一致
             this.applyViewMode();
+        } else if (mode === 'oss') {
+            this.ossFileListVisible = true;
+            this.newsListVisible = false;
+            this.apiRequestListVisible = false;
+            await this.updateOssFileSidebar();
+            // 确保视图模式状态与列表数据一致
+            this.applyViewMode();
+        } else if (mode === 'apiRequest') {
+            this.ossFileListVisible = false;
+            this.newsListVisible = false;
+            this.apiRequestListVisible = true;
+            await this.updateApiRequestSidebar();
+            // 确保视图模式状态与列表数据一致
+            this.applyViewMode();
         } else {
+            // 默认会话视图
             this.ossFileListVisible = false;
             this.newsListVisible = false;
             this.apiRequestListVisible = false;
@@ -31631,6 +31716,8 @@ ${originalText}
         
         const btnSession = this.sessionSidebar.querySelector('#view-toggle-session');
         const btnNews = this.sessionSidebar.querySelector('#view-toggle-news');
+        const btnOss = this.sessionSidebar.querySelector('#view-toggle-oss');
+        const btnApiRequest = this.sessionSidebar.querySelector('#view-toggle-api-request');
         
         if (!btnSession) return;
         
@@ -31657,10 +31744,16 @@ ${originalText}
         // 重置所有按钮
         resetBtn(btnSession);
         if (btnNews) resetBtn(btnNews);
+        if (btnOss) resetBtn(btnOss);
+        if (btnApiRequest) resetBtn(btnApiRequest);
         
         // 激活当前模式的按钮
         if (this.newsListVisible && btnNews) {
             activateBtn(btnNews);
+        } else if (this.ossFileListVisible && btnOss) {
+            activateBtn(btnOss);
+        } else if (this.apiRequestListVisible && btnApiRequest) {
+            activateBtn(btnApiRequest);
         } else {
             activateBtn(btnSession);
         }
@@ -31703,11 +31796,9 @@ ${originalText}
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
-            // 已移除：OSS文件列表视图功能
-            // this.updateOssFileSidebar();
+            this.updateOssFileSidebar();
         } else if (apiRequestList && apiRequestList.style.display !== 'none') {
-            // 已移除：API请求列表视图功能
-            // this.updateApiRequestSidebar();
+            this.updateApiRequestSidebar();
         } else if (newsList && newsList.style.display !== 'none') {
             this.updateNewsSidebar();
         }
@@ -31758,11 +31849,9 @@ ${originalText}
         if (sessionList && sessionList.style.display !== 'none') {
             this.updateSessionSidebar();
         } else if (ossFileList && ossFileList.style.display !== 'none') {
-            // 已移除：OSS文件列表视图功能
-            // this.updateOssFileSidebar();
+            this.updateOssFileSidebar();
         } else if (apiRequestList && apiRequestList.style.display !== 'none') {
-            // 已移除：API请求列表视图功能
-            // this.updateApiRequestSidebar();
+            this.updateApiRequestSidebar();
         } else if (newsList && newsList.style.display !== 'none') {
             this.updateNewsSidebar();
         }
@@ -32703,7 +32792,7 @@ ${originalText}
                 
                 // 刷新请求接口列表
                 // 已移除：API请求列表视图功能
-                // await this.updateApiRequestSidebar(true);
+                await this.updateApiRequestSidebar(true);
                 
                 // 显示成功通知
                 if (failCount === 0) {
@@ -32754,7 +32843,7 @@ ${originalText}
                     
                     // 刷新文件列表
                     // 已移除：OSS文件列表视图功能
-                    // await this.updateOssFileSidebar(true);
+                    await this.updateOssFileSidebar(true);
                     
                     // 显示成功通知
                     if (failCount === 0) {
@@ -44906,7 +44995,7 @@ ${messageContent}`;
                 this.updateOssFileSidebar();
             } else if (this.apiRequestListVisible) {
                 // 已移除：API请求列表视图功能
-                // this.updateApiRequestSidebar();
+                this.updateApiRequestSidebar();
             } else {
                 this.updateSessionSidebar();
             }
@@ -44956,7 +45045,7 @@ ${messageContent}`;
                     this.updateOssFileSidebar();
                 } else if (this.apiRequestListVisible) {
                     // 已移除：API请求列表视图功能
-                // this.updateApiRequestSidebar();
+                this.updateApiRequestSidebar();
                 } else {
                     this.updateSessionSidebar();
                 }
@@ -44981,7 +45070,7 @@ ${messageContent}`;
                     this.updateOssFileSidebar();
                 } else if (this.apiRequestListVisible) {
                     // 已移除：API请求列表视图功能
-                // this.updateApiRequestSidebar();
+                this.updateApiRequestSidebar();
                 } else {
                     this.updateSessionSidebar();
                 }
@@ -45331,9 +45420,13 @@ ${messageContent}`;
         
         const btnSession = makeViewToggleBtn('view-toggle-session', '💬', 'session');
         const btnNews = makeViewToggleBtn('view-toggle-news', '📰', 'news');
+        const btnOss = makeViewToggleBtn('view-toggle-oss', '📁', 'oss');
+        const btnApiRequest = makeViewToggleBtn('view-toggle-api-request', '🔌', 'apiRequest');
         
         viewToggleGroup.appendChild(btnSession);
         viewToggleGroup.appendChild(btnNews);
+        viewToggleGroup.appendChild(btnOss);
+        viewToggleGroup.appendChild(btnApiRequest);
         
         // 第一行：搜索输入框 + 视图切换按钮组
         firstRow.appendChild(searchContainer);

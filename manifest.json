@@ -21,6 +21,8 @@
         "utils/tokenUtils.js",
         "utils/imageResourceManager.js",
         "utils/baseApiManager.js",
+        "utils/ossApiManager.js",
+        "utils/ossFileManager.js",
         "loadingAnimation.js",
         "sessionApi.js",
         "sessionManager.js",

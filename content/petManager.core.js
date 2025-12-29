@@ -106,6 +106,9 @@
         // FAQ API管理器
         this.faqApi = null;
 
+        // API请求API管理器
+        this.apiRequestApi = null;
+
         // OSS相关属性
         this.ossApi = null; // OSS API管理器
         this.ossFileManager = null; // OSS文件管理器
@@ -251,6 +254,15 @@
         
         // 加载OSS文件预览状态
         await this.loadOssFilePreviewStates();
+        
+        // 初始化API请求API管理器
+        if (typeof ApiRequestApiManager !== 'undefined') {
+            const yiaiBaseUrl = PET_CONFIG?.api?.yiaiBaseUrl || 'https://api.effiy.cn';
+            this.apiRequestApi = new ApiRequestApiManager(`${yiaiBaseUrl}/mongodb`, true);
+            console.log('API请求API管理器已初始化');
+        } else {
+            console.log('API请求API管理器未启用');
+        }
         
         this.loadState(); // 加载保存的状态
         this.setupMessageListener();

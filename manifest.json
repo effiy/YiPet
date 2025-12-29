@@ -29,6 +29,7 @@
         "newsManager.js",
         "rssSourceManager.js",
         "faqApi.js",
+        "apiRequestApi.js",
         "turndown.js",
         "marked.min.js",
         "html2canvas.min.js",

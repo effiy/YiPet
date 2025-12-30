@@ -89,8 +89,8 @@ class SessionManager {
     }
     
     /**
-     * 从 aicr 会话ID提取项目ID和文件路径
-     * 格式：aicr_{projectId}_{filePath}（文件路径中的特殊字符替换为下划线）
+     * 从会话ID提取项目ID和文件路径
+     * 格式：{projectId}_{filePath}（文件路径中的特殊字符替换为下划线）
      * @param {string} sessionId - 会话ID
      * @returns {Object|null} {projectId, filePath} 或 null
      */
@@ -99,13 +99,12 @@ class SessionManager {
             return null;
         }
         
-        const prefix = 'aicr_';
-        if (!sessionId.startsWith(prefix)) {
+        // 检查是否包含下划线（格式：{projectId}_{filePath}）
+        if (!sessionId.includes('_')) {
             return null;
         }
         
-        const rest = sessionId.substring(prefix.length);
-        const parts = rest.split('_');
+        const parts = sessionId.split('_');
         
         if (parts.length < 1) {
             return null;
@@ -236,7 +235,7 @@ class SessionManager {
             return pageInfo.tags;
         }
         
-        // 检查是否是 aicr 会话
+        // 检查是否是项目会话（格式：{projectId}_{filePath}）
         const aicrInfo = this._extractAicrInfo(sessionId);
         if (aicrInfo && aicrInfo.filePath) {
             // 从文件路径提取标签
@@ -349,10 +348,10 @@ class SessionManager {
                 this.sessions[unifiedSessionId] = session;
             }
             
-            // 获取标签（支持 aicr 目录映射）
+            // 获取标签（支持项目目录映射）
             let tags = session.tags || [];
             if (!Array.isArray(tags) || tags.length === 0) {
-                // 如果标签为空，尝试从会话ID提取（针对 aicr 会话）
+                // 如果标签为空，尝试从会话ID提取（针对项目会话）
                 tags = this._getSessionTags(unifiedSessionId);
             }
             
@@ -473,7 +472,7 @@ class SessionManager {
             session.id = sessionId;
         }
         
-        // 如果会话标签为空，尝试从会话ID提取（针对 aicr 会话）
+        // 如果会话标签为空，尝试从会话ID提取（针对项目会话）
         if (!session.tags || !Array.isArray(session.tags) || session.tags.length === 0) {
             session.tags = this._getSessionTags(sessionId, pageInfo);
         }

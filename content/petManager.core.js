@@ -3942,14 +3942,12 @@
                     // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
                     const pageTitle = backendSession.pageTitle || backendSession.title || '';
                     
-                    // 处理标签：如果标签为空，尝试从 aicr 会话ID提取标签
+                    // 处理标签：如果标签为空，尝试从会话ID提取标签
                     let tags = backendSession.tags || [];
                     if (!Array.isArray(tags) || tags.length === 0) {
-                        // 检查是否是 aicr 会话
-                        if (sessionId && typeof sessionId === 'string' && sessionId.startsWith('aicr_')) {
-                            const prefix = 'aicr_';
-                            const rest = sessionId.substring(prefix.length);
-                            const parts = rest.split('_');
+                        // 检查是否是项目会话（格式：{projectId}_{filePath}）
+                        if (sessionId && typeof sessionId === 'string' && sessionId.includes('_')) {
+                            const parts = sessionId.split('_');
                             if (parts.length >= 1) {
                                 const projectId = parts[0];
                                 const filePathParts = parts.slice(1);
@@ -32980,19 +32978,19 @@ ${originalText}
     }
 
     /**
-     * 删除 aicr 项目文件（当会话ID以 aicr_ 开头时）
-     * @param {string} sessionId - 会话ID，格式：aicr_{projectId}_{filePath}
+     * 删除项目文件（当会话ID格式为 {projectId}_{filePath} 时）
+     * @param {string} sessionId - 会话ID，格式：{projectId}_{filePath}
      * @returns {Promise<void>}
      */
     async deleteAicrProjectFiles(sessionId) {
-        // 会话ID格式：aicr_{projectId}_{filePath}（filePath中的特殊字符被替换为下划线）
-        if (!sessionId || !sessionId.startsWith('aicr_')) {
+        // 会话ID格式：{projectId}_{filePath}（filePath中的特殊字符被替换为下划线）
+        if (!sessionId || !sessionId.includes('_')) {
             return;
         }
         
         try {
             // 提取项目ID和文件路径
-            // 格式：aicr_{projectId}_{filePath}
+            // 格式：{projectId}_{filePath}
             const parts = sessionId.split('_', 2); // 最多分割2次
             if (parts.length < 3) {
                 console.warn('aicr 会话ID格式不正确:', sessionId);
@@ -33097,7 +33095,7 @@ ${originalText}
             // 检查该projectId是否还有其他aicr会话，如果没有，删除projectTree
             try {
                 // 查询是否还有其他aicr会话使用这个projectId
-                // 直接查询所有会话，然后过滤出aicr_开头的会话
+                // 直接查询所有会话，然后过滤出项目会话
                 const sessionsQueryUrl = `${apiBaseUrl}/session/`;
                 const sessionsResponse = await fetch(sessionsQueryUrl, {
                     method: 'GET',
@@ -33122,12 +33120,12 @@ ${originalText}
                         sessionList = sessionsResult.sessions;
                     }
                     
-                    // 检查是否有其他aicr_开头的会话（排除当前会话）
+                    // 检查是否有其他会话使用相同的projectId（排除当前会话）
                     hasOtherAicrSessions = sessionList.some(session => {
                         const sessionKey = session.key || session.id || '';
-                        if (sessionKey.startsWith('aicr_') && sessionKey !== sessionId) {
+                        if (sessionKey !== sessionId && sessionKey.includes('_')) {
                             const parts = sessionKey.split('_', 2);
-                            if (parts.length >= 2 && parts[1] === projectId) {
+                            if (parts.length >= 2 && parts[0] === projectId) {
                                 return true;
                             }
                         }

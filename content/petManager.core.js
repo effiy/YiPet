@@ -3969,7 +3969,7 @@
                         }
                         // 如果仍然为空，使用默认标签
                         if (tags.length === 0) {
-                            tags = ['网文'];
+                            tags = ['news'];
                         }
                     }
                     
@@ -4736,13 +4736,13 @@
                     // 同时更新会话对象本身，确保保存到后端的数据和会话显示的内容一致
                     session.pageContent = session._newsInfo.content;
                 }
-                // 如果新闻有标签，使用新闻的标签，并自动追加"网文"标签
+                // 如果新闻有标签，使用新闻的标签，并自动追加"news"标签
                 if (session._newsInfo.tags && Array.isArray(session._newsInfo.tags)) {
-                    // 从新闻标签中过滤掉"网文"标签，然后追加"网文"标签
-                    const newsTags = session._newsInfo.tags.filter((t) => t !== "网文");
+                    // 从新闻标签中过滤掉"news"标签，然后追加"news"标签
+                    const newsTags = session._newsInfo.tags.filter((t) => t !== "news");
                     session.tags = [...newsTags];
-                    if (!session.tags.includes("网文")) {
-                        session.tags.push("网文");
+                    if (!session.tags.includes("news")) {
+                        session.tags.push("news");
                     }
                 }
                 console.log('新闻会话保存时使用新闻本身的信息:', {
@@ -5953,7 +5953,7 @@
         }
         
         // 如果没有保存的顺序，使用默认优先标签列表
-        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
+        const priorityTags = ['news', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
         const priorityTagSet = new Set(priorityTags);
         const priorityTagList = [];
         const otherTags = [];
@@ -6046,7 +6046,7 @@
         });
         
         // 优先标签列表（按顺序）
-        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
+        const priorityTags = ['news', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
         
         // 分离优先标签和其他标签
         const allTags = Array.from(tagSet);
@@ -6140,7 +6140,7 @@
         });
         
         // 优先标签列表（按顺序，与新闻列表保持一致）
-        const priorityTags = ['网文', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
+        const priorityTags = ['news', '文档', '工具', '工作', '家庭', '娱乐', '日记', '开源项目'];
         
         // 分离优先标签和其他标签
         const allTags = Array.from(tagSet);
@@ -7651,8 +7651,8 @@
             content += `**来源**: ${newsItem.source}\n\n`;
         }
         
-        // 标签（过滤掉"网文"标签）
-        const filteredTags = (newsItem.tags || []).filter(tag => tag !== "网文");
+        // 标签（过滤掉"news"标签）
+        const filteredTags = (newsItem.tags || []).filter(tag => tag !== "news");
         if (filteredTags.length > 0) {
             content += `**标签**: ${filteredTags.join(', ')}\n\n`;
         }
@@ -12549,7 +12549,7 @@
         `;
 
         // 快捷标签列表
-        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', 'news', '日记'];
         
         quickTags.forEach(tagName => {
             const quickTagBtn = document.createElement('button');
@@ -14685,6 +14685,40 @@ ${originalText}`;
                 margin-bottom: 6px !important;
             `;
             
+            // 创建标题容器（包含图标和标题文本）
+            const titleContainer = document.createElement('div');
+            titleContainer.style.cssText = `
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+            `;
+            
+            // 如果是来自news的会话，显示第一个字符图标
+            if (session._isNewsSession || session._newsInfo || (session.tags && Array.isArray(session.tags) && session.tags.includes('news'))) {
+                const firstChar = fullTitle.trim().charAt(0) || 'N';
+                const sessionIcon = document.createElement('div');
+                sessionIcon.className = 'session-icon';
+                sessionIcon.textContent = firstChar;
+                sessionIcon.title = '来自news';
+                sessionIcon.style.cssText = `
+                    width: 24px !important;
+                    height: 24px !important;
+                    border-radius: 50% !important;
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+                    color: #ffffff !important;
+                    font-size: 12px !important;
+                    font-weight: 600 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    flex-shrink: 0 !important;
+                    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3) !important;
+                `;
+                titleContainer.appendChild(sessionIcon);
+            }
+            
             // 标题
             const titleDiv = document.createElement('div');
             titleDiv.className = 'session-title';
@@ -14701,7 +14735,8 @@ ${originalText}`;
                 flex: 1 !important;
                 min-width: 0 !important;
             `;
-            titleRow.appendChild(titleDiv);
+            titleContainer.appendChild(titleDiv);
+            titleRow.appendChild(titleContainer);
             
             // 所有会话都显示编辑标题按钮
             const shouldShowEditBtn = session && session.id;
@@ -18692,8 +18727,8 @@ ${originalText}`;
             `;
             
             // 获取标签并显示（与会话列表保持一致）
-            // 过滤掉"网文"标签，不在新闻列表中显示
-            const tags = (item.tags || []).filter(tag => tag !== "网文");
+            // 过滤掉"news"标签，不在新闻列表中显示
+            const tags = (item.tags || []).filter(tag => tag !== "news");
             if (tags.length > 0) {
                 // 规范化标签（trim处理，与会话列表保持一致）
                 const normalizedTags = tags.map(tag => tag ? String(tag).trim() : '').filter(tag => tag.length > 0);
@@ -29543,7 +29578,7 @@ ${originalText}
         `;
 
         // 快捷标签列表（与会话标签管理保持一致）
-        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', 'news', '日记'];
         
         quickTags.forEach(tagName => {
             const quickTagBtn = document.createElement('button');
@@ -35128,7 +35163,7 @@ ${originalText}
         `;
 
         // 快捷标签列表（与新闻列表保持一致）
-        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', 'news', '日记'];
         
         quickTags.forEach(tagName => {
             const quickTagBtn = document.createElement('button');
@@ -35490,7 +35525,7 @@ ${originalText}
         const text = `${fileName} ${title || ''} ${description || ''}`;
         // 简单的关键词提取逻辑（可以根据需要改进）
         const keywords = [];
-        const commonTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记', '技术', '图片', '视频', '音频', '数据'];
+        const commonTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', 'news', '日记', '技术', '图片', '视频', '音频', '数据'];
         commonTags.forEach(tag => {
             if (text.includes(tag)) {
                 keywords.push(tag);
@@ -36840,7 +36875,7 @@ ${originalText}
         `;
 
         // 快捷标签列表
-        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '网文', '日记'];
+        const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', 'news', '日记'];
         
         quickTags.forEach(tagName => {
             const quickTagBtn = document.createElement('button');

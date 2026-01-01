@@ -248,7 +248,7 @@ class SessionManager {
         }
         
         // 默认标签
-        return ['网文'];
+        return ['news'];
     }
     
     /**

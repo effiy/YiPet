@@ -5007,9 +5007,26 @@
                             if (session._newsInfo.content) {
                                 fallbackPageContent = session._newsInfo.content;
                             }
-                            // 如果新闻有标签，使用新闻的标签
+                            // 如果新闻有标签，使用新闻的标签，标签顺序：knowledge、news、新闻原有标签
                             if (session._newsInfo.tags && Array.isArray(session._newsInfo.tags)) {
-                                session.tags = session._newsInfo.tags;
+                                // 过滤掉 knowledge 和 news 标签，避免重复
+                                const newsTags = session._newsInfo.tags.filter((t) => t !== "knowledge" && t !== "news");
+                                // 按顺序构建标签：knowledge、news、新闻原有标签
+                                session.tags = [];
+                                // 1. 添加 knowledge 标签
+                                if (!session.tags.includes("knowledge")) {
+                                    session.tags.push("knowledge");
+                                }
+                                // 2. 添加 news 标签
+                                if (!session.tags.includes("news")) {
+                                    session.tags.push("news");
+                                }
+                                // 3. 添加新闻原有标签
+                                newsTags.forEach(tag => {
+                                    if (!session.tags.includes(tag)) {
+                                        session.tags.push(tag);
+                                    }
+                                });
                             }
                         }
                         

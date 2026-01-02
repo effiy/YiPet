@@ -21296,11 +21296,13 @@ ${originalText}`;
                         
                         // 如果本地没有，创建会话对象并添加到本地
                         if (!existingSession) {
+                            // 使用统一的工具函数构建标签：knowledge、news、新闻原有标签
+                            const sessionTags = this._buildNewsSessionTags(newsItem.tags);
                             const mappedSession = {
                                 id: actualSessionId,
                                 title: (foundBackendSession.title ?? foundBackendSession.pageTitle ?? newsItem.title ?? "未命名会话").trim(),
                                 preview: (foundBackendSession.pageDescription ?? foundBackendSession.preview ?? newsItem.description ?? "").trim(),
-                                tags: Array.isArray(foundBackendSession.tags) ? foundBackendSession.tags : (newsItem.tags || []),
+                                tags: sessionTags,
                                 url: foundBackendSession.url || newsLink,
                                 pageTitle: foundBackendSession.pageTitle || newsItem.title || '新闻',
                                 pageDescription: foundBackendSession.pageDescription || newsItem.description || '',
@@ -21387,6 +21389,8 @@ ${originalText}`;
             const now = Date.now();
             
             // 创建新会话数据
+            // 使用统一的工具函数构建标签：knowledge、news、新闻原有标签
+            const sessionTags = this._buildNewsSessionTags(newsItem.tags);
             const newSessionData = {
                 id: sessionId,
                 url: newsLink,
@@ -21394,7 +21398,7 @@ ${originalText}`;
                 pageDescription: newsDescription,
                 pageContent: newsDescription, // 新闻描述也赋值给会话上下文字段
                 messages: [],
-                tags: Array.isArray(newsItem.tags) ? newsItem.tags : [],
+                tags: sessionTags,
                 createdAt: now,
                 updatedAt: now,
                 lastAccessTime: now,
@@ -21432,13 +21436,19 @@ ${originalText}`;
                                     foundSession.messages = savedSession.messages;
                                     foundSession.messageCount = savedSession.messages.length;
                                 }
+                                // 如果是新闻会话，确保标签顺序正确
+                                if (foundSession._isNewsSession && foundSession._newsInfo && foundSession._newsInfo.tags) {
+                                    foundSession.tags = this._buildNewsSessionTags(foundSession._newsInfo.tags);
+                                }
                             } else {
                                 // 映射为页面使用的统一结构
+                                // 使用统一的工具函数构建标签：knowledge、news、新闻原有标签
+                                const sessionTags = this._buildNewsSessionTags(newsItem.tags);
                                 const mappedSession = {
                                     id: actualSessionId,
                                     title: ((savedSession.title ?? savedSession.pageTitle ?? newsTitle ?? "").trim() || "未命名会话"),
                                     preview: (savedSession.pageDescription ?? savedSession.preview ?? newsDescription).trim(),
-                                    tags: Array.isArray(savedSession.tags) ? savedSession.tags : [],
+                                    tags: sessionTags,
                                     url: savedSession.url || newsLink,
                                     pageTitle: savedSession.pageTitle || newsTitle,
                                     pageDescription: savedSession.pageDescription || newsDescription,
@@ -21468,11 +21478,13 @@ ${originalText}`;
                             }
                         } else {
                             // 如果后端没有返回会话数据，使用本地创建的数据
+                            // 使用统一的工具函数构建标签：knowledge、news、新闻原有标签
+                            const sessionTags = this._buildNewsSessionTags(newsItem.tags);
                             const mappedSession = {
                                 id: actualSessionId,
                                 title: newsTitle || "未命名会话",
                                 preview: newsDescription,
-                                tags: Array.isArray(newsItem.tags) ? newsItem.tags : [],
+                                tags: sessionTags,
                                 url: newsLink,
                                 pageTitle: newsTitle,
                                 pageDescription: newsDescription,

@@ -38129,7 +38129,7 @@ ${originalText}
                 const ratio = textarea.scrollTop / tMax;
                 previewEl.scrollTop = ratio * pMax;
             }
-        });
+        }, { passive: true });
         body.appendChild(textarea);
         body.appendChild(preview);
 
@@ -38518,7 +38518,7 @@ ${originalText}
                 const ratio = textarea.scrollTop / tMax;
                 previewEl.scrollTop = ratio * pMax;
             }
-        });
+        }, { passive: true });
         
         // Ctrl+Enter 保存，Esc 关闭
         textarea.addEventListener('keydown', (e) => {
@@ -44537,7 +44537,7 @@ ${messageContent}`;
             // 添加滚动事件监听器，确保滚动功能正常
             messagesContainer.addEventListener('scroll', () => {
                 // 可以在这里添加滚动相关的逻辑
-            });
+            }, { passive: true });
         }
     }
 

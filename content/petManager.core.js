@@ -26997,13 +26997,13 @@ ${originalText}`;
         // 确保输入是数组并规范化
         const tags = Array.isArray(newsTags) ? newsTags : [];
         
-        // 规范化新闻原有标签（不过滤任何标签）
-        const normalizedTags = tags
+        // 过滤并规范化新闻原有标签，移除 knowledge 和 news 避免重复
+        const filteredTags = tags
             .map(tag => String(tag || "").trim())
-            .filter(tag => tag && tag.length > 0);
+            .filter(tag => tag && tag !== "knowledge" && tag !== "news");
         
         // 按固定顺序构建标签数组：第一位 knowledge，第二位 news，第三位及之后是新闻原有标签
-        return ["knowledge", "news", ...normalizedTags];
+        return ["knowledge", "news", ...filteredTags];
     }
 
     _extractApiPath(url) {

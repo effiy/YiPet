@@ -2885,8 +2885,10 @@
         // 获取当前筛选的新闻列表
         const filteredNews = window.currentNews && Array.isArray(window.currentNews) ? window.currentNews : [];
         
-        // 构建结构化的新闻列表内容
+        // 构建结构化的新闻列表内容，并收集所有新闻的标签
         let structuredNewsList = '';
+        const allNewsTags = new Set(); // 用于收集所有新闻的标签（去重）
+        
         if (filteredNews && filteredNews.length > 0) {
             // 过滤出真正的新闻项（排除会话项）
             const newsItems = filteredNews.filter(item => item.fromNews !== true);
@@ -2909,15 +2911,24 @@
                         structuredNewsList += `**描述**: ${description}\n\n`;
                     }
                     
-                    // 如果有标签，也添加进去
+                    // 如果有标签，也添加进去，并收集标签
                     if (newsItem.tags && Array.isArray(newsItem.tags) && newsItem.tags.length > 0) {
                         structuredNewsList += `**标签**: ${newsItem.tags.join(', ')}\n\n`;
+                        // 收集所有新闻的标签
+                        newsItem.tags.forEach(tag => {
+                            if (tag && String(tag).trim()) {
+                                allNewsTags.add(String(tag).trim());
+                            }
+                        });
                     }
                     
                     structuredNewsList += '---\n\n';
                 });
             }
         }
+        
+        // 使用统一的工具方法构建标签：knowledge、news、新闻原有标签
+        const sessionTags = this._buildNewsSessionTags(Array.from(allNewsTags));
         
         // 创建新闻会话对象（包含当前页面信息和筛选的新闻列表）
         const now = Date.now();
@@ -2950,6 +2961,7 @@
             pageDescription: pageInfo.description || '', // 使用当前页面描述
             pageContent: pageContent, // 保存筛选新闻列表的结构化内容或当前页面内容
             messages: [], // 空的对话列表
+            tags: sessionTags, // 使用统一的标签构建方法
             createdAt: now,
             updatedAt: now,
             lastAccessTime: now,

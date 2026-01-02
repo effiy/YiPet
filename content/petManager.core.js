@@ -4736,26 +4736,9 @@
                     // 同时更新会话对象本身，确保保存到后端的数据和会话显示的内容一致
                     session.pageContent = session._newsInfo.content;
                 }
-                // 如果新闻有标签，使用新闻的标签，标签顺序：knowledge、news、新闻原有标签
+                // 如果新闻有标签，使用统一的工具方法构建标签：knowledge、news、新闻原有标签（news 在新闻自带标签前面）
                 if (session._newsInfo.tags && Array.isArray(session._newsInfo.tags)) {
-                    // 过滤掉 knowledge 和 news 标签，避免重复
-                    const newsTags = session._newsInfo.tags.filter((t) => t !== "knowledge" && t !== "news");
-                    // 按顺序构建标签：knowledge、news、新闻原有标签
-                    session.tags = [];
-                    // 1. 添加 knowledge 标签
-                    if (!session.tags.includes("knowledge")) {
-                        session.tags.push("knowledge");
-                    }
-                    // 2. 添加 news 标签
-                    if (!session.tags.includes("news")) {
-                        session.tags.push("news");
-                    }
-                    // 3. 添加新闻原有标签
-                    newsTags.forEach(tag => {
-                        if (!session.tags.includes(tag)) {
-                            session.tags.push(tag);
-                        }
-                    });
+                    session.tags = this._buildNewsSessionTags(session._newsInfo.tags);
                 }
                 console.log('新闻会话保存时使用新闻本身的信息:', {
                     pageTitle: pageTitle,
@@ -5007,26 +4990,9 @@
                             if (session._newsInfo.content) {
                                 fallbackPageContent = session._newsInfo.content;
                             }
-                            // 如果新闻有标签，使用新闻的标签，标签顺序：knowledge、news、新闻原有标签
+                            // 如果新闻有标签，使用统一的工具方法构建标签：knowledge、news、新闻原有标签（news 在新闻自带标签前面）
                             if (session._newsInfo.tags && Array.isArray(session._newsInfo.tags)) {
-                                // 过滤掉 knowledge 和 news 标签，避免重复
-                                const newsTags = session._newsInfo.tags.filter((t) => t !== "knowledge" && t !== "news");
-                                // 按顺序构建标签：knowledge、news、新闻原有标签
-                                session.tags = [];
-                                // 1. 添加 knowledge 标签
-                                if (!session.tags.includes("knowledge")) {
-                                    session.tags.push("knowledge");
-                                }
-                                // 2. 添加 news 标签
-                                if (!session.tags.includes("news")) {
-                                    session.tags.push("news");
-                                }
-                                // 3. 添加新闻原有标签
-                                newsTags.forEach(tag => {
-                                    if (!session.tags.includes(tag)) {
-                                        session.tags.push(tag);
-                                    }
-                                });
+                                session.tags = this._buildNewsSessionTags(session._newsInfo.tags);
                             }
                         }
                         
@@ -26995,6 +26961,40 @@ ${originalText}`;
     }
     
     // 提取API路径（从完整URL中提取路径部分）
+    /**
+     * 构建新闻会话的标签数组
+     * 标签顺序：knowledge、news、新闻原有标签（news 在新闻自带标签前面）
+     * @param {Array<string>} newsTags - 新闻的原始标签数组
+     * @returns {Array<string>} 构建后的标签数组
+     */
+    _buildNewsSessionTags(newsTags = []) {
+        // 确保输入是数组
+        const tags = Array.isArray(newsTags) ? newsTags : [];
+        
+        // 过滤掉 knowledge 和 news 标签，避免重复
+        const filteredTags = tags
+            .map(tag => String(tag || "").trim())
+            .filter(tag => tag && tag !== "knowledge" && tag !== "news");
+        
+        // 按顺序构建标签：knowledge、news、新闻原有标签
+        const sessionTags = [];
+        
+        // 1. 添加 knowledge 标签
+        sessionTags.push("knowledge");
+        
+        // 2. 添加 news 标签（在新闻自带标签前面）
+        sessionTags.push("news");
+        
+        // 3. 添加新闻原有标签
+        filteredTags.forEach(tag => {
+            if (tag && !sessionTags.includes(tag)) {
+                sessionTags.push(tag);
+            }
+        });
+        
+        return sessionTags;
+    }
+
     _extractApiPath(url) {
         if (!url) return '';
         try {

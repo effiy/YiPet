@@ -7658,10 +7658,10 @@
             content += `**来源**: ${newsItem.source}\n\n`;
         }
         
-        // 标签（过滤掉"news"标签）
-        const filteredTags = (newsItem.tags || []).filter(tag => tag !== "news");
-        if (filteredTags.length > 0) {
-            content += `**标签**: ${filteredTags.join(', ')}\n\n`;
+        // 标签（显示所有标签）
+        const tags = (newsItem.tags || []).filter(tag => tag && String(tag).trim().length > 0);
+        if (tags.length > 0) {
+            content += `**标签**: ${tags.join(', ')}\n\n`;
         }
         
         // 描述
@@ -18734,12 +18734,12 @@ ${originalText}`;
             `;
             
             // 获取标签并显示（与会话列表保持一致）
-            // 过滤掉"news"标签，不在新闻列表中显示
-            const tags = (item.tags || []).filter(tag => tag !== "news");
-            if (tags.length > 0) {
-                // 规范化标签（trim处理，与会话列表保持一致）
-                const normalizedTags = tags.map(tag => tag ? String(tag).trim() : '').filter(tag => tag.length > 0);
-                
+            // 规范化标签（转换为字符串并trim），过滤掉空字符串，显示所有标签
+            const normalizedTags = (item.tags || [])
+                .map(tag => tag ? String(tag).trim() : '')
+                .filter(tag => tag.length > 0);
+            
+            if (normalizedTags.length > 0) {
                 normalizedTags.forEach(tag => {
                     const tagElement = document.createElement('span');
                     tagElement.className = 'news-tag-item';
@@ -26997,13 +26997,13 @@ ${originalText}`;
         // 确保输入是数组并规范化
         const tags = Array.isArray(newsTags) ? newsTags : [];
         
-        // 过滤并规范化新闻原有标签，移除 knowledge 和 news 避免重复
-        const filteredTags = tags
+        // 规范化新闻原有标签（不过滤任何标签）
+        const normalizedTags = tags
             .map(tag => String(tag || "").trim())
-            .filter(tag => tag && tag !== "knowledge" && tag !== "news");
+            .filter(tag => tag && tag.length > 0);
         
         // 按固定顺序构建标签数组：第一位 knowledge，第二位 news，第三位及之后是新闻原有标签
-        return ["knowledge", "news", ...filteredTags];
+        return ["knowledge", "news", ...normalizedTags];
     }
 
     _extractApiPath(url) {

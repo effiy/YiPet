@@ -10,33 +10,38 @@ class InjectionService {
      * 否则可能出现 window.PetManager 未定义等问题。
      */
     static CONTENT_SCRIPT_FILES = [
-        'config.js',
-        'md5.js',
-        'utils/tokenUtils.js',
-        'utils/imageResourceManager.js',
-        'loadingAnimation.js',
-        'sessionApi.js',
-        'sessionManager.js',
-        'ossApi.js',
-        'ossFileManager.js',
-        'newsManager.js',
-        'rssSourceManager.js',
-        'faqApi.js',
-        'apiRequestManager.js',
-        'apiRequestApi.js',
-        'turndown.js',
-        'marked.min.js',
-        'html2canvas.min.js',
-        'export-chat-to-png.js',
+        'utils/core/config.js',
+        'lib/md5.js',
+        'utils/helpers/tokenUtils.js',
+        'utils/helpers/imageResourceManager.js',
+        'utils/helpers/loadingAnimationMixin.js',
+        'utils/helpers/baseApiManager.js',
+        'utils/helpers/loadingAnimation.js',
+        'utils/api/sessionApi.js',
+        'utils/helpers/sessionManager.js',
+
+        'utils/api/faqApi.js',
+        'lib/turndown.js',
+        'lib/marked.min.js',
+        'lib/html2canvas.min.js',
+        'scripts/export-chat-to-png.js',
         'content/bootstrap.js',
-        'content/petManager.core.js',
-        'content/petManager.pet.js',
-        'content/petManager.state.js',
-        'content/petManager.chat.js',
-        'content/petManager.message.js',
-        'content/petManager.screenshot.js',
-        'content/petManager.js',
-        'content.js'
+        'content/modules/petManager.core.js',
+        'features/faq/faq.js',
+        'features/faq/tags.js',
+        'content/modules/petManager.messaging.js',
+        'content/modules/petManager.pageInfo.js',
+        'content/modules/petManager.session.js',
+        'content/modules/petManager.ui.js',
+        'content/modules/petManager.drag.js',
+        'content/modules/petManager.events.js',
+        'content/modules/petManager.pet.js',
+        'content/modules/petManager.state.js',
+        'content/modules/petManager.chat.js',
+        'content/modules/petManager.message.js',
+        'content/modules/petManager.screenshot.js',
+        'content/modules/petManager.js',
+        'content/index.js'
     ];
 
     /**
@@ -86,7 +91,7 @@ class InjectionService {
 
         return await helper.sendMessageToTabWithAutoInject(tabId, message, {
             injectContentScript: (id) => this.injectContentScript(id),
-            retryDelayMs: CONSTANTS?.TIMING?.INJECT_PET_DELAY
+            retryDelayMs: (typeof self !== 'undefined' && self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.TIMING) ? self.PET_CONFIG.constants.TIMING.INJECT_PET_DELAY : 1000
         });
     }
 
@@ -175,5 +180,4 @@ if (typeof module !== "undefined" && module.exports) {
         self.InjectionService = new InjectionService();
     }
 }
-
 

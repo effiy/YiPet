@@ -10,77 +10,76 @@
     "https://api.effiy.cn/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background/index.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": [
-        "config.js",
-        "md5.js",
-        "utils/tokenUtils.js",
-        "utils/imageResourceManager.js",
-        "utils/baseApiManager.js",
-        "loadingAnimation.js",
-        "sessionApi.js",
-        "sessionManager.js",
-        "ossApi.js",
-        "ossFileManager.js",
-        "newsManager.js",
-        "rssSourceManager.js",
-        "faqApi.js",
-        "apiRequestManager.js",
-        "apiRequestApi.js",
-        "turndown.js",
-        "marked.min.js",
-        "html2canvas.min.js",
-        "export-chat-to-png.js",
+        "utils/core/config.js",
+        "lib/md5.js",
+        "utils/helpers/tokenUtils.js",
+        "utils/helpers/imageResourceManager.js",
+        "utils/helpers/loadingAnimationMixin.js",
+        "utils/helpers/baseApiManager.js",
+        "utils/helpers/loadingAnimation.js",
+        "utils/api/sessionApi.js",
+        "utils/helpers/sessionManager.js",
+        "utils/api/faqApi.js",
+        "lib/turndown.js",
+        "lib/marked.min.js",
+        "lib/html2canvas.min.js",
+        "scripts/export-chat-to-png.js",
         "content/bootstrap.js",
-        "content/petManager.core.js",
-        "content/petManager.pet.js",
-        "content/petManager.state.js",
-        "content/petManager.chat.js",
-        "content/petManager.message.js",
-        "content/petManager.screenshot.js",
-        "content/petManager.js",
-        "content.js"
+        "content/modules/petManager.core.js",
+        "features/faq/faq.js",
+        "features/faq/tags.js",
+        "content/modules/petManager.calendar.js",
+        "content/modules/petManager.messaging.js",
+        "content/modules/petManager.pageInfo.js",
+        "content/modules/petManager.session.js",
+        "content/modules/petManager.ui.js",
+        "content/modules/petManager.drag.js",
+        "content/modules/petManager.events.js",
+        "content/modules/petManager.pet.js",
+        "content/modules/petManager.state.js",
+        "content/modules/petManager.chat.js",
+        "content/modules/petManager.message.js",
+        "content/modules/petManager.screenshot.js",
+        "content/modules/petManager.js",
+        "content/index.js"
       ],
-      "css": ["content.css"],
+      "css": ["assets/css/tailwind.css", "assets/css/content.css"],
       "run_at": "document_end"
     }
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup/index.html",
     "default_title": "伴侣控制面板"
   },
   "icons": {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/icon.png",
-        "roles/*/icon.png",
-        "roles/*/run/*.png",
-        "mermaid.min.js",
-        "load-mermaid.js",
-        "render-mermaid.js",
-        "preview-mermaid.js",
-        "jszip.min.js",
-        "load-jszip.js",
-        "export-sessions.js",
-        "import-sessions.js"
+        "assets/icons/icon.png",
+        "assets/images/roles/*/icon.png",
+        "assets/images/roles/*/run/*.png",
+        "lib/mermaid.min.js",
+        "scripts/load-mermaid.js",
+        "scripts/render-mermaid.js",
+        "scripts/preview-mermaid.js",
+        "lib/jszip.min.js",
+        "scripts/load-jszip.js",
+        "scripts/export-sessions.js",
+        "scripts/import-sessions.js"
       ],
       "matches": ["<all_urls>"]
     }
   ]
 }
-
-
-
-
-
 

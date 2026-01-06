@@ -59,7 +59,7 @@ function captureTabScreenshot(sendResponse) {
         console.log('活动标签页:', activeTab.id, activeTab.url);
         
         // 检查标签页URL是否允许截图
-        if (CONSTANTS.URLS.isSystemPage(activeTab.url)) {
+        if (typeof self !== 'undefined' && self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.URLS && self.PET_CONFIG.constants.URLS.isSystemPage && self.PET_CONFIG.constants.URLS.isSystemPage(activeTab.url)) {
             console.error('无法截取系统页面:', activeTab.url);
             sendResponse({ 
                 success: false, 

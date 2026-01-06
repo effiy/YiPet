@@ -8,10 +8,11 @@
 (function() {
     try {
         if (typeof LoggerUtils !== 'undefined' && LoggerUtils.initMuteLogger) {
-            LoggerUtils.initMuteLogger('petDevMode', false);
+            const keyName = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.storageKeys) ? PET_CONFIG.constants.storageKeys.devMode : 'petDevMode';
+            LoggerUtils.initMuteLogger(keyName, false);
         } else {
             // 降级到本地实现
-            const keyName = 'petDevMode';
+            const keyName = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.storageKeys) ? PET_CONFIG.constants.storageKeys.devMode : 'petDevMode';
             const defaultEnabled = false;
             const original = {
                 log: console.log,
@@ -92,8 +93,7 @@ if (typeof PET_CONFIG === 'undefined') {
             models: [
                 { id: 'qwen3', name: 'Qwen3', icon: '🤖' },
                 { id: 'qwen3-vl', name: 'Qwen3-VL', icon: '👁️' },
-                { id: 'qwq', name: 'QWQ', icon: '💬' },
-                { id: 'gpt-oss', name: 'GPT-OSS', icon: '✨' }
+                { id: 'qwq', name: 'QWQ', icon: '💬' }
             ]
         },
         api: {

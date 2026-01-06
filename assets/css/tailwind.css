@@ -1,0 +1,97 @@
+/* Tailwind-lite utilities for YiPet (scoped and safe for content scripts) */
+/* Base */
+.tw { all: unset }
+.tw-box { box-sizing: border-box }
+.tw-flex { display: flex !important }
+.tw-inline-flex { display: inline-flex !important }
+.tw-hidden { display: none !important }
+.tw-block { display: block !important }
+.tw-items-center { align-items: center !important }
+.tw-items-start { align-items: flex-start !important }
+.tw-justify-center { justify-content: center !important }
+.tw-justify-between { justify-content: space-between !important }
+.tw-flex-col { flex-direction: column !important }
+.tw-flex-wrap { flex-wrap: wrap !important }
+.tw-overflow-hidden { overflow: hidden !important }
+.tw-overflow-y-auto { overflow-y: auto !important }
+.tw-fixed { position: fixed !important }
+.tw-absolute { position: absolute !important }
+.tw-inset-0 { top: 0 !important; right: 0 !important; bottom: 0 !important; left: 0 !important }
+.tw-z-modal { z-index: 2147483649 !important }
+
+/* Spacing */
+.tw-p-0 { padding: 0 !important }
+.tw-px-2 { padding-left: 8px !important; padding-right: 8px !important }
+.tw-px-3 { padding-left: 12px !important; padding-right: 12px !important }
+.tw-px-4 { padding-left: 16px !important; padding-right: 16px !important }
+.tw-py-1 { padding-top: 4px !important; padding-bottom: 4px !important }
+.tw-py-2 { padding-top: 8px !important; padding-bottom: 8px !important }
+.tw-py-3 { padding-top: 12px !important; padding-bottom: 12px !important }
+.tw-p-2 { padding: 8px !important }
+.tw-p-3 { padding: 12px !important }
+.tw-p-4 { padding: 16px !important }
+.tw-gap-1 { gap: 4px !important }
+.tw-gap-2 { gap: 8px !important }
+.tw-gap-3 { gap: 12px !important }
+.tw-mb-2 { margin-bottom: 8px !important }
+.tw-mt-1 { margin-top: 4px !important }
+.tw-mt-2 { margin-top: 8px !important }
+
+/* Sizing */
+.tw-w-full { width: 100% !important }
+.tw-w-420 { width: 420px !important }
+.tw-max-w-90 { max-width: 90% !important }
+.tw-h-full { height: 100% !important }
+.tw-max-h-80vh { max-height: 80vh !important }
+.tw-min-h-64 { min-height: 64px !important }
+.tw-max-h-160 { max-height: 160px !important }
+
+/* Typography */
+.tw-text-sm { font-size: 12px !important }
+.tw-text-base { font-size: 14px !important }
+.tw-font-medium { font-weight: 500 !important }
+.tw-font-semibold { font-weight: 600 !important }
+.tw-text-gray-900 { color: #111827 !important }
+.tw-text-gray-700 { color: #374151 !important }
+.tw-text-gray-600 { color: #4b5563 !important }
+.tw-text-gray-500 { color: #64748b !important }
+
+/* Colors and backgrounds */
+.tw-bg-white { background: #ffffff !important }
+.tw-bg-gray-50 { background: #f9fafb !important }
+.tw-bg-gray-100 { background: #f3f4f6 !important }
+.tw-bg-black-25 { background: rgba(0, 0, 0, 0.25) !important }
+.tw-border { border: 1px solid #e5e7eb !important }
+.tw-border-gray-200 { border-color: #e5e7eb !important }
+.tw-border-gray-300 { border-color: #e2e8f0 !important }
+
+/* Radius and shadow */
+.tw-rounded { border-radius: 8px !important }
+.tw-rounded-lg { border-radius: 12px !important }
+.tw-rounded-xl { border-radius: 16px !important }
+.tw-shadow { box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important }
+.tw-shadow-2xl { box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important }
+
+/* Transitions */
+.tw-transition { transition: all 0.2s ease !important }
+
+/* Form elements */
+.tw-input { padding: 10px 12px !important; border: 1px solid #e5e7eb !important; border-radius: 8px !important; outline: none !important; font-size: 13px !important; transition: all 0.2s ease !important }
+.tw-textarea { padding: 12px 16px !important; border: 1px solid #e2e8f0 !important; border-radius: 8px !important; outline: none !important; font-size: 14px !important; line-height: 1.5 !important; transition: all 0.2s ease !important; resize: vertical !important }
+
+/* Buttons */
+.tw-btn { padding: 8px 16px !important; border-radius: 8px !important; cursor: pointer !important; font-size: 13px !important; font-weight: 500 !important; transition: all 0.2s ease !important; display: inline-flex !important; align-items: center !important; justify-content: center !important }
+.tw-btn-gray { background: #ffffff !important; color: #64748b !important; border: 1px solid #e2e8f0 !important }
+.tw-btn-light { background: #f3f4f6 !important; color: #64748b !important; border: 1px solid #e5e7eb !important }
+.tw-btn-light:hover { background: #e5e7eb !important; color: #1e293b !important }
+
+/* Chips/tags */
+.tw-chip { padding: 3px 10px !important; border-radius: 12px !important; font-size: 11px !important; font-weight: 500 !important; cursor: pointer !important; transition: all 0.2s ease !important; border: 1px solid #e5e7eb !important; color: #64748b !important; background: #f3f4f6 !important }
+.tw-chip-active { border-color: #4CAF50 !important; color: #4CAF50 !important; background: rgba(76,175,80,0.1) !important }
+
+/* Layout helpers for FAQ manager */
+#pet-faq-manager .panel { background: #fff !important; border-radius: 12px !important; padding: 16px !important; width: 420px !important; max-width: 90% !important; max-height: 80vh !important; overflow: hidden !important; box-shadow: 0 10px 40px rgba(0,0,0,0.2) !important; display: flex !important; flex-direction: column !important; border: 1px solid #e5e7eb !important }
+#pet-faq-manager .header { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 12px !important }
+#pet-faq-manager .title { margin: 0 !important; font-size: 16px !important; color: #111827 !important; font-weight: 600 !important }
+#pet-faq-manager .faqs { flex: 1 !important; overflow-y: auto !important; border-top: 1px dashed #e5e7eb !important; padding-top: 8px !important }
+

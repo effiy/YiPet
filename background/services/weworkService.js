@@ -13,7 +13,7 @@ class WeWorkService {
     async sendMessage(webhookUrl, content) {
         try {
             // 企微机器人 markdown.content 的最大长度限制
-            const MAX_LENGTH = CONSTANTS.API.MAX_WEWORK_CONTENT_LENGTH;
+            const MAX_LENGTH = (typeof self !== 'undefined' && self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.API) ? self.PET_CONFIG.constants.API.MAX_WEWORK_CONTENT_LENGTH : 4096;
             
             // 参数验证
             if (!webhookUrl || typeof webhookUrl !== 'string') {

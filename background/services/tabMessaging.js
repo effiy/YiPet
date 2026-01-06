@@ -57,7 +57,7 @@
         const retryDelayMs =
             typeof options.retryDelayMs === 'number'
                 ? options.retryDelayMs
-                : (root?.CONSTANTS?.TIMING?.INJECT_PET_DELAY ?? 1000);
+                : (root?.PET_CONFIG?.constants?.TIMING?.INJECT_PET_DELAY ?? 1000);
 
         const first = await sendMessageToTab(tabId, message);
         if (first.ok) return first;

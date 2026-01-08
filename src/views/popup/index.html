@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>温柔陪伴助手</title>
+    <link rel="stylesheet" href="../../styles/tailwind.css">
+    <link rel="stylesheet" href="../../styles/popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <div class="header">
+            <div class="logo">
+                <span class="pet-emoji">💕</span>
+                <h1>温柔陪伴</h1>
+            </div>
+            <div class="status-indicator" id="statusIndicator">
+                <span class="status-dot"></span>
+                <span class="status-text">已激活</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="control-section">
+                <h3>基本控制</h3>
+                <div class="control-group">
+                    <button id="openChatBtn" class="control-btn success tw-btn tw-w-full tw-font-medium" style="background-color: #4CAF50; color: white;">
+                        <span class="btn-icon">💬</span>
+                        <span class="btn-text">打开聊天窗口</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>外观设置</h3>
+                <div class="setting-group">
+                    <label for="colorSelect" class="setting-label">
+                        <span class="label-icon">🌈</span>
+                        颜色主题
+                    </label>
+                    <select id="colorSelect" class="select">
+                        <option value="0">红色系</option>
+                        <option value="1">绿色系</option>
+                        <option value="2">粉色系</option>
+                        <option value="3">蓝色系</option>
+                        <option value="4">黄色系</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="info-text">
+                <p>💡 点击按钮打开聊天窗口</p>
+            </div>
+            <div class="version">
+                <span>v1.1.0</span>
+            </div>
+        </div>
+    </div>
+    
+    <script src="../../utils/helpers/loggerUtils.js"></script>
+    <script src="../../utils/helpers/storageUtils.js"></script>
+    <script src="../../utils/helpers/domHelper.js"></script>
+    <script src="../../config.js"></script>
+    <script src="./index.js"></script>
+</body>
+</html>

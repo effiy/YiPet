@@ -1,0 +1,233 @@
+/**
+ * PetManager - 消息处理相关逻辑（从 `content/petManager.core.js` 拆分）
+ * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
+ */
+(function () {
+    'use strict';
+    if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
+        return;
+    }
+
+    const proto = window.PetManager.prototype;
+
+    // 提取媒体URL（图片和视频）
+    proto.extractMediaUrls = function(text) {
+        const images = [];
+        const videos = [];
+        let cleanedText = text || '';
+        
+        if (!text || typeof text !== 'string') {
+            return { images, videos, cleanedText };
+        }
+        
+        // 提取 data URL 格式的图片（data:image/...）
+        const dataImageRegex = /data:image\/[^;]+;base64,[^\s"'<>]+/gi;
+        const dataImageMatches = text.match(dataImageRegex);
+        if (dataImageMatches) {
+            images.push(...dataImageMatches);
+            // 从文本中移除这些 data URL
+            dataImageMatches.forEach(url => {
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 提取普通 URL 格式的图片（http:// 或 https:// 结尾是图片扩展名）
+        const imageUrlRegex = /https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s"'<>]*)?/gi;
+        const imageUrlMatches = text.match(imageUrlRegex);
+        if (imageUrlMatches) {
+            imageUrlMatches.forEach(url => {
+                if (!images.includes(url)) {
+                    images.push(url);
+                }
+                // 从文本中移除这些 URL
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 提取视频 URL（http:// 或 https:// 结尾是视频扩展名）
+        const videoUrlRegex = /https?:\/\/[^\s"'<>]+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?[^\s"'<>]*)?/gi;
+        const videoUrlMatches = text.match(videoUrlRegex);
+        if (videoUrlMatches) {
+            videos.push(...videoUrlMatches);
+            // 从文本中移除这些 URL
+            videoUrlMatches.forEach(url => {
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 提取 data URL 格式的视频（data:video/...）
+        const dataVideoRegex = /data:video\/[^;]+;base64,[^\s"'<>]+/gi;
+        const dataVideoMatches = text.match(dataVideoRegex);
+        if (dataVideoMatches) {
+            videos.push(...dataVideoMatches);
+            // 从文本中移除这些 data URL
+            dataVideoMatches.forEach(url => {
+                cleanedText = cleanedText.replace(url, '');
+            });
+        }
+        
+        // 清理多余的空白字符
+        cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+        
+        return { images, videos, cleanedText };
+    };
+
+    // 从消息 DOM 元素找到对应的消息索引（更准确的方法）
+    proto.findMessageIndexByDiv = function(messageDiv) {
+        if (!messageDiv || !this.currentSessionId || !this.sessions[this.currentSessionId]) {
+            return -1;
+        }
+
+        const session = this.sessions[this.currentSessionId];
+        if (!session.messages || !Array.isArray(session.messages)) {
+            return -1;
+        }
+
+        // 获取消息容器
+        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        if (!messagesContainer) {
+            return -1;
+        }
+
+        // 获取所有消息DOM元素（排除欢迎消息）
+        const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
+            // 排除欢迎消息和其他非消息元素
+            return !div.hasAttribute('data-welcome-message') && 
+                   (div.querySelector('[data-message-type="user-bubble"]') || 
+                    div.querySelector('[data-message-type="pet-bubble"]'));
+        });
+
+        // 找到当前消息在DOM中的索引
+        const domIndex = allMessageDivs.indexOf(messageDiv);
+        if (domIndex < 0) {
+            return -1;
+        }
+
+        // DOM中的消息顺序应该与session.messages数组顺序一致
+        // 但需要排除欢迎消息，所以直接使用domIndex
+        if (domIndex >= 0 && domIndex < session.messages.length) {
+            return domIndex;
+        }
+
+        return -1;
+    };
+
+    // 从消息 DOM 元素找到对应的消息对象
+    proto.findMessageObjectByDiv = function(messageDiv) {
+        if (!messageDiv || !this.currentSessionId || !this.sessions[this.currentSessionId]) {
+            return null;
+        }
+
+        const session = this.sessions[this.currentSessionId];
+        if (!session.messages || !Array.isArray(session.messages)) {
+            return null;
+        }
+
+        // 首先尝试通过索引匹配（更准确）
+        const messageIndex = this.findMessageIndexByDiv(messageDiv);
+        if (messageIndex >= 0 && messageIndex < session.messages.length) {
+            const msg = session.messages[messageIndex];
+            // 验证消息类型是否匹配
+            const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
+            const messageType = isUserMessage ? 'user' : 'pet';
+            if (msg && msg.type === messageType) {
+                return { message: msg, index: messageIndex };
+            }
+        }
+
+        // 如果索引匹配失败，回退到内容匹配（兼容旧逻辑）
+        const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
+        const messageBubble = isUserMessage 
+            ? messageDiv.querySelector('[data-message-type="user-bubble"]')
+            : messageDiv.querySelector('[data-message-type="pet-bubble"]');
+        
+        if (!messageBubble) {
+            return null;
+        }
+
+        // 获取消息文本内容
+        const messageContent = messageBubble.getAttribute('data-original-text') || 
+                              messageBubble.innerText || 
+                              messageBubble.textContent || '';
+        
+        // 获取消息类型
+        const messageType = isUserMessage ? 'user' : 'pet';
+
+        // 在会话消息列表中查找匹配的消息对象
+        // 优先匹配内容和类型，如果有多条匹配，选择最近的一条
+        for (let i = session.messages.length - 1; i >= 0; i--) {
+            const msg = session.messages[i];
+            if (msg.type === messageType) {
+                // 比较消息内容（去除首尾空白）
+                const msgContent = (msg.content || '').trim();
+                const divContent = messageContent.trim();
+                
+                // 如果内容匹配，返回该消息对象
+                if (msgContent === divContent || 
+                    (msgContent && divContent && msgContent.includes(divContent)) ||
+                    (divContent && msgContent && divContent.includes(msgContent))) {
+                    return { message: msg, index: i };
+                }
+            }
+        }
+
+        // 如果找不到完全匹配的，返回最后一条同类型的消息
+        for (let i = session.messages.length - 1; i >= 0; i--) {
+            const msg = session.messages[i];
+            if (msg.type === messageType) {
+                return { message: msg, index: i };
+            }
+        }
+
+        return null;
+    };
+
+    // 渲染 Markdown
+    proto.renderMarkdown = function(markdown) {
+        if (!markdown) return '';
+
+        try {
+            // 检查 marked 是否可用
+            if (typeof marked !== 'undefined') {
+                // 配置 marked 以增强安全性
+                marked.setOptions({
+                    breaks: true, // 支持换行
+                    gfm: true, // GitHub Flavored Markdown
+                    sanitize: false // 允许 HTML，但我们会通过 DOMPurify 或其他方式处理
+                });
+                return marked.parse(markdown);
+            } else {
+                // 如果 marked 不可用，返回转义的纯文本
+                return this.escapeHtml(markdown);
+            }
+        } catch (error) {
+            console.error('渲染 Markdown 失败:', error);
+            return this.escapeHtml(markdown);
+        }
+    };
+
+    // HTML 转义辅助函数
+    proto.escapeHtml = function(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
+
+    // 渲染 Markdown 并处理 Mermaid（完整流程）
+    proto.renderMarkdownWithMermaid = async function(markdown, container) {
+        // 先渲染 Markdown
+        const html = this.renderMarkdown(markdown);
+        
+        // 如果提供了容器，处理其中的 Mermaid 代码块
+        if (container) {
+            // 需要等待 DOM 更新后再处理
+            setTimeout(async () => {
+                await this.processMermaidBlocks(container);
+            }, 100);
+        }
+        
+        return html;
+    };
+
+})();
+

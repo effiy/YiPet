@@ -10,76 +10,94 @@
     "https://api.effiy.cn/*"
   ],
   "background": {
-    "service_worker": "background/index.js"
+    "service_worker": "src/background/index.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": [
-        "utils/core/config.js",
-        "lib/md5.js",
-        "utils/helpers/tokenUtils.js",
-        "utils/helpers/imageResourceManager.js",
-        "utils/helpers/loadingAnimationMixin.js",
-        "utils/helpers/baseApiManager.js",
-        "utils/helpers/loadingAnimation.js",
-        "utils/api/sessionApi.js",
-        "utils/helpers/sessionManager.js",
-        "utils/api/faqApi.js",
-        "lib/turndown.js",
-        "lib/marked.min.js",
-        "lib/html2canvas.min.js",
-        "scripts/export-chat-to-png.js",
-        "content/bootstrap.js",
-        "content/modules/petManager.core.js",
-        "features/faq/faq.js",
-        "features/faq/tags.js",
-        "content/modules/petManager.calendar.js",
-        "content/modules/petManager.messaging.js",
-        "content/modules/petManager.pageInfo.js",
-        "content/modules/petManager.session.js",
-        "content/modules/petManager.ui.js",
-        "content/modules/petManager.drag.js",
-        "content/modules/petManager.events.js",
-        "content/modules/petManager.pet.js",
-        "content/modules/petManager.state.js",
-        "content/modules/petManager.chat.js",
-        "content/modules/petManager.message.js",
-        "content/modules/petManager.screenshot.js",
-        "content/modules/petManager.js",
-        "content/index.js"
+        "src/config.js",
+        "src/libs/md5.js",
+        "src/utils/helpers/tokenUtils.js",
+        "src/utils/helpers/imageResourceManager.js",
+        "src/utils/helpers/loadingAnimationMixin.js",
+        "src/utils/helpers/baseApiManager.js",
+        "src/utils/helpers/loadingAnimation.js",
+        "src/utils/api/sessionApi.js",
+        "src/utils/helpers/sessionManager.js",
+        "src/utils/api/faqApi.js",
+        "src/libs/turndown.js",
+        "src/libs/marked.min.js",
+        "src/libs/html2canvas.min.js",
+        "src/features/chat/export-chat-to-png.js",
+        "src/content/bootstrap.js",
+        "src/features/pet/petManager.core.js",
+        "src/features/pet/petManager.auth.js",
+        "src/features/pet/petManager.roles.js",
+        "src/features/pet/petManager.robot.js",
+        "src/features/pet/petManager.ai.js",
+        "src/features/pet/petManager.sessionEditor.js",
+        "src/features/pet/petManager.requestEditor.js",
+        "src/features/pet/petManager.editor.js",
+        "src/features/pet/petManager.mermaid.js",
+        "src/features/pet/petManager.tags.js",
+        "src/features/pet/petManager.parser.js",
+        "src/features/pet/petManager.io.js",
+        "src/features/faq/faq.js",
+        "src/features/faq/tags.js",
+        "src/features/pet/petManager.calendar.js",
+        "src/features/pet/petManager.messaging.js",
+        "src/features/pet/petManager.pageInfo.js",
+        "src/features/pet/petManager.session.js",
+        "src/features/pet/components/SessionItem.js",
+        "src/features/pet/components/ChatWindow.js",
+        "src/features/pet/petManager.ui.js",
+        "src/features/pet/petManager.drag.js",
+        "src/features/pet/petManager.events.js",
+        "src/features/pet/petManager.pet.js",
+        "src/features/pet/petManager.state.js",
+        "src/features/pet/petManager.chat.js",
+        "src/features/pet/petManager.chatUi.js",
+        "src/features/pet/petManager.media.js",
+        "src/features/pet/petManager.message.js",
+        "src/features/pet/petManager.screenshot.js",
+        "src/features/pet/petManager.js",
+        "src/content/index.js"
       ],
-      "css": ["assets/css/tailwind.css", "assets/css/content.css"],
+      "css": [
+        "src/styles/tailwind.css",
+        "src/styles/content.css",
+        "src/features/pet/components/ChatWindow.css"
+      ],
       "run_at": "document_end"
     }
   ],
   "action": {
-    "default_popup": "popup/index.html",
+    "default_popup": "src/views/popup/index.html",
     "default_title": "伴侣控制面板"
   },
   "icons": {
-    "16": "assets/icons/icon16.png",
-    "32": "assets/icons/icon32.png",
-    "48": "assets/icons/icon48.png",
-    "128": "assets/icons/icon128.png"
+    "16": "src/assets/icons/icon16.png",
+    "32": "src/assets/icons/icon32.png",
+    "48": "src/assets/icons/icon48.png",
+    "128": "src/assets/icons/icon128.png"
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "assets/icons/icon.png",
-        "assets/images/roles/*/icon.png",
-        "assets/images/roles/*/run/*.png",
-        "lib/mermaid.min.js",
-        "scripts/load-mermaid.js",
-        "scripts/render-mermaid.js",
-        "scripts/preview-mermaid.js",
-        "lib/jszip.min.js",
-        "scripts/load-jszip.js",
-        "scripts/export-sessions.js",
-        "scripts/import-sessions.js"
+        "src/assets/icons/icon.png",
+        "src/assets/images/*/icon.png",
+        "src/assets/images/*/run/*.png",
+        "src/libs/mermaid.min.js",
+        "src/features/mermaid/load-mermaid.js",
+        "src/features/mermaid/render-mermaid.js",
+        "src/features/mermaid/preview-mermaid.js",
+        "src/libs/jszip.min.js",
+        "src/features/session/load-jszip.js",
+        "src/features/session/export-sessions.js",
+        "src/features/session/import-sessions.js"
       ],
       "matches": ["<all_urls>"]
     }
   ]
 }
-

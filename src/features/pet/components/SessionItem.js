@@ -34,7 +34,7 @@
         itemInner.className = 'session-item-inner';
 
         // Checkbox
-        const checkboxContainer = this.createCheckbox();
+        const checkboxContainer = this.createCheckbox(sessionItem);
         itemInner.appendChild(checkboxContainer);
 
         // Content
@@ -101,7 +101,7 @@
             return sessionItem;
         }
 
-        createCheckbox() {
+        createCheckbox(sessionItem) {
             const manager = this.manager;
             const session = this.session;
 
@@ -110,19 +110,20 @@
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = Array.isArray(manager.batchSelected) && manager.batchSelected.includes(session.id);
+        checkbox.checked = manager.selectedSessionIds && manager.selectedSessionIds.has(session.id);
             
             checkbox.addEventListener('change', (e) => {
                 const checked = e.target.checked;
-                if (!Array.isArray(manager.batchSelected)) {
-                    manager.batchSelected = [];
+                if (!manager.selectedSessionIds) {
+                    manager.selectedSessionIds = new Set();
                 }
                 
-                const idx = manager.batchSelected.indexOf(session.id);
                 if (checked) {
-                    if (idx === -1) manager.batchSelected.push(session.id);
+                    manager.selectedSessionIds.add(session.id);
+                    sessionItem.classList.add('selected');
                 } else {
-                    if (idx > -1) manager.batchSelected.splice(idx, 1);
+                    manager.selectedSessionIds.delete(session.id);
+                    sessionItem.classList.remove('selected');
                 }
                 
                 if (typeof manager.updateBatchToolbar === 'function') {

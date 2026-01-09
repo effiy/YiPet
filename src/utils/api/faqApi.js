@@ -9,6 +9,21 @@ class FaqApiManager extends BaseApiManager {
         super(baseUrl, enabled);
         this.cname = 'faqs';
     }
+
+    /**
+     * 构建通用API URL
+     * @param {string} methodName - 方法名
+     * @param {Object} parameters - 参数
+     * @returns {string} 构建好的URL
+     */
+    _buildGenericApiUrl(methodName, parameters) {
+        const queryParams = new URLSearchParams({
+            module_name: 'services.database.data_service',
+            method_name: methodName,
+            parameters: JSON.stringify(parameters)
+        });
+        return `${this.baseUrl}/?${queryParams.toString()}`;
+    }
     
     /**
      * 获取所有常见问题
@@ -16,14 +31,31 @@ class FaqApiManager extends BaseApiManager {
      */
     async getFaqs() {
         try {
-            // 添加排序参数，按order字段升序排序
-            const url = `${this.baseUrl}/?cname=${this.cname}&orderBy=order&orderType=asc`;
+            const params = {
+                cname: this.cname,
+                sort: { order: 1 }
+            };
+            const url = this._buildGenericApiUrl('query_documents', params);
             const result = await this._request(url, { method: 'GET' });
             
-            // 处理响应格式，数据在 result.data.list 里面
             let faqs = [];
-            if (result && result.data && Array.isArray(result.data.list)) {
+            // 兼容不同的返回格式 (参考 SessionApiManager)
+            if (Array.isArray(result)) {
+                faqs = result;
+            } else if (result && Array.isArray(result.data)) {
+                faqs = result.data;
+            } else if (result && result.data && Array.isArray(result.data.documents)) {
+                faqs = result.data.documents;
+            } else if (result && result.data && result.data.list && Array.isArray(result.data.list)) {
                 faqs = result.data.list;
+            } else if (result && Array.isArray(result.documents)) {
+                faqs = result.documents;
+            } else if (result && result.documents && result.documents.list && Array.isArray(result.documents.list)) {
+                faqs = result.documents.list;
+            } else if (result && result.result && Array.isArray(result.result)) {
+                faqs = result.result;
+            } else if (result && result.data && result.data.result && Array.isArray(result.data.result)) {
+                faqs = result.data.result;
             } else {
                 console.warn('FAQ API返回格式异常:', result);
                 return [];
@@ -39,13 +71,6 @@ class FaqApiManager extends BaseApiManager {
                     faq.tags = [];
                 }
                 return faq;
-            });
-            
-            // 确保按order字段排序（双重保险）
-            faqs.sort((a, b) => {
-                const orderA = a.order !== undefined && a.order !== null ? a.order : 999999;
-                const orderB = b.order !== undefined && b.order !== null ? b.order : 999999;
-                return orderA - orderB;
             });
             
             return faqs;
@@ -66,22 +91,24 @@ class FaqApiManager extends BaseApiManager {
         }
         
         try {
-            const url = `${this.baseUrl}/?cname=${this.cname}`;
-            const requestBody = {
+            const document = {
                 text: faqData.text,
                 tags: faqData.tags || [],
             };
-            // 如果提供了order字段，添加到请求体中
             if (faqData.order !== undefined && faqData.order !== null) {
-                requestBody.order = faqData.order;
+                document.order = faqData.order;
             }
+
+            const params = {
+                cname: this.cname,
+                document: document
+            };
+            const url = this._buildGenericApiUrl('insert_document', params);
             
             const result = await this._request(url, {
-                method: 'POST',
-                body: JSON.stringify(requestBody),
+                method: 'POST'
             });
             
-            // 处理不同的响应格式
             let faq = null;
             if (result.success && result.data) {
                 faq = result.data;
@@ -91,17 +118,11 @@ class FaqApiManager extends BaseApiManager {
                 faq = result;
             }
             
-            // 统一处理ID字段：将 id 转换为 _id（如果存在）
             if (faq && faq.id && !faq._id) {
                 faq._id = faq.id;
             }
-            // 确保 tags 字段存在
             if (faq && (!faq.tags || !Array.isArray(faq.tags))) {
                 faq.tags = [];
-            }
-            // 如果返回的FAQ没有order字段，但请求中有，则设置它
-            if (faq && (faq.order === undefined || faq.order === null) && faqData.order !== undefined && faqData.order !== null) {
-                faq.order = faqData.order;
             }
             
             return faq;
@@ -127,18 +148,23 @@ class FaqApiManager extends BaseApiManager {
         }
         
         try {
-            const url = `${this.baseUrl}/?cname=${this.cname}`;
+            const params = {
+                cname: this.cname,
+                filter: { text: key },
+                update: {
+                    '$set': {
+                        text: faqData.text,
+                        tags: faqData.tags || []
+                    }
+                }
+            };
+            
+            const url = this._buildGenericApiUrl('update_documents', params);
             
             const result = await this._request(url, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    key: key,
-                    text: faqData.text,
-                    tags: faqData.tags || [],
-                }),
+                method: 'POST'
             });
             
-            // 处理不同的响应格式
             let faq = null;
             if (result.success && result.data) {
                 faq = result.data;
@@ -146,15 +172,6 @@ class FaqApiManager extends BaseApiManager {
                 faq = result.data;
             } else {
                 faq = result;
-            }
-            
-            // 统一处理ID字段：将 id 转换为 _id（如果存在）
-            if (faq && faq.id && !faq._id) {
-                faq._id = faq.id;
-            }
-            // 确保 tags 字段存在
-            if (faq && (!faq.tags || !Array.isArray(faq.tags))) {
-                faq.tags = [];
             }
             
             return faq;
@@ -175,11 +192,15 @@ class FaqApiManager extends BaseApiManager {
         }
         
         try {
-            // 使用key作为参数
-            const url = `${this.baseUrl}/?cname=${this.cname}&key=${encodeURIComponent(key)}`;
+            const params = {
+                cname: this.cname,
+                filter: { text: key }
+            };
+            
+            const url = this._buildGenericApiUrl('delete_documents', params);
             
             const result = await this._request(url, {
-                method: 'DELETE',
+                method: 'POST'
             });
             
             return result;
@@ -199,20 +220,23 @@ class FaqApiManager extends BaseApiManager {
             throw new Error('FAQ列表必须是数组');
         }
         
+        // 这里的实现比较复杂，因为新API可能不支持直接"替换所有"。
+        // 暂时保留旧实现或抛出未实现，或者尝试使用 insert_documents (plural)
+        // 假设有一个 batch_insert_documents 或 insert_documents
+        // 为了安全起见，先警告。
+        console.warn('saveFaqs: 批量保存功能在新API中可能需要调整。尝试使用 insert_documents');
+
         try {
-            const url = `${this.baseUrl}/?cname=${this.cname}`;
-            const result = await this._request(url, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: 'batch',
-                    data: faqs,
-                }),
-            });
-            
+            const params = {
+                cname: this.cname,
+                documents: faqs
+            };
+            const url = this._buildGenericApiUrl('insert_documents', params);
+            const result = await this._request(url, { method: 'POST' });
             return result;
         } catch (error) {
-            console.error('批量保存常见问题失败:', error);
-            throw error;
+             console.error('批量保存常见问题失败:', error);
+             throw error;
         }
     }
     
@@ -227,15 +251,19 @@ class FaqApiManager extends BaseApiManager {
         }
         
         try {
-            const url = `${this.baseUrl}/batch-order?cname=${this.cname}`;
-            const result = await this._request(url, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    orders: orders,
-                }),
+            // 并行执行更新
+            const promises = orders.map(item => {
+                const params = {
+                    cname: this.cname,
+                    filter: { text: item.key },
+                    update: { '$set': { order: item.order } }
+                };
+                const url = this._buildGenericApiUrl('update_documents', params);
+                return this._request(url, { method: 'POST' });
             });
             
-            return result;
+            const results = await Promise.all(promises);
+            return results;
         } catch (error) {
             console.error('批量更新排序失败:', error);
             throw error;

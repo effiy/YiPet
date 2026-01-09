@@ -19,7 +19,6 @@
             this.messagesContainer = null;
             this.inputContainer = null;
             this.sessionListContainer = null;
-            this.inputToggleBtn = null;
             this.robotSettingsButton = null;
             this.requestStatusButton = null;
             this.settingsButton = null;
@@ -68,8 +67,6 @@
             // Create Sidebar
             // Load states first
             if (typeof manager.loadSidebarWidth === 'function') manager.loadSidebarWidth();
-            if (typeof manager.loadSidebarCollapsed === 'function') manager.loadSidebarCollapsed();
-            if (typeof manager.loadInputContainerCollapsed === 'function') manager.loadInputContainerCollapsed();
             if (typeof manager.loadCalendarCollapsed === 'function') manager.loadCalendarCollapsed();
 
             this.sidebar = this.createSidebar();
@@ -90,13 +87,6 @@
 
             this.mainContent.appendChild(rightPanel);
             this.element.appendChild(this.mainContent);
-
-            // Create Toggle Buttons
-            const sidebarToggle = this.createSidebarToggle();
-            this.element.appendChild(sidebarToggle); 
-
-            this.inputToggleBtn = this.createInputToggle();
-            rightPanel.appendChild(this.inputToggleBtn);
 
             // Create Resize Handles
             this.createResizeHandles();
@@ -146,7 +136,18 @@
             const closeBtn = document.createElement('button');
             closeBtn.className = 'pet-chat-close-btn';
             closeBtn.innerHTML = '✕';
-            closeBtn.addEventListener('click', () => manager.closeChatWindow());
+            closeBtn.setAttribute('aria-label', '关闭');
+            closeBtn.setAttribute('title', '关闭');
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof manager.closeChatWindow === 'function') {
+                    manager.closeChatWindow();
+                } else {
+                    console.error('manager.closeChatWindow is not a function');
+                    // Fallback to hiding the element directly
+                    if (this.element) this.element.style.display = 'none';
+                }
+            });
             
             headerButtons.appendChild(authBtn);
             headerButtons.appendChild(refreshBtn);
@@ -170,49 +171,6 @@
                 e.stopPropagation();
                 onClick();
             });
-            return btn;
-        }
-
-        createSidebarToggle() {
-            const manager = this.manager;
-            const btn = document.createElement('button');
-            btn.id = 'pet-chat-sidebar-toggle-btn';
-            btn.innerHTML = '<span class="toggle-icon">◀</span>';
-            btn.title = '折叠侧边栏';
-            
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                btn.classList.add('pressed');
-                setTimeout(() => {
-                    btn.classList.remove('pressed');
-                }, 150);
-                
-                if (typeof this.toggleSidebar === 'function') this.toggleSidebar();
-            });
-
-            // Hover effects handled by CSS now
-            
-            return btn;
-        }
-
-        createInputToggle() {
-            const manager = this.manager;
-            const btn = document.createElement('button');
-            btn.id = 'input-container-toggle-btn';
-            btn.className = 'input-toggle-btn';
-            btn.innerHTML = '<span class="toggle-icon">▼</span>';
-            btn.title = '折叠输入框';
-            
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                btn.classList.add('pressed');
-                setTimeout(() => {
-                    btn.classList.remove('pressed');
-                }, 150);
-
-                if (typeof this.toggleInputContainer === 'function') this.toggleInputContainer();
-            });
-
             return btn;
         }
 
@@ -530,17 +488,17 @@
                 return btn;
             };
 
-            const selectAllBtn = createBtn('全选', 'batch-action-btn', () => {
+            const selectAllBtn = createBtn('全选', 'batch-toolbar-btn batch-toolbar-btn--default', () => {
                 if (typeof this.manager.toggleSelectAll === 'function') this.manager.toggleSelectAll();
             });
             selectAllBtn.id = 'select-all-btn';
 
-            const batchDeleteBtn = createBtn('删除', 'batch-action-btn batch-action-btn--delete', async () => {
+            const batchDeleteBtn = createBtn('删除', 'batch-toolbar-btn batch-toolbar-btn--danger', async () => {
                 if (typeof this.manager.batchDeleteSessions === 'function') await this.manager.batchDeleteSessions();
             });
             batchDeleteBtn.id = 'batch-delete-btn';
 
-            const cancelBtn = createBtn('取消', 'batch-action-btn', () => {
+            const cancelBtn = createBtn('取消', 'batch-toolbar-btn batch-toolbar-btn--default', () => {
                 if (typeof this.manager.exitBatchMode === 'function') this.manager.exitBatchMode();
             });
 
@@ -605,91 +563,6 @@
 
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
-        }
-
-        setSidebarCollapsed(collapsed) {
-            this.sidebarCollapsed = collapsed;
-            if (!this.sidebar) return;
-
-            this.sidebar.classList.toggle('collapsed', collapsed);
-            
-            // Toggle sidebar-visible class on the main window element
-            if (this.element) {
-                this.element.classList.toggle('sidebar-visible', !collapsed);
-            }
-
-            // Update Toggle Button
-            const toggleBtn = this.element ? this.element.querySelector('#pet-chat-sidebar-toggle-btn') : null;
-            if (toggleBtn) {
-                const icon = toggleBtn.querySelector('.toggle-icon');
-                if (icon) {
-                    // Animation
-                    icon.style.opacity = '0.3';
-                    icon.style.transform = 'scale(0.8)';
-                    setTimeout(() => {
-                        icon.textContent = collapsed ? '▶' : '◀';
-                        icon.style.opacity = '1';
-                        icon.style.transform = 'scale(1)';
-                    }, 125);
-                }
-                
-                toggleBtn.title = collapsed ? '展开侧边栏' : '折叠侧边栏';
-            }
-        }
-
-        toggleSidebar() {
-            const newState = !this.sidebarCollapsed;
-            this.setSidebarCollapsed(newState);
-            
-            // Notify manager
-            this.manager.sidebarCollapsed = newState;
-            if (typeof this.manager.saveSidebarCollapsed === 'function') {
-                this.manager.saveSidebarCollapsed();
-            }
-        }
-
-        setInputContainerCollapsed(collapsed) {
-             this.inputContainerCollapsed = collapsed;
-             if (!this.inputContainer) return;
-
-             this.inputContainer.classList.toggle('collapsed', collapsed);
-
-             const toggleBtn = this.inputToggleBtn || (this.element ? this.element.querySelector('#input-container-toggle-btn') : null);
-             if (toggleBtn) {
-                 const icon = toggleBtn.querySelector('.toggle-icon');
-                 if (icon) {
-                    icon.style.opacity = '0.3';
-                    icon.style.transform = 'scale(0.8)';
-                    setTimeout(() => {
-                        icon.textContent = collapsed ? '▲' : '▼';
-                        icon.style.opacity = '1';
-                        icon.style.transform = 'scale(1)';
-                    }, 125);
-                 }
-                 
-                 toggleBtn.title = collapsed ? '展开输入框' : '折叠输入框';
-
-                 // Update position
-                 // Use setTimeout to ensure layout is updated if transitioning from none
-                 setTimeout(() => {
-                     const inputHeight = this.inputContainer.offsetHeight || 160;
-                     if (collapsed) {
-                         toggleBtn.style.bottom = '0px';
-                     } else {
-                         toggleBtn.style.bottom = `${inputHeight}px`;
-                     }
-                 }, 50);
-             }
-        }
-
-        toggleInputContainer() {
-            const newState = !this.inputContainerCollapsed;
-            this.setInputContainerCollapsed(newState);
-
-            this.manager.inputContainerCollapsed = newState;
-            if (typeof this.manager.saveInputContainerCollapsed === 'function') {
-                this.manager.saveInputContainerCollapsed();
-            }
         }
 
         createContextSwitch() {
@@ -875,11 +748,6 @@
             textarea.placeholder = '输入消息... (Enter 发送, Shift+Enter 换行)';
             textarea.rows = 2;
             
-            // Send Button
-            const sendBtn = document.createElement('button');
-            sendBtn.id = 'pet-chat-send-btn';
-            sendBtn.className = 'chat-send-btn';
-            sendBtn.innerHTML = '发送';
             
             // Input State Management
             const updateInputState = () => {
@@ -948,7 +816,6 @@
                 updateInputState();
             };
 
-            sendBtn.addEventListener('click', triggerSend);
             
             textarea.addEventListener('keydown', (e) => {
                 if (e.isComposing || isComposing) return;
@@ -971,7 +838,6 @@
             });
 
             inputWrapper.appendChild(textarea);
-            inputWrapper.appendChild(sendBtn);
 
             inputContainer.appendChild(topToolbar);
             inputContainer.appendChild(inputWrapper);
@@ -1251,6 +1117,7 @@
             e.preventDefault();
             e.stopPropagation();
             this.isResizing = true;
+            this.element.classList.add('resizing');
             
             const startX = e.clientX;
             const startY = e.clientY;
@@ -1290,6 +1157,7 @@
             
             const onMouseUp = () => {
                 this.isResizing = false;
+                this.element.classList.remove('resizing');
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
                 
@@ -1322,7 +1190,15 @@
                     transform: this.element.style.transform
                 };
                 
-                // Inline styles handled by .fullscreen CSS class with !important
+                // Clear inline styles to ensure CSS class with !important takes precedence
+                // Because inline styles with !important (set by updateChatWindowStyle) would override CSS !important
+                this.element.style.removeProperty('width');
+                this.element.style.removeProperty('height');
+                this.element.style.removeProperty('top');
+                this.element.style.removeProperty('left');
+                this.element.style.removeProperty('bottom');
+                this.element.style.removeProperty('right');
+                this.element.style.removeProperty('transform');
                 
                 manager.isFullscreen = true;
                 manager.chatWindowState.isFullscreen = true;
@@ -1399,6 +1275,17 @@
             if (!this.element) return;
             
             const state = this.manager.chatWindowState || {};
+
+            // Ensure fullscreen class is synced with state
+            if (state.isFullscreen) {
+                this.element.classList.add('fullscreen');
+                // In fullscreen, we don't apply specific width/height/pos
+                // relying on CSS class instead
+                return;
+            } else {
+                this.element.classList.remove('fullscreen');
+            }
+
             const width = state.width || 850;
             const height = state.height || 600;
             const left = state.x;

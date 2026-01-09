@@ -384,6 +384,14 @@
         // 记录是否删除的是当前会话
         const isCurrentSession = sessionId === this.currentSessionId;
 
+        // 从选中集合中移除
+        if (this.selectedSessionIds && this.selectedSessionIds.has(sessionId)) {
+            this.selectedSessionIds.delete(sessionId);
+            if (typeof this.updateBatchToolbar === 'function') {
+                this.updateBatchToolbar();
+            }
+        }
+
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
         // 删除会话前不再自动保存当前会话
 

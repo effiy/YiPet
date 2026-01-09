@@ -205,8 +205,13 @@
             ...state,
             isDragging: false,
             isResizing: false,
-            resizeType: 'bottom-right' // 默认缩放类型
+            resizeType: 'bottom-right', // 默认缩放类型
+            isFullscreen: false // Force false on restore to ensure consistent start state
         };
+
+        // Sync manager state
+        this.isFullscreen = false;
+        this.preFullscreenStyle = null;
 
         // 验证位置和大小
         this.chatWindowState.width = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.width));

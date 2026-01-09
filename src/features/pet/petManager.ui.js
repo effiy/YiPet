@@ -468,19 +468,20 @@
             }
 
             // 更新所有复选框状态
-            const checkboxes = document.querySelectorAll('.session-checkbox');
-            checkboxes.forEach(checkbox => {
-                const sessionId = checkbox.dataset.sessionId;
-                checkbox.checked = this.selectedSessionIds.has(sessionId);
-
-                // 更新会话项的选中状态类
-                const sessionItem = checkbox.closest('.session-item');
-                if (sessionItem) {
-                    if (this.selectedSessionIds.has(sessionId)) {
-                        sessionItem.classList.add('selected');
-                    } else {
-                        sessionItem.classList.remove('selected');
-                    }
+            const sessionItems = this.sessionSidebar.querySelectorAll('.session-item');
+            sessionItems.forEach(item => {
+                const sessionId = item.dataset.sessionId;
+                const checkbox = item.querySelector('.session-checkbox input[type="checkbox"]');
+                const isSelected = this.selectedSessionIds.has(sessionId);
+                
+                if (checkbox) {
+                    checkbox.checked = isSelected;
+                }
+                
+                if (isSelected) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
                 }
             });
 

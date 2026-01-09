@@ -729,7 +729,6 @@
         let pageInfoHtml = `
             <div class="welcome-card">
                 <div class="welcome-card-header">
-                    <img src="${pageIconUrl}" alt="页面图标" class="welcome-card-icon" onerror="this.style.display='none'">
                     <span class="welcome-card-title">${this.escapeHtml(pageInfo.title)}</span>
                 </div>
                 <div class="welcome-card-section">
@@ -834,7 +833,6 @@
         let pageInfoHtml = `
             <div class="welcome-card">
                 <div class="welcome-card-header">
-                    <img src="${pageIconUrl}" alt="页面图标" class="welcome-card-icon" onerror="this.style.display='none'">
                     <span class="welcome-card-title">${this.escapeHtml(pageInfo.title)}</span>
                 </div>
                 <div class="welcome-card-section">

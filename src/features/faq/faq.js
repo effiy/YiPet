@@ -333,5 +333,185 @@
       modal._updateTagFilterButtons();
     }
   };
+
+  proto.loadFaqsIntoManager = async function() {
+    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!modal) return;
+    const faqsContainer = modal.querySelector('.faq-manager-faqs');
+    if (!faqsContainer) return;
+
+    try {
+        if (!this.faqApi) {
+             console.error('FAQ API 未初始化');
+             return;
+        }
+
+        const faqs = await this.faqApi.getFaqs();
+        modal._allFaqs = faqs;
+        
+        let filteredFaqs = faqs;
+
+        const searchKeyword = (this.faqSearchFilter || '').toLowerCase().trim();
+        if (searchKeyword) {
+            filteredFaqs = filteredFaqs.filter(faq => 
+                (faq.text || '').toLowerCase().includes(searchKeyword)
+            );
+        }
+
+        const selectedTags = this.faqSelectedFilterTags || [];
+        const isReverse = !!this.faqTagFilterReverse;
+        const noTags = !!this.faqTagFilterNoTags;
+
+        if (noTags) {
+             filteredFaqs = filteredFaqs.filter(faq => !faq.tags || faq.tags.length === 0);
+        } else if (selectedTags.length > 0) {
+            if (isReverse) {
+                filteredFaqs = filteredFaqs.filter(faq => 
+                    !faq.tags || !faq.tags.some(tag => selectedTags.includes(tag))
+                );
+            } else {
+                filteredFaqs = filteredFaqs.filter(faq => 
+                    faq.tags && faq.tags.some(tag => selectedTags.includes(tag))
+                );
+            }
+        }
+
+        modal._currentFaqs = filteredFaqs;
+
+        faqsContainer.innerHTML = '';
+        if (filteredFaqs.length === 0) {
+             const empty = document.createElement('div');
+             empty.className = 'tw-p-8 tw-text-center tw-text-gray-400 tw-text-sm';
+             empty.textContent = '暂无常见问题';
+             faqsContainer.appendChild(empty);
+        } else {
+             filteredFaqs.forEach((faq, index) => {
+                 const el = this.createFaqElement(faq, index);
+                 faqsContainer.appendChild(el);
+             });
+        }
+
+        this.updateFaqTagFilterUI();
+
+    } catch (err) {
+        console.error('加载常见问题失败:', err);
+        faqsContainer.innerHTML = `<div class="tw-p-4 tw-text-center tw-text-red-500">加载失败: ${err.message}</div>`;
+    }
+  };
+
+  proto.createFaqElement = function(faq, index) {
+      const item = document.createElement('div');
+      item.className = 'faq-item tw-p-3 tw-border-b tw-border-gray-100 hover:tw-bg-gray-50 tw-group tw-relative tw-transition-colors tw-cursor-pointer';
+      
+      const content = document.createElement('div');
+      content.className = 'tw-flex tw-flex-col tw-gap-1.5';
+      
+      const text = faq.text || '';
+      const lines = text.split('\n');
+      const titleText = lines[0];
+      const bodyText = lines.slice(1).join('\n');
+
+      const title = document.createElement('div');
+      title.className = 'tw-font-medium tw-text-gray-800 tw-text-sm';
+      title.textContent = titleText;
+      content.appendChild(title);
+
+      if (bodyText) {
+          const body = document.createElement('div');
+          body.className = 'tw-text-xs tw-text-gray-500 tw-line-clamp-2 tw-whitespace-pre-wrap';
+          body.textContent = bodyText;
+          content.appendChild(body);
+      }
+      
+      const tagsContainer = document.createElement('div');
+      tagsContainer.className = 'tw-flex tw-flex-wrap tw-gap-1.5 tw-mt-0.5';
+      if (faq.tags && faq.tags.length > 0) {
+          faq.tags.forEach(tag => {
+              const tagSpan = document.createElement('span');
+              tagSpan.className = 'tw-text-[10px] tw-px-1.5 tw-py-0.5 tw-bg-gray-100 tw-text-gray-500 tw-rounded';
+              tagSpan.textContent = tag;
+              tagsContainer.appendChild(tagSpan);
+          });
+      }
+      content.appendChild(tagsContainer);
+
+      const actions = document.createElement('div');
+      actions.className = 'tw-absolute tw-right-2 tw-top-2 tw-hidden group-hover:tw-flex tw-gap-1 tw-bg-white/90 tw-backdrop-blur-sm tw-rounded tw-shadow-sm tw-p-0.5 tw-border tw-border-gray-100';
+      
+      const createBtn = (icon, title, onClick, colorClass) => {
+          const btn = document.createElement('button');
+          btn.className = `tw-p-1.5 tw-rounded hover:tw-bg-gray-100 tw-transition ${colorClass}`;
+          btn.title = title;
+          btn.innerHTML = icon;
+          btn.onclick = (e) => {
+              e.stopPropagation();
+              onClick();
+          };
+          return btn;
+      };
+
+      actions.appendChild(createBtn(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
+          '管理标签',
+          () => this.openFaqTagManager(index),
+          'tw-text-gray-500 hover:tw-text-blue-500'
+      ));
+
+      actions.appendChild(createBtn(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+          '删除',
+          () => this.deleteFaq(faq.text),
+          'tw-text-gray-400 hover:tw-text-red-500'
+      ));
+
+      item.appendChild(content);
+      item.appendChild(actions);
+
+      item.addEventListener('click', () => {
+           const chatInput = this.chatWindow?.querySelector('#pet-chat-input');
+           if (chatInput) {
+               chatInput.value = faq.text;
+               chatInput.focus();
+               chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+               this.closeFaqManagerOnly();
+           }
+      });
+
+      return item;
+  };
+
+  proto.addFaqFromInput = async function() {
+      const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+      if (!modal) return;
+      const input = modal.querySelector('.faq-manager-input');
+      if (!input) return;
+      
+      const text = input.value.trim();
+      if (!text) return;
+
+      try {
+          if (this.faqApi) {
+              await this.faqApi.createFaq({ text });
+              input.value = '';
+              await this.loadFaqsIntoManager();
+          }
+      } catch (err) {
+          console.error('添加常见问题失败:', err);
+          alert('添加失败: ' + err.message);
+      }
+  };
+
+  proto.deleteFaq = async function(key) {
+      if (!confirm('确定要删除这条常见问题吗？')) return;
+      try {
+          if (this.faqApi) {
+              await this.faqApi.deleteFaq(key);
+              await this.loadFaqsIntoManager();
+          }
+      } catch (err) {
+          console.error('删除常见问题失败:', err);
+          alert('删除失败: ' + err.message);
+      }
+  };
 })();
 

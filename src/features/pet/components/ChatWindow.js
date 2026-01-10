@@ -385,17 +385,6 @@
                 if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
             });
 
-            // Expand Toggle Button
-            const expandToggleBtn = document.createElement('button');
-            expandToggleBtn.className = 'tag-filter-action-btn tag-filter-expand-btn';
-            expandToggleBtn.title = '展开标签';
-            expandToggleBtn.innerHTML = '▼';
-            
-            expandToggleBtn.addEventListener('click', () => {
-                manager.tagFilterExpanded = !manager.tagFilterExpanded;
-                if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
-            });
-
             // Clear Filter Button
             const clearFilterBtn = document.createElement('button');
             clearFilterBtn.className = 'tag-filter-clear-btn';

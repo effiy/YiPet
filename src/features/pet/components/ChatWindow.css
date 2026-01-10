@@ -1089,12 +1089,6 @@
     opacity: 1 !important;
 }
 
-/* Specific overrides */
-.tag-filter-expand-btn {
-    font-size: 10px !important;
-    display: none !important; /* Managed by JS */
-}
-
 /* Tag Filter Clear Button */
 .tag-filter-clear-btn {
     font-size: 16px !important;

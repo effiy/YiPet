@@ -8,7 +8,6 @@
     if (!this.sessionSidebar) return;
     const tagList = this.sessionSidebar.querySelector('.tag-filter-list');
     if (!tagList) return;
-    const expandBtn = this.sessionSidebar.querySelector('.tag-filter-expand-btn');
     const reverseBtn = this.sessionSidebar.querySelector('.tag-filter-reverse');
     const noTagsBtn = this.sessionSidebar.querySelector('.tag-filter-no-tags');
     const clearBtn = this.sessionSidebar.querySelector('.tag-filter-clear');
@@ -18,12 +17,6 @@
     const keyword = (this.tagFilterSearchKeyword || '').trim().toLowerCase();
     const filtered = keyword ? allTags.filter(t => t.toLowerCase().includes(keyword)) : allTags;
     const visibleCount = typeof this.tagFilterVisibleCount === 'number' ? this.tagFilterVisibleCount : 8;
-    if (expandBtn) {
-      const canExpand = filtered.length > visibleCount;
-      expandBtn.style.display = canExpand ? 'inline-block' : 'none';
-      expandBtn.innerHTML = this.tagFilterExpanded ? '▲' : '▼';
-      expandBtn.title = this.tagFilterExpanded ? '收起标签' : '展开标签';
-    }
     if (reverseBtn) {
       reverseBtn.style.color = this.tagFilterReverse ? '#4CAF50' : '#9ca3af';
       reverseBtn.style.opacity = this.tagFilterReverse ? '1' : '0.6';

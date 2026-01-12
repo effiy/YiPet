@@ -357,6 +357,22 @@
             const filterActions = document.createElement('div');
             filterActions.className = 'tag-filter-actions';
 
+
+
+            // Expand Toggle Button
+            const expandToggleBtn = document.createElement('button');
+            expandToggleBtn.className = 'tag-filter-action-btn tag-filter-expand';
+            if (manager.tagFilterExpanded) expandToggleBtn.classList.add('active');
+            expandToggleBtn.title = '展开/收起更多标签';
+            expandToggleBtn.innerHTML = '⋮'; // Vertical ellipsis
+            
+            expandToggleBtn.addEventListener('click', () => {
+                manager.tagFilterExpanded = !manager.tagFilterExpanded;
+                expandToggleBtn.classList.toggle('active', manager.tagFilterExpanded);
+                if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
+                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+            });
+
             // Reverse Filter Button
             const reverseFilterBtn = document.createElement('button');
             reverseFilterBtn.className = 'tag-filter-action-btn tag-filter-reverse';

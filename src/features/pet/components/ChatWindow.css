@@ -466,8 +466,8 @@
 /* Sidebar Header */
 .session-sidebar-header {
     padding: 12px 15px !important;
-    border-bottom: 1px solid #e5e7eb !important;
-    background: #f9fafb !important;
+    border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+    background: transparent !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
@@ -477,99 +477,175 @@
 .session-sidebar-search-row {
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 4px !important;
     width: 100% !important;
 }
 
 .session-search-container {
     position: relative !important;
-    flex: 1 !important;
     display: flex !important;
     align-items: center !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-radius: 5px !important;
+    transition: all 0.2s ease !important;
+    padding-right: 2px !important;
+}
+
+.session-search-container:focus-within {
+    background: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15) !important;
 }
 
 .session-search-icon {
     position: absolute !important;
     left: 10px !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     pointer-events: none !important;
     z-index: 1 !important;
-    opacity: 0.5 !important;
+    opacity: 0.6 !important;
+    transition: opacity 0.2s ease !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+}
+
+.session-search-container:focus-within .session-search-icon {
+    opacity: 0.7 !important;
 }
 
 .session-search-input {
     width: 100% !important;
+    height: 32px !important;
     font-weight: 400 !important;
     font-size: 13px !important;
-    color: #374151 !important;
-    padding: 8px 32px !important;
-    border: 1.5px solid #e5e7eb !important;
-    border-radius: 8px !important;
-    background: #ffffff !important;
+    color: var(--text-primary, #f8fafc) !important;
+    padding: 6px 6px 6px 28px !important;
+    border: none !important;
+    border-radius: 6px !important;
+    background: transparent !important;
     outline: none !important;
+    transition: all 0.2s ease !important;
     box-sizing: border-box !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.session-search-input::placeholder {
+    color: var(--text-muted, #94a3b8) !important;
+    opacity: 1 !important;
 }
 
 .session-search-clear-btn {
     position: absolute !important;
     right: 6px !important;
-    width: 20px !important;
-    height: 20px !important;
+    width: 16px !important;
+    height: 16px !important;
     border: none !important;
-    background: #e5e7eb !important;
-    color: #6b7280 !important;
+    background: transparent !important;
+    color: var(--text-secondary, #cbd5e1) !important;
     border-radius: 50% !important;
     cursor: pointer !important;
     display: none !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 10px !important;
-    line-height: 1 !important;
     padding: 0 !important;
+    transition: all 0.2s ease !important;
+    z-index: 2 !important;
+    line-height: 1 !important;
+    opacity: 0.5 !important;
 }
 
 .session-search-clear-btn.visible {
     display: flex !important;
 }
 
-/* Sidebar Actions Row */
+.session-search-clear-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-primary, #f8fafc) !important;
+    opacity: 1 !important;
+    transform: scale(1.1) !important;
+}
+
+.session-search-clear-btn:active {
+    transform: scale(0.95) !important;
+}
+
+/* Sidebar Actions Row - 使用工具栏样式 */
 .session-sidebar-actions-row {
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
+    display: grid !important;
+    grid-template-columns: auto 1fr !important;
+    align-items: stretch !important;
+    gap: 4px !important;
     width: 100% !important;
-    flex-wrap: wrap !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 6px 0 !important;
 }
 
 .session-actions-left-group {
     display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    flex: 1 !important;
+    align-items: stretch !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
 }
 
-/* Action Buttons */
+/* Action Buttons - 使用工具栏按钮样式 */
 .session-action-btn {
-    padding: 4px 10px !important;
-    cursor: pointer !important;
-    font-size: 12px !important;
-    color: white !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 4px !important;
+    gap: 6px !important;
+    padding: 6px 10px !important;
+    height: auto !important;
+    min-height: 32px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: white !important;
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    border: 1px solid #4f46e5 !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    min-width: 0 !important;
     -webkit-user-select: none !important;
     user-select: none !important;
-    border-radius: 4px !important;
-    border: 1px solid transparent !important;
-    flex-shrink: 0 !important;
-    white-space: nowrap !important;
+}
+
+.session-actions-left-group .session-action-btn {
+    width: auto !important;
+    padding: 6px 10px !important;
+    height: auto !important;
+    min-height: 32px !important;
+}
+
+.session-action-btn:hover {
+    background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
+}
+
+.session-action-btn:active {
+    transform: translateY(0) !important;
 }
 
 .session-action-btn--batch {
     background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+}
+
+.session-action-btn--batch.active {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    border-color: #059669 !important;
+}
+
+.session-action-btn--batch.active:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
 }
 
 /* Batch Mode Button States */
@@ -586,16 +662,67 @@
 }
 
 .session-action-btn--export {
-    background: linear-gradient(135deg, #10b981, #059669) !important;
+    background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+    border-color: #1976D2 !important;
+}
+
+.session-action-btn--export:hover {
+    background: linear-gradient(135deg, #1976D2, #1565C0) !important;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3) !important;
 }
 
 .session-action-btn--import {
-    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+    border-color: #45a049 !important;
+}
+
+.session-action-btn--import:hover {
+    background: linear-gradient(135deg, #45a049, #3d8b40) !important;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
 }
 
 .session-action-btn--add {
-    background: linear-gradient(135deg, #667eea, #764ba2) !important;
-    border: 1px solid #764ba2 !important;
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    border: 1px solid #4f46e5 !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.session-actions-right-group {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 4px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.session-actions-right-group .session-action-btn {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+/* 响应式优化 */
+@media (max-width: 400px) {
+    .session-sidebar-actions-row {
+        grid-template-columns: 1fr !important;
+        gap: 3px !important;
+    }
+    
+    .session-action-btn span {
+        display: none !important;
+    }
+    
+    .session-action-btn {
+        padding: 4px 8px !important;
+        min-width: 28px !important;
+        min-height: 28px !important;
+        font-size: 12px !important;
+    }
+    
+    .session-actions-left-group .session-action-btn {
+        padding: 4px 8px !important;
+        min-height: 28px !important;
+    }
 }
 
 /* Sidebar Scrollable Content */

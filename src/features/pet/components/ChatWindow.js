@@ -223,6 +223,15 @@
                 }, 300);
             });
 
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    manager.sessionTitleFilter = '';
+                    updateClearButton();
+                    if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                }
+            });
+
             searchInput.addEventListener('click', (e) => e.stopPropagation());
             updateClearButton();
 
@@ -231,7 +240,7 @@
             searchContainer.appendChild(clearBtn);
             firstRow.appendChild(searchContainer);
 
-            // Second Row: Buttons
+            // Second Row: Buttons (Toolbar)
             const secondRow = document.createElement('div');
             secondRow.className = 'session-sidebar-actions-row';
 
@@ -240,7 +249,8 @@
             leftButtonGroup.className = 'session-actions-left-group';
 
             const createSessionActionButton = (text, className, onClick) => {
-                const btn = document.createElement('span');
+                const btn = document.createElement('button');
+                btn.type = 'button';
                 btn.innerHTML = text;
                 btn.className = `session-action-btn ${className}`;
                 btn.addEventListener('click', (e) => {
@@ -251,8 +261,13 @@
             };
 
             const batchModeBtn = createSessionActionButton('☑️ 批量', 'session-action-btn--batch', () => {
-                if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                if (manager.batchMode) {
+                    if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+                } else {
+                    if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                }
             });
+            batchModeBtn.title = '批量选择';
 
             const exportBtn = createSessionActionButton('⬇️ 导出', 'session-action-btn--export', () => {
                 if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
@@ -279,7 +294,12 @@
             leftButtonGroup.appendChild(importBtn);
 
             // Right Group: Add New
+            const rightButtonGroup = document.createElement('div');
+            rightButtonGroup.className = 'session-actions-right-group';
+            rightButtonGroup.style.cssText = 'display: flex; align-items: stretch; gap: 4px; flex: 1; min-width: 0;';
+
             const addSessionBtn = document.createElement('button');
+            addSessionBtn.type = 'button';
             addSessionBtn.innerHTML = '➕ 新建';
             addSessionBtn.className = 'session-action-btn session-action-btn--add';
             addSessionBtn.addEventListener('click', (e) => {
@@ -287,8 +307,10 @@
                 if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
             });
 
+            rightButtonGroup.appendChild(addSessionBtn);
+
             secondRow.appendChild(leftButtonGroup);
-            secondRow.appendChild(addSessionBtn);
+            secondRow.appendChild(rightButtonGroup);
 
             sidebarHeader.appendChild(firstRow);
             sidebarHeader.appendChild(secondRow);

@@ -593,8 +593,8 @@
     object-fit: contain !important;
 }
 
-/* 调整大小手柄样式 */
-.resize-handle {
+/* 调整大小手柄样式 - 已禁用四边缩放拖拽手柄 */
+/* .resize-handle {
     position: absolute !important;
     width: 12px !important;
     height: 12px !important;
@@ -609,7 +609,7 @@
     background: rgba(255, 255, 255, 0.5) !important;
     border-color: rgba(255, 255, 255, 0.9) !important;
     transform: scale(1.2) !important;
-}
+} */
 
 /* 复制按钮样式 */
 .copy-button {

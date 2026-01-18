@@ -2,11 +2,11 @@
  * Mermaid 图表处理模块
  * 负责 Mermaid 图表的加载、渲染和交互
  */
-(function(global) {
+(function (global) {
     const proto = global.PetManager.prototype;
 
     // 加载 Mermaid.js (CDN)
-    proto.loadMermaid = async function() {
+    proto.loadMermaid = async function () {
         if (this.mermaidLoaded || this.mermaidLoading) {
             return this.mermaidLoaded;
         }
@@ -16,7 +16,7 @@
         return new Promise((resolve, reject) => {
             // 检查是否已经加载（从 content_scripts 自动加载或之前动态加载）
             const mermaidLib = (typeof mermaid !== 'undefined') ? mermaid :
-                              (typeof window !== 'undefined' && window.mermaid) ? window.mermaid : null;
+                (typeof window !== 'undefined' && window.mermaid) ? window.mermaid : null;
 
             if (mermaidLib && typeof mermaidLib.initialize === 'function') {
                 try {
@@ -107,7 +107,7 @@
     };
 
     // 处理 Markdown 中的 Mermaid 代码块
-    proto.processMermaidBlocks = async function(container) {
+    proto.processMermaidBlocks = async function (container) {
         if (!container) return;
 
         // 检查是否需要加载 mermaid - 更全面的选择器
@@ -289,7 +289,7 @@
     };
 
     // 渲染 Markdown 为 HTML（保持同步以兼容现有代码）
-    proto.renderMarkdown = function(markdown) {
+    proto.renderMarkdown = function (markdown) {
         if (!markdown) return '';
 
         try {
@@ -313,7 +313,7 @@
     };
 
     // 渲染 Markdown 并处理 Mermaid（完整流程）
-    proto.renderMarkdownWithMermaid = async function(markdown, container) {
+    proto.renderMarkdownWithMermaid = async function (markdown, container) {
         // 先渲染 Markdown
         const html = this.renderMarkdown(markdown);
 
@@ -329,14 +329,14 @@
     };
 
     // HTML 转义辅助函数
-    proto.escapeHtml = function(text) {
+    proto.escapeHtml = function (text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     };
 
     // 为 Mermaid 图表添加复制和下载按钮
-    proto.addMermaidActions = function(mermaidDiv, svgContent, mermaidSourceCode) {
+    proto.addMermaidActions = function (mermaidDiv, svgContent, mermaidSourceCode) {
         if (!mermaidDiv) return;
 
         // 检查是否已经添加了按钮
@@ -606,9 +606,9 @@
                         // 如果 bbox 无效，尝试从属性获取
                         if (width <= 0 || height <= 0) {
                             width = parseFloat(svgElementInDom.getAttribute('width')) ||
-                                   parseFloat(svgElementInDom.getAttribute('viewBox')?.split(/\s+/)[2]) || 800;
+                                parseFloat(svgElementInDom.getAttribute('viewBox')?.split(/\s+/)[2]) || 800;
                             height = parseFloat(svgElementInDom.getAttribute('height')) ||
-                                    parseFloat(svgElementInDom.getAttribute('viewBox')?.split(/\s+/)[3]) || 600;
+                                parseFloat(svgElementInDom.getAttribute('viewBox')?.split(/\s+/)[3]) || 600;
                         }
 
                         // 确保宽高有效
@@ -1224,7 +1224,7 @@
     };
 
     // 打开 Mermaid 图表全屏查看
-    proto.openMermaidFullscreen = function(mermaidDiv, mermaidSourceCode) {
+    proto.openMermaidFullscreen = function (mermaidDiv, mermaidSourceCode) {
         // 检查是否已经存在全屏容器
         const existingFullscreen = document.getElementById('mermaid-fullscreen-container');
         if (existingFullscreen) {
@@ -1375,8 +1375,8 @@
         // 添加到页面
         document.body.appendChild(fullscreenContainer);
 
-        // 添加四个角的拖拽调整大小功能
-        this.addResizeHandles(fullscreenContainer, chatWindow);
+        // 添加四个角的拖拽调整大小功能 - 已禁用
+        // this.addResizeHandles(fullscreenContainer, chatWindow);
 
         // 重新渲染 mermaid（如果需要）
         const clonedMermaidId = clonedMermaid.id || `mermaid-fullscreen-${Date.now()}`;
@@ -1435,7 +1435,7 @@
 
         // 当全屏容器被移除时，清理观察者
         const originalRemove = fullscreenContainer.remove.bind(fullscreenContainer);
-        fullscreenContainer.remove = function() {
+        fullscreenContainer.remove = function () {
             resizeObserver.disconnect();
             originalRemove();
         };

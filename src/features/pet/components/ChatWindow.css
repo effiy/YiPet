@@ -644,36 +644,13 @@
     background: var(--pet-chat-primary-color) !important;
 }
 
-/* Window Resize Handles */
+/* Window Resize Handles - 只保留四个角的拖拽手柄 */
 .resize-handle {
     position: absolute !important;
     z-index: 100 !important;
     background: transparent !important;
 }
-.resize-handle.n {
-    top: -5px !important;
-    height: 10px !important;
-    cursor: n-resize !important;
-    width: 100% !important;
-}
-.resize-handle.s {
-    bottom: -5px !important;
-    height: 10px !important;
-    cursor: s-resize !important;
-    width: 100% !important;
-}
-.resize-handle.e {
-    right: -5px !important;
-    width: 10px !important;
-    cursor: e-resize !important;
-    height: 100% !important;
-}
-.resize-handle.w {
-    left: -5px !important;
-    width: 10px !important;
-    cursor: w-resize !important;
-    height: 100% !important;
-}
+/* 四边手柄已移除，只保留四个角 */
 .resize-handle.ne {
     top: -5px !important;
     right: -5px !important;

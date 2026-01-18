@@ -88,7 +88,7 @@
             this.mainContent.appendChild(rightPanel);
             this.element.appendChild(this.mainContent);
 
-            // Create Resize Handles
+            // Create Resize Handles (只保留四个角)
             this.createResizeHandles();
 
             // Bind Events
@@ -1003,8 +1003,9 @@
             }
         }
 
+        // 只创建四个角的拖拽手柄
         createResizeHandles() {
-            const positions = ['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw'];
+            const positions = ['ne', 'nw', 'se', 'sw']; // 只保留四个角
 
             positions.forEach(pos => {
                 const handle = document.createElement('div');

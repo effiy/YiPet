@@ -88,13 +88,13 @@ export const useMethods = (store) => {
     const handlePetDrag = (dragData) => {
         if (dragData.type === 'move') {
             const currentPos = store.petPosition.value || { x: 20, y: '20%' };
-            const newX = typeof currentPos.x === 'number' 
-                ? currentPos.x + dragData.offset.x 
+            const newX = typeof currentPos.x === 'number'
+                ? currentPos.x + dragData.offset.x
                 : dragData.position.x;
             const newY = typeof currentPos.y === 'number'
                 ? currentPos.y + dragData.offset.y
                 : dragData.position.y;
-            
+
             setPetPosition({ x: newX, y: newY });
         } else if (dragData.type === 'end') {
             store.saveState();
@@ -108,21 +108,78 @@ export const useMethods = (store) => {
      */
     const openChatWindow = () => {
         store.chatWindowVisible.value = true;
-        logInfo('[Pet Methods] 打开聊天窗口');
+        console.log('[Pet Methods] 打开聊天窗口');
     };
 
     /**
      * 关闭聊天窗口
      */
-    const closeChatWindow = () => {
-        store.chatWindowVisible.value = false;
-        logInfo('[Pet Methods] 关闭聊天窗口');
+    const closeChatWindow = (e) => {
+        try {
+            // 阻止事件冒泡和默认行为
+            if (e) {
+                if (typeof e.preventDefault === 'function') {
+                    e.preventDefault();
+                }
+                if (typeof e.stopPropagation === 'function') {
+                    e.stopPropagation();
+                }
+                if (typeof e.stopImmediatePropagation === 'function') {
+                    e.stopImmediatePropagation();
+                }
+            }
+
+            // 设置窗口为不可见
+            if (store && store.chatWindowVisible) {
+                store.chatWindowVisible.value = false;
+                logInfo('[Pet Methods] 聊天窗口已关闭');
+            } else {
+                logWarn('[Pet Methods] store 或 chatWindowVisible 不存在');
+            }
+
+            // 同时尝试关闭原生 JS 版本的窗口（如果存在）
+            try {
+                const nativeChatWindow = document.getElementById('pet-chat-window');
+                if (nativeChatWindow) {
+                    nativeChatWindow.style.setProperty('display', 'none', 'important');
+                    nativeChatWindow.style.setProperty('visibility', 'hidden', 'important');
+                    nativeChatWindow.style.setProperty('opacity', '0', 'important');
+                    nativeChatWindow.setAttribute('hidden', '');
+                    logInfo('[Pet Methods] 原生 JS 窗口也已关闭');
+                }
+            } catch (nativeError) {
+                logWarn('[Pet Methods] 关闭原生 JS 窗口时出错:', nativeError);
+            }
+
+            // 更新 PetManager 状态（如果存在）
+            try {
+                if (window.petManager && typeof window.petManager.closeChatWindow === 'function') {
+                    window.petManager.closeChatWindow();
+                } else if (window.petManager) {
+                    window.petManager.isChatOpen = false;
+                }
+            } catch (managerError) {
+                logWarn('[Pet Methods] 更新 PetManager 状态时出错:', managerError);
+            }
+
+        } catch (error) {
+            logError('[Pet Methods] closeChatWindow 执行出错:', error);
+            // 即使出错也尝试设置窗口为不可见
+            try {
+                if (store && store.chatWindowVisible) {
+                    store.chatWindowVisible.value = false;
+                }
+            } catch (fallbackError) {
+                logError('[Pet Methods] 回退关闭操作也失败:', fallbackError);
+            }
+        }
     };
 
     /**
      * 切换聊天窗口
      */
     const toggleChatWindow = () => {
+        console.log('[Pet Methods] toggleChatWindow 被调用, 当前状态:', store.chatWindowVisible.value);
         if (store.chatWindowVisible.value) {
             closeChatWindow();
         } else {

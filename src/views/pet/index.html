@@ -51,13 +51,14 @@
                     <span v-else>YiPet 助手</span>
                 </div>
                 <div class="yi-chat-header-actions">
-                    <button @click="toggleSidebar" class="yi-btn yi-btn-icon" title="切换侧边栏">
+                    <button @click.stop="toggleSidebar" class="yi-btn yi-btn-icon" title="切换侧边栏" type="button">
                         <span>{{ sidebarCollapsed ? '▶' : '◀' }}</span>
                     </button>
-                    <button @click="toggleFullscreen" class="yi-btn yi-btn-icon" title="全屏">
+                    <button @click.stop="toggleFullscreen" class="yi-btn yi-btn-icon" title="全屏" type="button">
                         <span>{{ chatWindowIsFullscreen ? '⤓' : '⤢' }}</span>
                     </button>
-                    <button @click="closeChatWindow" class="yi-btn yi-btn-icon" title="关闭">
+                    <button @click.stop.prevent="closeChatWindow($event)" class="yi-btn yi-btn-icon pet-chat-close-btn"
+                        title="关闭" type="button">
                         <span>×</span>
                     </button>
                 </div>

@@ -64,8 +64,11 @@ import MessageInput from './components/MessageInput.vue.js';
             plugins: [],
             selector: '#yi-pet-app',
             onMounted: async (app) => {
-                logInfo('[Pet 视图] 应用已挂载');
-                logInfo('[Pet 视图] 挂载的应用实例:', app);
+                console.error('[Pet 视图] 应用已挂载');
+                console.error('[Pet 视图] 挂载的应用实例:', app);
+                console.error('[Pet 视图] closeChatWindow 方法:', typeof app.closeChatWindow);
+                console.error('[Pet 视图] toggleChatWindow 方法:', typeof app.toggleChatWindow);
+                console.error('[Pet 视图] chatWindowVisible:', app.chatWindowVisible);
 
                 // 暴露到全局，供其他模块使用
                 window.yiPetApp = app;
@@ -78,7 +81,7 @@ import MessageInput from './components/MessageInput.vue.js';
                 // 设置键盘快捷键
                 setupKeyboardShortcuts(app);
 
-                logInfo('[Pet 视图] 应用初始化完成');
+                console.error('[Pet 视图] 应用初始化完成');
             }
         });
 

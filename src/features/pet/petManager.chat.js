@@ -11,7 +11,7 @@
     const proto = window.PetManager.prototype;
 
     // 切换聊天窗口
-    proto.toggleChatWindow = function() {
+    proto.toggleChatWindow = function () {
         if (this.isChatOpen) {
             this.closeChatWindow();
         } else {
@@ -20,13 +20,13 @@
     };
 
     // 仅切换聊天窗口的显示/隐藏状态（用于快捷键，不影响其他功能）
-    proto.toggleChatWindowVisibility = function() {
+    proto.toggleChatWindowVisibility = function () {
         if (!this.chatWindow) {
             // 如果窗口还未创建，需要先创建
             this.openChatWindow();
             return;
         }
-        
+
         if (this.isChatOpen) {
             // 仅隐藏窗口，不保存会话，不影响其他功能
             this.chatWindow.style.display = 'none';
@@ -40,7 +40,7 @@
 
     // 预加载 html2canvas 库（用于导出聊天记录功能）
     // 注意：html2canvas 现在通过 manifest.json 的 content_scripts 自动加载
-    proto.preloadHtml2Canvas = function() {
+    proto.preloadHtml2Canvas = function () {
         // html2canvas 已经通过 content_scripts 加载，这个方法保留用于向后兼容
         if (typeof html2canvas !== 'undefined') {
             console.log('html2canvas 已加载');
@@ -50,16 +50,16 @@
     };
 
     // 打开聊天窗口
-    proto.openChatWindow = async function() {
+    proto.openChatWindow = async function () {
         // 预加载 html2canvas 库（用于导出功能）
         this.preloadHtml2Canvas();
         this.isChatOpen = true;
-        
+
         // 如果是第一次打开聊天窗口，加载会话列表
         if (this.isChatWindowFirstOpen) {
             this.isChatWindowFirstOpen = false;
             console.log('第一次打开聊天窗口，加载会话列表...');
-            
+
             // 加载会话列表（强制刷新）
             if (this.sessionApi && this.sessionApi.isEnabled()) {
                 try {
@@ -70,7 +70,7 @@
                 }
             }
         }
-        
+
         if (this.chatWindow) {
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
@@ -85,16 +85,16 @@
 
             // 更新聊天窗口颜色
             this.updateChatWindowColor();
-            
+
             // 更新聊天窗口标题（显示当前会话名称）
             this.updateChatHeaderTitle();
-            
+
             // 确保会话侧边栏已更新（如果侧边栏已创建）
             if (this.sessionSidebar) {
                 await this.updateSessionSidebar();
             }
-            
-            
+
+
             return;
         }
 
@@ -131,31 +131,69 @@
             await this.createChatWindow();
             this.isChatOpen = true;
             this.hasLoadedSessionsForChat = true;
-            
+
             // 更新聊天窗口标题（显示当前会话名称）
             this.updateChatHeaderTitle();
         });
     };
 
     // 关闭聊天窗口
-    proto.closeChatWindow = function() {
-        if (this.chatWindow) {
-            // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
-            this.chatWindow.style.display = 'none';
-            this.isChatOpen = false;
-            this.hasLoadedSessionsForChat = false;
+    proto.closeChatWindow = function () {
+        try {
+            console.error('[PetManager] closeChatWindow 被调用');
+            const chatWindowElement = this.chatWindow || document.getElementById('pet-chat-window');
+
+            if (chatWindowElement) {
+                console.error('[PetManager] 正在隐藏聊天窗口, chatWindow:', chatWindowElement);
+                console.error('[PetManager] 当前 display:', chatWindowElement.style.display);
+
+                // 使用 setProperty 和 !important 确保样式生效
+                chatWindowElement.style.setProperty('display', 'none', 'important');
+                chatWindowElement.style.setProperty('visibility', 'hidden', 'important');
+                chatWindowElement.style.setProperty('opacity', '0', 'important');
+                chatWindowElement.setAttribute('hidden', ''); // 添加 hidden 属性
+
+                this.isChatOpen = false;
+                this.hasLoadedSessionsForChat = false;
+
+                // 确保 this.chatWindow 引用正确
+                if (!this.chatWindow) {
+                    this.chatWindow = chatWindowElement;
+                }
+
+                console.error('[PetManager] 聊天窗口已关闭, display:', chatWindowElement.style.display);
+
+                // 验证窗口是否真的被隐藏了
+                setTimeout(() => {
+                    const computedStyle = window.getComputedStyle(chatWindowElement);
+                    console.error('[PetManager] 验证: computed display =', computedStyle.display);
+                    if (computedStyle.display !== 'none') {
+                        console.error('[PetManager] 警告: 窗口仍然可见！尝试移除元素');
+                        // 最后手段：从 DOM 中移除
+                        if (chatWindowElement.parentNode) {
+                            chatWindowElement.parentNode.removeChild(chatWindowElement);
+                            console.error('[PetManager] 已从 DOM 中移除窗口');
+                        }
+                    }
+                }, 100);
+            } else {
+                console.error('[PetManager] chatWindow 不存在, this.chatWindow:', this.chatWindow);
+            }
+        } catch (error) {
+            console.error('[PetManager] closeChatWindow 出错:', error);
+            console.error('[PetManager] 错误堆栈:', error.stack);
         }
     };
 
     // 检查是否接近底部（阈值：50px）
-    proto.isNearBottom = function(container, threshold = 50) {
+    proto.isNearBottom = function (container, threshold = 50) {
         if (!container) return true;
         const { scrollTop, scrollHeight, clientHeight } = container;
         return scrollHeight - scrollTop - clientHeight <= threshold;
     };
 
     // 滚动到底部（优化版）
-    proto.scrollToBottom = function(smooth = false, force = false) {
+    proto.scrollToBottom = function (smooth = false, force = false) {
         if (!this.chatWindow) return;
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
         if (!messagesContainer) return;
@@ -189,7 +227,7 @@
     };
 
     // 初始化聊天窗口滚动
-    proto.initializeChatScroll = function() {
+    proto.initializeChatScroll = function () {
         if (!this.chatWindow) return;
 
         const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
@@ -209,20 +247,20 @@
     };
 
     // 更新聊天窗口标题
-    proto.updateChatHeaderTitle = function() {
+    proto.updateChatHeaderTitle = function () {
         if (!this.chatWindow) return;
-        
+
         const titleTextEl = this.chatWindow.querySelector('#pet-chat-header-title-text');
         if (!titleTextEl) return;
-        
+
         // 获取当前会话名称
         if (this.currentSessionId && this.sessions[this.currentSessionId]) {
             const session = this.sessions[this.currentSessionId];
             // 优先使用 pageTitle，如果没有则使用 title（兼容后端可能返回 title 字段的情况）
             const sessionTitle = session.pageTitle || session.title || '未命名会话';
             // 如果标题太长，截断并添加省略号
-            const displayTitle = sessionTitle.length > 20 
-                ? sessionTitle.substring(0, 20) + '...' 
+            const displayTitle = sessionTitle.length > 20
+                ? sessionTitle.substring(0, 20) + '...'
                 : sessionTitle;
             titleTextEl.textContent = displayTitle;
         } else {
@@ -232,7 +270,7 @@
     };
 
     // 更新聊天窗口颜色（跟随宠物颜色）
-    proto.updateChatWindowColor = function() {
+    proto.updateChatWindowColor = function () {
         if (!this.chatWindow) return;
 
         // 获取当前宠物颜色
@@ -253,7 +291,7 @@
     };
 
     // 保存聊天窗口状态
-    proto.saveChatWindowState = function() {
+    proto.saveChatWindowState = function () {
         if (!this.chatWindowState) return;
 
         try {
@@ -283,7 +321,7 @@
     };
 
     // 加载聊天窗口状态
-    proto.loadChatWindowState = function(callback) {
+    proto.loadChatWindowState = function (callback) {
         try {
             // 首先尝试从Chrome存储API加载全局状态
             chrome.storage.sync.get([PET_CONFIG.storage.keys.chatWindowState], (result) => {
@@ -342,7 +380,7 @@
     };
 
     // 从localStorage加载聊天窗口状态（备用方法）
-    proto.loadChatWindowStateFromLocalStorage = function() {
+    proto.loadChatWindowStateFromLocalStorage = function () {
         try {
             const savedState = localStorage.getItem('petChatWindowState');
             if (savedState) {
@@ -358,7 +396,7 @@
     };
 
     // 加载当前会话的消息（确保消息与会话一一对应）
-    proto.loadSessionMessages = async function() {
+    proto.loadSessionMessages = async function () {
         if (!this.chatWindow || !this.currentSessionId) {
             console.warn('无法加载消息：聊天窗口或会话ID不存在');
             return;
@@ -585,7 +623,7 @@
                         // 检查是否是第一条宠物消息
                         const allPetMessages = Array.from(messagesContainer.children).filter(
                             child => child.querySelector('[data-message-type="pet-bubble"]') &&
-                            !child.hasAttribute('data-welcome-message')
+                                !child.hasAttribute('data-welcome-message')
                         );
 
                         if (allPetMessages.length > 0) {
@@ -625,7 +663,7 @@
                         if (!copyButtonContainer && userBubble) {
                             // 查找用户消息的content容器
                             const content = userMsg.querySelector('div[style*="flex: 1"]') ||
-                                           userMsg.querySelector('div:last-child');
+                                userMsg.querySelector('div:last-child');
                             if (content) {
                                 // 查找是否已有timeAndCopyContainer
                                 let timeAndCopyContainer = content.querySelector('div[style*="justify-content: space-between"]');
@@ -690,7 +728,7 @@
     //   - title: 页面标题
     //   - url: 页面URL
     //   - description: 页面描述（可选）
-    proto.createWelcomeMessage = async function(messagesContainer, pageInfo = null) {
+    proto.createWelcomeMessage = async function (messagesContainer, pageInfo = null) {
         const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
 
         // 检查是否是接口会话
@@ -763,7 +801,7 @@
 
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {
-        pageInfoHtml += `
+            pageInfoHtml += `
             <div class="welcome-card-save">
                 <button id="pet-manual-save-session-btn" class="pet-manual-save-btn">
                     <span class="save-btn-icon">💾</span>
@@ -798,7 +836,7 @@
     };
 
     // 刷新第一条欢迎消息（当会话信息更新时调用）
-    proto.refreshWelcomeMessage = async function() {
+    proto.refreshWelcomeMessage = async function () {
         if (!this.chatWindow || !this.currentSessionId) {
             return;
         }
@@ -867,7 +905,7 @@
 
         // 根据检查结果决定是否添加手动保存会话按钮
         if (shouldShowSaveButton) {
-        pageInfoHtml += `
+            pageInfoHtml += `
             <div class="welcome-card-save">
                 <button id="pet-manual-save-session-btn" class="pet-manual-save-btn">
                     <span class="save-btn-icon">💾</span>
@@ -898,19 +936,19 @@
     };
 
     // HTML转义辅助方法（防止XSS）
-    proto.escapeHtml = function(text) {
+    proto.escapeHtml = function (text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     };
 
-    proto.getCurrentTime = function() {
+    proto.getCurrentTime = function () {
         const now = new Date();
         return this.formatTimestamp(now.getTime());
     };
 
     // 格式化时间戳为年月日时分格式
-    proto.formatTimestamp = function(timestamp) {
+    proto.formatTimestamp = function (timestamp) {
         const date = new Date(timestamp);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -921,7 +959,7 @@
     };
 
     // 添加聊天滚动条样式
-    proto.addChatScrollbarStyles = function() {
+    proto.addChatScrollbarStyles = function () {
         if (document.getElementById('pet-chat-styles')) return;
 
         const style = document.createElement('style');
@@ -975,7 +1013,7 @@
     };
 
     // 播放聊天动画
-    proto.playChatAnimation = function() {
+    proto.playChatAnimation = function () {
         if (!this.pet) return;
 
         // 先清理之前的动画
@@ -1006,7 +1044,7 @@
     };
 
     // 显示聊天气泡
-    proto.showChatBubble = function() {
+    proto.showChatBubble = function () {
         if (!this.pet) return;
 
         // 创建聊天气泡

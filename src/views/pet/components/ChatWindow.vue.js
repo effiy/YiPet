@@ -26,8 +26,30 @@ export default {
     },
     emits: ['close', 'toggle-fullscreen', 'drag', 'resize'],
     setup(props, { emit }) {
-        const handleClose = () => {
-            emit('close');
+        const handleClose = (e) => {
+            try {
+                // 阻止事件冒泡和默认行为
+                if (e) {
+                    if (typeof e.preventDefault === 'function') {
+                        e.preventDefault();
+                    }
+                    if (typeof e.stopPropagation === 'function') {
+                        e.stopPropagation();
+                    }
+                    if (typeof e.stopImmediatePropagation === 'function') {
+                        e.stopImmediatePropagation();
+                    }
+                }
+                emit('close', e);
+            } catch (error) {
+                console.error('[ChatWindow.vue] handleClose 出错:', error);
+                // 即使出错也尝试发出关闭事件
+                try {
+                    emit('close');
+                } catch (emitError) {
+                    console.error('[ChatWindow.vue] 发出关闭事件失败:', emitError);
+                }
+            }
         };
 
         const handleToggleFullscreen = () => {
@@ -59,14 +81,16 @@ export default {
                 left: props.isFullscreen ? '0' : (pos.x === 'center' ? '50%' : left),
                 top: props.isFullscreen ? '0' : top,
                 transform: props.isFullscreen ? 'none' : (pos.x === 'center' ? 'translateX(-50%)' : 'none'),
-                display: props.visible ? 'block' : 'none',
+                display: props.visible ? 'flex' : 'none',
+                flexDirection: 'column',
                 position: 'fixed',
                 zIndex: 2147483648,
                 borderRadius: props.isFullscreen ? '0' : '16px',
                 overflow: 'hidden',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
                 background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-primary)'
+                border: '1px solid var(--border-primary)',
+                pointerEvents: 'auto'
             };
         });
 
@@ -80,7 +104,7 @@ export default {
         <div
             class="yi-chat-window"
             :style="windowStyle"
-            v-if="visible"
+            v-show="visible"
         >
             <slot></slot>
         </div>

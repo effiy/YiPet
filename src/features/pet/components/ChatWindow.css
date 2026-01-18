@@ -80,6 +80,7 @@
                 height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                 top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                 left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    pointer-events: auto !important;
     
     /* Variables scope */
     --pet-chat-primary-color: #3b82f6;
@@ -120,6 +121,13 @@
     user-select: none !important;
     border-radius: 16px 16px 0 0 !important;
     transition: background 0.2s ease !important;
+    pointer-events: auto !important;
+}
+
+.pet-chat-header button,
+.pet-chat-header .pet-chat-header-buttons {
+    pointer-events: auto !important;
+    cursor: pointer !important;
 }
 
 /* Input Container */
@@ -318,6 +326,9 @@
     display: flex !important;
     align-items: center !important;
     gap: 6px !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 50 !important;
 }
 
 .pet-chat-header-btn {
@@ -354,10 +365,24 @@
     align-items: center !important;
     justify-content: center !important;
     transition: background 0.3s ease !important;
+    pointer-events: auto !important;
+    z-index: 9999 !important;
+    position: relative !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    touch-action: manipulation !important;
+}
+
+.pet-chat-close-btn * {
+    pointer-events: none !important;
 }
 
 .pet-chat-close-btn:hover {
     background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.pet-chat-close-btn:active {
+    background: rgba(255, 255, 255, 0.3) !important;
 }
 
 /* Main Content */

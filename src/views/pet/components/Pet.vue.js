@@ -30,20 +30,72 @@ export default {
     },
     emits: ['click', 'drag'],
     setup(props, { emit }) {
-        const handleClick = () => {
-            emit('click');
+        const isDragging = Vue.ref(false);
+        const dragStartPos = Vue.ref({ x: 0, y: 0 });
+        const dragOffset = Vue.ref({ x: 0, y: 0 });
+
+        const handleClick = (e) => {
+            // 如果正在拖拽，不触发点击事件
+            if (isDragging.value) {
+                return;
+            }
+            emit('click', e);
         };
 
-        const handleDragStart = (e) => {
-            emit('drag', { type: 'start', event: e });
+        const handleMouseDown = (e) => {
+            if (e.button !== 0) return; // 只处理左键
+            isDragging.value = false;
+            dragStartPos.value = { x: e.clientX, y: e.clientY };
+            dragOffset.value = { x: 0, y: 0 };
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            e.preventDefault();
         };
 
-        const handleDrag = (e) => {
-            emit('drag', { type: 'move', event: e });
+        const handleMouseMove = (e) => {
+            if (!dragStartPos.value) return;
+
+            const dx = e.clientX - dragStartPos.value.x;
+            const dy = e.clientY - dragStartPos.value.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // 如果移动距离超过5px，认为是拖拽
+            if (distance > 5) {
+                isDragging.value = true;
+            }
+
+            if (isDragging.value) {
+                dragOffset.value = { x: dx, y: dy };
+                emit('drag', {
+                    type: 'move',
+                    offset: dragOffset.value,
+                    position: {
+                        x: e.clientX,
+                        y: e.clientY
+                    }
+                });
+            }
         };
 
-        const handleDragEnd = (e) => {
-            emit('drag', { type: 'end', event: e });
+        const handleMouseUp = (e) => {
+            if (isDragging.value) {
+                emit('drag', {
+                    type: 'end',
+                    offset: dragOffset.value,
+                    position: {
+                        x: e.clientX,
+                        y: e.clientY
+                    }
+                });
+            }
+
+            dragStartPos.value = null;
+            isDragging.value = false;
+            dragOffset.value = { x: 0, y: 0 };
+
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
         };
 
         const style = Vue.computed(() => {
@@ -72,9 +124,7 @@ export default {
 
         return {
             handleClick,
-            handleDragStart,
-            handleDrag,
-            handleDragEnd,
+            handleMouseDown,
             style,
             roleIconPath
         };
@@ -84,16 +134,13 @@ export default {
             class="yi-pet"
             :style="style"
             @click="handleClick"
-            @mousedown="handleDragStart"
-            @mousemove="handleDrag"
-            @mouseup="handleDragEnd"
-            @mouseleave="handleDragEnd"
+            @mousedown="handleMouseDown"
         >
             <img
                 v-if="roleIconPath"
                 :src="roleIconPath"
                 :alt="role"
-                style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;"
+                style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%; pointer-events: none;"
             />
         </div>
     `

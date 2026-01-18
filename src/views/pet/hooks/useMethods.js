@@ -82,6 +82,25 @@ export const useMethods = (store) => {
         store.saveState();
     };
 
+    /**
+     * 处理宠物拖拽
+     */
+    const handlePetDrag = (dragData) => {
+        if (dragData.type === 'move') {
+            const currentPos = store.petPosition.value || { x: 20, y: '20%' };
+            const newX = typeof currentPos.x === 'number' 
+                ? currentPos.x + dragData.offset.x 
+                : dragData.position.x;
+            const newY = typeof currentPos.y === 'number'
+                ? currentPos.y + dragData.offset.y
+                : dragData.position.y;
+            
+            setPetPosition({ x: newX, y: newY });
+        } else if (dragData.type === 'end') {
+            store.saveState();
+        }
+    };
+
     // ==================== 聊天窗口相关方法 ====================
 
     /**
@@ -480,6 +499,7 @@ export const useMethods = (store) => {
         setPetSize,
         setPetRole,
         setPetPosition,
+        handlePetDrag,
 
         // 聊天窗口相关
         openChatWindow,

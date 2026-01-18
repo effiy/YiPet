@@ -39,7 +39,7 @@
     <div id="yi-pet-app">
         <!-- 宠物组件 -->
         <Pet :visible="petVisible" :size="petSize" :color="petColor" :position="petPosition" :role="petRole"
-            @click="toggleChatWindow" />
+            @click="toggleChatWindow" @drag="handlePetDrag" />
 
         <!-- 聊天窗口 -->
         <ChatWindow :visible="chatWindowVisible" :size="chatWindowSize" :position="chatWindowPosition"

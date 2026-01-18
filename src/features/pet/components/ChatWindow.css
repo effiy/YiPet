@@ -351,40 +351,6 @@
     background: rgba(255, 255, 255, 0.2) !important;
 }
 
-.pet-chat-close-btn {
-    background: none !important;
-    border: none !important;
-    color: white !important;
-    font-size: 18px !important;
-    cursor: pointer !important;
-    padding: 5px !important;
-    border-radius: 50% !important;
-    width: 30px !important;
-    height: 30px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: background 0.3s ease !important;
-    pointer-events: auto !important;
-    z-index: 9999 !important;
-    position: relative !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    touch-action: manipulation !important;
-}
-
-.pet-chat-close-btn * {
-    pointer-events: none !important;
-}
-
-.pet-chat-close-btn:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
-}
-
-.pet-chat-close-btn:active {
-    background: rgba(255, 255, 255, 0.3) !important;
-}
-
 /* Main Content */
 .pet-chat-main-content {
     display: flex !important;

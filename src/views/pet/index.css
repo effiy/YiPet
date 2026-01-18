@@ -378,42 +378,6 @@
     cursor: pointer;
 }
 
-/* 兼容旧的关闭按钮样式 */
-.pet-chat-close-btn {
-    background: none !important;
-    border: none !important;
-    color: var(--text-primary) !important;
-    font-size: 18px !important;
-    cursor: pointer !important;
-    padding: 5px !important;
-    border-radius: 50% !important;
-    width: 30px !important;
-    height: 30px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: background 0.3s ease !important;
-    pointer-events: auto !important;
-    position: relative !important;
-    z-index: 10 !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    touch-action: manipulation !important;
-    outline: none !important;
-}
-
-.pet-chat-close-btn:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
-}
-
-.pet-chat-close-btn:active {
-    background: rgba(255, 255, 255, 0.3) !important;
-    transform: scale(0.95) !important;
-}
-
-.pet-chat-close-btn * {
-    pointer-events: none !important;
-}
 
 .yi-btn-small {
     padding: 4px 8px;

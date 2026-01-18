@@ -132,89 +132,8 @@
                 () => manager.manualRefresh()
             );
 
-            // Close Button
-            const closeBtn = document.createElement('button');
-            closeBtn.className = 'pet-chat-close-btn';
-            closeBtn.innerHTML = '✕';
-            closeBtn.setAttribute('aria-label', '关闭');
-            closeBtn.setAttribute('title', '关闭');
-            closeBtn.type = 'button'; // 确保不是 submit 按钮
-
-            // 处理关闭逻辑的函数（使用箭头函数保持 this 上下文）
-            const handleClose = (e) => {
-                try {
-                    // 阻止事件冒泡和默认行为
-                    if (e) {
-                        if (typeof e.stopPropagation === 'function') {
-                            e.stopPropagation();
-                        }
-                        if (typeof e.preventDefault === 'function') {
-                            e.preventDefault();
-                        }
-                        if (typeof e.stopImmediatePropagation === 'function') {
-                            e.stopImmediatePropagation();
-                        }
-                    }
-
-                    // 检查是否是 Vue 组件版本的窗口（通过检查是否有 yi-chat-window 类）
-                    const vueChatWindow = document.querySelector('.yi-chat-window');
-                    if (vueChatWindow && vueChatWindow !== this.element) {
-                        // 如果存在 Vue 版本的窗口，优先使用 Vue 版本的方法
-                        if (window.yiPetApp && typeof window.yiPetApp.closeChatWindow === 'function') {
-                            try {
-                                window.yiPetApp.closeChatWindow(e);
-                                return false;
-                            } catch (vueError) {
-                                console.warn('[ChatWindow] Vue 版本关闭失败，使用原生方法:', vueError);
-                            }
-                        }
-                    }
-
-                    // 确保 manager.chatWindow 指向 this.element
-                    const chatWindowElement = this.element || (manager && manager.chatWindow) || document.getElementById('pet-chat-window');
-
-                    if (!chatWindowElement) {
-                        console.warn('[ChatWindow] 无法找到窗口元素');
-                        return false;
-                    }
-
-                    // 直接隐藏窗口，避免调用 manager.closeChatWindow() 导致重复日志
-                    chatWindowElement.style.setProperty('display', 'none', 'important');
-                    chatWindowElement.style.setProperty('visibility', 'hidden', 'important');
-                    chatWindowElement.style.setProperty('opacity', '0', 'important');
-                    chatWindowElement.setAttribute('hidden', '');
-
-                    // 更新 manager 状态（不调用方法，避免重复日志）
-                    if (manager) {
-                        manager.isChatOpen = false;
-                        if (!manager.chatWindow) {
-                            manager.chatWindow = chatWindowElement;
-                        }
-                    }
-
-                } catch (error) {
-                    console.error('[ChatWindow] 关闭操作出错:', error);
-                    // 即使出错也尝试隐藏窗口
-                    try {
-                        const chatWindowElement = this.element || (manager && manager.chatWindow) || document.getElementById('pet-chat-window');
-                        if (chatWindowElement) {
-                            chatWindowElement.style.setProperty('display', 'none', 'important');
-                            chatWindowElement.style.setProperty('visibility', 'hidden', 'important');
-                            chatWindowElement.style.setProperty('opacity', '0', 'important');
-                        }
-                    } catch (fallbackError) {
-                        console.error('[ChatWindow] 回退关闭操作也失败:', fallbackError);
-                    }
-                }
-                return false;
-            };
-
-            // 使用捕获阶段的事件监听器（最早触发）
-            closeBtn.addEventListener('click', handleClose, { capture: true, once: false });
-
             headerButtons.appendChild(authBtn);
             headerButtons.appendChild(refreshBtn);
-            headerButtons.appendChild(closeBtn);
 
             chatHeader.appendChild(headerTitle);
             chatHeader.appendChild(headerButtons);
@@ -1102,7 +1021,6 @@
             this.header.addEventListener('mousedown', (e) => {
                 // 检查是否点击了按钮或按钮内的元素
                 const isButton = e.target.closest('button') ||
-                    e.target.closest('.pet-chat-close-btn') ||
                     e.target.closest('.pet-chat-header-btn');
                 if (isButton) {
                     return;
@@ -1114,7 +1032,6 @@
             // Double click to maximize
             this.header.addEventListener('dblclick', (e) => {
                 const isButton = e.target.closest('button') ||
-                    e.target.closest('.pet-chat-close-btn') ||
                     e.target.closest('.pet-chat-header-btn');
                 if (isButton) return;
                 if (this._fullscreenAnimating) return;

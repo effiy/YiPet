@@ -1,0 +1,124 @@
+/**
+ * 全局重置样式
+ * 统一浏览器默认样式，建立一致的基础
+ * author: liangliang
+ * 适配 Chrome 扩展环境
+ */
+
+/* 1. 盒模型与基础重置 */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 2. 根元素与排版基础 */
+html {
+  font-size: 16px;
+  line-height: var(--line-height-normal, 1.5);
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* 3. 标题、文本、结构元素重置 */
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+  font-weight: inherit;
+  margin: 0;
+  line-height: inherit;
+}
+
+p, span, div, section, article, aside, header, footer, nav, main {
+  margin: 0;
+  padding: 0;
+}
+
+/* 4. 列表与项目符号重置 */
+ul, ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+li {
+  margin: 0;
+  padding: 0;
+}
+
+/* 5. 链接重置 */
+a {
+  color: inherit;
+  text-decoration: none;
+  background: transparent;
+  -webkit-text-decoration-skip: objects;
+}
+a:hover,
+a:focus {
+  text-decoration: underline;
+  outline: none;
+}
+
+/* 6. 按钮重置 */
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 7. 表单元素重置 */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* 8. 媒体与图片重置 */
+img {
+  max-width: 100%;
+  height: auto;
+  border-style: none;
+  vertical-align: middle;
+}
+video, audio, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* 9. 通用工具类 */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* 10. 减少动画模式支持 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

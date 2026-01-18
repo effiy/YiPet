@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YiPet - 温柔陪伴助手</title>
+
+    <!-- 全局样式 -->
+    <link rel="stylesheet" href="../../styles/index.css">
+    <!-- 组件样式 -->
+    <link rel="stylesheet" href="./index.css">
+
+    <!-- Vue 3 CDN -->
+    <script src="../../libs/vue/vue.global.js"></script>
+
+    <!-- 基础工具 -->
+    <script type="module" src="../../utils/base/log.js"></script>
+    <script type="module" src="../../utils/base/error.js"></script>
+    <script type="module" src="../../utils/base/baseView.js"></script>
+
+    <!-- 组件 -->
+    <script type="module" src="./components/Pet.vue.js"></script>
+    <script type="module" src="./components/ChatWindow.vue.js"></script>
+    <script type="module" src="./components/SessionList.vue.js"></script>
+    <script type="module" src="./components/MessageList.vue.js"></script>
+    <script type="module" src="./components/MessageInput.vue.js"></script>
+
+    <!-- Hooks -->
+    <script type="module" src="./hooks/store.js"></script>
+    <script type="module" src="./hooks/useComputed.js"></script>
+    <script type="module" src="./hooks/useMethods.js"></script>
+
+    <!-- 主入口 -->
+    <script type="module" src="./index.js"></script>
+</head>
+
+<body>
+    <div id="yi-pet-app">
+        <!-- 宠物组件 -->
+        <Pet :visible="petVisible" :size="petSize" :color="petColor" :position="petPosition" :role="petRole"
+            @click="toggleChatWindow" />
+
+        <!-- 聊天窗口 -->
+        <ChatWindow :visible="chatWindowVisible" :size="chatWindowSize" :position="chatWindowPosition"
+            :is-fullscreen="chatWindowIsFullscreen" @close="closeChatWindow" @toggle-fullscreen="toggleFullscreen">
+            <!-- 聊天窗口头部 -->
+            <div class="yi-chat-header">
+                <div class="yi-chat-header-title">
+                    <span v-if="currentSession">{{ currentSession.title || '新会话' }}</span>
+                    <span v-else>YiPet 助手</span>
+                </div>
+                <div class="yi-chat-header-actions">
+                    <button @click="toggleSidebar" class="yi-btn yi-btn-icon" title="切换侧边栏">
+                        <span>{{ sidebarCollapsed ? '▶' : '◀' }}</span>
+                    </button>
+                    <button @click="toggleFullscreen" class="yi-btn yi-btn-icon" title="全屏">
+                        <span>{{ chatWindowIsFullscreen ? '⤓' : '⤢' }}</span>
+                    </button>
+                    <button @click="closeChatWindow" class="yi-btn yi-btn-icon" title="关闭">
+                        <span>×</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 聊天窗口主体 -->
+            <div class="yi-chat-main">
+                <!-- 侧边栏 -->
+                <SessionList :sessions="filteredSessions" :current-session-id="currentSessionId"
+                    :collapsed="sidebarCollapsed" :width="sidebarWidth" @select-session="switchSession"
+                    @create-session="createSession" @delete-session="deleteSession"
+                    @update-title="updateSessionTitle" />
+
+                <!-- 消息区域 -->
+                <div class="yi-chat-content">
+                    <!-- 消息列表 -->
+                    <MessageList :messages="currentMessages" :thinking="thinking" />
+
+                    <!-- 输入区域 -->
+                    <div class="yi-chat-input-area">
+                        <MessageInput :value="inputContent" :disabled="isSending || thinking"
+                            placeholder="输入消息... (Shift+Enter 换行)" @input="(val) => inputContent = val"
+                            @send="sendMessage" />
+                    </div>
+                </div>
+            </div>
+        </ChatWindow>
+
+        <!-- 加载状态 -->
+        <div v-if="isLoading" class="yi-loading-overlay">
+            <div class="yi-loading-spinner"></div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div v-if="hasError" class="yi-error-message">
+            {{ error }}
+            <button @click="clearError" class="yi-btn yi-btn-small">关闭</button>
+        </div>
+    </div>
+</body>
+
+</html>

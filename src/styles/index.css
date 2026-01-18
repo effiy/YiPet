@@ -1,0 +1,13 @@
+/**
+ * 全局样式入口文件
+ * author: liangliang
+ * 说明：按功能模块分组导入，便于维护和扩展
+ */
+
+/* 基础重置和主题 */
+@import "./base/reset.css";
+@import "./base/theme.css";
+@import "./base/animations.css";
+
+/* 组件样式 */
+/* 后续可以添加更多组件样式 */

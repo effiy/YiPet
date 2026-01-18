@@ -1,0 +1,176 @@
+/**
+ * 量子美学主题变量
+ * author: liangliang
+ * 说明：本文件定义了全局主题色、辅助色、中性色、背景色、文字色、边框色、阴影、透明度等变量，便于统一管理和维护。
+ */
+:root {
+  /* ===== 主色调（现代量子蓝紫） ===== */
+  --primary: #667eea;                /* 主色：优雅蓝紫 */
+  --primary-hover: #5a67d8;          /* 悬停：深蓝紫 */
+  --primary-light: #818cf8;          /* 浅靛蓝 */
+  --primary-blue: #3b82f6;           /* 现代蓝 */
+  --primary-cyan: #06b6d4;           /* 现代青 */
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  --primary-gradient-hover: linear-gradient(135deg, #5a67d8 0%, #6b46c1 50%, #d946ef 100%);
+  --primary-rgb: 102, 126, 234;       /* 主色RGB值 */
+  --primary-alpha: rgba(102, 126, 234, 0.1); /* 主色透明 */
+
+  /* ===== 辅助色系 ===== */
+  --accent: #06b6d4;                 /* 量子青 */
+  --accent-gradient: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%);
+  --success: #22c55e;                /* 现代绿 */
+  --success-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+  --warning: #f59e0b;                /* 量子橙 */
+  --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%);
+  --error: #ef4444;                  /* 量子红 */
+  --error-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+  --info: #3b82f6;                   /* 信息蓝 */
+  --info-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+  --danger-color: #ef4444;           /* 危险色（兼容性） */
+  --danger-color-alpha: rgba(239, 68, 68, 0.1); /* 危险色透明 */
+
+  /* ===== 功能卡片专用色 ===== */
+  --scientist-purple: #9333ea;       /* 科学家紫 */
+  --scientist-cyan: #06b6d4;         /* 科学家青 */
+  --geek-green: #22c55e;             /* 极客绿 */
+  --geek-teal: #10b981;              /* 极客蓝绿 */
+  --artist-purple: #a855f7;          /* 艺术家紫 */
+  --artist-pink: #ec4899;            /* 艺术家粉 */
+  --artist-orange: #f59e0b;          /* 艺术家橙 */
+  --artist-emerald: #10b981;         /* 艺术家翠绿 */
+  
+  /* ===== 现代渐变色彩 ===== */
+  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  --gradient-secondary: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%);
+  --gradient-success: linear-gradient(135deg, #22c55e 0%, #10b981 50%, #059669 100%);
+  --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ea580c 100%);
+  --gradient-error: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+  --gradient-info: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+  --gradient-accent: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%);
+  
+  /* ===== 特殊效果渐变 ===== */
+  --gradient-rainbow: linear-gradient(135deg, #6366f1 0%, #8b5cf6 25%, #ec4899 50%, #f59e0b 75%, #22c55e 100%);
+  --gradient-sunset: linear-gradient(135deg, #f59e0b 0%, #ec4899 50%, #a855f7 100%);
+  --gradient-ocean: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%);
+  --gradient-forest: linear-gradient(135deg, #22c55e 0%, #10b981 50%, #059669 100%);
+
+  /* ===== 中性色（灰阶） ===== */
+  --gray-50:  #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* ===== 背景色 ===== */
+  --bg-primary: #0f172a;             /* 深空黑 */
+  --bg-secondary: #1e293b;           /* 量子灰 */
+  --bg-tertiary: #334155;            /* 中量子灰 */
+  --bg-elevated: rgba(30,41,59,0.9); /* 半透明量子灰 */
+  --bg-glass: rgba(255,255,255,0.03);/* 量子玻璃 */
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+
+  /* ===== 文字色 ===== */
+  --text-primary: #f8fafc;           /* 量子白 */
+  --text-secondary: #e2e8f0;         /* 浅量子灰（提高对比度） */
+  --text-muted: #94a3b8;             /* 中量子灰 */
+  --text-inverse: #0f172a;           /* 深空黑 */
+  --text-accent: #06b6d4;            /* 量子青 */
+  --text-tertiary: #64748b;          /* 第三级文字色 */
+  --text-on-accent: #ffffff;         /* 在强调色上的文字 */
+  --text-success: #22c55e;           /* 成功文字色 */
+  --text-warning: #f59e0b;           /* 警告文字色 */
+  --text-error: #ef4444;             /* 错误文字色 */
+  --text-info: #3b82f6;              /* 信息文字色 */
+
+  /* ===== 边框色 ===== */
+  --border-primary: rgba(255,255,255,0.12);   /* 量子白边框（提高可见度） */
+  --border-secondary: rgba(6,182,212,0.3);    /* 量子青边框（提高对比度） */
+  --border-focus: #06b6d4;                    /* 量子青聚焦 */
+  --border-glass: rgba(255,255,255,0.08);     /* 量子玻璃边框（提高可见度） */
+  --border-color: rgba(255,255,255,0.12);     /* 边框色（兼容性） */
+  --border-hover: rgba(255,255,255,0.2);      /* 悬停边框色（提高对比度） */
+  --border-success: rgba(34,197,94,0.3);      /* 成功边框色 */
+  --border-warning: rgba(245,158,11,0.3);     /* 警告边框色 */
+  --border-error: rgba(239,68,68,0.3);        /* 错误边框色 */
+  --border-info: rgba(59,130,246,0.3);        /* 信息边框色 */
+
+  /* ===== 阴影系统 ===== */
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+  --shadow-xl: 0 16px 64px rgba(0,0,0,0.7);
+  --shadow-2xl: 0 32px 128px rgba(0,0,0,0.8);
+  --shadow-primary: 0 4px 20px rgba(102,126,234,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
+  --shadow-glow: 0 0 30px rgba(6,182,212,0.4);
+  --shadow-quantum: 0 0 50px rgba(102,126,234,0.3);
+  --shadow-success: 0 4px 20px rgba(34,197,94,0.3);
+  --shadow-warning: 0 4px 20px rgba(245,158,11,0.3);
+  --shadow-error: 0 4px 20px rgba(239,68,68,0.3);
+  --shadow-info: 0 4px 20px rgba(59,130,246,0.3);
+  /* 兼容性命名 */
+  --shadow-light: 0 2px 8px rgba(0,0,0,0.1);
+  --shadow-medium: 0 4px 16px rgba(0,0,0,0.12);
+  --shadow-heavy: 0 8px 32px rgba(0,0,0,0.15);
+  --shadow-hover: 0 20px 40px rgba(0,0,0,0.2);
+
+  /* ===== 透明度系统 ===== */
+  --opacity-light: 0.03;
+  --opacity-medium: 0.08;
+  --opacity-heavy: 0.15;
+  --opacity-hover: 0.25;
+  --opacity-overlay: 0.1;
+  
+  /* ===== 兼容性变量 ===== */
+  --primary-color: var(--primary);
+  --primary-hover: var(--primary-hover);
+  --primary-color-alpha: rgba(99, 102, 241, 0.1);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+}
+
+/* ===== 深色模式优化 ===== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 在深色模式下进一步优化对比度 */
+    --text-secondary: #e2e8f0;         /* 提高次要文字对比度 */
+    --text-muted: #a1a1aa;             /* 提高静音文字对比度 */
+    --border-primary: rgba(255,255,255,0.15);   /* 提高边框可见度 */
+    --border-glass: rgba(255,255,255,0.1);      /* 提高玻璃边框可见度 */
+    --bg-glass: rgba(255,255,255,0.05);         /* 提高玻璃背景可见度 */
+    
+    /* 优化阴影在深色模式下的效果 */
+    --shadow-primary: 0 4px 20px rgba(102,126,234,0.5), 0 0 0 1px rgba(255,255,255,0.12) inset;
+    --shadow-glow: 0 0 30px rgba(6,182,212,0.5);
+    --shadow-quantum: 0 0 50px rgba(102,126,234,0.4);
+  }
+}
+
+/* ===== 高对比度模式支持 ===== */
+@media (prefers-contrast: high) {
+  :root {
+    /* 高对比度模式下的颜色调整 */
+    --text-secondary: #f1f5f9;         /* 最高对比度 */
+    --text-muted: #cbd5e1;             /* 提高静音文字对比度 */
+    --border-primary: rgba(255,255,255,0.3);    /* 高对比度边框 */
+    --border-secondary: rgba(6,182,212,0.5);    /* 高对比度强调边框 */
+    --primary-alpha: rgba(99,102,241,0.2);      /* 提高主色透明度 */
+  }
+}
+
+/* ===== 减少动画模式支持 ===== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    /* 减少动画时的颜色调整 */
+    --primary-gradient: #6366f1;       /* 使用纯色替代渐变 */
+    --accent-gradient: #06b6d4;        /* 使用纯色替代渐变 */
+    --success-gradient: #22c55e;       /* 使用纯色替代渐变 */
+    --warning-gradient: #f59e0b;       /* 使用纯色替代渐变 */
+    --error-gradient: #ef4444;         /* 使用纯色替代渐变 */
+    --info-gradient: #3b82f6;          /* 使用纯色替代渐变 */
+  }
+}
+

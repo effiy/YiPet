@@ -178,30 +178,16 @@
                         return false;
                     }
 
-                    // 优先使用 manager 的方法（如果存在）
-                    if (manager && typeof manager.closeChatWindow === 'function') {
-                        try {
-                            manager.closeChatWindow();
-                        } catch (managerError) {
-                            console.error('[ChatWindow] manager.closeChatWindow() 出错:', managerError);
-                            // Fallback: 直接隐藏窗口
-                            chatWindowElement.style.setProperty('display', 'none', 'important');
-                            chatWindowElement.style.setProperty('visibility', 'hidden', 'important');
-                            chatWindowElement.style.setProperty('opacity', '0', 'important');
-                            if (manager) {
-                                manager.isChatOpen = false;
-                            }
-                        }
-                    } else {
-                        // Fallback: 直接隐藏窗口
-                        chatWindowElement.style.setProperty('display', 'none', 'important');
-                        chatWindowElement.style.setProperty('visibility', 'hidden', 'important');
-                        chatWindowElement.style.setProperty('opacity', '0', 'important');
-                        chatWindowElement.setAttribute('hidden', '');
+                    // 直接隐藏窗口，避免调用 manager.closeChatWindow() 导致重复日志
+                    chatWindowElement.style.setProperty('display', 'none', 'important');
+                    chatWindowElement.style.setProperty('visibility', 'hidden', 'important');
+                    chatWindowElement.style.setProperty('opacity', '0', 'important');
+                    chatWindowElement.setAttribute('hidden', '');
 
-                        // 同时更新 manager 状态
-                        if (manager) {
-                            manager.isChatOpen = false;
+                    // 更新 manager 状态（不调用方法，避免重复日志）
+                    if (manager) {
+                        manager.isChatOpen = false;
+                        if (!manager.chatWindow) {
                             manager.chatWindow = chatWindowElement;
                         }
                     }
@@ -1119,7 +1105,6 @@
                     e.target.closest('.pet-chat-close-btn') ||
                     e.target.closest('.pet-chat-header-btn');
                 if (isButton) {
-                    console.error('[ChatWindow] mousedown on button, skip drag');
                     return;
                 }
                 if (Date.now() < this._suppressDragUntil) return;

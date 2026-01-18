@@ -109,6 +109,17 @@ export const useMethods = (store) => {
     const openChatWindow = () => {
         store.chatWindowVisible.value = true;
         console.log('[Pet Methods] 打开聊天窗口');
+
+        // 同步 PetManager 状态（如果存在）
+        try {
+            if (window.petManager) {
+                window.petManager.isChatOpen = true;
+                // 如果 PetManager 有 openChatWindow 方法，也可以调用（但要注意避免重复创建窗口）
+                // 因为 Vue 版本已经管理了窗口显示，所以只需要同步状态即可
+            }
+        } catch (managerError) {
+            logWarn('[Pet Methods] 同步 PetManager 状态时出错:', managerError);
+        }
     };
 
     /**
@@ -152,11 +163,19 @@ export const useMethods = (store) => {
             }
 
             // 更新 PetManager 状态（如果存在）
+            // 注意：只更新状态，不调用 closeChatWindow 方法，避免重复关闭和日志输出
             try {
-                if (window.petManager && typeof window.petManager.closeChatWindow === 'function') {
-                    window.petManager.closeChatWindow();
-                } else if (window.petManager) {
+                if (window.petManager) {
                     window.petManager.isChatOpen = false;
+                    // 如果存在原生 JS 版本的窗口，也需要隐藏它
+                    if (window.petManager.chatWindow) {
+                        const nativeChatWindow = window.petManager.chatWindow;
+                        if (nativeChatWindow && nativeChatWindow.style) {
+                            nativeChatWindow.style.setProperty('display', 'none', 'important');
+                            nativeChatWindow.style.setProperty('visibility', 'hidden', 'important');
+                            nativeChatWindow.style.setProperty('opacity', '0', 'important');
+                        }
+                    }
                 }
             } catch (managerError) {
                 logWarn('[Pet Methods] 更新 PetManager 状态时出错:', managerError);

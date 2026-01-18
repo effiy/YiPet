@@ -21,6 +21,27 @@
 
     // 仅切换聊天窗口的显示/隐藏状态（用于快捷键，不影响其他功能）
     proto.toggleChatWindowVisibility = function () {
+        // 检查是否存在 Vue 版本的窗口（通过检查是否有 yi-chat-window 类或 window.yiPetApp）
+        const vueChatWindow = document.querySelector('.yi-chat-window');
+        if (vueChatWindow && window.yiPetApp && typeof window.yiPetApp.toggleChatWindow === 'function') {
+            // 如果存在 Vue 版本的窗口，使用 Vue 版本的方法
+            try {
+                window.yiPetApp.toggleChatWindow();
+                // 同步状态（从 Vue 版本获取当前状态）
+                if (window.yiPetApp.chatWindowVisible && typeof window.yiPetApp.chatWindowVisible === 'object' && 'value' in window.yiPetApp.chatWindowVisible) {
+                    this.isChatOpen = window.yiPetApp.chatWindowVisible.value;
+                } else {
+                    // 如果无法获取状态，根据窗口的显示状态推断
+                    const computedStyle = window.getComputedStyle(vueChatWindow);
+                    this.isChatOpen = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+                }
+                return;
+            } catch (vueError) {
+                console.warn('[PetManager] Vue 版本切换失败，使用原生方法:', vueError);
+            }
+        }
+
+        // 原生 JS 版本的处理逻辑
         if (!this.chatWindow) {
             // 如果窗口还未创建，需要先创建
             this.openChatWindow();
@@ -29,11 +50,13 @@
 
         if (this.isChatOpen) {
             // 仅隐藏窗口，不保存会话，不影响其他功能
-            this.chatWindow.style.display = 'none';
+            this.chatWindow.style.setProperty('display', 'none', 'important');
+            this.chatWindow.style.setProperty('visibility', 'hidden', 'important');
             this.isChatOpen = false;
         } else {
             // 仅显示窗口，不重新初始化，不影响其他功能
-            this.chatWindow.style.display = 'block';
+            this.chatWindow.style.setProperty('display', 'block', 'important');
+            this.chatWindow.style.setProperty('visibility', 'visible', 'important');
             this.isChatOpen = true;
         }
     };
@@ -140,12 +163,11 @@
     // 关闭聊天窗口
     proto.closeChatWindow = function () {
         try {
-            console.error('[PetManager] closeChatWindow 被调用');
+            console.log('[PetManager] closeChatWindow 被调用');
             const chatWindowElement = this.chatWindow || document.getElementById('pet-chat-window');
 
             if (chatWindowElement) {
-                console.error('[PetManager] 正在隐藏聊天窗口, chatWindow:', chatWindowElement);
-                console.error('[PetManager] 当前 display:', chatWindowElement.style.display);
+                console.log('[PetManager] 正在隐藏聊天窗口');
 
                 // 使用 setProperty 和 !important 确保样式生效
                 chatWindowElement.style.setProperty('display', 'none', 'important');
@@ -154,34 +176,24 @@
                 chatWindowElement.setAttribute('hidden', ''); // 添加 hidden 属性
 
                 this.isChatOpen = false;
-                this.hasLoadedSessionsForChat = false;
+                // 注意：不要重置 hasLoadedSessionsForChat，以便下次打开时能快速加载
+                // this.hasLoadedSessionsForChat = false;
 
                 // 确保 this.chatWindow 引用正确
                 if (!this.chatWindow) {
                     this.chatWindow = chatWindowElement;
                 }
 
-                console.error('[PetManager] 聊天窗口已关闭, display:', chatWindowElement.style.display);
-
-                // 验证窗口是否真的被隐藏了
-                setTimeout(() => {
-                    const computedStyle = window.getComputedStyle(chatWindowElement);
-                    console.error('[PetManager] 验证: computed display =', computedStyle.display);
-                    if (computedStyle.display !== 'none') {
-                        console.error('[PetManager] 警告: 窗口仍然可见！尝试移除元素');
-                        // 最后手段：从 DOM 中移除
-                        if (chatWindowElement.parentNode) {
-                            chatWindowElement.parentNode.removeChild(chatWindowElement);
-                            console.error('[PetManager] 已从 DOM 中移除窗口');
-                        }
-                    }
-                }, 100);
+                console.log('[PetManager] 聊天窗口已关闭');
             } else {
-                console.error('[PetManager] chatWindow 不存在, this.chatWindow:', this.chatWindow);
+                console.warn('[PetManager] chatWindow 不存在, this.chatWindow:', this.chatWindow);
+                // 即使找不到元素，也要确保状态正确
+                this.isChatOpen = false;
             }
         } catch (error) {
             console.error('[PetManager] closeChatWindow 出错:', error);
-            console.error('[PetManager] 错误堆栈:', error.stack);
+            // 即使出错也要确保状态正确
+            this.isChatOpen = false;
         }
     };
 

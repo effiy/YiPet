@@ -43,28 +43,28 @@
       searchIcon.style.opacity = keyword ? '0.8' : '0.5';
     }
     tagList.innerHTML = '';
-    
+
     // Calculate tag counts and no-tags count
     const tagCounts = {};
     let noTagsCount = 0;
     const allSessions = this._getSessionsFromLocal(); // Get all sessions
     allSessions.forEach(session => {
-        if (Array.isArray(session.tags) && session.tags.length > 0) {
-            session.tags.forEach(tag => {
-                if (tag) {
-                    const t = tag.trim();
-                    tagCounts[t] = (tagCounts[t] || 0) + 1;
-                }
-            });
-        } else {
-            noTagsCount++;
-        }
+      if (Array.isArray(session.tags) && session.tags.length > 0) {
+        session.tags.forEach(tag => {
+          if (tag) {
+            const t = tag.trim();
+            tagCounts[t] = (tagCounts[t] || 0) + 1;
+          }
+        });
+      } else {
+        noTagsCount++;
+      }
     });
 
     const selected = Array.isArray(this.selectedFilterTags) ? this.selectedFilterTags : [];
     const hasMoreTags = !this.tagFilterExpanded && filtered.length > visibleCount;
     const tagsToShow = this.tagFilterExpanded ? filtered : filtered.slice(0, visibleCount);
-    
+
     if (typeof this.attachTagDragStyles === 'function') {
       this.attachTagDragStyles();
     }
@@ -128,33 +128,33 @@
   proto.createSearchInput = function (options) {
     const container = document.createElement('div');
     container.className = 'tag-filter-search-container';
-    
+
     const icon = document.createElement('span');
     icon.className = 'tag-filter-search-icon';
     icon.textContent = '🔍';
-    
+
     const input = document.createElement('input');
     if (options.className) input.className = options.className;
     input.classList.add('tag-filter-search-input');
     input.type = 'text';
     input.placeholder = options.placeholder || '';
     input.value = options.value || '';
-    
+
     input.addEventListener('focus', () => {
       container.classList.add('focused');
     });
     input.addEventListener('blur', () => {
       container.classList.remove('focused');
     });
-    
+
     const clearBtn = document.createElement('button');
     clearBtn.className = 'tag-filter-search-clear';
     if (input.value) {
-        clearBtn.classList.add('visible');
+      clearBtn.classList.add('visible');
     }
     clearBtn.textContent = '✕';
     clearBtn.title = '清除';
-    
+
     clearBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -162,7 +162,7 @@
       clearBtn.classList.remove('visible');
       if (typeof options.onClear === 'function') options.onClear();
     });
-    
+
     let timer = null;
     const debounceMs = typeof options.debounce === 'number' ? options.debounce : 300;
     input.addEventListener('input', (e) => {
@@ -177,7 +177,7 @@
         if (typeof options.onChange === 'function') options.onChange(v);
       }, debounceMs);
     });
-    
+
     container.appendChild(icon);
     container.appendChild(input);
     container.appendChild(clearBtn);
@@ -248,12 +248,12 @@
     }
     if (batchToolbar) {
       if (this.batchMode) {
-      batchToolbar.classList.add('visible');
-      if (this.sessionSidebar) this.sessionSidebar.classList.add('batch-mode-active');
-    } else {
-      batchToolbar.classList.remove('visible');
-      if (this.sessionSidebar) this.sessionSidebar.classList.remove('batch-mode-active');
-    }
+        batchToolbar.classList.add('visible');
+        if (this.sessionSidebar) this.sessionSidebar.classList.add('batch-mode-active');
+      } else {
+        batchToolbar.classList.remove('visible');
+        if (this.sessionSidebar) this.sessionSidebar.classList.remove('batch-mode-active');
+      }
     }
     if (scrollableContent) {
       scrollableContent.style.display = 'flex';
@@ -287,9 +287,9 @@
     }
     const q = (this.sessionTitleFilter || '').trim();
     const hasFilter = q ||
-                     (this.selectedFilterTags && this.selectedFilterTags.length > 0) ||
-                     this.tagFilterNoTags ||
-                     this.dateRangeFilter;
+      (this.selectedFilterTags && this.selectedFilterTags.length > 0) ||
+      this.tagFilterNoTags ||
+      this.dateRangeFilter;
     const sortedSessions = allSessions.sort((a, b) => {
       const aTags = Array.isArray(a.tags) ? a.tags.map((t) => String(t).trim()) : [];
       const bTags = Array.isArray(b.tags) ? b.tags.map((t) => String(t).trim()) : [];
@@ -321,7 +321,7 @@
     console.log('会话侧边栏已更新，显示', sortedSessions.length, '个会话');
   };
 
-  proto.updateSessionUI = async function(options = {}) {
+  proto.updateSessionUI = async function (options = {}) {
     const {
       updateSidebar = false,
       updateTitle = false,
@@ -353,12 +353,12 @@
           }
         }
       });
-    } catch (error) {}
+    } catch (error) { }
   };
   proto.saveSidebarWidth = function () {
     try {
-      chrome.storage.local.set({ sessionSidebarWidth: this.sidebarWidth }, () => {});
-    } catch (error) {}
+      chrome.storage.local.set({ sessionSidebarWidth: this.sidebarWidth }, () => { });
+    } catch (error) { }
   };
   proto.loadSidebarCollapsed = function () {
     try {
@@ -370,12 +370,12 @@
           }
         }
       });
-    } catch (error) {}
+    } catch (error) { }
   };
   proto.saveSidebarCollapsed = function () {
     try {
-      chrome.storage.local.set({ sessionSidebarCollapsed: this.sidebarCollapsed }, () => {});
-    } catch (error) {}
+      chrome.storage.local.set({ sessionSidebarCollapsed: this.sidebarCollapsed }, () => { });
+    } catch (error) { }
   };
   proto.applySidebarCollapsedState = function () {
     if (this.chatWindowComponent && typeof this.chatWindowComponent.setSidebarCollapsed === 'function') {
@@ -409,12 +409,12 @@
           }
         }
       });
-    } catch (error) {}
+    } catch (error) { }
   };
   proto.saveInputContainerCollapsed = function () {
     try {
-      chrome.storage.local.set({ chatInputContainerCollapsed: this.inputContainerCollapsed }, () => {});
-    } catch (error) {}
+      chrome.storage.local.set({ chatInputContainerCollapsed: this.inputContainerCollapsed }, () => { });
+    } catch (error) { }
   };
   proto.applyInputContainerCollapsedState = function () {
     if (this.chatWindowComponent && typeof this.chatWindowComponent.setInputContainerCollapsed === 'function') {
@@ -440,93 +440,97 @@
     this.applyInputContainerCollapsedState();
     this.saveInputContainerCollapsed();
   };
-  proto.updateBatchToolbar = function() {
-        const selectedCount = document.getElementById('selected-count');
-        const batchDeleteBtn = document.getElementById('batch-delete-btn');
-        const selectAllBtn = document.getElementById('select-all-btn');
+  proto.updateBatchToolbar = function () {
+    const selectedCount = document.getElementById('selected-count');
+    const batchDeleteBtn = document.getElementById('batch-delete-btn');
+    const selectAllBtn = document.getElementById('select-all-btn');
 
-        // 判断当前显示的是会话列表、文件列表还是请求接口列表
-        const sessionList = this.sessionSidebar.querySelector('.session-list');
+    // 判断当前显示的是会话列表、文件列表还是请求接口列表
+    const sessionList = this.sessionSidebar.querySelector('.session-list');
 
-        const count = this.selectedSessionIds.size;
+    const count = this.selectedSessionIds.size;
 
-        if (selectedCount) {
-            selectedCount.textContent = `已选择 ${count} 个`;
+    if (selectedCount) {
+      selectedCount.textContent = `已选择 ${count} 个`;
 
-            // 根据选中数量更新样式
-            if (count > 0) {
-                selectedCount.classList.add('has-selection');
-            } else {
-                selectedCount.classList.remove('has-selection');
-            }
+      // 根据选中数量更新样式
+      if (count > 0) {
+        selectedCount.classList.add('has-selection');
+      } else {
+        selectedCount.classList.remove('has-selection');
+      }
+    }
+
+    if (batchDeleteBtn) {
+      const hasSelection = count > 0;
+      batchDeleteBtn.disabled = !hasSelection;
+    }
+
+    // 更新全选按钮状态
+    if (selectAllBtn) {
+      let allSelected = false;
+      const filteredSessions = this._getFilteredSessions();
+      allSelected = filteredSessions.length > 0 &&
+        filteredSessions.every(session => session.key && this.selectedSessionIds.has(session.key));
+
+      if (allSelected) {
+        selectAllBtn.textContent = '取消全选';
+        selectAllBtn.classList.add('batch-toolbar-btn--active');
+        selectAllBtn.classList.remove('batch-toolbar-btn--default');
+      } else {
+        selectAllBtn.textContent = '全选';
+        selectAllBtn.classList.remove('batch-toolbar-btn--active');
+        selectAllBtn.classList.add('batch-toolbar-btn--default');
+      }
+    }
+  };
+
+  // 切换全选/取消全选
+  proto.toggleSelectAll = function () {
+    // 会话列表模式
+    const filteredSessions = this._getFilteredSessions();
+    const allSelected = filteredSessions.length > 0 &&
+      filteredSessions.every(session => session.key && this.selectedSessionIds.has(session.key));
+
+    if (allSelected) {
+      // 取消全选：只取消当前显示的会话
+      filteredSessions.forEach(session => {
+        if (session.key) {
+          this.selectedSessionIds.delete(session.key);
         }
-
-        if (batchDeleteBtn) {
-            const hasSelection = count > 0;
-            batchDeleteBtn.disabled = !hasSelection;
+      });
+    } else {
+      // 全选：选中所有当前显示的会话
+      filteredSessions.forEach(session => {
+        if (session.key) {
+          this.selectedSessionIds.add(session.key);
         }
+      });
+    }
 
-        // 更新全选按钮状态
-        if (selectAllBtn) {
-            let allSelected = false;
-            const filteredSessions = this._getFilteredSessions();
-            allSelected = filteredSessions.length > 0 &&
-                            filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+    // 更新所有复选框状态
+    const sessionItems = this.sessionSidebar.querySelectorAll('.session-item');
+    sessionItems.forEach(item => {
+      const sessionId = item.dataset.sessionId;
+      const checkbox = item.querySelector('.session-checkbox input[type="checkbox"]');
+      const isSelected = this.selectedSessionIds.has(sessionId);
 
-            if (allSelected) {
-                selectAllBtn.textContent = '取消全选';
-                selectAllBtn.classList.add('batch-toolbar-btn--active');
-                selectAllBtn.classList.remove('batch-toolbar-btn--default');
-            } else {
-                selectAllBtn.textContent = '全选';
-                selectAllBtn.classList.remove('batch-toolbar-btn--active');
-                selectAllBtn.classList.add('batch-toolbar-btn--default');
-            }
-        }
-    };
+      if (checkbox) {
+        checkbox.checked = isSelected;
+      }
 
-    // 切换全选/取消全选
-    proto.toggleSelectAll = function() {
-            // 会话列表模式
-            const filteredSessions = this._getFilteredSessions();
-            const allSelected = filteredSessions.length > 0 &&
-                               filteredSessions.every(session => this.selectedSessionIds.has(session.id));
+      if (isSelected) {
+        item.classList.add('selected');
+      } else {
+        item.classList.remove('selected');
+      }
+    });
 
-            if (allSelected) {
-                // 取消全选：只取消当前显示的会话
-                filteredSessions.forEach(session => {
-                    this.selectedSessionIds.delete(session.id);
-                });
-            } else {
-                // 全选：选中所有当前显示的会话
-                filteredSessions.forEach(session => {
-                    this.selectedSessionIds.add(session.id);
-                });
-            }
+    // 更新批量工具栏
+    this.updateBatchToolbar();
+  };
 
-            // 更新所有复选框状态
-            const sessionItems = this.sessionSidebar.querySelectorAll('.session-item');
-            sessionItems.forEach(item => {
-                const sessionId = item.dataset.sessionId;
-                const checkbox = item.querySelector('.session-checkbox input[type="checkbox"]');
-                const isSelected = this.selectedSessionIds.has(sessionId);
-                
-                if (checkbox) {
-                    checkbox.checked = isSelected;
-                }
-                
-                if (isSelected) {
-                    item.classList.add('selected');
-                } else {
-                    item.classList.remove('selected');
-                }
-            });
-
-        // 更新批量工具栏
-        this.updateBatchToolbar();
-    };
-
-  proto.buildBatchToolbar = function() {
+  proto.buildBatchToolbar = function () {
     const toolbar = document.createElement('div');
     toolbar.id = 'batch-toolbar';
     toolbar.className = 'batch-toolbar';
@@ -607,185 +611,185 @@
     toolbar.appendChild(cancelBatchBtn);
     return toolbar;
   };
-    // 批量删除（支持会话、文件和请求接口）
-    proto.batchDeleteSessions = async function() {
-        const sessionList = this.sessionSidebar.querySelector('.session-list');
-            // 批量删除会话
-            if (this.selectedSessionIds.size === 0) {
-                this.showNotification('请先选择要删除的会话', 'error');
-                return;
+  // 批量删除（支持会话、文件和请求接口）
+  proto.batchDeleteSessions = async function () {
+    const sessionList = this.sessionSidebar.querySelector('.session-list');
+    // 批量删除会话
+    if (this.selectedSessionIds.size === 0) {
+      this.showNotification('请先选择要删除的会话', 'error');
+      return;
+    }
+
+    const count = this.selectedSessionIds.size;
+    const confirmMessage = `确定要删除选中的 ${count} 个会话吗？此操作不可撤销。`;
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    const sessionIds = Array.from(this.selectedSessionIds);
+
+    try {
+      // 同时收集会话信息用于删除 aicr 项目文件
+      const sessionsToDelete = [];
+      sessionIds.forEach(sessionId => {
+        const session = this.sessions[sessionId];
+        if (session) {
+          sessionsToDelete.push({
+            sessionId,
+            unifiedSessionId: session.key || sessionId
+          });
+        }
+      });
+
+      // 从本地删除
+      sessionIds.forEach(sessionId => {
+        if (this.sessions[sessionId]) {
+          delete this.sessions[sessionId];
+        }
+        // 如果删除的是当前会话，清空当前会话ID
+        if (sessionId === this.currentSessionId) {
+          this.currentSessionId = null;
+          this.hasAutoCreatedSessionForPage = false;
+        }
+      });
+
+      // 保存本地更改
+      if (this.sessionManager) {
+        // 使用 SessionManager 批量删除
+        for (const sessionId of sessionIds) {
+          await this.sessionManager.deleteSession(sessionId);
+        }
+      } else {
+        // 保存到本地存储
+        await this.saveAllSessions(true);
+      }
+
+      // 从后端删除（如果启用了后端同步）
+      if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+        try {
+          await this.sessionApi.deleteSessions(sessionIds);
+          console.log('批量删除会话已同步到后端:', sessionIds);
+        } catch (error) {
+          console.warn('从后端批量删除会话失败:', error);
+          // 即使后端删除失败，也继续执行，因为本地已删除
+        }
+      }
+
+      // 清空选中状态
+      this.selectedSessionIds.clear();
+
+      // 退出批量模式
+      this.exitBatchMode();
+
+      // 刷新会话列表
+      await this.updateSessionSidebar(true);
+
+      // 显示成功通知
+      this.showNotification(`已成功删除 ${count} 个会话`, 'success');
+
+    } catch (error) {
+      console.error('批量删除会话失败:', error);
+      this.showNotification('批量删除会话失败: ' + error.message, 'error');
+    }
+  };
+
+  // 创建侧边栏拖拽调整边框
+  proto.createSidebarResizer = function () {
+    if (!this.sessionSidebar) return;
+
+    const resizer = document.createElement('div');
+    resizer.className = 'sidebar-resizer';
+
+    // 鼠标悬停效果
+    resizer.addEventListener('mouseenter', () => {
+      if (!this.isResizingSidebar) {
+        resizer.classList.add('hover');
+      }
+    });
+
+    resizer.addEventListener('mouseleave', () => {
+      if (!this.isResizingSidebar) {
+        resizer.classList.remove('hover');
+      }
+    });
+
+    // 拖拽开始
+    resizer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      this.isResizingSidebar = true;
+      resizer.classList.add('dragging');
+      resizer.classList.remove('hover');
+
+      // 记录初始位置和宽度
+      const startX = e.clientX;
+      const startWidth = this.sidebarWidth;
+
+      // 添加全局样式，禁用文本选择
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+
+      // 拖拽中
+      const handleMouseMove = (e) => {
+        if (!this.isResizingSidebar) return;
+
+        const diffX = e.clientX - startX;
+        let newWidth = startWidth + diffX;
+
+        // 限制宽度范围
+        newWidth = Math.max(150, Math.min(500, newWidth));
+
+        // 更新宽度
+        this.sidebarWidth = newWidth;
+        if (this.sessionSidebar) {
+          this.sessionSidebar.style.setProperty('width', `${newWidth}px`, 'important');
+        }
+
+        // 更新折叠按钮位置（参考输入框折叠按钮的实现方式）
+        const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        if (toggleBtn && !this.sidebarCollapsed) {
+          toggleBtn.style.left = `${newWidth}px`;
+          // 确保 transform 样式正确，按钮完全在外面（保留scale用于hover效果）
+          const currentTransform = toggleBtn.style.transform;
+          const baseTransform = 'translateY(-50%) translateX(14px)';
+          if (!currentTransform.includes('scale')) {
+            toggleBtn.style.transform = baseTransform;
+          } else {
+            const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
+            if (scaleMatch) {
+              toggleBtn.style.transform = `${baseTransform} ${scaleMatch[0]}`;
+            } else {
+              toggleBtn.style.transform = baseTransform;
             }
+          }
+        }
+      };
 
-            const count = this.selectedSessionIds.size;
-            const confirmMessage = `确定要删除选中的 ${count} 个会话吗？此操作不可撤销。`;
-            if (!confirm(confirmMessage)) {
-                return;
-            }
+      // 拖拽结束
+      const handleMouseUp = () => {
+        this.isResizingSidebar = false;
+        resizer.classList.remove('dragging');
+        resizer.classList.remove('hover');
 
-            const sessionIds = Array.from(this.selectedSessionIds);
+        // 恢复全局样式
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
 
-            try {
-                // 同时收集会话信息用于删除 aicr 项目文件
-                const sessionsToDelete = [];
-                sessionIds.forEach(sessionId => {
-                    const session = this.sessions[sessionId];
-                    if (session) {
-                        sessionsToDelete.push({
-                            sessionId,
-                            unifiedSessionId: session.id || sessionId
-                        });
-                    }
-                });
+        // 保存宽度
+        this.saveSidebarWidth();
 
-                // 从本地删除
-                sessionIds.forEach(sessionId => {
-                    if (this.sessions[sessionId]) {
-                        delete this.sessions[sessionId];
-                    }
-                    // 如果删除的是当前会话，清空当前会话ID
-                    if (sessionId === this.currentSessionId) {
-                        this.currentSessionId = null;
-                        this.hasAutoCreatedSessionForPage = false;
-                    }
-                });
+        // 移除事件监听器
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
 
-                // 保存本地更改
-                if (this.sessionManager) {
-                    // 使用 SessionManager 批量删除
-                    for (const sessionId of sessionIds) {
-                        await this.sessionManager.deleteSession(sessionId);
-                    }
-                } else {
-                    // 保存到本地存储
-                    await this.saveAllSessions(true);
-                }
+      // 添加全局事件监听器
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    });
 
-                // 从后端删除（如果启用了后端同步）
-                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                    try {
-                        await this.sessionApi.deleteSessions(sessionIds);
-                        console.log('批量删除会话已同步到后端:', sessionIds);
-                    } catch (error) {
-                        console.warn('从后端批量删除会话失败:', error);
-                        // 即使后端删除失败，也继续执行，因为本地已删除
-                    }
-                }
-
-                // 清空选中状态
-                this.selectedSessionIds.clear();
-
-                // 退出批量模式
-                this.exitBatchMode();
-
-                // 刷新会话列表
-                await this.updateSessionSidebar(true);
-
-                // 显示成功通知
-                this.showNotification(`已成功删除 ${count} 个会话`, 'success');
-
-            } catch (error) {
-                console.error('批量删除会话失败:', error);
-                this.showNotification('批量删除会话失败: ' + error.message, 'error');
-            }
-    };
-
-    // 创建侧边栏拖拽调整边框
-    proto.createSidebarResizer = function() {
-        if (!this.sessionSidebar) return;
-
-        const resizer = document.createElement('div');
-        resizer.className = 'sidebar-resizer';
-
-        // 鼠标悬停效果
-        resizer.addEventListener('mouseenter', () => {
-            if (!this.isResizingSidebar) {
-                resizer.classList.add('hover');
-            }
-        });
-
-        resizer.addEventListener('mouseleave', () => {
-            if (!this.isResizingSidebar) {
-                resizer.classList.remove('hover');
-            }
-        });
-
-        // 拖拽开始
-        resizer.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            this.isResizingSidebar = true;
-            resizer.classList.add('dragging');
-            resizer.classList.remove('hover');
-
-            // 记录初始位置和宽度
-            const startX = e.clientX;
-            const startWidth = this.sidebarWidth;
-
-            // 添加全局样式，禁用文本选择
-            document.body.style.userSelect = 'none';
-            document.body.style.cursor = 'col-resize';
-
-            // 拖拽中
-            const handleMouseMove = (e) => {
-                if (!this.isResizingSidebar) return;
-
-                const diffX = e.clientX - startX;
-                let newWidth = startWidth + diffX;
-
-                // 限制宽度范围
-                newWidth = Math.max(150, Math.min(500, newWidth));
-
-                // 更新宽度
-                this.sidebarWidth = newWidth;
-                if (this.sessionSidebar) {
-                    this.sessionSidebar.style.setProperty('width', `${newWidth}px`, 'important');
-                }
-
-                // 更新折叠按钮位置（参考输入框折叠按钮的实现方式）
-                const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-                if (toggleBtn && !this.sidebarCollapsed) {
-                    toggleBtn.style.left = `${newWidth}px`;
-                    // 确保 transform 样式正确，按钮完全在外面（保留scale用于hover效果）
-                    const currentTransform = toggleBtn.style.transform;
-                    const baseTransform = 'translateY(-50%) translateX(14px)';
-                    if (!currentTransform.includes('scale')) {
-                        toggleBtn.style.transform = baseTransform;
-                    } else {
-                        const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
-                        if (scaleMatch) {
-                            toggleBtn.style.transform = `${baseTransform} ${scaleMatch[0]}`;
-                        } else {
-                            toggleBtn.style.transform = baseTransform;
-                        }
-                    }
-                }
-            };
-
-            // 拖拽结束
-            const handleMouseUp = () => {
-                this.isResizingSidebar = false;
-                resizer.classList.remove('dragging');
-                resizer.classList.remove('hover');
-
-                // 恢复全局样式
-                document.body.style.userSelect = '';
-                document.body.style.cursor = '';
-
-                // 保存宽度
-                this.saveSidebarWidth();
-
-                // 移除事件监听器
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-            };
-
-            // 添加全局事件监听器
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-        });
-
-        this.sessionSidebar.appendChild(resizer);
-    };
+    this.sessionSidebar.appendChild(resizer);
+  };
 
 })();

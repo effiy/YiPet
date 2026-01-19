@@ -1,4 +1,4 @@
-(function() {
+(function () {
     // 确保 PetManager 类已定义
     if (typeof window.PetManager === 'undefined') {
         console.error('PetManager 未定义，无法扩展 Session 模块');
@@ -9,7 +9,7 @@
 
     // ==================== 会话初始化与核心流程 ====================
 
-    proto.initSession = async function() {
+    proto.initSession = async function () {
         const pageInfo = this.getPageInfo();
         const currentUrl = pageInfo.url;
         const isSamePage = this.currentPageUrl === currentUrl;
@@ -69,8 +69,9 @@
                     updateUI: true
                 });
 
-                // 滚动到会话项位置
-                if (typeof this.scrollToSessionItem === 'function') {
+                // 滚动到会话项位置（等待侧边栏更新完成）
+                if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                    await new Promise(resolve => setTimeout(resolve, 100));
                     await this.scrollToSessionItem(matchedSessionId);
                 }
 
@@ -97,8 +98,9 @@
                 updateUI: true
             });
 
-            // 滚动到会话项位置
-            if (typeof this.scrollToSessionItem === 'function') {
+            // 滚动到会话项位置（等待侧边栏更新完成）
+            if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                await new Promise(resolve => setTimeout(resolve, 100));
                 await this.scrollToSessionItem(sessionId);
             }
 
@@ -124,8 +126,9 @@
                 updateUI: true
             });
 
-            // 滚动到会话项位置
-            if (typeof this.scrollToSessionItem === 'function') {
+            // 滚动到会话项位置（等待侧边栏更新完成）
+            if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                await new Promise(resolve => setTimeout(resolve, 100));
                 await this.scrollToSessionItem(sessionId);
             }
 
@@ -135,7 +138,7 @@
         }
     };
 
-    proto.activateSession = async function(sessionId, options = {}) {
+    proto.activateSession = async function (sessionId, options = {}) {
         const {
             saveCurrent = true,
             updateConsistency = true,
@@ -170,8 +173,8 @@
         // 跳过情况：1. 明确指定跳过；2. 新创建的会话（创建时间很近，5秒内）
         // 注意：即使是空白会话，如果已经同步到后端，也应该尝试获取最新数据
         const isBlankSession = !targetSession.url ||
-                              targetSession.url.startsWith('blank-session://') ||
-                              targetSession._isBlankSession;
+            targetSession.url.startsWith('blank-session://') ||
+            targetSession._isBlankSession;
         const isNewSession = targetSession.createdAt && (Date.now() - targetSession.createdAt) < 5000; // 5秒内创建的会话视为新会话
 
         // 即使判定为空白会话，也应该尝试从后端获取数据（除非明确指定跳过或新创建）
@@ -282,7 +285,7 @@
         }
     };
 
-    proto.createSessionObject = function(pageInfo, existingSession = null) {
+    proto.createSessionObject = function (pageInfo, existingSession = null) {
         const now = Date.now();
 
         // 如果是已有会话，保留消息和创建时间，以及 key
@@ -309,7 +312,7 @@
         };
     };
 
-    proto.ensureSessionConsistency = function(sessionId) {
+    proto.ensureSessionConsistency = function (sessionId) {
         if (!sessionId || !this.sessions[sessionId]) {
             return false;
         }
@@ -319,8 +322,8 @@
 
         // 检查是否为空白会话（不应该更新页面信息）
         const isBlankSession = session._isBlankSession ||
-                              !session.url ||
-                              session.url.startsWith('blank-session://');
+            !session.url ||
+            session.url.startsWith('blank-session://');
 
         if (isBlankSession) {
             console.log(`确保会话一致性 ${sessionId}：空白会话，跳过页面信息更新`);
@@ -363,11 +366,11 @@
         const currentPageTitle = pageInfo.title || pageInfo.pageTitle || '';
         const sessionPageTitle = session.pageTitle || session.title || '';
         const isDefaultTitle = !sessionPageTitle ||
-                              sessionPageTitle.trim() === '' ||
-                              sessionPageTitle === '未命名会话' ||
-                              sessionPageTitle === '新会话' ||
-                              sessionPageTitle === '未命名页面' ||
-                              sessionPageTitle === '当前页面';
+            sessionPageTitle.trim() === '' ||
+            sessionPageTitle === '未命名会话' ||
+            sessionPageTitle === '新会话' ||
+            sessionPageTitle === '未命名页面' ||
+            sessionPageTitle === '当前页面';
 
         if (isDefaultTitle && currentPageTitle && currentPageTitle !== sessionPageTitle) {
             console.log(`修复会话 ${sessionId} 的页面标题（从默认值更新）:`, sessionPageTitle, '->', currentPageTitle);
@@ -422,7 +425,7 @@
         return updated;
     };
 
-    proto.updateSessionPageInfo = function(sessionId, pageInfo) {
+    proto.updateSessionPageInfo = function (sessionId, pageInfo) {
         if (!this.sessions[sessionId]) return false;
 
         const session = this.sessions[sessionId];
@@ -430,8 +433,8 @@
         // 空白会话不应该更新URL、pageTitle、pageDescription和pageContent
         // 这些信息应该保持为创建时的信息
         const isBlankSession = session._isBlankSession ||
-                              !session.url ||
-                              session.url.startsWith('blank-session://');
+            !session.url ||
+            session.url.startsWith('blank-session://');
         if (isBlankSession) {
             console.log(`更新会话页面信息 ${sessionId}：空白会话，跳过页面信息更新`);
             // 空白会话的页面信息不应该被更新，只更新访问时间
@@ -475,7 +478,7 @@
 
     // ==================== 数据同步与持久化 ====================
 
-    proto.loadAllSessions = async function() {
+    proto.loadAllSessions = async function () {
         // 从后端强制加载会话列表（只在聊天窗口打开时）
         if (this.isChatOpen) {
             await this.loadSessionsFromBackend(true);
@@ -487,7 +490,7 @@
         }
     };
 
-    proto.saveAllSessions = async function(force = false, syncToBackend = true) {
+    proto.saveAllSessions = async function (force = false, syncToBackend = true) {
         const now = Date.now();
 
         // 如果不在强制模式下，且距离上次保存时间太短，则延迟保存
@@ -519,7 +522,7 @@
         return await this._doSaveAllSessions(syncToBackend);
     };
 
-    proto._doSaveAllSessions = async function(syncToBackend = true) {
+    proto._doSaveAllSessions = async function (syncToBackend = true) {
         this.lastSessionSaveTime = Date.now();
 
         // 异步同步到后端（使用队列批量保存，不阻塞保存流程）
@@ -533,7 +536,7 @@
         }
     };
 
-    proto.syncSessionToBackend = async function(sessionId, immediate = false, includePageContent = false) {
+    proto.syncSessionToBackend = async function (sessionId, immediate = false, includePageContent = false) {
         try {
             // 只在聊天窗口打开时才调用接口
             if (!this.isChatOpen) {
@@ -554,8 +557,8 @@
             // 构建请求数据
             // 检查是否为空白会话
             const isBlankSession = session._isBlankSession ||
-                                  !session.url ||
-                                  session.url.startsWith('blank-session://');
+                !session.url ||
+                session.url.startsWith('blank-session://');
 
             // 如果是空白会话，应该保持使用原始的blank-session://URL，而不是当前页面URL
             let sessionUrl = '';
@@ -689,8 +692,8 @@
                         // 构建会话数据
                         // 检查是否为空白会话
                         const isBlankSession = session._isBlankSession ||
-                                              !session.url ||
-                                              session.url.startsWith('blank-session://');
+                            !session.url ||
+                            session.url.startsWith('blank-session://');
 
                         // 如果是接口会话，url应该使用接口的pageUrl或url，而不是session.url（可能被更新为当前页面URL）
                         // 如果是空白会话，应该保持使用原始的blank-session://URL，而不是当前页面URL
@@ -743,13 +746,13 @@
         }
     };
 
-    proto.loadSessionsFromBackend = async function(forceRefresh = false) {
+    proto.loadSessionsFromBackend = async function (forceRefresh = false) {
         try {
             // 检查是否需要刷新
             if (!forceRefresh) { return; }
             if (!this.isChatOpen) { return; }
-            if (this.hasLoadedSessionsForChat && this.lastSessionListLoadTime && (Date.now() - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) { 
-                return; 
+            if (this.hasLoadedSessionsForChat && this.lastSessionListLoadTime && (Date.now() - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) {
+                return;
             }
 
             // 使用API管理器获取会话列表
@@ -793,23 +796,23 @@
 
                 const sessionUrl = backendSession.url || '';
                 const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
-                
-                // 解析时间字段
-                const createdAt = parseTime(backendSession.createdAt) || 
-                                 parseTime(backendSession.createdTime) || 
-                                 parseTime(backendSession.created_time) || 
-                                 parseTime(backendSession.created_at) || 
-                                 Date.now();
-                
-                const updatedAt = parseTime(backendSession.updatedAt) || 
-                                 parseTime(backendSession.updatedTime) || 
-                                 parseTime(backendSession.updated_time) || 
-                                 parseTime(backendSession.updated_at) || 
-                                 Date.now();
 
-                const lastAccessTime = parseTime(backendSession.lastAccessTime) || 
-                                      parseTime(backendSession.last_access_time) || 
-                                      updatedAt;
+                // 解析时间字段
+                const createdAt = parseTime(backendSession.createdAt) ||
+                    parseTime(backendSession.createdTime) ||
+                    parseTime(backendSession.created_time) ||
+                    parseTime(backendSession.created_at) ||
+                    Date.now();
+
+                const updatedAt = parseTime(backendSession.updatedAt) ||
+                    parseTime(backendSession.updatedTime) ||
+                    parseTime(backendSession.updated_time) ||
+                    parseTime(backendSession.updated_at) ||
+                    Date.now();
+
+                const lastAccessTime = parseTime(backendSession.lastAccessTime) ||
+                    parseTime(backendSession.last_access_time) ||
+                    updatedAt;
 
                 // 构建本地会话对象
                 const localSession = {
@@ -850,21 +853,21 @@
 
     // ==================== 辅助方法 ====================
 
-    proto.getCurrentSessionId = function() {
+    proto.getCurrentSessionId = function () {
         const currentUrl = window.location.href;
         // 使用URL作为会话ID的基础，如果URL过长则使用hash
         // 为了保持向后兼容和唯一性，我们使用generateSessionId，但在initSession中通过URL查找
         return currentUrl;
     };
 
-    proto.findSessionByUrl = function(url) {
+    proto.findSessionByUrl = function (url) {
         return Object.values(this.sessions).find(session => session.url === url) || null;
     };
 
-    proto.generateSessionId = async function(url) {
+    proto.generateSessionId = async function (url) {
         // 确保md5函数可用
         const md5Func = typeof md5 !== 'undefined' ? md5 :
-                       (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
+            (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
 
         if (!md5Func) {
             console.error('MD5函数未找到，请确保已加载md5.js');
@@ -888,7 +891,7 @@
         return md5Func(url);
     };
 
-    proto.hashString = async function(str) {
+    proto.hashString = async function (str) {
         // 使用 SHA-256 生成哈希
         const msgBuffer = new TextEncoder().encode(str);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -898,7 +901,7 @@
         return hashHex.substring(0, 32);
     };
 
-    proto._getSessionsFromLocal = function() {
+    proto._getSessionsFromLocal = function () {
         // 确保 sessions 对象已初始化
         if (!this.sessions) {
             this.sessions = {};
@@ -938,7 +941,7 @@
         return Array.from(sessionMap.values());
     };
 
-    proto._getFilteredSessions = function() {
+    proto._getFilteredSessions = function () {
         let allSessions = this._getSessionsFromLocal();
 
         // 分离收藏的会话和非收藏的会话
@@ -1050,7 +1053,7 @@
         return [...filteredFavorites, ...filteredNonFavorite];
     };
 
-    proto._getSessionDisplayTitle = function(session) {
+    proto._getSessionDisplayTitle = function (session) {
         if (!session) return '未命名会话';
 
         // 优先使用会话的 pageTitle，如果没有则使用 title
@@ -1077,12 +1080,12 @@
                 }
             }
         }
-        
+
         return sessionTitle;
     };
-    
+
     // Tag related methods
-    proto.loadTagOrder = function() {
+    proto.loadTagOrder = function () {
         try {
             const savedOrder = localStorage.getItem('pet_session_tag_order');
             if (savedOrder) {
@@ -1096,7 +1099,7 @@
         }
     };
 
-    proto.saveTagOrder = function(tagOrder) {
+    proto.saveTagOrder = function (tagOrder) {
         try {
             localStorage.setItem('pet_session_tag_order', JSON.stringify(tagOrder));
             this.tagOrder = tagOrder;
@@ -1105,7 +1108,7 @@
         }
     };
 
-    proto.getAllTags = function() {
+    proto.getAllTags = function () {
         // 使用与updateSessionSidebar相同的过滤逻辑
         let allSessions = this._getSessionsFromLocal();
 
@@ -1163,7 +1166,7 @@
         return [...priorityTagList, ...otherTags];
     };
 
-    proto.addMessageToSession = async function(type, content, timestamp = null, syncToBackend = true, imageDataUrl = null) {
+    proto.addMessageToSession = async function (type, content, timestamp = null, syncToBackend = true, imageDataUrl = null) {
         if (!this.currentSessionId) {
             console.warn('没有当前会话，无法添加消息');
             return;
@@ -1246,7 +1249,7 @@
         // addMessageToSession 不再自动保存，保存逻辑由 prompt 接口调用后统一处理
     };
 
-    proto.saveCurrentSession = async function(force = false, syncToBackend = true) {
+    proto.saveCurrentSession = async function (force = false, syncToBackend = true) {
         if (!this.currentSessionId) return;
 
         // 确保会话存在
@@ -1311,13 +1314,13 @@
                 // 只有在需要从 DOM 恢复时才使用
             }
         }
-        
+
         // 实际保存逻辑
         await this.saveAllSessions(force, syncToBackend);
     };
 
     // 创建空白新会话（手动添加）
-    proto.createBlankSession = async function() {
+    proto.createBlankSession = async function () {
         // 确保已加载所有会话
         await this.loadAllSessions();
 
@@ -1483,7 +1486,7 @@
     };
 
     // 延迟初始化会话：等待页面加载完成后1秒再执行
-    proto.initSessionWithDelay = async function() {
+    proto.initSessionWithDelay = async function () {
         // 使用标志防止重复执行
         if (this.sessionInitPending) {
             return;
@@ -1520,7 +1523,7 @@
      * @param {string} sessionId - 会话ID（可选，默认使用当前会话ID）
      * @returns {Promise<boolean>} 如果会话已存在于后端列表中返回true，否则返回false
      */
-    proto.isSessionInBackendList = async function(sessionId = null) {
+    proto.isSessionInBackendList = async function (sessionId = null) {
         const targetSessionId = sessionId || this.currentSessionId;
         if (!targetSessionId) {
             return false;
@@ -1587,7 +1590,7 @@
     };
 
     // 手动刷新
-    proto.manualRefresh = async function() {
+    proto.manualRefresh = async function () {
         const refreshBtn = document.getElementById('pet-chat-refresh-btn');
         if (!refreshBtn) return;
 
@@ -1615,7 +1618,7 @@
     };
 
     // 从消息元素获取时间戳
-    proto.getMessageTimestamp = function(msgEl) {
+    proto.getMessageTimestamp = function (msgEl) {
         const timeEl = msgEl.querySelector('[data-message-time="true"]');
         if (timeEl) {
             const timeText = timeEl.textContent.trim();
@@ -1627,7 +1630,7 @@
 
     // 切换到指定会话（确保数据一致性）
     // 注意：手动切换会话时不调用 session/save 接口
-    proto.switchSession = async function(sessionId) {
+    proto.switchSession = async function (sessionId) {
         // 防抖：如果正在切换或点击的是当前会话，直接返回
         if (this.isSwitchingSession || sessionId === this.currentSessionId) {
             return;
@@ -1731,7 +1734,7 @@
     };
 
     // 删除会话
-    proto.deleteSession = async function(sessionId, skipConfirm = false) {
+    proto.deleteSession = async function (sessionId, skipConfirm = false) {
         if (!sessionId || !this.sessions[sessionId]) return;
 
         // 获取会话标题用于提示
@@ -1798,7 +1801,13 @@
                     return bTime - aTime; // 最近访问的在前
                 })[0];
 
-                await this.activateSession(latestSession.id, {
+                // 使用 key 作为会话标识符
+                const latestSessionKey = latestSession.key;
+                if (!latestSessionKey) {
+                    console.warn('最新会话缺少 key 字段，无法切换:', latestSession);
+                    return;
+                }
+                await this.activateSession(latestSessionKey, {
                     saveCurrent: false, // 已经在前面保存了
                     updateUI: true,
                     syncToBackend: false // 删除会话后的自动切换不调用 session/save 接口
@@ -1825,7 +1834,7 @@
     };
 
     // 创建会话副本
-    proto.duplicateSession = async function(sessionId) {
+    proto.duplicateSession = async function (sessionId) {
         if (!sessionId || !this.sessions[sessionId]) {
             this.showNotification('会话不存在', 'error');
             return;
@@ -1889,16 +1898,16 @@
                     if (PET_CONFIG.api.syncSessionsToBackend && this.isChatOpen) {
                         try {
                             await this.loadSessionsFromBackend(true);
-                    } catch (loadError) {
-                        console.warn('从后端加载会话列表失败，使用本地数据:', loadError);
-                        // 不进行本地缓存，仅更新UI
+                        } catch (loadError) {
+                            console.warn('从后端加载会话列表失败，使用本地数据:', loadError);
+                            // 不进行本地缓存，仅更新UI
+                        }
+                    } else {
+                        // 如果没有启用后端同步，也不进行本地缓存
                     }
-                } else {
-                    // 如果没有启用后端同步，也不进行本地缓存
-                }
 
-                // 刷新侧边栏UI
-                await this.updateSessionUI({ updateSidebar: true });
+                    // 刷新侧边栏UI
+                    await this.updateSessionUI({ updateSidebar: true });
 
                     this.showNotification('会话副本已创建', 'success');
                 } catch (error) {
@@ -1920,7 +1929,7 @@
         }
     };
 
-    proto.formatSessionTime = function(timestamp) {
+    proto.formatSessionTime = function (timestamp) {
         if (!timestamp) return '';
         const now = Date.now();
         const diff = now - timestamp;
@@ -1936,7 +1945,7 @@
     };
 
     // 编辑会话标题和描述
-    proto.editSessionTitle = async function(sessionId) {
+    proto.editSessionTitle = async function (sessionId) {
         if (!sessionId || !this.sessions[sessionId]) {
             console.warn('会话不存在，无法编辑标题:', sessionId);
             return;
@@ -1951,7 +1960,7 @@
     };
 
     // 切换会话收藏状态
-    proto.toggleSessionFavorite = async function(sessionId) {
+    proto.toggleSessionFavorite = async function (sessionId) {
         if (!sessionId || !this.sessions[sessionId]) {
             console.warn('会话不存在，无法切换收藏状态:', sessionId);
             return;

@@ -100,7 +100,7 @@
 
             // 先处理 URL 匹配和会话创建/选中（确保会话列表已加载）
             // 这个方法会检查当前 URL 是否在会话列表中，如果不在则创建新会话
-            await this.handleUrlBasedSession();
+            const matchedSessionId = await this.handleUrlBasedSession();
 
             // 如果 handleUrlBasedSession 没有创建/选中会话，则调用 initSession 作为后备
             if (!this.currentSessionId) {
@@ -121,6 +121,15 @@
             // 确保会话侧边栏已更新（如果侧边栏已创建）
             if (this.sessionSidebar) {
                 await this.updateSessionSidebar();
+
+                // 在侧边栏更新完成后，滚动到 URL 匹配的会话项位置
+                // 使用 matchedSessionId 或 currentSessionId
+                const sessionIdToScroll = matchedSessionId || this.currentSessionId;
+                if (sessionIdToScroll && typeof this.scrollToSessionItem === 'function') {
+                    // 等待侧边栏完全渲染后再滚动
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await this.scrollToSessionItem(sessionIdToScroll);
+                }
             }
 
 
@@ -156,9 +165,12 @@
 
             // 先处理 URL 匹配和会话创建/选中（确保会话列表已加载）
             // 这个方法会检查当前 URL 是否在会话列表中，如果不在则创建新会话
-            await this.handleUrlBasedSession();
+            const matchedSessionId = await this.handleUrlBasedSession();
 
-            await this.initSession();
+            // 如果 handleUrlBasedSession 没有创建/选中会话，则调用 initSession 作为后备
+            if (!this.currentSessionId) {
+                await this.initSession();
+            }
 
             await this.createChatWindow();
             this.isChatOpen = true;
@@ -166,6 +178,16 @@
 
             // 更新聊天窗口标题（显示当前会话名称）
             this.updateChatHeaderTitle();
+
+            // 在侧边栏创建完成后，滚动到 URL 匹配的会话项位置
+            if (this.sessionSidebar) {
+                const sessionIdToScroll = matchedSessionId || this.currentSessionId;
+                if (sessionIdToScroll && typeof this.scrollToSessionItem === 'function') {
+                    // 等待侧边栏完全渲染后再滚动
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await this.scrollToSessionItem(sessionIdToScroll);
+                }
+            }
         });
     };
 
@@ -899,7 +921,7 @@
      * 这个方法确保在创建欢迎消息时，会话已正确初始化并选中
      * @param {string} url - 页面URL
      */
-    proto.autoHandleSessionForUrl = async function(url) {
+    proto.autoHandleSessionForUrl = async function (url) {
         if (!url) {
             console.warn('URL为空，跳过自动处理会话');
             return;
@@ -933,9 +955,9 @@
      * @param {Object} targetSession - 目标会话对象
      * @returns {string|null} 对应的 sessionId，如果未找到则返回 null
      */
-    proto._findSessionIdBySession = function(targetSession) {
+    proto._findSessionIdBySession = function (targetSession) {
         if (!targetSession) return null;
-        
+
         // 遍历所有会话，找到匹配的会话对象
         for (const [sessionId, session] of Object.entries(this.sessions)) {
             // 通过对象引用或 key 字段匹配
@@ -953,7 +975,7 @@
      * 
      * 重新设计：直接基于 URL 查找会话，不依赖 sessionId 进行查找
      */
-    proto.handleUrlBasedSession = async function() {
+    proto.handleUrlBasedSession = async function () {
         try {
             // 确保会话列表已加载（如果使用后端同步）
             if (this.sessionApi && this.sessionApi.isEnabled()) {
@@ -1011,8 +1033,12 @@
                         });
                     }
 
-                    // 滚动到会话项位置
-                    if (typeof this.scrollToSessionItem === 'function') {
+                    // 注意：滚动到会话项位置应该在侧边栏更新完成后进行
+                    // 这里不立即滚动，由 openChatWindow 在 updateSessionSidebar 后统一处理
+                    // 但如果侧边栏已经存在，也可以立即滚动
+                    if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                        // 等待侧边栏更新完成
+                        await new Promise(resolve => setTimeout(resolve, 100));
                         await this.scrollToSessionItem(matchedSessionKey);
                     }
 
@@ -1024,10 +1050,10 @@
                 try {
                     // 创建会话数据对象（不包含 key，让后端生成）
                     const sessionData = this.createSessionObject(pageInfo);
-                    
+
                     // 获取当前时间戳
                     const now = Date.now();
-                    
+
                     // 构建要发送到后端的会话数据（不包含 key）
                     // 优先使用当前页面 URL，如果没有则使用会话数据中的 URL
                     const sessionDataToSave = {
@@ -1043,7 +1069,7 @@
                         updatedAt: now,
                         lastAccessTime: now
                     };
-                    
+
                     // 如果启用了后端同步，调用后端 API 创建会话
                     if (this.sessionApi && this.sessionApi.isEnabled()) {
                         // 调用后端 create_document API（不提供 key，让后端生成）
@@ -1055,17 +1081,17 @@
                                 data: sessionDataToSave
                             }
                         };
-                        
+
                         const url = `${this.sessionApi.baseUrl}/`;
                         const response = await this.sessionApi._request(url, {
                             method: 'POST',
                             body: JSON.stringify(payload)
                         });
-                        
+
                         if (response && response.success !== false) {
                             // 从响应中提取后端生成的 key
                             let sessionKey = null;
-                            
+
                             // 尝试从不同位置提取 key
                             if (response.data && response.data.key) {
                                 sessionKey = response.data.key;
@@ -1077,7 +1103,7 @@
                                 // 如果后端返回的是 _id，使用 _id 作为 key
                                 sessionKey = response.data._id;
                             }
-                            
+
                             if (!sessionKey) {
                                 console.warn('[handleUrlBasedSession] 后端响应中未找到 key，尝试从返回的数据中提取');
                                 // 如果响应中直接是会话对象，尝试提取 key
@@ -1085,26 +1111,26 @@
                                     sessionKey = response.data.key || response.data._id || response.data.id;
                                 }
                             }
-                            
+
                             if (sessionKey) {
                                 // 使用后端生成的 key 更新会话数据
                                 sessionDataToSave.key = sessionKey;
-                                
+
                                 // 创建完整的会话对象
                                 const newSession = {
                                     ...sessionDataToSave,
                                     key: sessionKey
                                 };
-                                
+
                                 // 使用 key 作为 sessionId 存储到本地
                                 const sessionId = sessionKey;
                                 this.sessions[sessionId] = newSession;
-                                
+
                                 // 保存到本地存储
                                 if (typeof this.saveSession === 'function') {
                                     await this.saveSession(sessionId);
                                 }
-                                
+
                                 // 自动选中新创建的会话
                                 if (typeof this.activateSession === 'function') {
                                     await this.activateSession(sessionId, {
@@ -1113,12 +1139,16 @@
                                         updateUI: true
                                     });
                                 }
-                                
-                                // 滚动到会话项位置
-                                if (typeof this.scrollToSessionItem === 'function') {
+
+                                // 注意：滚动到会话项位置应该在侧边栏更新完成后进行
+                                // 这里不立即滚动，由 openChatWindow 在 updateSessionSidebar 后统一处理
+                                // 但如果侧边栏已经存在，也可以立即滚动
+                                if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                                    // 等待侧边栏更新完成
+                                    await new Promise(resolve => setTimeout(resolve, 100));
                                     await this.scrollToSessionItem(sessionId);
                                 }
-                                
+
                                 console.log('[handleUrlBasedSession] 已通过后端创建新会话，Key:', sessionKey, 'URL:', currentUrl);
                                 return sessionId;
                             } else {
@@ -1133,15 +1163,15 @@
                         console.warn('[handleUrlBasedSession] 后端同步未启用，使用本地方式创建会话');
                         const tempKey = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                         sessionDataToSave.key = tempKey;
-                        
+
                         const sessionId = tempKey;
                         this.sessions[sessionId] = sessionDataToSave;
-                        
+
                         // 保存到本地存储
                         if (typeof this.saveSession === 'function') {
                             await this.saveSession(sessionId);
                         }
-                        
+
                         // 自动选中新创建的会话
                         if (typeof this.activateSession === 'function') {
                             await this.activateSession(sessionId, {
@@ -1150,7 +1180,16 @@
                                 updateUI: true
                             });
                         }
-                        
+
+                        // 注意：滚动到会话项位置应该在侧边栏更新完成后进行
+                        // 这里不立即滚动，由 openChatWindow 在 updateSessionSidebar 后统一处理
+                        // 但如果侧边栏已经存在，也可以立即滚动
+                        if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                            // 等待侧边栏更新完成
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            await this.scrollToSessionItem(sessionId);
+                        }
+
                         console.log('[handleUrlBasedSession] 已通过本地方式创建新会话，临时 Key:', tempKey, 'URL:', currentUrl);
                         return sessionId;
                     }
@@ -1170,7 +1209,7 @@
      * 滚动到指定的会话项位置（锚定）
      * @param {string} sessionId - 会话ID
      */
-    proto.scrollToSessionItem = async function(sessionId) {
+    proto.scrollToSessionItem = async function (sessionId) {
         if (!this.sessionSidebar || !sessionId) {
             return;
         }
@@ -1178,18 +1217,41 @@
         // 等待DOM更新
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        // 查找会话项
-        const sessionItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionId}"]`);
+        // 查找会话项（只使用 key）
+        // 首先尝试直接使用 sessionId 查找（如果 sessionId 就是 key）
+        let sessionItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionId}"]`);
+
+        // 如果找不到，尝试从 sessions 中获取 key
+        if (!sessionItem && this.sessions[sessionId]) {
+            const session = this.sessions[sessionId];
+            const sessionKey = session.key;
+            if (sessionKey && sessionKey !== sessionId) {
+                sessionItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionKey}"]`);
+            }
+        }
+
         if (!sessionItem) {
-            console.warn('未找到会话项，尝试更新侧边栏后重试');
+            console.warn('未找到会话项，尝试更新侧边栏后重试，sessionId:', sessionId);
             // 如果找不到，先更新侧边栏
             if (typeof this.updateSessionSidebar === 'function') {
                 await this.updateSessionSidebar();
                 // 再次等待DOM更新
-                await new Promise(resolve => setTimeout(resolve, 200));
-                const retryItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionId}"]`);
-                if (retryItem) {
-                    this._scrollToElement(retryItem);
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                // 再次尝试查找
+                sessionItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionId}"]`);
+                if (!sessionItem && this.sessions[sessionId]) {
+                    const session = this.sessions[sessionId];
+                    const sessionKey = session.key;
+                    if (sessionKey && sessionKey !== sessionId) {
+                        sessionItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionKey}"]`);
+                    }
+                }
+
+                if (sessionItem) {
+                    this._scrollToElement(sessionItem);
+                } else {
+                    console.warn('更新侧边栏后仍未找到会话项，sessionId:', sessionId);
                 }
             }
             return;
@@ -1203,7 +1265,7 @@
      * 滚动到指定元素（内部方法）
      * @param {HTMLElement} element - 要滚动到的元素
      */
-    proto._scrollToElement = function(element) {
+    proto._scrollToElement = function (element) {
         if (!element) return;
 
         // 查找可滚动的父容器
@@ -1213,16 +1275,16 @@
         // 计算元素相对于容器的位置
         const containerRect = scrollableContainer.getBoundingClientRect();
         const elementRect = element.getBoundingClientRect();
-        
+
         // 计算需要滚动的距离
         const scrollTop = scrollableContainer.scrollTop;
         const elementTop = elementRect.top - containerRect.top + scrollTop;
         const elementHeight = elementRect.height;
         const containerHeight = containerRect.height;
-        
+
         // 计算目标滚动位置（让元素居中显示）
         const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
-        
+
         // 平滑滚动
         scrollableContainer.scrollTo({
             top: Math.max(0, targetScrollTop),

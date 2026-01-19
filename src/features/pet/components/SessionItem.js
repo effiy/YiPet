@@ -2,7 +2,7 @@
  * SessionItem Component
  * Handles rendering and interaction for a single session item in the sidebar.
  */
-(function() {
+(function () {
     'use strict';
 
     // Ensure namespace exists
@@ -20,36 +20,42 @@
             const session = this.session;
             const manager = this.manager;
 
-        const sessionItem = document.createElement('div');
-        sessionItem.className = 'session-item';
-        sessionItem.dataset.sessionId = session.id;
-        
+            const sessionItem = document.createElement('div');
+            sessionItem.className = 'session-item';
+            // 只使用 key 作为会话标识符（与后端保持一致）
+            const sessionKey = session.key;
+            if (!sessionKey) {
+                console.warn('会话缺少 key 字段:', session);
+                return sessionItem; // 返回空元素，避免错误
+            }
+            sessionItem.dataset.sessionId = sessionKey;
 
-        // Selected state
-        if (manager.currentSessionId === session.id) {
-            sessionItem.classList.add('selected');
-        }
+            // Selected state - 检查 currentSessionId 是否匹配 key
+            const currentSessionId = manager.currentSessionId;
+            if (currentSessionId === sessionKey) {
+                sessionItem.classList.add('selected');
+            }
 
-        const itemInner = document.createElement('div');
-        itemInner.className = 'session-item-inner';
+            const itemInner = document.createElement('div');
+            itemInner.className = 'session-item-inner';
 
-        // Checkbox
-        const checkboxContainer = this.createCheckbox(sessionItem);
-        itemInner.appendChild(checkboxContainer);
+            // Checkbox
+            const checkboxContainer = this.createCheckbox(sessionItem);
+            itemInner.appendChild(checkboxContainer);
 
-        // Content
-        const contentWrapper = this.createContent();
-        itemInner.appendChild(contentWrapper);
+            // Content
+            const contentWrapper = this.createContent();
+            itemInner.appendChild(contentWrapper);
 
-        sessionItem.appendChild(itemInner);
+            sessionItem.appendChild(itemInner);
 
-        // Long press logic
-        this.setupLongPress(sessionItem);
+            // Long press logic
+            this.setupLongPress(sessionItem);
 
             // Click handler (activate session)
             sessionItem.addEventListener('click', async (e) => {
                 // Ignore if clicking checkbox, favorite button, or action buttons
-                if (e.target.closest('.session-checkbox') || 
+                if (e.target.closest('.session-checkbox') ||
                     e.target.closest('.session-favorite-btn') ||
                     e.target.closest('button') ||
                     e.target.closest('.session-tag-item')) {
@@ -76,10 +82,16 @@
                 sessionItem.classList.add('clicked');
                 sessionItem.style.pointerEvents = 'none';
                 try {
+                    // 只使用 key 作为会话标识符
+                    const sessionKey = session.key;
+                    if (!sessionKey) {
+                        console.warn('会话缺少 key 字段，无法切换:', session);
+                        return;
+                    }
                     if (typeof manager.switchSession === 'function') {
-                        await manager.switchSession(session.id);
+                        await manager.switchSession(sessionKey);
                     } else if (typeof manager.activateSession === 'function') {
-                        await manager.activateSession(session.id);
+                        await manager.activateSession(sessionKey);
                     }
                 } catch (error) {
                     console.error('切换会话失败:', error);
@@ -105,27 +117,37 @@
             const manager = this.manager;
             const session = this.session;
 
-        const checkboxContainer = document.createElement('div');
-        checkboxContainer.className = 'session-checkbox';
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = manager.selectedSessionIds && manager.selectedSessionIds.has(session.id);
-            
+            const checkboxContainer = document.createElement('div');
+            checkboxContainer.className = 'session-checkbox';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            const sessionKey = session.key;
+            if (!sessionKey) {
+                console.warn('会话缺少 key 字段，无法设置复选框:', session);
+                return checkboxContainer;
+            }
+            checkbox.checked = manager.selectedSessionIds && manager.selectedSessionIds.has(sessionKey);
+
             checkbox.addEventListener('change', (e) => {
                 const checked = e.target.checked;
                 if (!manager.selectedSessionIds) {
                     manager.selectedSessionIds = new Set();
                 }
-                
+
+                const sessionKey = session.key;
+                if (!sessionKey) {
+                    console.warn('会话缺少 key 字段，无法更新选中状态:', session);
+                    return;
+                }
                 if (checked) {
-                    manager.selectedSessionIds.add(session.id);
+                    manager.selectedSessionIds.add(sessionKey);
                     sessionItem.classList.add('selected');
                 } else {
-                    manager.selectedSessionIds.delete(session.id);
+                    manager.selectedSessionIds.delete(sessionKey);
                     sessionItem.classList.remove('selected');
                 }
-                
+
                 if (typeof manager.updateBatchToolbar === 'function') {
                     manager.updateBatchToolbar();
                 }
@@ -139,142 +161,153 @@
             const session = this.session;
             const manager = this.manager;
 
-        const contentWrapper = document.createElement('div');
-        contentWrapper.className = 'session-item-content';
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'session-item-content';
 
-        // 1. Header (Title + Fav)
-        const header = document.createElement('div');
-        header.className = 'session-item-header';
+            // 1. Header (Title + Fav)
+            const header = document.createElement('div');
+            header.className = 'session-item-header';
 
-        const title = document.createElement('div');
-        title.className = 'session-item-title';
+            const title = document.createElement('div');
+            title.className = 'session-item-title';
 
-        // Fav Icon - 使用 session-favorite-btn 类名与 YiWeb 保持一致
-        const favIcon = document.createElement('button');
-        favIcon.type = 'button';
-        favIcon.className = 'session-favorite-btn';
-        favIcon.textContent = session.isFavorite ? '❤️' : '🤍';
-        if (session.isFavorite) {
-            favIcon.classList.add('active');
-        }
-        favIcon.title = session.isFavorite ? '取消收藏' : '收藏';
-        favIcon.setAttribute('aria-label', session.isFavorite ? '取消收藏' : '收藏');
-        favIcon.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const newVal = !session.isFavorite;
-            try {
-                await manager.setSessionFavorite(session.id, newVal);
-                favIcon.textContent = newVal ? '❤️' : '🤍';
-                if (newVal) {
-                    favIcon.classList.add('active');
-                } else {
-                    favIcon.classList.remove('active');
-                }
-                favIcon.title = newVal ? '取消收藏' : '收藏';
-                favIcon.setAttribute('aria-label', newVal ? '取消收藏' : '收藏');
-                
-                const titleText = title.querySelector('.title-text');
-                if (titleText) {
-                    if (newVal) {
-                        titleText.classList.add('title-text--favorite');
-                    } else {
-                        titleText.classList.remove('title-text--favorite');
-                    }
-                }
-                
-                // Note: Calling updateSessionSidebar might be too heavy here if we just updated DOM
-                // But to be safe and consistent with original code:
-                await manager.updateSessionSidebar(false, false);
-                manager.showNotification(newVal ? '已收藏会话' : '已取消收藏', 'success');
-            } catch (err) {
-                console.error('更新收藏状态失败:', err);
-                manager.showNotification('更新收藏状态失败', 'error');
+            // Fav Icon - 使用 session-favorite-btn 类名与 YiWeb 保持一致
+            const favIcon = document.createElement('button');
+            favIcon.type = 'button';
+            favIcon.className = 'session-favorite-btn';
+            favIcon.textContent = session.isFavorite ? '❤️' : '🤍';
+            if (session.isFavorite) {
+                favIcon.classList.add('active');
             }
-        });
-
-        // Title Text
-        const titleText = document.createElement('span');
-        titleText.className = 'title-text';
-        const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.pageTitle || session.id);
-        titleText.textContent = sessionTitle;
-        titleText.title = sessionTitle;
-        if (session.isFavorite) {
-            titleText.classList.add('title-text--favorite');
-        }
-
-        title.appendChild(favIcon);
-        title.appendChild(titleText);
-        header.appendChild(title);
-        contentWrapper.appendChild(header);
-
-        // 2. Session Info (Tags + Footer)
-        const sessionInfo = document.createElement('div');
-        sessionInfo.className = 'session-item-info';
-
-        // Tags
-        if (session.tags && session.tags.length > 0) {
-            const tagsContainer = document.createElement('div');
-            tagsContainer.className = 'session-tags';
-
-            const normalizedTags = session.tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
-            normalizedTags.forEach(tag => {
-                const tagElement = document.createElement('span');
-                tagElement.className = 'session-tag-item';
-                tagElement.textContent = tag;
-                const tagColor = manager.getTagColor(tag);
-                tagElement.style.setProperty('--tag-bg', tagColor.background);
-                tagElement.style.setProperty('--tag-text', tagColor.text);
-                tagElement.style.setProperty('--tag-border', tagColor.border);
-                
-                // Add click handler for tag filtering if needed
-                // tagElement.addEventListener('click', (e) => { ... });
-
-                tagsContainer.appendChild(tagElement);
-            });
-            sessionInfo.appendChild(tagsContainer);
-        }
-
-        // Footer (Time + Buttons)
-        const footer = document.createElement('div');
-        footer.className = 'session-item-footer';
-
-        // Time
-        const timeSpan = document.createElement('span');
-        const sessionTime = session.lastAccessTime || session.lastActiveAt || session.updatedAt || session.createdAt || 0;
-        if (sessionTime) {
-            const date = new Date(sessionTime);
-            if (!isNaN(date.getTime())) {
-                timeSpan.textContent = manager.formatDate(date);
-            }
-        }
-        footer.appendChild(timeSpan);
-
-        // Action Buttons
-        const footerButtonContainer = document.createElement('div');
-        footerButtonContainer.className = 'session-action-buttons';
-
-        // Create buttons - 使用图标和类名匹配 YiWeb 设计
-        const createBtn = (icon, title, className, onClick) => {
-            const btn = document.createElement('button');
-            btn.innerHTML = icon;
-            btn.title = title;
-            btn.className = `session-footer-btn ${className}`;
-            btn.setAttribute('aria-label', title);
-            btn.addEventListener('click', (e) => {
+            favIcon.title = session.isFavorite ? '取消收藏' : '收藏';
+            favIcon.setAttribute('aria-label', session.isFavorite ? '取消收藏' : '收藏');
+            favIcon.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onClick(e);
+                const newVal = !session.isFavorite;
+                try {
+                    const sessionKey = session.key;
+                    if (!sessionKey) {
+                        console.warn('会话缺少 key 字段，无法更新收藏状态:', session);
+                        return;
+                    }
+                    await manager.setSessionFavorite(sessionKey, newVal);
+                    favIcon.textContent = newVal ? '❤️' : '🤍';
+                    if (newVal) {
+                        favIcon.classList.add('active');
+                    } else {
+                        favIcon.classList.remove('active');
+                    }
+                    favIcon.title = newVal ? '取消收藏' : '收藏';
+                    favIcon.setAttribute('aria-label', newVal ? '取消收藏' : '收藏');
+
+                    const titleText = title.querySelector('.title-text');
+                    if (titleText) {
+                        if (newVal) {
+                            titleText.classList.add('title-text--favorite');
+                        } else {
+                            titleText.classList.remove('title-text--favorite');
+                        }
+                    }
+
+                    // Note: Calling updateSessionSidebar might be too heavy here if we just updated DOM
+                    // But to be safe and consistent with original code:
+                    await manager.updateSessionSidebar(false, false);
+                    manager.showNotification(newVal ? '已收藏会话' : '已取消收藏', 'success');
+                } catch (err) {
+                    console.error('更新收藏状态失败:', err);
+                    manager.showNotification('更新收藏状态失败', 'error');
+                }
             });
-            return btn;
-        };
+
+            // Title Text
+            const titleText = document.createElement('span');
+            titleText.className = 'title-text';
+            const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.pageTitle || session.title || '未命名会话');
+            titleText.textContent = sessionTitle;
+            titleText.title = sessionTitle;
+            if (session.isFavorite) {
+                titleText.classList.add('title-text--favorite');
+            }
+
+            title.appendChild(favIcon);
+            title.appendChild(titleText);
+            header.appendChild(title);
+            contentWrapper.appendChild(header);
+
+            // 2. Session Info (Tags + Footer)
+            const sessionInfo = document.createElement('div');
+            sessionInfo.className = 'session-item-info';
+
+            // Tags
+            if (session.tags && session.tags.length > 0) {
+                const tagsContainer = document.createElement('div');
+                tagsContainer.className = 'session-tags';
+
+                const normalizedTags = session.tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+                normalizedTags.forEach(tag => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'session-tag-item';
+                    tagElement.textContent = tag;
+                    const tagColor = manager.getTagColor(tag);
+                    tagElement.style.setProperty('--tag-bg', tagColor.background);
+                    tagElement.style.setProperty('--tag-text', tagColor.text);
+                    tagElement.style.setProperty('--tag-border', tagColor.border);
+
+                    // Add click handler for tag filtering if needed
+                    // tagElement.addEventListener('click', (e) => { ... });
+
+                    tagsContainer.appendChild(tagElement);
+                });
+                sessionInfo.appendChild(tagsContainer);
+            }
+
+            // Footer (Time + Buttons)
+            const footer = document.createElement('div');
+            footer.className = 'session-item-footer';
+
+            // Time
+            const timeSpan = document.createElement('span');
+            const sessionTime = session.lastAccessTime || session.lastActiveAt || session.updatedAt || session.createdAt || 0;
+            if (sessionTime) {
+                const date = new Date(sessionTime);
+                if (!isNaN(date.getTime())) {
+                    timeSpan.textContent = manager.formatDate(date);
+                }
+            }
+            footer.appendChild(timeSpan);
+
+            // Action Buttons
+            const footerButtonContainer = document.createElement('div');
+            footerButtonContainer.className = 'session-action-buttons';
+
+            // Create buttons - 使用图标和类名匹配 YiWeb 设计
+            const createBtn = (icon, title, className, onClick) => {
+                const btn = document.createElement('button');
+                btn.innerHTML = icon;
+                btn.title = title;
+                btn.className = `session-footer-btn ${className}`;
+                btn.setAttribute('aria-label', title);
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClick(e);
+                });
+                return btn;
+            };
 
             // Edit
             const editBtn = createBtn('✏️', '编辑标题', 'session-edit-btn', async () => {
+                const sessionKey = session.key;
+                if (!sessionKey) {
+                    console.warn('会话缺少 key 字段，无法编辑标题:', session);
+                    manager.showNotification('无法编辑标题：会话缺少标识符', 'error');
+                    return;
+                }
                 const newTitle = prompt('编辑会话标题', sessionTitle);
                 if (newTitle && newTitle.trim()) {
                     try {
-                        await manager.renameSession(session.id, newTitle.trim());
+                        await manager.renameSession(sessionKey, newTitle.trim());
                         titleText.textContent = newTitle.trim();
                         manager.showNotification('标题已更新', 'success');
                     } catch (err) {
@@ -286,15 +319,27 @@
 
             // Tag
             const tagBtn = createBtn('🏷️', '管理标签', 'session-tag-btn', async () => {
+                const sessionKey = session.key;
+                if (!sessionKey) {
+                    console.warn('会话缺少 key 字段，无法管理标签:', session);
+                    manager.showNotification('无法管理标签：会话缺少标识符', 'error');
+                    return;
+                }
                 if (typeof manager.openTagManager === 'function') {
-                    await manager.openTagManager(session.id);
+                    await manager.openTagManager(sessionKey);
                 }
             });
 
             // Duplicate
             const duplicateBtn = createBtn('📋', '创建副本', 'session-duplicate-btn', async () => {
+                const sessionKey = session.key;
+                if (!sessionKey) {
+                    console.warn('会话缺少 key 字段，无法创建副本:', session);
+                    manager.showNotification('无法创建副本：会话缺少标识符', 'error');
+                    return;
+                }
                 try {
-                    await manager.duplicateSession(session.id);
+                    await manager.duplicateSession(sessionKey);
                     await manager.updateSessionSidebar(false, false);
                     manager.showNotification('副本已创建', 'success');
                 } catch (err) {
@@ -305,8 +350,14 @@
 
             // Context
             const contextBtn = createBtn('📝', '页面上下文', 'session-context-btn', () => {
+                const sessionKey = session.key;
+                if (!sessionKey) {
+                    console.warn('会话缺少 key 字段，无法显示上下文:', session);
+                    manager.showNotification('无法显示上下文：会话缺少标识符', 'error');
+                    return;
+                }
                 if (typeof manager.showSessionContext === 'function') {
-                    manager.showSessionContext(session.id);
+                    manager.showSessionContext(sessionKey);
                 }
             });
 
@@ -338,46 +389,46 @@
         setupLongPress(element) {
             const manager = this.manager;
             const session = this.session;
-            
-        let longPressTimer = null;
-        let longPressProgressTimer = null;
-        const longPressThreshold = 800;
-        let isLongPressing = false;
-        let hasMoved = false;
-        let startX = 0;
-        let startY = 0;
-        let longPressStartTime = 0;
-        const moveThreshold = 10;
 
-        const progressBar = document.createElement('div');
-        progressBar.className = 'long-press-progress';
-        element.appendChild(progressBar);
+            let longPressTimer = null;
+            let longPressProgressTimer = null;
+            const longPressThreshold = 800;
+            let isLongPressing = false;
+            let hasMoved = false;
+            let startX = 0;
+            let startY = 0;
+            let longPressStartTime = 0;
+            const moveThreshold = 10;
 
-        const hintText = document.createElement('div');
-        hintText.className = 'long-press-hint';
-        hintText.textContent = '继续按住以删除';
-        element.appendChild(hintText);
+            const progressBar = document.createElement('div');
+            progressBar.className = 'long-press-progress';
+            element.appendChild(progressBar);
 
-        const clearLongPress = () => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            if (longPressProgressTimer) {
-                clearInterval(longPressProgressTimer);
-                longPressProgressTimer = null;
-            }
-            if (isLongPressing) {
-                element.classList.remove('long-pressing', 'long-press-start', 'long-press-active');
-                progressBar.style.width = '0%';
-                isLongPressing = false;
-            }
-        };
+            const hintText = document.createElement('div');
+            hintText.className = 'long-press-hint';
+            hintText.textContent = '继续按住以删除';
+            element.appendChild(hintText);
 
-        const startLongPress = (e) => {
-            // Ignore right click
+            const clearLongPress = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                if (longPressProgressTimer) {
+                    clearInterval(longPressProgressTimer);
+                    longPressProgressTimer = null;
+                }
+                if (isLongPressing) {
+                    element.classList.remove('long-pressing', 'long-press-start', 'long-press-active');
+                    progressBar.style.width = '0%';
+                    isLongPressing = false;
+                }
+            };
+
+            const startLongPress = (e) => {
+                // Ignore right click
                 if (e.button === 2) return;
-                
+
                 hasMoved = false;
                 startX = e.clientX;
                 startY = e.clientY;
@@ -387,20 +438,27 @@
 
                 longPressTimer = setTimeout(async () => {
                     if (hasMoved) return;
-                    
+
                     isLongPressing = true;
                     element.classList.add('long-press-active');
-                    
+
                     // Trigger delete
                     try {
-                        if (confirm(`确定要删除会话 "${manager.getSessionTitle ? manager.getSessionTitle(session) : session.id}" 吗？`)) {
-                            await manager.deleteSession(session.id);
+                        const sessionKey = session.key;
+                        if (!sessionKey) {
+                            console.warn('会话缺少 key 字段，无法删除:', session);
+                            manager.showNotification('无法删除：会话缺少标识符', 'error');
+                            return;
+                        }
+                        const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.pageTitle || session.title || '未命名会话');
+                        if (confirm(`确定要删除会话 "${sessionTitle}" 吗？`)) {
+                            await manager.deleteSession(sessionKey);
                         }
                     } catch (err) {
                         console.error('删除会话失败:', err);
                         manager.showNotification('删除会话失败', 'error');
                     }
-                    
+
                     clearLongPress();
                 }, longPressThreshold);
 
@@ -412,10 +470,10 @@
                         clearLongPress();
                         return;
                     }
-                    
+
                     const elapsed = Date.now() - longPressStartTime;
                     progress = Math.min(100, (elapsed / longPressThreshold) * 100);
-                    
+
                     if (progress > 10) { // Show visual feedback after a bit
                         element.classList.add('long-press-start');
                         progressBar.style.width = `${progress}%`;
@@ -430,10 +488,10 @@
 
             const onMove = (e) => {
                 if (!longPressTimer) return;
-                
+
                 const clientX = e.clientX || (e.touches && e.touches[0].clientX);
                 const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-                
+
                 if (Math.abs(clientX - startX) > moveThreshold || Math.abs(clientY - startY) > moveThreshold) {
                     hasMoved = true;
                     clearLongPress();

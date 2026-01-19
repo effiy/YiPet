@@ -7,7 +7,7 @@
     const proto = window.PetManager.prototype;
 
     // 加载JSZip库（参考loadMermaid的方式）
-    proto._loadJSZip = async function() {
+    proto._loadJSZip = async function () {
         // 检查是否已经加载
         if (this.jszipLoaded || this.jszipLoading) {
             return this.jszipLoaded;
@@ -51,8 +51,8 @@
                     if (errorMsg.includes('extension context invalidated') ||
                         errorMsg.includes('context invalidated') ||
                         errorMsg.includes('could not establish connection')) {
-                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED 
+                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED
                             : '扩展上下文已失效';
                         throw new Error(contextError);
                     }
@@ -118,7 +118,7 @@
     };
 
     // 根据标签和标题查找会话
-    proto._findSessionByTagsAndTitle = function(tags, title) {
+    proto._findSessionByTagsAndTitle = function (tags, title) {
         const allSessions = this._getSessionsFromLocal();
 
         // 将标签数组转换为字符串用于比较（排序后比较，确保顺序一致）
@@ -139,7 +139,7 @@
     };
 
     // 导入会话从ZIP文件
-    proto.importSessionsFromZip = async function(file) {
+    proto.importSessionsFromZip = async function (file) {
         try {
             // 显示加载提示
             this.showNotification('正在准备导入...', 'info');
@@ -196,8 +196,8 @@
                     if (errorMsg.includes('extension context invalidated') ||
                         errorMsg.includes('context invalidated') ||
                         errorMsg.includes('could not establish connection')) {
-                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED 
+                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED
                             : '扩展上下文已失效';
                         throw new Error(contextError);
                     }
@@ -206,8 +206,8 @@
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导入脚本URL失败:', error);
-                const importError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                const importError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
                     : '导入失败';
                 this.showNotification(`${importError}: ${errorMsg}`, 'error');
                 throw new Error(errorMsg);
@@ -330,9 +330,9 @@
 
                                         session.updatedAt = parsed.updatedAt || Date.now();
 
-                                        // 确保会话ID正确设置
-                                        if (!session.id) {
-                                            session.id = sessionId;
+                                        // 确保会话 key 正确设置（不再使用 id）
+                                        if (!session.key && sessionId) {
+                                            session.key = sessionId;
                                         }
 
                                         // 确保更新后的会话被保存到 this.sessions
@@ -477,7 +477,7 @@
     };
 
     // 导出会话为ZIP文件（使用页面上下文中的JSZip）
-    proto.exportSessionsToZip = async function() {
+    proto.exportSessionsToZip = async function () {
         try {
             // 显示加载提示
             this.showNotification('正在准备导出...', 'info');
@@ -509,7 +509,8 @@
             const exportData = [];
             for (let i = 0; i < sessions.length; i++) {
                 const session = sessions[i];
-                const sessionId = session.id || session.session_id;
+                // 优先使用 key，如果没有则使用 session_id（向后兼容）
+                const sessionId = session.key || session.session_id;
 
                 let fullSessionData = session; // 默认使用本地数据
 
@@ -580,8 +581,8 @@
                     if (errorMsg.includes('extension context invalidated') ||
                         errorMsg.includes('context invalidated') ||
                         errorMsg.includes('could not establish connection')) {
-                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED 
+                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED
                             : '扩展上下文已失效';
                         throw new Error(contextError);
                     }
@@ -590,8 +591,8 @@
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导出脚本URL失败:', error);
-                const exportError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                const exportError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
                     : '导出失败';
                 this.showNotification(`${exportError}: ${errorMsg}`, 'error');
                 throw new Error(errorMsg);

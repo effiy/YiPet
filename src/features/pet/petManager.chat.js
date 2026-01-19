@@ -469,7 +469,8 @@
             url: session.url || window.location.href,
             description: session.pageDescription || ''
         };
-        await this.createWelcomeMessage(messagesContainer, pageInfo);
+        // 在 switchSession 调用时跳过 autoHandleSessionForUrl，避免重复查询
+        await this.createWelcomeMessage(messagesContainer, pageInfo, true);
 
         // 确保欢迎消息的按钮容器存在并刷新角色按钮
         // 如果按钮容器不存在，创建一个临时的以确保 refreshWelcomeActionButtons 能正常工作
@@ -771,7 +772,7 @@
     //   - title: 页面标题
     //   - url: 页面URL
     //   - description: 页面描述（可选）
-    proto.createWelcomeMessage = async function (messagesContainer, pageInfo = null) {
+    proto.createWelcomeMessage = async function (messagesContainer, pageInfo = null, skipAutoHandle = false) {
         const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
 
         // 检查是否是接口会话
@@ -841,8 +842,10 @@
             messageText.setAttribute('data-original-text', pageInfoHtml);
         }
 
-        // 自动处理会话保存和选中
-        await this.autoHandleSessionForUrl(pageInfo.url);
+        // 自动处理会话保存和选中（仅在未跳过时执行）
+        if (!skipAutoHandle) {
+            await this.autoHandleSessionForUrl(pageInfo.url);
+        }
 
         return welcomeMessage;
     };

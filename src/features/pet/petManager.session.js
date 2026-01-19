@@ -182,52 +182,73 @@
         // 只有在聊天窗口已经打开过的情况下才调用后端接口，避免页面刷新时自动调用
         if (!skipBackendFetch && !isNewSession && this.sessionApi && this.sessionApi.isEnabled() && !this.isChatWindowFirstOpen) {
             try {
-                console.log('会话高亮，正在从后端获取完整数据:', sessionId);
-                const fullSession = await this.sessionApi.getSession(sessionId, true); // 强制刷新
+                // 使用 session.key 作为查询参数，而不是 sessionId
+                const sessionKey = targetSession.key || sessionId;
 
-                if (fullSession) {
-                    // 更新本地会话数据
-                    const existingSession = this.sessions[sessionId];
-                    if (existingSession) {
-                        // 合并完整数据
-                        if (fullSession.messages && Array.isArray(fullSession.messages)) {
-                            existingSession.messages = fullSession.messages;
-                        }
-                        if (fullSession.pageDescription) {
-                            existingSession.pageDescription = fullSession.pageDescription;
-                        }
-                        if (fullSession.pageContent) {
-                            existingSession.pageContent = fullSession.pageContent;
-                        }
-                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                        // 即使 pageTitle 是空字符串，也要更新（因为可能是有效的空值）
-                        const pageTitle = fullSession.pageTitle !== undefined ? fullSession.pageTitle : (fullSession.title !== undefined ? fullSession.title : existingSession.pageTitle);
-                        if (pageTitle !== undefined) {
-                            existingSession.pageTitle = pageTitle;
-                        }
-                        existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
-                        existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
-                        existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
+                // 防止重复查询：如果正在切换会话且已经查询过，跳过查询
+                // 初始化查询缓存（如果不存在）
+                if (!this._sessionQueryCache) {
+                    this._sessionQueryCache = {};
+                }
 
-                    } else {
-                        // 如果本地不存在，直接使用后端数据
-                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                        const pageTitle = fullSession.pageTitle || fullSession.title || '';
-                        // 确保有 key
-                        if (!fullSession.key) {
-                            fullSession.key = this._generateUUID();
+                // 检查是否在短时间内已经查询过（2秒内）
+                const now = Date.now();
+                const lastQueryTime = this._sessionQueryCache[sessionKey];
+                const QUERY_CACHE_INTERVAL = 2000; // 2秒缓存间隔
+
+                if (lastQueryTime && (now - lastQueryTime) < QUERY_CACHE_INTERVAL) {
+                    console.log('会话最近已查询过，跳过重复查询:', sessionKey);
+                } else {
+                    console.log('会话高亮，正在从后端获取完整数据:', sessionKey);
+                    const fullSession = await this.sessionApi.getSession(sessionKey, true); // 强制刷新
+
+                    // 更新查询缓存
+                    this._sessionQueryCache[sessionKey] = now;
+
+                    if (fullSession) {
+                        // 更新本地会话数据
+                        const existingSession = this.sessions[sessionId];
+                        if (existingSession) {
+                            // 合并完整数据
+                            if (fullSession.messages && Array.isArray(fullSession.messages)) {
+                                existingSession.messages = fullSession.messages;
+                            }
+                            if (fullSession.pageDescription) {
+                                existingSession.pageDescription = fullSession.pageDescription;
+                            }
+                            if (fullSession.pageContent) {
+                                existingSession.pageContent = fullSession.pageContent;
+                            }
+                            // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                            // 即使 pageTitle 是空字符串，也要更新（因为可能是有效的空值）
+                            const pageTitle = fullSession.pageTitle !== undefined ? fullSession.pageTitle : (fullSession.title !== undefined ? fullSession.title : existingSession.pageTitle);
+                            if (pageTitle !== undefined) {
+                                existingSession.pageTitle = pageTitle;
+                            }
+                            existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
+                            existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
+                            existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
+
+                        } else {
+                            // 如果本地不存在，直接使用后端数据
+                            // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
+                            const pageTitle = fullSession.pageTitle || fullSession.title || '';
+                            // 确保有 key
+                            if (!fullSession.key) {
+                                fullSession.key = this._generateUUID();
+                            }
+                            this.sessions[sessionId] = {
+                                ...fullSession,
+                                pageTitle: pageTitle
+                            };
                         }
-                        this.sessions[sessionId] = {
-                            ...fullSession,
-                            pageTitle: pageTitle
-                        };
-                    }
 
-                    // 本地不再缓存会话数据
+                        // 本地不再缓存会话数据
 
-                    // 如果这是当前会话，立即更新UI标题
-                    if (sessionId === this.currentSessionId && this.isChatOpen) {
-                        this.updateChatHeaderTitle();
+                        // 如果这是当前会话，立即更新UI标题
+                        if (sessionId === this.currentSessionId && this.isChatOpen) {
+                            this.updateChatHeaderTitle();
+                        }
                     }
                 }
             } catch (error) {

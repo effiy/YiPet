@@ -9,23 +9,24 @@ body {
     width: 350px;
     min-height: 500px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #333;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+    color: #f8fafc;  /* 量子白 */
     overflow-x: hidden;
     overflow-y: auto;
 }
 
 .popup-container {
-    background: white;
+    background: #1e293b;  /* 量子灰 */
     border-radius: 12px;
     margin: 8px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     overflow: visible;
+    border: 1px solid rgba(255,255,255,0.12);
 }
 
 /* 头部 */
 .header {
-    background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     color: white;
     padding: 20px;
     display: flex;
@@ -75,20 +76,20 @@ body {
 .status-dot {
     width: 8px;
     height: 8px;
-    background: #4CAF50;
+    background: #22c55e;  /* 现代绿 */
     border-radius: 50%;
     animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
     0% {
-        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
     }
     70% {
-        box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+        box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
     }
     100% {
-        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
     }
 }
 
@@ -106,10 +107,10 @@ body {
 .control-section h3 {
     font-size: 14px;
     font-weight: 600;
-    color: #555;
+    color: #f8fafc;  /* 量子白 */
     margin-bottom: 15px;
     padding-bottom: 8px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid rgba(255,255,255,0.12);
 }
 
 .control-group {
@@ -151,47 +152,47 @@ body {
 }
 
 .control-btn.primary {
-    background: linear-gradient(135deg, #4CAF50, #45a049);
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
     color: white;
 }
 
 .control-btn.primary:hover {
-    background: linear-gradient(135deg, #45a049, #3d8b40);
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 50%, #166534 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
 .control-btn.secondary {
-    background: linear-gradient(135deg, #2196F3, #1976D2);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
     color: white;
 }
 
 .control-btn.secondary:hover {
-    background: linear-gradient(135deg, #1976D2, #1565C0);
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .control-btn.warning {
-    background: linear-gradient(135deg, #FF9800, #F57C00);
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%);
     color: white;
 }
 
 .control-btn.warning:hover {
-    background: linear-gradient(135deg, #F57C00, #EF6C00);
+    background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #92400e 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 .control-btn.info {
-    background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     color: white;
 }
 
 .control-btn.info:hover {
-    background: linear-gradient(135deg, #7B1FA2, #6A1B9A);
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 50%, #d946ef 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .btn-icon {
@@ -213,7 +214,7 @@ body {
     gap: 8px;
     font-size: 13px;
     font-weight: 500;
-    color: #555;
+    color: #e2e8f0;  /* 浅量子灰 */
     margin-bottom: 10px;
 }
 
@@ -225,7 +226,7 @@ body {
     width: 100%;
     height: 6px;
     border-radius: 3px;
-    background: #ddd;
+    background: #334155;  /* 中量子灰 */
     outline: none;
     -webkit-appearance: none;
     appearance: none;
@@ -237,7 +238,7 @@ body {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     transition: all 0.3s ease;
@@ -245,14 +246,14 @@ body {
 
 .slider::-webkit-slider-thumb:hover {
     transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .slider::-moz-range-thumb {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     cursor: pointer;
     border: none;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
@@ -261,30 +262,30 @@ body {
 .select {
     width: 100%;
     padding: 10px 12px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid rgba(255,255,255,0.12);
     border-radius: 8px;
-    background: white;
+    background: #334155;  /* 中量子灰 */
     font-size: 13px;
-    color: #555;
+    color: #f8fafc;  /* 量子白 */
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .select:focus {
     outline: none;
-    border-color: #ff6b6b;
-    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .select:hover {
-    border-color: #ff8e8e;
+    border-color: #818cf8;
 }
 
 /* 底部 */
 .footer {
-    background: #f8f9fa;
+    background: #0f172a;  /* 深空黑 */
     padding: 15px 20px;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid rgba(255,255,255,0.12);
 }
 
 .info-text {
@@ -293,7 +294,7 @@ body {
 
 .info-text p {
     font-size: 11px;
-    color: #666;
+    color: #94a3b8;  /* 中量子灰 */
     margin-bottom: 4px;
     line-height: 1.4;
 }
@@ -304,8 +305,8 @@ body {
 
 .version span {
     font-size: 10px;
-    color: #999;
-    background: #e0e0e0;
+    color: #64748b;  /* 第三级文字色 */
+    background: #334155;  /* 中量子灰 */
     padding: 2px 8px;
     border-radius: 10px;
 }

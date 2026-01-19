@@ -51,7 +51,10 @@
                     if (errorMsg.includes('extension context invalidated') ||
                         errorMsg.includes('context invalidated') ||
                         errorMsg.includes('could not establish connection')) {
-                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED 
+                            : '扩展上下文已失效';
+                        throw new Error(contextError);
                     }
                     throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
@@ -193,14 +196,20 @@
                     if (errorMsg.includes('extension context invalidated') ||
                         errorMsg.includes('context invalidated') ||
                         errorMsg.includes('could not establish connection')) {
-                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED 
+                            : '扩展上下文已失效';
+                        throw new Error(contextError);
                     }
                     throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导入脚本URL失败:', error);
-                this.showNotification('导入失败: ' + errorMsg + '。请刷新页面后重试。', 'error');
+                const importError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                    : '导入失败';
+                this.showNotification(`${importError}: ${errorMsg}`, 'error');
                 throw new Error(errorMsg);
             }
 
@@ -382,7 +391,7 @@
                                     };
 
                                     // 使用createSessionObject创建会话对象
-                                    const newSession = this.createSessionObject(finalSessionId, pageInfo);
+                                    const newSession = this.createSessionObject(pageInfo);
                                     newSession.tags = tags;
 
                                     // 更新消息（如果导入的内容中有消息）
@@ -571,14 +580,20 @@
                     if (errorMsg.includes('extension context invalidated') ||
                         errorMsg.includes('context invalidated') ||
                         errorMsg.includes('could not establish connection')) {
-                        throw new Error('扩展上下文已失效，请刷新页面后重试');
+                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED 
+                            : '扩展上下文已失效';
+                        throw new Error(contextError);
                     }
                     throw new Error('扩展上下文无效：无法获取脚本 URL');
                 }
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导出脚本URL失败:', error);
-                this.showNotification('导出失败: ' + errorMsg + '。请刷新页面后重试。', 'error');
+                const exportError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                    : '导出失败';
+                this.showNotification(`${exportError}: ${errorMsg}`, 'error');
                 throw new Error(errorMsg);
             }
 

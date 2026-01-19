@@ -42,7 +42,7 @@ class SessionApiManager extends BaseApiManager {
         try {
             const params = {
                 cname: 'sessions',
-                limit: options.limit || 100,
+                limit: options.limit || 10000,
                 sort: { updatedAt: -1 }
             };
             const url = this._buildGenericApiUrl('query_documents', params);
@@ -87,88 +87,205 @@ class SessionApiManager extends BaseApiManager {
     
     /**
      * 获取单个会话
-     * @param {string} sessionId - 会话ID
+     * 使用 key 查询会话
+     * @param {string} sessionKey - 会话 Key (UUID)
      * @returns {Promise<Object|null>} 会话数据，如果不存在则返回 null
      */
-    async getSession(sessionId) {
+    async getSession(sessionKey) {
+        if (!sessionKey) {
+            return null;
+        }
+        
         try {
-            const params = {
+            const keyParams = {
                 cname: 'sessions',
-                filter: { session_id: sessionId },
+                filter: { key: sessionKey },
                 limit: 1
             };
-            const url = this._buildGenericApiUrl('query_documents', params);
-            const result = await this._request(url, { method: 'GET' });
+            const keyUrl = this._buildGenericApiUrl('query_documents', keyParams);
+            const keyResult = await this._request(keyUrl, { method: 'GET' });
             
+            // 解析查询结果
             let session = null;
-            if (Array.isArray(result) && result.length > 0) {
-                session = result[0];
-            } else if (result && Array.isArray(result.data) && result.data.length > 0) {
-                session = result.data[0];
-            } else if (result && result.data && Array.isArray(result.data.documents) && result.data.documents.length > 0) {
-                session = result.data.documents[0];
+            if (Array.isArray(keyResult) && keyResult.length > 0) {
+                session = keyResult[0];
+            } else if (keyResult && Array.isArray(keyResult.data) && keyResult.data.length > 0) {
+                session = keyResult.data[0];
+            } else if (keyResult && keyResult.data && Array.isArray(keyResult.data.list) && keyResult.data.list.length > 0) {
+                session = keyResult.data.list[0];
+            } else if (keyResult && keyResult.data && Array.isArray(keyResult.data.documents) && keyResult.data.documents.length > 0) {
+                session = keyResult.data.documents[0];
             }
             
             return session;
         } catch (error) {
-            console.warn(`获取会话 ${sessionId} 失败:`, error.message);
+            console.warn(`获取会话 ${sessionKey} 失败:`, error.message);
             return null;
         }
     }
     
     /**
      * 保存单个会话（立即保存）
-     * @param {Object} sessionData - 会话数据
+     * 参考 YiWeb 的 sessionSyncService.js 实现
+     * 完全使用 key 作为标识符，不使用 id
+     * @param {Object} sessionData - 会话数据（必须包含 key 字段）
      * @returns {Promise<Object>} 保存结果
      */
     async saveSession(sessionData) {
-        if (!sessionData || !sessionData.id) {
+        if (!sessionData) {
             throw new Error('会话数据无效');
         }
         
-        const sessionId = sessionData.id;
+        // 必须使用 key，如果没有 key 则抛出错误
+        const sessionKey = sessionData.key;
+        if (!sessionKey || typeof sessionKey !== 'string') {
+            throw new Error('会话数据无效：缺少 key 字段');
+        }
         
         try {
-            // 使用 update_documents 进行 upsert
-            const params = {
-                cname: 'sessions',
-                filter: { session_id: sessionId },
-                update: { '$set': sessionData },
-                upsert: true
+            // 规范化会话数据（与 YiWeb 保持一致）
+            // 注意：data 中必须包含 key 字段
+            const normalized = {
+                key: String(sessionKey), // data 中必须包含 key
+                url: String(sessionData.url || ''),
+                title: String(sessionData.title || sessionData.pageTitle || ''),
+                pageTitle: String(sessionData.pageTitle || sessionData.title || ''),
+                pageDescription: String(sessionData.pageDescription || ''),
+                pageContent: String(sessionData.pageContent || ''),
+                messages: Array.isArray(sessionData.messages) ? sessionData.messages : [],
+                tags: Array.isArray(sessionData.tags) ? sessionData.tags : [],
+                isFavorite: sessionData.isFavorite !== undefined ? Boolean(sessionData.isFavorite) : false,
+                createdAt: this._normalizeTimestamp(sessionData.createdAt),
+                updatedAt: this._normalizeTimestamp(sessionData.updatedAt),
+                lastAccessTime: this._normalizeTimestamp(sessionData.lastAccessTime)
             };
-            
-            const url = this._buildGenericApiUrl('update_documents', params);
-            const result = await this._request(url, {
-                method: 'POST' // 使用 POST 避免 URL 过长（取决于后端支持）
-            });
+
+            // 检查会话是否存在（通过 key 查询）
+            let existingSession = null;
+            try {
+                const checkParams = {
+                    cname: 'sessions',
+                    filter: { key: sessionKey },
+                    limit: 1
+                };
+                const checkUrl = this._buildGenericApiUrl('query_documents', checkParams);
+                const checkResponse = await this._request(checkUrl, { method: 'GET' });
+                
+                // 解析查询结果
+                if (Array.isArray(checkResponse) && checkResponse.length > 0) {
+                    existingSession = checkResponse[0];
+                } else if (checkResponse && Array.isArray(checkResponse.data) && checkResponse.data.length > 0) {
+                    existingSession = checkResponse.data[0];
+                } else if (checkResponse && checkResponse.data && Array.isArray(checkResponse.data.list) && checkResponse.data.list.length > 0) {
+                    existingSession = checkResponse.data.list[0];
+                } else if (checkResponse && checkResponse.data && Array.isArray(checkResponse.data.documents) && checkResponse.data.documents.length > 0) {
+                    existingSession = checkResponse.data.documents[0];
+                }
+            } catch (error) {
+                console.warn('查询会话失败:', error);
+            }
+
+            let result;
+            if (existingSession) {
+                // 更新会话：使用 update_document 和 key 参数
+                // data 中必须包含 key 字段
+                const payload = {
+                    module_name: 'services.database.data_service',
+                    method_name: 'update_document',
+                    parameters: {
+                        cname: 'sessions',
+                        key: sessionKey, // parameters 中的 key
+                        data: normalized // data 中也必须包含 key
+                    }
+                };
+                
+                // 使用 POST 请求发送 payload
+                const url = `${this.baseUrl}/`;
+                result = await this._request(url, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                console.log(`[SessionApi] 更新会话 (Key: ${sessionKey})`);
+            } else {
+                // 创建新会话：使用 create_document
+                const payload = {
+                    module_name: 'services.database.data_service',
+                    method_name: 'create_document',
+                    parameters: {
+                        cname: 'sessions',
+                        data: normalized // 包含 key
+                    }
+                };
+                
+                // 使用 POST 请求发送 payload
+                const url = `${this.baseUrl}/`;
+                result = await this._request(url, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                console.log(`[SessionApi] 创建会话 (Key: ${sessionKey})`);
+            }
             
             this.stats.saveCount++;
             
             // 返回结果
-            return {
-                success: true,
-                data: result.data || result
-            };
+            if (result && result.success !== false) {
+                return {
+                    success: true,
+                    data: result.data || result
+                };
+            } else {
+                throw new Error(result?.message || '保存会话失败');
+            }
         } catch (error) {
             console.warn('保存会话到后端失败:', error.message);
             throw error;
         }
     }
+
+    /**
+     * 规范化时间戳
+     * @param {number|string|Date} timestamp - 时间戳
+     * @returns {number} 规范化后的时间戳
+     */
+    _normalizeTimestamp(timestamp) {
+        if (!timestamp) {
+            return Date.now();
+        }
+        if (typeof timestamp === 'number') {
+            return timestamp;
+        }
+        if (typeof timestamp === 'string') {
+            const parsed = parseInt(timestamp, 10);
+            return isNaN(parsed) ? Date.now() : parsed;
+        }
+        if (timestamp instanceof Date) {
+            return timestamp.getTime();
+        }
+        return Date.now();
+    }
     
     /**
      * 批量保存会话（添加到队列）
-     * @param {string} sessionId - 会话ID
-     * @param {Object} sessionData - 会话数据
+     * @param {Object} sessionData - 会话数据（必须包含 key 字段）
      */
-    queueSave(sessionId, sessionData) {
-        if (!sessionId || !sessionData) {
+    queueSave(sessionData) {
+        if (!sessionData) {
+            return;
+        }
+        
+        // 确保 sessionData 有 key 字段
+        if (!sessionData.key) {
+            console.warn('queueSave: sessionData 缺少 key 字段，跳过');
             return;
         }
         
         // 添加到队列（如果已存在则更新）
-        this.saveQueue.set(sessionId, {
+        // 使用 sessionData.key 作为队列键，确保唯一性
+        this.saveQueue.set(sessionData.key, {
             ...sessionData,
-            id: sessionId,
             queuedAt: Date.now(),
         });
         
@@ -195,18 +312,18 @@ class SessionApiManager extends BaseApiManager {
         // 获取待保存的会话（最多batchSize个）
         const sessionsToSave = Array.from(this.saveQueue.values())
             .slice(0, this.saveBatchSize);
-        const sessionIds = sessionsToSave.map(s => s.id);
+        const sessionKeys = sessionsToSave.map(s => s.key).filter(Boolean);
         
         // 从队列中移除
-        sessionIds.forEach(id => this.saveQueue.delete(id));
+        sessionKeys.forEach(key => this.saveQueue.delete(key));
         
         // 批量保存
         const savePromises = sessionsToSave.map(sessionData => 
             this.saveSession(sessionData).catch(error => {
-                console.warn(`批量保存会话 ${sessionData.id} 失败:`, error.message);
+                console.warn(`批量保存会话 ${sessionData.key} 失败:`, error.message);
                 // 保存失败时重新加入队列（限制重试次数）
-                if (!sessionData.retryCount || sessionData.retryCount < 3) {
-                    this.saveQueue.set(sessionData.id, {
+                if (sessionData.key && (!sessionData.retryCount || sessionData.retryCount < 3)) {
+                    this.saveQueue.set(sessionData.key, {
                         ...sessionData,
                         retryCount: (sessionData.retryCount || 0) + 1,
                     });
@@ -243,22 +360,30 @@ class SessionApiManager extends BaseApiManager {
     
     /**
      * 删除会话
-     * @param {string} sessionId - 会话ID
+     * 使用 key 删除会话（参考 YiWeb 实现）
+     * @param {string} sessionKey - 会话 Key (UUID)
      * @returns {Promise<Object>} 删除结果
      */
-    async deleteSession(sessionId) {
-        if (!sessionId) {
-            throw new Error('会话ID无效');
+    async deleteSession(sessionKey) {
+        if (!sessionKey) {
+            throw new Error('会话 Key 无效');
         }
         
         try {
-            const params = {
-                cname: 'sessions',
-                filter: { session_id: sessionId }
+            // 使用 delete_document（单数）和 key 参数
+            const payload = {
+                module_name: 'services.database.data_service',
+                method_name: 'delete_document',
+                parameters: {
+                    cname: 'sessions',
+                    key: sessionKey
+                }
             };
-            const url = this._buildGenericApiUrl('delete_documents', params);
+            
+            const url = `${this.baseUrl}/`;
             const result = await this._request(url, {
-                method: 'POST'
+                method: 'POST',
+                body: JSON.stringify(payload)
             });
             
             return {
@@ -273,27 +398,22 @@ class SessionApiManager extends BaseApiManager {
     
     /**
      * 批量删除会话
-     * @param {Array<string>} sessionIds - 会话ID数组
+     * @param {Array<string>} sessionKeys - 会话 Key 数组 (UUID)
      * @returns {Promise<Object>} 删除结果
      */
-    async deleteSessions(sessionIds) {
-        if (!sessionIds || !Array.isArray(sessionIds) || sessionIds.length === 0) {
-            throw new Error('会话ID列表无效');
+    async deleteSessions(sessionKeys) {
+        if (!sessionKeys || !Array.isArray(sessionKeys) || sessionKeys.length === 0) {
+            throw new Error('会话 Key 列表无效');
         }
         
         try {
-            const params = {
-                cname: 'sessions',
-                filter: { session_id: { '$in': sessionIds } }
-            };
-            const url = this._buildGenericApiUrl('delete_documents', params);
-            const result = await this._request(url, {
-                method: 'POST'
-            });
+            // 批量删除：使用 key 数组
+            const deletePromises = sessionKeys.map(key => this.deleteSession(key));
+            await Promise.all(deletePromises);
             
             return {
                 success: true,
-                data: result
+                data: { deletedCount: sessionKeys.length }
             };
         } catch (error) {
             console.error('批量删除会话失败:', error);

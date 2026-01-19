@@ -120,7 +120,10 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
     try {
         // 检查 html2canvas 是否可用
         if (typeof html2canvas === 'undefined') {
-            throw new Error('html2canvas 未加载，请刷新页面后重试');
+            const errorMsg = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                : 'html2canvas 未加载';
+            throw new Error(errorMsg);
         }
         
         // 更新提示
@@ -223,7 +226,7 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             markdownClone.style.setProperty('white-space', 'pre-wrap', 'important');
             markdownClone.style.setProperty('font-size', '16px', 'important');
             markdownClone.style.setProperty('line-height', '1.8', 'important');
-            markdownClone.style.setProperty('color', '#333', 'important');
+            markdownClone.style.setProperty('color', '#f8fafc', 'important');  /* 量子白 */
             markdownClone.style.setProperty('box-sizing', 'border-box', 'important');
             markdownClone.style.setProperty('overflow-x', 'hidden', 'important');
             markdownClone.style.setProperty('overflow-y', 'visible', 'important');
@@ -396,7 +399,7 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             scale: 2, // 2倍缩放，生成1500px宽度的高清图片，适合手机查看
             useCORS: true,
             allowTaint: true,
-            backgroundColor: '#ffffff',
+            backgroundColor: '#0f172a',  /* 深空黑 - 导出图片背景 */
             logging: false,
             windowWidth: contentWidth,
             windowHeight: contentHeight,
@@ -555,7 +558,10 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
     try {
         // 检查 html2canvas 是否可用
         if (typeof html2canvas === 'undefined') {
-            throw new Error('html2canvas 未加载，请刷新页面后重试');
+            const errorMsg = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                : 'html2canvas 未加载';
+            throw new Error(errorMsg);
         }
 
         // 自动检测消息类型
@@ -834,7 +840,7 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             scale: 2, // 2倍缩放，生成1500px宽度的高清图片，适合手机查看
             useCORS: true,
             allowTaint: true,
-            backgroundColor: '#ffffff',
+            backgroundColor: '#0f172a',  /* 深空黑 - 导出图片背景 */
             logging: false,
             windowWidth: contentWidth,
             windowHeight: contentHeight,

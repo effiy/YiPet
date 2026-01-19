@@ -115,8 +115,8 @@
                             if (this.currentSessionId && reply) {
                                 await this.addMessageToSession('pet', reply, null, true);
 
-                                // 调用 session/save 保存会话到后端
-                                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                                // 调用 session/save 保存会话到后端（只在聊天窗口打开时）
+                                if (this.isChatOpen && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
                                     await this.syncSessionToBackend(this.currentSessionId, true);
                                 }
                             }

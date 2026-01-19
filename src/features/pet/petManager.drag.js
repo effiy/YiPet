@@ -11,28 +11,22 @@
     const style = document.createElement('style');
     style.id = 'tag-drag-styles';
     style.textContent = `
-      .tag-filter-item {
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-      }
-      .tag-filter-item:hover:not(.dragging) {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-      }
       .tag-filter-item.dragging {
         opacity: 0.5 !important;
         transform: scale(0.92) rotate(2deg) !important;
-        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
         cursor: grabbing !important;
         z-index: 1000 !important;
+        position: relative !important;
       }
       .tag-filter-item.drag-over-top {
-        border-top: 3px solid #4CAF50 !important;
+        border-top: 3px solid var(--primary, #6366f1) !important;
         margin-top: 4px !important;
         padding-top: 2px !important;
         animation: pulse-top 0.3s ease !important;
       }
       .tag-filter-item.drag-over-bottom {
-        border-bottom: 3px solid #4CAF50 !important;
+        border-bottom: 3px solid var(--primary, #6366f1) !important;
         margin-bottom: 4px !important;
         padding-bottom: 2px !important;
         animation: pulse-bottom 0.3s ease !important;
@@ -46,9 +40,20 @@
         50% { border-bottom-width: 4px; margin-bottom: 6px; }
       }
       .tag-filter-item.drag-hover {
-        background: #f0fdf4 !important;
-        border-color: #86efac !important;
+        background: rgba(99, 102, 241, 0.15) !important;
+        border-color: var(--primary, #6366f1) !important;
         transform: scale(1.05) !important;
+      }
+      .tag-filter-item.drag-hover.selected {
+        background: rgba(99, 102, 241, 0.8) !important;
+      }
+      .tag-filter-item.tag-no-tags.drag-hover {
+        background: rgba(99, 102, 241, 0.15) !important;
+        border-color: var(--primary, #6366f1) !important;
+      }
+      .tag-filter-item.tag-expand-btn.drag-hover {
+        background: rgba(99, 102, 241, 0.05) !important;
+        border-color: var(--primary, #6366f1) !important;
       }
     `;
     document.head.appendChild(style);
@@ -56,7 +61,18 @@
 
   proto.attachDragHandlersToTag = function (tagBtn, tag) {
     if (!tagBtn || !tag) return;
+    
+    // 跳过无标签按钮和展开按钮的拖拽处理
+    if (tagBtn.classList.contains('tag-no-tags') || tagBtn.classList.contains('tag-expand-btn')) {
+      return;
+    }
+    
+    let isDragging = false;
+    let dragStartTime = 0;
+    
     tagBtn.addEventListener('dragstart', (e) => {
+      isDragging = true;
+      dragStartTime = Date.now();
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/html', tagBtn.outerHTML);
       e.dataTransfer.setData('text/plain', tag);
@@ -64,7 +80,7 @@
       const dragImage = tagBtn.cloneNode(true);
       dragImage.style.opacity = '0.8';
       dragImage.style.transform = 'rotate(3deg)';
-      dragImage.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.2)';
+      dragImage.style.boxShadow = '0 8px 16px rgba(99, 102, 241, 0.3)';
       dragImage.style.position = 'absolute';
       dragImage.style.top = '-1000px';
       document.body.appendChild(dragImage);
@@ -78,6 +94,10 @@
     tagBtn.addEventListener('dragend', () => {
       tagBtn.classList.remove('dragging');
       tagBtn.style.cursor = 'grab';
+      // 延迟重置 isDragging，避免触发 click 事件
+      setTimeout(() => {
+        isDragging = false;
+      }, 100);
       document.querySelectorAll('.tag-filter-item').forEach(item => {
         item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover');
         item.style.borderTop = '';
@@ -92,13 +112,17 @@
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
-      if (tagBtn.classList.contains('dragging')) {
+      if (tagBtn.classList.contains('dragging') || 
+          tagBtn.classList.contains('tag-no-tags') || 
+          tagBtn.classList.contains('tag-expand-btn')) {
         return;
       }
       const rect = tagBtn.getBoundingClientRect();
       const midY = rect.top + rect.height / 2;
       document.querySelectorAll('.tag-filter-item').forEach(item => {
-        if (!item.classList.contains('dragging')) {
+        if (!item.classList.contains('dragging') && 
+            !item.classList.contains('tag-no-tags') && 
+            !item.classList.contains('tag-expand-btn')) {
           item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover');
         }
       });
@@ -149,33 +173,15 @@
         this.updateTagFilterUI();
       }, 100);
     });
-    tagBtn.addEventListener('mouseenter', () => {
-      if (document.querySelector('.tag-filter-item.dragging')) {
-        return;
-      }
-      const isSelected = this.selectedFilterTags && this.selectedFilterTags.includes(tag);
-      if (!isSelected) {
-        tagBtn.style.borderColor = '#4CAF50';
-        tagBtn.style.background = '#f0fdf4';
-        tagBtn.style.color = '#4CAF50';
-      } else {
-        tagBtn.style.opacity = '0.95';
-      }
-    });
-    tagBtn.addEventListener('mouseleave', () => {
-      if (document.querySelector('.tag-filter-item.dragging')) {
-        return;
-      }
-      const isSelected = this.selectedFilterTags && this.selectedFilterTags.includes(tag);
-      if (!isSelected) {
-        tagBtn.style.borderColor = '#e5e7eb';
-        tagBtn.style.background = '#f9fafb';
-        tagBtn.style.color = '#6b7280';
-      } else {
-        tagBtn.style.opacity = '1';
-      }
-    });
+    // 移除内联样式，使用 CSS 类控制 hover 效果
+    // hover 效果现在由 CSS 统一管理
     tagBtn.addEventListener('click', (e) => {
+      // 如果刚刚完成拖拽，不触发点击事件
+      if (isDragging || Date.now() - dragStartTime < 200) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (e.detail === 0) {
         return;
       }

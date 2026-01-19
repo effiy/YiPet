@@ -52,6 +52,19 @@ class SessionManager {
     }
     
     /**
+     * 生成 UUID v4 格式的 key
+     * @returns {string} UUID 格式的字符串
+     */
+    _generateUUID() {
+        // 生成 UUID v4 格式：xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    /**
      * 生成会话ID（基于URL的MD5哈希）
      * @param {string} url - 页面URL（可选）
      * @returns {Promise<string>} 会话ID（32位MD5十六进制字符串）
@@ -253,13 +266,14 @@ class SessionManager {
     
     /**
      * 创建会话对象
+     * 使用 UUID 格式的 key 作为主要标识符
      */
     createSession(sessionId, pageInfo = {}) {
         const now = Date.now();
         const tags = this._getSessionTags(sessionId, pageInfo);
         
         return {
-            id: sessionId,
+            key: this._generateUUID(), // 生成 UUID 格式的 key
             url: pageInfo.url || window.location.href,
             // 兼容 pageInfo 中可能只有 title 字段而没有 pageTitle 字段的情况
             pageTitle: pageInfo.pageTitle || pageInfo.title || document.title || '',
@@ -338,26 +352,25 @@ class SessionManager {
         }
         
         try {
-            // 确保使用 session.id 或 sessionId 作为统一标识
-            const unifiedSessionId = session.id || sessionId;
-            
-            // 确保会话的 id 字段与存储键一致
-            if (session.id !== sessionId && session.id) {
-                // 如果 id 不一致，更新存储键
-                delete this.sessions[sessionId];
-                this.sessions[unifiedSessionId] = session;
-            }
-            
             // 获取标签（支持项目目录映射）
             let tags = session.tags || [];
             if (!Array.isArray(tags) || tags.length === 0) {
-                // 如果标签为空，尝试从会话ID提取（针对项目会话）
-                tags = this._getSessionTags(unifiedSessionId);
+                // 如果标签为空，尝试从 URL 提取（针对项目会话）
+                tags = this._getSessionTags(session.url || '', pageInfo);
             }
             
             // 规范化会话数据（与 YiWeb aicr 的 sessionSyncService.js 保持一致）
+            // 必须使用 key，如果没有则生成一个 UUID 格式的 key
+            let sessionKey = session.key;
+            if (!sessionKey || typeof sessionKey !== 'string') {
+                // 生成 UUID v4 格式的 key
+                sessionKey = this._generateUUID();
+                // 更新会话对象中的 key
+                session.key = sessionKey;
+            }
+            
             const sessionData = {
-                id: String(unifiedSessionId),
+                key: String(sessionKey), // 必须包含 key
                 url: String(session.url || ''),
                 title: String(session.pageTitle || session.title || ''),
                 pageTitle: String(session.pageTitle || session.title || ''),
@@ -378,10 +391,10 @@ class SessionManager {
             
             if (immediate) {
                 await this.sessionApi.saveSession(sessionData);
-                console.log(`会话 ${unifiedSessionId} 已立即同步到后端`);
+                console.log(`会话 ${sessionKey} 已立即同步到后端`);
             } else {
-                this.sessionApi.queueSave(unifiedSessionId, sessionData);
-                console.log(`会话 ${unifiedSessionId} 已加入同步队列`);
+                this.sessionApi.queueSave(sessionData);
+                console.log(`会话 ${sessionKey} 已加入同步队列`);
             }
         } catch (error) {
             console.warn('同步会话到后端失败:', error);
@@ -460,27 +473,26 @@ class SessionManager {
      * @private
      */
     async _restoreExistingSession(sessionId, pageInfo) {
-        // 确保使用 session.id 作为键
         const session = this.sessions[sessionId];
         if (!session) {
             console.warn('会话不存在，无法恢复:', sessionId);
             return;
         }
         
-        // 确保 session.id 与存储键一致（统一标识）
-        if (!session.id || session.id !== sessionId) {
-            session.id = sessionId;
+        // 确保会话有 key
+        if (!session.key) {
+            session.key = this._generateUUID();
         }
         
-        // 如果会话标签为空，尝试从会话ID提取（针对项目会话）
+        // 如果会话标签为空，尝试从 URL 提取（针对项目会话）
         if (!session.tags || !Array.isArray(session.tags) || session.tags.length === 0) {
-            session.tags = this._getSessionTags(sessionId, pageInfo);
+            session.tags = this._getSessionTags(session.url || '', pageInfo);
         }
         
         // 更新会话页面信息
         this.updateSessionPageInfo(sessionId, pageInfo);
         await this.saveSession(sessionId);
-        console.log('找到基于URL的已有会话，已自动恢复:', sessionId);
+        console.log('找到基于URL的已有会话，已自动恢复:', session.key);
     }
     
     /**
@@ -490,16 +502,11 @@ class SessionManager {
     async _createNewSession(sessionId, pageInfo) {
         const newSession = this.createSession(sessionId, pageInfo);
         
-        // 确保使用 session.id 作为统一的键
+        // 使用 sessionId 作为存储键（基于 URL 的标识符）
         this.sessions[sessionId] = newSession;
         
-        // 确保 session.id 与存储键一致
-        if (newSession.id !== sessionId) {
-            newSession.id = sessionId;
-        }
-        
         await this.saveSession(sessionId);
-        console.log('使用URL作为会话ID，已自动创建新会话:', sessionId, 'URL:', pageInfo.url);
+        console.log('使用URL作为会话ID，已自动创建新会话:', newSession.key, 'URL:', pageInfo.url);
     }
     
     /**
@@ -575,10 +582,10 @@ class SessionManager {
                 return bTime - aTime;
             }
             
-            // 如果更新时间也相同，按会话ID排序（确保完全稳定）
-            const aId = a.id || '';
-            const bId = b.id || '';
-            return aId.localeCompare(bId);
+            // 如果更新时间也相同，按 key 排序（确保完全稳定）
+            const aKey = a.key || '';
+            const bKey = b.key || '';
+            return aKey.localeCompare(bKey);
         });
     }
     
@@ -829,13 +836,12 @@ class SessionManager {
             return false;
         }
         
-        // 确保使用统一的会话ID（session.id 或 sessionId）
-        const unifiedSessionId = session.id || sessionId;
+        // 使用 sessionId 作为标识符（基于 URL 的标识符）
         
         // 处理 aicr 项目文件删除（在删除会话之前）
         if (this.deleteAicrProjectFilesCallback && typeof this.deleteAicrProjectFilesCallback === 'function') {
             try {
-                await this.deleteAicrProjectFilesCallback(unifiedSessionId);
+                await this.deleteAicrProjectFilesCallback(sessionId);
             } catch (error) {
                 // 删除项目文件失败不影响删除会话的结果
                 console.warn('删除 aicr 项目文件失败:', error);
@@ -843,7 +849,7 @@ class SessionManager {
         }
         
         // 如果是当前会话，清空当前会话ID
-        if (this.currentSessionId === sessionId || this.currentSessionId === unifiedSessionId) {
+        if (this.currentSessionId === sessionId) {
             this.currentSessionId = null;
             this.hasAutoCreatedSessionForPage = false;
         }

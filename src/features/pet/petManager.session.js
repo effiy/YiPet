@@ -69,6 +69,11 @@
                     updateUI: true
                 });
 
+                // 滚动到会话项位置
+                if (typeof this.scrollToSessionItem === 'function') {
+                    await this.scrollToSessionItem(matchedSessionId);
+                }
+
                 console.log('找到URL匹配的会话，已自动选中:', matchedSessionId);
                 return matchedSessionId;
             }
@@ -92,13 +97,25 @@
                 updateUI: true
             });
 
+            // 滚动到会话项位置
+            if (typeof this.scrollToSessionItem === 'function') {
+                await this.scrollToSessionItem(sessionId);
+            }
+
             console.log('找到基于URL的已有会话，已自动选中:', sessionId);
             return sessionId;
         } else {
             // 没有找到会话，使用URL作为会话ID自动创建新会话
-            const newSession = this.createSessionObject(sessionId, pageInfo);
+            const newSession = this.createSessionObject(pageInfo);
             this.sessions[sessionId] = newSession;
-            // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
+
+            // 保存到本地
+            await this.saveAllSessions(true, true);
+
+            // 同步到后端（只在聊天窗口打开时）
+            if (this.isChatOpen && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                await this.syncSessionToBackend(sessionId, true, true);
+            }
 
             // 自动激活新创建的会话
             await this.activateSession(sessionId, {
@@ -107,7 +124,12 @@
                 updateUI: true
             });
 
-            console.log('使用URL作为会话ID，已自动创建新会话:', sessionId, 'URL:', currentUrl);
+            // 滚动到会话项位置
+            if (typeof this.scrollToSessionItem === 'function') {
+                await this.scrollToSessionItem(sessionId);
+            }
+
+            console.log('使用URL作为会话ID，已自动创建并保存新会话:', sessionId, 'URL:', currentUrl);
 
             return sessionId;
         }
@@ -188,9 +210,12 @@
                         // 如果本地不存在，直接使用后端数据
                         // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
                         const pageTitle = fullSession.pageTitle || fullSession.title || '';
+                        // 确保有 key
+                        if (!fullSession.key) {
+                            fullSession.key = this._generateUUID();
+                        }
                         this.sessions[sessionId] = {
                             ...fullSession,
-                            id: sessionId,
                             pageTitle: pageTitle
                         };
                     }
@@ -257,24 +282,27 @@
         }
     };
 
-    // ==================== 会话对象管理 ====================
-
-    proto.createSessionObject = function(sessionId, pageInfo, existingSession = null) {
+    proto.createSessionObject = function(pageInfo, existingSession = null) {
         const now = Date.now();
 
-        // 如果是已有会话，保留消息和创建时间
+        // 如果是已有会话，保留消息和创建时间，以及 key
         const messages = existingSession?.messages || [];
         const createdAt = existingSession?.createdAt || now;
         const lastAccessTime = now; // 每次创建或更新时都更新访问时间
 
+        // 获取页面标题，优先使用 pageInfo.title 或 pageInfo.pageTitle
+        const pageTitle = pageInfo.title || pageInfo.pageTitle || '';
+        // title 字段与 pageTitle 保持一致（与 YiWeb 保持一致）
+        const title = pageTitle || '新会话';
+
         return {
-            key: sessionId,
-            id: sessionId, // 会话ID（基于URL生成）
             url: pageInfo.url, // 页面URL（用于查找会话，作为会话的唯一标识）
-            pageTitle: pageInfo.title, // 页面标题（与页面上下文对应）
+            title: title, // 会话标题（与 YiWeb 保持一致）
+            pageTitle: pageTitle, // 页面标题（与页面上下文对应）
             pageDescription: pageInfo.description || '', // 页面描述（meta description）
             pageContent: pageInfo.content || '', // 页面内容（Markdown格式，用于AI理解上下文）
             messages: messages, // 聊天记录（该会话的所有对话）
+            tags: existingSession?.tags || [], // 标签数组（与 YiWeb 保持一致）
             createdAt: createdAt, // 创建时间
             updatedAt: now, // 更新时间
             lastAccessTime: lastAccessTime // 最后访问时间
@@ -422,12 +450,13 @@
             return false; // URL不匹配，不更新，保持数据隔离
         }
 
-        const sessionData = this.createSessionObject(sessionId, pageInfo, session);
+        const sessionData = this.createSessionObject(pageInfo, session);
         const now = Date.now();
 
         // 更新所有页面相关信息，保留消息和其他会话数据
         Object.assign(session, {
             url: sessionData.url,
+            title: sessionData.title, // 更新 title 字段（与 YiWeb 保持一致）
             pageTitle: sessionData.pageTitle,
             pageDescription: sessionData.pageDescription || '',
             pageContent: sessionData.pageContent || session.pageContent || '', // 保留已有内容，但如果缺失则补充
@@ -447,8 +476,10 @@
     // ==================== 数据同步与持久化 ====================
 
     proto.loadAllSessions = async function() {
-        // 从后端强制加载会话列表
-        await this.loadSessionsFromBackend(true);
+        // 从后端强制加载会话列表（只在聊天窗口打开时）
+        if (this.isChatOpen) {
+            await this.loadSessionsFromBackend(true);
+        }
 
         // 如果后端没有加载到会话，初始化空对象
         if (!this.sessions) {
@@ -493,7 +524,8 @@
 
         // 异步同步到后端（使用队列批量保存，不阻塞保存流程）
         // 只有在允许同步且启用后端同步时，才同步到后端
-        if (syncToBackend && PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
+        // 只在聊天窗口打开时才调用接口
+        if (this.isChatOpen && syncToBackend && PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
             // 使用队列批量保存，提高性能
             this.syncSessionToBackend(this.currentSessionId, false).catch(err => {
                 console.warn('同步会话到后端失败:', err);
@@ -503,6 +535,12 @@
 
     proto.syncSessionToBackend = async function(sessionId, immediate = false, includePageContent = false) {
         try {
+            // 只在聊天窗口打开时才调用接口
+            if (!this.isChatOpen) {
+                console.debug('聊天窗口未打开，跳过同步会话到后端:', sessionId);
+                return;
+            }
+
             if (!PET_CONFIG.api.syncSessionsToBackend) {
                 return;
             }
@@ -538,10 +576,20 @@
             let pageTitle = session.pageTitle || '';
             let pageDescription = session.pageDescription || '';
             let pageContent = session.pageContent || '';
+            // title 字段与 pageTitle 保持一致（与 YiWeb 保持一致）
+            const title = pageTitle || session.title || '新会话';
+
+            // 确保有 key 字段（使用 key 作为唯一标识符，与 YiWeb 保持一致）
+            const sessionKey = session.key || this._generateUUID();
+            if (!session.key) {
+                // 如果会话没有 key，更新会话对象
+                session.key = sessionKey;
+            }
 
             const sessionData = {
-                id: session.id || sessionId,
+                key: sessionKey, // 使用 key 作为唯一标识符（与 YiWeb 保持一致）
                 url: sessionUrl,
+                title: title, // 会话标题（与 YiWeb 保持一致）
                 pageTitle: pageTitle,
                 pageDescription: pageDescription,
                 messages: session.messages || [],
@@ -666,7 +714,7 @@
                         let fallbackPageContent = session.pageContent || '';
 
                         const sessionData = {
-                            id: session.id || sessionId,
+                            key: session.key || this._generateUUID(),
                             url: fallbackSessionUrl,
                             pageTitle: fallbackPageTitle,
                             pageDescription: fallbackPageDescription,
@@ -697,404 +745,106 @@
 
     proto.loadSessionsFromBackend = async function(forceRefresh = false) {
         try {
-            // 使用新的API管理器
-            if (this.sessionApi) {
-                // 只在强制刷新时调用 getSessionsList，不再在页面首次加载时自动调用
-                // 改为在第一次打开聊天窗口时调用
-                if (!forceRefresh) { return; }
-                if (!this.isChatOpen) { return; }
-                if (this.hasLoadedSessionsForChat && this.lastSessionListLoadTime && (Date.now() - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) { return; }
+            // 检查是否需要刷新
+            if (!forceRefresh) { return; }
+            if (!this.isChatOpen) { return; }
+            if (this.hasLoadedSessionsForChat && this.lastSessionListLoadTime && (Date.now() - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) { 
+                return; 
+            }
 
-                console.log('使用API管理器加载会话列表（强制刷新）...');
-                const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
+            // 使用API管理器获取会话列表
+            if (!this.sessionApi) {
+                console.log('sessionApi 未初始化，跳过从后端加载');
+                return;
+            }
 
-                // 检查当前页面URL是否在会话列表中，如果是则调用详情接口
-                const currentPageUrl = window.location.href;
-                for (const backendSession of backendSessions) {
-                    if (backendSession.url === currentPageUrl) {
-                        const sessionId = backendSession.id || backendSession.session_id || backendSession.conversation_id;
-                        if (sessionId) {
-                            console.log('当前页面URL在会话列表中，正在加载会话详情:', sessionId);
-                            try {
-                                const sessionDetail = await this.sessionApi.getSession(sessionId, true);
-                                if (sessionDetail) {
-                                    console.log('会话详情加载成功:', sessionId);
-                                    // 可以在这里处理详情数据，比如更新本地会话
-                                    if (this.sessions && this.sessions[sessionId]) {
-                                        // 更新本地会话数据
-                                        this.sessions[sessionId] = {
-                                            ...this.sessions[sessionId],
-                                            ...sessionDetail,
-                                            id: sessionId
-                                        };
-                                    }
-                                }
-                            } catch (error) {
-                                console.warn('加载会话详情失败:', error);
-                            }
-                        }
-                        break; // 找到匹配的会话后退出循环
-                    }
-                }
+            console.log('从后端加载会话列表...');
+            const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh });
 
-                // 更新后端会话ID集合
-                if (this.backendSessionIds) {
-                    this.backendSessionIds.clear();
-                } else {
-                    this.backendSessionIds = new Set();
-                }
-                backendSessions.forEach(backendSession => {
-                    const sessionId = backendSession.id || backendSession.session_id || backendSession.conversation_id;
-                    if (sessionId) {
-                        this.backendSessionIds.add(sessionId);
-                    }
-                });
+            if (!Array.isArray(backendSessions)) {
+                console.warn('后端返回的会话列表格式不正确');
+                return;
+            }
 
-                // 合并后端数据到本地 sessions
-                if (!this.sessions) {
-                    this.sessions = {};
-                }
-
-                // 处理每个后端会话数据
-                const backendSessionsMap = {};
-
-                backendSessions.forEach(backendSession => {
-                    const sessionId = backendSession.id || backendSession.session_id || backendSession.conversation_id || backendSession.key;
-                    if (!sessionId) return;
-
-                    const sessionUrl = backendSession.url || '';
-                    const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
-                    // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                    const pageTitle = backendSession.pageTitle || backendSession.title || '';
-
-                    // 辅助函数：解析时间
-                    const parseTime = (timeVal) => {
-                        if (!timeVal) return 0;
-                        if (typeof timeVal === 'number') return timeVal;
-                        if (typeof timeVal === 'string') {
-                            const d = new Date(timeVal);
-                            if (!isNaN(d.getTime())) return d.getTime();
-                        }
-                        return 0;
-                    };
-
-                    const createdAt = parseTime(backendSession.createdAt) || 
-                                     parseTime(backendSession.createdTime) || 
-                                     parseTime(backendSession.created_time) || 
-                                     parseTime(backendSession.created_at) || 
-                                     Date.now();
-                    
-                    const updatedAt = parseTime(backendSession.updatedAt) || 
-                                     parseTime(backendSession.updatedTime) || 
-                                     parseTime(backendSession.updated_time) || 
-                                     parseTime(backendSession.updated_at) || 
-                                     Date.now();
-
-                    const lastAccessTime = parseTime(backendSession.lastAccessTime) || 
-                                          parseTime(backendSession.last_access_time) || 
-                                          updatedAt;
-
-                    // 处理标签：如果标签为空，尝试从会话ID提取标签
-                    let tags = backendSession.tags || [];
-                    if (!Array.isArray(tags) || tags.length === 0) {
-                        // 检查是否是项目会话（格式：{projectId}_{filePath}）
-                        if (sessionId && typeof sessionId === 'string' && sessionId.includes('_')) {
-                            const parts = sessionId.split('_');
-                            if (parts.length >= 1) {
-                                const projectId = parts[0];
-                                const filePathParts = parts.slice(1);
-                                if (filePathParts.length > 0) {
-                                    // 将下划线还原为斜杠，恢复文件路径
-                                    const filePath = filePathParts.join('/');
-                                    // 从文件路径提取标签（目录路径）
-                                    const pathParts = filePath.split('/').filter(p => p && p.trim());
-                                    if (pathParts.length > 1) {
-                                        // 移除文件名，只保留目录路径作为标签
-                                        tags = pathParts.slice(0, -1);
-                                    }
-                                }
-                                // 如果标签为空，使用项目ID作为标签（与 YiWeb aicr 保持一致）
-                                if (tags.length === 0) {
-                                    tags = [projectId];
-                                }
-                            }
-                        }
-                        // 如果仍然为空，使用默认标签
-                        if (tags.length === 0) {
-                            tags = ['chat'];
-                        }
-                    }
-
-                    const localSession = {
-                        id: sessionId,
-                        key: sessionId,
-                        url: sessionUrl,
-                        pageTitle: pageTitle,
-                        pageDescription: backendSession.pageDescription || '',
-                        pageContent: backendSession.pageContent || '',
-                        messages: backendSession.messages || [],
-                        tags: tags,
-                        createdAt: createdAt,
-                        updatedAt: updatedAt,
-                        lastAccessTime: lastAccessTime,
-                        // 收藏状态：从后端返回的 isFavorite 字段
-                        isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : false
-                    };
-
-                    // 如果是空白会话，保存原始URL和标记
-                    if (isBlankSession) {
-                        localSession._isBlankSession = true;
-                        localSession._originalUrl = sessionUrl; // 保存原始URL，防止被意外更新
-                    }
-
-                    backendSessionsMap[sessionId] = localSession;
-                });
-
-                // 合并策略
-                for (const [sessionId, backendSession] of Object.entries(backendSessionsMap)) {
-                    const localSession = this.sessions[sessionId];
-
-                    if (!localSession) {
-                        this.sessions[sessionId] = backendSession;
-                    } else {
-                        const localUpdatedAt = localSession.updatedAt || 0;
-                        const backendUpdatedAt = backendSession.updatedAt || 0;
-                        const localMessages = localSession.messages || [];
-                        const backendMessages = backendSession.messages || [];
-
-                        let finalMessages = localMessages;
-                        if (backendMessages.length > 0) {
-                            if (backendUpdatedAt >= localUpdatedAt && backendMessages.length >= localMessages.length) {
-                                finalMessages = backendMessages;
-                            } else if (localMessages.length === 0 && backendMessages.length > 0) {
-                                finalMessages = backendMessages;
-                            }
-                        }
-
-                        // 合并 tags：如果后端更新，使用后端的 tags（如果存在），否则保留本地的
-                        let finalTags = localSession.tags || [];
-                        if (backendUpdatedAt >= localUpdatedAt && backendSession.tags && Array.isArray(backendSession.tags)) {
-                            finalTags = backendSession.tags;
-                        }
-
-                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                        const backendPageTitle = backendSession.pageTitle || backendSession.title || '';
-                        const localPageTitle = localSession.pageTitle || '';
-
-                        if (backendUpdatedAt >= localUpdatedAt) {
-                            this.sessions[sessionId] = {
-                                id: sessionId,
-                                key: sessionId,
-                                url: backendSession.url || localSession.url || '',
-                                // 优先保留本地的 pageTitle（如果本地有内容），否则使用后端的
-                                pageTitle: (localPageTitle && localPageTitle.trim() !== '')
-                                    ? localPageTitle
-                                    : backendPageTitle,
-                                pageDescription: localSession.pageDescription || backendSession.pageDescription || '',
-                                // 优先保留本地的 pageContent（如果本地有内容），避免页面上下文丢失
-                                pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
-                                    ? localSession.pageContent
-                                    : (backendSession.pageContent || ''),
-                                messages: finalMessages,
-                                tags: finalTags,
-                                createdAt: backendSession.createdAt || localSession.createdAt || Date.now(),
-                                updatedAt: backendSession.updatedAt || localSession.updatedAt || Date.now(),
-                                lastAccessTime: backendSession.lastAccessTime || localSession.lastAccessTime || Date.now(),
-                                // 收藏状态：优先使用后端的 isFavorite（如果后端更新）
-                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
-
-                                // 保留空白会话标记
-                                _isBlankSession: backendSession._isBlankSession || localSession._isBlankSession || false
-                            };
-                        } else {
-                            this.sessions[sessionId] = {
-                                id: sessionId,
-                                key: sessionId,
-                                url: backendSession.url || localSession.url || '',
-                                // 优先使用本地的 pageTitle，如果没有则使用后端的
-                                pageTitle: localPageTitle || backendPageTitle,
-                                pageDescription: localSession.pageDescription || backendSession.pageDescription || '',
-                                pageContent: localSession.pageContent || backendSession.pageContent || '',
-                                messages: localMessages,
-                                tags: finalTags,
-                                createdAt: localSession.createdAt || backendSession.createdAt || Date.now(),
-                                updatedAt: localSession.updatedAt || backendSession.updatedAt || Date.now(),
-                                lastAccessTime: localSession.lastAccessTime || backendSession.lastAccessTime || Date.now(),
-                                // 收藏状态：优先使用后端的 isFavorite（即使本地更新，也使用后端的最新状态）
-                                isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : (localSession.isFavorite !== undefined ? !!localSession.isFavorite : false),
-
-                                // 保留空白会话标记
-                                _isBlankSession: localSession._isBlankSession || backendSession._isBlankSession || false
-                            };
-                        }
-                    }
-                }
-
-                // 去重
-                const deduplicatedSessions = {};
-                for (const [sessionId, session] of Object.entries(this.sessions)) {
-                    if (!session || !session.id) continue;
-
-                    const id = session.id;
-                    if (!deduplicatedSessions[id]) {
-                        deduplicatedSessions[id] = session;
-                    } else {
-                        const existingUpdatedAt = deduplicatedSessions[id].updatedAt || 0;
-                        const currentUpdatedAt = session.updatedAt || 0;
-                        if (currentUpdatedAt > existingUpdatedAt) {
-                            deduplicatedSessions[id] = session;
-                        }
-                    }
-                }
+            // 初始化 sessions 对象
+            if (!this.sessions) {
                 this.sessions = {};
-                for (const session of Object.values(deduplicatedSessions)) {
-                    if (session && session.id) {
-                        this.sessions[session.id] = session;
-                    }
+            }
+
+            // 辅助函数：解析时间
+            const parseTime = (timeVal) => {
+                if (!timeVal) return 0;
+                if (typeof timeVal === 'number') return timeVal;
+                if (typeof timeVal === 'string') {
+                    const d = new Date(timeVal);
+                    if (!isNaN(d.getTime())) return d.getTime();
+                }
+                return 0;
+            };
+
+            // 直接使用接口返回的结果，转换为本地格式
+            const newSessions = {};
+            for (const backendSession of backendSessions) {
+                // 必须有 key 字段
+                if (!backendSession.key) {
+                    console.warn('会话缺少 key 字段，跳过:', backendSession);
+                    continue;
                 }
 
-                // 从后端加载数据后，不进行本地缓存
-                this.lastSessionListLoadTime = Date.now();
-                await this.updateSessionUI({ updateSidebar: true });
-                console.log('会话列表已从后端同步（API管理器），当前会话数量:', Object.keys(this.sessions).length);
-                return;
-            }
-
-            // 如果没有API管理器，使用旧方式（向后兼容）
-            if (!PET_CONFIG.api.syncSessionsToBackend) {
-                console.log('会话同步未启用，跳过从后端加载');
-                return;
-            }
-
-            const baseUrl = PET_CONFIG.api.yiaiBaseUrl;
-            if (!baseUrl) {
-                console.warn('YiAi后端地址未配置，跳过从后端加载');
-                return;
-            }
-
-            // 只在页面首次加载/刷新时调用，或者强制刷新时
-            const shouldLoadFromBackend = forceRefresh || this.isPageFirstLoad;
-
-            if (!shouldLoadFromBackend) {
-                console.log('跳过从后端加载会话列表（非页面刷新）');
-                return;
-            }
-
-            // 标记页面已加载
-            this.isPageFirstLoad = false;
-
-            // 检查是否需要刷新（避免频繁调用）
-            const now = Date.now();
-            if (!forceRefresh && (now - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) {
-                return;
-            }
-
-            console.log('开始从后端加载会话列表（页面刷新）...');
-
-            // 显示加载动画
-            this._showLoadingAnimation();
-
-            // 调用后端API获取会话列表
-            let response, result;
-            try {
-                response = await fetch(`${baseUrl}/session/`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.warn(`从后端加载会话列表失败: HTTP ${response.status}: ${errorText}`);
-                    // 隐藏加载动画
-                    this._hideLoadingAnimation();
-                    return;
-                }
-
-                result = await response.json();
-
-                // 隐藏加载动画
-                this._hideLoadingAnimation();
-            } catch (error) {
-                // 隐藏加载动画
-                this._hideLoadingAnimation();
-                console.warn('从后端加载会话列表失败:', error);
-                return;
-            }
-            this.lastSessionListLoadTime = now;
-
-            if (result.success && result.sessions && Array.isArray(result.sessions)) {
-                console.log(`从后端加载到 ${result.sessions.length} 个会话`);
-
-                // 更新后端会话ID集合
-                if (this.backendSessionIds) {
-                    this.backendSessionIds.clear();
-                } else {
-                    this.backendSessionIds = new Set();
-                }
-                result.sessions.forEach(backendSession => {
-                    const sessionId = backendSession.id || backendSession.session_id || backendSession.conversation_id;
-                    if (sessionId) {
-                        this.backendSessionIds.add(sessionId);
-                    }
-                });
-
-                // 将后端返回的会话数据合并到本地 sessions 对象
-                const backendSessions = {};
-                const sessionsToFetch = []; // 需要获取完整数据的会话ID列表
-
-                result.sessions.forEach(backendSession => {
-                    const sessionId = backendSession.id || backendSession.session_id || backendSession.conversation_id;
-                    if (!sessionId) return;
-
-                    // 将后端会话数据转换为本地格式
-                    const sessionUrl = backendSession.url || '';
+                const sessionUrl = backendSession.url || '';
                 const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
-                const pageTitle = backendSession.pageTitle || backendSession.title || '';
+                
+                // 解析时间字段
+                const createdAt = parseTime(backendSession.createdAt) || 
+                                 parseTime(backendSession.createdTime) || 
+                                 parseTime(backendSession.created_time) || 
+                                 parseTime(backendSession.created_at) || 
+                                 Date.now();
+                
+                const updatedAt = parseTime(backendSession.updatedAt) || 
+                                 parseTime(backendSession.updatedTime) || 
+                                 parseTime(backendSession.updated_time) || 
+                                 parseTime(backendSession.updated_at) || 
+                                 Date.now();
+
+                const lastAccessTime = parseTime(backendSession.lastAccessTime) || 
+                                      parseTime(backendSession.last_access_time) || 
+                                      updatedAt;
+
+                // 构建本地会话对象
                 const localSession = {
-                    key: backendSession.key || sessionId,
-                    id: sessionId,
+                    key: backendSession.key,
                     url: sessionUrl,
-                    pageTitle: pageTitle,
+                    title: backendSession.title || backendSession.pageTitle || '新会话',
+                    pageTitle: backendSession.pageTitle || backendSession.title || '',
                     pageDescription: backendSession.pageDescription || '',
                     pageContent: backendSession.pageContent || '',
-                        messages: backendSession.messages || [], // 后端列表API通常不包含messages
-                        tags: backendSession.tags || [],
-                        createdAt: backendSession.createdAt || backendSession.created_time || Date.now(),
-                        updatedAt: backendSession.updatedAt || backendSession.updated_time || Date.now(),
-                        lastAccessTime: backendSession.lastAccessTime || backendSession.last_access_time || Date.now(),
-                        isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : false
-                    };
+                    messages: backendSession.messages || [],
+                    tags: backendSession.tags || [],
+                    createdAt: createdAt,
+                    updatedAt: updatedAt,
+                    lastAccessTime: lastAccessTime,
+                    isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : false
+                };
 
-                    if (isBlankSession) {
-                        localSession._isBlankSession = true;
-                        localSession._originalUrl = sessionUrl;
-                    }
-
-                    const messageCount = backendSession.message_count || 0;
-                    if (!localSession.messages || localSession.messages.length === 0) {
-                        if (messageCount > 0) {
-                            sessionsToFetch.push(sessionId);
-                        }
-                    }
-
-                    backendSessions[sessionId] = localSession;
-                });
-
-                // 对于没有消息的会话，尝试从后端获取完整数据
-                if (sessionsToFetch.length > 0) {
-                    console.log(`发现 ${sessionsToFetch.length} 个需要获取完整数据的会话`);
-                    await Promise.all(sessionsToFetch.map(async (sessionId) => {
-                         // 这里原本有获取详情的逻辑，但在API管理器模式下已经处理了
-                    }));
+                // 如果是空白会话，添加标记
+                if (isBlankSession) {
+                    localSession._isBlankSession = true;
+                    localSession._originalUrl = sessionUrl;
                 }
-                
-                // 这里的合并逻辑与API管理器部分类似，省略重复代码
+                newSessions[backendSession.key] = localSession;
             }
+
+            // 直接替换 sessions
+            this.sessions = newSessions;
+            this.lastSessionListLoadTime = Date.now();
+            this.hasLoadedSessionsForChat = true;
+
+            // 更新UI
+            await this.updateSessionUI({ updateSidebar: true });
+            console.log('会话列表已从后端加载，当前会话数量:', Object.keys(this.sessions).length);
         } catch (error) {
             console.warn('从后端加载会话列表失败:', error);
-            this._hideLoadingAnimation();
         }
     };
 
@@ -1159,7 +909,11 @@
         const sessionMap = new Map();
         for (const session of Object.values(this.sessions)) {
             // 兼容 key 和 id，优先使用 key
-            const uniqueKey = session.key || session.id;
+            // 确保会话有 key，如果没有则生成一个
+            if (!session.key) {
+                session.key = this._generateUUID();
+            }
+            const uniqueKey = session.key;
             if (!session || !uniqueKey) {
                 continue;
             }
@@ -1653,7 +1407,7 @@
         };
 
         const blankSession = {
-            id: finalSessionId,
+            key: this._generateUUID(), // 生成 UUID 格式的 key
             url: finalUrl, // 空白会话使用唯一的随机URL（不会与基于URL的会话冲突）
             pageTitle: `会话_${formatDateForTitle(now)}`, // 使用日期时间格式作为标题，添加"会话_"前缀
             pageDescription: pageInfo.description || '', // 使用当前页面描述
@@ -1679,12 +1433,11 @@
             // 确保会话对象已更新到 sessions 中
             this.sessions[finalSessionId] = blankSession;
 
-            // 立即保存到后端，包含 pageContent 字段
-            await this.syncSessionToBackend(finalSessionId, true, true);
+            // 立即保存到后端，包含 pageContent 字段（只在聊天窗口打开时）
+            if (this.isChatOpen) {
+                await this.syncSessionToBackend(finalSessionId, true, true);
+            }
 
-            // 将会话ID添加到后端会话ID集合中（表示已保存到后端）
-            // 这样欢迎消息就不会显示保存按钮
-            this.backendSessionIds.add(finalSessionId);
 
             console.log('新会话已自动保存到后端', {
                 sessionId: finalSessionId,
@@ -1773,14 +1526,9 @@
             return false;
         }
 
-        // 如果会话ID已经在集合中，直接返回true（避免重新加载后端列表导致丢失刚保存的会话ID）
-        if (this.backendSessionIds.has(targetSessionId)) {
-            return true;
-        }
-
         // 如果后端列表还没有加载，且聊天窗口已经打开过（不是页面刷新时），才尝试加载
         // 避免在页面刷新时自动调用后端接口
-        if (this.backendSessionIds.size === 0 && this.sessionApi && !this.isChatWindowFirstOpen) {
+        if (this.sessionApi && !this.isChatWindowFirstOpen) {
             try {
                 // 尝试从后端获取最新的会话列表
                 const backendSessions = await this.sessionApi.getSessionsList({ forceRefresh: false });
@@ -1789,24 +1537,32 @@
                 const currentPageUrl = window.location.href;
                 for (const backendSession of backendSessions) {
                     if (backendSession.url === currentPageUrl) {
-                        const sessionId = backendSession.id || backendSession.session_id || backendSession.conversation_id;
-                        if (sessionId) {
-                            console.log('当前页面URL在会话列表中，正在加载会话详情:', sessionId);
+                        const sessionKey = backendSession.key || backendSession.conversation_id;
+                        if (sessionKey) {
+                            console.log('当前页面URL在会话列表中，正在加载会话详情:', sessionKey);
                             try {
-                                const sessionDetail = await this.sessionApi.getSession(sessionId, true);
+                                const sessionDetail = await this.sessionApi.getSession(sessionKey, true);
                                 if (sessionDetail) {
-                                    console.log('会话详情加载成功:', sessionId);
+                                    console.log('会话详情加载成功:', sessionKey);
                                     // 更新本地会话数据
-                                    if (this.sessions && this.sessions[sessionId]) {
+                                    // 使用 URL 生成 sessionId 作为键
+                                    const sessionUrl = backendSession.url || '';
+                                    if (sessionUrl && this.sessions) {
+                                        const sessionId = await this.generateSessionId(sessionUrl);
                                         // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
                                         const pageTitle = sessionDetail.pageTitle || sessionDetail.title || '';
-                                        this.sessions[sessionId] = {
-                                            ...this.sessions[sessionId],
-                                            ...sessionDetail,
-                                            id: sessionId,
-                                            // 确保 pageTitle 字段正确设置
-                                            pageTitle: pageTitle || this.sessions[sessionId].pageTitle || ''
-                                        };
+                                        // 确保保留原有的 key（如果后端返回的 key 不存在或无效）
+                                        const existingKey = this.sessions[sessionId]?.key;
+                                        if (this.sessions[sessionId]) {
+                                            this.sessions[sessionId] = {
+                                                ...this.sessions[sessionId],
+                                                ...sessionDetail,
+                                                // 确保 key 字段存在（使用 key 作为唯一标识符，与 YiWeb 保持一致）
+                                                key: sessionDetail.key || existingKey || this._generateUUID(),
+                                                // 确保 pageTitle 字段正确设置
+                                                pageTitle: pageTitle || this.sessions[sessionId].pageTitle || ''
+                                            };
+                                        }
                                     }
                                 }
                             } catch (error) {
@@ -1817,18 +1573,6 @@
                     }
                 }
 
-                // 更新后端会话ID集合
-                if (this.backendSessionIds) {
-                    this.backendSessionIds.clear();
-                } else {
-                    this.backendSessionIds = new Set();
-                }
-                backendSessions.forEach(backendSession => {
-                    const id = backendSession.id || backendSession.session_id || backendSession.conversation_id;
-                    if (id) {
-                        this.backendSessionIds.add(id);
-                    }
-                });
             } catch (error) {
                 console.warn('获取后端会话列表失败:', error);
                 // 如果获取失败，返回false，显示保存按钮
@@ -1836,8 +1580,10 @@
             }
         }
 
-        // 检查会话ID是否在后端列表中
-        return this.backendSessionIds.has(targetSessionId);
+        // 检查会话ID是否在后端列表中（通过查询后端接口）
+        // 由于已移除 backendSessionIds 集合，这里直接返回 false，让欢迎消息显示保存按钮
+        // 实际的后端检查由其他机制处理
+        return false;
     };
 
     // 手动刷新
@@ -2007,11 +1753,14 @@
         // 从后端删除会话（如果启用了后端同步）
         if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
             try {
-                // 确保使用 session.id 作为统一标识
-                const unifiedSessionId = session.id || sessionId;
-
-                await this.sessionApi.deleteSession(unifiedSessionId);
-                console.log('会话已从后端删除:', unifiedSessionId);
+                // 使用 session.key 删除
+                const sessionKey = session.key;
+                if (sessionKey) {
+                    await this.sessionApi.deleteSession(sessionKey);
+                    console.log('会话已从后端删除:', sessionKey);
+                } else {
+                    console.warn('会话缺少 key，无法从后端删除:', sessionId);
+                }
             } catch (error) {
                 console.warn('从后端删除会话失败:', error);
                 // 即使后端删除失败，也继续本地删除，确保用户界面响应
@@ -2114,7 +1863,7 @@
             // 创建会话副本，复制所有数据，但messages为空数组
             const now = Date.now();
             const duplicatedSession = {
-                id: newSessionId,
+                key: this._generateUUID(), // 生成新的 UUID key
                 url: newUrl,
                 pageTitle: sourceSession.pageTitle ? `${sourceSession.pageTitle} (副本)` : '新会话 (副本)',
                 pageDescription: sourceSession.pageDescription || '',
@@ -2127,8 +1876,8 @@
                 lastAccessTime: now
             };
 
-            // 直接调用接口保存副本
-            if (this.sessionApi) {
+            // 直接调用接口保存副本（只在聊天窗口打开时）
+            if (this.isChatOpen && this.sessionApi) {
                 try {
                     await this.sessionApi.saveSession(duplicatedSession);
                     console.log('会话副本已保存到后端:', newSessionId);
@@ -2213,8 +1962,8 @@
         session.isFavorite = !currentFavorite;
         session.updatedAt = Date.now();
 
-        // 同步到后端
-        if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+        // 同步到后端（只在聊天窗口打开时）
+        if (this.isChatOpen && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
             try {
                 await this.syncSessionToBackend(sessionId, true);
                 console.log(`会话 ${sessionId} 收藏状态已更新: ${session.isFavorite}`);

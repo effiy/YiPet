@@ -189,7 +189,7 @@
                 // 显示成功提示
                 refreshBtn.textContent = '✓ 已更新';
                 refreshBtn.style.background = 'rgba(76, 175, 80, 0.2)';
-                refreshBtn.style.color = '#4caf50';
+                refreshBtn.style.color = '#22c55e';  /* 现代绿 */
                 refreshBtn.style.borderColor = 'rgba(76, 175, 80, 0.4)';
 
                 setTimeout(() => {
@@ -207,7 +207,7 @@
                 // 显示失败提示
                 refreshBtn.textContent = '✕ 失败';
                 refreshBtn.style.background = 'rgba(244, 67, 54, 0.2)';
-                refreshBtn.style.color = '#f44336';
+                refreshBtn.style.color = '#ef4444';  /* 量子红 */
                 refreshBtn.style.borderColor = 'rgba(244, 67, 54, 0.4)';
 
                 setTimeout(() => {
@@ -312,7 +312,7 @@
             border-radius: 6px !important;
             border: 1px solid rgba(33, 150, 243, 0.3) !important;
             background: rgba(33, 150, 243, 0.15) !important;
-            color: #2196f3 !important;
+            color: #3b82f6 !important;  /* 信息蓝 */
             cursor: pointer !important;
             transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
             outline: none !important;
@@ -801,14 +801,6 @@
             // 手动保存时，同步到后端并包含 pageContent 字段
             await this.syncSessionToBackend(this.currentSessionId, true, true);
 
-            // 将会话ID添加到后端会话ID集合中（表示已保存到后端）
-            // 注意：必须在刷新欢迎消息之前添加，确保 isSessionInBackendList 能正确检查
-            this.backendSessionIds.add(this.currentSessionId);
-
-            // 确保会话ID已添加到集合中（防止异步问题）
-            if (!this.backendSessionIds.has(this.currentSessionId)) {
-                this.backendSessionIds.add(this.currentSessionId);
-            }
 
             // 刷新欢迎消息以隐藏保存按钮（因为现在已存在于后端列表中）
             await this.refreshWelcomeMessage();
@@ -932,12 +924,12 @@
         if (success) {
             button.textContent = '✓ 已保存';
             button.style.background = 'rgba(76, 175, 80, 0.2)';
-            button.style.color = '#4caf50';
+            button.style.color = '#22c55e';  /* 现代绿 */
             button.style.borderColor = 'rgba(76, 175, 80, 0.4)';
         } else {
             button.textContent = '✕ 保存失败';
             button.style.background = 'rgba(244, 67, 54, 0.2)';
-            button.style.color = '#f44336';
+            button.style.color = '#ef4444';  /* 量子红 */
             button.style.borderColor = 'rgba(244, 67, 54, 0.4)';
         }
 
@@ -974,7 +966,7 @@
                 const originalText = copyBtn.textContent;
                 copyBtn.textContent = '已复制';
                 copyBtn.style.background = 'rgba(76, 175, 80, 0.3)';
-                copyBtn.style.color = '#4caf50';
+                copyBtn.style.color = '#22c55e';  /* 现代绿 */
                 setTimeout(() => {
                     copyBtn.textContent = originalText;
                     copyBtn.style.background = 'rgba(255,255,255,0.04)';
@@ -1154,7 +1146,7 @@
             border-radius: 6px !important;
             border: 1px solid rgba(255,255,255,0.15) !important;
             background: rgba(76, 175, 80, 0.3) !important;
-            color: #4caf50 !important;
+            color: #22c55e !important;  /* 现代绿 */
             cursor: pointer !important;
         `;
         saveBtn.addEventListener('click', async () => {
@@ -1641,7 +1633,7 @@
                 const originalText = copyBtn.textContent;
                 copyBtn.textContent = '已复制';
                 copyBtn.style.background = 'rgba(76, 175, 80, 0.3)';
-                copyBtn.style.color = '#4caf50';
+                copyBtn.style.color = '#22c55e';  /* 现代绿 */
                 setTimeout(() => {
                     copyBtn.textContent = originalText;
                     copyBtn.style.background = 'rgba(255,255,255,0.04)';

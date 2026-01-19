@@ -120,7 +120,7 @@
             // 创建弹框容器
             const container = document.createElement('div');
             container.style.cssText = `
-                background: white !important;
+                background: #1e293b !important;  /* 量子灰 */
                 border-radius: 16px !important;
                 padding: 30px !important;
                 max-width: 500px !important;
@@ -135,7 +135,7 @@
             title.innerHTML = '🔑 设置 X-Token';
             title.style.cssText = `
                 margin: 0 0 10px 0 !important;
-                color: #333 !important;
+                color: #f8fafc !important;  /* 量子白 */
                 font-size: 20px !important;
                 font-weight: 600 !important;
                 text-align: center !important;
@@ -150,7 +150,7 @@
             description.textContent = '请输入 X-Token 以访问 api.effiy.cn 服务';
             description.style.cssText = `
                 margin: 0 0 20px 0 !important;
-                color: #666 !important;
+                color: #94a3b8 !important;  /* 中量子灰 */
                 font-size: 14px !important;
                 text-align: center !important;
             `;

@@ -34,6 +34,12 @@
             this.isResizingSidebar = false;
             this._suppressDragUntil = 0;
             this._fullscreenAnimating = false;
+            
+            // Draft Images
+            this.draftImages = [];
+            this.imageInput = null;
+            this.draftImagesContainer = null;
+            this.maxDraftImages = 9; // 最大图片数量限制
         }
 
         getMainColorFromGradient(gradient) {
@@ -240,7 +246,10 @@
             searchContainer.appendChild(clearBtn);
             firstRow.appendChild(searchContainer);
 
-            // Second Row: Buttons (Toolbar)
+            sidebarHeader.appendChild(firstRow);
+            sidebar.appendChild(sidebarHeader);
+
+            // Second Row: Buttons (Toolbar) - 移到 tag-filter-list 下面
             const secondRow = document.createElement('div');
             secondRow.className = 'session-sidebar-actions-row';
 
@@ -312,10 +321,6 @@
             secondRow.appendChild(leftButtonGroup);
             secondRow.appendChild(rightButtonGroup);
 
-            sidebarHeader.appendChild(firstRow);
-            sidebarHeader.appendChild(secondRow);
-            sidebar.appendChild(sidebarHeader);
-
             // Batch Toolbar
             const batchToolbar = this.buildBatchToolbar();
             sidebar.appendChild(batchToolbar);
@@ -327,6 +332,9 @@
             // Tag Filter Container
             const tagFilterContainer = this.createTagFilter();
             scrollableContent.appendChild(tagFilterContainer);
+
+            // Actions Row (移到 tag-filter-list 下面)
+            scrollableContent.appendChild(secondRow);
 
             // Session List Container
             const sessionList = document.createElement('div');
@@ -673,14 +681,6 @@
             const inputLeftButtonGroup = document.createElement('div');
             inputLeftButtonGroup.className = 'chat-input-btn-group';
 
-            // Mention Button
-            const mentionButton = manager.createButton({
-                text: '@',
-                className: 'chat-input-btn chat-input-icon-btn ui-btn ui-btn--icon ui-btn--primary',
-                attrs: { title: '提及' }
-            });
-            inputLeftButtonGroup.appendChild(mentionButton);
-
             // Context Editor Button
             const contextBtn = manager.createButton({
                 text: '📝 页面上下文',
@@ -695,25 +695,53 @@
             // FAQ Button
             const faqBtn = manager.createButton({
                 text: '💡 常见问题',
-                className: 'chat-input-btn chat-input-text-btn ui-btn ui-btn--md ui-btn--primary',
-                attrs: { title: '常见问题' },
+                className: 'chat-input-btn chat-input-text-btn',
+                attrs: { title: '常见问题', 'aria-label': '常见问题' },
                 onClick: () => {
                     if (typeof manager.openFaqManager === 'function') manager.openFaqManager();
                 }
             });
             inputLeftButtonGroup.appendChild(faqBtn);
 
-            // Settings Button
-            this.robotSettingsButton = document.createElement('button');
-            this.robotSettingsButton.className = 'chat-input-btn chat-input-icon-btn chat-input-settings-btn';
-            this.robotSettingsButton.innerHTML = '⚙️';
-            this.robotSettingsButton.title = 'AI 设置';
-
-            this.robotSettingsButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                manager.showSettingsModal();
+            // WeChat Settings Button
+            const weChatBtn = manager.createButton({
+                text: '🤖 微信机器人',
+                className: 'chat-input-btn chat-input-text-btn',
+                attrs: { title: '微信机器人设置', 'aria-label': '微信机器人设置' },
+                onClick: () => {
+                    if (typeof manager.openWeChatSettings === 'function') {
+                        manager.openWeChatSettings();
+                    } else if (typeof manager.showSettingsModal === 'function') {
+                        manager.showSettingsModal();
+                    }
+                }
             });
-            inputLeftButtonGroup.appendChild(this.robotSettingsButton);
+            inputLeftButtonGroup.appendChild(weChatBtn);
+
+            // Image Upload Button
+            const imageBtn = manager.createButton({
+                text: '🖼️ 图片',
+                className: 'chat-input-btn chat-input-text-btn',
+                attrs: { title: '上传图片', 'aria-label': '上传图片' },
+                onClick: () => {
+                    if (this.imageInput) {
+                        this.imageInput.click();
+                    }
+                }
+            });
+            inputLeftButtonGroup.appendChild(imageBtn);
+
+            // Hidden Image Input
+            this.imageInput = document.createElement('input');
+            this.imageInput.type = 'file';
+            this.imageInput.accept = 'image/*';
+            this.imageInput.multiple = true;
+            this.imageInput.style.display = 'none';
+            this.imageInput.id = 'pet-chat-image-input';
+            this.imageInput.addEventListener('change', (e) => {
+                this.handleImageInputChange(e);
+            });
+            inputLeftButtonGroup.appendChild(this.imageInput);
 
             topToolbar.appendChild(inputLeftButtonGroup);
 
@@ -736,28 +764,30 @@
             this.requestStatusButton.addEventListener('click', () => this.abortRequest());
             inputRightButtonGroup.appendChild(this.requestStatusButton);
 
-            // Clear Context Button
-            const clearContextBtn = document.createElement('button');
-            clearContextBtn.innerHTML = '🧹 清除上下文';
-            clearContextBtn.className = 'chat-input-clear-btn';
-
-            clearContextBtn.addEventListener('click', () => {
-                if (typeof manager.clearContext === 'function') manager.clearContext();
-            });
-            inputRightButtonGroup.appendChild(clearContextBtn);
-
             topToolbar.appendChild(inputRightButtonGroup);
 
             // Input Wrapper
             const inputWrapper = document.createElement('div');
             inputWrapper.className = 'chat-input-wrapper';
 
+            // Draft Images Container
+            this.draftImagesContainer = document.createElement('div');
+            this.draftImagesContainer.className = 'pet-chat-draft-images';
+            this.draftImagesContainer.style.display = 'none';
+            this.draftImagesContainer.setAttribute('aria-label', '待发送图片');
+            inputWrapper.appendChild(this.draftImagesContainer);
+
+            // Input Row
+            const inputRow = document.createElement('div');
+            inputRow.className = 'pet-chat-input-row';
+
             const textarea = document.createElement('textarea');
             this.messageInput = textarea; // Store reference
             textarea.id = 'pet-chat-input';
-            textarea.className = 'chat-message-input';
+            textarea.className = 'chat-message-input pet-chat-textarea';
             textarea.placeholder = '输入消息... (Enter 发送, Shift+Enter 换行)';
             textarea.rows = 2;
+            textarea.setAttribute('aria-label', '会话输入框');
 
 
             // Input State Management
@@ -848,13 +878,259 @@
                 }
             });
 
-            inputWrapper.appendChild(textarea);
+            inputRow.appendChild(textarea);
+            inputWrapper.appendChild(inputRow);
 
             inputContainer.appendChild(topToolbar);
             inputContainer.appendChild(inputWrapper);
 
             return inputContainer;
         }
+
+        handleImageInputChange(e) {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+
+            // 检查是否超过最大数量
+            const remainingSlots = this.maxDraftImages - this.draftImages.length;
+            if (remainingSlots <= 0) {
+                if (typeof this.manager.showNotification === 'function') {
+                    this.manager.showNotification(`最多只能添加 ${this.maxDraftImages} 张图片`, 'warn');
+                }
+                e.target.value = '';
+                return;
+            }
+
+            const imageFiles = files.filter(file => file.type.startsWith('image/'));
+            const filesToProcess = imageFiles.slice(0, remainingSlots);
+
+            if (imageFiles.length > remainingSlots) {
+                if (typeof this.manager.showNotification === 'function') {
+                    this.manager.showNotification(`只能添加 ${remainingSlots} 张图片（已达上限）`, 'warn');
+                }
+            }
+
+            let loadedCount = 0;
+            filesToProcess.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    this.draftImages.push(event.target.result);
+                    loadedCount++;
+                    if (loadedCount === filesToProcess.length) {
+                        this.updateDraftImagesDisplay();
+                    }
+                };
+                reader.onerror = () => {
+                    console.error('图片加载失败:', file.name);
+                    if (typeof this.manager.showNotification === 'function') {
+                        this.manager.showNotification(`图片 ${file.name} 加载失败`, 'error');
+                    }
+                    loadedCount++;
+                    if (loadedCount === filesToProcess.length) {
+                        this.updateDraftImagesDisplay();
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // Reset input
+            e.target.value = '';
+        }
+
+        updateDraftImagesDisplay() {
+            if (!this.draftImagesContainer) return;
+
+            if (this.draftImages.length === 0) {
+                this.draftImagesContainer.style.display = 'none';
+                this.draftImagesContainer.innerHTML = '';
+                return;
+            }
+
+            this.draftImagesContainer.style.display = 'flex';
+            
+            // 使用 DocumentFragment 提高性能
+            const fragment = document.createDocumentFragment();
+            
+            // 清空容器（保留结构）
+            const existingImages = this.draftImagesContainer.querySelectorAll('.pet-chat-draft-image');
+            existingImages.forEach(img => img.remove());
+            const existingClearBtn = this.draftImagesContainer.querySelector('.pet-chat-draft-images-clear');
+            if (existingClearBtn) existingClearBtn.remove();
+
+            this.draftImages.forEach((src, index) => {
+                const imageWrapper = document.createElement('div');
+                imageWrapper.className = 'pet-chat-draft-image';
+                imageWrapper.setAttribute('data-image-index', index);
+
+                const img = document.createElement('img');
+                img.className = 'pet-chat-draft-image-preview';
+                img.src = src;
+                img.alt = `待发送图片 ${index + 1}`;
+                img.loading = 'lazy'; // 懒加载
+
+                // 图片加载错误处理
+                img.addEventListener('error', () => {
+                    imageWrapper.classList.add('pet-chat-draft-image-error');
+                    img.style.display = 'none';
+                });
+
+                // 图片加载成功
+                img.addEventListener('load', () => {
+                    imageWrapper.classList.remove('pet-chat-draft-image-loading');
+                });
+
+                // 点击预览
+                imageWrapper.addEventListener('click', (e) => {
+                    // 如果点击的是删除按钮，不触发预览
+                    if (e.target.classList.contains('pet-chat-draft-image-remove')) {
+                        return;
+                    }
+                    this.previewDraftImage(src, index);
+                });
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'pet-chat-draft-image-remove';
+                removeBtn.innerHTML = '✕';
+                removeBtn.setAttribute('aria-label', `移除第 ${index + 1} 张图片`);
+                removeBtn.title = '移除';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // 阻止触发预览
+                    this.removeDraftImage(index);
+                });
+
+                // 初始加载状态
+                imageWrapper.classList.add('pet-chat-draft-image-loading');
+                
+                imageWrapper.appendChild(img);
+                imageWrapper.appendChild(removeBtn);
+                fragment.appendChild(imageWrapper);
+            });
+
+            this.draftImagesContainer.appendChild(fragment);
+
+            // Add clear all button
+            const clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'pet-chat-draft-images-clear';
+            clearBtn.textContent = `清空图片 (${this.draftImages.length})`;
+            clearBtn.setAttribute('aria-label', `清空所有 ${this.draftImages.length} 张图片`);
+            clearBtn.title = '清空所有图片';
+            clearBtn.addEventListener('click', () => {
+                this.clearDraftImages();
+            });
+            this.draftImagesContainer.appendChild(clearBtn);
+        }
+
+        /**
+         * 移除指定索引的图片
+         * @param {number} index - 图片索引
+         */
+        removeDraftImage(index) {
+            if (index >= 0 && index < this.draftImages.length) {
+                this.draftImages.splice(index, 1);
+                this.updateDraftImagesDisplay();
+            }
+        }
+
+        /**
+         * 预览草稿图片
+         * @param {string} src - 图片源
+         * @param {number} index - 图片索引
+         */
+        previewDraftImage(src, index) {
+            // 创建预览模态框
+            const modal = document.createElement('div');
+            modal.className = 'pet-draft-image-preview-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.85);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                cursor: pointer;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            `;
+
+            const img = document.createElement('img');
+            img.src = src;
+            img.style.cssText = `
+                max-width: 90vw;
+                max-height: 90vh;
+                object-fit: contain;
+                border-radius: 8px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            `;
+
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '✕';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                width: 40px;
+                height: 40px;
+                border: none;
+                background: rgba(15, 23, 42, 0.9);
+                color: white;
+                border-radius: 50%;
+                font-size: 20px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s ease;
+            `;
+            closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.background = 'rgba(239, 68, 68, 0.9)';
+                closeBtn.style.transform = 'scale(1.1)';
+            });
+            closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.background = 'rgba(15, 23, 42, 0.9)';
+                closeBtn.style.transform = 'scale(1)';
+            });
+
+            const closeModal = () => {
+                modal.remove();
+                document.body.style.overflow = '';
+            };
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal || e.target === closeBtn) {
+                    closeModal();
+                }
+            });
+
+            closeBtn.addEventListener('click', closeModal);
+
+            // ESC 键关闭
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', handleKeyDown);
+                }
+            };
+            document.addEventListener('keydown', handleKeyDown);
+
+            // 阻止背景滚动
+            document.body.style.overflow = 'hidden';
+
+            modal.appendChild(img);
+            modal.appendChild(closeBtn);
+            document.body.appendChild(modal);
+        }
+
+        clearDraftImages() {
+            this.draftImages = [];
+            this.updateDraftImagesDisplay();
+        }
+
         async sendMessage() {
             const manager = this.manager;
             const textarea = this.messageInput;
@@ -875,7 +1151,7 @@
 
                 // Add to session data
                 if (typeof manager.addMessageToSession === 'function') {
-                    await manager.addMessageToSession('user', message, null, false);
+                    await manager.addMessageToSession('user', message, imagesToSend.length > 0 ? imagesToSend : null, false);
                 }
 
                 // Add action buttons
@@ -896,6 +1172,12 @@
                         manager.addSortButtons(copyButtonContainer, userMessage);
                     }
                 }
+            }
+
+            // Send images if any
+            const imagesToSend = [...this.draftImages];
+            if (imagesToSend.length > 0) {
+                this.clearDraftImages();
             }
 
             // Clear Input
@@ -2293,7 +2575,7 @@
                                     // 删除后保存会话并同步到后端（确保数据同步）
                                     this.manager.saveCurrentSession().then(() => {
                                         // 同步到后端
-                                        if (this.manager.currentSessionId && this.manager.sessionManager && this.manager.sessionManager.enableBackendSync) {
+                                        if (this.manager.isChatOpen && this.manager.currentSessionId && this.manager.sessionManager && this.manager.sessionManager.enableBackendSync) {
                                             this.manager.sessionManager.syncSessionToBackend(this.manager.currentSessionId, true).catch(err => {
                                                 console.error('删除消息后同步到后端失败:', err);
                                             });
@@ -2326,7 +2608,7 @@
                                             currentMessage.remove();
                                             // 删除后保存会话并同步到后端
                                             this.manager.saveCurrentSession().then(() => {
-                                                if (this.manager.currentSessionId && this.manager.sessionManager && this.manager.sessionManager.enableBackendSync) {
+                                                if (this.manager.isChatOpen && this.manager.currentSessionId && this.manager.sessionManager && this.manager.sessionManager.enableBackendSync) {
                                                     this.manager.sessionManager.syncSessionToBackend(this.manager.currentSessionId, true).catch(err => {
                                                         console.error('删除消息后同步到后端失败:', err);
                                                     });
@@ -2571,7 +2853,7 @@
                         <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 `;
-                    resendButton.style.color = '#4caf50';
+                    resendButton.style.color = '#22c55e';  /* 现代绿 */
 
                     setTimeout(() => {
                         resendButton.innerHTML = `
@@ -2601,7 +2883,7 @@
                         <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 `;
-                    resendButton.style.color = '#f44336';
+                    resendButton.style.color = '#ef4444';  /* 量子红 */
 
                     setTimeout(() => {
                         resendButton.innerHTML = `

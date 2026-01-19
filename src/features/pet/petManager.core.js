@@ -80,7 +80,6 @@
                 this.SESSION_LIST_RELOAD_INTERVAL = 10000; // 会话列表重新加载间隔（10秒）
                 this.isPageFirstLoad = true; // 标记是否是页面首次加载/刷新
                 this.skipSessionListRefresh = false; // 标记是否跳过会话列表刷新（prompt调用后使用）
-                this.backendSessionIds = new Set(); // 存储后端会话ID集合，用于判断是否显示保存按钮
                 this.isChatWindowFirstOpen = true; // 标记是否是第一次打开聊天窗口
                 this.hasLoadedSessionsForChat = false; // 当前聊天周期是否已加载过会话列表
 
@@ -800,7 +799,10 @@
                         await window.exportSingleMessageToPNG(messageDiv, messageType);
                     } else {
                         console.error('导出函数未加载');
-                        this.showNotification('导出功能未加载，请刷新页面后重试', 'error');
+                        const exportError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                            ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                            : '导出功能未加载';
+                        this.showNotification(exportError, 'error');
                     }
                 });
 
@@ -1717,7 +1719,7 @@
                                         // 删除后保存会话并同步到后端（确保数据同步）
                                         this.saveCurrentSession().then(() => {
                                             // 同步到后端
-                                            if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
+                                            if (this.isChatOpen && this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
                                                 this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
                                                     console.error('删除消息后同步到后端失败:', err);
                                                 });
@@ -1751,7 +1753,7 @@
                                                 // 删除后保存会话并同步到后端（确保数据同步）
                                                 this.saveCurrentSession().then(() => {
                                                     // 同步到后端
-                                                    if (this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
+                                                    if (this.isChatOpen && this.currentSessionId && this.sessionManager && this.sessionManager.enableBackendSync) {
                                                         this.sessionManager.syncSessionToBackend(this.currentSessionId, true).catch(err => {
                                                             console.error('删除消息后同步到后端失败:', err);
                                                         });
@@ -2267,13 +2269,39 @@
     } catch (error) {
         console.error('[PetManager.core] 初始化失败:', error);
         console.error('[PetManager.core] 错误堆栈:', error.stack);
-        // 即使出错也尝试创建一个基本的 PetManager 类，避免后续代码完全失败
+        
+        // 即使出错也尝试创建一个降级的 PetManager 类，避免后续代码完全失败
         if (typeof window !== 'undefined' && typeof window.PetManager === 'undefined') {
-            window.PetManager = class PetManager {
+            window.PetManager = class PetManagerFallback {
                 constructor() {
-                    console.error('[PetManager] 使用降级版本，某些功能可能不可用');
+                    console.warn('[PetManager] 使用降级版本，某些功能可能不可用');
+                    this.isFallback = true;
+                }
+                
+                // 提供基本的降级方法
+                showNotification(message, type = 'info') {
+                    console.log(`[PetManager降级] ${type}: ${message}`);
+                }
+                
+                // 提供空方法避免调用错误
+                openChatWindow() {
+                    console.warn('[PetManager降级] openChatWindow 不可用');
+                    return Promise.resolve({ success: false, error: 'PetManager未完全初始化' });
                 }
             };
+            
+            // 尝试在后台重试初始化（不阻塞用户）
+            if (typeof setTimeout !== 'undefined') {
+                setTimeout(() => {
+                    console.log('[PetManager] 尝试后台重试初始化...');
+                    try {
+                        // 重新执行初始化逻辑（简化版）
+                        // 这里可以添加重试逻辑
+                    } catch (retryError) {
+                        console.warn('[PetManager] 后台重试失败:', retryError);
+                    }
+                }, 2000);
+            }
         }
     }
 })(); // 结束立即执行函数

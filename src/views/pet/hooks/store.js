@@ -29,11 +29,11 @@ export const createStore = () => {
     const petPosition = vueRef({ x: 20, y: '20%' });
     const petRole = vueRef('教师');
     const petColors = vueRef([
-        "linear-gradient(135deg, #ff6b6b, #ff8e8e)",
-        "linear-gradient(135deg, #4ecdc4, #44a08d)",
-        "linear-gradient(135deg, #ff9a9e, #fecfef)",
-        "linear-gradient(135deg, #a8edea, #fed6e3)",
-        "linear-gradient(135deg, #ffecd2, #fcb69f)"
+        "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",  /* 主色：优雅蓝紫 */
+        "linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)",  /* 现代靛蓝紫 */
+        "linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%)",  /* 量子海洋 */
+        "linear-gradient(135deg, #22c55e 0%, #10b981 50%, #059669 100%)",  /* 量子森林 */
+        "linear-gradient(135deg, #f59e0b 0%, #ec4899 50%, #a855f7 100%)"   /* 量子日落 */
     ]);
     const petIsDragging = vueRef(false);
 

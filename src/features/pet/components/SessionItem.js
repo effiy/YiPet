@@ -48,9 +48,9 @@
 
             // Click handler (activate session)
             sessionItem.addEventListener('click', async (e) => {
-                // Ignore if clicking checkbox, favorite icon, or action buttons
+                // Ignore if clicking checkbox, favorite button, or action buttons
                 if (e.target.closest('.session-checkbox') || 
-                    e.target.closest('.favorite-icon') ||
+                    e.target.closest('.session-favorite-btn') ||
                     e.target.closest('button') ||
                     e.target.closest('.session-tag-item')) {
                     return;
@@ -149,26 +149,30 @@
         const title = document.createElement('div');
         title.className = 'session-item-title';
 
-        // Fav Icon
-        const favIcon = document.createElement('span');
-        favIcon.className = 'favorite-icon';
-        favIcon.textContent = session.isFavorite ? '★' : '☆';
+        // Fav Icon - 使用 session-favorite-btn 类名与 YiWeb 保持一致
+        const favIcon = document.createElement('button');
+        favIcon.type = 'button';
+        favIcon.className = 'session-favorite-btn';
+        favIcon.textContent = session.isFavorite ? '❤️' : '🤍';
         if (session.isFavorite) {
-            favIcon.classList.add('favorite-icon--active');
+            favIcon.classList.add('active');
         }
-        favIcon.title = session.isFavorite ? '取消收藏' : '收藏会话';
+        favIcon.title = session.isFavorite ? '取消收藏' : '收藏';
+        favIcon.setAttribute('aria-label', session.isFavorite ? '取消收藏' : '收藏');
         favIcon.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
             const newVal = !session.isFavorite;
             try {
                 await manager.setSessionFavorite(session.id, newVal);
-                favIcon.textContent = newVal ? '★' : '☆';
+                favIcon.textContent = newVal ? '❤️' : '🤍';
                 if (newVal) {
-                    favIcon.classList.add('favorite-icon--active');
+                    favIcon.classList.add('active');
                 } else {
-                    favIcon.classList.remove('favorite-icon--active');
+                    favIcon.classList.remove('active');
                 }
+                favIcon.title = newVal ? '取消收藏' : '收藏';
+                favIcon.setAttribute('aria-label', newVal ? '取消收藏' : '收藏');
                 
                 const titleText = title.querySelector('.title-text');
                 if (titleText) {
@@ -250,12 +254,13 @@
         const footerButtonContainer = document.createElement('div');
         footerButtonContainer.className = 'session-action-buttons';
 
-        // Create buttons
-        const createBtn = (text, title, onClick) => {
+        // Create buttons - 使用图标和类名匹配 YiWeb 设计
+        const createBtn = (icon, title, className, onClick) => {
             const btn = document.createElement('button');
-            btn.textContent = text;
+            btn.innerHTML = icon;
             btn.title = title;
-            btn.className = 'session-footer-btn';
+            btn.className = `session-footer-btn ${className}`;
+            btn.setAttribute('aria-label', title);
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -265,7 +270,7 @@
         };
 
             // Edit
-            const editBtn = createBtn('编辑', '编辑会话标题', async () => {
+            const editBtn = createBtn('✏️', '编辑标题', 'session-edit-btn', async () => {
                 const newTitle = prompt('编辑会话标题', sessionTitle);
                 if (newTitle && newTitle.trim()) {
                     try {
@@ -280,14 +285,14 @@
             });
 
             // Tag
-            const tagBtn = createBtn('标签', '管理该会话的标签', async () => {
+            const tagBtn = createBtn('🏷️', '管理标签', 'session-tag-btn', async () => {
                 if (typeof manager.openTagManager === 'function') {
                     await manager.openTagManager(session.id);
                 }
             });
 
             // Duplicate
-            const duplicateBtn = createBtn('副本', '创建会话副本', async () => {
+            const duplicateBtn = createBtn('📋', '创建副本', 'session-duplicate-btn', async () => {
                 try {
                     await manager.duplicateSession(session.id);
                     await manager.updateSessionSidebar(false, false);
@@ -299,29 +304,29 @@
             });
 
             // Context
-            const contextBtn = createBtn('上下文', '查看页面上下文', () => {
+            const contextBtn = createBtn('📝', '页面上下文', 'session-context-btn', () => {
                 if (typeof manager.showSessionContext === 'function') {
                     manager.showSessionContext(session.id);
                 }
             });
 
             // Open
-            const openUrlBtn = createBtn('打开', '在新标签页打开', async () => {
-                if (session.url) {
-                    try {
-                        await manager.openUrl(session.url);
-                    } catch (err) {
-                        console.error('打开链接失败:', err);
-                        manager.showNotification('打开链接失败', 'error');
-                    }
+            const openUrlBtn = session.url ? createBtn('🔗', '在新标签页打开', 'session-open-btn', async () => {
+                try {
+                    await manager.openUrl(session.url);
+                } catch (err) {
+                    console.error('打开链接失败:', err);
+                    manager.showNotification('打开链接失败', 'error');
                 }
-            });
+            }) : null;
 
             footerButtonContainer.appendChild(editBtn);
             footerButtonContainer.appendChild(tagBtn);
             footerButtonContainer.appendChild(duplicateBtn);
             footerButtonContainer.appendChild(contextBtn);
-            footerButtonContainer.appendChild(openUrlBtn);
+            if (openUrlBtn) {
+                footerButtonContainer.appendChild(openUrlBtn);
+            }
 
             footer.appendChild(footerButtonContainer);
             sessionInfo.appendChild(footer);

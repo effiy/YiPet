@@ -143,7 +143,7 @@
         });
 
         tagInput.addEventListener('focus', () => {
-            tagInput.style.borderColor = '#4CAF50';
+            tagInput.style.borderColor = '#22c55e';  /* 现代绿 */
         });
         tagInput.addEventListener('blur', () => {
             tagInput.style.borderColor = '#e0e0e0';
@@ -158,7 +158,7 @@
             addBtn.style.background = '#45a049';
         });
         addBtn.addEventListener('mouseleave', () => {
-            addBtn.style.background = '#4CAF50';
+            addBtn.style.background = '#22c55e';  /* 现代绿 */
         });
         addBtn.addEventListener('click', () => {
             const faqIndex = modal.dataset.faqIndex;
@@ -211,7 +211,7 @@
                     return;
                 }
                 quickTagBtn.style.background = '#e0e0e0';
-                quickTagBtn.style.borderColor = '#4CAF50';
+                quickTagBtn.style.borderColor = '#22c55e';  /* 现代绿 */
             });
             quickTagBtn.addEventListener('mouseleave', () => {
                 if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
@@ -239,7 +239,7 @@
         tagsContainer.style.maxHeight = '300px';
         tagsContainer.style.marginBottom = '20px';
         tagsContainer.style.padding = '12px';
-        tagsContainer.style.background = '#f8f9fa';
+        tagsContainer.style.background = '#0f172a';  /* 深空黑 */
         tagsContainer.style.borderRadius = '6px';
 
         const footer = document.createElement('div');
@@ -260,13 +260,13 @@
         saveBtn.className = 'faq-tag-manager-save';
         saveBtn.textContent = '保存';
         saveBtn.className = 'tw-btn';
-        saveBtn.style.background = '#2196F3';
+        saveBtn.style.background = '#3b82f6';  /* 信息蓝 */
         saveBtn.style.color = '#fff';
         saveBtn.addEventListener('mouseenter', () => {
             saveBtn.style.background = '#1976D2';
         });
         saveBtn.addEventListener('mouseleave', () => {
-            saveBtn.style.background = '#2196F3';
+            saveBtn.style.background = '#3b82f6';  /* 信息蓝 */
         });
 
         footer.appendChild(cancelBtn);
@@ -367,14 +367,14 @@
         quickTagButtons.forEach(btn => {
             const tagName = btn.dataset.tagName || btn.textContent;
             if (tagModal._currentTags.includes(tagName)) {
-                btn.style.background = '#4CAF50';
+                btn.style.background = '#22c55e';  /* 现代绿 */
                 btn.style.color = 'white';
-                btn.style.borderColor = '#4CAF50';
+                btn.style.borderColor = '#22c55e';
                 btn.style.cursor = 'not-allowed';
                 btn.style.opacity = '0.8';
             } else {
                 btn.style.background = '#f0f0f0';
-                btn.style.color = '#333';
+                btn.style.color = '#f8fafc';  /* 量子白 */
                 btn.style.borderColor = '#d0d0d0';
                 btn.style.cursor = 'pointer';
                 btn.style.opacity = '1';

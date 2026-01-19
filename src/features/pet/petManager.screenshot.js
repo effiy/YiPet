@@ -17,7 +17,10 @@
 
             // 检查Chrome API可用性
             if (!this.checkChromeAPIAvailability()) {
-                this.showScreenshotNotification('Chrome API不可用，请刷新页面后重试', 'error');
+                const apiError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                    : 'Chrome API不可用';
+                this.showScreenshotNotification(apiError, 'error');
                 return;
             }
 
@@ -142,7 +145,7 @@
         selectionBox.id = 'selection-box';
         selectionBox.style.cssText = `
             position: absolute !important;
-            border: 2px solid #2196F3 !important;
+            border: 2px solid #3b82f6 !important;  /* 信息蓝 */
             background: rgba(33, 150, 243, 0.1) !important;
             pointer-events: none !important;
             box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3) !important;
@@ -401,7 +404,7 @@
 
         const helpContainer = document.createElement('div');
         helpContainer.style.cssText = `
-            background: white !important;
+            background: #1e293b !important;  /* 量子灰 */
             border-radius: 16px !important;
             padding: 30px !important;
             max-width: 500px !important;
@@ -413,13 +416,13 @@
         `;
 
         helpContainer.innerHTML = `
-            <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px; font-weight: 600; text-align: center;">
+            <h3 style="margin: 0 0 20px 0; color: #f8fafc; font-size: 20px; font-weight: 600; text-align: center;">  /* 量子白 */
                 🔧 权限问题解决方案
             </h3>
 
             <div style="margin-bottom: 20px;">
-                <h4 style="color: #ff6b6b; margin-bottom: 10px;">📋 解决步骤：</h4>
-                <ol style="color: #666; line-height: 1.6; padding-left: 20px;">
+                <h4 style="color: #ef4444; margin-bottom: 10px;">📋 解决步骤：</h4>  /* 量子红 */
+                <ol style="color: #e2e8f0; line-height: 1.6; padding-left: 20px;">  /* 浅量子灰 */
                     <li>打开 Chrome 扩展管理页面：<code>chrome://extensions/</code></li>
                     <li>找到"温柔陪伴助手"扩展</li>
                     <li>点击"重新加载"按钮</li>
@@ -431,7 +434,7 @@
 
             <div style="margin-bottom: 20px;">
                 <h4 style="color: #FF9800; margin-bottom: 10px;">⚠️ Chrome API问题：</h4>
-                <ul style="color: #666; line-height: 1.6; padding-left: 20px;">
+                <ul style="color: #e2e8f0; line-height: 1.6; padding-left: 20px;">  /* 浅量子灰 */
                     <li>如果显示"Chrome API不可用"，请刷新页面</li>
                     <li>确保在普通网页中使用（非系统页面）</li>
                     <li>检查浏览器是否是最新版本</li>
@@ -440,8 +443,8 @@
             </div>
 
             <div style="margin-bottom: 20px;">
-                <h4 style="color: #4CAF50; margin-bottom: 10px;">💡 其他解决方案：</h4>
-                <ul style="color: #666; line-height: 1.6; padding-left: 20px;">
+                <h4 style="color: #22c55e; margin-bottom: 10px;">💡 其他解决方案：</h4>  /* 现代绿 */
+                <ul style="color: #e2e8f0; line-height: 1.6; padding-left: 20px;">  /* 浅量子灰 */
                     <li>尝试在其他网页中使用截图功能</li>
                     <li>检查浏览器是否是最新版本</li>
                     <li>暂时禁用其他可能冲突的扩展</li>
@@ -452,7 +455,7 @@
             <div style="text-align: center;">
                 <button id="open-extensions-page" style="
                     padding: 12px 24px;
-                    background: linear-gradient(135deg, #2196F3, #1976D2);
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);  /* 信息蓝渐变 */
                     color: white;
                     border: none;
                     border-radius: 8px;
@@ -465,7 +468,7 @@
 
                 <button id="close-help-modal" style="
                     padding: 12px 24px;
-                    background: linear-gradient(135deg, #f44336, #d32f2f);
+                    background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);  /* 量子红渐变 */
                     color: white;
                     border: none;
                     border-radius: 8px;
@@ -846,7 +849,7 @@
         // 创建预览容器
         const previewContainer = document.createElement('div');
         previewContainer.style.cssText = `
-            background: white !important;
+            background: #1e293b !important;  /* 量子灰 */
             border-radius: 16px !important;
             padding: 20px !important;
             max-width: 90% !important;
@@ -861,7 +864,7 @@
         title.innerHTML = '📷 截图预览';
         title.style.cssText = `
             margin: 0 0 20px 0 !important;
-            color: #333 !important;
+            color: #f8fafc !important;  /* 量子白 */
             font-size: 18px !important;
             font-weight: 600 !important;
             text-align: center !important;
@@ -895,7 +898,7 @@
         saveButton.innerHTML = '💾 保存图片';
         saveButton.style.cssText = `
             padding: 12px 24px !important;
-            background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%) !important;  /* 现代绿渐变 */
             color: white !important;
             border: none !important;
             border-radius: 8px !important;
@@ -914,7 +917,7 @@
         copyButton.innerHTML = '📋 复制';
         copyButton.style.cssText = `
             padding: 12px 24px !important;
-            background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%) !important;  /* 信息蓝渐变 */
             color: white !important;
             border: none !important;
             border-radius: 8px !important;
@@ -946,7 +949,7 @@
         closeButton.textContent = '关闭';
         closeButton.style.cssText = `
             padding: 12px 24px !important;
-            background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%) !important;  /* 量子红渐变 */
             color: white !important;
             border: none !important;
             border-radius: 8px !important;
@@ -1055,8 +1058,8 @@
         notification.className = `pet-notification ${type}`;
         notification.textContent = message;
 
-        const backgroundColor = type === 'error' ? '#f44336' :
-                               type === 'info' ? '#2196F3' : '#4CAF50';
+        const backgroundColor = type === 'error' ? '#ef4444' :  /* 量子红 */
+                               type === 'info' ? '#3b82f6' : '#22c55e';  /* 信息蓝 / 现代绿 */
 
         notification.style.cssText = `
             position: fixed !important;
@@ -1114,8 +1117,8 @@
         notification.className = `screenshot-notification ${type}`;
         notification.textContent = message;
 
-        const backgroundColor = type === 'error' ? '#f44336' :
-                               type === 'info' ? '#2196F3' : '#4CAF50';
+        const backgroundColor = type === 'error' ? '#ef4444' :  /* 量子红 */
+                               type === 'info' ? '#3b82f6' : '#22c55e';  /* 信息蓝 / 现代绿 */
 
         notification.style.cssText = `
             position: fixed !important;

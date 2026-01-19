@@ -180,7 +180,7 @@
 
             const panel = document.createElement('div');
             panel.style.cssText = `
-                background: white !important;
+                background: #1e293b !important;  /* 量子灰 */
                 border-radius: 12px !important;
                 padding: 24px !important;
                 width: 90% !important;
@@ -205,7 +205,7 @@
                 margin: 0 !important;
                 font-size: 18px !important;
                 font-weight: 600 !important;
-                color: #333 !important;
+                color: #f8fafc !important;  /* 量子白 */
             `;
 
             const closeBtn = document.createElement('button');
@@ -228,7 +228,7 @@
             `;
             closeBtn.addEventListener('mouseenter', () => {
                 closeBtn.style.background = '#f0f0f0';
-                closeBtn.style.color = '#333';
+                closeBtn.style.color = '#f8fafc';  /* 量子白 */
             });
             closeBtn.addEventListener('mouseleave', () => {
                 closeBtn.style.background = 'none';
@@ -272,7 +272,7 @@
             });
 
             tagInput.addEventListener('focus', () => {
-                tagInput.style.borderColor = '#4CAF50';
+                tagInput.style.borderColor = '#22c55e';  /* 现代绿 */
             });
             tagInput.addEventListener('blur', () => {
                 tagInput.style.borderColor = '#e0e0e0';

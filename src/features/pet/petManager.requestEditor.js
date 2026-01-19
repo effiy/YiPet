@@ -135,7 +135,7 @@
                 padding: 10px !important;
                 border: 1px dashed #d1d5db !important;
                 border-top: none !important;
-                background: white !important;
+                background: #1e293b !important;  /* 量子灰 */
                 color: #6b7280 !important;
                 font-size: 13px !important;
                 cursor: pointer !important;
@@ -147,7 +147,7 @@
                 addBtn.style.color = '#3b82f6';
             });
             addBtn.addEventListener('mouseleave', () => {
-                addBtn.style.background = 'white';
+                addBtn.style.background = '#1e293b';  /* 量子灰 */
                 addBtn.style.borderColor = '#d1d5db';
                 addBtn.style.color = '#6b7280';
             });

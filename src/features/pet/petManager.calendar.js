@@ -30,11 +30,13 @@
         calendarContainer.style.cssText = `
             width: 100% !important;
             margin-bottom: 8px !important;
-            background: #ffffff !important;
-            border: 1px solid #e5e7eb !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
             border-radius: 8px !important;
             overflow: hidden !important;
             transition: all 0.3s ease !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
         `;
 
         // 日历头部（折叠/展开按钮和日期显示）
@@ -44,11 +46,20 @@
             align-items: center !important;
             justify-content: space-between !important;
             padding: 8px 12px !important;
-            background: #f9fafb !important;
-            border-bottom: 1px solid #e5e7eb !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
             cursor: pointer !important;
             user-select: none !important;
+            transition: background 0.2s ease !important;
         `;
+        
+        // 添加头部悬停效果
+        calendarHeader.addEventListener('mouseenter', () => {
+            calendarHeader.style.background = 'rgba(255, 255, 255, 0.06)';
+        });
+        calendarHeader.addEventListener('mouseleave', () => {
+            calendarHeader.style.background = 'rgba(255, 255, 255, 0.03)';
+        });
 
         // 左侧：图标和标题
         const headerLeft = document.createElement('div');
@@ -78,7 +89,7 @@
         dateRangeDisplay.className = 'date-range-display';
         dateRangeDisplay.style.cssText = `
             font-size: 11px !important;
-            color: #6b7280 !important;
+            color: var(--text-secondary, #e2e8f0) !important;
         `;
         this.updateDateRangeDisplay(dateRangeDisplay);
 
@@ -91,8 +102,8 @@
             width: 16px !important;
             height: 16px !important;
             border: none !important;
-            background: #e5e7eb !important;
-            color: #6b7280 !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: var(--text-muted, #94a3b8) !important;
             border-radius: 50% !important;
             cursor: pointer !important;
             display: ${this.dateRangeFilter ? 'flex' : 'none'} !important;
@@ -122,12 +133,14 @@
         });
 
         clearDateBtn.addEventListener('mouseenter', () => {
-            clearDateBtn.style.background = '#d1d5db';
+            clearDateBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+            clearDateBtn.style.color = '#ef4444';
             clearDateBtn.style.transform = 'scale(1.1)';
         });
 
         clearDateBtn.addEventListener('mouseleave', () => {
-            clearDateBtn.style.background = '#e5e7eb';
+            clearDateBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            clearDateBtn.style.color = 'var(--text-muted, #94a3b8)';
             clearDateBtn.style.transform = 'scale(1)';
         });
 
@@ -149,8 +162,8 @@
             display: flex !important;
             align-items: center !important;
             gap: 2px !important;
-            background: #ffffff !important;
-            border: 1px solid #e5e7eb !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
             border-radius: 6px !important;
             padding: 2px !important;
             margin-right: 8px !important;
@@ -166,7 +179,7 @@
             height: 24px !important;
             border: none !important;
             background: transparent !important;
-            color: #6b7280 !important;
+            color: var(--text-muted, #94a3b8) !important;
             border-radius: 4px !important;
             cursor: pointer !important;
             display: flex !important;
@@ -204,16 +217,26 @@
         });
 
         prevDayBtn.addEventListener('mouseenter', () => {
-            prevDayBtn.style.background = '#f3f4f6';
+            prevDayBtn.style.background = `rgba(${hexToRgb(mainColor)?.r || 99}, ${hexToRgb(mainColor)?.g || 102}, ${hexToRgb(mainColor)?.b || 241}, 0.15)`;
             prevDayBtn.style.color = mainColor;
             prevDayBtn.style.transform = 'scale(1.1)';
         });
 
         prevDayBtn.addEventListener('mouseleave', () => {
             prevDayBtn.style.background = 'transparent';
-            prevDayBtn.style.color = '#6b7280';
+            prevDayBtn.style.color = 'var(--text-muted, #94a3b8)';
             prevDayBtn.style.transform = 'scale(1)';
         });
+        
+        // 添加 hexToRgb 辅助函数（如果还没有）
+        const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        };
 
         prevDayBtn.addEventListener('mousedown', () => {
             prevDayBtn.style.transform = 'scale(0.95)';
@@ -233,7 +256,7 @@
             height: 24px !important;
             border: none !important;
             background: transparent !important;
-            color: #6b7280 !important;
+            color: var(--text-muted, #94a3b8) !important;
             border-radius: 4px !important;
             cursor: pointer !important;
             display: flex !important;
@@ -271,14 +294,15 @@
         });
 
         nextDayBtn.addEventListener('mouseenter', () => {
-            nextDayBtn.style.background = '#f3f4f6';
+            const rgb = hexToRgb(mainColor) || { r: 99, g: 102, b: 241 };
+            nextDayBtn.style.background = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`;
             nextDayBtn.style.color = mainColor;
             nextDayBtn.style.transform = 'scale(1.1)';
         });
 
         nextDayBtn.addEventListener('mouseleave', () => {
             nextDayBtn.style.background = 'transparent';
-            nextDayBtn.style.color = '#6b7280';
+            nextDayBtn.style.color = 'var(--text-muted, #94a3b8)';
             nextDayBtn.style.transform = 'scale(1)';
         });
 
@@ -299,10 +323,17 @@
         toggleBtn.textContent = this.calendarCollapsed ? '▶' : '▼';
         toggleBtn.style.cssText = `
             font-size: 12px !important;
-            color: #6b7280 !important;
-            transition: transform 0.3s ease !important;
+            color: var(--text-muted, #94a3b8) !important;
+            transition: all 0.3s ease !important;
             cursor: pointer !important;
         `;
+        
+        toggleBtn.addEventListener('mouseenter', () => {
+            toggleBtn.style.color = 'var(--text-secondary, #e2e8f0)';
+        });
+        toggleBtn.addEventListener('mouseleave', () => {
+            toggleBtn.style.color = 'var(--text-muted, #94a3b8)';
+        });
 
         headerRight.appendChild(dayNavContainer);
         headerRight.appendChild(toggleBtn);
@@ -318,6 +349,7 @@
         calendarContent.style.cssText = `
             display: ${this.calendarCollapsed ? 'none' : 'block'} !important;
             padding: 12px !important;
+            background: transparent !important;
         `;
 
         // 创建日历主体
@@ -387,12 +419,12 @@
         prevMonthBtn.style.cssText = `
             width: 28px !important;
             height: 28px !important;
-            border: 1px solid #e5e7eb !important;
-            background: #ffffff !important;
+            border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+            background: rgba(255, 255, 255, 0.05) !important;
             border-radius: 4px !important;
             cursor: pointer !important;
             font-size: 18px !important;
-            color: #374151 !important;
+            color: var(--text-secondary, #e2e8f0) !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -404,7 +436,7 @@
         monthTitle.style.cssText = `
             font-size: 14px !important;
             font-weight: 600 !important;
-            color: #374151 !important;
+            color: var(--text-primary, #f8fafc) !important;
             flex: 1 !important;
             text-align: center !important;
         `;
@@ -415,12 +447,12 @@
         nextMonthBtn.style.cssText = `
             width: 28px !important;
             height: 28px !important;
-            border: 1px solid #e5e7eb !important;
-            background: #ffffff !important;
+            border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+            background: rgba(255, 255, 255, 0.05) !important;
             border-radius: 4px !important;
             cursor: pointer !important;
             font-size: 18px !important;
-            color: #374151 !important;
+            color: var(--text-secondary, #e2e8f0) !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -430,11 +462,11 @@
         // 按钮悬停效果
         const addButtonHover = (btn) => {
             btn.addEventListener('mouseenter', () => {
-                btn.style.background = '#f3f4f6';
+                btn.style.background = '#334155';  /* 中量子灰 */
                 btn.style.borderColor = mainColor;
             });
             btn.addEventListener('mouseleave', () => {
-                btn.style.background = '#ffffff';
+                btn.style.background = '#1e293b';  /* 量子灰 */
                 btn.style.borderColor = '#e5e7eb';
             });
         };
@@ -664,7 +696,7 @@
                         dayCell.style.background = rangeHoverBgColor;
                     } else {
                         // 未选中日期悬停：浅灰色背景
-                        dayCell.style.background = '#f3f4f6';
+                        dayCell.style.background = '#334155';  /* 中量子灰 */
                     }
                 });
 

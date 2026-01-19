@@ -158,7 +158,7 @@
     
             const panel = document.createElement('div');
             panel.style.cssText = `
-                background: white !important;
+                background: #1e293b !important;  /* 量子灰 */
                 border-radius: 12px !important;
                 padding: 32px !important;
                 width: 90% !important;
@@ -185,7 +185,7 @@
                 margin: 0 !important;
                 font-size: 20px !important;
                 font-weight: 600 !important;
-                color: #333 !important;
+                color: #f8fafc !important;  /* 量子白 */
             `;
     
             const closeBtn = document.createElement('button');
@@ -208,7 +208,7 @@
             `;
             closeBtn.addEventListener('mouseenter', () => {
                 closeBtn.style.background = '#f0f0f0';
-                closeBtn.style.color = '#333';
+                closeBtn.style.color = '#f8fafc';  /* 量子白 */
             });
             closeBtn.addEventListener('mouseleave', () => {
                 closeBtn.style.background = 'none';
@@ -231,7 +231,7 @@
                 margin-bottom: 10px !important;
                 font-size: 15px !important;
                 font-weight: 500 !important;
-                color: #333 !important;
+                color: #f8fafc !important;  /* 量子白 */
             `;
     
             const titleInputWrapper = document.createElement('div');
@@ -257,7 +257,7 @@
             `;
     
             titleInput.addEventListener('focus', () => {
-                titleInput.style.borderColor = '#4CAF50';
+                titleInput.style.borderColor = '#22c55e';  /* 现代绿 */
             });
             titleInput.addEventListener('blur', () => {
                 titleInput.style.borderColor = '#e0e0e0';
@@ -276,7 +276,7 @@
             generateTitleBtn.innerHTML = '✨ 智能生成';
             generateTitleBtn.style.cssText = `
                 padding: 12px 16px !important;
-                background: #2196F3 !important;
+                background: #3b82f6 !important;  /* 信息蓝 */
                 color: white !important;
                 border: none !important;
                 border-radius: 6px !important;
@@ -290,7 +290,7 @@
                 generateTitleBtn.style.background = '#1976D2';
             });
             generateTitleBtn.addEventListener('mouseleave', () => {
-                generateTitleBtn.style.background = '#2196F3';
+                generateTitleBtn.style.background = '#3b82f6';  /* 信息蓝 */
             });
     
             // 翻译中文按钮
@@ -366,7 +366,7 @@
                 margin-bottom: 10px !important;
                 font-size: 15px !important;
                 font-weight: 500 !important;
-                color: #333 !important;
+                color: #f8fafc !important;  /* 量子白 */
             `;
     
             const descriptionInputWrapper = document.createElement('div');
@@ -395,7 +395,7 @@
             `;
     
             descriptionInput.addEventListener('focus', () => {
-                descriptionInput.style.borderColor = '#4CAF50';
+                descriptionInput.style.borderColor = '#22c55e';  /* 现代绿 */
             });
             descriptionInput.addEventListener('blur', () => {
                 descriptionInput.style.borderColor = '#e0e0e0';
@@ -414,7 +414,7 @@
             generateDescriptionBtn.innerHTML = '✨ 智能生成描述';
             generateDescriptionBtn.style.cssText = `
                 padding: 12px 16px !important;
-                background: #2196F3 !important;
+                background: #3b82f6 !important;  /* 信息蓝 */
                 color: white !important;
                 border: none !important;
                 border-radius: 6px !important;
@@ -428,7 +428,7 @@
                 generateDescriptionBtn.style.background = '#1976D2';
             });
             generateDescriptionBtn.addEventListener('mouseleave', () => {
-                generateDescriptionBtn.style.background = '#2196F3';
+                generateDescriptionBtn.style.background = '#3b82f6';  /* 信息蓝 */
             });
     
             const optimizeDescriptionBtn = document.createElement('button');
@@ -436,7 +436,7 @@
             optimizeDescriptionBtn.innerHTML = '🚀 智能优化';
             optimizeDescriptionBtn.style.cssText = `
                 padding: 12px 16px !important;
-                background: #4CAF50 !important;
+                background: #22c55e !important;  /* 现代绿 */
                 color: white !important;
                 border: none !important;
                 border-radius: 6px !important;
@@ -450,7 +450,7 @@
                 optimizeDescriptionBtn.style.background = '#45a049';
             });
             optimizeDescriptionBtn.addEventListener('mouseleave', () => {
-                optimizeDescriptionBtn.style.background = '#4CAF50';
+                optimizeDescriptionBtn.style.background = '#22c55e';  /* 现代绿 */
             });
     
             // 翻译中文按钮
@@ -527,7 +527,7 @@
                 margin-bottom: 10px !important;
                 font-size: 15px !important;
                 font-weight: 500 !important;
-                color: #333 !important;
+                color: #f8fafc !important;  /* 量子白 */
             `;
     
             const updatedAtInput = document.createElement('input');
@@ -545,7 +545,7 @@
             `;
     
             updatedAtInput.addEventListener('focus', () => {
-                updatedAtInput.style.borderColor = '#4CAF50';
+                updatedAtInput.style.borderColor = '#22c55e';  /* 现代绿 */
             });
             updatedAtInput.addEventListener('blur', () => {
                 updatedAtInput.style.borderColor = '#e0e0e0';
@@ -568,7 +568,7 @@
             cancelBtn.style.cssText = `
                 padding: 12px 24px !important;
                 background: #f5f5f5 !important;
-                color: #333 !important;
+                color: #f8fafc !important;  /* 量子白 */
                 border: none !important;
                 border-radius: 6px !important;
                 cursor: pointer !important;
@@ -588,7 +588,7 @@
             saveBtn.textContent = '保存';
             saveBtn.style.cssText = `
                 padding: 12px 24px !important;
-                background: #4CAF50 !important;
+                background: #22c55e !important;  /* 现代绿 */
                 color: white !important;
                 border: none !important;
                 border-radius: 6px !important;
@@ -601,7 +601,7 @@
                 saveBtn.style.background = '#45a049';
             });
             saveBtn.addEventListener('mouseleave', () => {
-                saveBtn.style.background = '#4CAF50';
+                saveBtn.style.background = '#22c55e';  /* 现代绿 */
             });
     
             buttonGroup.appendChild(cancelBtn);

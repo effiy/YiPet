@@ -36,7 +36,7 @@
         });
         const panel = document.createElement('div');
         panel.style.cssText = `
-            background: #fff !important;
+            background: #1e293b !important;  /* 量子灰 */
             border-radius: 12px !important;
             padding: 20px !important;
             width: 90% !important;
@@ -94,8 +94,8 @@
             padding: 8px 12px !important;
             border-radius: 8px !important;
             border: 1px solid #e5e7eb !important;
-            background: #f3f4f6 !important;
-            color: #111827 !important;
+            background: #334155 !important;  /* 中量子灰 */
+            color: #f8fafc !important;  /* 量子白 */
             cursor: pointer !important;
         `;
         tokenBtn.addEventListener('click', () => {
@@ -127,8 +127,8 @@
             padding: 8px 12px !important;
             border-radius: 8px !important;
             border: 1px solid #e5e7eb !important;
-            background: #fff !important;
-            color: #111827 !important;
+            background: #1e293b !important;  /* 量子灰 */
+            color: #f8fafc !important;  /* 量子白 */
             cursor: pointer !important;
         `;
         cancelBtn.addEventListener('click', () => {

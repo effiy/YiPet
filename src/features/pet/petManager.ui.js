@@ -18,11 +18,11 @@
     const filtered = keyword ? allTags.filter(t => t.toLowerCase().includes(keyword)) : allTags;
     const visibleCount = typeof this.tagFilterVisibleCount === 'number' ? this.tagFilterVisibleCount : 8;
     if (reverseBtn) {
-      reverseBtn.style.color = this.tagFilterReverse ? '#4CAF50' : '#9ca3af';
+      reverseBtn.style.color = this.tagFilterReverse ? '#22c55e' : '#9ca3af';  /* 现代绿 */
       reverseBtn.style.opacity = this.tagFilterReverse ? '1' : '0.6';
     }
     if (noTagsBtn) {
-      noTagsBtn.style.color = this.tagFilterNoTags ? '#4CAF50' : '#9ca3af';
+      noTagsBtn.style.color = this.tagFilterNoTags ? '#22c55e' : '#9ca3af';  /* 现代绿 */
       noTagsBtn.style.opacity = this.tagFilterNoTags ? '1' : '0.6';
       if (!noTagsBtn._bound) {
         noTagsBtn.addEventListener('click', () => {
@@ -43,25 +43,53 @@
       searchIcon.style.opacity = keyword ? '0.8' : '0.5';
     }
     tagList.innerHTML = '';
-    // Calculate tag counts
+    
+    // Calculate tag counts and no-tags count
     const tagCounts = {};
+    let noTagsCount = 0;
     const allSessions = this._getSessionsFromLocal(); // Get all sessions
     allSessions.forEach(session => {
-        if (Array.isArray(session.tags)) {
+        if (Array.isArray(session.tags) && session.tags.length > 0) {
             session.tags.forEach(tag => {
                 if (tag) {
                     const t = tag.trim();
                     tagCounts[t] = (tagCounts[t] || 0) + 1;
                 }
             });
+        } else {
+            noTagsCount++;
         }
     });
 
+    const selected = Array.isArray(this.selectedFilterTags) ? this.selectedFilterTags : [];
+    const hasMoreTags = !this.tagFilterExpanded && filtered.length > visibleCount;
     const tagsToShow = this.tagFilterExpanded ? filtered : filtered.slice(0, visibleCount);
+    
     if (typeof this.attachTagDragStyles === 'function') {
       this.attachTagDragStyles();
     }
-    const selected = Array.isArray(this.selectedFilterTags) ? this.selectedFilterTags : [];
+
+    // 添加"无标签"按钮（如果有无标签的会话）
+    if (noTagsCount > 0) {
+      const noTagsBtn = document.createElement('button');
+      noTagsBtn.className = 'tag-filter-item tag-no-tags';
+      noTagsBtn.textContent = `没有标签 (${noTagsCount})`;
+      noTagsBtn.dataset.tagName = '__no_tags__';
+      noTagsBtn.draggable = false;
+      if (this.tagFilterNoTags) {
+        noTagsBtn.classList.add('selected');
+      }
+      noTagsBtn.title = this.tagFilterNoTags ? '取消筛选无标签会话' : '筛选没有标签的会话';
+      noTagsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.tagFilterNoTags = !this.tagFilterNoTags;
+        this.updateTagFilterUI();
+        this.updateSessionSidebar();
+      });
+      tagList.appendChild(noTagsBtn);
+    }
+
+    // 添加标签项
     tagsToShow.forEach(tag => {
       const btn = document.createElement('button');
       btn.className = 'tag-filter-item';
@@ -72,13 +100,29 @@
       if (isSelected) {
         btn.classList.add('selected');
       }
-      // Styles moved to ChatWindow.css (.tag-filter-item)
+      btn.title = isSelected ? '取消选择 | 拖拽调整顺序' : '选择标签 | 拖拽调整顺序';
       btn.draggable = true;
       if (typeof this.attachDragHandlersToTag === 'function') {
         this.attachDragHandlersToTag(btn, tag);
       }
       tagList.appendChild(btn);
     });
+
+    // 添加展开/折叠按钮（如果有更多标签且没有搜索关键词）
+    if (hasMoreTags && !keyword) {
+      const expandBtn = document.createElement('button');
+      expandBtn.className = 'tag-filter-item tag-expand-btn';
+      expandBtn.draggable = false;
+      const remainingCount = filtered.length - visibleCount;
+      expandBtn.textContent = this.tagFilterExpanded ? '收起' : `展开 (${remainingCount})`;
+      expandBtn.title = this.tagFilterExpanded ? '收起标签' : '展开标签';
+      expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.tagFilterExpanded = !this.tagFilterExpanded;
+        if (typeof this.updateTagFilterUI === 'function') this.updateTagFilterUI();
+      });
+      tagList.appendChild(expandBtn);
+    }
   };
 
   proto.createSearchInput = function (options) {

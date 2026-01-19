@@ -281,7 +281,7 @@ ${pageContent || '无内容'}
                     padding: 2px !important;
                     cursor: pointer !important;
                     font-size: 10px !important;
-                    color: #666 !important;
+                    color: #94a3b8 !important;  /* 中量子灰 */
                     font-weight: 300 !important;
                     transition: all 0.2s ease !important;
                     flex-shrink: 0 !important;
@@ -297,12 +297,12 @@ ${pageContent || '无内容'}
                 // 添加 hover 效果
                 button.addEventListener('mouseenter', function() {
                     this.style.fontSize = '12px';
-                    this.style.color = '#333';
+                    this.style.color = '#f8fafc';  /* 量子白 */
                     this.style.transform = 'scale(1.1)';
                 });
                 button.addEventListener('mouseleave', function() {
                     this.style.fontSize = '10px';
-                    this.style.color = '#666';
+                    this.style.color = '#94a3b8';  /* 中量子灰 */
                     this.style.transform = 'scale(1)';
                 });
 
@@ -334,12 +334,12 @@ ${pageContent || '无内容'}
                 // 重新绑定 hover 效果
                 button.addEventListener('mouseenter', function() {
                     this.style.fontSize = '12px';
-                    this.style.color = '#333';
+                    this.style.color = '#f8fafc';  /* 量子白 */
                     this.style.transform = 'scale(1.1)';
                 });
                 button.addEventListener('mouseleave', function() {
                     this.style.fontSize = '10px';
-                    this.style.color = '#666';
+                    this.style.color = '#94a3b8';  /* 中量子灰 */
                     this.style.transform = 'scale(1)';
                 });
             }
@@ -501,7 +501,7 @@ ${pageContent || '无内容'}
                 const trimmedContent = messageContent.trim();
                 const originalIcon = robotButton.innerHTML;
                 robotButton.innerHTML = '⏳';
-                robotButton.style.color = '#2196F3';
+                robotButton.style.color = '#3b82f6';  /* 信息蓝 */
                 robotButton.style.cursor = 'default';
 
                 try {
@@ -514,23 +514,23 @@ ${pageContent || '无内容'}
 
                     await this.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
                     robotButton.innerHTML = '✓';
-                    robotButton.style.color = '#4caf50';
+                    robotButton.style.color = '#22c55e';  /* 现代绿 */
                     this.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
 
                     setTimeout(() => {
                         robotButton.innerHTML = originalIcon;
-                        robotButton.style.color = '#666';
+                        robotButton.style.color = '#94a3b8';  /* 中量子灰 */
                         robotButton.style.cursor = 'pointer';
                     }, 2000);
                 } catch (error) {
                     console.error('发送到企微机器人失败:', error);
                     robotButton.innerHTML = '✕';
-                    robotButton.style.color = '#f44336';
+                    robotButton.style.color = '#ef4444';  /* 量子红 */
                     this.showNotification(`发送失败：${error.message || '未知错误'}`, 'error');
 
                     setTimeout(() => {
                         robotButton.innerHTML = originalIcon;
-                        robotButton.style.color = '#666';
+                        robotButton.style.color = '#94a3b8';  /* 中量子灰 */
                         robotButton.style.cursor = 'pointer';
                     }, 2000);
                 }
@@ -694,7 +694,7 @@ ${pageContent || '无内容'}
                         if (!this.sessions[this.currentSessionId]) {
                             // 创建基础会话对象
                             const pageInfo = this.getPageInfo();
-                            const newSession = this.createSessionObject(conversationId, pageInfo);
+                            const newSession = this.createSessionObject(pageInfo);
                             this.sessions[conversationId] = newSession;
                             // 标记当前页面已自动创建会话
                             this.hasAutoCreatedSessionForPage = true;
@@ -787,12 +787,12 @@ ${pageContent || '无内容'}
 
                 iconEl.innerHTML = '✓';
                 iconEl.style.cursor = 'default';
-                iconEl.style.color = '#4caf50';
+                iconEl.style.color = '#22c55e';  /* 现代绿 */
 
                 // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
                     this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                    iconEl.style.color = '#666';
+                    iconEl.style.color = '#94a3b8';  /* 中量子灰 */
                     iconEl.style.cursor = 'pointer';
                     iconEl.style.opacity = '1';
                     processingFlag.value = false;
@@ -810,7 +810,7 @@ ${pageContent || '无内容'}
                 if (!isAbortError && messageText) {
                     const errorMessage = error.message && error.message.includes('HTTP error')
                         ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${loadingIcon}`
-                        : `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。${error.message ? `错误信息：${error.message}` : '您可以尝试刷新页面后重试。'}${loadingIcon}`;
+                        : `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。${error.message ? `错误信息：${error.message}` : '请稍后重试。'}${loadingIcon}`;
                     messageText.innerHTML = this.renderMarkdown(errorMessage);
                     // 添加 try again 按钮（仅当不是第一条消息时）
                     const petMessages = Array.from(messagesContainer.children).filter(
@@ -831,12 +831,12 @@ ${pageContent || '无内容'}
                 if (!isAbortError) {
                     iconEl.innerHTML = '✕';
                     iconEl.style.cursor = 'default';
-                    iconEl.style.color = '#f44336';
+                    iconEl.style.color = '#ef4444';  /* 量子红 */
 
                     // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                     setTimeout(() => {
                         this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                        iconEl.style.color = '#666';
+                        iconEl.style.color = '#94a3b8';  /* 中量子灰 */
                         iconEl.style.cursor = 'pointer';
                         iconEl.style.opacity = '1';
                         processingFlag.value = false;
@@ -844,7 +844,7 @@ ${pageContent || '无内容'}
                 } else {
                     // 请求被取消，立即恢复状态
                     this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                    iconEl.style.color = '#666';
+                    iconEl.style.color = '#94a3b8';  /* 中量子灰 */
                     iconEl.style.cursor = 'pointer';
                     iconEl.style.opacity = '1';
                     processingFlag.value = false;
@@ -1456,7 +1456,7 @@ ${pageContent || '无内容'}
         switchDot.style.cssText = `
             width: 16px;
             height: 16px;
-            background: #fff;
+            background: #1e293b;  /* 量子灰 */
             border-radius: 50%;
             position: absolute;
             top: 2px;
@@ -1743,11 +1743,11 @@ ${pageContent || '无内容'}
             padding: 2px 4px;
             border-radius: 4px;
             background: rgba(240, 240, 240, 0.6);
-            color: #666;
+            color: #94a3b8;  /* 中量子灰 */
             transition: all 0.2s;
         `;
-        copyBtn.onmouseenter = () => { copyBtn.style.background = 'rgba(240, 240, 240, 1)'; copyBtn.style.color = '#333'; };
-        copyBtn.onmouseleave = () => { copyBtn.style.background = 'rgba(240, 240, 240, 0.6)'; copyBtn.style.color = '#666'; };
+        copyBtn.onmouseenter = () => { copyBtn.style.background = 'rgba(255, 255, 255, 0.1)'; copyBtn.style.color = '#f8fafc'; };  /* 量子白 */
+        copyBtn.onmouseleave = () => { copyBtn.style.background = 'rgba(255, 255, 255, 0.05)'; copyBtn.style.color = '#94a3b8'; };  /* 中量子灰 */
         
         copyBtn.onclick = (e) => {
             e.stopPropagation();

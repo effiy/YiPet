@@ -4,11 +4,12 @@
  */
 
 :root {
-    --pet-chat-primary-color: #3b82f6; /* Used for backgrounds (gradients) */
-    --pet-chat-main-color: #3b82f6;    /* Used for text and borders (solid) */
-    --pet-chat-bg-gradient: linear-gradient(135deg, #f8f9fa, #ffffff);
-    --pet-chat-text-color: #333;
-    --pet-chat-border-color: #e5e7eb;
+    /* 使用全局主题色变量，与 YiWeb 保持一致 */
+    --pet-chat-primary-color: var(--primary, #667eea); /* Used for backgrounds (gradients) */
+    --pet-chat-main-color: var(--primary, #667eea);    /* Used for text and borders (solid) */
+    --pet-chat-bg-gradient: var(--bg-gradient, linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%));
+    --pet-chat-text-color: var(--text-primary, #f8fafc);
+    --pet-chat-border-color: var(--border-primary, rgba(255,255,255,0.12));
 }
 
 /* UI Button Base */
@@ -20,8 +21,8 @@
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     border: 1px solid var(--pet-chat-border-color) !important;
-    background: white !important;
-    color: #374151 !important;
+    background: var(--bg-tertiary, #334155) !important;
+    color: var(--text-primary, #f8fafc) !important;
     -webkit-user-select: none !important;
     user-select: none !important;
     font-size: 12px !important;
@@ -29,12 +30,12 @@
     gap: 4px !important;
 }
 .ui-btn:hover {
-    background: #f3f4f6 !important;
+    background: var(--bg-elevated, rgba(30,41,59,0.9)) !important;
 }
 .ui-btn--primary {
     border-color: var(--pet-chat-main-color) !important;
     color: var(--pet-chat-main-color) !important;
-    background: white !important;
+    background: var(--bg-tertiary, #334155) !important;
 }
 .ui-btn--primary:hover {
     background: var(--pet-chat-main-color) !important;
@@ -48,7 +49,7 @@
 .ui-btn--ghost {
     background: transparent !important;
     border-color: var(--pet-chat-border-color) !important;
-    color: #6b7280 !important;
+    color: var(--text-muted, #94a3b8) !important;
 }
 .ui-btn--sm {
     padding: 4px 8px !important;
@@ -72,7 +73,7 @@
     z-index: 2147483646 !important;
     display: flex !important;
     flex-direction: column !important;
-    background: white !important;
+    background: var(--bg-secondary, #1e293b) !important;
     border-radius: 16px !important;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
@@ -82,9 +83,9 @@
                 left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     pointer-events: auto !important;
     
-    /* Variables scope */
-    --pet-chat-primary-color: #3b82f6;
-    --pet-chat-main-color: #3b82f6;
+    /* Variables scope - 使用全局主题色变量 */
+    --pet-chat-primary-color: var(--primary, #667eea);
+    --pet-chat-main-color: var(--primary, #667eea);
 }
 
 #pet-chat-window.dragging,
@@ -132,10 +133,34 @@
 
 /* Input Container */
 .chat-input-container {
+    --pet-chat-input-border: rgba(51, 65, 85, 0.85);
+    --pet-chat-input-surface: rgba(2, 6, 23, 0.96);
+    --pet-chat-input-surface-2: rgba(15, 23, 42, 0.92);
+    --pet-chat-input-soft: rgba(2, 6, 23, 0.35);
+    --pet-chat-input-soft-border: rgba(51, 65, 85, 0.55);
+    --pet-chat-input-btn-bg: rgba(30, 41, 59, 0.72);
+    --pet-chat-input-btn-bg-hover: rgba(51, 65, 85, 0.78);
+    --pet-chat-input-btn-border: rgba(51, 65, 85, 0.9);
+    --pet-chat-input-btn-border-hover: rgba(71, 85, 105, 0.95);
+    --pet-chat-input-text: rgba(226, 232, 240, 0.92);
+    --pet-chat-input-muted: rgba(148, 163, 184, 0.85);
+    --pet-chat-input-accent: rgba(59, 130, 246, 0.55);
+    
+    /* Optimized Textarea Variables */
+    --pet-chat-textarea-bg: rgba(2, 6, 23, 0.55);
+    --pet-chat-textarea-focus-bg: rgba(2, 6, 23, 0.75);
+    --pet-chat-textarea-border: rgba(51, 65, 85, 0.85);
+    --pet-chat-textarea-focus-border: rgba(59, 130, 246, 0.55);
+    --pet-chat-textarea-focus-shadow: rgba(59, 130, 246, 0.18);
+    --pet-chat-placeholder: rgba(148, 163, 184, 0.5);
+
     flex-shrink: 0 !important;
-    padding: 20px !important;
-    background: white !important;
-    border-top: 1px solid var(--pet-chat-border-color) !important;
+    border-top: 1px solid var(--pet-chat-input-border) !important;
+    background: linear-gradient(180deg, var(--pet-chat-input-surface) 0%, var(--pet-chat-input-surface-2) 100%) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+    backdrop-filter: blur(18px) !important;
+    padding: 14px 18px !important;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28) !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
@@ -148,32 +173,43 @@
 
 .chat-input-toolbar {
     display: flex !important;
-    justify-content: space-between !important;
     align-items: center !important;
-    margin-bottom: 8px !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    margin-bottom: 10px !important;
 }
 
 .chat-input-btn-group {
     display: flex !important;
-    gap: 6px !important;
     align-items: center !important;
+    gap: 10px !important;
 }
 
 /* Common Button Styles in Input Container */
 .chat-input-btn {
+    border: 1px solid var(--pet-chat-input-btn-border) !important;
+    background: var(--pet-chat-input-btn-bg) !important;
+    color: var(--pet-chat-input-text) !important;
+    border-radius: 10px !important;
+    padding: 8px 10px !important;
+    font-size: 13px !important;
     cursor: pointer !important;
+    transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    transition: all 0.2s ease !important;
-    background: white !important;
-    border: 1px solid var(--pet-chat-main-color) !important;
-    color: var(--pet-chat-main-color) !important;
 }
 
 .chat-input-btn:hover {
-    background: var(--pet-chat-main-color) !important;
-    color: white !important;
+    background: var(--pet-chat-input-btn-bg-hover) !important;
+    border-color: var(--pet-chat-input-btn-border-hover) !important;
+    transform: translateY(-1px) !important;
+}
+
+.chat-input-btn:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
 }
 
 /* Icon Buttons (@, Settings) */
@@ -194,14 +230,15 @@
 
 /* Settings Button Specifics */
 .chat-input-settings-btn {
-    border-color: var(--pet-chat-border-color) !important;
-    color: #6b7280 !important;
+    border-color: var(--pet-chat-input-btn-border) !important;
+    background: var(--pet-chat-input-btn-bg) !important;
+    color: var(--pet-chat-input-text) !important;
 }
 
 .chat-input-settings-btn:hover {
-    background: #f3f4f6 !important;
-    color: #374151 !important;
-    border-color: #d1d5db !important;
+    background: var(--pet-chat-input-btn-bg-hover) !important;
+    border-color: var(--pet-chat-input-btn-border-hover) !important;
+    transform: translateY(-1px) !important;
 }
 
 /* Request Status Button */
@@ -212,15 +249,15 @@
     opacity: 0.5 !important;
     pointer-events: none !important;
     border: 1px solid var(--pet-chat-border-color) !important;
-    background: white !important;
+    background: var(--bg-secondary, #1e293b) !important;
 }
 
 .chat-input-status-btn.active {
     opacity: 1 !important;
     pointer-events: auto !important;
-    background: #fee2e2 !important;
-    color: #dc2626 !important;
-    border-color: #dc2626 !important;
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #ef4444 !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
 }
 
 .chat-input-status-btn.stopping {
@@ -232,87 +269,79 @@
 .chat-input-clear-btn {
     padding: 4px 12px !important;
     border-radius: 16px !important;
-    background: #f3f4f6 !important;
-    color: #6b7280 !important;
+    background: var(--bg-tertiary, #334155) !important;
+    color: var(--text-muted, #94a3b8) !important;
     border: 1px solid var(--pet-chat-border-color) !important;
     font-size: 12px !important;
     cursor: pointer !important;
 }
 
 .chat-input-clear-btn:hover {
-    background: #e5e7eb !important;
-    color: #374151 !important;
+    background: var(--pet-chat-input-btn-bg-hover) !important;
+    color: var(--pet-chat-input-text) !important;
+    border-color: var(--pet-chat-input-btn-border-hover) !important;
 }
 
 /* Input Wrapper */
 .chat-input-wrapper {
-    position: relative !important;
-    flex: 1 !important;
     display: flex !important;
+    width: 100% !important;
+    gap: 10px !important;
     flex-direction: column !important;
+}
+
+.pet-chat-input-row {
+    display: flex !important;
+    width: 100% !important;
+    gap: 10px !important;
+    align-items: flex-end !important;
 }
 
 /* Textarea Styles */
 .chat-message-input {
+    flex: 1 !important;
     width: 100% !important;
-    min-height: 60px !important;
-    max-height: 200px !important;
-    padding: 12px 16px !important;
-    border: 2px solid var(--pet-chat-main-color) !important;
-    border-radius: 8px !important;
-    resize: none !important;
-    font-size: 14px !important;
-    line-height: 1.5 !important;
-    outline: none !important;
     box-sizing: border-box !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    background: #f9fafb !important;
-    color: #1f2937 !important;
+    min-height: 44px !important;
+    max-height: 220px !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    border: 1px solid var(--pet-chat-textarea-border) !important;
+    background: var(--pet-chat-textarea-bg) !important;
+    color: var(--pet-chat-input-text) !important;
+    outline: none !important;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    transition: all 0.2s ease !important;
+    resize: none !important;
     overflow-y: auto !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     scrollbar-width: thin !important;
-    scrollbar-color: #555555 #1e1e1e !important;
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent !important;
 }
 
-.chat-message-input::placeholder {
-    color: #888888 !important;
-    opacity: 1 !important;
-    font-size: 14px !important;
-    font-weight: 400 !important;
-}
-.chat-message-input::-webkit-input-placeholder {
-    color: #9ca3af !important;
-    opacity: 1 !important;
-    font-size: 14px !important;
-}
-.chat-message-input::-moz-placeholder {
-    color: #9ca3af !important;
-    opacity: 1 !important;
-    font-size: 14px !important;
-}
-.chat-message-input:-ms-input-placeholder {
-    color: #9ca3af !important;
-    opacity: 1 !important;
-    font-size: 14px !important;
-}
 .chat-message-input::-webkit-scrollbar {
     width: 4px !important;
 }
 .chat-message-input::-webkit-scrollbar-track {
-    background: #1e1e1e !important;
+    background: transparent !important;
 }
 .chat-message-input::-webkit-scrollbar-thumb {
-    background: #555555 !important;
+    background: rgba(148, 163, 184, 0.3) !important;
     border-radius: 2px !important;
 }
 .chat-message-input::-webkit-scrollbar-thumb:hover {
-    background: #666666 !important;
+    background: rgba(148, 163, 184, 0.5) !important;
 }
 
-.chat-message-input:focus,
-.chat-message-input--has-content {
-    background: #ffffff !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important; /* Fallback shadow */
+.chat-message-input:focus {
+    background: var(--pet-chat-textarea-focus-bg) !important;
+    border-color: var(--pet-chat-textarea-focus-border) !important;
+    box-shadow: 0 0 0 3px var(--pet-chat-textarea-focus-shadow) !important;
+}
+
+.chat-message-input::placeholder {
+    color: var(--pet-chat-placeholder) !important;
 }
 
 
@@ -361,21 +390,326 @@
 }
 
 .pet-chat-right-panel {
+    --pet-chat-bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    --pet-chat-main-color: #3b82f6;
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
     position: relative !important;
-    background: transparent !important;
+    z-index: 1 !important;
+    /* 深色渐变背景 - 与 YiWeb 保持一致 */
+    background: var(--pet-chat-bg-gradient) !important;
 }
 
 /* Messages */
 #pet-chat-messages {
     flex: 1 !important;
     overflow-y: auto !important;
-    padding: 20px !important;
+    overflow-x: hidden !important;
+    padding: 16px 18px !important;
     scroll-behavior: smooth !important;
     position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+}
+
+/* Message Styles - 与 YiWeb 保持一致 */
+.chat-message {
+    display: flex !important;
+    width: 100% !important;
+    margin: 18px 0 !important;
+}
+
+.chat-message--user {
+    justify-content: flex-end !important;
+}
+
+.chat-message--pet {
+    justify-content: flex-start !important;
+}
+
+@supports not (gap: 1rem) {
+    .chat-message {
+        margin: 18px 0 !important;
+    }
+
+    .chat-message:first-child {
+        margin-top: 0 !important;
+    }
+
+    .chat-message:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+.chat-message-bubble {
+    max-width: min(780px, 86%) !important;
+    border-radius: 14px !important;
+    padding: 10px 12px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+    border: 1px solid rgba(148, 163, 184, 0.15) !important;
+    background: rgba(30, 41, 59, 0.55) !important;
+}
+
+.chat-message--user .chat-message-bubble {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.85) 0%, rgba(34, 211, 238, 0.55) 100%) !important;
+    border-color: rgba(79, 70, 229, 0.35) !important;
+}
+
+.chat-message--pet .chat-message-bubble {
+    background: rgba(15, 23, 42, 0.62) !important;
+    border-color: rgba(148, 163, 184, 0.15) !important;
+}
+
+.chat-message.is-error .chat-message-bubble {
+    border-color: rgba(248, 113, 113, 0.55) !important;
+    box-shadow: 0 8px 24px rgba(248, 113, 113, 0.08) !important;
+}
+
+.chat-message.is-aborted .chat-message-bubble {
+    border-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+.chat-message-content {
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important;
+    color: rgba(226, 232, 240, 0.95) !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+}
+
+/* Message Images - 与 YiWeb 保持一致 */
+.chat-message-image,
+.chat-message-image-container img,
+.user-message-image {
+    max-width: 100% !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(148, 163, 184, 0.15) !important;
+    margin-bottom: 10px !important;
+    display: block !important;
+}
+
+.chat-message-image-container {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Streaming Message Indicator */
+.chat-message--streaming .chat-message-content::after {
+    content: '▍' !important;
+    display: inline-block !important;
+    margin-left: 2px !important;
+    opacity: 0.55 !important;
+    animation: chat-caret-blink 1.8s ease-in-out infinite !important;
+}
+
+@keyframes chat-caret-blink {
+    0% {
+        opacity: 0.25;
+    }
+    50% {
+        opacity: 0.55;
+    }
+    to {
+        opacity: 0.35;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-message--streaming .chat-message-content::after {
+        animation: none !important;
+        opacity: 0.4 !important;
+    }
+}
+
+/* Draft Images - 优化后的样式 */
+.pet-chat-draft-images {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    border: 1px dashed rgba(148, 163, 184, 0.3) !important;
+    background: rgba(15, 23, 42, 0.4) !important;
+    max-width: 100% !important;
+    margin-bottom: 8px !important;
+    transition: all 0.2s ease !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+.pet-chat-draft-images:hover {
+    border-color: rgba(148, 163, 184, 0.5) !important;
+    background: rgba(15, 23, 42, 0.5) !important;
+}
+
+.pet-chat-draft-image {
+    position: relative !important;
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    background: rgba(2, 6, 23, 0.6) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.pet-chat-draft-image:hover {
+    transform: translateY(-2px) scale(1.02) !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.pet-chat-draft-image-preview {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+    transition: transform 0.2s ease !important;
+}
+
+.pet-chat-draft-image:hover .pet-chat-draft-image-preview {
+    transform: scale(1.05) !important;
+}
+
+.pet-chat-draft-image-remove {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    width: 20px !important;
+    height: 20px !important;
+    border: none !important;
+    background: rgba(15, 23, 42, 0.9) !important;
+    color: rgba(226, 232, 240, 0.95) !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+    opacity: 0.8 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    z-index: 10 !important;
+}
+
+.pet-chat-draft-image-remove:hover {
+    background: rgba(239, 68, 68, 0.9) !important;
+    opacity: 1 !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4) !important;
+}
+
+.pet-chat-draft-image-remove:active {
+    transform: scale(0.95) !important;
+}
+
+.pet-chat-draft-images-clear {
+    border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    background: rgba(30, 41, 59, 0.7) !important;
+    color: rgba(226, 232, 240, 0.9) !important;
+    border-radius: 8px !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    transition: all 0.2s ease !important;
+    align-self: center !important;
+    margin-left: auto !important;
+}
+
+.pet-chat-draft-images-clear:hover {
+    background: rgba(51, 65, 85, 0.8) !important;
+    border-color: rgba(148, 163, 184, 0.5) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+.pet-chat-draft-images-clear:active {
+    transform: translateY(0) !important;
+}
+
+/* 图片加载状态 */
+.pet-chat-draft-image-loading {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(2, 6, 23, 0.6) !important;
+}
+
+.pet-chat-draft-image-loading::after {
+    content: '' !important;
+    width: 20px !important;
+    height: 20px !important;
+    border: 2px solid rgba(148, 163, 184, 0.3) !important;
+    border-top-color: rgba(148, 163, 184, 0.8) !important;
+    border-radius: 50% !important;
+    animation: draft-image-spin 0.6s linear infinite !important;
+}
+
+@keyframes draft-image-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 图片错误状态 */
+.pet-chat-draft-image-error {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.pet-chat-draft-image-error::before {
+    content: '⚠' !important;
+    font-size: 24px !important;
+    color: rgba(239, 68, 68, 0.6) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+    .pet-chat-draft-image {
+        width: 64px !important;
+        height: 64px !important;
+    }
+    
+    .pet-chat-draft-images {
+        padding: 8px 10px !important;
+        gap: 8px !important;
+    }
+    
+    .pet-chat-draft-images-clear {
+        padding: 5px 10px !important;
+        font-size: 11px !important;
+    }
+}
+
+/* 减少动画（无障碍） */
+@media (prefers-reduced-motion: reduce) {
+    .pet-chat-draft-image,
+    .pet-chat-draft-image-preview,
+    .pet-chat-draft-image-remove,
+    .pet-chat-draft-images-clear,
+    .pet-chat-draft-images {
+        transition: none !important;
+        animation: none !important;
+    }
+    
+    .pet-chat-draft-image:hover {
+        transform: none !important;
+    }
 }
 
 /* Context Switch */
@@ -384,23 +718,25 @@
     align-items: center !important;
     gap: 10px !important;
     padding: 4px 0 !important;
-    cursor: pointer !important;
     -webkit-user-select: none !important;
     user-select: none !important;
-    transition: opacity 0.2s ease !important;
 }
 
-.context-switch-container:hover {
-    opacity: 0.8 !important;
+.context-switch-container.active .context-switch-wrapper {
+    background: rgba(34, 211, 238, 0.18) !important;
+    border-color: rgba(34, 211, 238, 0.35) !important;
+}
+
+.context-switch-container.active .context-switch-thumb {
+    transform: translateX(20px) !important;
 }
 
 .context-switch-label {
     font-size: 12px !important;
-    font-weight: 400 !important;
-    color: #64748b !important;
+    font-weight: 500 !important;
+    color: rgba(203, 213, 225, 0.82) !important;
     white-space: nowrap !important;
-    transition: color 0.2s ease !important;
-    letter-spacing: 0.3px !important;
+    transition: color 0.12s ease !important;
 }
 
 .context-switch-wrapper {
@@ -408,8 +744,9 @@
     width: 40px !important;
     height: 20px !important;
     border-radius: 10px !important;
-    background: #cbd5e1 !important;
-    transition: background-color 0.2s ease !important;
+    background: rgba(51, 65, 85, 0.92) !important;
+    border: 1px solid rgba(51, 65, 85, 0.85) !important;
+    transition: background-color 0.12s ease !important;
     cursor: pointer !important;
 }
 
@@ -420,7 +757,9 @@
     width: 16px !important;
     height: 16px !important;
     border-radius: 50% !important;
-    background: #ffffff !important;
+    background: rgba(203, 213, 225, 0.95) !important;
+    transition: transform 0.12s ease !important;
+    transform: translateX(0) !important;
     transition: transform 0.2s ease !important;
     transform: translateX(0) !important;
 }
@@ -447,132 +786,142 @@
     color: var(--pet-chat-main-color) !important;
 }
 
-/* Sidebar */
+/* Sidebar - 参考 YiWeb aicr-sidebar 设计 */
 .session-sidebar {
-    min-width: 150px !important;
-    max-width: 500px !important;
-    background: white !important;
-    border-right: 1px solid #e5e7eb !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    position: relative !important;
-    resize: none !important;
+    min-width: 150px;
+    max-width: 500px;
+    width: 320px;
+    background: var(--bg-secondary, #1e293b);
+    border-right: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12));
+    box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.4));
+    overflow: visible; /* Changed to visible to allow resizer to extend outside */
+    transition: width 0.2s ease, box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+    position: relative;
+    display: flex;
+    flex-direction: column;
 }
+
+.session-sidebar:hover {
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.5));
+    border-right-color: var(--border-secondary, rgba(6,182,212,0.3));
+}
+
 .session-sidebar.collapsed {
     display: none !important;
 }
 
-/* Sidebar Header */
+/* Sidebar Header - 参考 YiWeb file-tree-header-container */
 .session-sidebar-header {
-    padding: 12px 15px !important;
-    border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
-    background: transparent !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12));
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
-/* Sidebar Search Row */
+/* Sidebar Search Row - 参考 YiWeb file-tree-search-container */
 .session-sidebar-search-row {
-    display: flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    width: 100% !important;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
 }
 
 .session-search-container {
-    position: relative !important;
-    display: flex !important;
-    align-items: center !important;
-    flex: 1 !important;
-    min-width: 0 !important;
-    background: rgba(255, 255, 255, 0.06) !important;
-    border-radius: 5px !important;
-    transition: all 0.2s ease !important;
-    padding-right: 2px !important;
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    padding-right: 2px;
 }
 
 .session-search-container:focus-within {
-    background: rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15) !important;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 2px var(--primary-alpha, rgba(102, 126, 234, 0.15));
 }
 
 .session-search-icon {
-    position: absolute !important;
-    left: 10px !important;
-    font-size: 12px !important;
-    pointer-events: none !important;
-    z-index: 1 !important;
-    opacity: 0.6 !important;
-    transition: opacity 0.2s ease !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    position: absolute;
+    left: 10px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .session-search-container:focus-within .session-search-icon {
-    opacity: 0.7 !important;
+    opacity: 0.8;
 }
 
 .session-search-input {
-    width: 100% !important;
-    height: 32px !important;
-    font-weight: 400 !important;
-    font-size: 13px !important;
-    color: var(--text-primary, #f8fafc) !important;
-    padding: 6px 6px 6px 28px !important;
-    border: none !important;
-    border-radius: 6px !important;
-    background: transparent !important;
-    outline: none !important;
-    transition: all 0.2s ease !important;
-    box-sizing: border-box !important;
-    flex: 1 !important;
-    min-width: 0 !important;
+    width: 100%;
+    height: 32px;
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--text-primary, #f8fafc);
+    padding: 6px 6px 6px 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    flex: 1;
+    min-width: 0;
 }
 
 .session-search-input::placeholder {
-    color: var(--text-muted, #94a3b8) !important;
-    opacity: 1 !important;
+    color: var(--text-muted, #94a3b8);
+    opacity: 1;
 }
 
 .session-search-clear-btn {
-    position: absolute !important;
-    right: 6px !important;
-    width: 16px !important;
-    height: 16px !important;
-    border: none !important;
-    background: transparent !important;
-    color: var(--text-secondary, #cbd5e1) !important;
-    border-radius: 50% !important;
-    cursor: pointer !important;
-    display: none !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 10px !important;
-    padding: 0 !important;
-    transition: all 0.2s ease !important;
-    z-index: 2 !important;
-    line-height: 1 !important;
-    opacity: 0.5 !important;
+    position: absolute;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    padding: 0;
+    transition: all 0.2s ease;
+    z-index: 2;
+    line-height: 1;
+    opacity: 0.6;
 }
 
 .session-search-clear-btn.visible {
-    display: flex !important;
+    display: flex;
 }
 
 .session-search-clear-btn:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: var(--text-primary, #f8fafc) !important;
-    opacity: 1 !important;
-    transform: scale(1.1) !important;
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary, #f8fafc);
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 .session-search-clear-btn:active {
-    transform: scale(0.95) !important;
+    transform: scale(0.95);
 }
 
-/* Sidebar Actions Row - 使用工具栏样式 */
+/* Sidebar Actions Row - 参考 YiWeb 工具栏设计 */
 .session-sidebar-actions-row {
     display: grid !important;
     grid-template-columns: auto 1fr !important;
@@ -581,7 +930,10 @@
     width: 100% !important;
     box-sizing: border-box !important;
     margin: 0 !important;
-    padding: 6px 0 !important;
+    padding: 8px 12px !important;
+    border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+    background: transparent !important;
+    flex-shrink: 0 !important;
 }
 
 .session-actions-left-group {
@@ -592,7 +944,7 @@
     flex: 0 0 auto !important;
 }
 
-/* Action Buttons - 使用工具栏按钮样式 */
+/* Action Buttons - 参考 YiWeb toolbar-btn 设计 */
 .session-action-btn {
     display: inline-flex !important;
     align-items: center !important;
@@ -603,7 +955,7 @@
     min-height: 32px !important;
     font-size: 13px !important;
     font-weight: 500 !important;
-    color: white !important;
+    color: #ffffff !important;
     background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
     border: 1px solid #4f46e5 !important;
     border-radius: 6px !important;
@@ -634,8 +986,16 @@
     transform: translateY(0) !important;
 }
 
+.session-action-btn:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
+/* 批量按钮 - 参考 YiWeb 设计 */
 .session-action-btn--batch {
     background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    border-color: #4f46e5 !important;
 }
 
 .session-action-btn--batch.active {
@@ -648,44 +1008,39 @@
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
 }
 
-/* Batch Mode Button States */
-.batch-mode-btn-active {
+/* 导出按钮 - 使用蓝色系 */
+.session-action-btn--export {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+    border-color: #2563eb !important;
+}
+
+.session-action-btn--export:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* 导入按钮 - 使用绿色系 */
+.session-action-btn--import {
     background: linear-gradient(135deg, #10b981, #059669) !important;
     border-color: #059669 !important;
 }
 
-.batch-mode-btn-inactive {
-    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
-    border-color: #4f46e5 !important;
-    transform: translateY(0) !important;
-    box-shadow: none !important;
-}
-
-.session-action-btn--export {
-    background: linear-gradient(135deg, #2196F3, #1976D2) !important;
-    border-color: #1976D2 !important;
-}
-
-.session-action-btn--export:hover {
-    background: linear-gradient(135deg, #1976D2, #1565C0) !important;
-    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3) !important;
-}
-
-.session-action-btn--import {
-    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
-    border-color: #45a049 !important;
-}
-
 .session-action-btn--import:hover {
-    background: linear-gradient(135deg, #45a049, #3d8b40) !important;
-    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
 }
 
+/* 新建按钮 - 使用主题色，占据剩余空间 */
 .session-action-btn--add {
     background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
     border: 1px solid #4f46e5 !important;
     flex: 1 !important;
     min-width: 0 !important;
+}
+
+.session-action-btn--add:hover {
+    background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
 }
 
 .session-actions-right-group {
@@ -701,48 +1056,164 @@
     min-width: 0 !important;
 }
 
-/* 响应式优化 */
+/* ========== 响应式设计 ========== */
+/* 参考 YiWeb aicr-sidebar 响应式设计 */
+
+/* 中等屏幕 */
+@media (max-width: 1200px) {
+    .session-sidebar {
+        min-width: 150px;
+    }
+}
+
+/* 小屏幕平板 */
+@media (max-width: 950px) {
+    .session-sidebar {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+}
+
+/* 手机屏幕 */
+@media (max-width: 640px) {
+    .session-sidebar {
+        min-width: 0;
+    }
+    
+    .session-sidebar-header {
+        padding: 10px 12px;
+    }
+    
+    .session-item {
+        padding: 10px;
+    }
+}
+
+/* 超小屏幕 */
 @media (max-width: 400px) {
     .session-sidebar-actions-row {
-        grid-template-columns: 1fr !important;
-        gap: 3px !important;
+        grid-template-columns: 1fr;
+        gap: 3px;
     }
     
     .session-action-btn span {
-        display: none !important;
+        display: none;
     }
     
     .session-action-btn {
-        padding: 4px 8px !important;
-        min-width: 28px !important;
-        min-height: 28px !important;
-        font-size: 12px !important;
+        padding: 4px 8px;
+        min-width: 28px;
+        min-height: 28px;
+        font-size: 12px;
     }
     
     .session-actions-left-group .session-action-btn {
-        padding: 4px 8px !important;
-        min-height: 28px !important;
+        padding: 4px 8px;
+        min-height: 28px;
+    }
+    
+    .session-item {
+        padding: 8px;
+    }
+    
+    .title-text {
+        max-width: 150px;
     }
 }
 
-/* Sidebar Scrollable Content */
+/* ========== 可访问性优化 ========== */
+/* 减少动画选项 - 参考 YiWeb 设计 */
+@media (prefers-reduced-motion: reduce) {
+    .session-sidebar {
+        transition: none;
+    }
+    
+    .session-item {
+        transition: none;
+    }
+    
+    .session-item:hover {
+        transform: none;
+    }
+    
+    .session-item.highlight-session {
+        animation: none;
+    }
+    
+    .session-search-container,
+    .session-search-input,
+    .session-search-clear-btn,
+    .tag-filter-item,
+    .tag-filter-action-btn,
+    .session-action-btn,
+    .session-footer-btn,
+    .batch-toolbar-btn {
+        transition: none;
+    }
+    
+    .session-item:hover .session-first-char-icon {
+        transform: none;
+        transition: none;
+    }
+    
+    .session-favorite-btn:hover {
+        transform: scale(1.05);
+    }
+    
+    .session-list-loading i {
+        animation: none;
+    }
+    
+    .sidebar-resizer {
+        transition: none;
+    }
+    
+    @keyframes highlightPulse {
+        from, to {
+            box-shadow: 0 0 0 1px var(--primary, #667eea), 0 8px 20px rgba(102, 126, 234, 0.2);
+        }
+    }
+    
+    @keyframes spin {
+        from, to {
+            transform: rotate(0deg);
+        }
+    }
+}
+
+/* Sidebar Scrollable Content - 参考 YiWeb sidebar-scroll-container */
 .session-sidebar-scrollable-content {
-    flex: 1 !important;
-    overflow-y: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 0 !important;
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
+/* 滚动条样式 - 参考 YiWeb aicr-sidebar 滚动条 */
 .session-sidebar-scrollable-content::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
+    width: 6px;
 }
 
-/* Sidebar Resizer */
+.session-sidebar-scrollable-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.session-sidebar-scrollable-content::-webkit-scrollbar-thumb {
+    background: var(--border-primary, rgba(255, 255, 255, 0.12));
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+.session-sidebar-scrollable-content::-webkit-scrollbar-thumb:hover {
+    background: var(--border-secondary, rgba(6,182,212,0.3));
+}
+
+/* Sidebar Resizer - 参考 YiWeb sidebar-resizer */
 .sidebar-resizer {
     position: absolute !important;
     top: 0 !important;
@@ -755,12 +1226,17 @@
     transition: background 0.2s ease !important;
 }
 
-.sidebar-resizer.hover {
-    background: rgba(59, 130, 246, 0.3) !important;
+.sidebar-resizer:hover {
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.3) !important;
 }
 
-.sidebar-resizer.active {
-    background: rgba(59, 130, 246, 0.5) !important;
+.sidebar-resizer:active {
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.5) !important;
+}
+
+/* 拖拽时禁用过渡效果 */
+.session-sidebar:has(.sidebar-resizer:active) {
+    transition: none !important;
 }
 
 /* Pet Message Colors by CSS variables */
@@ -832,13 +1308,13 @@
 .try-again-button--success {
     opacity: 0.7 !important;
     cursor: pointer !important;
-    color: #4caf50 !important;
+    color: #22c55e !important;  /* 现代绿 */
 }
 
 .try-again-button--error {
     opacity: 0.7 !important;
     cursor: pointer !important;
-    color: #f44336 !important;
+    color: #ef4444 !important;  /* 量子红 */
 }
 
 /* User Message Layout */
@@ -863,7 +1339,7 @@
     justify-content: space-between !important;
     align-items: center !important;
     font-size: 11px !important;
-    color: #999 !important;
+    color: rgba(148, 163, 184, 0.7) !important;  /* 适配深色主题 */
     margin-top: 4px !important;
     max-width: 100% !important;
     width: 100% !important;
@@ -891,9 +1367,9 @@
 .welcome-card {
     margin-bottom: 20px !important;
     padding: 16px !important;
-    background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)) !important;
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(59, 130, 246, 0.08)) !important;
     border-radius: 12px !important;
-    border-left: 3px solid #4ECDC4 !important;
+    border-left: 3px solid rgba(34, 211, 238, 0.5) !important;  /* 量子青 - 适配深色主题 */
 }
 .welcome-card-header {
     margin-bottom: 12px !important;
@@ -904,20 +1380,20 @@
 .welcome-card-title {
     font-weight: 600 !important;
     font-size: 15px !important;
-    color: #374151 !important;
+    color: rgba(226, 232, 240, 0.95) !important;  /* 适配深色主题 */
 }
 .welcome-card-section {
     margin-bottom: 12px !important;
 }
 .welcome-card-section-title {
     font-size: 12px !important;
-    color: #6B7280 !important;
+    color: rgba(148, 163, 184, 0.85) !important;  /* 适配深色主题 */
     margin-bottom: 4px !important;
     font-weight: 500 !important;
 }
 .welcome-card-url {
     word-break: break-all !important;
-    color: #2196F3 !important;
+    color: rgba(59, 130, 246, 0.9) !important;  /* 信息蓝 - 适配深色主题 */
     text-decoration: none !important;
     font-size: 13px !important;
     display: inline-block !important;
@@ -925,16 +1401,17 @@
 }
 .welcome-card-url:hover {
     text-decoration: underline !important;
+    color: rgba(59, 130, 246, 1) !important;
 }
 .welcome-card-description .markdown-content {
     font-size: 13px !important;
-    color: #4B5563 !important;
+    color: rgba(203, 213, 225, 0.85) !important;  /* 适配深色主题 */
     line-height: 1.5 !important;
 }
 .welcome-card-save {
     margin-top: 16px !important;
     padding-top: 16px !important;
-    border-top: 1px solid rgba(78, 205, 196, 0.2) !important;
+    border-top: 1px solid rgba(34, 211, 238, 0.25) !important;  /* 适配深色主题 */
 }
 @keyframes spin {
     to { transform: rotate(360deg) }
@@ -964,183 +1441,433 @@
     object-fit: contain !important;
 }
 
-/* Session List */
+/* Session List - 使用设计系统变量，参考 YiWeb 设计 */
 .session-list {
-    flex: 1 !important;
-    overflow: visible !important;
-    padding: 8px 8px 220px 8px !important;
-    scroll-padding-bottom: 20px !important;
-    box-sizing: border-box !important;
+    flex: 1;
+    overflow: visible;
+    padding: 8px;
+    scroll-padding-bottom: 20px;
+    box-sizing: border-box;
 }
 
-/* Session Item */
-.session-item {
-    display: flex !important;
-    align-items: flex-start !important;
-    gap: 10px !important;
-    padding: 8px 10px !important;
-    border-radius: 8px !important;
-    transition: all 0.2s ease !important;
-    position: relative !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
+/* Session List Items Container - 参考 YiWeb 设计 */
+.session-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 20px;
 }
+
+/* ========== Session Item - 参考 YiWeb 设计 ========== */
+.session-item {
+    position: relative;
+    padding: 16px;
+    border: 1px solid var(--border-primary, rgba(99, 102, 241, 0.1));
+    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.4);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    -webkit-user-select: none;
+    user-select: none;
+    margin-bottom: 10px;
+}
+
 .session-item:hover {
-    background: #f9fafb !important;
+    border-color: rgba(99, 102, 241, 0.5) !important;
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%) !important;
+    box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.2) !important;
+    transform: translateY(-2px);
+}
+
+/* 会话项图标 hover 效果 */
+.session-item:hover .session-first-char-icon {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+    transform: scale(1.05);
+    transition: all 0.3s ease;
+}
+
+.session-item.active,
+.session-item.selected {
+    border-color: var(--primary, #6366f1);
+    background: rgba(99, 102, 241, 0.12);
+    box-shadow: 0 0 0 1px var(--primary, #6366f1), 0 8px 20px rgba(99, 102, 241, 0.2);
+}
+
+.session-item.batch-selected {
+    border-color: var(--primary, #6366f1);
+    background: rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 0 1px var(--primary, #6366f1);
+}
+
+.session-item.highlight-session {
+    border-color: var(--primary, #6366f1);
+    background: rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 0 2px var(--primary, #6366f1), 0 8px 24px rgba(99, 102, 241, 0.4);
+    animation: highlightPulse 2s ease-out;
+}
+
+@keyframes highlightPulse {
+    0% {
+        box-shadow: 0 0 0 2px var(--primary, #6366f1), 0 8px 24px rgba(99, 102, 241, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 0 2px var(--primary, #6366f1), 0 8px 24px rgba(99, 102, 241, 0.3);
+    }
+    100% {
+        box-shadow: 0 0 0 1px var(--primary, #6366f1), 0 8px 20px rgba(99, 102, 241, 0.2);
+    }
 }
 .session-item-inner {
-    display: flex !important;
-    align-items: flex-start !important;
-    gap: 8px !important;
-    flex: 1 !important;
-}
-.session-checkbox {
-    padding-top: 3px !important;
-    display: none !important;
-}
-.batch-mode-active .session-checkbox {
-    display: block !important;
-}
-.session-item-content {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    flex: 1 !important;
-}
-.session-item-header {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 8px !important;
-}
-.session-item-title {
-    font-size: 13px !important;
-    color: #374151 !important;
-    font-weight: 600 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-}
-.favorite-icon {
-    color: #9ca3af !important;
-    font-size: 12px !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-}
-.favorite-icon--active {
-    color: #fbbf24 !important;
-}
-.title-text {
-    display: inline-block !important;
-    max-width: 220px !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    vertical-align: middle !important;
-    font-weight: 600 !important;
-}
-.title-text--favorite {
-    font-weight: 700 !important;
-}
-.session-item-info {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-}
-.session-tags {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 4px !important;
-    margin-bottom: 8px !important;
-}
-.session-tag-item {
-    display: inline-block !important;
-    padding: 3px 10px !important;
-    border-radius: 12px !important;
-    font-size: 11px !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-    cursor: pointer !important;
-    border: 1px solid var(--tag-border, transparent) !important;
-    background: var(--tag-bg, #f9fafb) !important;
-    color: var(--tag-text, #6b7280) !important;
-}
-.session-tag-item:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-}
-.session-item-footer {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    font-size: 11px !important;
-    color: #9ca3af !important;
-    margin-top: 8px !important;
-}
-.session-action-buttons {
-    display: flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    opacity: 0 !important;
-    transition: opacity 0.2s ease !important;
-}
-.session-item:hover .session-action-buttons {
-    opacity: 1 !important;
-}
-.session-footer-btn {
-    font-size: 11px !important;
-    color: #6b7280 !important;
-    background: #f9fafb !important;
-    border: 1px solid #e5e7eb !important;
-    border-radius: 6px !important;
-    padding: 2px 8px !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-}
-.session-footer-btn:hover {
-    background: #f3f4f6 !important;
-}
-.long-press-progress {
-    position: absolute !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    height: 3px !important;
-    background: rgba(244, 67, 54, 0.8) !important;
-    width: 0% !important;
-    border-radius: 0 0 8px 8px !important;
-    transition: width 0.05s linear !important;
-    z-index: 10 !important;
-}
-.long-press-hint {
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) scale(0) !important;
-    background: rgba(244, 67, 54, 0.95) !important;
-    color: white !important;
-    padding: 6px 12px !important;
-    border-radius: 6px !important;
-    font-size: 12px !important;
-    white-space: nowrap !important;
-    pointer-events: none !important;
-    z-index: 20 !important;
-    opacity: 0 !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-}
-.session-item.long-press-start .long-press-hint {
-    transform: translate(-50%, -50%) scale(1) !important;
-    opacity: 1 !important;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1;
 }
 
-/* Tag Filter Container */
+.session-checkbox {
+    padding-top: 3px;
+    display: none;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--primary, #6366f1);
+    border-radius: 4px;
+}
+
+.session-checkbox:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+.batch-mode-active .session-checkbox {
+    display: block;
+}
+
+.session-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+.session-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 0;
+}
+.session-item-title {
+    font-size: 14px;
+    color: var(--text-primary, #f8fafc);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Session Item Title Group - 参考 YiWeb 设计 */
+.session-item-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    margin-right: 12px;
+}
+
+/* Session First Char Icon - 参考 YiWeb 设计 */
+.session-first-char-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+    line-height: 1;
+    transition: all 0.3s ease;
+}
+
+/* Session Source Icon - 参考 YiWeb 设计 */
+.session-source-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.9;
+}
+
+.session-source-icon-news {
+    color: var(--info, #3b82f6);
+    filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
+}
+
+.session-source-icon-file {
+    color: var(--success, #10b981);
+    filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4));
+}
+
+/* 收藏按钮样式 - 与 YiWeb 完全一致 */
+.session-favorite-btn {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 6px;
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0.3;
+    transition: all 0.2s;
+    border-radius: 50%;
+    margin-left: 0;
+}
+
+.session-favorite-btn:hover {
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.15) !important;
+    transform: scale(1.1);
+}
+
+.session-favorite-btn.active {
+    opacity: 1;
+    text-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+/* 兼容旧的 favorite-icon 类名（向后兼容） */
+.favorite-icon {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 6px;
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0.3;
+    transition: all 0.2s;
+    border-radius: 50%;
+    margin-left: 0;
+}
+
+.favorite-icon:hover {
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.15) !important;
+    transform: scale(1.1);
+}
+
+.favorite-icon--active {
+    opacity: 1;
+    text-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+.title-text,
+.session-title-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary, #f8fafc);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    display: inline-block;
+    max-width: 220px;
+    vertical-align: middle;
+}
+
+.title-text--favorite,
+.session-title-text--favorite {
+    font-weight: 700;
+}
+.session-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.session-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 0;
+}
+/* Session Tag - 参考 YiWeb 设计 */
+.session-tag-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary, #e2e8f0);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s;
+    line-height: 1.3;
+    cursor: pointer;
+}
+
+.session-tag-item:hover {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.session-tag-item.session-tag-no-tags {
+    border-color: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-muted, #94a3b8);
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.session-tag-item.session-tag-no-tags:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary, #e2e8f0);
+    transform: none;
+    box-shadow: none;
+}
+.session-item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-top: 0;
+    width: 100%;
+}
+
+.session-item-time {
+    font-size: 12px;
+    color: var(--text-muted, #94a3b8);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    opacity: 0.8;
+}
+
+.session-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    opacity: 0.2;
+    transition: opacity 0.2s ease;
+}
+
+.session-item:hover .session-action-buttons {
+    opacity: 1;
+}
+
+/* 操作按钮通用样式 - 参考 YiWeb 设计 */
+.session-footer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+    padding: 0;
+}
+
+.session-footer-btn:hover {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--text-primary, #fff);
+    transform: scale(1.1);
+}
+
+.session-footer-btn:active {
+    transform: scale(0.95);
+}
+
+/* 特定按钮 Hover 颜色 - 参考 YiWeb 设计 */
+.session-footer-btn.session-edit-btn:hover {
+    color: #60a5fa; /* blue-400 */
+    background: rgba(96, 165, 250, 0.15);
+}
+
+.session-footer-btn.session-tag-btn:hover {
+    color: #f472b6; /* pink-400 */
+    background: rgba(244, 114, 182, 0.15);
+}
+
+.session-footer-btn.session-duplicate-btn:hover {
+    color: #a78bfa; /* violet-400 */
+    background: rgba(167, 139, 250, 0.15);
+}
+
+.session-footer-btn.session-context-btn:hover {
+    color: #fbbf24; /* amber-400 */
+    background: rgba(251, 191, 36, 0.15);
+}
+
+.session-footer-btn.session-open-btn:hover {
+    color: #34d399; /* emerald-400 */
+    background: rgba(52, 211, 153, 0.15);
+}
+/* Long Press Styles - 使用设计系统变量 */
+.long-press-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--error, #ef4444);
+    width: 0%;
+    border-radius: 0 0 8px 8px;
+    transition: width 0.05s linear;
+    z-index: 10;
+    opacity: 0.8;
+}
+
+.long-press-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: rgba(239, 68, 68, 0.95);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 20;
+    opacity: 0;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.5));
+}
+
+.session-item.long-press-start .long-press-hint {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+
+/* Tag Filter Container - 使用设计系统变量 */
 .tag-filter-container {
-    padding: 8px 12px !important;
-    border-bottom: 1px solid #e5e7eb !important;
-    background: #ffffff !important;
-    overflow: visible !important;
-    flex-shrink: 0 !important;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12));
+    background: transparent;
+    overflow: visible;
+    flex-shrink: 0;
 }
 
 /* Tag Filter Header */
@@ -1160,258 +1887,384 @@
     flex-shrink: 0 !important;
 }
 
-/* Tag Filter Buttons */
+/* Tag Filter Buttons - 使用设计系统变量 */
 .tag-filter-action-btn {
-    font-size: 12px !important;
-    color: #9ca3af !important;
-    background: none !important;
-    border: none !important;
-    cursor: pointer !important;
-    padding: 2px 4px !important;
-    border-radius: 3px !important;
-    transition: all 0.2s ease !important;
-    line-height: 1 !important;
-    opacity: 0.6 !important;
+    font-size: 12px;
+    color: var(--text-muted, #94a3b8);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    line-height: 1;
+    opacity: 0.7;
 }
 
 .tag-filter-action-btn:hover {
-    opacity: 1 !important;
-    background: #f3f4f6 !important;
+    opacity: 1;
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--text-primary, #f8fafc);
 }
 
 .tag-filter-action-btn.active {
-    color: #4CAF50 !important;
-    opacity: 1 !important;
+    color: var(--success, #22c55e);
+    opacity: 1;
+    background: rgba(34, 197, 94, 0.15);
 }
 
-/* Tag Filter Clear Button */
+/* Tag Filter Clear Button - 使用设计系统变量 */
 .tag-filter-clear-btn {
-    font-size: 16px !important;
-    color: #9ca3af !important;
-    background: none !important;
-    border: none !important;
-    cursor: pointer !important;
-    padding: 0 !important;
-    width: 18px !important;
-    height: 18px !important;
-    line-height: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 3px !important;
-    transition: all 0.2s ease !important;
-    opacity: 0.4 !important;
+    font-size: 14px;
+    color: var(--text-muted, #94a3b8);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    width: auto;
+    height: auto;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    opacity: 0.6;
 }
 
 .tag-filter-clear-btn.active {
-    color: #ef4444 !important;
-    opacity: 1 !important;
-    background: #fee2e2 !important;
+    color: var(--error, #ef4444);
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.15);
 }
 
 .tag-filter-clear-btn:hover {
-    opacity: 0.4 !important;
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .tag-filter-clear-btn.active:hover {
-    color: #ef4444 !important;
-    opacity: 1 !important;
-    background: #fee2e2 !important;
+    color: var(--error, #ef4444);
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.25);
 }
 
 .tag-filter-search-clear.visible {
     display: flex !important;
 }
 
+/* ========== Tag Filter List 样式系统 ========== */
 .tag-filter-list {
     display: flex !important;
     flex-wrap: wrap !important;
-    gap: 4px !important;
+    gap: 6px !important;
     overflow: visible !important;
+    padding: 0 !important;
+    align-items: flex-start !important;
 }
 
-/* Tag Filter Item */
+/* Tag Filter Item - 基础样式（参考 YiWeb 设计） */
 .tag-filter-item {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 4px 10px !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    border-radius: 12px !important;
-    border: 1px solid #e5e7eb !important;
-    background: #f9fafb !important;
-    color: #6b7280 !important;
-    cursor: pointer !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    transition: all 0.2s ease !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 4px;
+    border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12));
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary, #e2e8f0);
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    line-height: 1.4;
+    white-space: nowrap;
+    min-height: 20px;
 }
 
+.tag-filter-item:active {
+    cursor: grabbing;
+}
+
+/* Hover 状态 - 未选中 */
+.tag-filter-item:hover:not(.dragging):not(.selected):not(.tag-no-tags):not(.tag-expand-btn) {
+    border-color: var(--primary, #6366f1);
+    color: var(--primary-light, #818cf8);
+    background: rgba(99, 102, 241, 0.1);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Selected 状态 */
 .tag-filter-item.selected {
-    border-color: #4CAF50 !important;
-    background: #f0fdf4 !important;
-    color: #4CAF50 !important;
+    border-color: var(--primary, #6366f1);
+    background: var(--primary, #6366f1);
+    color: var(--text-on-accent, #ffffff);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    cursor: grab;
+    font-weight: 600;
 }
 
-/* Tag Filter Search */
+.tag-filter-item.selected:hover:not(.dragging) {
+    background: rgba(99, 102, 241, 0.9);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+/* 无标签按钮特殊样式 */
+.tag-filter-item.tag-no-tags {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    font-style: italic;
+}
+
+.tag-filter-item.tag-no-tags.selected {
+    border-color: #22c55e;  /* 现代绿 */
+    background: #22c55e;
+    color: white;
+    font-style: normal;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.tag-filter-item.tag-no-tags:hover:not(.selected):not(.dragging) {
+    border-color: rgba(99, 102, 241, 0.3);
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--text-primary, #f8fafc);
+    transform: translateY(-1px);
+}
+
+/* 展开/折叠按钮样式 */
+.tag-filter-item.tag-expand-btn {
+    border-style: dashed;
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.tag-filter-item.tag-expand-btn:hover:not(.dragging) {
+    border-color: var(--primary, #6366f1);
+    background: rgba(99, 102, 241, 0.05);
+    color: var(--primary-light, #818cf8);
+    border-style: solid;
+    transform: translateY(-1px);
+}
+
+/* Tag Filter Search - 使用设计系统变量 */
 .tag-filter-search-container {
-    position: relative !important;
-    flex: 1 !important;
-    display: flex !important;
-    align-items: center !important;
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
 }
 
 .tag-filter-search-icon {
-    position: absolute !important;
-    left: 10px !important;
-    font-size: 14px !important;
-    pointer-events: none !important;
-    z-index: 1 !important;
-    opacity: 0.5 !important;
-    transition: opacity 0.2s ease !important;
+    position: absolute;
+    left: 10px;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
 }
 
 .tag-filter-search-input {
-    width: 100% !important;
-    padding: 8px 30px 8px 32px !important;
-    font-size: 12px !important;
-    border: 1px solid #e5e7eb !important;
-    border-radius: 6px !important;
-    outline: none !important;
-    background: #ffffff !important;
-    color: #374151 !important;
-    transition: all 0.2s ease !important;
+    width: 100%;
+    padding: 8px 30px 8px 32px;
+    font-size: 12px;
+    border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12));
+    border-radius: 6px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary, #f8fafc);
+    transition: all 0.2s ease;
 }
 
 .tag-filter-search-input:focus {
-    border-color: #d1d5db !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+    border-color: var(--primary, #6366f1);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
 .tag-filter-search-container.focused .tag-filter-search-icon {
-    opacity: 0.8 !important;
+    opacity: 0.8;
 }
 
 .tag-filter-search-clear {
-    position: absolute !important;
-    right: 6px !important;
-    background: transparent !important;
-    border: none !important;
-    color: #9ca3af !important;
-    cursor: pointer !important;
-    font-size: 12px !important;
-    display: none !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
+    position: absolute;
+    right: 6px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    font-size: 12px;
+    display: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
 }
 
 .tag-filter-search-clear.visible {
-    display: block !important;
+    display: block;
 }
 
-/* Empty Session Message */
+.tag-filter-search-clear:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary, #f8fafc);
+}
+
+/* Session List States - 参考 YiWeb 设计 */
+.session-list-loading,
+.session-list-error,
 .session-list-empty {
-    padding: 20px !important;
-    text-align: center !important;
-    color: #9ca3af !important;
-    font-size: 12px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--text-muted, #94a3b8);
+    font-size: 14px;
+    gap: 8px;
 }
 
+.session-list-loading i {
+    font-size: 24px;
+    color: var(--primary, #667eea);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.session-list-error i {
+    font-size: 24px;
+    color: var(--error, #ef4444);
+}
+
+.session-list-empty i {
+    font-size: 24px;
+    color: var(--text-muted, #94a3b8);
+}
+
+/* Batch Toolbar - 参考 YiWeb session-batch-toolbar 设计 */
 .batch-toolbar {
-    position: absolute !important;
-    bottom: 24px !important;
-    left: 50% !important;
-    transform: translateX(-50%) translateY(20px) !important;
-    width: calc(100% - 32px) !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    padding: 6px !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 6px !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    z-index: 100 !important;
-    box-sizing: border-box !important;
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    width: calc(100% - 32px);
+    background: rgba(30, 41, 59, 0.95);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    padding: 12px 16px;
+    border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12));
+    border-radius: 12px;
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.5));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 100;
+    box-sizing: border-box;
 }
 
 .batch-toolbar.visible {
-    opacity: 1 !important;
-    visibility: visible !important;
-    transform: translateX(-50%) translateY(0) !important;
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
 }
 
 .batch-selected-count {
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    color: #6b7280 !important;
-    flex: 1 !important;
-    padding: 0 8px !important;
-    white-space: nowrap !important;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted, #94a3b8);
+    flex: 1;
+    padding: 0 8px;
+    white-space: nowrap;
 }
 
 .batch-selected-count.has-selection {
-    color: #4f46e5 !important;
-    font-weight: 600 !important;
+    color: var(--primary-light, #818cf8);
+    font-weight: 600;
 }
 
+/* Batch Toolbar Buttons - 使用设计系统变量 */
 .batch-toolbar-btn {
-    padding: 0 12px !important;
-    height: 32px !important;
-    border-radius: 8px !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    flex-shrink: 0 !important;
-    cursor: pointer !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    border: none !important;
+    padding: 4px 12px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-user-select: none;
+    user-select: none;
+    border: 1px solid transparent;
 }
 
 .batch-toolbar-btn--default {
-    background: #f3f4f6 !important;
-    color: #4b5563 !important;
+    background: transparent;
+    color: var(--text-secondary, #e2e8f0);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .batch-toolbar-btn--default:hover {
-    background: #e5e7eb !important;
-    color: #1f2937 !important;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: var(--text-primary, #f8fafc);
 }
 
 .batch-toolbar-btn--active {
-    background: #e5e7eb !important;
-    color: #111827 !important;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary, #f8fafc);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .batch-toolbar-btn--danger {
-    background: #fee2e2 !important;
-    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error, #ef4444);
+    border-color: rgba(239, 68, 68, 0.2);
 }
 
 .batch-toolbar-btn--danger:hover:not(:disabled) {
-    background: #fecaca !important;
-    color: #dc2626 !important;
-    transform: translateY(-1px) !important;
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.4);
+    transform: translateY(-1px);
 }
 
 .batch-toolbar-btn--danger:disabled {
-    opacity: 0.5 !important;
-    cursor: not-allowed !important;
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted, #94a3b8);
+    border-color: transparent;
 }
 
 .batch-toolbar-btn--danger.loading {
-    opacity: 0.7 !important;
-    cursor: wait !important;
+    opacity: 0.7;
+    cursor: wait;
 }
 
 .delete-loader {
@@ -1445,7 +2298,7 @@
     padding: 16px !important;
     background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)) !important;
     border-radius: 12px !important;
-    border-left: 3px solid #4ECDC4 !important;
+    border-left: 3px solid #06b6d4 !important;  /* 量子青 */
 }
 .welcome-header {
     margin-bottom: 12px !important;
@@ -1466,7 +2319,7 @@
 .welcome-title {
     font-weight: 600 !important;
     font-size: 15px !important;
-    color: #374151 !important;
+    color: var(--text-primary, #f8fafc) !important;
 }
 .welcome-url-section {
     margin-bottom: 12px !important;
@@ -1479,7 +2332,7 @@
 }
 .welcome-url {
     word-break: break-all !important;
-    color: #2196F3 !important;
+    color: #3b82f6 !important;  /* 信息蓝 */
     text-decoration: none !important;
     font-size: 13px !important;
     display: inline-block !important;
@@ -1515,7 +2368,7 @@
     gap: 8px !important;
     width: 100% !important;
     padding: 10px 20px !important;
-    background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%) !important;  /* 量子青渐变 */
     color: white !important;
     border: none !important;
     border-radius: 10px !important;
@@ -1573,10 +2426,10 @@
     transition: border-color 0.3s ease !important;
 }
 .auth-input:focus {
-    border-color: #4CAF50 !important;
+    border-color: #22c55e !important;  /* 现代绿 */
 }
 .auth-input.invalid {
-    border-color: #f44336 !important;
+    border-color: #ef4444 !important;  /* 量子红 */
 }
 .auth-button-container {
     display: flex !important;
@@ -1586,7 +2439,7 @@
 .auth-save-btn {
     flex: 1 !important;
     padding: 12px 24px !important;
-    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%) !important;  /* 现代绿渐变 */
     color: white !important;
     border: none !important;
     border-radius: 8px !important;
@@ -1603,7 +2456,7 @@
     flex: 1 !important;
     padding: 12px 24px !important;
     background: #f5f5f5 !important;
-    color: #666 !important;
+    color: #94a3b8 !important;  /* 中量子灰 */
     border: none !important;
     border-radius: 8px !important;
     font-size: 14px !important;
@@ -1644,7 +2497,7 @@
 .chat-message--user .chat-message-avatar {
     margin-left: 10px !important;
     margin-right: 0 !important;
-    background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%) !important;  /* 信息蓝渐变 */
 }
 
 .chat-message-content {
@@ -1661,19 +2514,19 @@
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-    color: #333 !important;
+    color: #f8fafc !important;  /* 量子白 */
 }
 
 .chat-message-bubble--pet {
     border-top-left-radius: 4px !important;
-    background: #f3f4f6 !important; /* Fallback */
+    background: var(--bg-tertiary, #334155) !important; /* Fallback */
     margin-right: 48px !important;
 }
 
 .chat-message-bubble--user {
     border-top-right-radius: 4px !important;
-    background: #3b82f6 !important;
-    color: white !important;
+    background: var(--primary-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)) !important;
+    color: var(--text-on-accent, #ffffff) !important;
     margin-left: 48px !important;
 }
 
@@ -1746,7 +2599,7 @@
     border-radius: 4px !important;
     border: 1px solid rgba(76, 175, 80, 0.3) !important;
     background: rgba(76, 175, 80, 0.15) !important;
-    color: #4caf50 !important;
+    color: #22c55e !important;  /* 现代绿 */
     cursor: pointer !important;
     font-size: 12px !important;
     white-space: nowrap !important;
@@ -1780,11 +2633,11 @@
 }
 
 .sidebar-resizer.hover {
-    background: rgba(59, 130, 246, 0.3) !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.3) !important;
 }
 
 .sidebar-resizer.dragging {
-    background: rgba(59, 130, 246, 0.5) !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.5) !important;
     cursor: col-resize !important;
 }
 
@@ -1797,11 +2650,11 @@
     transition: border-color 0.2s ease !important;
 }
 .tag-manager-input:focus {
-    border-color: #4CAF50 !important;
+    border-color: #22c55e !important;  /* 现代绿 */
 }
 .tag-manager-add-btn {
     padding: 10px 20px !important;
-    background: #4CAF50 !important;
+    background: #22c55e !important;  /* 现代绿 */
     color: white !important;
     border: none !important;
     border-radius: 6px !important;
@@ -1841,7 +2694,7 @@
 .tag-manager-quick-tag-btn {
     padding: 6px 12px !important;
     background: #f0f0f0 !important;
-    color: #333 !important;
+    color: #f8fafc !important;  /* 量子白 */
     border: 1px solid #d0d0d0 !important;
     border-radius: 4px !important;
     cursor: pointer !important;
@@ -1850,12 +2703,12 @@
 }
 .tag-manager-quick-tag-btn:hover {
     background: #e0e0e0 !important;
-    border-color: #4CAF50 !important;
+    border-color: #22c55e !important;  /* 现代绿 */
 }
 .tag-manager-quick-tag-btn.added {
-    background: #4CAF50 !important;
+    background: #22c55e !important;  /* 现代绿 */
     color: white !important;
-    border-color: #4CAF50 !important;
+    border-color: #22c55e !important;  /* 现代绿 */
     opacity: 0.7 !important;
     cursor: not-allowed !important;
 }
@@ -1865,7 +2718,7 @@
     overflow-y: auto !important;
     margin-bottom: 20px !important;
     padding: 12px !important;
-    background: #f8f9fa !important;
+    background: var(--bg-primary, #0f172a) !important;
     border-radius: 6px !important;
 }
 .tag-manager-empty-msg {
@@ -1878,7 +2731,7 @@
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
-    background: #4CAF50 !important;
+    background: #22c55e !important;  /* 现代绿 */
     color: white !important;
     padding: 6px 12px !important;
     border-radius: 20px !important;
@@ -1911,7 +2764,7 @@
 .tag-manager-cancel {
     padding: 10px 20px !important;
     background: #f0f0f0 !important;
-    color: #333 !important;
+    color: #f8fafc !important;  /* 量子白 */
     border: none !important;
     border-radius: 6px !important;
     cursor: pointer !important;
@@ -1923,7 +2776,7 @@
 }
 .tag-manager-save {
     padding: 10px 20px !important;
-    background: #2196F3 !important;
+    background: #3b82f6 !important;  /* 信息蓝 */
     color: white !important;
     border: none !important;
     border-radius: 6px !important;
@@ -1988,7 +2841,7 @@
 }
 
 .chat-message-action-btn:hover {
-    background: rgba(59, 130, 246, 0.3) !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.3) !important;
     transform: scale(1.1);
     opacity: 1 !important;
 }
@@ -2065,13 +2918,13 @@
 }
 
 .chat-message-resend-btn--success {
-    color: #4caf50 !important;
+    color: #22c55e !important;  /* 现代绿 */
     opacity: 0.7 !important;
     cursor: pointer !important;
 }
 
 .chat-message-resend-btn--error {
-    color: #f44336 !important;
+    color: #ef4444 !important;  /* 量子红 */
     opacity: 0.7 !important;
     cursor: pointer !important;
 }
@@ -2100,7 +2953,7 @@
 }
 
 .copy-button-success {
-    color: #4caf50 !important;
+    color: #22c55e !important;  /* 现代绿 */
 }
 
 /* Ensure images in bubbles are handled correctly */
@@ -2132,9 +2985,53 @@
 }
 
 .chat-message-time {
-    font-size: 11px !important;
-    color: #999 !important;
-    margin-top: 4px !important;
+    display: block !important;
+    font-size: 12px !important;
+    color: rgba(148, 163, 184, 0.7) !important;
+}
+
+/* Message Meta - 与 YiWeb 保持一致 */
+.chat-message-actions-container,
+.user-message-time-copy-container {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin-top: 8px !important;
+}
+
+.chat-message-actions-group,
+.copy-button-container {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+}
+
+.chat-message-action-btn,
+.copy-button {
+    border: 1px solid rgba(51, 65, 85, 0.9) !important;
+    background: rgba(30, 41, 59, 0.72) !important;
+    color: rgba(226, 232, 240, 0.92) !important;
+    border-radius: 10px !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+    transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+}
+
+.chat-message-action-btn:disabled,
+.copy-button:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+.chat-message-action-btn:hover:not(:disabled),
+.copy-button:hover:not(:disabled) {
+    background: rgba(51, 65, 85, 0.78) !important;
+    border-color: rgba(71, 85, 105, 0.95) !important;
+    transform: translateY(-1px) !important;
 }
 
 .chat-message-actions-container {

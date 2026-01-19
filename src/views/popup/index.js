@@ -56,51 +56,147 @@ class PopupController {
     /**
      * 初始化弹窗控制器
      * 执行以下步骤：
-     * 1. 获取当前活动标签页
+     * 1. 获取当前活动标签页（带重试）
      * 2. 设置事件监听器
-     * 3. 检查content script是否就绪
-     * 4. 加载宠物状态并更新UI
+     * 3. 检查content script是否就绪（带重试）
+     * 4. 加载宠物状态并更新UI（带重试和降级）
      * 5. 启动状态同步机制
      */
     async init() {
         try {
-            // 步骤1: 获取当前活动的标签页
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            this.currentTab = tabs[0];
-            
-            if (!this.currentTab) {
-                console.error((PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES.TAB_NOT_FOUND : '无法获取当前标签页，请刷新页面后重试');
-                this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES.TAB_NOT_FOUND : '无法获取当前标签页，请刷新页面后重试', 'error');
-                return;
-            }
-            
-            console.log('当前标签页:', this.currentTab.id, this.currentTab.url);
+            // 步骤1: 获取当前活动的标签页（带重试）
+            await this.initWithRetry(async () => {
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (!tabs || tabs.length === 0) {
+                    throw new Error('无法获取当前标签页');
+                }
+                this.currentTab = tabs[0];
+                console.log('当前标签页:', this.currentTab.id, this.currentTab.url);
+            }, '获取标签页', {
+                onRetry: (error, attempt) => {
+                    this.showNotification(`正在获取标签页... (${attempt}/${3})`, 'info');
+                }
+            });
             
             // 步骤2: 初始化UI事件监听器
             this.setupEventListeners();
             
-            // 步骤3: 检查content script是否已加载并就绪
-            const isContentScriptReady = await this.checkContentScriptStatus();
+            // 步骤3: 检查并等待content script就绪（带重试）
+            const isContentScriptReady = await this.initWithRetry(
+                () => this.checkContentScriptStatus(),
+                '检查Content Script',
+                {
+                    shouldRetry: (result) => !result, // 如果未就绪则重试
+                    onRetry: (error, attempt) => {
+                        this.showNotification(`正在等待Content Script就绪... (${attempt}/${3})`, 'info');
+                    }
+                }
+            );
+            
             if (!isContentScriptReady) {
-                console.log('Content script 未就绪，等待...');
-                this.showNotification('正在初始化，请稍候...', 'info');
-                
-                // 延迟重试，给content script一些时间加载
-                setTimeout(async () => {
-                    await this.loadPetStatus();
-                    this.updateUI();
-                }, (PET_CONFIG.constants && PET_CONFIG.constants.TIMING) ? PET_CONFIG.constants.TIMING.CONTENT_SCRIPT_WAIT : 1000);
-            } else {
-                // content script已就绪，直接加载状态
-                await this.loadPetStatus();
-                this.updateUI();
+                console.log('Content Script 未就绪，使用降级方案');
+                this.showNotification('使用基础模式初始化', 'info');
             }
             
-            // 步骤4: 启动定期状态同步，确保UI与宠物状态保持一致
+            // 步骤4: 加载宠物状态并更新UI（带重试和降级）
+            await this.initWithRetry(
+                async () => {
+                    await this.loadPetStatus();
+                    this.updateUI();
+                },
+                '加载宠物状态',
+                {
+                    onRetry: (error, attempt) => {
+                        if (attempt === 1) {
+                            this.showNotification('正在加载状态...', 'info');
+                        }
+                    },
+                    onFailure: async (error) => {
+                        // 降级方案：使用默认状态
+                        console.log('加载状态失败，使用默认状态');
+                        this.showNotification('使用默认配置', 'warn');
+                        this.updateUI();
+                    }
+                }
+            );
+            
+            // 步骤5: 启动定期状态同步，确保UI与宠物状态保持一致
             this.startStatusSync();
+            
         } catch (error) {
             console.error('初始化失败:', error);
-            this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES.INIT_FAILED : '初始化失败，请刷新页面后重试', 'error');
+            const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                ? PET_CONFIG.constants.ERROR_MESSAGES.INIT_FAILED 
+                : '初始化失败';
+            this.showNotification(`${errorMsg}: ${error.message || '未知错误'}`, 'error');
+        }
+    }
+    
+    /**
+     * 带重试的初始化方法
+     * @param {Function} fn - 要执行的异步函数
+     * @param {string} context - 上下文描述
+     * @param {Object} options - 重试选项
+     * @returns {Promise<any>} 执行结果
+     */
+    async initWithRetry(fn, context, options = {}) {
+        // 如果retryAsync可用，使用它；否则使用简单的重试逻辑
+        if (typeof retryAsync !== 'undefined') {
+            const RetryPresets = typeof RetryPresets !== 'undefined' ? RetryPresets : {};
+            const preset = RetryPresets.initialization || {
+                maxRetries: 3,
+                initialDelay: 500,
+                maxDelay: 3000,
+                backoffMultiplier: 2
+            };
+            
+            return await retryAsync(
+                async (attempt) => {
+                    const result = await fn();
+                    // 如果shouldRetry是函数且返回false，则抛出错误以触发重试
+                    if (options.shouldRetry && typeof options.shouldRetry === 'function' && !options.shouldRetry(result)) {
+                        throw new Error(`${context}未就绪`);
+                    }
+                    return result;
+                },
+                { ...preset, ...options },
+                `[Popup] ${context}`
+            );
+        } else {
+            // 降级：简单的重试逻辑
+            const maxRetries = options.maxRetries || 3;
+            const delay = options.initialDelay || 500;
+            let lastError = null;
+            
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const result = await fn();
+                    if (options.shouldRetry && typeof options.shouldRetry === 'function' && !options.shouldRetry(result)) {
+                        if (attempt < maxRetries) {
+                            if (options.onRetry) {
+                                options.onRetry(null, attempt + 1);
+                            }
+                            await new Promise(resolve => setTimeout(resolve, delay * (attempt + 1)));
+                            continue;
+                        }
+                    }
+                    return result;
+                } catch (error) {
+                    lastError = error;
+                    if (attempt < maxRetries) {
+                        if (options.onRetry) {
+                            options.onRetry(error, attempt + 1);
+                        }
+                        await new Promise(resolve => setTimeout(resolve, delay * (attempt + 1)));
+                    }
+                }
+            }
+            
+            if (options.onFailure) {
+                options.onFailure(lastError);
+            }
+            
+            throw lastError || new Error(`${context}失败`);
         }
     }
     
@@ -199,22 +295,33 @@ class PopupController {
      * 当content script无法响应时，通过background script直接注入宠物
      */
     async fallbackInitializePet() {
+        const fallbackMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+            ? PET_CONFIG.constants.ERROR_MESSAGES.FALLBACK_INIT 
+            : '使用备用方案初始化';
+        
         try {
             console.log('使用备用方案初始化宠物...');
+            this.showNotification(fallbackMsg, 'info');
+            
             const response = await chrome.runtime.sendMessage({
                 action: 'injectPet',
                 tabId: this.currentTab.id
             });
+            
             if (response && response.success) {
                 console.log('备用方案初始化成功');
-                this.showNotification('宠物已通过备用方案初始化', 'info');
+                this.showNotification('初始化成功', 'success');
+                return true;
             } else {
-                console.log('备用方案初始化失败');
-                this.showNotification('无法初始化宠物，请刷新页面后重试', 'error');
+                throw new Error('备用方案返回失败');
             }
         } catch (error) {
             console.log('备用方案初始化失败:', error);
-            this.showNotification('无法初始化宠物，请刷新页面后重试', 'error');
+            const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                ? PET_CONFIG.constants.ERROR_MESSAGES.INIT_FAILED 
+                : '初始化失败';
+            this.showNotification(`${errorMsg}，请稍后重试`, 'error');
+            return false;
         }
     }
     
@@ -255,7 +362,10 @@ class PopupController {
                 this.showNotification('聊天窗口已打开');
                 return { success: true };
             } else {
-                throw new Error((PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED : '操作失败，请刷新页面后重试');
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                    : '操作失败';
+                throw new Error(errorMsg);
             }
         }, { showNotification: true });
         
@@ -317,7 +427,10 @@ class PopupController {
                 this.updateUI();
                 return { success: true };
             } else {
-                throw new Error((PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED : '操作失败，请刷新页面后重试');
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
+                    : '操作失败';
+                throw new Error(errorMsg);
             }
         }, { showNotification: true });
     }

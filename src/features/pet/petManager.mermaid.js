@@ -198,7 +198,7 @@
                                     background: rgba(255, 0, 0, 0.1) !important;
                                     padding: 10px !important;
                                     border-radius: 5px !important;
-                                    color: #ff6b6b !important;
+                                    color: #ef4444 !important;  /* 量子红 */
                                     font-size: 12px !important;
                                     margin: 10px 0 !important;
                                 `;

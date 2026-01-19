@@ -98,8 +98,14 @@
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
 
-            // 初始化会话
-            await this.initSession();
+            // 先处理 URL 匹配和会话创建/选中（确保会话列表已加载）
+            // 这个方法会检查当前 URL 是否在会话列表中，如果不在则创建新会话
+            await this.handleUrlBasedSession();
+
+            // 如果 handleUrlBasedSession 没有创建/选中会话，则调用 initSession 作为后备
+            if (!this.currentSessionId) {
+                await this.initSession();
+            }
 
             // 重新初始化滚动功能
             this.initializeChatScroll();
@@ -148,7 +154,10 @@
                 console.log('使用默认聊天窗口状态，创建窗口');
             }
 
-            // 初始化会话
+            // 先处理 URL 匹配和会话创建/选中（确保会话列表已加载）
+            // 这个方法会检查当前 URL 是否在会话列表中，如果不在则创建新会话
+            await this.handleUrlBasedSession();
+
             await this.initSession();
 
             await this.createChatWindow();
@@ -798,32 +807,6 @@
 
         pageInfoHtml += `</div>`;
 
-        // 检查是否是空白会话（手动新建的会话）
-        const isBlankSession = session && (session._isBlankSession || session.url?.startsWith('blank-session://'));
-
-        // 检查会话是否已有消息（如果已有消息，说明会话已被使用，不应该显示保存按钮）
-        const hasMessages = session && session.messages && Array.isArray(session.messages) && session.messages.length > 0;
-
-        // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
-        // 空白会话（手动新建的会话）不显示保存按钮
-        // 如果会话已有消息，也不显示保存按钮（因为会话已经被使用过了）
-        // 先检查 backendSessionIds 集合，如果已包含则直接跳过异步调用
-        const isInBackendList = this.backendSessionIds.has(this.currentSessionId) || await this.isSessionInBackendList(this.currentSessionId);
-        const shouldShowSaveButton = !isBlankSession && !isInBackendList && !hasMessages;
-
-        // 根据检查结果决定是否添加手动保存会话按钮
-        if (shouldShowSaveButton) {
-            pageInfoHtml += `
-            <div class="welcome-card-save">
-                <button id="pet-manual-save-session-btn" class="pet-manual-save-btn">
-                    <span class="save-btn-icon">💾</span>
-                    <span class="save-btn-text">保存会话</span>
-                    <span class="save-btn-loader"></span>
-                </button>
-            </div>
-        `;
-        }
-
         // 创建欢迎消息元素
         const welcomeMessage = this.createMessageElement('', 'pet');
         welcomeMessage.setAttribute('data-welcome-message', 'true');
@@ -834,15 +817,10 @@
             messageText.innerHTML = pageInfoHtml;
             // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
             messageText.setAttribute('data-original-text', pageInfoHtml);
-
-            // 绑定手动保存按钮的点击事件
-            const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
-            if (saveBtn) {
-                saveBtn.addEventListener('click', () => {
-                    this.handleManualSaveSession(saveBtn);
-                });
-            }
         }
+
+        // 自动处理会话保存和选中
+        await this.autoHandleSessionForUrl(pageInfo.url);
 
         return welcomeMessage;
     };
@@ -902,49 +880,360 @@
 
         pageInfoHtml += `</div>`;
 
-        // 检查是否是空白会话（手动新建的会话）
-        const isBlankSession = session && (session._isBlankSession || session.url?.startsWith('blank-session://'));
-
-        // 检查会话是否已有消息（如果已有消息，说明会话已被使用，不应该显示保存按钮）
-        const hasMessages = session && session.messages && Array.isArray(session.messages) && session.messages.length > 0;
-
-        // 检查当前会话是否已存在于后端会话列表中，决定是否显示保存按钮
-        // 空白会话（手动新建的会话）不显示保存按钮
-        // 如果会话已有消息，也不显示保存按钮（因为会话已经被使用过了）
-        // 先检查 backendSessionIds 集合，如果已包含则直接跳过异步调用
-        const isInBackendList = this.backendSessionIds.has(this.currentSessionId) || await this.isSessionInBackendList(this.currentSessionId);
-        const shouldShowSaveButton = !isBlankSession && !isInBackendList && !hasMessages;
-
-        // 根据检查结果决定是否添加手动保存会话按钮
-        if (shouldShowSaveButton) {
-            pageInfoHtml += `
-            <div class="welcome-card-save">
-                <button id="pet-manual-save-session-btn" class="pet-manual-save-btn">
-                    <span class="save-btn-icon">💾</span>
-                    <span class="save-btn-text">保存会话</span>
-                    <span class="save-btn-loader"></span>
-                </button>
-            </div>
-        `;
-        }
-
         // 更新欢迎消息的内容
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
         if (messageText) {
             messageText.innerHTML = pageInfoHtml;
             // 更新原始HTML
             messageText.setAttribute('data-original-text', pageInfoHtml);
-
-            // 重新绑定手动保存按钮的点击事件（innerHTML 会移除所有事件监听器，所以直接绑定即可）
-            const saveBtn = messageText.querySelector('#pet-manual-save-session-btn');
-            if (saveBtn) {
-                saveBtn.addEventListener('click', () => {
-                    this.handleManualSaveSession(saveBtn);
-                });
-            }
         }
 
+        // 自动处理会话保存和选中
+        await this.autoHandleSessionForUrl(pageInfo.url);
+
         console.log('欢迎消息已刷新');
+    };
+
+    /**
+     * 自动处理会话：根据URL查找或创建会话，并自动选中和锚定位置
+     * 这个方法确保在创建欢迎消息时，会话已正确初始化并选中
+     * @param {string} url - 页面URL
+     */
+    proto.autoHandleSessionForUrl = async function(url) {
+        if (!url) {
+            console.warn('URL为空，跳过自动处理会话');
+            return;
+        }
+
+        try {
+            // 如果当前会话的URL匹配，只需要滚动到位置
+            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                const currentSession = this.sessions[this.currentSessionId];
+                if (currentSession.url === url) {
+                    // 当前会话已匹配，只需滚动到位置
+                    if (typeof this.scrollToSessionItem === 'function') {
+                        await this.scrollToSessionItem(this.currentSessionId);
+                    }
+                    return;
+                }
+            }
+
+            // 如果当前会话不匹配，调用 initSession 重新初始化
+            // initSession 会自动查找或创建匹配的会话，并选中和滚动
+            if (typeof this.initSession === 'function') {
+                await this.initSession();
+            }
+        } catch (error) {
+            console.error('自动处理会话失败:', error);
+        }
+    };
+
+    /**
+     * 通过会话对象查找对应的 sessionId（辅助函数）
+     * @param {Object} targetSession - 目标会话对象
+     * @returns {string|null} 对应的 sessionId，如果未找到则返回 null
+     */
+    proto._findSessionIdBySession = function(targetSession) {
+        if (!targetSession) return null;
+        
+        // 遍历所有会话，找到匹配的会话对象
+        for (const [sessionId, session] of Object.entries(this.sessions)) {
+            // 通过对象引用或 key 字段匹配
+            if (session === targetSession || (session.key && targetSession.key && session.key === targetSession.key)) {
+                return sessionId;
+            }
+        }
+        return null;
+    };
+
+    /**
+     * 处理基于 URL 的会话：检查当前页面 URL 是否在会话列表中
+     * 如果不在，则立即自动新建会话并保存后刷新会话列表
+     * 如果存在，则自动选中该会话并锚定到对应会话的位置
+     * 
+     * 重新设计：直接基于 URL 查找会话，不依赖 sessionId 进行查找
+     */
+    proto.handleUrlBasedSession = async function() {
+        try {
+            // 确保会话列表已加载（如果使用后端同步）
+            if (this.sessionApi && this.sessionApi.isEnabled()) {
+                if (!this.hasLoadedSessionsForChat) {
+                    console.log('会话列表未加载，先加载会话列表...');
+                    await this.loadSessionsFromBackend(true);
+                    this.hasLoadedSessionsForChat = true;
+                }
+            }
+
+            // 获取当前页面 URL
+            const pageInfo = this.getPageInfo();
+            const currentUrl = pageInfo.url;
+
+            if (!currentUrl) {
+                console.warn('当前页面 URL 为空，跳过 URL 匹配检查');
+                return;
+            }
+
+            // 确保已加载所有会话
+            if (typeof this.loadAllSessions === 'function') {
+                await this.loadAllSessions();
+            }
+
+            // 确保 sessions 对象已初始化
+            if (!this.sessions) {
+                this.sessions = {};
+            }
+
+            // 首先查找是否存在URL匹配的会话（遍历所有会话）
+            let matchedSessionKey = null;
+            for (const [key, session] of Object.entries(this.sessions)) {
+                if (session && session.url === currentUrl) {
+                    matchedSessionKey = key;
+                    break;
+                }
+            }
+
+
+            // 如果找到了匹配的会话，直接选中
+            if (matchedSessionKey) {
+                const existingSession = this.sessions[matchedSessionKey];
+                if (existingSession) {
+                    // 更新会话页面信息
+                    if (typeof this.updateSessionPageInfo === 'function') {
+                        this.updateSessionPageInfo(matchedSessionKey, pageInfo);
+                    }
+
+                    // 自动选中匹配的会话
+                    if (typeof this.activateSession === 'function') {
+                        await this.activateSession(matchedSessionKey, {
+                            saveCurrent: false,
+                            updateConsistency: true,
+                            updateUI: true
+                        });
+                    }
+
+                    // 滚动到会话项位置
+                    if (typeof this.scrollToSessionItem === 'function') {
+                        await this.scrollToSessionItem(matchedSessionKey);
+                    }
+
+                    console.log('找到URL匹配的会话，已自动选中:', matchedSessionKey);
+                    return matchedSessionKey;
+                }
+            } else {
+                // 创建新会话：参考 YiWeb 的 handleSessionCreate，由后端生成 key
+                try {
+                    // 创建会话数据对象（不包含 key，让后端生成）
+                    const sessionData = this.createSessionObject(pageInfo);
+                    
+                    // 获取当前时间戳
+                    const now = Date.now();
+                    
+                    // 构建要发送到后端的会话数据（不包含 key）
+                    // 优先使用当前页面 URL，如果没有则使用会话数据中的 URL
+                    const sessionDataToSave = {
+                        // 不包含 key 字段，让后端生成
+                        url: currentUrl || sessionData.url || '',
+                        title: sessionData.title || sessionData.pageTitle || '新会话',
+                        pageTitle: sessionData.pageTitle || sessionData.title || '',
+                        pageDescription: sessionData.pageDescription || '',
+                        pageContent: sessionData.pageContent || '',
+                        messages: sessionData.messages || [],
+                        tags: sessionData.tags || [],
+                        createdAt: sessionData.createdAt || now,
+                        updatedAt: now,
+                        lastAccessTime: now
+                    };
+                    
+                    // 如果启用了后端同步，调用后端 API 创建会话
+                    if (this.sessionApi && this.sessionApi.isEnabled()) {
+                        // 调用后端 create_document API（不提供 key，让后端生成）
+                        const payload = {
+                            module_name: 'services.database.data_service',
+                            method_name: 'create_document',
+                            parameters: {
+                                cname: 'sessions',
+                                data: sessionDataToSave
+                            }
+                        };
+                        
+                        const url = `${this.sessionApi.baseUrl}/`;
+                        const response = await this.sessionApi._request(url, {
+                            method: 'POST',
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        if (response && response.success !== false) {
+                            // 从响应中提取后端生成的 key
+                            let sessionKey = null;
+                            
+                            // 尝试从不同位置提取 key
+                            if (response.data && response.data.key) {
+                                sessionKey = response.data.key;
+                            } else if (response.data && response.data.data && response.data.data.key) {
+                                sessionKey = response.data.data.key;
+                            } else if (response.key) {
+                                sessionKey = response.key;
+                            } else if (response.data && typeof response.data === 'object' && response.data._id) {
+                                // 如果后端返回的是 _id，使用 _id 作为 key
+                                sessionKey = response.data._id;
+                            }
+                            
+                            if (!sessionKey) {
+                                console.warn('[handleUrlBasedSession] 后端响应中未找到 key，尝试从返回的数据中提取');
+                                // 如果响应中直接是会话对象，尝试提取 key
+                                if (response.data && typeof response.data === 'object') {
+                                    sessionKey = response.data.key || response.data._id || response.data.id;
+                                }
+                            }
+                            
+                            if (sessionKey) {
+                                // 使用后端生成的 key 更新会话数据
+                                sessionDataToSave.key = sessionKey;
+                                
+                                // 创建完整的会话对象
+                                const newSession = {
+                                    ...sessionDataToSave,
+                                    key: sessionKey
+                                };
+                                
+                                // 使用 key 作为 sessionId 存储到本地
+                                const sessionId = sessionKey;
+                                this.sessions[sessionId] = newSession;
+                                
+                                // 保存到本地存储
+                                if (typeof this.saveSession === 'function') {
+                                    await this.saveSession(sessionId);
+                                }
+                                
+                                // 自动选中新创建的会话
+                                if (typeof this.activateSession === 'function') {
+                                    await this.activateSession(sessionId, {
+                                        saveCurrent: false,
+                                        updateConsistency: true,
+                                        updateUI: true
+                                    });
+                                }
+                                
+                                // 滚动到会话项位置
+                                if (typeof this.scrollToSessionItem === 'function') {
+                                    await this.scrollToSessionItem(sessionId);
+                                }
+                                
+                                console.log('[handleUrlBasedSession] 已通过后端创建新会话，Key:', sessionKey, 'URL:', currentUrl);
+                                return sessionId;
+                            } else {
+                                console.error('[handleUrlBasedSession] 无法从后端响应中提取 key:', response);
+                                throw new Error('后端创建会话成功，但未返回 key');
+                            }
+                        } else {
+                            throw new Error(response?.message || '后端创建会话失败');
+                        }
+                    } else {
+                        // 如果未启用后端同步，使用本地方式创建（生成临时 key）
+                        console.warn('[handleUrlBasedSession] 后端同步未启用，使用本地方式创建会话');
+                        const tempKey = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        sessionDataToSave.key = tempKey;
+                        
+                        const sessionId = tempKey;
+                        this.sessions[sessionId] = sessionDataToSave;
+                        
+                        // 保存到本地存储
+                        if (typeof this.saveSession === 'function') {
+                            await this.saveSession(sessionId);
+                        }
+                        
+                        // 自动选中新创建的会话
+                        if (typeof this.activateSession === 'function') {
+                            await this.activateSession(sessionId, {
+                                saveCurrent: false,
+                                updateConsistency: true,
+                                updateUI: true
+                            });
+                        }
+                        
+                        console.log('[handleUrlBasedSession] 已通过本地方式创建新会话，临时 Key:', tempKey, 'URL:', currentUrl);
+                        return sessionId;
+                    }
+                } catch (error) {
+                    console.error('[handleUrlBasedSession] 创建新会话失败:', error);
+                    // 不抛出错误，避免影响主流程
+                    return null;
+                }
+            }
+        } catch (error) {
+            console.error('处理基于 URL 的会话失败:', error);
+            return null;
+        }
+    };
+
+    /**
+     * 滚动到指定的会话项位置（锚定）
+     * @param {string} sessionId - 会话ID
+     */
+    proto.scrollToSessionItem = async function(sessionId) {
+        if (!this.sessionSidebar || !sessionId) {
+            return;
+        }
+
+        // 等待DOM更新
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // 查找会话项
+        const sessionItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionId}"]`);
+        if (!sessionItem) {
+            console.warn('未找到会话项，尝试更新侧边栏后重试');
+            // 如果找不到，先更新侧边栏
+            if (typeof this.updateSessionSidebar === 'function') {
+                await this.updateSessionSidebar();
+                // 再次等待DOM更新
+                await new Promise(resolve => setTimeout(resolve, 200));
+                const retryItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionId}"]`);
+                if (retryItem) {
+                    this._scrollToElement(retryItem);
+                }
+            }
+            return;
+        }
+
+        // 滚动到会话项
+        this._scrollToElement(sessionItem);
+    };
+
+    /**
+     * 滚动到指定元素（内部方法）
+     * @param {HTMLElement} element - 要滚动到的元素
+     */
+    proto._scrollToElement = function(element) {
+        if (!element) return;
+
+        // 查找可滚动的父容器
+        const scrollableContainer = element.closest('.session-sidebar-scrollable-content');
+        if (!scrollableContainer) return;
+
+        // 计算元素相对于容器的位置
+        const containerRect = scrollableContainer.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        
+        // 计算需要滚动的距离
+        const scrollTop = scrollableContainer.scrollTop;
+        const elementTop = elementRect.top - containerRect.top + scrollTop;
+        const elementHeight = elementRect.height;
+        const containerHeight = containerRect.height;
+        
+        // 计算目标滚动位置（让元素居中显示）
+        const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
+        
+        // 平滑滚动
+        scrollableContainer.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'smooth'
+        });
+
+        // 添加高亮效果
+        element.classList.add('highlight-session');
+        setTimeout(() => {
+            element.classList.remove('highlight-session');
+        }, 2000);
     };
 
     // HTML转义辅助方法（防止XSS）

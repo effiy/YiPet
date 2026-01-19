@@ -178,9 +178,9 @@
     modal.appendChild(panel);
 
     const updateTagFilterButtons = () => {
-      reverseFilterBtn.style.color = this.faqTagFilterReverse ? '#4CAF50' : '#9ca3af';
+      reverseFilterBtn.style.color = this.faqTagFilterReverse ? '#22c55e' : '#9ca3af';  /* 现代绿 */
       reverseFilterBtn.style.opacity = this.faqTagFilterReverse ? '1' : '0.6';
-      noTagsFilterBtn.style.color = this.faqTagFilterNoTags ? '#4CAF50' : '#9ca3af';
+      noTagsFilterBtn.style.color = this.faqTagFilterNoTags ? '#22c55e' : '#9ca3af';  /* 现代绿 */
       noTagsFilterBtn.style.opacity = this.faqTagFilterNoTags ? '1' : '0.6';
       const hasActiveFilter = (this.faqSelectedFilterTags && this.faqSelectedFilterTags.length > 0) || this.faqTagFilterNoTags;
       clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';

@@ -13,11 +13,11 @@ const DEFAULT_CONFIG = {
     defaultColorIndex: 0,
     defaultVisible: false,
     colors: [
-      "linear-gradient(135deg, #ff6b6b, #ff8e8e)",
-      "linear-gradient(135deg, #4ecdc4, #44a08d)",
-      "linear-gradient(135deg, #ff9a9e, #fecfef)",
-      "linear-gradient(135deg, #a8edea, #fed6e3)",
-      "linear-gradient(135deg, #ffecd2, #fcb69f)"
+      "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",  /* 主色：优雅蓝紫 */
+      "linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)",  /* 现代靛蓝紫 */
+      "linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%)",  /* 量子海洋 */
+      "linear-gradient(135deg, #22c55e 0%, #10b981 50%, #059669 100%)",  /* 量子森林 */
+      "linear-gradient(135deg, #f59e0b 0%, #ec4899 50%, #a855f7 100%)"   /* 量子日落 */
     ],
     sizeLimits: { min: 80, max: 400 }
   },
@@ -60,11 +60,11 @@ const DEFAULT_CONFIG = {
     ]
   },
   env: {
-    mode: "production",
+    mode: "development",
     flags: {
-      debug: false,
+      debug: true,
       mockApi: false,
-      telemetry: true
+      telemetry: false
     },
     endpoints: {
       production: {
@@ -78,9 +78,9 @@ const DEFAULT_CONFIG = {
         yiaiBaseUrl: "https://staging.api.effiy.cn"
       },
       development: {
-        streamPromptUrl: "http://localhost:8080/prompt",
+        streamPromptUrl: "http://localhost:8000/prompt",
         promptUrl: "http://localhost:8080/prompt/",
-        yiaiBaseUrl: "http://localhost:8080"
+        yiaiBaseUrl: "http://localhost:8000"
       }
     }
   },
@@ -123,21 +123,25 @@ const DEFAULT_CONFIG = {
     },
     UI: {
       NOTIFICATION_TOP: 10,
-      STATUS_DOT_ACTIVE: "#4CAF50",
-      STATUS_DOT_INACTIVE: "#FF9800",
-      NOTIFICATION_SUCCESS: "#4CAF50",
-      NOTIFICATION_ERROR: "#f44336",
-      NOTIFICATION_INFO: "#2196F3"
+      STATUS_DOT_ACTIVE: "#22c55e",      /* 现代绿 */
+      STATUS_DOT_INACTIVE: "#f59e0b",    /* 量子橙 */
+      NOTIFICATION_SUCCESS: "#22c55e",   /* 现代绿 */
+      NOTIFICATION_ERROR: "#ef4444",     /* 量子红 */
+      NOTIFICATION_INFO: "#3b82f6"       /* 信息蓝 */
     },
     DEFAULTS: {
       PET_ROLE: "教师"
     },
     ERROR_MESSAGES: {
-      TAB_NOT_FOUND: "无法获取当前标签页，请刷新页面后重试",
-      INIT_FAILED: "初始化失败，请刷新页面后重试",
-      OPERATION_FAILED: "操作失败，请刷新页面后重试",
+      TAB_NOT_FOUND: "无法获取当前标签页",
+      INIT_FAILED: "初始化失败",
+      OPERATION_FAILED: "操作失败",
       CONTEXT_INVALIDATED: "扩展上下文已失效",
-      QUOTA_EXCEEDED: "存储配额超出"
+      QUOTA_EXCEEDED: "存储配额超出",
+      RETRYING: "正在重试...",
+      RETRY_SUCCESS: "重试成功",
+      RETRY_FAILED: "多次尝试后仍失败",
+      FALLBACK_INIT: "使用备用方案初始化"
     },
     SUCCESS_MESSAGES: {
       SHOWN: "已显示",
@@ -166,7 +170,7 @@ const DEFAULT_CONFIG = {
 };
 
 // --- Environment Processing ---
-let __ENV_MODE = "production";
+let __ENV_MODE = "development";
 
 // Detect mode from Window or Process
 if (typeof window !== "undefined" && window.__PET_ENV_MODE__) {

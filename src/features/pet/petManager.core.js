@@ -43,7 +43,7 @@
                 this.currentPageUrl = null; // 当前页面URL，用于判断是否为新页面
                 this.hasAutoCreatedSessionForPage = false; // 当前页面是否已经自动创建了会话
                 this.sessionInitPending = false; // 会话初始化是否正在进行中
-                this.sidebarWidth = 200; // 侧边栏宽度（像素）
+                this.sidebarWidth = 500; // 侧边栏宽度（像素）
                 this.isResizingSidebar = false; // 是否正在调整侧边栏宽度
                 this.sidebarCollapsed = false; // 侧边栏是否折叠
                 this.inputContainerCollapsed = false; // 输入框容器是否折叠
@@ -120,8 +120,9 @@
 
                 // 初始化FAQ API管理器
                 if (typeof FaqApiManager !== 'undefined') {
-                    this.faqApi = new FaqApiManager('https://api.effiy.cn/mongodb', true);
-                    console.log('FAQ API管理器已初始化');
+                    const faqApiUrl = PET_CONFIG?.api?.faqApiUrl || 'http://localhost:8000';
+                    this.faqApi = new FaqApiManager(faqApiUrl, true);
+                    console.log('FAQ API管理器已初始化，URL:', faqApiUrl);
                 } else {
                     console.log('FAQ API管理器未启用');
                 }
@@ -293,15 +294,10 @@
                 this.batchMode = true;
                 if (this.selectedSessionIds) this.selectedSessionIds.clear();
 
-                // 显示批量操作工具栏（带动画）
+                // 显示批量操作工具栏（参考 YiWeb：直接显示，不需要动画）
                 const batchToolbar = document.getElementById('batch-toolbar');
                 if (batchToolbar) {
-                    batchToolbar.classList.remove('batch-toolbar--display-none');
-                    // 使用 requestAnimationFrame 确保样式已应用
-                    requestAnimationFrame(() => {
-                        batchToolbar.classList.remove('batch-toolbar--hidden');
-                        batchToolbar.classList.add('batch-toolbar--visible');
-                    });
+                    batchToolbar.style.display = 'flex';
                 }
 
                 // 更新批量模式按钮状态
@@ -335,14 +331,10 @@
                 if (this.selectedSessionIds) this.selectedSessionIds.clear();
                 if (this.selectedApiRequestIds) this.selectedApiRequestIds.clear();
 
-                // 隐藏批量操作工具栏（带动画）
+                // 隐藏批量操作工具栏（参考 YiWeb：直接隐藏）
                 const batchToolbar = document.getElementById('batch-toolbar');
                 if (batchToolbar) {
-                    batchToolbar.classList.remove('batch-toolbar--visible');
-                    batchToolbar.classList.add('batch-toolbar--hidden');
-                    setTimeout(() => {
-                        batchToolbar.classList.add('batch-toolbar--display-none');
-                    }, 300);
+                    batchToolbar.style.display = 'none';
                 }
 
                 // 更新批量模式按钮状态
@@ -495,273 +487,506 @@
 
             // 处理 Markdown 中的 Mermaid 代码块
             createMessageElement(text, sender, imageDataUrl = null, timestamp = null) {
+                // 与 YiWeb 保持完全一致的消息结构
                 const messageDiv = document.createElement('div');
-                messageDiv.className = 'chat-message';
+                messageDiv.className = 'pet-chat-message';
                 if (sender === 'user') {
-                    messageDiv.classList.add('chat-message--user');
+                    messageDiv.classList.add('is-user');
                 } else {
-                    messageDiv.classList.add('chat-message--pet');
+                    messageDiv.classList.add('is-pet');
                 }
 
-                // 获取宠物颜色用于宠物消息
-                const currentColor = this.colors[this.colorIndex];
-
-                const avatar = document.createElement('div');
-                avatar.className = 'chat-message-avatar';
-
-                // Dynamic background for pet
-                if (sender === 'pet') {
-                    avatar.style.setProperty('background', currentColor, 'important');
+                // 设置消息索引和时间戳（用于后续操作，与 YiWeb 保持一致）
+                if (timestamp) {
+                    messageDiv.setAttribute('data-chat-timestamp', timestamp.toString());
+                } else {
+                    // 如果没有提供时间戳，使用当前时间
+                    messageDiv.setAttribute('data-chat-timestamp', Date.now().toString());
                 }
-                avatar.textContent = sender === 'user' ? '👤' : '🐾';
+                messageDiv.setAttribute('data-chat-type', sender === 'pet' ? 'pet' : 'user');
+                
+                // 设置消息索引（将在添加到容器时设置）
+                // messageDiv.setAttribute('data-chat-idx', idx.toString());
+
+                // 创建消息气泡容器（与 YiWeb 一致）
+                const bubble = document.createElement('div');
+                bubble.className = 'pet-chat-bubble';
+                
                 // 添加标识以便后续更新
                 if (sender === 'pet') {
-                    avatar.setAttribute('data-message-type', 'pet-avatar');
-                }
-
-                const content = document.createElement('div');
-                content.className = 'chat-message-content';
-
-                const messageText = document.createElement('div');
-                messageText.className = 'chat-message-bubble';
-                if (sender === 'pet') {
-                    messageText.style.setProperty('background', currentColor, 'important');
-                }
-
-                if (sender === 'user') {
-                    messageText.classList.add('chat-message-bubble--user');
+                    bubble.setAttribute('data-message-type', 'pet-bubble');
                 } else {
-                    messageText.classList.add('chat-message-bubble--pet');
-                }
-
-                // 为宠物消息和用户消息添加 Markdown 样式
-                if (sender === 'pet' || sender === 'user') {
-                    messageText.classList.add('markdown-content');
-                }
-
-                // 添加标识以便后续更新
-                if (sender === 'pet') {
-                    messageText.setAttribute('data-message-type', 'pet-bubble');
-                } else {
-                    messageText.setAttribute('data-message-type', 'user-bubble');
+                    bubble.setAttribute('data-message-type', 'user-bubble');
                 }
 
                 // 为消息保存原始文本用于复制和编辑功能
                 if (text) {
-                    if (sender === 'pet') {
-                        messageText.setAttribute('data-original-text', text);
-                    } else {
-                        // 用户消息也保存原始文本，用于编辑功能
-                        messageText.setAttribute('data-original-text', text);
-                    }
+                    bubble.setAttribute('data-original-text', text);
                 }
 
-                // 如果包含图片，添加图片元素
+                // 添加图片（与 YiWeb 一致）
                 if (imageDataUrl) {
-                    const imageContainer = document.createElement('div');
-                    imageContainer.className = 'chat-message-image-container';
-                    if (text) {
-                        imageContainer.classList.add('chat-message-image-container--with-text');
-                    }
-
-                    const img = document.createElement('img');
-                    img.src = imageDataUrl;
-                    img.className = 'chat-message-image';
-
-                    // 点击查看大图
-                    img.addEventListener('click', () => {
-                        this.showImagePreview(imageDataUrl);
-                    });
-
-                    imageContainer.appendChild(img);
-                    messageText.appendChild(imageContainer);
-                }
-
-                // 如果有文本，添加文本（支持 Markdown 渲染）
-                if (text) {
-                    if (sender === 'pet') {
-                        // 对于宠物消息，使用 Markdown 渲染
-                        const displayText = this.renderMarkdown(text);
-                        if (imageDataUrl) {
-                            // 如果已经添加了图片，则追加文本
-                            const textSpan = document.createElement('span');
-                            textSpan.innerHTML = displayText;
-                            messageText.appendChild(textSpan);
-                        } else {
-                            messageText.innerHTML = displayText;
-                            // 对于宠物消息，处理可能的 Mermaid 图表
-                            if (!messageText.hasAttribute('data-mermaid-processing')) {
-                                messageText.setAttribute('data-mermaid-processing', 'true');
-                                setTimeout(async () => {
-                                    await this.processMermaidBlocks(messageText);
-                                    messageText.removeAttribute('data-mermaid-processing');
-                                }, 100);
-                            }
-                        }
-                    } else {
-                        // 对于用户消息，使用 Markdown 渲染（与 pet 消息一致）
-                        const displayText = this.renderMarkdown(text);
-                        if (imageDataUrl) {
-                            // 如果已经添加了图片，则追加文本
-                            const textSpan = document.createElement('span');
-                            textSpan.innerHTML = displayText;
-                            messageText.appendChild(textSpan);
-                        } else {
-                            messageText.innerHTML = displayText;
-                        }
-                        // 处理可能的 Mermaid 图表
-                        if (!messageText.hasAttribute('data-mermaid-processing')) {
-                            messageText.setAttribute('data-mermaid-processing', 'true');
-                            setTimeout(async () => {
-                                try {
-                                    await this.loadMermaid();
-                                    const hasMermaidCode = messageText.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
-                                    if (hasMermaidCode) {
-                                        await this.processMermaidBlocks(messageText);
-                                    }
-                                } catch (error) {
-                                    console.error('处理用户消息的 Mermaid 图表时出错:', error);
-                                }
-                                messageText.removeAttribute('data-mermaid-processing');
-                            }, 100);
-                        }
-                    }
-                } else if (imageDataUrl) {
-                    // 如果没有文本只有图片，保持容器为空
-                    messageText.classList.add('chat-message-bubble--no-padding');
-                }
-
-                const messageTime = document.createElement('div');
-                messageTime.className = 'chat-message-time';
-                messageTime.setAttribute('data-message-time', 'true');
-                // 如果有时间戳，使用时间戳；否则使用当前时间
-                messageTime.textContent = timestamp ? this.formatTimestamp(timestamp) : this.getCurrentTime();
-
-                content.appendChild(messageText);
-
-                // 为宠物消息创建时间和复制按钮的容器
-                if (sender === 'pet') {
-                    const timeAndCopyContainer = document.createElement('div');
-                    timeAndCopyContainer.className = 'chat-message-actions-container';
-
-                    const messageTimeWrapper = document.createElement('div');
-                    messageTimeWrapper.className = 'chat-message-time-wrapper';
-                    messageTimeWrapper.appendChild(messageTime);
-                    timeAndCopyContainer.appendChild(messageTimeWrapper);
-
-                    const copyButtonContainer = document.createElement('div');
-                    copyButtonContainer.setAttribute('data-copy-button-container', 'true');
-                    copyButtonContainer.className = 'chat-message-copy-container';
-                    timeAndCopyContainer.appendChild(copyButtonContainer);
-
-                    // 添加 try again 按钮容器
-                    const tryAgainButtonContainer = document.createElement('div');
-                    tryAgainButtonContainer.setAttribute('data-try-again-button-container', 'true');
-                    tryAgainButtonContainer.className = 'chat-message-try-again-container';
-                    timeAndCopyContainer.appendChild(tryAgainButtonContainer);
-
-                    content.appendChild(timeAndCopyContainer);
-
-                    // 如果已经有文本，立即添加复制按钮
-                    if (text && text.trim()) {
-                        this.addCopyButton(copyButtonContainer, messageText);
-                    }
-
-                    // 为宠物消息添加导出图片按钮
-                    this.addExportButtonForMessage(copyButtonContainer, messageDiv, 'pet');
-
-                    // 为消息元素添加标识，用于后续判断是否是第一个消息
-                    messageDiv.setAttribute('data-message-id', Date.now().toString());
-                } else {
-                    // 用户消息创建时间和删除按钮的容器（与气泡宽度对齐）
-                    const timeAndCopyContainer = document.createElement('div');
-                    timeAndCopyContainer.className = 'chat-message-actions-container';
-
-                    const messageTimeWrapper = document.createElement('div');
-                    messageTimeWrapper.className = 'chat-message-time-wrapper--user';
-
-                    messageTimeWrapper.appendChild(messageTime);
-
-                    const copyButtonContainer = document.createElement('div');
-                    copyButtonContainer.setAttribute('data-copy-button-container', 'true');
-                    copyButtonContainer.className = 'chat-message-copy-container';
-                    timeAndCopyContainer.appendChild(copyButtonContainer);
-                    timeAndCopyContainer.appendChild(messageTimeWrapper);
-
-                    content.appendChild(timeAndCopyContainer);
-
-                    // 为用户消息添加复制按钮（包括复制和删除按钮）
-                    if (text && text.trim()) {
-                        this.addCopyButton(copyButtonContainer, messageText);
-                    }
-
-                    // 为用户消息添加删除、编辑和重新发送按钮
-                    this.addDeleteButtonForUserMessage(copyButtonContainer, messageText);
-
-                    // 为用户消息添加导出图片按钮（在编辑按钮后面）
-                    this.addExportButtonForMessage(copyButtonContainer, messageDiv, 'user');
-
-                    // 同步时间容器与气泡的宽度和位置，确保精确对齐
-                    const syncTimeContainerAlignment = () => {
-                        // 使用双重 requestAnimationFrame 确保 DOM 完全渲染
-                        requestAnimationFrame(() => {
-                            requestAnimationFrame(() => {
-                                const bubbleRect = messageText.getBoundingClientRect();
-                                const containerRect = timeAndCopyContainer.getBoundingClientRect();
-
-                                // 同步宽度：直接使用气泡的实际宽度
-                                if (bubbleRect.width > 0) {
-                                    timeAndCopyContainer.style.width = `${bubbleRect.width}px`;
-                                    timeAndCopyContainer.style.maxWidth = `${bubbleRect.width}px`;
-                                }
-
-                                // 重新获取容器位置以检查对齐
-                                const updatedContainerRect = timeAndCopyContainer.getBoundingClientRect();
-
-                                // 检查并修正左边缘对齐（允许1px的误差）
-                                if (Math.abs(bubbleRect.left - updatedContainerRect.left) > 1) {
-                                    // 计算相对于父容器的偏移
-                                    const contentRect = content.getBoundingClientRect();
-                                    const bubbleOffset = bubbleRect.left - contentRect.left;
-                                    const containerOffset = updatedContainerRect.left - contentRect.left;
-
-                                    // 计算需要的 margin-left 调整
-                                    const marginDiff = bubbleOffset - containerOffset;
-
-                                    // 获取当前计算后的 margin-left 值（即使 CSS 是 auto，计算值也是像素）
-                                    const computedStyle = window.getComputedStyle(timeAndCopyContainer);
-                                    const computedMarginLeft = computedStyle.marginLeft;
-                                    const numericMargin = parseFloat(computedMarginLeft) || 0;
-
-                                    // 应用修正后的 margin-left
-                                    timeAndCopyContainer.style.marginLeft = `${numericMargin + marginDiff}px`;
-                                }
+                    // 支持多图片（imageDataUrls）和单图片（imageDataUrl）
+                    const images = Array.isArray(imageDataUrl) ? imageDataUrl : [imageDataUrl];
+                    if (images.length > 1) {
+                        const imageContainer = document.createElement('div');
+                        imageContainer.className = 'pet-chat-images';
+                        images.forEach((imgSrc) => {
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.className = 'pet-chat-image';
+                            img.alt = '图片消息';
+                            img.addEventListener('click', () => {
+                                this.showImagePreview(imgSrc);
                             });
+                            imageContainer.appendChild(img);
                         });
-                    };
-
-                    // 立即同步一次
-                    syncTimeContainerAlignment();
-
-                    // 监听气泡大小变化，自动重新同步
-                    if (typeof ResizeObserver !== 'undefined') {
-                        const resizeObserver = new ResizeObserver(() => {
-                            syncTimeContainerAlignment();
+                        bubble.appendChild(imageContainer);
+                    } else if (images.length === 1) {
+                        const img = document.createElement('img');
+                        img.src = images[0];
+                        img.className = 'pet-chat-image';
+                        img.alt = '图片消息';
+                        img.addEventListener('click', () => {
+                            this.showImagePreview(images[0]);
                         });
-                        resizeObserver.observe(messageText);
-
-                        // 将 observer 保存到元素上，以便后续清理（如果需要）
-                        messageText._timeContainerObserver = resizeObserver;
+                        bubble.appendChild(img);
                     }
-
-                    // 延迟再次同步，确保所有内容都已渲染
-                    setTimeout(syncTimeContainerAlignment, 100);
                 }
 
-                messageDiv.appendChild(avatar);
-                messageDiv.appendChild(content);
+                // 添加文本内容（与 YiWeb 一致）
+                if (text && text.trim()) {
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'pet-chat-content md-preview-body';
+                    
+                    // 渲染 Markdown
+                    const displayText = this.renderMarkdown(text);
+                    contentDiv.innerHTML = displayText;
+                    
+                    bubble.appendChild(contentDiv);
+                    
+                    // 处理 Mermaid 图表（异步处理，不阻塞渲染）
+                    if (!bubble.hasAttribute('data-mermaid-processing')) {
+                        bubble.setAttribute('data-mermaid-processing', 'true');
+                        setTimeout(async () => {
+                            try {
+                                await this.loadMermaid();
+                                const hasMermaidCode = contentDiv.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                                if (hasMermaidCode) {
+                                    await this.processMermaidBlocks(contentDiv);
+                                }
+                            } catch (error) {
+                                console.error('处理 Mermaid 图表时出错:', error);
+                            }
+                            bubble.removeAttribute('data-mermaid-processing');
+                        }, 100);
+                    }
+                } else if (!imageDataUrl) {
+                    // 如果没有文本也没有图片，显示占位符（仅在流式生成时，与 YiWeb 一致）
+                    const typingDiv = document.createElement('div');
+                    typingDiv.className = 'pet-chat-typing';
+                    typingDiv.setAttribute('aria-label', '生成中');
+                    typingDiv.textContent = '...';
+                    bubble.appendChild(typingDiv);
+                }
+
+                // 创建元数据容器（与 YiWeb 一致）
+                const meta = document.createElement('div');
+                meta.className = 'pet-chat-meta';
+
+                // 创建操作按钮容器
+                const metaActions = document.createElement('div');
+                metaActions.className = 'pet-chat-meta-actions';
+                metaActions.setAttribute('data-copy-button-container', 'true');
+                meta.appendChild(metaActions);
+
+                // 创建时间元素
+                const messageTime = document.createElement('time');
+                messageTime.className = 'pet-chat-time';
+                const timeText = timestamp ? this.formatTimestamp(timestamp) : this.getCurrentTime();
+                messageTime.textContent = timeText;
+                if (timestamp) {
+                    messageTime.setAttribute('datetime', new Date(timestamp).toISOString());
+                }
+                meta.appendChild(messageTime);
+
+                // 将元数据添加到气泡
+                bubble.appendChild(meta);
+
+                // 将气泡添加到消息容器
+                messageDiv.appendChild(bubble);
+
+                // 为消息添加操作按钮（延迟添加，确保 DOM 已渲染）
+                setTimeout(() => {
+                    this.addMessageActionButtons(messageDiv, bubble, sender, text);
+                }, 0);
 
                 return messageDiv;
+            }
+
+            // 添加与 YiWeb 一致的消息操作按钮
+            addMessageActionButtons(messageDiv, bubble, sender, text) {
+                if (!messageDiv || !bubble) return;
+
+                const meta = bubble.querySelector('.pet-chat-meta');
+                if (!meta) return;
+
+                const metaActions = meta.querySelector('.pet-chat-meta-actions');
+                if (!metaActions) return;
+
+                // 如果已经有按钮，不再重复添加
+                if (metaActions.children.length > 0) return;
+
+                const isPet = sender === 'pet';
+                const hasContent = text && text.trim();
+
+                // 1. 复制按钮（有内容时显示）
+                if (hasContent) {
+                    const copyBtn = document.createElement('button');
+                    copyBtn.type = 'button';
+                    copyBtn.className = 'pet-chat-meta-btn';
+                    copyBtn.setAttribute('aria-label', '复制消息');
+                    copyBtn.setAttribute('title', '复制');
+                    copyBtn.textContent = '复制';
+                    
+                    copyBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        try {
+                            const content = bubble.getAttribute('data-original-text') || text || '';
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                await navigator.clipboard.writeText(content.trim());
+                                copyBtn.textContent = '已复制';
+                                setTimeout(() => {
+                                    copyBtn.textContent = '复制';
+                                }, 1200);
+                                if (this.showNotification) {
+                                    this.showNotification('已复制到剪贴板', 'success');
+                                }
+                            } else {
+                                const textArea = document.createElement('textarea');
+                                textArea.value = content.trim();
+                                textArea.style.position = 'fixed';
+                                textArea.style.left = '-9999px';
+                                document.body.appendChild(textArea);
+                                textArea.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(textArea);
+                                copyBtn.textContent = '已复制';
+                                setTimeout(() => {
+                                    copyBtn.textContent = '复制';
+                                }, 1200);
+                                if (this.showNotification) {
+                                    this.showNotification('已复制到剪贴板', 'success');
+                                }
+                            }
+                        } catch (error) {
+                            console.error('复制失败:', error);
+                            if (this.showNotification) {
+                                this.showNotification('复制失败，请重试', 'error');
+                            }
+                        }
+                    });
+                    metaActions.appendChild(copyBtn);
+                }
+
+                // 2. 微信机器人按钮容器（仅宠物消息且有内容时显示）
+                let robotButtonsContainer = null;
+                if (isPet && hasContent) {
+                    // 创建一个容器用于放置机器人按钮，确保按钮顺序正确
+                    robotButtonsContainer = document.createElement('span');
+                    robotButtonsContainer.style.display = 'inline-flex';
+                    robotButtonsContainer.style.gap = '8px';
+                    metaActions.appendChild(robotButtonsContainer);
+
+                    // 异步添加机器人按钮
+                    (async () => {
+                        try {
+                            const robotConfigs = await this.getWeWorkRobotConfigs();
+                            if (Array.isArray(robotConfigs) && robotConfigs.length > 0 && robotButtonsContainer) {
+                                for (const robotConfig of robotConfigs) {
+                                    if (!robotConfig || !robotConfig.webhookUrl) continue;
+
+                                    const robotBtn = document.createElement('button');
+                                    robotBtn.type = 'button';
+                                    robotBtn.className = 'pet-chat-meta-btn';
+                                    robotBtn.setAttribute('aria-label', `发送到机器人：${robotConfig.name || '机器人'}`);
+                                    robotBtn.setAttribute('title', `发送到：${robotConfig.name || '机器人'}`);
+                                    robotBtn.textContent = robotConfig.name || '机器人';
+
+                                    robotBtn.addEventListener('click', async (e) => {
+                                        e.stopPropagation();
+                                        
+                                        const messageContent = bubble.getAttribute('data-original-text') || text || '';
+                                        if (!messageContent || !messageContent.trim()) {
+                                            if (this.showNotification) {
+                                                this.showNotification('消息内容为空，无法发送', 'error');
+                                            }
+                                            return;
+                                        }
+
+                                        const trimmedContent = messageContent.trim();
+                                        const originalText = robotBtn.textContent;
+                                        robotBtn.textContent = '发送中...';
+                                        robotBtn.disabled = true;
+
+                                        try {
+                                            // 处理消息内容（精简和转换为 Markdown）
+                                            let finalContent = '';
+                                            if (this.processMessageForRobot) {
+                                                // 使用 processMessageForRobot 方法处理消息（精简和转换为 Markdown）
+                                                finalContent = await this.processMessageForRobot(trimmedContent);
+                                            } else if (this.convertToMarkdown) {
+                                                // 降级方案：只转换为 Markdown，不精简
+                                                finalContent = await this.convertToMarkdown(trimmedContent);
+                                            } else {
+                                                // 最后降级方案：直接使用原内容
+                                                finalContent = trimmedContent;
+                                            }
+
+                                            // 发送到机器人
+                                            await this.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
+                                            
+                                            if (this.showNotification) {
+                                                this.showNotification(`已发送到 ${robotConfig.name || '机器人'}`, 'success');
+                                            }
+                                            
+                                            robotBtn.textContent = '已发送';
+                                            setTimeout(() => {
+                                                robotBtn.textContent = originalText;
+                                                robotBtn.disabled = false;
+                                            }, 2000);
+                                        } catch (error) {
+                                            console.error('发送到机器人失败:', error);
+                                            if (this.showNotification) {
+                                                this.showNotification(`发送失败：${error.message || '未知错误'}`, 'error');
+                                            }
+                                            robotBtn.textContent = originalText;
+                                            robotBtn.disabled = false;
+                                        }
+                                    });
+
+                                    robotButtonsContainer.appendChild(robotBtn);
+                                }
+                            }
+                        } catch (error) {
+                            console.error('获取机器人配置失败:', error);
+                        }
+                    })();
+                }
+
+                // 3. 编辑按钮（所有消息都显示）
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'pet-chat-meta-btn';
+                editBtn.setAttribute('aria-label', '编辑消息');
+                editBtn.setAttribute('title', '编辑');
+                editBtn.textContent = '✏️';
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (this.openMessageEditor) {
+                        this.openMessageEditor(bubble, sender);
+                    }
+                });
+                metaActions.appendChild(editBtn);
+
+                // 4. 重新发送按钮（仅用户消息）
+                if (!isPet) {
+                    const resendBtn = document.createElement('button');
+                    resendBtn.type = 'button';
+                    resendBtn.className = 'pet-chat-meta-btn';
+                    resendBtn.setAttribute('aria-label', '重新发送');
+                    resendBtn.setAttribute('title', '重新发送');
+                    resendBtn.textContent = '📨';
+                    resendBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (this.resendMessage) {
+                            await this.resendMessage(messageDiv);
+                        }
+                    });
+                    metaActions.appendChild(resendBtn);
+                }
+
+                // 5. 上移按钮
+                const moveUpBtn = document.createElement('button');
+                moveUpBtn.type = 'button';
+                moveUpBtn.className = 'pet-chat-meta-btn';
+                moveUpBtn.setAttribute('aria-label', '上移消息');
+                moveUpBtn.setAttribute('title', '上移');
+                moveUpBtn.textContent = '⬆️';
+                moveUpBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                    if (messagesContainer && this.moveMessageUp) {
+                        const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                            !msg.hasAttribute('data-welcome-message')
+                        );
+                        const currentIndex = allMessages.indexOf(messageDiv);
+                        if (currentIndex > 0) {
+                            await this.moveMessageUp(messageDiv, currentIndex);
+                        }
+                    }
+                });
+                metaActions.appendChild(moveUpBtn);
+
+                // 6. 下移按钮
+                const moveDownBtn = document.createElement('button');
+                moveDownBtn.type = 'button';
+                moveDownBtn.className = 'pet-chat-meta-btn';
+                moveDownBtn.setAttribute('aria-label', '下移消息');
+                moveDownBtn.setAttribute('title', '下移');
+                moveDownBtn.textContent = '⬇️';
+                moveDownBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                    if (messagesContainer && this.moveMessageDown) {
+                        const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                            !msg.hasAttribute('data-welcome-message')
+                        );
+                        const currentIndex = allMessages.indexOf(messageDiv);
+                        if (currentIndex >= 0 && currentIndex < allMessages.length - 1) {
+                            await this.moveMessageDown(messageDiv, currentIndex);
+                        }
+                    }
+                });
+                metaActions.appendChild(moveDownBtn);
+
+                // 7. 重新生成按钮（仅宠物消息）
+                if (isPet) {
+                    const regenerateBtn = document.createElement('button');
+                    regenerateBtn.type = 'button';
+                    regenerateBtn.className = 'pet-chat-meta-btn';
+                    regenerateBtn.setAttribute('aria-label', '重新生成回复');
+                    regenerateBtn.setAttribute('title', '重新生成');
+                    regenerateBtn.textContent = '重新生成';
+                    regenerateBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (this.regenerateMessage) {
+                            await this.regenerateMessage(messageDiv);
+                        }
+                    });
+                    metaActions.appendChild(regenerateBtn);
+                }
+
+                // 8. 删除按钮
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'pet-chat-meta-btn';
+                deleteBtn.setAttribute('aria-label', '删除消息');
+                deleteBtn.setAttribute('title', '删除');
+                deleteBtn.textContent = '🗑️';
+                deleteBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (confirm('确定删除这条消息吗？')) {
+                        if (this.deleteMessage) {
+                            await this.deleteMessage(messageDiv);
+                        }
+                    }
+                });
+                metaActions.appendChild(deleteBtn);
+            }
+
+            // 删除消息（与 YiWeb 一致）
+            async deleteMessage(messageDiv) {
+                if (!messageDiv || !this.currentSessionId) return;
+                
+                const session = this.sessions[this.currentSessionId];
+                if (!session || !session.messages) return;
+
+                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                if (!messagesContainer) return;
+
+                const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                    !msg.hasAttribute('data-welcome-message')
+                );
+                const index = allMessages.indexOf(messageDiv);
+                
+                if (index < 0 || index >= session.messages.length) return;
+
+                // 删除消息（如果是用户消息，同时删除对应的宠物回复）
+                const target = session.messages[index];
+                const next = session.messages[index + 1];
+                if (target && target.type !== 'pet' && next && next.type === 'pet') {
+                    session.messages.splice(index, 2);
+                } else {
+                    session.messages.splice(index, 1);
+                }
+
+                session.updatedAt = Date.now();
+
+                // 动画删除消息
+                messageDiv.style.transition = 'opacity 0.3s ease';
+                messageDiv.style.opacity = '0';
+                setTimeout(() => {
+                    messageDiv.remove();
+                    // 保存会话
+                    this.saveCurrentSession().then(() => {
+                        if (this.syncSessionToBackend) {
+                            this.syncSessionToBackend(this.currentSessionId, true).catch(err => {
+                                console.error('删除消息后同步到后端失败:', err);
+                            });
+                        }
+                    }).catch(err => {
+                        console.error('删除消息后保存会话失败:', err);
+                    });
+                }, 300);
+            }
+
+            // 重新发送消息（仅用户消息）
+            async resendMessage(messageDiv) {
+                if (!messageDiv || !this.currentSessionId) return;
+                
+                const session = this.sessions[this.currentSessionId];
+                if (!session || !session.messages) return;
+
+                const bubble = messageDiv.querySelector('.pet-chat-bubble');
+                if (!bubble) return;
+
+                const content = bubble.getAttribute('data-original-text') || '';
+                const imageDataUrl = bubble.querySelector('.pet-chat-image')?.src || null;
+
+                // 重新发送消息
+                if (this.sendMessage) {
+                    await this.sendMessage(content, imageDataUrl);
+                }
+            }
+
+            // 重新生成消息（仅宠物消息）
+            async regenerateMessage(messageDiv) {
+                if (!messageDiv || !this.currentSessionId) return;
+                
+                const session = this.sessions[this.currentSessionId];
+                if (!session || !session.messages) return;
+
+                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                if (!messagesContainer) return;
+
+                const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                    !msg.hasAttribute('data-welcome-message')
+                );
+                const index = allMessages.indexOf(messageDiv);
+                
+                if (index < 0 || index >= session.messages.length) return;
+
+                // 找到对应的用户消息
+                let userMessageIndex = index - 1;
+                while (userMessageIndex >= 0 && session.messages[userMessageIndex].type === 'pet') {
+                    userMessageIndex--;
+                }
+
+                if (userMessageIndex < 0) return;
+
+                const userMessage = session.messages[userMessageIndex];
+                const userContent = userMessage.content || '';
+                const userImageDataUrl = userMessage.imageDataUrl || null;
+
+                // 删除当前的宠物回复
+                session.messages.splice(index, 1);
+                messageDiv.remove();
+
+                // 重新发送用户消息以生成新的回复
+                if (this.sendMessage) {
+                    await this.sendMessage(userContent, userImageDataUrl);
+                }
             }
 
             // 为消息添加导出图片按钮
@@ -787,7 +1012,8 @@
             </svg>
         `;
                 exportBtn.title = '导出消息为图片';
-                exportBtn.className = 'chat-message-action-btn';
+                // 与 YiWeb 保持一致，同时保持向后兼容
+                exportBtn.className = 'pet-chat-meta-btn chat-message-action-btn';
 
                 // 点击事件
                 exportBtn.addEventListener('click', async (e) => {
@@ -869,11 +1095,13 @@
                 const hasEditButton = container.querySelector('.edit-button');
                 const hasDeleteButton = container.querySelector('.delete-button');
 
-                // 创建复制按钮
+                // 创建复制按钮 - 与 YiWeb 保持一致
                 const copyButton = document.createElement('button');
-                copyButton.className = 'copy-button';
+                // 与 YiWeb 保持一致，同时保持向后兼容
+                copyButton.className = 'pet-chat-meta-btn copy-button';
                 copyButton.innerHTML = '📋';
                 copyButton.setAttribute('title', '复制消息');
+                copyButton.setAttribute('aria-label', '复制消息');
 
                 // 点击复制
                 copyButton.addEventListener('click', async (e) => {
@@ -958,11 +1186,13 @@
                     container.insertBefore(copyButton, hasEditButton);
                 } else {
                     // 如果没有其他按钮，创建完整的按钮组
-                    // 创建删除按钮
+                    // 创建删除按钮 - 与 YiWeb 保持一致
                     const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-button';
+                    // 与 YiWeb 保持一致，同时保持向后兼容
+                    deleteButton.className = 'pet-chat-meta-btn delete-button';
                     deleteButton.innerHTML = '🗑️';
                     deleteButton.setAttribute('title', '删除消息');
+                    deleteButton.setAttribute('aria-label', '删除消息');
 
                     // 点击删除
                     deleteButton.addEventListener('click', async (e) => {
@@ -1153,11 +1383,13 @@
                         }
                     });
 
-                    // 创建编辑按钮（用户消息和宠物消息都显示）
+                    // 创建编辑按钮（用户消息和宠物消息都显示）- 与 YiWeb 保持一致
                     const editButton = document.createElement('button');
-                    editButton.className = 'edit-button';
+                    // 与 YiWeb 保持一致，同时保持向后兼容
+                    editButton.className = 'pet-chat-meta-btn edit-button';
                     editButton.innerHTML = '✏️';
                     editButton.setAttribute('title', '编辑消息');
+                    editButton.setAttribute('aria-label', '编辑消息');
 
                     // 点击编辑 - 打开弹窗编辑器
                     editButton.addEventListener('click', (e) => {
@@ -1491,14 +1723,41 @@
              * 创建流式内容更新回调
              * @param {HTMLElement} messageBubble - 消息气泡元素
              * @param {HTMLElement} messagesContainer - 消息容器
+             * @param {HTMLElement} messageDiv - 消息容器元素（可选，用于添加 is-streaming 类）
              * @returns {Function} 内容更新回调函数
              */
-            _createStreamContentCallback(messageBubble, messagesContainer) {
+            _createStreamContentCallback(messageBubble, messagesContainer, messageDiv = null) {
                 let fullContent = '';
+
+                // 添加流式消息状态类（与 YiWeb 保持一致）
+                if (messageDiv) {
+                    messageDiv.classList.add('is-streaming');
+                }
 
                 return (chunk, accumulatedContent) => {
                     fullContent = accumulatedContent;
-                    messageBubble.innerHTML = this.renderMarkdown(fullContent);
+                    
+                    // 确保内容容器存在且具有正确的类名（与 YiWeb 保持一致）
+                    let contentDiv = messageBubble.querySelector('.pet-chat-content');
+                    if (!contentDiv) {
+                        // 如果不存在，创建内容容器
+                        contentDiv = document.createElement('div');
+                        contentDiv.className = 'pet-chat-content md-preview-body pet-chat-content-streaming';
+                        // 移除现有的 typing 指示器
+                        const typingDiv = messageBubble.querySelector('.pet-chat-typing');
+                        if (typingDiv) {
+                            typingDiv.remove();
+                        }
+                        messageBubble.appendChild(contentDiv);
+                    } else {
+                        // 确保有 streaming 类
+                        if (!contentDiv.classList.contains('pet-chat-content-streaming')) {
+                            contentDiv.classList.add('pet-chat-content-streaming');
+                        }
+                    }
+                    
+                    // 更新内容
+                    contentDiv.innerHTML = this.renderMarkdown(fullContent);
                     messageBubble.setAttribute('data-original-text', fullContent);
 
                     // 处理可能的 Mermaid 图表
@@ -1506,11 +1765,21 @@
                         clearTimeout(messageBubble._mermaidTimeout);
                     }
                     messageBubble._mermaidTimeout = setTimeout(async () => {
-                        await this.processMermaidBlocks(messageBubble);
+                        try {
+                            await this.loadMermaid();
+                            const hasMermaidCode = contentDiv.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                            if (hasMermaidCode) {
+                                await this.processMermaidBlocks(contentDiv);
+                            }
+                        } catch (error) {
+                            console.error('处理 Mermaid 图表时出错:', error);
+                        }
                         messageBubble._mermaidTimeout = null;
                     }, 500);
 
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    if (messagesContainer) {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
                     return fullContent;
                 };
             }
@@ -1529,11 +1798,17 @@
                 }
 
                 const waitingIcon = this._getWaitingIcon();
-                messageBubble.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+                // 清除现有内容，准备重新生成
+                const contentDiv = messageBubble.querySelector('.pet-chat-content');
+                if (contentDiv) {
+                    contentDiv.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+                } else {
+                    messageBubble.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+                }
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-                // 创建流式内容更新回调
-                const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer);
+                // 创建流式内容更新回调（传入 messageDiv 以支持 is-streaming 类）
+                const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer, messageDiv);
 
                 // 创建 AbortController 用于终止请求
                 const abortController = new AbortController();
@@ -1543,12 +1818,25 @@
                     // 调用 API 重新生成
                     const reply = await this.generatePetResponseStream(userMessageText, onStreamContent, abortController);
 
+                    // 移除流式消息状态类（与 YiWeb 保持一致）
+                    messageDiv.classList.remove('is-streaming');
+                    const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
+                    if (finalContentDiv) {
+                        finalContentDiv.classList.remove('pet-chat-content-streaming');
+                    }
+
                     // 确保最终内容被显示（流式更新可能已经完成，但再次确认）
                     if (reply && reply.trim()) {
-                        messageBubble.innerHTML = this.renderMarkdown(reply);
+                        const finalDiv = messageBubble.querySelector('.pet-chat-content');
+                        if (finalDiv) {
+                            finalDiv.innerHTML = this.renderMarkdown(reply);
+                        } else {
+                            messageBubble.innerHTML = this.renderMarkdown(reply);
+                        }
                         messageBubble.setAttribute('data-original-text', reply);
                         setTimeout(async () => {
-                            await this.processMermaidBlocks(messageBubble);
+                            const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
+                            await this.processMermaidBlocks(targetDiv);
                         }, 100);
                     }
 
@@ -1561,7 +1849,21 @@
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
                     return reply;
+                } catch (error) {
+                    // 移除流式消息状态类（确保即使出错也能清理）
+                    messageDiv.classList.remove('is-streaming');
+                    const errorContentDiv = messageBubble.querySelector('.pet-chat-content');
+                    if (errorContentDiv) {
+                        errorContentDiv.classList.remove('pet-chat-content-streaming');
+                    }
+                    throw error;
                 } finally {
+                    // 确保移除流式状态类
+                    messageDiv.classList.remove('is-streaming');
+                    const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
+                    if (finalContentDiv) {
+                        finalContentDiv.classList.remove('pet-chat-content-streaming');
+                    }
                     this._updateRequestStatus('idle', null);
                 }
             }
@@ -1604,9 +1906,11 @@
                 }
 
                 const deleteButton = document.createElement('button');
-                deleteButton.className = 'delete-button';
+                // 与 YiWeb 保持一致，同时保持向后兼容
+                deleteButton.className = 'pet-chat-meta-btn delete-button';
                 deleteButton.innerHTML = '🗑️';
                 deleteButton.setAttribute('title', '删除消息');
+                deleteButton.setAttribute('aria-label', '删除消息');
 
                 // 点击删除
                 deleteButton.addEventListener('click', async (e) => {
@@ -1817,7 +2121,8 @@
 
                 // 创建重新发送按钮
                 const resendButton = document.createElement('button');
-                resendButton.className = 'resend-button';
+                // 与 YiWeb 保持一致，同时保持向后兼容
+                resendButton.className = 'pet-chat-meta-btn resend-button';
                 // 使用 SVG 图标替代 emoji，更专业美观
                 resendButton.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
@@ -1826,7 +2131,8 @@
             </svg>
         `;
                 resendButton.setAttribute('title', '重新发送 prompt 请求');
-                resendButton.className = 'resend-button chat-message-resend-btn';
+                // 与 YiWeb 保持一致，同时保持向后兼容
+                resendButton.className = 'pet-chat-meta-btn resend-button chat-message-resend-btn';
 
                 // 悬停效果 (handled by CSS)
 

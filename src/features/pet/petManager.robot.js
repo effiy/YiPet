@@ -35,6 +35,11 @@
         });
     };
 
+    // 打开微信机器人设置（别名方法，与 YiWeb 保持一致）
+    proto.openWeChatSettings = function() {
+        return this.openWeWorkRobotSettingsModal();
+    };
+
     // 打开企微机器人设置弹窗
     proto.openWeWorkRobotSettingsModal = function(editId = null) {
         if (!this.chatWindow) return;
@@ -444,13 +449,33 @@
 ${messageContent}`;
 
             // 构建 payload
-            const payload = this.buildPromptPayload(
+            const oldPayload = this.buildPromptPayload(
                 systemPrompt,
                 userPrompt
             );
 
-            // 调用 prompt 接口
-            const response = await fetch(PET_CONFIG.api.promptUrl, {
+            // 转换为 services.ai.chat_service 格式
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: false
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (oldPayload.model) {
+                payload.parameters.model = oldPayload.model;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
+
+            // 调用 services.ai.chat_service 接口
+            const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -605,7 +630,7 @@ ${messageContent}`;
             );
 
             // 使用全局配置 PET_CONFIG
-            const response = await fetch(PET_CONFIG.api.promptUrl, {
+            const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

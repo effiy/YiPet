@@ -524,6 +524,78 @@
         }
     };
 
+    /**
+     * 显示指定会话的页面上下文
+     * 支持两种调用方式：
+     * 1. showSessionContext(sessionId) - 从按钮调用
+     * 2. showSessionContext(event, session) - 从右键菜单调用
+     * @param {string|Event} sessionIdOrEvent - 会话ID或事件对象
+     * @param {Object} [session] - 会话对象（可选，用于右键菜单调用）
+     */
+    proto.showSessionContext = async function(sessionIdOrEvent, session) {
+        let sessionId = null;
+
+        // 处理两种调用方式
+        if (typeof sessionIdOrEvent === 'string') {
+            // 方式1: showSessionContext(sessionId)
+            sessionId = sessionIdOrEvent;
+        } else if (sessionIdOrEvent && session) {
+            // 方式2: showSessionContext(event, session)
+            sessionId = session.key || session.id || session.sessionId;
+        } else {
+            console.warn('无效的参数，无法显示上下文');
+            this.showNotification('无法显示上下文：参数无效', 'error');
+            return;
+        }
+
+        if (!sessionId) {
+            console.warn('会话ID为空，无法显示上下文');
+            this.showNotification('无法显示上下文：会话ID为空', 'error');
+            return;
+        }
+
+        // 检查会话是否存在
+        if (!this.sessions || !this.sessions[sessionId]) {
+            console.warn('会话不存在，无法显示上下文:', sessionId);
+            this.showNotification('无法显示上下文：会话不存在', 'error');
+            return;
+        }
+
+        try {
+            // 如果指定的会话不是当前会话，先切换到该会话
+            if (this.currentSessionId !== sessionId) {
+                console.log('切换到会话以显示上下文:', sessionId);
+                
+                // 使用 switchSession 方法切换会话
+                if (typeof this.switchSession === 'function') {
+                    await this.switchSession(sessionId);
+                } else if (typeof this.activateSession === 'function') {
+                    // 如果 switchSession 不存在，使用 activateSession
+                    await this.activateSession(sessionId, {
+                        saveCurrent: false,
+                        updateConsistency: true,
+                        updateUI: true,
+                        syncToBackend: false
+                    });
+                } else {
+                    // 如果都没有，直接设置当前会话ID
+                    this.currentSessionId = sessionId;
+                }
+
+                // 等待会话切换完成，确保页面上下文已加载
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // 打开上下文编辑器（会自动加载当前会话的上下文）
+            this.openContextEditor();
+
+            console.log('已打开会话的页面上下文:', sessionId);
+        } catch (error) {
+            console.error('显示会话上下文失败:', error);
+            this.showNotification('显示上下文失败：' + (error.message || '未知错误'), 'error');
+        }
+    };
+
     proto.setContextMode = function(mode) {
         this._contextPreviewMode = mode; // 'split' | 'edit' | 'preview'
         this.applyContextPreviewMode();
@@ -902,6 +974,16 @@
 
             // 手动保存页面上下文时，需要同步到后端并包含 pageContent 字段
             await this.syncSessionToBackend(this.currentSessionId, true, true);
+
+            // 调用 write-file 接口写入页面上下文（参考 YiWeb 的 handleSessionCreate）
+            if (editedContent && editedContent.trim() && typeof this.writeSessionPageContent === 'function') {
+                try {
+                    await this.writeSessionPageContent(this.currentSessionId);
+                } catch (writeError) {
+                    // write-file 调用失败不影响保存流程，只记录警告
+                    console.warn('[saveContextEditor] write-file 接口调用失败（已忽略）:', writeError?.message);
+                }
+            }
 
             console.log('页面上下文已保存到会话:', this.currentSessionId);
             return true;

@@ -27,7 +27,7 @@
             this.isDragging = false;
 
             // UI State
-            this.sidebarWidth = manager.sidebarWidth || 250;
+            this.sidebarWidth = manager.sidebarWidth || 500;
             this.inputHeight = manager.inputHeight || 150;
             this._currentAbortController = null;
             this._searchTimer = null;
@@ -40,6 +40,9 @@
             this.imageInput = null;
             this.draftImagesContainer = null;
             this.maxDraftImages = 9; // 最大图片数量限制
+            
+            // 防重复提交标志
+            this.isProcessing = false;
         }
 
         getMainColorFromGradient(gradient) {
@@ -66,32 +69,27 @@
             this.header = this.createHeader(currentColor);
             this.element.appendChild(this.header);
 
-            // Create Main Content Container
+            // Create Main Content Container - 与 YiWeb pet-chat-right-panel 完全一致
             this.mainContent = document.createElement('div');
-            this.mainContent.className = 'pet-chat-main-content';
+            this.mainContent.className = 'pet-chat-right-panel';
+            this.mainContent.setAttribute('aria-label', '会话聊天面板');
 
-            // Create Sidebar
-            // Load states first
-            if (typeof manager.loadSidebarWidth === 'function') manager.loadSidebarWidth();
-            if (typeof manager.loadCalendarCollapsed === 'function') manager.loadCalendarCollapsed();
+            // 侧边栏已移除，确保引用为 null
+            this.sidebar = null;
+            manager.sessionSidebar = null;
 
-            this.sidebar = this.createSidebar();
-            this.mainContent.appendChild(this.sidebar);
-
-            // Create Messages Area (Right side)
-            const rightPanel = document.createElement('div');
-            rightPanel.className = 'pet-chat-right-panel';
-
-            // Messages Container
+            // Messages Container - 消息列表区域，与 YiWeb 完全一致
             this.messagesContainer = document.createElement('div');
             this.messagesContainer.id = 'pet-chat-messages';
-            rightPanel.appendChild(this.messagesContainer);
+            this.messagesContainer.className = 'pet-chat-messages';
+            this.messagesContainer.setAttribute('role', 'log');
+            this.messagesContainer.setAttribute('aria-live', 'polite');
+            this.mainContent.appendChild(this.messagesContainer);
 
-            // Create Input Container
+            // Input Container - 输入区域
             this.inputContainer = this.createInputContainer(currentColor);
-            rightPanel.appendChild(this.inputContainer);
+            this.mainContent.appendChild(this.inputContainer);
 
-            this.mainContent.appendChild(rightPanel);
             this.element.appendChild(this.mainContent);
 
             // Create Resize Handles (只保留四个角)
@@ -176,12 +174,6 @@
             // Sidebar Header
             const sidebarHeader = document.createElement('div');
             sidebarHeader.className = 'session-sidebar-header';
-
-            // Calendar Component (if available)
-            if (typeof manager.createCalendarComponent === 'function') {
-                const calendarContainer = manager.createCalendarComponent();
-                sidebarHeader.appendChild(calendarContainer);
-            }
 
             // First Row: Search
             const firstRow = document.createElement('div');
@@ -321,10 +313,6 @@
             secondRow.appendChild(leftButtonGroup);
             secondRow.appendChild(rightButtonGroup);
 
-            // Batch Toolbar
-            const batchToolbar = this.buildBatchToolbar();
-            sidebar.appendChild(batchToolbar);
-
             // Scrollable Content Container
             const scrollableContent = document.createElement('div');
             scrollableContent.className = 'session-sidebar-scrollable-content';
@@ -335,6 +323,13 @@
 
             // Actions Row (移到 tag-filter-list 下面)
             scrollableContent.appendChild(secondRow);
+
+            // Batch Toolbar (参考 YiWeb：在会话列表上方)
+            // 使用 manager 的 buildBatchToolbar 方法（已在 petManager.ui.js 中重构）
+            const batchToolbar = typeof manager.buildBatchToolbar === 'function' 
+                ? manager.buildBatchToolbar() 
+                : this.buildBatchToolbar();
+            scrollableContent.appendChild(batchToolbar);
 
             // Session List Container
             const sessionList = document.createElement('div');
@@ -545,6 +540,27 @@
                 }
             });
 
+            // 双击重置宽度
+            let lastClickTime = 0;
+            resizer.addEventListener('click', (e) => {
+                const currentTime = Date.now();
+                if (currentTime - lastClickTime < 300) {
+                    // 双击重置为默认宽度
+                    const defaultWidth = 320;
+                    const manager = this.manager;
+                    manager.sidebarWidth = defaultWidth;
+                    sidebar.style.setProperty('width', `${defaultWidth}px`, 'important');
+                    
+                    // 保存宽度偏好
+                    if (chrome && chrome.storage) {
+                        chrome.storage.local.set({ sidebarWidth: defaultWidth });
+                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                lastClickTime = currentTime;
+            });
+
             resizer.addEventListener('mousedown', (e) => this.initSidebarResize(e, sidebar, resizer));
 
             sidebar.appendChild(resizer);
@@ -554,30 +570,71 @@
             e.preventDefault();
             e.stopPropagation();
             this.isResizingSidebar = true;
-            resizer.classList.add('active');
+            resizer.classList.add('dragging');
+            resizer.classList.remove('hover');
 
             const startX = e.clientX;
             const startWidth = parseInt(getComputedStyle(sidebar).width, 10);
             const manager = this.manager;
 
+            // 添加全局样式，禁用文本选择
+            const originalUserSelect = document.body.style.userSelect;
+            const originalCursor = document.body.style.cursor;
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'col-resize';
+
+            // 使用 requestAnimationFrame 优化性能
+            let rafId = null;
+            let pendingWidth = startWidth;
+
+            // 更新宽度的辅助函数
+            const updateWidth = (newWidth) => {
+                // 限制宽度范围
+                newWidth = Math.min(Math.max(320, newWidth), 800);
+                pendingWidth = newWidth;
+                
+                if (rafId === null) {
+                    rafId = requestAnimationFrame(() => {
+                        sidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
+                        manager.sidebarWidth = pendingWidth;
+                        rafId = null;
+                    });
+                }
+            };
+
             const onMouseMove = (e) => {
                 if (!this.isResizingSidebar) return;
                 const deltaX = e.clientX - startX;
-                const newWidth = Math.min(Math.max(startWidth + deltaX, 150), 500);
-                sidebar.style.setProperty('width', `${newWidth}px`, 'important');
-                manager.sidebarWidth = newWidth;
+                const newWidth = startWidth + deltaX;
+                updateWidth(newWidth);
             };
 
             const onMouseUp = () => {
-                this.isResizingSidebar = false;
-                resizer.classList.remove('active');
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
+                // 取消待处理的动画帧
+                if (rafId !== null) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                }
 
-                // Save width preference
+                // 确保最终宽度已应用
+                sidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
+                manager.sidebarWidth = pendingWidth;
+
+                this.isResizingSidebar = false;
+                resizer.classList.remove('dragging');
+                resizer.classList.remove('hover');
+
+                // 恢复全局样式
+                document.body.style.userSelect = originalUserSelect;
+                document.body.style.cursor = originalCursor;
+
+                // 立即保存宽度偏好
                 if (chrome && chrome.storage) {
                     chrome.storage.local.set({ sidebarWidth: manager.sidebarWidth });
                 }
+
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
             };
 
             document.addEventListener('mousemove', onMouseMove);
@@ -670,22 +727,23 @@
         createInputContainer(currentColor) {
             const manager = this.manager;
 
+            // Outer container - 与 YiWeb 保持一致
             const inputContainer = document.createElement('div');
-            inputContainer.className = 'chat-input-container';
+            inputContainer.className = 'pet-chat-input-container chat-input-container';
 
             // Top Toolbar
             const topToolbar = document.createElement('div');
-            topToolbar.className = 'chat-input-toolbar';
+            topToolbar.className = 'pet-chat-toolbar chat-input-toolbar';
 
-            // Left Button Group
+            // Left Button Group - 与 YiWeb 保持一致
             const inputLeftButtonGroup = document.createElement('div');
-            inputLeftButtonGroup.className = 'chat-input-btn-group';
+            inputLeftButtonGroup.className = 'pet-chat-toolbar-left chat-input-btn-group';
 
             // Context Editor Button
             const contextBtn = manager.createButton({
                 text: '📝 页面上下文',
-                className: 'chat-input-btn chat-input-text-btn ui-btn ui-btn--md ui-btn--primary',
-                attrs: { title: '编辑页面上下文' },
+                className: 'pet-chat-btn chat-input-btn chat-input-text-btn ui-btn ui-btn--md ui-btn--primary',
+                attrs: { title: '编辑页面上下文', 'aria-label': '页面上下文' },
                 onClick: () => {
                     if (typeof manager.openContextEditor === 'function') manager.openContextEditor();
                 }
@@ -695,10 +753,35 @@
             // FAQ Button
             const faqBtn = manager.createButton({
                 text: '💡 常见问题',
-                className: 'chat-input-btn chat-input-text-btn',
+                className: 'pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '常见问题', 'aria-label': '常见问题' },
-                onClick: () => {
-                    if (typeof manager.openFaqManager === 'function') manager.openFaqManager();
+                onClick: async () => {
+                    try {
+                        // 关闭其他弹窗（如微信机器人设置、页面上下文等）
+                        // 与 YiWeb 保持一致的行为
+                        if (typeof manager.closeWeWorkRobotSettingsModal === 'function') {
+                            manager.closeWeWorkRobotSettingsModal();
+                        }
+                        if (typeof manager.closeContextEditor === 'function') {
+                            manager.closeContextEditor();
+                        }
+                        
+                        // 打开常见问题管理器
+                        if (typeof manager.openFaqManager === 'function') {
+                            await manager.openFaqManager();
+                        } else {
+                            const errorMsg = '常见问题按钮：openFaqManager 方法不存在';
+                            console.error(errorMsg);
+                            if (typeof manager.showNotification === 'function') {
+                                manager.showNotification('常见问题功能不可用', 'error');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('常见问题按钮点击错误:', error);
+                        if (typeof manager.showNotification === 'function') {
+                            manager.showNotification(`打开常见问题失败：${error.message || '未知错误'}`, 'error');
+                        }
+                    }
                 }
             });
             inputLeftButtonGroup.appendChild(faqBtn);
@@ -706,7 +789,7 @@
             // WeChat Settings Button
             const weChatBtn = manager.createButton({
                 text: '🤖 微信机器人',
-                className: 'chat-input-btn chat-input-text-btn',
+                className: 'pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '微信机器人设置', 'aria-label': '微信机器人设置' },
                 onClick: () => {
                     if (typeof manager.openWeChatSettings === 'function') {
@@ -721,7 +804,7 @@
             // Image Upload Button
             const imageBtn = manager.createButton({
                 text: '🖼️ 图片',
-                className: 'chat-input-btn chat-input-text-btn',
+                className: 'pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '上传图片', 'aria-label': '上传图片' },
                 onClick: () => {
                     if (this.imageInput) {
@@ -745,23 +828,29 @@
 
             topToolbar.appendChild(inputLeftButtonGroup);
 
-            // Right Button Group
+            // Right Button Group - 与 YiWeb 保持一致
             const inputRightButtonGroup = document.createElement('div');
-            inputRightButtonGroup.className = 'chat-input-btn-group';
+            inputRightButtonGroup.className = 'pet-chat-toolbar-right chat-input-btn-group';
 
             // Context Switch
             const contextSwitch = this.createContextSwitch();
             inputRightButtonGroup.appendChild(contextSwitch);
 
-            // Request Status Button
+            // Request Status Button - 与 YiWeb 保持一致
             this.requestStatusButton = document.createElement('button');
+            this.requestStatusButton.type = 'button';
             this.requestStatusButton.id = 'request-status-btn';
             this.requestStatusButton.className = 'chat-input-status-btn';
             this.requestStatusButton.innerHTML = '⏹️';
             this.requestStatusButton.title = '请求状态：空闲';
+            this.requestStatusButton.setAttribute('aria-label', '请求状态');
             this.requestStatusButton.disabled = true;
 
-            this.requestStatusButton.addEventListener('click', () => this.abortRequest());
+            this.requestStatusButton.addEventListener('click', () => {
+                if (this.abortRequest) {
+                    this.abortRequest();
+                }
+            });
             inputRightButtonGroup.appendChild(this.requestStatusButton);
 
             topToolbar.appendChild(inputRightButtonGroup);
@@ -784,7 +873,7 @@
             const textarea = document.createElement('textarea');
             this.messageInput = textarea; // Store reference
             textarea.id = 'pet-chat-input';
-            textarea.className = 'chat-message-input pet-chat-textarea';
+            textarea.className = 'pet-chat-textarea chat-message-input';
             textarea.placeholder = '输入消息... (Enter 发送, Shift+Enter 换行)';
             textarea.rows = 2;
             textarea.setAttribute('aria-label', '会话输入框');
@@ -807,10 +896,8 @@
                 textarea.style.height = newHeight + 'px';
                 updateInputState();
 
-                // Scroll messages to bottom if needed
-                if (this.messagesContainer) {
-                    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-                }
+                // Scroll messages to bottom if needed (智能滚动)
+                this.scrollToBottom();
             });
 
             // Focus effects
@@ -842,45 +929,109 @@
                 }
             });
 
-            // Composition State (IME)
+            // Composition State (IME) - 与 YiWeb 保持一致
             let isComposing = false;
             let compositionEndTime = 0;
             const COMPOSITION_END_DELAY = 100;
 
-            textarea.addEventListener('compositionstart', () => { isComposing = true; compositionEndTime = 0; });
-            textarea.addEventListener('compositionupdate', () => { isComposing = true; compositionEndTime = 0; });
-            textarea.addEventListener('compositionend', () => { isComposing = false; compositionEndTime = Date.now(); });
+            textarea.addEventListener('compositionstart', (e) => {
+                isComposing = true;
+                compositionEndTime = 0;
+                textarea.composing = true; // 兼容性标记
+                console.log('[输入法检测] 输入法开始');
+            });
+            
+            textarea.addEventListener('compositionupdate', (e) => {
+                isComposing = true;
+                compositionEndTime = 0;
+                textarea.composing = true; // 兼容性标记
+            });
+            
+            textarea.addEventListener('compositionend', (e) => {
+                isComposing = false;
+                compositionEndTime = Date.now();
+                textarea.composing = false; // 兼容性标记
+                console.log('[输入法检测] 输入法结束');
+            });
 
             // Send Logic
             const triggerSend = () => {
+                // 检查是否正在处理中
+                if (this.isProcessing) {
+                    console.log('[防重复] 正在处理中，忽略重复请求');
+                    return;
+                }
+                
                 this.sendMessage();
                 updateInputState();
             };
 
-
+            // 处理消息输入框的回车事件 - 与 YiWeb 保持一致
             textarea.addEventListener('keydown', (e) => {
-                if (e.isComposing || isComposing) return;
-
-                if (e.key === 'Enter' && compositionEndTime > 0) {
-                    if (Date.now() - compositionEndTime < COMPOSITION_END_DELAY) return;
+                // 检查是否按下回车键
+                if (e.key !== 'Enter') {
+                    // 处理 Escape 键
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        textarea.value = '';
+                        textarea.style.height = '60px';
+                        updateInputState();
+                        textarea.blur();
+                    }
+                    return;
                 }
-
+                
+                // 输入法检测 - 与 YiWeb 保持一致
+                if (e.isComposing || e.keyCode === 229 || textarea.composing || isComposing) {
+                    console.log('[输入法检测] 检测到输入法输入，忽略回车事件');
+                    return;
+                }
+                
+                // 检查输入法结束后的延迟
+                if (e.key === 'Enter' && compositionEndTime > 0) {
+                    if (Date.now() - compositionEndTime < COMPOSITION_END_DELAY) {
+                        console.log('[输入法检测] 输入法刚结束，忽略回车事件');
+                        return;
+                    }
+                }
+                
+                // 处理 Shift+Enter（换行）
+                if (e.key === 'Enter' && e.shiftKey) {
+                    // 允许换行，不阻止默认行为
+                    return;
+                }
+                
+                // 处理 Enter（发送）
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
+                    
+                    const message = textarea.value.trim();
+                    
+                    // 检查消息是否为空
+                    if (!message) {
+                        if (typeof this.manager.showNotification === 'function') {
+                            this.manager.showNotification('请输入消息内容', 'error');
+                        }
+                        return;
+                    }
+                    
+                    // 检查消息长度
+                    if (message.length > 2000) {
+                        if (typeof this.manager.showNotification === 'function') {
+                            this.manager.showNotification('消息内容过长，请控制在2000字符以内', 'error');
+                        }
+                        return;
+                    }
+                    
                     triggerSend();
                     compositionEndTime = 0;
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    textarea.value = '';
-                    textarea.style.height = '60px';
-                    updateInputState();
-                    textarea.blur();
                 }
             });
 
             inputRow.appendChild(textarea);
             inputWrapper.appendChild(inputRow);
 
+            // 与 YiWeb 保持一致：直接将工具栏和输入包装器添加到输入容器
             inputContainer.appendChild(topToolbar);
             inputContainer.appendChild(inputWrapper);
 
@@ -1134,139 +1285,285 @@
         async sendMessage() {
             const manager = this.manager;
             const textarea = this.messageInput;
-            const message = textarea.value.trim();
-            if (!message) return;
-
-            // Ensure session exists
-            if (!manager.currentSessionId) {
-                if (typeof manager.initSession === 'function') await manager.initSession();
-                if (typeof manager.updateChatHeaderTitle === 'function') manager.updateChatHeaderTitle();
+            
+            // 防止重复提交
+            if (this.isProcessing) {
+                console.log('[防重复] 正在处理中，忽略重复请求');
+                return;
             }
-
-            // Add User Message
-            if (typeof manager.createMessageElement === 'function') {
-                const userMessage = manager.createMessageElement(message, 'user');
-                this.messagesContainer.appendChild(userMessage);
-                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-
-                // Add to session data
-                if (typeof manager.addMessageToSession === 'function') {
-                    await manager.addMessageToSession('user', message, imagesToSend.length > 0 ? imagesToSend : null, false);
+            
+            const message = textarea.value.trim();
+            
+            // 检查消息是否为空
+            if (!message) {
+                if (typeof manager.showNotification === 'function') {
+                    manager.showNotification('请输入消息内容', 'error');
+                }
+                return;
+            }
+            
+            // 检查消息长度（与 YiWeb 保持一致，限制2000字符）
+            if (message.length > 2000) {
+                if (typeof manager.showNotification === 'function') {
+                    manager.showNotification('消息内容过长，请控制在2000字符以内', 'error');
+                }
+                return;
+            }
+            
+            // 保存原始输入框状态
+            const originalPlaceholder = textarea.placeholder;
+            const originalValue = textarea.value;
+            const originalDisabled = textarea.disabled;
+            
+            console.log('[输入框] 原始状态:', {
+                placeholder: originalPlaceholder,
+                value: originalValue,
+                disabled: originalDisabled
+            });
+            
+            try {
+                // 设置处理状态
+                this.isProcessing = true;
+                
+                // 禁用输入框并显示加载状态
+                textarea.disabled = true;
+                textarea.placeholder = '正在处理您的请求，请稍候...';
+                textarea.style.opacity = '0.6';
+                textarea.style.cursor = 'not-allowed';
+                
+                // 添加输入框加载动画
+                textarea.classList.add('loading-input');
+                
+                // 添加触觉反馈
+                if (navigator.vibrate) {
+                    navigator.vibrate(100);
+                }
+                
+                // Ensure session exists
+                if (!manager.currentSessionId) {
+                    if (typeof manager.initSession === 'function') await manager.initSession();
+                    if (typeof manager.updateChatHeaderTitle === 'function') manager.updateChatHeaderTitle();
                 }
 
-                // Add action buttons
-                if (typeof manager.addActionButtonsToMessage === 'function') {
-                    await manager.addActionButtonsToMessage(userMessage);
+                // Send images if any
+                const imagesToSend = [...this.draftImages];
+                if (imagesToSend.length > 0) {
+                    this.clearDraftImages();
                 }
 
-                // Add delete/edit/resend buttons
-                const userBubble = userMessage.querySelector('[data-message-type="user-bubble"]');
-                const copyButtonContainer = userMessage.querySelector('[data-copy-button-container]');
-                if (copyButtonContainer && userBubble) {
-                    if (!copyButtonContainer.querySelector('.delete-button')) {
-                        if (typeof manager.addDeleteButtonForUserMessage === 'function') {
-                            manager.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
+                // Add User Message
+                if (typeof manager.createMessageElement === 'function') {
+                    const userMessage = manager.createMessageElement(message, 'user');
+                    // 设置消息索引 - 与 YiWeb 保持一致
+                    const currentMessages = Array.from(this.messagesContainer.children).filter(
+                        el => !el.hasAttribute('data-welcome-message')
+                    );
+                    const messageIdx = currentMessages.length;
+                    userMessage.setAttribute('data-chat-idx', messageIdx.toString());
+                    this.messagesContainer.appendChild(userMessage);
+                    this.scrollToBottom(true); // 用户发送消息后强制滚动
+
+                    // Add to session data
+                    if (typeof manager.addMessageToSession === 'function') {
+                        await manager.addMessageToSession('user', message, imagesToSend.length > 0 ? imagesToSend : null, false);
+                    }
+
+                    // Add action buttons
+                    if (typeof manager.addActionButtonsToMessage === 'function') {
+                        await manager.addActionButtonsToMessage(userMessage);
+                    }
+
+                    // Add delete/edit/resend buttons
+                    const userBubble = userMessage.querySelector('[data-message-type="user-bubble"]');
+                    const copyButtonContainer = userMessage.querySelector('[data-copy-button-container]');
+                    if (copyButtonContainer && userBubble) {
+                        if (!copyButtonContainer.querySelector('.delete-button')) {
+                            if (typeof manager.addDeleteButtonForUserMessage === 'function') {
+                                manager.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
+                            }
+                        }
+                        if (typeof manager.addSortButtons === 'function') {
+                            manager.addSortButtons(copyButtonContainer, userMessage);
                         }
                     }
-                    if (typeof manager.addSortButtons === 'function') {
-                        manager.addSortButtons(copyButtonContainer, userMessage);
+                }
+
+                // Clear Input
+                textarea.value = '';
+                textarea.style.height = '';
+                void textarea.offsetHeight; // Force reflow
+                textarea.style.height = '60px';
+
+                // Create Pet Message Placeholder
+                let petMessageElement = null;
+                let petBubble = null;
+                if (typeof manager.createMessageElement === 'function') {
+                    petMessageElement = manager.createMessageElement('', 'pet');
+                    // 设置消息索引 - 与 YiWeb 保持一致
+                    const currentMessages = Array.from(this.messagesContainer.children).filter(
+                        el => !el.hasAttribute('data-welcome-message')
+                    );
+                    const messageIdx = currentMessages.length;
+                    petMessageElement.setAttribute('data-chat-idx', messageIdx.toString());
+                    // Add thinking indicator or initial state if needed
+                    petBubble = petMessageElement.querySelector('.pet-message-bubble') || petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                    if (petBubble) {
+                        petBubble.innerHTML = '<span class="typing-indicator">...</span>'; // Simple typing indicator
+                    }
+                    this.messagesContainer.appendChild(petMessageElement);
+                    this.scrollToBottom(true); // 添加宠物消息占位符后强制滚动
+                }
+
+                // Prepare for streaming
+                this._currentAbortController = new AbortController();
+                this.updateRequestStatus('loading');
+
+                let fullContent = '';
+
+                // 添加流式消息状态类（与 YiWeb 保持一致）
+                if (petMessageElement) {
+                    petMessageElement.classList.add('is-streaming');
+                }
+
+                try {
+                    // Call generatePetResponseStream
+                    if (typeof manager.generatePetResponseStream === 'function') {
+                        await manager.generatePetResponseStream(
+                            message,
+                            (content) => {
+                                // On content update
+                                fullContent = content;
+                                if (petBubble) {
+                                    // 确保内容容器存在且具有正确的类名（与 YiWeb 保持一致）
+                                    let contentDiv = petBubble.querySelector('.pet-chat-content');
+                                    if (!contentDiv) {
+                                        // 如果不存在，创建内容容器
+                                        contentDiv = document.createElement('div');
+                                        contentDiv.className = 'pet-chat-content md-preview-body pet-chat-content-streaming';
+                                        petBubble.innerHTML = '';
+                                        petBubble.appendChild(contentDiv);
+                                    } else {
+                                        // 确保有 streaming 类
+                                        if (!contentDiv.classList.contains('pet-chat-content-streaming')) {
+                                            contentDiv.classList.add('pet-chat-content-streaming');
+                                        }
+                                    }
+                                    
+                                    // Render Markdown if available
+                                    if (typeof manager.renderMarkdown === 'function') {
+                                        contentDiv.innerHTML = manager.renderMarkdown(content);
+                                    } else {
+                                        contentDiv.textContent = content;
+                                    }
+                                    
+                                    // 更新原始文本属性
+                                    petBubble.setAttribute('data-original-text', content);
+                                    
+                                    this.scrollToBottom(); // 流式更新时智能滚动
+                                }
+                            },
+                            this._currentAbortController
+                        );
+                    } else {
+                        // Fallback or error if method missing
+                        throw new Error('generatePetResponseStream method not found');
+                    }
+
+                    // Add to session after stream complete
+                    if (typeof manager.addMessageToSession === 'function') {
+                        await manager.addMessageToSession('pet', fullContent, null, false);
+                    }
+
+                    // Add action buttons for pet message
+                    if (petMessageElement && typeof manager.addActionButtonsToMessage === 'function') {
+                        await manager.addActionButtonsToMessage(petMessageElement);
+                    }
+
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        console.log('Request aborted');
+                        if (petBubble) {
+                            let contentDiv = petBubble.querySelector('.pet-chat-content');
+                            if (contentDiv) {
+                                contentDiv.innerHTML += ' [已取消]';
+                            } else {
+                                petBubble.innerHTML += ' [已取消]';
+                            }
+                        }
+                        // 添加已取消状态
+                        if (petMessageElement) {
+                            petMessageElement.classList.add('is-aborted');
+                        }
+                    } else {
+                        console.error('Error generating response:', error);
+                        if (petBubble) {
+                            let contentDiv = petBubble.querySelector('.pet-chat-content');
+                            if (contentDiv) {
+                                contentDiv.innerHTML += `\n[错误: ${error.message}]`;
+                            } else {
+                                petBubble.innerHTML += `\n[错误: ${error.message}]`;
+                            }
+                        }
+                        // 添加错误状态
+                        if (petMessageElement) {
+                            petMessageElement.classList.add('is-error');
+                        }
+                        if (typeof manager.showNotification === 'function') {
+                            manager.showNotification(`处理失败：${error.message || '未知错误'}`, 'error');
+                        }
+                    }
+                } finally {
+                    // 移除流式消息状态类（与 YiWeb 保持一致）
+                    if (petMessageElement) {
+                        petMessageElement.classList.remove('is-streaming');
+                    }
+                    if (petBubble) {
+                        const contentDiv = petBubble.querySelector('.pet-chat-content');
+                        if (contentDiv) {
+                            contentDiv.classList.remove('pet-chat-content-streaming');
+                        }
+                    }
+                    
+                    this._currentAbortController = null;
+                    this.updateRequestStatus('idle');
+
+                    // Save Session
+                    try {
+                        if (typeof manager.saveCurrentSession === 'function') {
+                            await manager.saveCurrentSession(false, false);
+                        }
+
+                        if (manager.currentSessionId && manager.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                            if (typeof manager.syncSessionToBackend === 'function') {
+                                await manager.syncSessionToBackend(manager.currentSessionId, true);
+                                console.log('会话已保存到后端:', manager.currentSessionId);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('保存会话失败:', error);
                     }
                 }
-            }
-
-            // Send images if any
-            const imagesToSend = [...this.draftImages];
-            if (imagesToSend.length > 0) {
-                this.clearDraftImages();
-            }
-
-            // Clear Input
-            textarea.value = '';
-            textarea.style.height = '';
-            void textarea.offsetHeight; // Force reflow
-            textarea.style.height = '60px';
-
-            // Create Pet Message Placeholder
-            let petMessageElement = null;
-            let petBubble = null;
-            if (typeof manager.createMessageElement === 'function') {
-                petMessageElement = manager.createMessageElement('', 'pet');
-                // Add thinking indicator or initial state if needed
-                petBubble = petMessageElement.querySelector('.pet-message-bubble') || petMessageElement.querySelector('[data-message-type="pet-bubble"]');
-                if (petBubble) {
-                    petBubble.innerHTML = '<span class="typing-indicator">...</span>'; // Simple typing indicator
-                }
-                this.messagesContainer.appendChild(petMessageElement);
-                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-            }
-
-            // Prepare for streaming
-            this._currentAbortController = new AbortController();
-            this.updateRequestStatus('loading');
-
-            let fullContent = '';
-
-            try {
-                // Call generatePetResponseStream
-                if (typeof manager.generatePetResponseStream === 'function') {
-                    await manager.generatePetResponseStream(
-                        message,
-                        (content) => {
-                            // On content update
-                            fullContent = content;
-                            if (petBubble) {
-                                // Render Markdown if available
-                                if (typeof manager.renderMarkdown === 'function') {
-                                    petBubble.innerHTML = manager.renderMarkdown(content);
-                                } else {
-                                    petBubble.textContent = content;
-                                }
-                                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-                            }
-                        },
-                        this._currentAbortController
-                    );
-                } else {
-                    // Fallback or error if method missing
-                    throw new Error('generatePetResponseStream method not found');
-                }
-
-                // Add to session after stream complete
-                if (typeof manager.addMessageToSession === 'function') {
-                    await manager.addMessageToSession('pet', fullContent, null, false);
-                }
-
-                // Add action buttons for pet message
-                if (petMessageElement && typeof manager.addActionButtonsToMessage === 'function') {
-                    await manager.addActionButtonsToMessage(petMessageElement);
-                }
-
             } catch (error) {
-                if (error.name === 'AbortError') {
-                    console.log('Request aborted');
-                    if (petBubble) petBubble.innerHTML += ' [已取消]';
-                } else {
-                    console.error('Error generating response:', error);
-                    if (petBubble) petBubble.innerHTML += `\n[错误: ${error.message}]`;
+                console.error('[发送消息] 异常处理:', error);
+                if (typeof manager.showNotification === 'function') {
+                    manager.showNotification(`发送消息失败：${error.message || '未知错误'}`, 'error');
                 }
             } finally {
-                this._currentAbortController = null;
-                this.updateRequestStatus('idle');
-
-                // Save Session
-                try {
-                    if (typeof manager.saveCurrentSession === 'function') {
-                        await manager.saveCurrentSession(false, false);
-                    }
-
-                    if (manager.currentSessionId && manager.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                        if (typeof manager.syncSessionToBackend === 'function') {
-                            await manager.syncSessionToBackend(manager.currentSessionId, true);
-                            console.log('会话已保存到后端:', manager.currentSessionId);
+                // 恢复输入框状态
+                this.isProcessing = false;
+                if (textarea) {
+                    textarea.disabled = originalDisabled;
+                    textarea.placeholder = originalPlaceholder;
+                    textarea.style.opacity = '';
+                    textarea.style.cursor = '';
+                    textarea.classList.remove('loading-input');
+                    
+                    // 恢复焦点
+                    setTimeout(() => {
+                        if (textarea && !textarea.disabled) {
+                            textarea.focus();
                         }
-                    }
-                } catch (error) {
-                    console.error('保存会话失败:', error);
+                    }, 100);
                 }
             }
         }
@@ -1612,13 +1909,123 @@
             this.element.style.removeProperty('transform');
         }
 
+        /**
+         * 判断是否应该自动滚动到底部 - 与 YiWeb 保持一致
+         * @returns {boolean} 如果距离底部小于 140px 则返回 true
+         */
+        shouldAutoScroll() {
+            try {
+                const el = this.messagesContainer || document.getElementById('pet-chat-messages');
+                if (!el) return true;
+                const distance = (el.scrollHeight || 0) - (el.scrollTop || 0) - (el.clientHeight || 0);
+                return distance < 140;
+            } catch (_) {
+                return true;
+            }
+        }
+
+        /**
+         * 滚动到指定索引的消息 - 与 YiWeb 保持一致
+         * @param {number} targetIdx - 目标消息索引
+         */
+        scrollToIndex(targetIdx) {
+            try {
+                const el = document.querySelector(`[data-chat-idx="${targetIdx}"]`);
+                if (el && typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ block: 'nearest' });
+                    return;
+                }
+                const container = this.messagesContainer || document.getElementById('pet-chat-messages');
+                if (container) container.scrollTop = container.scrollHeight;
+            } catch (_) { }
+        }
+
+        /**
+         * 滚动到底部 - 智能判断是否需要滚动
+         * @param {boolean} force - 是否强制滚动
+         */
+        scrollToBottom(force = false) {
+            if (!force && !this.shouldAutoScroll()) {
+                return;
+            }
+            try {
+                const container = this.messagesContainer || document.getElementById('pet-chat-messages');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (_) { }
+        }
+
         initializeChatScroll() {
             // Wait for messages to be populated
             setTimeout(() => {
-                if (this.messagesContainer) {
-                    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-                }
+                this.scrollToBottom(true);
             }, 100);
+        }
+
+        /**
+         * 显示加载状态 - 与 YiWeb 保持一致
+         */
+        showLoadingState(message = '正在加载会话...') {
+            if (!this.messagesContainer) return;
+            this.clearMessagesContainer();
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'pet-chat-loading';
+            loadingDiv.setAttribute('role', 'status');
+            loadingDiv.setAttribute('aria-live', 'polite');
+            loadingDiv.innerHTML = `
+                <div class="loading-spinner" aria-hidden="true"></div>
+                <div class="loading-text">${message}</div>
+            `;
+            this.messagesContainer.appendChild(loadingDiv);
+        }
+
+        /**
+         * 显示错误状态 - 与 YiWeb 保持一致
+         */
+        showErrorState(errorMessage) {
+            if (!this.messagesContainer) return;
+            this.clearMessagesContainer();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'pet-chat-error';
+            errorDiv.setAttribute('role', 'alert');
+            errorDiv.setAttribute('aria-live', 'polite');
+            errorDiv.innerHTML = `
+                <div class="error-text">${errorMessage || '发生错误'}</div>
+            `;
+            this.messagesContainer.appendChild(errorDiv);
+        }
+
+        /**
+         * 显示空状态 - 与 YiWeb 完全一致
+         */
+        showEmptyState(title = '未选择会话', subtitle = '从左侧会话列表选择一个会话开始聊天', hint = '也可以在左侧搜索框输入关键词快速定位') {
+            if (!this.messagesContainer) return;
+            this.clearMessagesContainer();
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'pet-chat-empty';
+            emptyDiv.innerHTML = `
+                <div class="sr-only" role="status" aria-live="polite">${subtitle}</div>
+                <div class="pet-chat-empty-card">
+                    <div class="pet-chat-empty-icon" aria-hidden="true">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div class="pet-chat-empty-title">${title}</div>
+                    <div class="pet-chat-empty-subtitle">${subtitle}</div>
+                    ${hint ? `<div class="pet-chat-empty-hint">${hint}</div>` : ''}
+                </div>
+            `;
+            this.messagesContainer.appendChild(emptyDiv);
+        }
+
+        /**
+         * 清空消息容器（保留容器本身）
+         */
+        clearMessagesContainer() {
+            if (!this.messagesContainer) return;
+            while (this.messagesContainer.firstChild) {
+                this.messagesContainer.removeChild(this.messagesContainer.firstChild);
+            }
         }
 
         /**
@@ -1740,14 +2147,41 @@
          * 创建流式内容更新回调
          * @param {HTMLElement} messageBubble - 消息气泡元素
          * @param {HTMLElement} messagesContainer - 消息容器
+         * @param {HTMLElement} messageDiv - 消息容器元素（可选，用于添加 is-streaming 类）
          * @returns {Function} 内容更新回调函数
          */
-        _createStreamContentCallback(messageBubble, messagesContainer) {
+        _createStreamContentCallback(messageBubble, messagesContainer, messageDiv = null) {
             let fullContent = '';
+
+            // 添加流式消息状态类（与 YiWeb 保持一致）
+            if (messageDiv) {
+                messageDiv.classList.add('is-streaming');
+            }
 
             return (chunk, accumulatedContent) => {
                 fullContent = accumulatedContent;
-                messageBubble.innerHTML = this.manager.renderMarkdown(fullContent);
+                
+                // 确保内容容器存在且具有正确的类名（与 YiWeb 保持一致）
+                let contentDiv = messageBubble.querySelector('.pet-chat-content');
+                if (!contentDiv) {
+                    // 如果不存在，创建内容容器
+                    contentDiv = document.createElement('div');
+                    contentDiv.className = 'pet-chat-content md-preview-body pet-chat-content-streaming';
+                    // 移除现有的 typing 指示器
+                    const typingDiv = messageBubble.querySelector('.pet-chat-typing');
+                    if (typingDiv) {
+                        typingDiv.remove();
+                    }
+                    messageBubble.appendChild(contentDiv);
+                } else {
+                    // 确保有 streaming 类
+                    if (!contentDiv.classList.contains('pet-chat-content-streaming')) {
+                        contentDiv.classList.add('pet-chat-content-streaming');
+                    }
+                }
+                
+                // 更新内容
+                contentDiv.innerHTML = this.manager.renderMarkdown(fullContent);
                 messageBubble.setAttribute('data-original-text', fullContent);
 
                 // 处理可能的 Mermaid 图表
@@ -1755,11 +2189,21 @@
                     clearTimeout(messageBubble._mermaidTimeout);
                 }
                 messageBubble._mermaidTimeout = setTimeout(async () => {
-                    await this.manager.processMermaidBlocks(messageBubble);
+                    try {
+                        await this.manager.loadMermaid();
+                        const hasMermaidCode = contentDiv.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                        if (hasMermaidCode) {
+                            await this.manager.processMermaidBlocks(contentDiv);
+                        }
+                    } catch (error) {
+                        console.error('处理 Mermaid 图表时出错:', error);
+                    }
                     messageBubble._mermaidTimeout = null;
                 }, 500);
 
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                if (this.messagesContainer) {
+                    this.scrollToBottom(); // 智能滚动
+                }
                 return fullContent;
             };
         }
@@ -1778,11 +2222,17 @@
             }
 
             const waitingIcon = this._getWaitingIcon();
-            messageBubble.innerHTML = this.manager.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // 清除现有内容，准备重新生成
+            const contentDiv = messageBubble.querySelector('.pet-chat-content');
+            if (contentDiv) {
+                contentDiv.innerHTML = this.manager.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+            } else {
+                messageBubble.innerHTML = this.manager.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+            }
+            this.scrollToBottom(true); // 显示等待状态后强制滚动
 
-            // 创建流式内容更新回调
-            const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer);
+            // 创建流式内容更新回调（传入 messageDiv 以支持 is-streaming 类）
+            const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer, messageDiv);
 
             // 创建 AbortController 用于终止请求
             const abortController = new AbortController();
@@ -1792,12 +2242,25 @@
                 // 调用 API 重新生成
                 const reply = await this.manager.generatePetResponseStream(userMessageText, onStreamContent, abortController);
 
+                // 移除流式消息状态类（与 YiWeb 保持一致）
+                messageDiv.classList.remove('is-streaming');
+                const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
+                if (finalContentDiv) {
+                    finalContentDiv.classList.remove('pet-chat-content-streaming');
+                }
+
                 // 确保最终内容被显示（流式更新可能已经完成，但再次确认）
                 if (reply && reply.trim()) {
-                    messageBubble.innerHTML = this.manager.renderMarkdown(reply);
+                    const finalDiv = messageBubble.querySelector('.pet-chat-content');
+                    if (finalDiv) {
+                        finalDiv.innerHTML = this.manager.renderMarkdown(reply);
+                    } else {
+                        messageBubble.innerHTML = this.manager.renderMarkdown(reply);
+                    }
                     messageBubble.setAttribute('data-original-text', reply);
                     setTimeout(async () => {
-                        await this.manager.processMermaidBlocks(messageBubble);
+                        const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
+                        await this.manager.processMermaidBlocks(targetDiv);
                     }, 100);
                 }
 
@@ -1807,10 +2270,24 @@
                     this.manager.addCopyButton(copyButtonContainer, messageBubble);
                 }
 
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                this.scrollToBottom(); // 智能滚动
 
                 return reply;
+            } catch (error) {
+                // 移除流式消息状态类（确保即使出错也能清理）
+                messageDiv.classList.remove('is-streaming');
+                const errorContentDiv = messageBubble.querySelector('.pet-chat-content');
+                if (errorContentDiv) {
+                    errorContentDiv.classList.remove('pet-chat-content-streaming');
+                }
+                throw error;
             } finally {
+                // 确保移除流式状态类
+                messageDiv.classList.remove('is-streaming');
+                const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
+                if (finalContentDiv) {
+                    finalContentDiv.classList.remove('pet-chat-content-streaming');
+                }
                 this._updateRequestStatus('idle', null);
             }
         }
@@ -2148,8 +2625,8 @@
                                             this.manager.processMermaidBlocks(messageText);
                                         }
                                     }
-                                    // 滚动到底部
-                                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                                    // 滚动到底部（智能滚动）
+                                    this.scrollToBottom();
                                 },
                                 signal: abortController.signal
                             });
@@ -2294,7 +2771,7 @@
                                         this.manager.processMermaidBlocks(messageText);
                                     }
                                 }
-                                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                                this.scrollToBottom(); // 智能滚动
                             },
                             signal: abortController.signal
                         });
@@ -2763,7 +3240,7 @@
                     } else {
                         messagesContainer.appendChild(typingIndicator);
                     }
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    this.scrollToBottom(true); // 添加等待指示器后强制滚动
 
                     // 生成回复
                     let fullContent = '';
@@ -2784,7 +3261,7 @@
                                 messageBubble._mermaidTimeout = null;
                             }, 500);
 
-                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                            this.scrollToBottom(); // 智能滚动
                         }
                     };
 
@@ -2843,7 +3320,7 @@
                         }
                     }
 
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    this.scrollToBottom(); // 智能滚动
 
                     this._updateRequestStatus('idle');
 
@@ -2911,6 +3388,30 @@
             }
             container.style.display = 'flex';
             container.style.gap = '8px';
+        }
+
+        // 设置输入容器折叠状态 - 与 YiWeb 保持一致
+        setInputContainerCollapsed(collapsed) {
+            if (!this.inputContainer) return;
+            if (collapsed) {
+                this.inputContainer.classList.add('collapsed');
+            } else {
+                this.inputContainer.classList.remove('collapsed');
+            }
+        }
+
+        // 切换输入容器折叠状态
+        toggleInputContainer() {
+            if (!this.inputContainer) return;
+            const isCollapsed = this.inputContainer.classList.contains('collapsed');
+            this.setInputContainerCollapsed(!isCollapsed);
+            // 保存状态到 manager
+            if (this.manager) {
+                this.manager.inputContainerCollapsed = !isCollapsed;
+                if (typeof this.manager.saveInputContainerCollapsed === 'function') {
+                    this.manager.saveInputContainerCollapsed();
+                }
+            }
         }
     }
 

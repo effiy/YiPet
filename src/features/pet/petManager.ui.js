@@ -346,7 +346,7 @@
     try {
       chrome.storage.local.get(['sessionSidebarWidth'], (result) => {
         if (result.sessionSidebarWidth && typeof result.sessionSidebarWidth === 'number') {
-          const width = Math.max(150, Math.min(500, result.sessionSidebarWidth));
+          const width = Math.max(320, Math.min(800, result.sessionSidebarWidth));
           this.sidebarWidth = width;
           if (this.sessionSidebar) {
             this.sessionSidebar.style.setProperty('width', `${width}px`, 'important');
@@ -421,14 +421,29 @@
       this.chatWindowComponent.setInputContainerCollapsed(this.inputContainerCollapsed);
       return;
     }
-    // Fallback
+    // Fallback - 支持新的嵌套结构
     if (!this.chatWindow) return;
-    const inputContainer = this.chatWindow.querySelector('.chat-input-container');
+    // 优先查找外层容器（与 YiWeb 保持一致）
+    let inputContainer = this.chatWindow.querySelector('.pet-chat-input-container');
+    // 如果没有找到外层容器，回退到内层容器（向后兼容）
+    if (!inputContainer) {
+      inputContainer = this.chatWindow.querySelector('.chat-input-container');
+    }
     if (!inputContainer) return;
     if (this.inputContainerCollapsed) {
       inputContainer.style.setProperty('display', 'none', 'important');
+      // 同时隐藏内层容器（如果存在）
+      const innerContainer = inputContainer.querySelector('.chat-input-container');
+      if (innerContainer) {
+        innerContainer.style.setProperty('display', 'none', 'important');
+      }
     } else {
       inputContainer.style.setProperty('display', 'flex', 'important');
+      // 同时显示内层容器（如果存在）
+      const innerContainer = inputContainer.querySelector('.chat-input-container');
+      if (innerContainer) {
+        innerContainer.style.setProperty('display', 'flex', 'important');
+      }
     }
   };
   proto.toggleInputContainer = function () {
@@ -443,49 +458,36 @@
   proto.updateBatchToolbar = function () {
     const selectedCount = document.getElementById('selected-count');
     const batchDeleteBtn = document.getElementById('batch-delete-btn');
-    const selectAllBtn = document.getElementById('select-all-btn');
-
-    // 判断当前显示的是会话列表、文件列表还是请求接口列表
-    const sessionList = this.sessionSidebar.querySelector('.session-list');
+    const selectAllCheckbox = this._selectAllCheckbox || document.getElementById('select-all-checkbox');
 
     const count = this.selectedSessionIds.size;
 
+    // 更新已选数量显示（参考 YiWeb 格式：已选 X 项）
     if (selectedCount) {
-      selectedCount.textContent = `已选择 ${count} 个`;
-
-      // 根据选中数量更新样式
       if (count > 0) {
-        selectedCount.classList.add('has-selection');
+        selectedCount.textContent = `已选 ${count} 项`;
+        selectedCount.style.display = '';
       } else {
-        selectedCount.classList.remove('has-selection');
+        selectedCount.textContent = '';
+        selectedCount.style.display = 'none';
       }
     }
 
+    // 更新删除按钮状态
     if (batchDeleteBtn) {
-      const hasSelection = count > 0;
-      batchDeleteBtn.disabled = !hasSelection;
+      batchDeleteBtn.disabled = count === 0;
     }
 
-    // 更新全选按钮状态
-    if (selectAllBtn) {
-      let allSelected = false;
+    // 更新全选 checkbox 状态（参考 YiWeb 实现）
+    if (selectAllCheckbox) {
       const filteredSessions = this._getFilteredSessions();
-      allSelected = filteredSessions.length > 0 &&
+      const allSelected = filteredSessions.length > 0 &&
         filteredSessions.every(session => session.key && this.selectedSessionIds.has(session.key));
-
-      if (allSelected) {
-        selectAllBtn.textContent = '取消全选';
-        selectAllBtn.classList.add('batch-toolbar-btn--active');
-        selectAllBtn.classList.remove('batch-toolbar-btn--default');
-      } else {
-        selectAllBtn.textContent = '全选';
-        selectAllBtn.classList.remove('batch-toolbar-btn--active');
-        selectAllBtn.classList.add('batch-toolbar-btn--default');
-      }
+      selectAllCheckbox.checked = allSelected;
     }
   };
 
-  // 切换全选/取消全选
+  // 切换全选/取消全选（参考 YiWeb 实现）
   proto.toggleSelectAll = function () {
     // 会话列表模式
     const filteredSessions = this._getFilteredSessions();
@@ -508,21 +510,22 @@
       });
     }
 
-    // 更新所有复选框状态
+    // 更新所有复选框状态和选中类（使用 batch-selected 类，参考 YiWeb）
     const sessionItems = this.sessionSidebar.querySelectorAll('.session-item');
     sessionItems.forEach(item => {
       const sessionId = item.dataset.sessionId;
-      const checkbox = item.querySelector('.session-checkbox input[type="checkbox"]');
+      const checkbox = item.querySelector('.session-batch-checkbox');
       const isSelected = this.selectedSessionIds.has(sessionId);
 
       if (checkbox) {
         checkbox.checked = isSelected;
       }
 
+      // 使用 batch-selected 类标记批量选中的会话项
       if (isSelected) {
-        item.classList.add('selected');
+        item.classList.add('batch-selected');
       } else {
-        item.classList.remove('selected');
+        item.classList.remove('batch-selected');
       }
     });
 
@@ -531,84 +534,91 @@
   };
 
   proto.buildBatchToolbar = function () {
+    // 参考 YiWeb 的 session-batch-toolbar 结构
     const toolbar = document.createElement('div');
     toolbar.id = 'batch-toolbar';
-    toolbar.className = 'batch-toolbar';
+    toolbar.className = 'session-batch-toolbar';
+    toolbar.style.display = 'none'; // 默认隐藏，通过 batchMode 控制显示
 
+    // Left section: 全选 checkbox + 已选数量
+    const leftSection = document.createElement('div');
+    leftSection.className = 'batch-toolbar-left';
+
+    // 全选 checkbox (参考 YiWeb 的 batch-select-all)
+    const selectAllLabel = document.createElement('label');
+    selectAllLabel.className = 'batch-select-all';
+    
+    const selectAllCheckbox = document.createElement('input');
+    selectAllCheckbox.type = 'checkbox';
+    selectAllCheckbox.id = 'select-all-checkbox';
+    selectAllCheckbox.addEventListener('change', () => {
+      this.toggleSelectAll();
+    });
+
+    const selectAllText = document.createElement('span');
+    selectAllText.textContent = '全选';
+
+    selectAllLabel.appendChild(selectAllCheckbox);
+    selectAllLabel.appendChild(selectAllText);
+    leftSection.appendChild(selectAllLabel);
+
+    // 已选数量
     const selectedCount = document.createElement('span');
     selectedCount.id = 'selected-count';
     selectedCount.className = 'batch-selected-count';
-    selectedCount.textContent = '已选择 0 个';
+    selectedCount.textContent = '';
+    leftSection.appendChild(selectedCount);
 
-    const selectAllBtn = this.createButton({
-      text: '全选',
-      className: 'batch-toolbar-btn batch-toolbar-btn--default',
-      onClick: () => {
-        this.toggleSelectAll();
-      }
-    });
-    selectAllBtn.id = 'select-all-btn';
+    // Right section: 删除按钮 + 取消按钮
+    const rightSection = document.createElement('div');
+    rightSection.className = 'batch-toolbar-right';
 
-    const batchDeleteBtn = this.createButton({
-      className: 'batch-toolbar-btn batch-toolbar-btn--danger'
-    });
+    // 删除按钮
+    const batchDeleteBtn = document.createElement('button');
+    batchDeleteBtn.type = 'button';
     batchDeleteBtn.id = 'batch-delete-btn';
-    const deleteLoader = document.createElement('span');
-    deleteLoader.className = 'delete-loader';
+    batchDeleteBtn.className = 'batch-action-btn batch-delete-btn';
+    batchDeleteBtn.disabled = true;
+    batchDeleteBtn.title = '删除选中会话';
 
-    const deleteIcon = document.createElement('span');
-    deleteIcon.textContent = '🗑️';
-    deleteIcon.className = 'batch-action-icon';
-
-    const deleteText = document.createElement('span');
-    deleteText.textContent = '删除';
-    batchDeleteBtn.appendChild(deleteLoader);
+    const deleteIcon = document.createElement('i');
+    deleteIcon.className = 'fas fa-trash-alt';
+    const deleteText = document.createTextNode(' 删除');
     batchDeleteBtn.appendChild(deleteIcon);
     batchDeleteBtn.appendChild(deleteText);
 
     batchDeleteBtn.addEventListener('click', async () => {
       if (batchDeleteBtn.disabled) return;
-      const loader = batchDeleteBtn.querySelector('.delete-loader');
-      const spans = batchDeleteBtn.querySelectorAll('span:not(.delete-loader)');
-      const iconEl = spans[0];
-      const textEl = spans[1];
-      if (loader) loader.classList.add('visible');
-      if (iconEl) iconEl.style.display = 'none';
-      if (textEl) textEl.textContent = '删除中...';
+      const originalContent = batchDeleteBtn.innerHTML;
       batchDeleteBtn.disabled = true;
-      batchDeleteBtn.classList.add('loading');
+      batchDeleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 删除中...';
       try {
         await this.batchDeleteSessions();
       } finally {
-        if (loader) loader.classList.remove('visible');
-        if (iconEl) iconEl.style.display = 'inline';
-        if (textEl) textEl.textContent = '删除';
         batchDeleteBtn.disabled = false;
-        batchDeleteBtn.classList.remove('loading');
+        batchDeleteBtn.innerHTML = originalContent;
       }
     });
 
-    const cancelBatchBtn = this.createButton({
-      text: '取消',
-      className: 'batch-toolbar-btn batch-toolbar-btn--default'
-    });
-    const cancelIcon = document.createElement('span');
-    cancelIcon.textContent = '✕';
-    cancelIcon.className = 'batch-cancel-icon';
-
-    const cancelTextNode = document.createTextNode('取消');
-    cancelBatchBtn.textContent = '';
-    cancelBatchBtn.appendChild(cancelIcon);
-    cancelBatchBtn.appendChild(cancelTextNode);
-
+    // 取消按钮
+    const cancelBatchBtn = document.createElement('button');
+    cancelBatchBtn.type = 'button';
+    cancelBatchBtn.className = 'batch-action-btn batch-cancel-btn';
+    cancelBatchBtn.textContent = '取消';
+    cancelBatchBtn.title = '退出批量模式';
     cancelBatchBtn.addEventListener('click', () => {
       this.exitBatchMode();
     });
 
-    toolbar.appendChild(selectedCount);
-    toolbar.appendChild(selectAllBtn);
-    toolbar.appendChild(batchDeleteBtn);
-    toolbar.appendChild(cancelBatchBtn);
+    rightSection.appendChild(batchDeleteBtn);
+    rightSection.appendChild(cancelBatchBtn);
+
+    toolbar.appendChild(leftSection);
+    toolbar.appendChild(rightSection);
+
+    // 保存 checkbox 引用以便更新状态
+    this._selectAllCheckbox = selectAllCheckbox;
+
     return toolbar;
   };
   // 批量删除（支持会话、文件和请求接口）
@@ -713,6 +723,25 @@
       }
     });
 
+    // 双击重置宽度
+    let lastClickTime = 0;
+    resizer.addEventListener('click', (e) => {
+      const currentTime = Date.now();
+      if (currentTime - lastClickTime < 300) {
+        // 双击重置为默认宽度
+        const defaultWidth = 320;
+        this.sidebarWidth = defaultWidth;
+        if (this.sessionSidebar) {
+          this.sessionSidebar.style.setProperty('width', `${defaultWidth}px`, 'important');
+        }
+        this.updateToggleButtonPosition(defaultWidth);
+        this.saveSidebarWidth();
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      lastClickTime = currentTime;
+    });
+
     // 拖拽开始
     resizer.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -727,56 +756,80 @@
       const startWidth = this.sidebarWidth;
 
       // 添加全局样式，禁用文本选择
+      const originalUserSelect = document.body.style.userSelect;
+      const originalCursor = document.body.style.cursor;
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
+
+      // 使用 requestAnimationFrame 优化性能
+      let rafId = null;
+      let pendingWidth = startWidth;
+
+      // 更新宽度和按钮位置的辅助函数
+      const updateWidth = (newWidth) => {
+        // 限制宽度范围
+        newWidth = Math.max(150, Math.min(500, newWidth));
+        pendingWidth = newWidth;
+        
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            this.sidebarWidth = pendingWidth;
+            if (this.sessionSidebar) {
+              this.sessionSidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
+            }
+            this.updateToggleButtonPosition(pendingWidth);
+            rafId = null;
+          });
+        }
+      };
 
       // 拖拽中
       const handleMouseMove = (e) => {
         if (!this.isResizingSidebar) return;
 
         const diffX = e.clientX - startX;
-        let newWidth = startWidth + diffX;
+        const newWidth = startWidth + diffX;
+        updateWidth(newWidth);
+      };
 
-        // 限制宽度范围
-        newWidth = Math.max(150, Math.min(500, newWidth));
-
-        // 更新宽度
-        this.sidebarWidth = newWidth;
-        if (this.sessionSidebar) {
-          this.sessionSidebar.style.setProperty('width', `${newWidth}px`, 'important');
+      // 防抖保存函数
+      let saveTimeout = null;
+      const debouncedSave = () => {
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
         }
-
-        // 更新折叠按钮位置（参考输入框折叠按钮的实现方式）
-        const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        if (toggleBtn && !this.sidebarCollapsed) {
-          toggleBtn.style.left = `${newWidth}px`;
-          // 确保 transform 样式正确，按钮完全在外面（保留scale用于hover效果）
-          const currentTransform = toggleBtn.style.transform;
-          const baseTransform = 'translateY(-50%) translateX(14px)';
-          if (!currentTransform.includes('scale')) {
-            toggleBtn.style.transform = baseTransform;
-          } else {
-            const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
-            if (scaleMatch) {
-              toggleBtn.style.transform = `${baseTransform} ${scaleMatch[0]}`;
-            } else {
-              toggleBtn.style.transform = baseTransform;
-            }
-          }
-        }
+        saveTimeout = setTimeout(() => {
+          this.saveSidebarWidth();
+        }, 300);
       };
 
       // 拖拽结束
       const handleMouseUp = () => {
+        // 取消待处理的动画帧
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+
+        // 确保最终宽度已应用
+        if (this.sessionSidebar) {
+          this.sessionSidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
+        }
+        this.sidebarWidth = pendingWidth;
+        this.updateToggleButtonPosition(pendingWidth);
+
         this.isResizingSidebar = false;
         resizer.classList.remove('dragging');
         resizer.classList.remove('hover');
 
         // 恢复全局样式
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
+        document.body.style.userSelect = originalUserSelect;
+        document.body.style.cursor = originalCursor;
 
-        // 保存宽度
+        // 立即保存宽度
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+        }
         this.saveSidebarWidth();
 
         // 移除事件监听器
@@ -790,6 +843,27 @@
     });
 
     this.sessionSidebar.appendChild(resizer);
+  };
+
+  // 更新折叠按钮位置的辅助方法
+  proto.updateToggleButtonPosition = function (width) {
+    const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+    if (toggleBtn && !this.sidebarCollapsed) {
+      toggleBtn.style.left = `${width}px`;
+      // 确保 transform 样式正确，按钮完全在外面（保留scale用于hover效果）
+      const currentTransform = toggleBtn.style.transform;
+      const baseTransform = 'translateY(-50%) translateX(14px)';
+      if (!currentTransform.includes('scale')) {
+        toggleBtn.style.transform = baseTransform;
+      } else {
+        const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
+        if (scaleMatch) {
+          toggleBtn.style.transform = `${baseTransform} ${scaleMatch[0]}`;
+        } else {
+          toggleBtn.style.transform = baseTransform;
+        }
+      }
+    }
   };
 
 })();

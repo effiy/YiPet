@@ -1,11 +1,11 @@
 /**
  * FAQ API 管理器
  * 统一管理常见问题的后端API调用
- * 使用 https://api.effiy.cn/mongodb/?cname=faqs
+ * 使用 PET_CONFIG.api.faqApiUrl 配置，默认为 http://localhost:8000/?cname=faqs
  */
 
 class FaqApiManager extends BaseApiManager {
-    constructor(baseUrl = 'https://api.effiy.cn/mongodb', enabled = true) {
+    constructor(baseUrl = 'http://localhost:8000', enabled = true) {
         super(baseUrl, enabled);
         this.cname = 'faqs';
     }

@@ -462,13 +462,33 @@
             }
 
             // 调用 API，使用配置中的 URL
-            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const apiUrl = PET_CONFIG.api.yiaiBaseUrl;
 
             // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl
-            const payload = this.buildPromptPayload(
+            const oldPayload = this.buildPromptPayload(
                 '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
                 userMessage
             );
+
+            // 转换为 services.ai.chat_service 格式
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: true
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (oldPayload.model) {
+                payload.parameters.model = oldPayload.model;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
 
             const fetchOptions = {
                 method: 'POST',
@@ -680,10 +700,30 @@
             }
 
             // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl（如果是 qwen3-vl 模型）
-            const payload = this.buildPromptPayload(
+            const oldPayload = this.buildPromptPayload(
                 '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
                 userMessage
             );
+
+            // 转换为 services.ai.chat_service 格式
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: false
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (oldPayload.model) {
+                payload.parameters.model = oldPayload.model;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
 
             // 显示加载动画
             this._showLoadingAnimation();
@@ -691,7 +731,7 @@
             // 调用 API，使用配置中的 URL
             let response, result;
             try {
-                response = await fetch(PET_CONFIG.api.promptUrl, {
+                response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -772,13 +812,33 @@
             console.log('调用大模型生成内容，systemPrompt长度:', systemPrompt ? systemPrompt.length : 0);
 
             // 使用统一的 payload 构建函数，自动包含会话 ID
-            const payload = this.buildPromptPayload(
+            const oldPayload = this.buildPromptPayload(
                 systemPrompt,
                 userPrompt
             );
 
+            // 转换为 services.ai.chat_service 格式
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: true
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (oldPayload.model) {
+                payload.parameters.model = oldPayload.model;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
+
             // 调用大模型 API（使用流式接口）
-            const apiUrl = PET_CONFIG.api.streamPromptUrl;
+            const apiUrl = PET_CONFIG.api.yiaiBaseUrl;
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -919,14 +979,34 @@ ${originalText}
 
 请直接返回优化后的Markdown内容，不要包含任何说明文字、引号或其他格式标记。`;
 
-            const payload = this.buildPromptPayload(
+            const oldPayload = this.buildPromptPayload(
                 systemPrompt,
                 userPrompt
             );
 
+            // 转换为 services.ai.chat_service 格式
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: false
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (oldPayload.model) {
+                payload.parameters.model = oldPayload.model;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
+
             this._showLoadingAnimation();
 
-            const response = await fetch(PET_CONFIG.api.promptUrl, {
+            const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1178,14 +1258,34 @@ ${originalText}
 
 请直接返回翻译后的${targetLanguage}内容，不要包含任何说明文字、引号或其他格式标记。`;
 
-            const payload = this.buildPromptPayload(
+            const oldPayload = this.buildPromptPayload(
                 systemPrompt,
                 userPrompt
             );
 
+            // 转换为 services.ai.chat_service 格式
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: false
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (oldPayload.model) {
+                payload.parameters.model = oldPayload.model;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
+
             this._showLoadingAnimation();
 
-            const response = await fetch(PET_CONFIG.api.promptUrl, {
+            const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

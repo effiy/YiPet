@@ -24,32 +24,23 @@
             modal.style.display = 'flex';
             modal.dataset.sessionId = sessionId;
     
+            // 获取会话数据
+            const session = this.sessions[sessionId];
+            const originalUrl = session?.url || '';
+    
             // 填充当前值
-            const titleInput = modal.querySelector('.session-editor-title-input');
-            const descriptionInput = modal.querySelector('.session-editor-description-input');
-            const updatedAtInput = modal.querySelector('.session-editor-updatedat-input');
+            const titleInput = modal.querySelector('#session-edit-title');
+            const urlInput = modal.querySelector('#session-edit-url');
+            const descriptionInput = modal.querySelector('#session-edit-description');
     
             if (titleInput) {
-                titleInput.value = originalTitle;
+                titleInput.value = originalTitle || '';
+            }
+            if (urlInput) {
+                urlInput.value = originalUrl;
             }
             if (descriptionInput) {
-                descriptionInput.value = originalDescription;
-            }
-    
-            // 填充更新时间，默认是今天
-            if (updatedAtInput) {
-                const session = this.sessions[sessionId];
-                // 优先使用 updatedAt，如果没有则使用当前时间（今天）
-                let updatedAt = session.updatedAt || Date.now();
-    
-                // 将时间戳转换为 datetime-local 格式 (YYYY-MM-DDTHH:mm)
-                const date = new Date(updatedAt);
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                updatedAtInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                descriptionInput.value = originalDescription || '';
             }
     
             // 聚焦到标题输入框
@@ -61,7 +52,7 @@
             }
     
             // 添加关闭事件
-            const closeBtn = modal.querySelector('.session-editor-close');
+            const closeBtn = modal.querySelector('.aicr-session-context-modal-close');
             if (closeBtn) {
                 closeBtn.onclick = () => this.closeSessionInfoEditor();
             }
@@ -72,52 +63,10 @@
                 saveBtn.onclick = () => this.saveSessionInfo(sessionId);
             }
     
-            // 添加取消事件
-            const cancelBtn = modal.querySelector('.session-editor-cancel');
-            if (cancelBtn) {
-                cancelBtn.onclick = () => this.closeSessionInfoEditor();
-            }
-    
-            // 添加智能生成标题事件
-            const generateTitleBtn = modal.querySelector('.session-editor-generate-title');
-            if (generateTitleBtn) {
-                generateTitleBtn.onclick = () => this.generateSessionTitle(sessionId);
-            }
-    
             // 添加智能生成描述事件
             const generateDescriptionBtn = modal.querySelector('.session-editor-generate-description');
             if (generateDescriptionBtn) {
                 generateDescriptionBtn.onclick = () => this.generateSessionDescription(sessionId);
-            }
-    
-            // 添加智能优化描述事件
-            const optimizeDescriptionBtn = modal.querySelector('.session-editor-optimize-description');
-            if (optimizeDescriptionBtn) {
-                optimizeDescriptionBtn.onclick = () => this.optimizeSessionDescription(sessionId);
-            }
-    
-            // 添加翻译标题中文事件
-            const translateTitleZhBtn = modal.querySelector('.session-editor-translate-title-zh');
-            if (translateTitleZhBtn) {
-                translateTitleZhBtn.onclick = () => this.translateSessionField('title', titleInput, 'zh');
-            }
-    
-            // 添加翻译标题英文事件
-            const translateTitleEnBtn = modal.querySelector('.session-editor-translate-title-en');
-            if (translateTitleEnBtn) {
-                translateTitleEnBtn.onclick = () => this.translateSessionField('title', titleInput, 'en');
-            }
-    
-            // 添加翻译描述中文事件
-            const translateDescriptionZhBtn = modal.querySelector('.session-editor-translate-description-zh');
-            if (translateDescriptionZhBtn) {
-                translateDescriptionZhBtn.onclick = () => this.translateSessionField('description', descriptionInput, 'zh');
-            }
-    
-            // 添加翻译描述英文事件
-            const translateDescriptionEnBtn = modal.querySelector('.session-editor-translate-description-en');
-            if (translateDescriptionEnBtn) {
-                translateDescriptionEnBtn.onclick = () => this.translateSessionField('description', descriptionInput, 'en');
             }
     
             // ESC 键关闭
@@ -136,485 +85,395 @@
     
             const modal = document.createElement('div');
             modal.id = 'pet-session-info-editor';
+            modal.className = 'aicr-session-context-modal';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-label', '编辑会话');
             modal.style.cssText = `
                 position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
-                background: rgba(0, 0, 0, 0.5) !important;
-                display: none !important;
-                align-items: center !important;
-                justify-content: center !important;
                 z-index: 2147483653 !important;
+                display: none !important;
             `;
     
-            // 点击背景关闭
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
+            // 遮罩层
+            const mask = document.createElement('div');
+            mask.className = 'aicr-session-context-modal-mask';
+            mask.style.cssText = `
+                position: absolute !important;
+                inset: 0 !important;
+                background: rgba(0, 0, 0, 0.55) !important;
+            `;
+            mask.addEventListener('click', () => this.closeSessionInfoEditor());
+            modal.appendChild(mask);
+    
+            // 主体容器
+            const panel = document.createElement('div');
+            panel.className = 'aicr-session-context-modal-body aicr-session-settings-modal-body';
+            panel.setAttribute('tabindex', '0');
+            panel.style.cssText = `
+                position: absolute !important;
+                inset: 16px !important;
+                max-width: 980px !important;
+                margin: 0 auto !important;
+                background: rgba(15, 23, 42, 0.95) !important;
+                border: 1px solid rgba(51, 65, 85, 0.85) !important;
+                border-radius: 14px !important;
+                box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55) !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+                min-height: 0 !important;
+                animation: fadeInUp 0.18s ease-out !important;
+            `;
+            
+            // 添加淡入动画（如果不存在）
+            if (!document.getElementById('pet-session-editor-animations')) {
+                const style = document.createElement('style');
+                style.id = 'pet-session-editor-animations';
+                style.textContent = `
+                    @keyframes fadeInUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(10px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            panel.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
                     this.closeSessionInfoEditor();
                 }
             });
     
-            const panel = document.createElement('div');
-            panel.style.cssText = `
-                background: #1e293b !important;  /* 量子灰 */
-                border-radius: 12px !important;
-                padding: 32px !important;
-                width: 90% !important;
-                max-width: 700px !important;
-                max-height: 85vh !important;
-                overflow-y: auto !important;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
-                position: relative !important;
-                z-index: 2147483654 !important;
-            `;
-    
-            // 标题
+            // 头部
             const header = document.createElement('div');
+            header.className = 'aicr-session-context-modal-header';
             header.style.cssText = `
                 display: flex !important;
-                justify-content: space-between !important;
                 align-items: center !important;
-                margin-bottom: 24px !important;
+                justify-content: space-between !important;
+                padding: 12px 14px !important;
+                border-bottom: 1px solid rgba(51, 65, 85, 0.85) !important;
             `;
     
-            const title = document.createElement('h3');
-            title.textContent = '编辑会话信息';
+            const title = document.createElement('div');
+            title.className = 'aicr-session-context-modal-title';
+            title.textContent = '✏️ 编辑会话';
             title.style.cssText = `
-                margin: 0 !important;
-                font-size: 20px !important;
-                font-weight: 600 !important;
-                color: #f8fafc !important;  /* 量子白 */
+                color: rgba(226, 232, 240, 0.95) !important;
+                font-weight: 650 !important;
+                font-size: 14px !important;
+                display: flex !important;
+                align-items: baseline !important;
+                gap: 8px !important;
             `;
+    
+            const headerRight = document.createElement('div');
+            headerRight.className = 'aicr-session-context-modal-header-right';
+            headerRight.style.cssText = `
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+            `;
+    
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'aicr-session-context-toolbar-btn primary session-editor-save';
+            saveBtn.type = 'button';
+            saveBtn.textContent = '保存';
+            saveBtn.setAttribute('aria-label', '保存');
+            saveBtn.setAttribute('title', '保存');
+            saveBtn.style.cssText = `
+                border: 1px solid rgba(79, 70, 229, 0.45) !important;
+                background: rgba(79, 70, 229, 0.85) !important;
+                color: rgba(248, 250, 252, 0.98) !important;
+                border-radius: 10px !important;
+                padding: 6px 10px !important;
+                font-size: 12px !important;
+                cursor: pointer !important;
+                white-space: nowrap !important;
+                font-weight: 650 !important;
+                transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+            `;
+            saveBtn.addEventListener('mouseenter', () => {
+                saveBtn.style.background = 'rgba(79, 70, 229, 0.95)';
+                saveBtn.style.borderColor = 'rgba(79, 70, 229, 0.6)';
+                saveBtn.style.transform = 'translateY(-1px)';
+            });
+            saveBtn.addEventListener('mouseleave', () => {
+                saveBtn.style.background = 'rgba(79, 70, 229, 0.85)';
+                saveBtn.style.borderColor = 'rgba(79, 70, 229, 0.45)';
+                saveBtn.style.transform = 'none';
+            });
     
             const closeBtn = document.createElement('button');
-            closeBtn.className = 'session-editor-close';
+            closeBtn.className = 'aicr-session-context-modal-close';
+            closeBtn.type = 'button';
             closeBtn.innerHTML = '✕';
+            closeBtn.setAttribute('aria-label', '关闭');
             closeBtn.style.cssText = `
-                background: none !important;
-                border: none !important;
-                font-size: 24px !important;
+                border: 1px solid rgba(51, 65, 85, 0.85) !important;
+                background: rgba(30, 41, 59, 0.6) !important;
+                color: rgba(226, 232, 240, 0.9) !important;
+                border-radius: 10px !important;
+                padding: 6px 10px !important;
                 cursor: pointer !important;
-                color: #999 !important;
-                padding: 0 !important;
-                width: 30px !important;
-                height: 30px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                border-radius: 4px !important;
-                transition: all 0.2s ease !important;
+                transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
             `;
             closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = '#f0f0f0';
-                closeBtn.style.color = '#f8fafc';  /* 量子白 */
+                closeBtn.style.background = 'rgba(51, 65, 85, 0.6)';
+                closeBtn.style.borderColor = 'rgba(51, 65, 85, 0.95)';
+                closeBtn.style.transform = 'translateY(-1px)';
             });
             closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'none';
-                closeBtn.style.color = '#999';
+                closeBtn.style.background = 'rgba(30, 41, 59, 0.6)';
+                closeBtn.style.borderColor = 'rgba(51, 65, 85, 0.85)';
+                closeBtn.style.transform = 'none';
             });
     
+            headerRight.appendChild(saveBtn);
+            headerRight.appendChild(closeBtn);
             header.appendChild(title);
-            header.appendChild(closeBtn);
+            header.appendChild(headerRight);
+            panel.appendChild(header);
     
-            // 标题输入区域
-            const titleGroup = document.createElement('div');
-            titleGroup.style.cssText = `
-                margin-bottom: 24px !important;
+            // 内容区域
+            const content = document.createElement('div');
+            content.className = 'aicr-session-context-modal-content aicr-session-settings-modal-content';
+            content.style.cssText = `
+                padding: 12px 14px 14px !important;
+                flex: 1 !important;
+                min-height: 0 !important;
+                overflow: auto !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+            `;
+    
+            // 标题字段
+            const titleField = document.createElement('div');
+            titleField.className = 'aicr-session-settings-field';
+            titleField.style.cssText = `
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 8px !important;
             `;
     
             const titleLabel = document.createElement('label');
-            titleLabel.textContent = '会话标题';
+            titleLabel.className = 'aicr-session-settings-label';
+            titleLabel.setAttribute('for', 'session-edit-title');
+            titleLabel.textContent = '标题';
             titleLabel.style.cssText = `
-                display: block !important;
-                margin-bottom: 10px !important;
-                font-size: 15px !important;
-                font-weight: 500 !important;
-                color: #f8fafc !important;  /* 量子白 */
-            `;
-    
-            const titleInputWrapper = document.createElement('div');
-            titleInputWrapper.style.cssText = `
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
+                color: rgba(226, 232, 240, 0.92) !important;
+                font-weight: 650 !important;
+                font-size: 13px !important;
             `;
     
             const titleInput = document.createElement('input');
-            titleInput.className = 'session-editor-title-input';
+            titleInput.id = 'session-edit-title';
             titleInput.type = 'text';
+            titleInput.className = 'aicr-session-settings-input';
             titleInput.placeholder = '请输入会话标题';
+            titleInput.setAttribute('autocomplete', 'off');
+            titleInput.setAttribute('spellcheck', 'false');
+            titleInput.setAttribute('aria-label', '会话标题');
             titleInput.style.cssText = `
                 width: 100% !important;
-                padding: 12px 14px !important;
-                border: 2px solid #e0e0e0 !important;
-                border-radius: 6px !important;
-                font-size: 15px !important;
+                border-radius: 12px !important;
+                padding: 10px 12px !important;
+                border: 1px solid rgba(51, 65, 85, 0.85) !important;
+                background: rgba(2, 6, 23, 0.60) !important;
+                color: rgba(226, 232, 240, 0.95) !important;
                 outline: none !important;
-                transition: border-color 0.2s ease !important;
+                font-size: 14px !important;
                 box-sizing: border-box !important;
             `;
-    
             titleInput.addEventListener('focus', () => {
-                titleInput.style.borderColor = '#22c55e';  /* 现代绿 */
+                titleInput.style.borderColor = 'rgba(34, 211, 238, 0.45)';
+                titleInput.style.boxShadow = '0 0 0 3px rgba(34, 211, 238, 0.18)';
             });
             titleInput.addEventListener('blur', () => {
-                titleInput.style.borderColor = '#e0e0e0';
+                titleInput.style.borderColor = 'rgba(51, 65, 85, 0.85)';
+                titleInput.style.boxShadow = 'none';
             });
     
-            // 按钮容器
-            const titleButtonContainer = document.createElement('div');
-            titleButtonContainer.style.cssText = `
-                display: flex !important;
-                gap: 8px !important;
-                justify-content: flex-end !important;
-            `;
+            titleField.appendChild(titleLabel);
+            titleField.appendChild(titleInput);
+            content.appendChild(titleField);
     
-            const generateTitleBtn = document.createElement('button');
-            generateTitleBtn.className = 'session-editor-generate-title';
-            generateTitleBtn.innerHTML = '✨ 智能生成';
-            generateTitleBtn.style.cssText = `
-                padding: 12px 16px !important;
-                background: #3b82f6 !important;  /* 信息蓝 */
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                white-space: nowrap !important;
-            `;
-            generateTitleBtn.addEventListener('mouseenter', () => {
-                generateTitleBtn.style.background = '#1976D2';
-            });
-            generateTitleBtn.addEventListener('mouseleave', () => {
-                generateTitleBtn.style.background = '#3b82f6';  /* 信息蓝 */
-            });
-    
-            // 翻译中文按钮
-            const translateTitleZhBtn = document.createElement('button');
-            translateTitleZhBtn.className = 'session-editor-translate-title-zh';
-            translateTitleZhBtn.setAttribute('data-translate-field', 'title');
-            translateTitleZhBtn.setAttribute('data-target-lang', 'zh');
-            translateTitleZhBtn.innerHTML = '🇨🇳 翻译中文';
-            translateTitleZhBtn.style.cssText = `
-                padding: 12px 16px !important;
-                background: #FF9800 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                white-space: nowrap !important;
-            `;
-            translateTitleZhBtn.addEventListener('mouseenter', () => {
-                translateTitleZhBtn.style.background = '#F57C00';
-            });
-            translateTitleZhBtn.addEventListener('mouseleave', () => {
-                translateTitleZhBtn.style.background = '#FF9800';
-            });
-    
-            // 翻译英文按钮
-            const translateTitleEnBtn = document.createElement('button');
-            translateTitleEnBtn.className = 'session-editor-translate-title-en';
-            translateTitleEnBtn.setAttribute('data-translate-field', 'title');
-            translateTitleEnBtn.setAttribute('data-target-lang', 'en');
-            translateTitleEnBtn.innerHTML = '🇺🇸 翻译英文';
-            translateTitleEnBtn.style.cssText = `
-                padding: 12px 16px !important;
-                background: #9C27B0 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                white-space: nowrap !important;
-            `;
-            translateTitleEnBtn.addEventListener('mouseenter', () => {
-                translateTitleEnBtn.style.background = '#7B1FA2';
-            });
-            translateTitleEnBtn.addEventListener('mouseleave', () => {
-                translateTitleEnBtn.style.background = '#9C27B0';
-            });
-    
-            titleButtonContainer.appendChild(generateTitleBtn);
-            titleButtonContainer.appendChild(translateTitleZhBtn);
-            titleButtonContainer.appendChild(translateTitleEnBtn);
-    
-            titleInputWrapper.appendChild(titleInput);
-            titleInputWrapper.appendChild(titleButtonContainer);
-    
-            titleGroup.appendChild(titleLabel);
-            titleGroup.appendChild(titleInputWrapper);
-    
-            // 描述输入区域
-            const descriptionGroup = document.createElement('div');
-            descriptionGroup.style.cssText = `
-                margin-bottom: 24px !important;
-            `;
-    
-            const descriptionLabel = document.createElement('label');
-            descriptionLabel.textContent = '网页描述';
-            descriptionLabel.style.cssText = `
-                display: block !important;
-                margin-bottom: 10px !important;
-                font-size: 15px !important;
-                font-weight: 500 !important;
-                color: #f8fafc !important;  /* 量子白 */
-            `;
-    
-            const descriptionInputWrapper = document.createElement('div');
-            descriptionInputWrapper.style.cssText = `
+            // 网址字段
+            const urlField = document.createElement('div');
+            urlField.className = 'aicr-session-settings-field';
+            urlField.style.cssText = `
                 display: flex !important;
                 flex-direction: column !important;
                 gap: 8px !important;
             `;
     
-            const descriptionInput = document.createElement('textarea');
-            descriptionInput.className = 'session-editor-description-input';
-            descriptionInput.placeholder = '请输入网页描述（可选）';
-            descriptionInput.rows = 6;
-            descriptionInput.style.cssText = `
-                width: 100% !important;
-                padding: 12px 14px !important;
-                border: 2px solid #e0e0e0 !important;
-                border-radius: 6px !important;
-                font-size: 14px !important;
-                outline: none !important;
-                transition: border-color 0.2s ease !important;
-                resize: vertical !important;
-                font-family: inherit !important;
-                box-sizing: border-box !important;
-                min-height: 120px !important;
+            const urlLabel = document.createElement('label');
+            urlLabel.className = 'aicr-session-settings-label';
+            urlLabel.setAttribute('for', 'session-edit-url');
+            urlLabel.textContent = '网址';
+            urlLabel.style.cssText = `
+                color: rgba(226, 232, 240, 0.92) !important;
+                font-weight: 650 !important;
+                font-size: 13px !important;
             `;
     
-            descriptionInput.addEventListener('focus', () => {
-                descriptionInput.style.borderColor = '#22c55e';  /* 现代绿 */
+            const urlInput = document.createElement('input');
+            urlInput.id = 'session-edit-url';
+            urlInput.type = 'url';
+            urlInput.className = 'aicr-session-settings-input';
+            urlInput.placeholder = '请输入网址（可选）';
+            urlInput.setAttribute('autocomplete', 'off');
+            urlInput.setAttribute('spellcheck', 'false');
+            urlInput.setAttribute('aria-label', '会话网址');
+            urlInput.style.cssText = `
+                width: 100% !important;
+                border-radius: 12px !important;
+                padding: 10px 12px !important;
+                border: 1px solid rgba(51, 65, 85, 0.85) !important;
+                background: rgba(2, 6, 23, 0.60) !important;
+                color: rgba(226, 232, 240, 0.95) !important;
+                outline: none !important;
+                font-size: 14px !important;
+                box-sizing: border-box !important;
+            `;
+            urlInput.addEventListener('focus', () => {
+                urlInput.style.borderColor = 'rgba(34, 211, 238, 0.45)';
+                urlInput.style.boxShadow = '0 0 0 3px rgba(34, 211, 238, 0.18)';
             });
-            descriptionInput.addEventListener('blur', () => {
-                descriptionInput.style.borderColor = '#e0e0e0';
+            urlInput.addEventListener('blur', () => {
+                urlInput.style.borderColor = 'rgba(51, 65, 85, 0.85)';
+                urlInput.style.boxShadow = 'none';
             });
     
-            // 按钮容器
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = `
+            const urlHint = document.createElement('div');
+            urlHint.className = 'aicr-session-settings-hint';
+            urlHint.textContent = '网址将显示在欢迎卡片中';
+            urlHint.style.cssText = `
+                color: rgba(148, 163, 184, 0.75) !important;
+                font-size: 12px !important;
+                line-height: 1.5 !important;
+            `;
+    
+            urlField.appendChild(urlLabel);
+            urlField.appendChild(urlInput);
+            urlField.appendChild(urlHint);
+            content.appendChild(urlField);
+    
+            // 描述字段
+            const descriptionField = document.createElement('div');
+            descriptionField.className = 'aicr-session-settings-field';
+            descriptionField.style.cssText = `
                 display: flex !important;
+                flex-direction: column !important;
                 gap: 8px !important;
-                justify-content: flex-end !important;
+            `;
+    
+            const descriptionHeader = document.createElement('div');
+            descriptionHeader.className = 'aicr-session-edit-description-header';
+            descriptionHeader.style.cssText = `
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                margin-bottom: 8px !important;
+            `;
+    
+            const descriptionLabel = document.createElement('label');
+            descriptionLabel.className = 'aicr-session-settings-label';
+            descriptionLabel.setAttribute('for', 'session-edit-description');
+            descriptionLabel.textContent = '描述';
+            descriptionLabel.style.cssText = `
+                color: rgba(226, 232, 240, 0.92) !important;
+                font-weight: 650 !important;
+                font-size: 13px !important;
             `;
     
             const generateDescriptionBtn = document.createElement('button');
-            generateDescriptionBtn.className = 'session-editor-generate-description';
-            generateDescriptionBtn.innerHTML = '✨ 智能生成描述';
+            generateDescriptionBtn.className = 'aicr-session-context-toolbar-btn session-editor-generate-description';
+            generateDescriptionBtn.type = 'button';
+            generateDescriptionBtn.innerHTML = '<span>✨ AI生成</span>';
+            generateDescriptionBtn.setAttribute('aria-label', 'AI生成描述');
+            generateDescriptionBtn.setAttribute('title', '根据页面上下文内容AI智能生成描述');
             generateDescriptionBtn.style.cssText = `
-                padding: 12px 16px !important;
-                background: #3b82f6 !important;  /* 信息蓝 */
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
+                border: 1px solid rgba(51, 65, 85, 0.85) !important;
+                background: rgba(30, 41, 59, 0.6) !important;
+                color: rgba(226, 232, 240, 0.9) !important;
+                border-radius: 10px !important;
+                padding: 6px 10px !important;
+                font-size: 12px !important;
                 cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
                 white-space: nowrap !important;
+                transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
             `;
             generateDescriptionBtn.addEventListener('mouseenter', () => {
-                generateDescriptionBtn.style.background = '#1976D2';
+                generateDescriptionBtn.style.background = 'rgba(51, 65, 85, 0.6)';
+                generateDescriptionBtn.style.borderColor = 'rgba(51, 65, 85, 0.95)';
+                generateDescriptionBtn.style.transform = 'translateY(-1px)';
             });
             generateDescriptionBtn.addEventListener('mouseleave', () => {
-                generateDescriptionBtn.style.background = '#3b82f6';  /* 信息蓝 */
+                generateDescriptionBtn.style.background = 'rgba(30, 41, 59, 0.6)';
+                generateDescriptionBtn.style.borderColor = 'rgba(51, 65, 85, 0.85)';
+                generateDescriptionBtn.style.transform = 'none';
             });
     
-            const optimizeDescriptionBtn = document.createElement('button');
-            optimizeDescriptionBtn.className = 'session-editor-optimize-description';
-            optimizeDescriptionBtn.innerHTML = '🚀 智能优化';
-            optimizeDescriptionBtn.style.cssText = `
-                padding: 12px 16px !important;
-                background: #22c55e !important;  /* 现代绿 */
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                white-space: nowrap !important;
-            `;
-            optimizeDescriptionBtn.addEventListener('mouseenter', () => {
-                optimizeDescriptionBtn.style.background = '#45a049';
-            });
-            optimizeDescriptionBtn.addEventListener('mouseleave', () => {
-                optimizeDescriptionBtn.style.background = '#22c55e';  /* 现代绿 */
-            });
+            descriptionHeader.appendChild(descriptionLabel);
+            descriptionHeader.appendChild(generateDescriptionBtn);
     
-            // 翻译中文按钮
-            const translateDescriptionZhBtn = document.createElement('button');
-            translateDescriptionZhBtn.className = 'session-editor-translate-description-zh';
-            translateDescriptionZhBtn.setAttribute('data-translate-field', 'description');
-            translateDescriptionZhBtn.setAttribute('data-target-lang', 'zh');
-            translateDescriptionZhBtn.innerHTML = '🇨🇳 翻译中文';
-            translateDescriptionZhBtn.style.cssText = `
-                padding: 12px 16px !important;
-                background: #FF9800 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                white-space: nowrap !important;
-            `;
-            translateDescriptionZhBtn.addEventListener('mouseenter', () => {
-                translateDescriptionZhBtn.style.background = '#F57C00';
-            });
-            translateDescriptionZhBtn.addEventListener('mouseleave', () => {
-                translateDescriptionZhBtn.style.background = '#FF9800';
-            });
-    
-            // 翻译英文按钮
-            const translateDescriptionEnBtn = document.createElement('button');
-            translateDescriptionEnBtn.className = 'session-editor-translate-description-en';
-            translateDescriptionEnBtn.setAttribute('data-translate-field', 'description');
-            translateDescriptionEnBtn.setAttribute('data-target-lang', 'en');
-            translateDescriptionEnBtn.innerHTML = '🇺🇸 翻译英文';
-            translateDescriptionEnBtn.style.cssText = `
-                padding: 12px 16px !important;
-                background: #9C27B0 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-                white-space: nowrap !important;
-            `;
-            translateDescriptionEnBtn.addEventListener('mouseenter', () => {
-                translateDescriptionEnBtn.style.background = '#7B1FA2';
-            });
-            translateDescriptionEnBtn.addEventListener('mouseleave', () => {
-                translateDescriptionEnBtn.style.background = '#9C27B0';
-            });
-    
-            buttonContainer.appendChild(optimizeDescriptionBtn);
-            buttonContainer.appendChild(generateDescriptionBtn);
-            buttonContainer.appendChild(translateDescriptionZhBtn);
-            buttonContainer.appendChild(translateDescriptionEnBtn);
-    
-            descriptionInputWrapper.appendChild(descriptionInput);
-            descriptionInputWrapper.appendChild(buttonContainer);
-    
-            descriptionGroup.appendChild(descriptionLabel);
-            descriptionGroup.appendChild(descriptionInputWrapper);
-    
-            // 更新时间输入区域
-            const updatedAtGroup = document.createElement('div');
-            updatedAtGroup.style.cssText = `
-                margin-bottom: 24px !important;
-            `;
-    
-            const updatedAtLabel = document.createElement('label');
-            updatedAtLabel.textContent = '更新时间';
-            updatedAtLabel.style.cssText = `
-                display: block !important;
-                margin-bottom: 10px !important;
-                font-size: 15px !important;
-                font-weight: 500 !important;
-                color: #f8fafc !important;  /* 量子白 */
-            `;
-    
-            const updatedAtInput = document.createElement('input');
-            updatedAtInput.className = 'session-editor-updatedat-input';
-            updatedAtInput.type = 'datetime-local';
-            updatedAtInput.style.cssText = `
+            const descriptionInput = document.createElement('textarea');
+            descriptionInput.id = 'session-edit-description';
+            descriptionInput.className = 'aicr-session-settings-textarea';
+            descriptionInput.rows = 6;
+            descriptionInput.placeholder = '请输入会话描述，或点击AI生成按钮自动生成';
+            descriptionInput.setAttribute('aria-label', '会话描述');
+            descriptionInput.style.cssText = `
                 width: 100% !important;
-                padding: 12px 14px !important;
-                border: 2px solid #e0e0e0 !important;
-                border-radius: 6px !important;
-                font-size: 15px !important;
+                resize: vertical !important;
+                min-height: 220px !important;
+                border-radius: 12px !important;
+                padding: 10px 12px !important;
+                border: 1px solid rgba(51, 65, 85, 0.85) !important;
+                background: rgba(2, 6, 23, 0.60) !important;
+                color: rgba(226, 232, 240, 0.95) !important;
                 outline: none !important;
-                transition: border-color 0.2s ease !important;
+                font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial !important;
+                font-size: 14px !important;
+                line-height: 1.6 !important;
                 box-sizing: border-box !important;
             `;
-    
-            updatedAtInput.addEventListener('focus', () => {
-                updatedAtInput.style.borderColor = '#22c55e';  /* 现代绿 */
+            descriptionInput.addEventListener('focus', () => {
+                descriptionInput.style.borderColor = 'rgba(34, 211, 238, 0.45)';
+                descriptionInput.style.boxShadow = '0 0 0 3px rgba(34, 211, 238, 0.18)';
             });
-            updatedAtInput.addEventListener('blur', () => {
-                updatedAtInput.style.borderColor = '#e0e0e0';
+            descriptionInput.addEventListener('blur', () => {
+                descriptionInput.style.borderColor = 'rgba(51, 65, 85, 0.85)';
+                descriptionInput.style.boxShadow = 'none';
             });
     
-            updatedAtGroup.appendChild(updatedAtLabel);
-            updatedAtGroup.appendChild(updatedAtInput);
-    
-            // 按钮区域
-            const buttonGroup = document.createElement('div');
-            buttonGroup.style.cssText = `
-                display: flex !important;
-                gap: 12px !important;
-                justify-content: flex-end !important;
+            const descriptionHint = document.createElement('div');
+            descriptionHint.className = 'aicr-session-settings-hint';
+            descriptionHint.textContent = '描述将帮助您更好地理解和管理会话内容';
+            descriptionHint.style.cssText = `
+                color: rgba(148, 163, 184, 0.75) !important;
+                font-size: 12px !important;
+                line-height: 1.5 !important;
             `;
     
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'session-editor-cancel';
-            cancelBtn.textContent = '取消';
-            cancelBtn.style.cssText = `
-                padding: 12px 24px !important;
-                background: #f5f5f5 !important;
-                color: #f8fafc !important;  /* 量子白 */
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 15px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-            `;
-            cancelBtn.addEventListener('mouseenter', () => {
-                cancelBtn.style.background = '#e0e0e0';
-            });
-            cancelBtn.addEventListener('mouseleave', () => {
-                cancelBtn.style.background = '#f5f5f5';
-            });
+            descriptionField.appendChild(descriptionHeader);
+            descriptionField.appendChild(descriptionInput);
+            descriptionField.appendChild(descriptionHint);
+            content.appendChild(descriptionField);
     
-            const saveBtn = document.createElement('button');
-            saveBtn.className = 'session-editor-save';
-            saveBtn.textContent = '保存';
-            saveBtn.style.cssText = `
-                padding: 12px 24px !important;
-                background: #22c55e !important;  /* 现代绿 */
-                color: white !important;
-                border: none !important;
-                border-radius: 6px !important;
-                cursor: pointer !important;
-                font-size: 15px !important;
-                font-weight: 500 !important;
-                transition: background 0.2s ease !important;
-            `;
-            saveBtn.addEventListener('mouseenter', () => {
-                saveBtn.style.background = '#45a049';
-            });
-            saveBtn.addEventListener('mouseleave', () => {
-                saveBtn.style.background = '#22c55e';  /* 现代绿 */
-            });
-    
-            buttonGroup.appendChild(cancelBtn);
-            buttonGroup.appendChild(saveBtn);
-    
-            // 组装面板
-            panel.appendChild(header);
-            panel.appendChild(titleGroup);
-            panel.appendChild(descriptionGroup);
-            panel.appendChild(updatedAtGroup);
-            panel.appendChild(buttonGroup);
-    
-            // 组装模态框
+            panel.appendChild(content);
             modal.appendChild(panel);
             document.body.appendChild(modal);
         };
@@ -639,9 +498,9 @@
                 return;
             }
     
-            const titleInput = modal.querySelector('.session-editor-title-input');
-            const descriptionInput = modal.querySelector('.session-editor-description-input');
-            const updatedAtInput = modal.querySelector('.session-editor-updatedat-input');
+            const titleInput = modal.querySelector('#session-edit-title');
+            const urlInput = modal.querySelector('#session-edit-url');
+            const descriptionInput = modal.querySelector('#session-edit-description');
     
             if (!titleInput) {
                 console.error('标题输入框未找到');
@@ -649,41 +508,143 @@
             }
     
             const newTitle = titleInput.value.trim();
+            const newUrl = urlInput ? urlInput.value.trim() : '';
             const newDescription = descriptionInput ? descriptionInput.value.trim() : '';
-    
-            // 获取更新的时间
-            let newUpdatedAt = Date.now();
-            if (updatedAtInput && updatedAtInput.value) {
-                // 将 datetime-local 格式转换为时间戳
-                const dateValue = new Date(updatedAtInput.value);
-                if (!isNaN(dateValue.getTime())) {
-                    newUpdatedAt = dateValue.getTime();
-                }
-            }
     
             // 如果标题为空，不进行更新
             if (newTitle === '') {
-                alert('会话标题不能为空');
+                if (this.showNotification) {
+                    this.showNotification('标题不能为空', 'error');
+                } else {
+                    alert('标题不能为空');
+                }
                 titleInput.focus();
                 return;
             }
     
             const session = this.sessions[sessionId];
-            const originalTitle = session.pageTitle || '未命名会话';
+            const originalTitle = session.pageTitle || session.title || '未命名会话';
+            const originalUrl = session.url || '';
             const originalDescription = session.pageDescription || '';
-            const originalUpdatedAt = session.updatedAt || Date.now();
+            const titleChanged = newTitle !== originalTitle;
     
-            // 如果标题、描述和更新时间都没有变化，不需要更新
-            if (newTitle === originalTitle && newDescription === originalDescription && newUpdatedAt === originalUpdatedAt) {
+            // 如果标题、网址和描述都没有变化，不需要更新
+            if (!titleChanged && newUrl === originalUrl && newDescription === originalDescription) {
                 this.closeSessionInfoEditor();
                 return;
             }
     
             try {
+                // 如果标题改变，需要调用 rename-file 接口重命名文件
+                if (titleChanged) {
+                    console.log('[saveSessionInfo] 标题已改变，需要重命名文件:', originalTitle, '->', newTitle);
+                    
+                    // 构建文件路径的辅助函数
+                    const buildFilePath = (session, title) => {
+                        // 优先从会话的 tags 构建路径
+                        const tags = Array.isArray(session.tags) ? session.tags : [];
+                        let currentPath = '';
+                        tags.forEach((folderName) => {
+                            if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
+                            currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+                        });
+                        
+                        // 清理文件名（移除特殊字符，避免路径问题）
+                        const sanitizeFileName = (name) => String(name || '').replace(/[\/\\:*?"<>|]/g, '-').trim();
+                        let fileName = sanitizeFileName(title) || 'Untitled';
+                        fileName = String(fileName).replace(/\//g, '-');
+                        
+                        let cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
+                        cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+                        if (cleanPath.startsWith('static/')) {
+                            cleanPath = cleanPath.substring(7);
+                        }
+                        cleanPath = cleanPath.replace(/^\/+/, '');
+                        
+                        // 如果 cleanPath 仍然为空，尝试从 pageDescription 获取
+                        if (!cleanPath) {
+                            const pageDesc = session.pageDescription || '';
+                            if (pageDesc && pageDesc.includes('文件：')) {
+                                const filePath = pageDesc.replace('文件：', '').trim();
+                                const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+                                cleanPath = dirPath + fileName;
+                                cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+                                if (cleanPath.startsWith('static/')) {
+                                    cleanPath = cleanPath.substring(7);
+                                }
+                                cleanPath = cleanPath.replace(/^\/+/, '');
+                            }
+                        }
+                        
+                        return cleanPath;
+                    };
+                    
+                    // 构建旧路径和新路径
+                    // 注意：构建新路径时，需要临时使用新标题，但保持其他会话数据不变
+                    const oldPath = buildFilePath(session, originalTitle);
+                    const tempSession = { ...session, pageTitle: newTitle, title: newTitle };
+                    const newPath = buildFilePath(tempSession, newTitle);
+                    
+                    // 如果路径不同，调用 rename-file 接口
+                    if (oldPath && newPath && oldPath !== newPath) {
+                        console.log('[saveSessionInfo] 准备重命名文件:', oldPath, '->', newPath);
+                        
+                        // 获取 API 基础 URL
+                        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL)) 
+                            ? String(window.API_URL).replace(/\/+$/, '') 
+                            : (PET_CONFIG?.api?.yiaiBaseUrl || '');
+                        
+                        if (apiBase) {
+                            try {
+                                const response = await fetch(`${apiBase}/rename-file`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
+                                    },
+                                    body: JSON.stringify({
+                                        old_path: oldPath,
+                                        new_path: newPath
+                                    })
+                                });
+                                
+                                if (!response.ok) {
+                                    const errorText = await response.text();
+                                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                                }
+                                
+                                const result = await response.json();
+                                
+                                if (result.status === 200 || result.success !== false) {
+                                    console.log('[saveSessionInfo] 文件重命名成功:', result);
+                                    
+                                    // 更新会话的 pageDescription 中的文件路径
+                                    if (session.pageDescription && session.pageDescription.includes('文件：')) {
+                                        session.pageDescription = session.pageDescription.replace(
+                                            /文件：.*/,
+                                            `文件：${newPath}`
+                                        );
+                                    }
+                                } else {
+                                    console.warn('[saveSessionInfo] 文件重命名失败:', result);
+                                    // 不阻止保存，只记录警告
+                                }
+                            } catch (renameError) {
+                                console.error('[saveSessionInfo] 调用 rename-file 接口失败:', renameError);
+                                // 不阻止保存，只记录错误
+                            }
+                        } else {
+                            console.warn('[saveSessionInfo] API_URL 未配置，跳过 rename-file 接口调用');
+                        }
+                    }
+                }
+                
                 // 更新会话信息
                 session.pageTitle = newTitle;
+                session.title = newTitle;
+                session.url = newUrl;
                 session.pageDescription = newDescription;
-                session.updatedAt = newUpdatedAt;
+                session.updatedAt = Date.now();
     
                 // 保存会话到本地
                 await this.saveAllSessions(false, true);
@@ -693,18 +654,31 @@
     
                 // 如果这是当前会话，同时更新聊天窗口标题和第一条消息
                 if (sessionId === this.currentSessionId) {
-                    this.updateChatHeaderTitle();
+                    if (typeof this.updateChatHeaderTitle === 'function') {
+                        this.updateChatHeaderTitle();
+                    }
                     // 刷新第一条欢迎消息
-                    await this.refreshWelcomeMessage();
+                    if (typeof this.refreshWelcomeMessage === 'function') {
+                        await this.refreshWelcomeMessage();
+                    }
                 }
     
-                console.log('会话信息已更新:', { title: newTitle, description: newDescription });
+                console.log('会话信息已更新:', { title: newTitle, url: newUrl, description: newDescription });
+    
+                // 显示成功提示
+                if (this.showNotification) {
+                    this.showNotification('会话已更新', 'success');
+                }
     
                 // 关闭对话框
                 this.closeSessionInfoEditor();
             } catch (error) {
                 console.error('更新会话信息失败:', error);
-                alert('更新信息失败，请重试');
+                if (this.showNotification) {
+                    this.showNotification('更新信息失败，请重试', 'error');
+                } else {
+                    alert('更新信息失败，请重试');
+                }
             }
         };
 
@@ -812,13 +786,33 @@
                 userPrompt += '\n\n请直接返回标题，不要包含其他说明文字。';
     
                 // 构建请求 payload
-                const payload = this.buildPromptPayload(
+                const oldPayload = this.buildPromptPayload(
                     systemPrompt,
                     userPrompt
                 );
+
+                // 转换为 services.ai.chat_service 格式
+                const payload = {
+                    module_name: 'services.ai.chat_service',
+                    method_name: 'chat',
+                    parameters: {
+                        system: oldPayload.fromSystem,
+                        user: oldPayload.fromUser,
+                        stream: false
+                    }
+                };
+                if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                    payload.parameters.images = oldPayload.images;
+                }
+                if (oldPayload.model) {
+                    payload.parameters.model = oldPayload.model;
+                }
+                if (oldPayload.conversation_id) {
+                    payload.parameters.conversation_id = oldPayload.conversation_id;
+                }
     
-                // 调用 prompt 接口
-                const response = await fetch(PET_CONFIG.api.promptUrl, {
+                // 调用 services.ai.chat_service 接口
+                const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -959,7 +953,7 @@
             }
     
             const generateBtn = modal.querySelector('.session-editor-generate-description');
-            const descriptionInput = modal.querySelector('.session-editor-description-input');
+            const descriptionInput = modal.querySelector('#session-edit-description');
     
             if (!generateBtn || !descriptionInput) {
                 return;
@@ -968,7 +962,7 @@
             // 设置按钮为加载状态
             const originalText = generateBtn.innerHTML;
             generateBtn.disabled = true;
-            generateBtn.innerHTML = '生成中...';
+            generateBtn.innerHTML = '<span>生成中...</span>';
             generateBtn.style.opacity = '0.6';
             generateBtn.style.cursor = 'not-allowed';
     
@@ -1007,13 +1001,33 @@
                 userPrompt += '\n\n请直接返回描述，不要包含其他说明文字。描述应该简洁明了，概括会话或页面的主要内容。';
     
                 // 构建请求 payload
-                const payload = this.buildPromptPayload(
+                const oldPayload = this.buildPromptPayload(
                     systemPrompt,
                     userPrompt
                 );
+
+                // 转换为 services.ai.chat_service 格式
+                const payload = {
+                    module_name: 'services.ai.chat_service',
+                    method_name: 'chat',
+                    parameters: {
+                        system: oldPayload.fromSystem,
+                        user: oldPayload.fromUser,
+                        stream: false
+                    }
+                };
+                if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                    payload.parameters.images = oldPayload.images;
+                }
+                if (oldPayload.model) {
+                    payload.parameters.model = oldPayload.model;
+                }
+                if (oldPayload.conversation_id) {
+                    payload.parameters.conversation_id = oldPayload.conversation_id;
+                }
     
-                // 调用 prompt 接口
-                const response = await fetch(PET_CONFIG.api.promptUrl, {
+                // 调用 services.ai.chat_service 接口
+                const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1132,13 +1146,11 @@
             } finally {
                 // 恢复按钮状态
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = originalText;
+                generateBtn.innerHTML = '<span>✨ AI生成</span>';
                 generateBtn.style.opacity = '1';
                 generateBtn.style.cursor = 'pointer';
             }
         };
-
-        // 智能优化会话描述
         proto.optimizeSessionDescription = async function(sessionId) {
             if (!sessionId || !this.sessions[sessionId]) {
                 console.warn('会话不存在，无法优化描述:', sessionId);
@@ -1212,13 +1224,33 @@
                 userPrompt += '4. 突出关键信息';
     
                 // 构建请求 payload
-                const payload = this.buildPromptPayload(
+                const oldPayload = this.buildPromptPayload(
                     systemPrompt,
                     userPrompt
                 );
+
+                // 转换为 services.ai.chat_service 格式
+                const payload = {
+                    module_name: 'services.ai.chat_service',
+                    method_name: 'chat',
+                    parameters: {
+                        system: oldPayload.fromSystem,
+                        user: oldPayload.fromUser,
+                        stream: false
+                    }
+                };
+                if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                    payload.parameters.images = oldPayload.images;
+                }
+                if (oldPayload.model) {
+                    payload.parameters.model = oldPayload.model;
+                }
+                if (oldPayload.conversation_id) {
+                    payload.parameters.conversation_id = oldPayload.conversation_id;
+                }
     
-                // 调用 prompt 接口
-                const response = await fetch(PET_CONFIG.api.promptUrl, {
+                // 调用 services.ai.chat_service 接口
+                const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1392,8 +1424,8 @@
                 // 显示加载动画
                 this._showLoadingAnimation();
     
-                // 调用 prompt 接口
-                const response = await fetch(PET_CONFIG.api.promptUrl, {
+                // 调用 services.ai.chat_service 接口
+                const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

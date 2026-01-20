@@ -39,12 +39,8 @@
             const itemInner = document.createElement('div');
             itemInner.className = 'session-item-inner';
 
-            // Checkbox
-            const checkboxContainer = this.createCheckbox(sessionItem);
-            itemInner.appendChild(checkboxContainer);
-
-            // Content
-            const contentWrapper = this.createContent();
+            // Content (checkbox will be added inside title group when in batch mode)
+            const contentWrapper = this.createContent(sessionItem);
             itemInner.appendChild(contentWrapper);
 
             sessionItem.appendChild(itemInner);
@@ -55,7 +51,7 @@
             // Click handler (activate session)
             sessionItem.addEventListener('click', async (e) => {
                 // Ignore if clicking checkbox, favorite button, or action buttons
-                if (e.target.closest('.session-checkbox') ||
+                if (e.target.closest('.session-batch-checkbox') ||
                     e.target.closest('.session-favorite-btn') ||
                     e.target.closest('button') ||
                     e.target.closest('.session-tag-item')) {
@@ -68,13 +64,11 @@
                     return;
                 }
 
-                // Batch mode handling
+                // Batch mode handling - 直接切换选中状态，参考 YiWeb 实现
                 if (manager.batchMode) {
-                    const checkbox = sessionItem.querySelector('input[type="checkbox"]');
-                    if (checkbox) {
-                        checkbox.checked = !checkbox.checked;
-                        checkbox.dispatchEvent(new Event('change'));
-                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleBatchSelection(sessionItem);
                     return;
                 }
 
@@ -113,51 +107,73 @@
             return sessionItem;
         }
 
+        // 创建复选框（仅在批量模式下显示，位置在标题组内）
         createCheckbox(sessionItem) {
             const manager = this.manager;
             const session = this.session;
 
-            const checkboxContainer = document.createElement('div');
-            checkboxContainer.className = 'session-checkbox';
-
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
+            checkbox.className = 'session-batch-checkbox';
             const sessionKey = session.key;
             if (!sessionKey) {
                 console.warn('会话缺少 key 字段，无法设置复选框:', session);
-                return checkboxContainer;
+                return null;
             }
-            checkbox.checked = manager.selectedSessionIds && manager.selectedSessionIds.has(sessionKey);
+            
+            // 初始化选中状态
+            const isSelected = manager.selectedSessionIds && manager.selectedSessionIds.has(sessionKey);
+            checkbox.checked = isSelected;
+            
+            // 更新会话项的选中状态类
+            if (isSelected) {
+                sessionItem.classList.add('batch-selected');
+            }
 
-            checkbox.addEventListener('change', (e) => {
-                const checked = e.target.checked;
-                if (!manager.selectedSessionIds) {
-                    manager.selectedSessionIds = new Set();
-                }
-
-                const sessionKey = session.key;
-                if (!sessionKey) {
-                    console.warn('会话缺少 key 字段，无法更新选中状态:', session);
-                    return;
-                }
-                if (checked) {
-                    manager.selectedSessionIds.add(sessionKey);
-                    sessionItem.classList.add('selected');
-                } else {
-                    manager.selectedSessionIds.delete(sessionKey);
-                    sessionItem.classList.remove('selected');
-                }
-
-                if (typeof manager.updateBatchToolbar === 'function') {
-                    manager.updateBatchToolbar();
-                }
+            // 点击复选框时切换选中状态（阻止事件冒泡）
+            checkbox.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleBatchSelection(sessionItem);
             });
 
-            checkboxContainer.appendChild(checkbox);
-            return checkboxContainer;
+            return checkbox;
         }
 
-        createContent() {
+        // 切换批量选中状态（参考 YiWeb 的 handleBatchSelect）
+        toggleBatchSelection(sessionItem) {
+            const manager = this.manager;
+            const session = this.session;
+            const sessionKey = session.key;
+
+            if (!sessionKey) {
+                console.warn('会话缺少 key 字段，无法切换选中状态:', session);
+                return;
+            }
+
+            if (!manager.selectedSessionIds) {
+                manager.selectedSessionIds = new Set();
+            }
+
+            const checkbox = sessionItem.querySelector('.session-batch-checkbox');
+            const isCurrentlySelected = manager.selectedSessionIds.has(sessionKey);
+
+            if (isCurrentlySelected) {
+                manager.selectedSessionIds.delete(sessionKey);
+                sessionItem.classList.remove('batch-selected');
+                if (checkbox) checkbox.checked = false;
+            } else {
+                manager.selectedSessionIds.add(sessionKey);
+                sessionItem.classList.add('batch-selected');
+                if (checkbox) checkbox.checked = true;
+            }
+
+            // 更新批量工具栏
+            if (typeof manager.updateBatchToolbar === 'function') {
+                manager.updateBatchToolbar();
+            }
+        }
+
+        createContent(sessionItem) {
             const session = this.session;
             const manager = this.manager;
 
@@ -167,6 +183,18 @@
             // 1. Header (Title + Fav)
             const header = document.createElement('div');
             header.className = 'session-item-header';
+
+            // 标题组（包含复选框和标题文本，参考 YiWeb 的 session-item-title-group）
+            const titleGroup = document.createElement('div');
+            titleGroup.className = 'session-item-title-group';
+
+            // 批量模式下的复选框（仅在批量模式下显示）
+            if (manager.batchMode) {
+                const checkbox = this.createCheckbox(sessionItem);
+                if (checkbox) {
+                    titleGroup.appendChild(checkbox);
+                }
+            }
 
             const title = document.createElement('div');
             title.className = 'session-item-title';
@@ -230,9 +258,17 @@
                 titleText.classList.add('title-text--favorite');
             }
 
-            title.appendChild(favIcon);
+            // 收藏按钮（批量模式下隐藏，在标题行右侧）
+            if (!manager.batchMode) {
+                title.appendChild(favIcon);
+            }
             title.appendChild(titleText);
-            header.appendChild(title);
+            titleGroup.appendChild(title);
+            header.appendChild(titleGroup);
+            
+            // 在非批量模式下，收藏按钮也在 header 右侧（如果需要的话）
+            // 注意：favIcon 已经在 title 内，所以不需要重复添加
+            
             contentWrapper.appendChild(header);
 
             // 2. Session Info (Tags + Footer)
@@ -277,9 +313,12 @@
             }
             footer.appendChild(timeSpan);
 
-            // Action Buttons
+            // Action Buttons（批量模式下隐藏，参考 YiWeb 实现）
             const footerButtonContainer = document.createElement('div');
             footerButtonContainer.className = 'session-action-buttons';
+            if (manager.batchMode) {
+                footerButtonContainer.style.display = 'none';
+            }
 
             // Create buttons - 使用图标和类名匹配 YiWeb 设计
             const createBtn = (icon, title, className, onClick) => {
@@ -297,23 +336,19 @@
             };
 
             // Edit
-            const editBtn = createBtn('✏️', '编辑标题', 'session-edit-btn', async () => {
-                const sessionKey = session.key;
+            const editBtn = createBtn('✏️', '编辑会话', 'session-edit-btn', async () => {
+                const sessionKey = session.key || sessionId;
                 if (!sessionKey) {
-                    console.warn('会话缺少 key 字段，无法编辑标题:', session);
-                    manager.showNotification('无法编辑标题：会话缺少标识符', 'error');
+                    console.warn('会话缺少 key 字段，无法编辑:', session);
+                    manager.showNotification('无法编辑：会话缺少标识符', 'error');
                     return;
                 }
-                const newTitle = prompt('编辑会话标题', sessionTitle);
-                if (newTitle && newTitle.trim()) {
-                    try {
-                        await manager.renameSession(sessionKey, newTitle.trim());
-                        titleText.textContent = newTitle.trim();
-                        manager.showNotification('标题已更新', 'success');
-                    } catch (err) {
-                        console.error('更新标题失败:', err);
-                        manager.showNotification('更新标题失败', 'error');
-                    }
+                // 调用 editSessionTitle 方法打开编辑对话框
+                if (typeof manager.editSessionTitle === 'function') {
+                    await manager.editSessionTitle(sessionKey);
+                } else {
+                    console.warn('editSessionTitle 方法不存在');
+                    manager.showNotification('编辑功能不可用', 'error');
                 }
             });
 
@@ -361,23 +396,10 @@
                 }
             });
 
-            // Open
-            const openUrlBtn = session.url ? createBtn('🔗', '在新标签页打开', 'session-open-btn', async () => {
-                try {
-                    await manager.openUrl(session.url);
-                } catch (err) {
-                    console.error('打开链接失败:', err);
-                    manager.showNotification('打开链接失败', 'error');
-                }
-            }) : null;
-
             footerButtonContainer.appendChild(editBtn);
             footerButtonContainer.appendChild(tagBtn);
             footerButtonContainer.appendChild(duplicateBtn);
             footerButtonContainer.appendChild(contextBtn);
-            if (openUrlBtn) {
-                footerButtonContainer.appendChild(openUrlBtn);
-            }
 
             footer.appendChild(footerButtonContainer);
             sessionInfo.appendChild(footer);

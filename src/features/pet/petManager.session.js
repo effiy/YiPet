@@ -111,6 +111,11 @@
             const newSession = this.createSessionObject(pageInfo);
             this.sessions[sessionId] = newSession;
 
+            // 调用 write-file 接口写入页面上下文（参考 YiWeb 的 handleSessionCreate）
+            if (newSession.pageContent && newSession.pageContent.trim()) {
+                await this.writeSessionPageContent(sessionId);
+            }
+
             // 保存到本地
             await this.saveAllSessions(true, true);
 
@@ -145,7 +150,8 @@
             updateUI = true,
             syncToBackend = true,
             skipBackendFetch = false, // 是否跳过从后端获取数据（用于新创建的空白会话）
-            keepApiRequestListView = false // 是否保持请求接口列表视图（不切换到会话列表）
+            keepApiRequestListView = false, // 是否保持请求接口列表视图（不切换到会话列表）
+            preserveOrder = false // 是否保持排列位置不变（不更新 lastAccessTime 和 updatedAt）
         } = options;
 
         // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
@@ -225,9 +231,15 @@
                             if (pageTitle !== undefined) {
                                 existingSession.pageTitle = pageTitle;
                             }
-                            existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
-                            existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
-                            existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
+                            // 如果 preserveOrder 为 true，不更新时间戳，保持排列位置不变
+                            if (!preserveOrder) {
+                                existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
+                                existingSession.createdAt = fullSession.createdAt || existingSession.createdAt;
+                                existingSession.lastAccessTime = fullSession.lastAccessTime || existingSession.lastAccessTime;
+                            } else {
+                                // preserveOrder 为 true 时，只更新数据，不更新时间戳
+                                console.log('保持排列位置不变，不更新会话时间戳');
+                            }
 
                         } else {
                             // 如果本地不存在，直接使用后端数据
@@ -285,14 +297,18 @@
             if (needsUpdate) {
                 // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
             }
-        } else if (!isUrlMatched) {
+        } else if (!isUrlMatched && !preserveOrder) {
             // URL不匹配时，只更新最后访问时间，不更新页面信息（保持数据隔离）
+            // 但如果 preserveOrder 为 true，则不更新时间戳，保持排列位置不变
             console.log(`切换到会话 ${sessionId}：URL不匹配，不更新页面信息。会话URL: ${targetSession.url}, 当前页面URL: ${pageInfo.url}`);
             const now = Date.now();
             if (!targetSession.lastAccessTime || (now - targetSession.lastAccessTime) > 60000) {
                 targetSession.lastAccessTime = now;
                 // 注意：已移除自动保存会话功能，仅在 prompt 接口调用后保存
             }
+        } else if (preserveOrder) {
+            // preserveOrder 为 true 时，不更新任何时间戳，保持排列位置不变
+            console.log(`切换到会话 ${sessionId}：保持排列位置不变，不更新时间戳`);
         }
 
         // 更新UI
@@ -315,9 +331,64 @@
         const lastAccessTime = now; // 每次创建或更新时都更新访问时间
 
         // 获取页面标题，优先使用 pageInfo.title 或 pageInfo.pageTitle
-        const pageTitle = pageInfo.title || pageInfo.pageTitle || '';
+        let pageTitle = pageInfo.title || pageInfo.pageTitle || '';
         // title 字段与 pageTitle 保持一致（与 YiWeb 保持一致）
-        const title = pageTitle || '新会话';
+        let title = pageTitle || '新会话';
+
+        // 初始化标签数组
+        let tags = existingSession?.tags ? [...existingSession.tags] : [];
+
+        // 如果是自动新建的会话（existingSession 为 null），在 title 和 pageTitle 后面添加 .md 后缀，并添加域名标签
+        if (!existingSession) {
+            // 辅助函数：如果字符串不为空且没有 .md 后缀，则添加后缀
+            const addMdSuffix = (str) => {
+                if (!str || !str.trim()) return str;
+                return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md';
+            };
+
+            // 为 title 和 pageTitle 添加 .md 后缀
+            if (pageTitle) {
+                pageTitle = addMdSuffix(pageTitle);
+            }
+            if (title) {
+                title = addMdSuffix(title);
+            } else {
+                // 如果 title 为空，设置为 "新会话.md"
+                title = '新会话.md';
+            }
+
+            // 从 URL 中提取域名并作为标签添加
+            if (pageInfo.url && typeof pageInfo.url === 'string') {
+                try {
+                    // 跳过自定义协议（如 blank-session://, import-session:// 等）
+                    const customProtocols = ['blank-session://', 'import-session://', 'aicr-session://'];
+                    const isCustomProtocol = customProtocols.some(protocol => pageInfo.url.startsWith(protocol));
+                    
+                    if (!isCustomProtocol) {
+                        // 确保URL有协议
+                        let urlToProcess = pageInfo.url;
+                        if (!urlToProcess.startsWith('http://') && !urlToProcess.startsWith('https://')) {
+                            urlToProcess = 'https://' + urlToProcess;
+                        }
+                        
+                        // 提取域名
+                        const urlObj = new URL(urlToProcess);
+                        const domain = urlObj.hostname;
+                        
+                        // 去掉 www. 前缀（可选）
+                        const mainDomain = domain.startsWith('www.') ? domain.substring(4) : domain;
+                        
+                        // 如果域名存在且不在标签列表中，则添加
+                        if (mainDomain && !tags.includes(mainDomain)) {
+                            tags.push(mainDomain);
+                        }
+                    }
+                } catch (error) {
+                    // URL 解析失败，忽略错误
+                    console.warn('[createSessionObject] 从URL提取域名失败:', pageInfo.url, error);
+                }
+            }
+        }
 
         return {
             url: pageInfo.url, // 页面URL（用于查找会话，作为会话的唯一标识）
@@ -326,7 +397,7 @@
             pageDescription: pageInfo.description || '', // 页面描述（meta description）
             pageContent: pageInfo.content || '', // 页面内容（Markdown格式，用于AI理解上下文）
             messages: messages, // 聊天记录（该会话的所有对话）
-            tags: existingSession?.tags || [], // 标签数组（与 YiWeb 保持一致）
+            tags: tags, // 标签数组（与 YiWeb 保持一致）
             createdAt: createdAt, // 创建时间
             updatedAt: now, // 更新时间
             lastAccessTime: lastAccessTime // 最后访问时间
@@ -576,22 +647,23 @@
             }
 
             // 构建请求数据
-            // 检查是否为空白会话
+            // 检查是否为空白会话（支持 blank-session:// 和 aicr-session:// 协议）
             const isBlankSession = session._isBlankSession ||
                 !session.url ||
-                session.url.startsWith('blank-session://');
+                session.url.startsWith('blank-session://') ||
+                session.url.startsWith('aicr-session://');
 
-            // 如果是空白会话，应该保持使用原始的blank-session://URL，而不是当前页面URL
+            // 如果是空白会话，应该保持使用原始的协议URL，而不是当前页面URL
             let sessionUrl = '';
             if (isBlankSession) {
                 // 对于空白会话，优先使用保存的原始URL，防止被意外更新为当前页面URL
-                if (session._originalUrl && session._originalUrl.startsWith('blank-session://')) {
+                if (session._originalUrl && (session._originalUrl.startsWith('blank-session://') || session._originalUrl.startsWith('aicr-session://'))) {
                     sessionUrl = session._originalUrl;
-                } else if (session.url && session.url.startsWith('blank-session://')) {
+                } else if (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://'))) {
                     sessionUrl = session.url;
                 } else {
-                    // 如果URL已经被更新，使用创建时的URL或重新生成一个blank-session://URL
-                    sessionUrl = session._originalUrl || `blank-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                    // 如果URL已经被更新，使用创建时的URL或重新生成一个 aicr-session:// URL（与新建会话保持一致）
+                    sessionUrl = session._originalUrl || `aicr-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
                 }
             } else {
                 sessionUrl = session.url || '';
@@ -711,23 +783,24 @@
                 if (this.sessionApi && session) {
                     try {
                         // 构建会话数据
-                        // 检查是否为空白会话
+                        // 检查是否为空白会话（支持 blank-session:// 和 aicr-session:// 协议）
                         const isBlankSession = session._isBlankSession ||
                             !session.url ||
-                            session.url.startsWith('blank-session://');
+                            session.url.startsWith('blank-session://') ||
+                            session.url.startsWith('aicr-session://');
 
                         // 如果是接口会话，url应该使用接口的pageUrl或url，而不是session.url（可能被更新为当前页面URL）
-                        // 如果是空白会话，应该保持使用原始的blank-session://URL，而不是当前页面URL
+                        // 如果是空白会话，应该保持使用原始的协议URL，而不是当前页面URL
                         let fallbackSessionUrl = '';
                         if (isBlankSession) {
                             // 对于空白会话，优先使用保存的原始URL，防止被意外更新为当前页面URL
-                            if (session._originalUrl && session._originalUrl.startsWith('blank-session://')) {
+                            if (session._originalUrl && (session._originalUrl.startsWith('blank-session://') || session._originalUrl.startsWith('aicr-session://'))) {
                                 fallbackSessionUrl = session._originalUrl;
-                            } else if (session.url && session.url.startsWith('blank-session://')) {
+                            } else if (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://'))) {
                                 fallbackSessionUrl = session.url;
                             } else {
-                                // 如果URL已经被更新，使用创建时的URL或重新生成一个blank-session://URL
-                                fallbackSessionUrl = session._originalUrl || `blank-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                                // 如果URL已经被更新，使用创建时的URL或重新生成一个 aicr-session:// URL（与新建会话保持一致）
+                                fallbackSessionUrl = session._originalUrl || `aicr-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
                             }
                         } else {
                             fallbackSessionUrl = session.url || '';
@@ -816,7 +889,9 @@
                 }
 
                 const sessionUrl = backendSession.url || '';
-                const isBlankSession = sessionUrl.startsWith('blank-session://') || backendSession._isBlankSession;
+                const isBlankSession = sessionUrl.startsWith('blank-session://') || 
+                                      sessionUrl.startsWith('aicr-session://') || 
+                                      backendSession._isBlankSession;
 
                 // 解析时间字段
                 const createdAt = parseTime(backendSession.createdAt) ||
@@ -1080,8 +1155,9 @@
         // 优先使用会话的 pageTitle，如果没有则使用 title
         let sessionTitle = session.pageTitle || session.title || '未命名会话';
 
-        // 如果是空白会话且标题是默认值，尝试生成更友好的标题
-        if (session._isBlankSession || (session.url && session.url.startsWith('blank-session://'))) {
+        // 如果是空白会话且标题是默认值，尝试生成更友好的标题（支持 blank-session:// 和 aicr-session:// 协议）
+        if (session._isBlankSession || 
+            (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://')))) {
             if (!session.pageTitle || session.pageTitle === '新会话' || session.pageTitle === '未命名会话') {
                 // 如果有消息，使用第一条用户消息的前几个字
                 if (session.messages && session.messages.length > 0) {
@@ -1341,169 +1417,160 @@
     };
 
     // 创建空白新会话（手动添加）
+    /**
+     * 生成 UUID v4 格式的 key（与 YiWeb 保持一致）
+     */
+    proto._generateUUID = function() {
+        // 优先使用 crypto.randomUUID（如果可用）
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        // 兜底方案：生成类似 UUID 的字符串
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+
+    /**
+     * 创建空白会话（与 YiWeb 的 handleSessionCreate 保持一致）
+     */
     proto.createBlankSession = async function () {
+        // 使用 prompt 获取会话名称（与 YiWeb 保持一致）
+        const title = window.prompt('新建会话名称：');
+        if (!title || !title.trim()) {
+            return; // 用户取消或输入为空
+        }
+
+        const sessionTitle = title.trim();
+
         // 确保已加载所有会话
         await this.loadAllSessions();
 
-        // 生成一个唯一的会话ID（不基于URL，使用时间戳和随机数）
-        const uniqueId = `blank_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-        const sessionId = await this.generateSessionId(uniqueId);
+        // 生成 UUID 格式的会话 key（与 YiWeb 保持一致）
+        const sessionKey = this._generateUUID();
+
+        // 生成唯一的随机 URL（使用 aicr-session:// 协议，与 YiWeb 保持一致）
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 11);
+        const uniqueUrl = `aicr-session://${timestamp}-${randomStr}`;
+
+        // 获取当前时间戳
+        const now = Date.now();
+
+        // 构建会话数据（与 YiWeb 保持一致）
+        const sessionData = {
+            key: sessionKey,
+            url: uniqueUrl,
+            title: sessionTitle,
+            pageTitle: sessionTitle,
+            pageDescription: '',
+            pageContent: '',
+            messages: [],
+            tags: [],
+            createdAt: now,
+            updatedAt: now,
+            lastAccessTime: now,
+            isFavorite: false
+        };
+
+        // 生成一个唯一的会话ID（用于本地存储的key，基于URL）
+        const sessionId = await this.generateSessionId(uniqueUrl);
 
         // 检查会话ID是否已存在，如果存在则重新生成
         let finalSessionId = sessionId;
         let attempts = 0;
         while (this.sessions[finalSessionId] && attempts < 10) {
-            const newUniqueId = `blank_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            finalSessionId = await this.generateSessionId(newUniqueId);
+            const newTimestamp = Date.now();
+            const newRandomStr = Math.random().toString(36).substring(2, 11);
+            const newUrl = `aicr-session://${newTimestamp}-${newRandomStr}`;
+            finalSessionId = await this.generateSessionId(newUrl);
+            sessionData.url = newUrl; // 更新会话数据中的URL
             attempts++;
         }
 
-        // 生成唯一的空白会话URL（确保不会重复）
-        // 使用自定义协议格式：blank-session://{timestamp}-{random}
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(2, 11); // 9位随机字符串
-        const uniqueUrl = `blank-session://${timestamp}-${randomStr}`;
-
-        // 确保URL唯一：检查是否已存在相同URL的会话
-        let finalUrl = uniqueUrl;
-        let urlAttempts = 0;
-        while (Object.values(this.sessions).some(s => s && s.url === finalUrl) && urlAttempts < 10) {
-            const newTimestamp = Date.now();
-            const newRandomStr = Math.random().toString(36).substring(2, 11);
-            finalUrl = `blank-session://${newTimestamp}-${newRandomStr}`;
-            urlAttempts++;
-        }
-
-        // 获取当前筛选的会话列表
-        const filteredSessions = this._getFilteredSessions();
-
-        // 构建结构化的会话列表内容
-        let structuredSessionList = '';
-        if (filteredSessions && filteredSessions.length > 0) {
-            structuredSessionList = '\n\n## 当前筛选的会话列表\n\n';
-
-            filteredSessions.forEach((session, index) => {
-                const title = session.pageTitle || session.title || '未命名会话';
-                const url = session.url || session.requestUrl || '';
-                const description = session.pageDescription || session.preview || '';
-
-                structuredSessionList += `### ${index + 1}. ${title}\n\n`;
-
-                if (url) {
-                    structuredSessionList += `**链接**: ${url}\n\n`;
-                }
-
-                if (description) {
-                    structuredSessionList += `**描述**: ${description}\n\n`;
-                }
-
-                // 如果有标签，也添加进去
-                if (session.tags && Array.isArray(session.tags) && session.tags.length > 0) {
-                    structuredSessionList += `**标签**: ${session.tags.join(', ')}\n\n`;
-                }
-
-                structuredSessionList += '---\n\n';
-            });
-        }
-
-        // 创建空白会话对象（包含当前页面信息和筛选的会话列表）
-        const now = Date.now();
-        // 获取当前页面信息，用于保留页面上下文
-        const pageInfo = this.getPageInfo();
-
-        // 将筛选的会话列表追加到当前页面内容之后
-        // 确保即使没有当前页面内容，也要包含筛选会话列表
-        const basePageContent = (pageInfo.content || '').trim();
-        const pageContent = basePageContent
-            ? (basePageContent + structuredSessionList)
-            : (structuredSessionList || '');
-
-        // 格式化日期为 yyyy-MM-dd hh:mm:ss 格式
-        const formatDateForTitle = (timestamp) => {
-            const date = new Date(timestamp);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        };
-
-        const blankSession = {
-            key: this._generateUUID(), // 生成 UUID 格式的 key
-            url: finalUrl, // 空白会话使用唯一的随机URL（不会与基于URL的会话冲突）
-            pageTitle: `会话_${formatDateForTitle(now)}`, // 使用日期时间格式作为标题，添加"会话_"前缀
-            pageDescription: pageInfo.description || '', // 使用当前页面描述
-            pageContent: pageContent, // 保存筛选会话列表的结构化内容或当前页面内容
-            messages: [], // 空的对话列表
-            createdAt: now,
-            updatedAt: now,
-            lastAccessTime: now,
-            _isBlankSession: true, // 标记为空白会话，用于后续处理
-            _originalUrl: finalUrl // 保存原始URL，防止被意外更新
-        };
-
-        // 保存新会话到本地存储
-        this.sessions[finalSessionId] = blankSession;
-
-        console.log('已创建空白新会话:', finalSessionId, {
-            filteredSessionsCount: filteredSessions.length,
-            hasStructuredContent: !!structuredSessionList
-        });
-
-        // 自动保存新会话到后端（立即保存，包含 pageContent）
         try {
-            // 确保会话对象已更新到 sessions 中
-            this.sessions[finalSessionId] = blankSession;
-
-            // 立即保存到后端，包含 pageContent 字段（只在聊天窗口打开时）
-            if (this.isChatOpen) {
-                await this.syncSessionToBackend(finalSessionId, true, true);
+            // 调用 create_document 接口创建会话（与 YiWeb 保持一致）
+            if (this.sessionApi && this.sessionApi.isEnabled()) {
+                try {
+                    const result = await this.sessionApi.saveSession(sessionData);
+                    console.log('[createBlankSession] 会话已通过 create_document 创建:', sessionKey);
+                } catch (error) {
+                    console.error('[createBlankSession] 创建会话失败:', error);
+                    this.showNotification('创建会话失败：' + (error.message || '未知错误'), 'error');
+                    return;
+                }
+            } else {
+                // 如果没有启用后端同步，只保存到本地
+                console.log('[createBlankSession] 后端同步未启用，仅保存到本地');
             }
 
+            // 保存到本地存储
+            this.sessions[finalSessionId] = sessionData;
+            await this.saveAllSessions(false, true);
 
-            console.log('新会话已自动保存到后端', {
-                sessionId: finalSessionId,
-                hasPageContent: !!blankSession.pageContent,
-                pageContentLength: blankSession.pageContent ? blankSession.pageContent.length : 0,
-                filteredSessionsCount: filteredSessions.length
-            });
+            // 调用 write-file 接口创建实际文件（与 YiWeb 保持一致，即使 pageContent 为空也创建文件）
+            if (typeof this.writeSessionPageContent === 'function') {
+                try {
+                    await this.writeSessionPageContent(finalSessionId);
+                    console.log('[createBlankSession] 文件已通过 write-file 创建');
+                } catch (writeError) {
+                    // write-file 调用失败不影响保存流程，只记录警告
+                    console.warn('[createBlankSession] write-file 接口调用失败（已忽略）:', writeError?.message);
+                }
+            }
+
+            // 刷新会话列表（从后端获取最新数据，与 YiWeb 保持一致）
+            if (this.sessionApi && this.sessionApi.isEnabled()) {
+                try {
+                    await this.loadSessionsFromBackend(true);
+                } catch (refreshError) {
+                    console.warn('[createBlankSession] 刷新会话列表失败（已忽略）:', refreshError?.message);
+                }
+            }
+
+            // 更新会话侧边栏
+            await this.updateSessionSidebar(true);
+
+            // 自动选中新创建的会话（与 YiWeb 保持一致）
+            // 等待会话列表刷新完成
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // 查找新创建的会话（可能已经通过 loadSessionsFromBackend 更新）
+            const sessions = Object.values(this.sessions || {});
+            const newSession = sessions.find(s => s && s.key === sessionKey);
+            if (newSession) {
+                // 找到对应的 sessionId
+                const targetSessionId = Object.keys(this.sessions).find(id => 
+                    this.sessions[id] && this.sessions[id].key === sessionKey
+                );
+                if (targetSessionId) {
+                    await this.activateSession(targetSessionId, {
+                        saveCurrent: false,
+                        updateConsistency: false,
+                        updateUI: true,
+                        syncToBackend: false,
+                        skipBackendFetch: false // 从后端获取最新数据
+                    });
+
+                    // 滚动到会话项位置（等待侧边栏更新完成）
+                    if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        await this.scrollToSessionItem(targetSessionId);
+                    }
+                }
+            }
+
+            // 显示成功通知
+            this.showNotification('会话创建成功', 'success');
+
+            return finalSessionId;
         } catch (error) {
-            console.error('自动保存新会话到后端失败:', error);
-            // 不阻止流程继续，但记录错误以便调试
+            console.error('[createBlankSession] 创建会话失败:', error);
+            this.showNotification('创建会话失败：' + (error.message || '未知错误'), 'error');
+            throw error;
         }
-
-        // 激活新创建的会话（跳过从后端获取数据，因为这是新创建的空白会话）
-        await this.activateSession(finalSessionId, {
-            saveCurrent: true, // 保存当前会话
-            updateConsistency: false, // 空白会话不需要更新页面一致性
-            updateUI: true, // 更新UI
-            syncToBackend: false, // 已立即同步，不再重复同步
-            skipBackendFetch: true // 跳过从后端获取数据（避免404）
-        });
-
-        // 更新聊天窗口（如果已打开）
-        if (this.isChatOpen && this.chatWindow) {
-            // 清空消息容器并显示欢迎消息
-            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
-            if (messagesContainer) {
-                messagesContainer.innerHTML = '';
-                const welcomeMessage = await this.createWelcomeMessage(messagesContainer);
-            }
-
-            // 更新聊天窗口标题
-            this.updateChatHeaderTitle();
-
-        }
-
-        // 显示成功通知
-        const notificationMsg = filteredSessions.length > 0
-            ? `已创建新会话（已包含 ${filteredSessions.length} 个筛选会话的信息）`
-            : '已创建新会话';
-        this.showNotification(notificationMsg, 'success');
-
-        return finalSessionId;
     };
 
     // 延迟初始化会话：等待页面加载完成后1秒再执行
@@ -1690,12 +1757,17 @@
             // 使用统一的激活会话方法
             // 注意：saveCurrent设为false，手动切换会话时不保存当前会话
             // syncToBackend设为false，手动切换会话时不调用 session/save 接口
+            // preserveOrder设为true，不更新 lastAccessTime 和 updatedAt，保持排列位置不变
             await this.activateSession(sessionId, {
                 saveCurrent: false, // 手动切换会话时不保存，避免调用 session/save 接口
-                updateConsistency: true,
+                updateConsistency: false, // 不更新一致性，避免修改会话数据
                 updateUI: false, // 稍后手动更新UI以便添加过渡效果
-                syncToBackend: false // 手动切换会话时不同步到后端，避免调用 session/save 接口
+                syncToBackend: false, // 手动切换会话时不同步到后端，避免调用 session/save 接口
+                preserveOrder: true // 保持排列位置不变，不更新时间戳
             });
+
+            // 调用 read-file 接口获取页面上下文（参考 YiWeb 的 selectSessionForChat）
+            await this.fetchSessionPageContent(sessionId);
 
             // 更新侧边栏
             await new Promise(resolve => {
@@ -1751,6 +1823,192 @@
                 clickedItem.classList.remove('switching');
             }
             this.isSwitchingSession = false;
+        }
+    };
+
+    // 调用 write-file 接口写入页面上下文（参考 YiWeb 的 handleSessionCreate）
+    proto.writeSessionPageContent = async function (sessionId) {
+        // 只有在聊天对话框打开时才调用 write-file 接口
+        if (!this.isChatOpen) {
+            console.log('[writeSessionPageContent] 聊天对话框未打开，跳过 write-file 接口调用');
+            return;
+        }
+
+        const session = this.sessions[sessionId];
+        if (!session) {
+            console.warn('[writeSessionPageContent] 会话不存在:', sessionId);
+            return;
+        }
+
+        // 获取 API 基础 URL（参考 YiWeb 的实现）
+        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL)) 
+            ? String(window.API_URL).replace(/\/+$/, '') 
+            : (PET_CONFIG?.api?.yiaiBaseUrl || '');
+
+        if (!apiBase) {
+            console.warn('[writeSessionPageContent] API_URL 未配置，跳过 write-file 接口调用');
+            return;
+        }
+
+        // 构建文件路径（参考 YiWeb 的 handleSessionCreate 和 read-file 的逻辑）
+        let cleanPath = '';
+
+        // 优先从会话的 tags 构建路径
+        const tags = Array.isArray(session.tags) ? session.tags : [];
+        let currentPath = '';
+        tags.forEach((folderName) => {
+            if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
+            currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+        });
+
+        // 使用 title 或 pageTitle 作为文件名
+        let fileName = session.title || session.pageTitle || 'Untitled';
+        fileName = String(fileName).replace(/\//g, '-'); // 清理文件名中的斜杠
+        cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
+        cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+        
+        // 移除 static/ 前缀（如果有）
+        if (cleanPath.startsWith('static/')) {
+            cleanPath = cleanPath.substring(7);
+        }
+        cleanPath = cleanPath.replace(/^\/+/, '');
+
+        // 如果 cleanPath 仍然为空，使用会话的 key 作为文件名（作为最后的备选方案）
+        if (!cleanPath && session.key) {
+            cleanPath = `session_${session.key}.txt`;
+        }
+
+        // 确保有路径后才调用接口
+        if (!cleanPath) {
+            console.warn('[writeSessionPageContent] 无法确定文件路径，跳过 write-file 接口调用');
+            return;
+        }
+
+        // 获取页面上下文内容
+        const pageContent = session.pageContent || '';
+
+        try {
+            console.log('[writeSessionPageContent] 调用 write-file 接口，路径:', cleanPath, '内容长度:', pageContent.length);
+            const res = await fetch(`${apiBase}/write-file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_file: cleanPath,
+                    content: pageContent,
+                    is_base64: false
+                })
+            });
+
+            if (res.ok) {
+                const json = await res.json();
+                if (json.code === 0 || json.code === 200) {
+                    console.log('[writeSessionPageContent] write-file 接口调用成功，文件路径:', cleanPath);
+                } else {
+                    console.warn('[writeSessionPageContent] write-file 接口返回异常:', json);
+                }
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                console.warn('[writeSessionPageContent] write-file 接口调用失败，状态码:', res.status, errorData.message || '');
+            }
+        } catch (error) {
+            console.warn('[writeSessionPageContent] write-file 接口调用异常（已忽略）:', error?.message);
+            // 不阻止流程继续，因为会话已创建
+        }
+    };
+
+    // 调用 read-file 接口获取页面上下文（参考 YiWeb 的 selectSessionForChat）
+    proto.fetchSessionPageContent = async function (sessionId) {
+        const session = this.sessions[sessionId];
+        if (!session) {
+            console.warn('[fetchSessionPageContent] 会话不存在:', sessionId);
+            return;
+        }
+
+        // 获取 API 基础 URL（参考 YiWeb 的实现）
+        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL)) 
+            ? String(window.API_URL).replace(/\/+$/, '') 
+            : (PET_CONFIG?.api?.yiaiBaseUrl || '');
+
+        if (!apiBase) {
+            console.warn('[fetchSessionPageContent] API_URL 未配置，跳过 read-file 接口调用');
+            return;
+        }
+
+        // 构建文件路径（参考 YiWeb 的逻辑）
+        let cleanPath = '';
+
+        // 优先从会话的 tags 构建路径
+        const tags = Array.isArray(session.tags) ? session.tags : [];
+        let currentPath = '';
+        tags.forEach((folderName) => {
+            if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
+            currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+        });
+
+        let fileName = session.title || session.pageTitle || 'Untitled';
+        fileName = String(fileName).replace(/\//g, '-');
+        cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
+        cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+        if (cleanPath.startsWith('static/')) {
+            cleanPath = cleanPath.substring(7);
+        }
+        cleanPath = cleanPath.replace(/^\/+/, '');
+
+        // 如果 cleanPath 仍然为空，使用会话的 pageDescription 或其他信息
+        if (!cleanPath) {
+            const pageDesc = session.pageDescription || '';
+            if (pageDesc && pageDesc.includes('文件：')) {
+                cleanPath = pageDesc.replace('文件：', '').trim();
+                cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+                if (cleanPath.startsWith('static/')) {
+                    cleanPath = cleanPath.substring(7);
+                }
+                cleanPath = cleanPath.replace(/^\/+/, '');
+            }
+        }
+
+        // 如果还是没有路径，使用会话的 key 作为文件名（作为最后的备选方案）
+        if (!cleanPath && session.key) {
+            cleanPath = `session_${session.key}.txt`;
+        }
+
+        // 确保有路径后才调用接口
+        if (!cleanPath) {
+            console.warn('[fetchSessionPageContent] 无法确定文件路径，跳过 read-file 接口调用');
+            return;
+        }
+
+        try {
+            console.log('[fetchSessionPageContent] 调用 read-file 接口，路径:', cleanPath);
+            const res = await fetch(`${apiBase}/read-file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_file: cleanPath })
+            });
+
+            if (res.ok) {
+                const json = await res.json();
+                if ((json.code === 200 || json.code === 0) && json.data && json.data.content) {
+                    if (json.data.type !== 'base64') {
+                        const staticContent = json.data.content;
+                        console.log('[fetchSessionPageContent] read-file 接口调用成功，内容长度:', staticContent.length);
+                        
+                        // 更新会话的 pageContent（不更新时间戳，保持排列位置不变）
+                        if (session) {
+                            session.pageContent = staticContent;
+                            console.log('[fetchSessionPageContent] 已更新会话页面上下文');
+                        }
+                    } else {
+                        console.log('[fetchSessionPageContent] read-file 接口返回 base64 类型，跳过');
+                    }
+                } else {
+                    console.warn('[fetchSessionPageContent] read-file 接口返回异常:', json);
+                }
+            } else {
+                console.warn('[fetchSessionPageContent] read-file 接口调用失败，状态码:', res.status);
+            }
+        } catch (error) {
+            console.error('[fetchSessionPageContent] read-file 接口调用异常:', error);
         }
     };
 

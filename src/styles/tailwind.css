@@ -89,9 +89,577 @@
 .tw-chip { padding: 3px 10px !important; border-radius: 12px !important; font-size: 11px !important; font-weight: 500 !important; cursor: pointer !important; transition: all 0.2s ease !important; border: 1px solid rgba(255,255,255,0.12) !important; color: #94a3b8 !important; background: #334155 !important }
 .tw-chip-active { border-color: #22c55e !important; color: #22c55e !important; background: rgba(34,197,94,0.1) !important }  /* 现代绿 */
 
-/* Layout helpers for FAQ manager */
-#pet-faq-manager .panel { background: #1e293b !important; border-radius: 12px !important; padding: 16px !important; width: 420px !important; max-width: 90% !important; max-height: 80vh !important; overflow: hidden !important; box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important; display: flex !important; flex-direction: column !important; border: 1px solid rgba(255,255,255,0.12) !important }
-#pet-faq-manager .header { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 12px !important }
-#pet-faq-manager .title { margin: 0 !important; font-size: 16px !important; color: #f8fafc !important; font-weight: 600 !important }
-#pet-faq-manager .faqs { flex: 1 !important; overflow-y: auto !important; border-top: 1px dashed rgba(255,255,255,0.12) !important; padding-top: 8px !important }
+/* FAQ Manager Styles - 参考 YiWeb 设计 */
+.pet-faq-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2147483649 !important;
+}
+
+.pet-faq-modal.show {
+  display: flex !important;
+}
+
+.pet-faq-modal-mask {
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.pet-faq-modal-body {
+  position: relative !important;
+  max-width: 1200px !important;
+  width: calc(100% - 80px) !important;
+  height: calc(100vh - 120px) !important;
+  max-height: 90vh !important;
+  margin: 60px auto !important;
+  background: rgba(2, 6, 23, 0.95) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(51, 65, 85, 0.85) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  animation: fadeInUp 0.18s ease-out !important;
+}
+
+.pet-faq-modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.7) !important;
+}
+
+.pet-faq-modal-title {
+  color: rgba(226, 232, 240, 0.95) !important;
+  font-weight: 650 !important;
+  font-size: 16px !important;
+}
+
+.pet-faq-modal-subtitle {
+  color: rgba(148, 163, 184, 0.75) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+.pet-faq-modal-close {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(226, 232, 240, 0.9) !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  padding: 4px 8px !important;
+  border-radius: 8px !important;
+  transition: background 0.12s ease !important;
+}
+
+.pet-faq-modal-close:hover {
+  background: rgba(51, 65, 85, 0.6) !important;
+}
+
+.pet-faq-modal-content {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 20px !important;
+}
+
+.pet-faq-layout {
+  display: flex !important;
+  gap: 12px !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.pet-faq-sidebar {
+  width: 360px !important;
+  max-width: 44% !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  padding-right: 2px !important;
+}
+
+.pet-faq-main {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  min-height: 0 !important;
+}
+
+.pet-faq-search-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.pet-faq-search-input {
+  flex: 1 !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(51, 65, 85, 0.85) !important;
+  background: rgba(2, 6, 23, 0.60) !important;
+  color: rgba(226, 232, 240, 0.95) !important;
+  outline: none !important;
+  font-size: 14px !important;
+}
+
+.pet-faq-search-input:focus {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+}
+
+.pet-faq-search-clear {
+  border: 1px solid rgba(51, 65, 85, 0.85) !important;
+  background: rgba(30, 41, 59, 0.6) !important;
+  color: rgba(226, 232, 240, 0.9) !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+}
+
+.pet-faq-search-clear:hover:enabled {
+  background: rgba(51, 65, 85, 0.6) !important;
+  transform: translateY(-1px) !important;
+}
+
+.pet-faq-search-clear:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.pet-faq-filter-row {
+  margin-top: 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.pet-faq-filter-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+.pet-faq-filter-btn {
+  border: 1px solid rgba(51, 65, 85, 0.85) !important;
+  background: rgba(30, 41, 59, 0.6) !important;
+  color: rgba(226, 232, 240, 0.9) !important;
+  border-radius: 12px !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+}
+
+.pet-faq-filter-btn:hover:enabled {
+  background: rgba(51, 65, 85, 0.6) !important;
+  transform: translateY(-1px) !important;
+}
+
+.pet-faq-filter-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.pet-faq-filter-btn.active {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12) !important;
+}
+
+.pet-faq-filter-btn.danger {
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  background: rgba(127, 29, 29, 0.35) !important;
+}
+
+.pet-faq-tag-search {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.pet-faq-tag-search-input {
+  flex: 1 !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(51, 65, 85, 0.85) !important;
+  background: rgba(2, 6, 23, 0.60) !important;
+  color: rgba(226, 232, 240, 0.95) !important;
+  outline: none !important;
+  font-size: 13px !important;
+}
+
+.pet-faq-tag-search-input:focus {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+}
+
+.pet-faq-tag-list {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.pet-faq-tag {
+  border: 1px solid rgba(51, 65, 85, 0.75) !important;
+  background: rgba(2, 6, 23, 0.35) !important;
+  color: rgba(226, 232, 240, 0.9) !important;
+  border-radius: 999px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+}
+
+.pet-faq-tag:hover {
+  background: rgba(51, 65, 85, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.pet-faq-tag.active {
+  border-color: rgba(79, 70, 229, 0.55) !important;
+  background: rgba(79, 70, 229, 0.25) !important;
+}
+
+.pet-faq-tag.more {
+  border-style: dashed !important;
+  opacity: 0.9 !important;
+}
+
+.pet-faq-tag-manager {
+  border: 1px solid rgba(51, 65, 85, 0.75) !important;
+  background: rgba(2, 6, 23, 0.25) !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.pet-faq-tag-manager-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.pet-faq-tag-manager-title {
+  color: rgba(226, 232, 240, 0.95) !important;
+  font-weight: 650 !important;
+  font-size: 13px !important;
+}
+
+.pet-faq-tag-manager-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  max-height: 260px !important;
+  overflow: auto !important;
+  padding-right: 2px !important;
+}
+
+.pet-faq-tag-manager-item {
+  border: 1px solid rgba(51, 65, 85, 0.6) !important;
+  background: rgba(2, 6, 23, 0.25) !important;
+  border-radius: 12px !important;
+  padding: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.pet-faq-tag-manager-name {
+  color: rgba(226, 232, 240, 0.9) !important;
+  font-size: 13px !important;
+  word-break: break-word !important;
+}
+
+.pet-faq-tag-manager-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.pet-faq-tag-manager-empty {
+  padding: 12px !important;
+  text-align: center !important;
+  color: rgba(148, 163, 184, 0.75) !important;
+  border: 1px dashed rgba(51, 65, 85, 0.6) !important;
+  border-radius: 12px !important;
+}
+
+.pet-faq-summary {
+  padding: 10px 12px !important;
+  border: 1px solid rgba(51, 65, 85, 0.7) !important;
+  border-radius: 14px !important;
+  background: rgba(2, 6, 23, 0.2) !important;
+  color: rgba(148, 163, 184, 0.9) !important;
+  font-size: 13px !important;
+}
+
+.pet-faq-input-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.pet-faq-input {
+  width: 100% !important;
+  resize: vertical !important;
+  min-height: 90px !important;
+  max-height: 220px !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(51, 65, 85, 0.85) !important;
+  background: rgba(2, 6, 23, 0.60) !important;
+  color: rgba(226, 232, 240, 0.95) !important;
+  outline: none !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+.pet-faq-input:focus {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+}
+
+.pet-faq-input-hint {
+  color: rgba(148, 163, 184, 0.75) !important;
+  font-size: 12px !important;
+}
+
+.pet-faq-status {
+  padding: 10px 12px !important;
+  border: 1px solid rgba(51, 65, 85, 0.7) !important;
+  border-radius: 14px !important;
+  background: rgba(2, 6, 23, 0.25) !important;
+  color: rgba(148, 163, 184, 0.9) !important;
+  font-size: 13px !important;
+}
+
+.pet-faq-error {
+  padding: 10px 12px !important;
+  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+  border-radius: 14px !important;
+  background: rgba(127, 29, 29, 0.18) !important;
+  color: rgba(254, 202, 202, 0.95) !important;
+  font-size: 13px !important;
+  word-break: break-word !important;
+}
+
+.pet-faq-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  overflow: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  padding-right: 2px !important;
+}
+
+.pet-faq-item {
+  border: 1px solid rgba(51, 65, 85, 0.75) !important;
+  background: rgba(2, 6, 23, 0.35) !important;
+  border-radius: 14px !important;
+  padding: 12px 14px !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease !important;
+}
+
+.pet-faq-item:hover {
+  background: rgba(2, 6, 23, 0.45) !important;
+  transform: translateY(-1px) !important;
+}
+
+.pet-faq-item:focus-visible {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14) !important;
+}
+
+.pet-faq-item-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.pet-faq-item-title {
+  color: rgba(226, 232, 240, 0.95) !important;
+  font-weight: 650 !important;
+  font-size: 14px !important;
+}
+
+.pet-faq-item-actions {
+  display: inline-flex !important;
+  gap: 10px !important;
+  align-items: center !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-2px) !important;
+  transition: opacity 0.12s ease, transform 0.12s ease !important;
+}
+
+.pet-faq-item:hover .pet-faq-item-actions,
+.pet-faq-item:focus-within .pet-faq-item-actions {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateY(0) !important;
+}
+
+.pet-faq-item-btn {
+  border: 1px solid rgba(51, 65, 85, 0.85) !important;
+  background: rgba(30, 41, 59, 0.6) !important;
+  color: rgba(226, 232, 240, 0.9) !important;
+  border-radius: 10px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+}
+
+.pet-faq-item-btn:hover {
+  background: rgba(51, 65, 85, 0.6) !important;
+  transform: translateY(-1px) !important;
+}
+
+.pet-faq-item-btn.primary {
+  border-color: rgba(79, 70, 229, 0.45) !important;
+  background: rgba(79, 70, 229, 0.85) !important;
+  color: rgba(248, 250, 252, 0.98) !important;
+  font-weight: 650 !important;
+}
+
+.pet-faq-item-btn.danger {
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  background: rgba(127, 29, 29, 0.30) !important;
+  color: rgba(254, 202, 202, 0.98) !important;
+}
+
+.pet-faq-item-tags {
+  margin-top: 10px !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.pet-faq-item-tag {
+  border: 1px solid rgba(51, 65, 85, 0.65) !important;
+  background: rgba(2, 6, 23, 0.25) !important;
+  color: rgba(226, 232, 240, 0.85) !important;
+  border-radius: 999px !important;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: transform 0.12s ease, background 0.12s ease !important;
+}
+
+.pet-faq-item-tag:hover {
+  background: rgba(51, 65, 85, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.pet-faq-item-prompt {
+  margin-top: 10px !important;
+  color: rgba(148, 163, 184, 0.85) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 4 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+.pet-faq-empty {
+  padding: 18px 12px !important;
+  text-align: center !important;
+  color: rgba(148, 163, 184, 0.8) !important;
+  border: 1px dashed rgba(51, 65, 85, 0.7) !important;
+  border-radius: 14px !important;
+}
+
+/* 滚动条样式 */
+.pet-faq-sidebar::-webkit-scrollbar,
+.pet-faq-list::-webkit-scrollbar,
+.pet-faq-tag-manager-list::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.pet-faq-sidebar::-webkit-scrollbar-track,
+.pet-faq-list::-webkit-scrollbar-track,
+.pet-faq-tag-manager-list::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.pet-faq-sidebar::-webkit-scrollbar-thumb,
+.pet-faq-list::-webkit-scrollbar-thumb,
+.pet-faq-tag-manager-list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35) !important;
+  border-radius: 999px !important;
+}
+
+.pet-faq-sidebar::-webkit-scrollbar-thumb:hover,
+.pet-faq-list::-webkit-scrollbar-thumb:hover,
+.pet-faq-tag-manager-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 860px) {
+  .pet-faq-modal-body {
+    width: calc(100% - 40px) !important;
+    height: calc(100vh - 80px) !important;
+    margin: 40px auto !important;
+    max-height: calc(100vh - 80px) !important;
+  }
+
+  .pet-faq-layout {
+    flex-direction: column !important;
+  }
+
+  .pet-faq-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .pet-faq-item-actions {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 

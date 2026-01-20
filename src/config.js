@@ -44,6 +44,7 @@ const DEFAULT_CONFIG = {
     streamPromptUrl: "https://api.effiy.cn/prompt",
     promptUrl: "https://api.effiy.cn/prompt/",
     yiaiBaseUrl: "https://api.effiy.cn",
+    faqApiUrl: "https://api.effiy.cn",
     syncSessionsToBackend: true
   },
   chatModels: {
@@ -70,17 +71,20 @@ const DEFAULT_CONFIG = {
       production: {
         streamPromptUrl: "https://api.effiy.cn/prompt",
         promptUrl: "https://api.effiy.cn/prompt/",
-        yiaiBaseUrl: "https://api.effiy.cn"
+        yiaiBaseUrl: "https://api.effiy.cn",
+        faqApiUrl: "https://api.effiy.cn"
       },
       staging: {
         streamPromptUrl: "https://staging.api.effiy.cn/prompt",
         promptUrl: "https://staging.api.effiy.cn/prompt/",
-        yiaiBaseUrl: "https://staging.api.effiy.cn"
+        yiaiBaseUrl: "https://staging.api.effiy.cn",
+        faqApiUrl: "https://staging.api.effiy.cn"
       },
       development: {
         streamPromptUrl: "http://localhost:8000/prompt",
         promptUrl: "http://localhost:8080/prompt/",
-        yiaiBaseUrl: "http://localhost:8000"
+        yiaiBaseUrl: "http://localhost:8000",
+        faqApiUrl: "http://localhost:8000"
       }
     }
   },

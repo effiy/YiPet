@@ -272,7 +272,7 @@ ${pageContent || '无内容'}
         // 再显示其他角色（没有绑定按钮的角色）作为可点击按钮
         const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id));
         for (const config of otherRoles) {
-            // 创建或复用角色按钮（没有 actionKey，点击时请求 /prompt 接口）
+            // 创建或复用角色按钮（没有 actionKey，点击时请求 services.ai.chat_service 接口）
             let button = this.roleButtonsById[config.id];
             if (!button) {
                 button = document.createElement('span');
@@ -649,7 +649,7 @@ ${pageContent || '无内容'}
             }
 
             try {
-                // 使用 /prompt 接口生成内容（非流式）
+                // 使用 services.ai.chat_service 接口生成内容（非流式）
                 console.log('调用大模型生成内容，角色:', roleInfo.label, '页面标题:', pageInfo.title || '当前页面');
 
                 // 创建 AbortController 用于终止请求
@@ -660,13 +660,33 @@ ${pageContent || '无内容'}
 
                 // 使用统一的 payload 构建函数，自动包含会话 ID
                 // 如果找到了用户消息元素，将其传递给 buildPromptPayload，以便从正确的消息中提取图片
-                const payload = this.buildPromptPayload(
+                const oldPayload = this.buildPromptPayload(
                     roleInfo.systemPrompt,
                     fromUser,
                     { messageDiv: userMessageDiv }
                 );
 
-                const response = await fetch(PET_CONFIG.api.promptUrl, {
+                // 转换为 services.ai.chat_service 格式
+                const payload = {
+                    module_name: 'services.ai.chat_service',
+                    method_name: 'chat',
+                    parameters: {
+                        system: oldPayload.fromSystem,
+                        user: oldPayload.fromUser,
+                        stream: false
+                    }
+                };
+                if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                    payload.parameters.images = oldPayload.images;
+                }
+                if (oldPayload.model) {
+                    payload.parameters.model = oldPayload.model;
+                }
+                if (oldPayload.conversation_id) {
+                    payload.parameters.conversation_id = oldPayload.conversation_id;
+                }
+
+                const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

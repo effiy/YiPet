@@ -95,8 +95,17 @@
         }
 
         if (this.chatWindow) {
+            // 移除之前设置的隐藏样式
+            this.chatWindow.style.removeProperty('visibility');
+            this.chatWindow.style.removeProperty('opacity');
+            this.chatWindow.removeAttribute('hidden');
             this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
+
+            // 更新聊天窗口样式（确保高度等样式正确）
+            if (typeof this.updateChatWindowStyle === 'function') {
+                this.updateChatWindowStyle();
+            }
 
             // 先处理 URL 匹配和会话创建/选中（确保会话列表已加载）
             // 这个方法会检查当前 URL 是否在会话列表中，如果不在则创建新会话
@@ -132,6 +141,21 @@
                 }
             }
 
+            // 强制重新计算消息容器高度（修复第二次打开时的高度问题）
+            setTimeout(() => {
+                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                const mainContent = this.chatWindow?.querySelector('.pet-chat-main-content');
+                
+                if (messagesContainer && mainContent) {
+                    // 移除可能冲突的内联样式，让 CSS 的 flex 布局生效
+                    mainContent.style.removeProperty('height');
+                    messagesContainer.style.removeProperty('height');
+                    
+                    // 触发重排以确保 flex 布局正确计算
+                    void mainContent.offsetHeight;
+                    void messagesContainer.offsetHeight;
+                }
+            }, 10);
 
             return;
         }
@@ -541,7 +565,8 @@
             const userMessages = []; // 保存所有用户消息，用于后续添加按钮
             let isFirstPetMessage = true; // 标记是否是第一条宠物消息
 
-            for (const msg of session.messages) {
+            for (let idx = 0; idx < session.messages.length; idx++) {
+                const msg = session.messages[idx];
                 // 验证消息格式：必须有类型，并且有内容或图片
                 if (!msg || !msg.type || (!msg.content && !msg.imageDataUrl)) {
                     console.warn('跳过无效消息:', msg);
@@ -559,6 +584,8 @@
                 }
 
                 const msgEl = this.createMessageElement(msg.content || '', msg.type, imageDataUrl, timestamp);
+                // 设置消息索引 - 与 YiWeb 保持一致
+                msgEl.setAttribute('data-chat-idx', idx.toString());
                 fragment.appendChild(msgEl);
 
                 // 如果是宠物消息，渲染 Markdown
@@ -768,11 +795,259 @@
         }
     };
 
+    // 绑定欢迎卡片的交互事件
+    proto.bindWelcomeCardEvents = function (container) {
+        if (!container) return;
+
+        // 复制功能
+        const copyButtons = container.querySelectorAll('[data-copy-target], [data-copy-text]');
+        copyButtons.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                let textToCopy = '';
+                
+                // 从目标元素复制
+                const copyTarget = btn.getAttribute('data-copy-target');
+                if (copyTarget) {
+                    const targetElement = container.querySelector(`#${copyTarget}`);
+                    if (targetElement) {
+                        textToCopy = targetElement.textContent || targetElement.innerText || '';
+                    }
+                }
+                
+                // 从属性复制
+                if (!textToCopy) {
+                    const copyText = btn.getAttribute('data-copy-text');
+                    if (copyText) {
+                        textToCopy = copyText;
+                    }
+                }
+                
+                if (textToCopy) {
+                    try {
+                        await navigator.clipboard.writeText(textToCopy);
+                        // 显示成功反馈
+                        const icon = btn.querySelector('i');
+                        if (icon) {
+                            const originalClass = icon.className;
+                            icon.className = 'fas fa-check';
+                            btn.style.color = 'rgba(34, 197, 94, 0.9)';
+                            setTimeout(() => {
+                                icon.className = originalClass;
+                                btn.style.color = '';
+                            }, 2000);
+                        }
+                    } catch (err) {
+                        console.warn('复制失败:', err);
+                        // 降级方案：使用传统方法
+                        const textArea = document.createElement('textarea');
+                        textArea.value = textToCopy;
+                        textArea.style.position = 'fixed';
+                        textArea.style.opacity = '0';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        try {
+                            document.execCommand('copy');
+                            const icon = btn.querySelector('i');
+                            if (icon) {
+                                const originalClass = icon.className;
+                                icon.className = 'fas fa-check';
+                                btn.style.color = 'rgba(34, 197, 94, 0.9)';
+                                setTimeout(() => {
+                                    icon.className = originalClass;
+                                    btn.style.color = '';
+                                }, 2000);
+                            }
+                        } catch (e) {
+                            console.warn('降级复制也失败:', e);
+                        }
+                        document.body.removeChild(textArea);
+                    }
+                }
+            });
+        });
+
+        // 展开/折叠功能
+        const toggleButtons = container.querySelectorAll('.welcome-card-toggle-btn');
+        toggleButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const targetId = btn.getAttribute('data-toggle-target');
+                const previewText = btn.getAttribute('data-preview-text');
+                const fullText = btn.getAttribute('data-full-text');
+                
+                if (!targetId) return;
+                
+                const targetElement = container.querySelector(`#${targetId}`);
+                const icon = btn.querySelector('i');
+                
+                if (!targetElement) return;
+                
+                const isExpanded = targetElement.classList.contains('expanded');
+                
+                if (isExpanded) {
+                    // 折叠
+                    targetElement.classList.remove('expanded');
+                    targetElement.innerHTML = this.renderMarkdown(previewText);
+                    if (icon) {
+                        icon.className = 'fas fa-chevron-down';
+                    }
+                } else {
+                    // 展开
+                    targetElement.classList.add('expanded');
+                    targetElement.innerHTML = this.renderMarkdown(fullText);
+                    if (icon) {
+                        icon.className = 'fas fa-chevron-up';
+                    }
+                }
+            });
+        });
+    };
+
+    // 构建欢迎卡片 HTML（只显示有值的字段，参考 YiWeb 的条件渲染）
+    proto.buildWelcomeCardHtml = function (pageInfo, session = null) {
+        // 获取会话信息（如果有）
+        const sessionTags = session && Array.isArray(session.tags) ? session.tags.filter(t => t && t.trim()) : [];
+        const sessionMessages = session && Array.isArray(session.messages) ? session.messages : [];
+        const sessionCreatedAt = session && session.createdAt ? session.createdAt : null;
+        const sessionUpdatedAt = session && session.updatedAt ? session.updatedAt : null;
+
+        // 检查会话是否有有效的 URL
+        // 如果会话存在但没有 url 对象或者 url 对象为空，就不显示网址
+        const hasSessionUrl = session && session.url && session.url.trim();
+        const shouldShowUrl = !session || hasSessionUrl; // 如果没有会话，或者会话有有效URL，才显示
+
+        // 构建欢迎卡片 HTML（只显示有值的字段）
+        let pageInfoHtml = '<div class="welcome-card">';
+
+        // 检查是否有任何内容可显示
+        const hasTitle = pageInfo.title && pageInfo.title.trim();
+        const hasUrl = shouldShowUrl && pageInfo.url && pageInfo.url.trim();
+        const hasDescription = pageInfo.description && pageInfo.description.trim();
+        const hasAnyContent = hasTitle || hasUrl || hasDescription || sessionTags.length > 0 || 
+                             sessionMessages.length > 0 || sessionCreatedAt || sessionUpdatedAt;
+
+        // 如果没有任何内容，显示空状态提示
+        if (!hasAnyContent) {
+            pageInfoHtml += `
+                <div class="welcome-card-header">
+                    <span class="welcome-card-title">当前页面</span>
+                </div>
+                <div class="welcome-card-section">
+                    <div class="welcome-card-empty">暂无页面信息</div>
+                </div>
+            `;
+            pageInfoHtml += '</div>';
+            return pageInfoHtml;
+        }
+
+        // 标题（如果有）
+        if (hasTitle) {
+            pageInfoHtml += `
+                <div class="welcome-card-header">
+                    <span class="welcome-card-title">${this.escapeHtml(pageInfo.title)}</span>
+                </div>
+            `;
+        }
+
+        // 网址（如果有且应该显示）
+        // 如果会话存在但没有 url 对象或者 url 对象为空，就不显示网址和网址内容
+        if (hasUrl) {
+            const urlId = `welcome-url-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            pageInfoHtml += `
+                <div class="welcome-card-section">
+                    <div class="welcome-card-section-header">
+                        <div class="welcome-card-section-title">🔗 网址</div>
+                        <button type="button" class="welcome-card-action-btn" data-copy-target="${urlId}" title="复制网址" aria-label="复制网址">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <a href="${this.escapeHtml(pageInfo.url)}" target="_blank" class="welcome-card-url" id="${urlId}">${this.escapeHtml(pageInfo.url)}</a>
+                </div>
+            `;
+        }
+
+        // 页面描述（如果有）
+        if (pageInfo.description && pageInfo.description.trim()) {
+            const descId = `welcome-desc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            pageInfoHtml += `
+                <div class="welcome-card-section welcome-card-description">
+                    <div class="welcome-card-section-header">
+                        <div class="welcome-card-section-title">📝 页面描述</div>
+                        <button type="button" class="welcome-card-action-btn" data-copy-text="${this.escapeHtml(pageInfo.description)}" title="复制描述" aria-label="复制描述">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="markdown-content" id="${descId}">${this.renderMarkdown(pageInfo.description)}</div>
+                </div>
+            `;
+        }
+
+        // 标签（如果有）
+        if (sessionTags.length > 0) {
+            const tagsHtml = sessionTags.map(tag => {
+                const escapedTag = this.escapeHtml(tag);
+                return `<span class="welcome-card-tag">${escapedTag}</span>`;
+            }).join('');
+            pageInfoHtml += `
+                <div class="welcome-card-section">
+                    <div class="welcome-card-section-title">🏷️ 标签</div>
+                    <div class="welcome-card-tags">${tagsHtml}</div>
+                </div>
+            `;
+        }
+
+        // 消息数量（如果有消息）
+        if (sessionMessages.length > 0) {
+            const userMessages = sessionMessages.filter(m => m.role === 'user').length;
+            const assistantMessages = sessionMessages.filter(m => m.role === 'assistant' || m.role === 'pet').length;
+            pageInfoHtml += `
+                <div class="welcome-card-section">
+                    <div class="welcome-card-section-title">💬 对话记录</div>
+                    <div class="welcome-card-meta">
+                        <span>共 ${sessionMessages.length} 条消息</span>
+                        ${userMessages > 0 ? `<span>（用户: ${userMessages} 条）</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 时间信息（合并显示创建时间和更新时间）
+        if (sessionCreatedAt || sessionUpdatedAt) {
+            const createdDate = sessionCreatedAt ? new Date(sessionCreatedAt) : null;
+            const updatedDate = sessionUpdatedAt ? new Date(sessionUpdatedAt) : null;
+            const hasValidCreated = createdDate && !isNaN(createdDate.getTime());
+            const hasValidUpdated = updatedDate && !isNaN(updatedDate.getTime());
+            const isSameTime = hasValidCreated && hasValidUpdated && 
+                              Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000; // 1分钟内视为相同
+            
+            if (hasValidCreated || hasValidUpdated) {
+                pageInfoHtml += `
+                    <div class="welcome-card-section">
+                        <div class="welcome-card-section-title">⏰ 时间信息</div>
+                        <div class="welcome-card-meta">
+                            ${hasValidCreated ? `<span>创建: ${this.escapeHtml(this.formatDate(createdDate))}</span>` : ''}
+                            ${hasValidUpdated && !isSameTime ? `<span>更新: ${this.escapeHtml(this.formatDate(updatedDate))}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        pageInfoHtml += '</div>';
+        return pageInfoHtml;
+    };
+
     // @param {Object} pageInfo - 页面信息对象（可选，如果不提供则使用当前页面信息）
     //   - title: 页面标题
     //   - url: 页面URL
     //   - description: 页面描述（可选）
     proto.createWelcomeMessage = async function (messagesContainer, pageInfo = null, skipAutoHandle = false) {
+        // 获取当前会话信息
         const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
 
         // 检查是否是接口会话
@@ -787,13 +1062,18 @@
         // 如果没有提供页面信息，使用当前页面信息或会话信息
         if (!pageInfo) {
             // 优先使用当前会话的页面信息，如果没有则使用当前页面信息
-            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                const session = this.sessions[this.currentSessionId];
+            if (session) {
+                // 如果会话没有 url 对象或者 url 对象为空，就不设置 url
+                const sessionUrl = session.url && session.url.trim() ? session.url : null;
                 pageInfo = {
                     title: session.pageTitle || document.title || '当前页面',
-                    url: session.url || window.location.href,
+                    url: sessionUrl || window.location.href,
                     description: session.pageDescription || ''
                 };
+                // 如果会话没有有效的 url，将 url 设置为空字符串，这样 buildWelcomeCardHtml 就不会显示网址
+                if (!sessionUrl) {
+                    pageInfo.url = '';
+                }
             } else {
                 // 使用 getPageInfo 方法获取当前页面信息
                 const currentPageInfo = this.getPageInfo();
@@ -808,27 +1088,8 @@
         // 获取页面图标
         const pageIconUrl = this.getPageIconUrl();
 
-        let pageInfoHtml = `
-            <div class="welcome-card">
-                <div class="welcome-card-header">
-                    <span class="welcome-card-title">${this.escapeHtml(pageInfo.title)}</span>
-                </div>
-                <div class="welcome-card-section">
-                    <div class="welcome-card-section-title">🔗 网址</div>
-                    <a href="${pageInfo.url}" target="_blank" class="welcome-card-url">${this.escapeHtml(pageInfo.url)}</a>
-                </div>
-        `;
-
-        if (pageInfo.description && pageInfo.description.trim()) {
-            pageInfoHtml += `
-                <div class="welcome-card-section welcome-card-description">
-                    <div class="welcome-card-section-title">📝 页面描述</div>
-                    <div class="markdown-content">${this.renderMarkdown(pageInfo.description)}</div>
-                </div>
-            `;
-        }
-
-        pageInfoHtml += `</div>`;
+        // 使用统一的构建方法生成欢迎卡片 HTML
+        const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);
 
         // 创建欢迎消息元素
         const welcomeMessage = this.createMessageElement('', 'pet');
@@ -840,6 +1101,9 @@
             messageText.innerHTML = pageInfoHtml;
             // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
             messageText.setAttribute('data-original-text', pageInfoHtml);
+            
+            // 绑定交互事件
+            this.bindWelcomeCardEvents(messageText);
         }
 
         // 自动处理会话保存和选中（仅在未跳过时执行）
@@ -883,27 +1147,8 @@
         // 获取页面图标
         const pageIconUrl = this.getPageIconUrl();
 
-        let pageInfoHtml = `
-            <div class="welcome-card">
-                <div class="welcome-card-header">
-                    <span class="welcome-card-title">${this.escapeHtml(pageInfo.title)}</span>
-                </div>
-                <div class="welcome-card-section">
-                    <div class="welcome-card-section-title">🔗 网址</div>
-                    <a href="${pageInfo.url}" target="_blank" class="welcome-card-url">${this.escapeHtml(pageInfo.url)}</a>
-                </div>
-        `;
-
-        if (pageInfo.description && pageInfo.description.trim()) {
-            pageInfoHtml += `
-                <div class="welcome-card-section welcome-card-description">
-                    <div class="welcome-card-section-title">📝 页面描述</div>
-                    <div class="markdown-content">${this.renderMarkdown(pageInfo.description)}</div>
-                </div>
-            `;
-        }
-
-        pageInfoHtml += `</div>`;
+        // 使用统一的构建方法生成欢迎卡片 HTML
+        const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);
 
         // 更新欢迎消息的内容
         const messageText = welcomeMessage.querySelector('[data-message-type="pet-bubble"]');
@@ -911,6 +1156,9 @@
             messageText.innerHTML = pageInfoHtml;
             // 更新原始HTML
             messageText.setAttribute('data-original-text', pageInfoHtml);
+            
+            // 绑定交互事件
+            this.bindWelcomeCardEvents(messageText);
         }
 
         // 自动处理会话保存和选中
@@ -1128,6 +1376,13 @@
                                 // 使用 key 作为 sessionId 存储到本地
                                 const sessionId = sessionKey;
                                 this.sessions[sessionId] = newSession;
+
+                                // 调用 write-file 接口写入页面上下文（参考 YiWeb 的 handleSessionCreate）
+                                if (newSession.pageContent && newSession.pageContent.trim()) {
+                                    if (typeof this.writeSessionPageContent === 'function') {
+                                        await this.writeSessionPageContent(sessionId);
+                                    }
+                                }
 
                                 // 保存到本地存储
                                 if (typeof this.saveSession === 'function') {

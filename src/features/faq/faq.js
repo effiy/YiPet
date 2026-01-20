@@ -5,71 +5,137 @@
   }
   const proto = window.PetManager.prototype;
 
+  // 规范化标签
+  const _normalizeFaqTags = (tags) => {
+    if (!tags) return [];
+    const raw = Array.isArray(tags) ? tags : String(tags).split(',');
+    const seen = new Set();
+    const out = [];
+    for (const t of raw) {
+      const s = String(t ?? '').trim();
+      if (!s) continue;
+      const k = s.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(s);
+    }
+    return out;
+  };
+
+  // 规范化FAQ文档
+  const _normalizeFaqDoc = (doc) => {
+    // 优先使用 key，如果没有则使用 id/_id，最后使用 text 作为 key
+    const key = String(doc?.key ?? doc?.id ?? doc?._id ?? doc?.text ?? '').trim();
+    const text = String(doc?.text ?? '').trim();
+    
+    // 如果已有 title 和 prompt，直接使用；否则从 text 解析
+    let title = String(doc?.title ?? '').trim();
+    let prompt = String(doc?.prompt ?? '').trim();
+    
+    if (!title && !prompt && text) {
+      // 从 text 解析：首行作为标题，余下作为正文
+      const lines = text.split('\n');
+      title = String(lines[0] ?? '').trim();
+      prompt = String(lines.slice(1).join('\n') ?? '').trim();
+    }
+    
+    // 如果只有 prompt 没有 title，使用 prompt 的前 40 个字符作为 title
+    if (!title && prompt) {
+      title = prompt.slice(0, 40);
+    }
+    
+    // 如果都没有，使用默认值
+    if (!title) {
+      title = '常见问题';
+    }
+    
+    return {
+      key: key || `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      title: title,
+      prompt: prompt,
+      text: text || (title && prompt ? `${title}\n\n${prompt}` : title),
+      tags: _normalizeFaqTags(doc?.tags),
+      order: Number.isFinite(Number(doc?.order)) ? Number(doc.order) : 0,
+      updatedTime: doc?.updatedTime
+    };
+  };
+
   proto.ensureFaqManagerUi = function() {
-    if (!this.chatWindow) return;
+    if (!this.chatWindow) {
+      console.warn('ensureFaqManagerUi: chatWindow 未初始化');
+      return;
+    }
     if (this.chatWindow.querySelector('#pet-faq-manager')) return;
 
     const modal = document.createElement('div');
     modal.id = 'pet-faq-manager';
-    modal.className = 'tw-absolute tw-inset-0 tw-bg-black-25 tw-hidden tw-items-center tw-justify-center tw-z-modal';
+    modal.className = 'pet-faq-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', '常见问题');
 
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        this.closeFaqManagerOnly();
-      }
-    });
+    const mask = document.createElement('div');
+    mask.className = 'pet-faq-modal-mask';
+    mask.addEventListener('click', () => this.closeFaqManagerOnly());
 
-    const panel = document.createElement('div');
-    panel.className = 'panel';
+    const body = document.createElement('div');
+    body.className = 'pet-faq-modal-body';
+    body.setAttribute('tabindex', '0');
 
     const header = document.createElement('div');
-    header.className = 'header';
+    header.className = 'pet-faq-modal-header';
 
-    const title = document.createElement('h3');
-    title.textContent = '💡 常见问题';
-    title.className = 'title';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'pet-faq-modal-title';
+    titleDiv.innerHTML = '💡 常见问题 <span class="pet-faq-modal-subtitle">（一键插入/发送）</span>';
 
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'faq-manager-close';
+    closeBtn.className = 'pet-faq-modal-close';
     closeBtn.innerHTML = '✕';
-    closeBtn.title = '关闭（ESC）';
-    closeBtn.classList.add('tw-btn', 'tw-btn-light');
-    closeBtn.style.width = '28px';
-    closeBtn.style.height = '28px';
-    closeBtn.addEventListener('mouseenter', () => {
-      closeBtn.classList.add('tw-btn-light');
-    });
-    closeBtn.addEventListener('mouseleave', () => {
-      closeBtn.classList.remove('tw-btn-light');
-    });
+    closeBtn.setAttribute('aria-label', '关闭');
+    closeBtn.addEventListener('click', () => this.closeFaqManagerOnly());
 
-    header.appendChild(title);
+    header.appendChild(titleDiv);
     header.appendChild(closeBtn);
 
-    const searchFilterGroup = document.createElement('div');
-    searchFilterGroup.className = 'tw-flex tw-flex-col tw-gap-2 tw-mb-2';
+    const content = document.createElement('div');
+    content.className = 'pet-faq-modal-content';
+
+    const layout = document.createElement('div');
+    layout.className = 'pet-faq-layout';
+
+    // 左侧边栏
+    const sidebar = document.createElement('div');
+    sidebar.className = 'pet-faq-sidebar';
+    sidebar.setAttribute('aria-label', '筛选与标签');
+
+    // 搜索行
+    const searchRow = document.createElement('div');
+    searchRow.className = 'pet-faq-search-row';
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.className = 'faq-search-input';
+    searchInput.className = 'pet-faq-search-input';
     searchInput.placeholder = '搜索常见问题...';
-    searchInput.classList.add('tw-input', 'tw-w-full');
+    searchInput.setAttribute('aria-label', '搜索常见问题');
 
     const clearSearchBtn = document.createElement('button');
+    clearSearchBtn.type = 'button';
+    clearSearchBtn.className = 'pet-faq-search-clear';
     clearSearchBtn.textContent = '清除';
-    clearSearchBtn.className = 'tw-btn tw-btn-light';
+    clearSearchBtn.setAttribute('aria-label', '清除搜索');
+    clearSearchBtn.title = '清除搜索';
 
     const updateClearSearchBtn = () => {
       const hasValue = (this.faqSearchFilter || '').trim().length > 0;
-      clearSearchBtn.style.opacity = hasValue ? '0.9' : '0.4';
-      clearSearchBtn.style.cursor = hasValue ? 'pointer' : 'default';
+      clearSearchBtn.disabled = !hasValue;
     };
     updateClearSearchBtn();
 
     clearSearchBtn.addEventListener('click', () => {
       searchInput.value = '';
-      updateClearSearchBtn();
       this.faqSearchFilter = '';
+      updateClearSearchBtn();
       this.loadFaqsIntoManager();
       searchInput.focus();
     });
@@ -85,121 +151,244 @@
       }, 300);
     });
 
-    const tagFilterContainer = document.createElement('div');
-    tagFilterContainer.className = 'faq-tag-filter-container';
-    tagFilterContainer.classList.add('tw-flex', 'tw-flex-col', 'tw-gap-1');
+    searchRow.appendChild(searchInput);
+    searchRow.appendChild(clearSearchBtn);
 
-    const tagFilterActions = document.createElement('div');
-    tagFilterActions.className = 'tw-flex tw-items-center tw-gap-2';
+    // 筛选行
+    const filterRow = document.createElement('div');
+    filterRow.className = 'pet-faq-filter-row';
+    filterRow.setAttribute('aria-label', '常见问题标签筛选');
+
+    const filterActions = document.createElement('div');
+    filterActions.className = 'pet-faq-filter-actions';
 
     const reverseFilterBtn = document.createElement('button');
+    reverseFilterBtn.type = 'button';
+    reverseFilterBtn.className = 'pet-faq-filter-btn';
     reverseFilterBtn.textContent = '反选';
+    reverseFilterBtn.setAttribute('aria-label', '反选');
     reverseFilterBtn.title = '不包含选中标签';
-    reverseFilterBtn.className = 'tw-btn tw-btn-light';
 
     const noTagsFilterBtn = document.createElement('button');
+    noTagsFilterBtn.type = 'button';
+    noTagsFilterBtn.className = 'pet-faq-filter-btn';
     noTagsFilterBtn.textContent = '无标签';
+    noTagsFilterBtn.setAttribute('aria-label', '无标签');
     noTagsFilterBtn.title = '只显示无标签问题';
-    noTagsFilterBtn.className = 'tw-btn tw-btn-light';
 
     const clearFilterBtn = document.createElement('button');
-    clearFilterBtn.textContent = '清除标签筛选';
-    clearFilterBtn.className = 'tw-btn tw-btn-light';
+    clearFilterBtn.type = 'button';
+    clearFilterBtn.className = 'pet-faq-filter-btn';
+    clearFilterBtn.textContent = '清除标签';
+    clearFilterBtn.setAttribute('aria-label', '清除标签筛选');
+    clearFilterBtn.title = '清除标签筛选';
 
-    tagFilterActions.appendChild(reverseFilterBtn);
-    tagFilterActions.appendChild(noTagsFilterBtn);
-    tagFilterActions.appendChild(clearFilterBtn);
-    tagFilterContainer.appendChild(tagFilterActions);
-    searchFilterGroup.appendChild(searchInput);
-    searchFilterGroup.appendChild(clearSearchBtn);
-    searchFilterGroup.appendChild(tagFilterContainer);
+    const tagManagerBtn = document.createElement('button');
+    tagManagerBtn.type = 'button';
+    tagManagerBtn.className = 'pet-faq-filter-btn';
+    tagManagerBtn.textContent = '标签管理';
+    tagManagerBtn.setAttribute('aria-label', '标签管理');
+    tagManagerBtn.title = '标签管理';
 
-    const tagFilterList = document.createElement('div');
-    tagFilterList.className = 'faq-tag-filter-list';
-    tagFilterList.className = 'faq-tag-filter-list tw-flex tw-flex-wrap tw-gap-1 tw-mt-1';
-    tagFilterContainer.appendChild(tagFilterList);
+    const refreshBtn = document.createElement('button');
+    refreshBtn.type = 'button';
+    refreshBtn.className = 'pet-faq-filter-btn';
+    refreshBtn.textContent = '刷新';
+    refreshBtn.setAttribute('aria-label', '刷新');
+    refreshBtn.title = '从接口刷新';
 
-    const inputGroup = document.createElement('div');
-    inputGroup.className = 'tw-flex tw-items-center tw-gap-2 tw-mb-2';
+    filterActions.appendChild(reverseFilterBtn);
+    filterActions.appendChild(noTagsFilterBtn);
+    filterActions.appendChild(clearFilterBtn);
+    filterActions.appendChild(tagManagerBtn);
+    filterActions.appendChild(refreshBtn);
 
-    const mainColor = this.getMainColorFromGradient(this.colors[this.colorIndex]);
-    const faqInput = document.createElement('textarea');
-    faqInput.className = 'faq-manager-input';
-    faqInput.placeholder = '输入问题内容，按 Ctrl+Enter 或 Shift+Enter 添加';
-    faqInput.className = 'faq-manager-input tw-textarea tw-min-h-64 tw-max-h-160';
-    faqInput.style.flex = '1';
+    // 标签搜索
+    const tagSearch = document.createElement('div');
+    tagSearch.className = 'pet-faq-tag-search';
 
-    faqInput._isComposing = false;
-    faqInput.addEventListener('compositionstart', () => { faqInput._isComposing = true; });
-    faqInput.addEventListener('compositionend', () => { faqInput._isComposing = false; });
-    faqInput.addEventListener('focus', () => {
-      faqInput.style.borderColor = mainColor;
-      faqInput.style.boxShadow = `0 0 0 3px ${mainColor}20`;
-    });
-    faqInput.addEventListener('blur', () => {
-      faqInput.style.borderColor = '#e2e8f0';
-      faqInput.style.boxShadow = 'none';
-    });
-    inputGroup.appendChild(faqInput);
+    const tagSearchInput = document.createElement('input');
+    tagSearchInput.type = 'text';
+    tagSearchInput.className = 'pet-faq-tag-search-input';
+    tagSearchInput.placeholder = '搜索标签...';
+    tagSearchInput.setAttribute('aria-label', '搜索标签');
 
-    const faqsContainer = document.createElement('div');
-    faqsContainer.className = 'faq-manager-faqs';
-    faqsContainer.className = 'faq-manager-faqs faqs';
-    const style = document.createElement('style');
-    style.textContent = `
-      #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar { width: 6px; }
-      #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
-      #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-      #pet-faq-manager .faq-manager-faqs::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    `;
-    document.head.appendChild(style);
+    const clearTagSearchBtn = document.createElement('button');
+    clearTagSearchBtn.type = 'button';
+    clearTagSearchBtn.className = 'pet-faq-filter-btn';
+    clearTagSearchBtn.textContent = '清除';
+    clearTagSearchBtn.setAttribute('aria-label', '清除标签搜索');
+    clearTagSearchBtn.title = '清除标签搜索';
 
-    const footer = document.createElement('div');
-    footer.className = 'tw-flex tw-justify-center';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'faq-manager-cancel';
-    cancelBtn.textContent = '关闭';
-    cancelBtn.title = '关闭';
-    cancelBtn.className = 'tw-btn tw-btn-gray';
-    cancelBtn.addEventListener('mouseenter', () => {
-      cancelBtn.classList.add('tw-transition');
-    });
-    cancelBtn.addEventListener('mouseleave', () => {
-      cancelBtn.classList.remove('tw-transition');
-    });
-    cancelBtn.addEventListener('click', () => this.closeFaqManagerOnly());
-    footer.appendChild(cancelBtn);
-
-    panel.appendChild(header);
-    panel.appendChild(searchFilterGroup);
-    panel.appendChild(inputGroup);
-    panel.appendChild(faqsContainer);
-    panel.appendChild(footer);
-    modal.appendChild(panel);
-
-    const updateTagFilterButtons = () => {
-      reverseFilterBtn.style.color = this.faqTagFilterReverse ? '#22c55e' : '#9ca3af';  /* 现代绿 */
-      reverseFilterBtn.style.opacity = this.faqTagFilterReverse ? '1' : '0.6';
-      noTagsFilterBtn.style.color = this.faqTagFilterNoTags ? '#22c55e' : '#9ca3af';  /* 现代绿 */
-      noTagsFilterBtn.style.opacity = this.faqTagFilterNoTags ? '1' : '0.6';
-      const hasActiveFilter = (this.faqSelectedFilterTags && this.faqSelectedFilterTags.length > 0) || this.faqTagFilterNoTags;
-      clearFilterBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
-      clearFilterBtn.style.cursor = hasActiveFilter ? 'pointer' : 'default';
+    const updateClearTagSearchBtn = () => {
+      const hasValue = (this.faqTagFilterSearchKeyword || '').trim().length > 0;
+      clearTagSearchBtn.disabled = !hasValue;
     };
-    modal._updateTagFilterButtons = updateTagFilterButtons;
+    updateClearTagSearchBtn();
 
+    clearTagSearchBtn.addEventListener('click', () => {
+      tagSearchInput.value = '';
+      this.faqTagFilterSearchKeyword = '';
+      updateClearTagSearchBtn();
+      this.updateFaqTagFilterUI();
+    });
+
+    let tagSearchDebounceTimer = null;
+    tagSearchInput.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      this.faqTagFilterSearchKeyword = value;
+      updateClearTagSearchBtn();
+      if (tagSearchDebounceTimer) clearTimeout(tagSearchDebounceTimer);
+      tagSearchDebounceTimer = setTimeout(() => {
+        this.updateFaqTagFilterUI();
+      }, 300);
+    });
+
+    tagSearch.appendChild(tagSearchInput);
+    tagSearch.appendChild(clearTagSearchBtn);
+
+    // 标签列表
+    const tagList = document.createElement('div');
+    tagList.className = 'pet-faq-tag-list';
+    tagList.setAttribute('role', 'list');
+    tagList.setAttribute('aria-label', '标签列表');
+
+    // 标签管理面板
+    const tagManager = document.createElement('div');
+    tagManager.className = 'pet-faq-tag-manager';
+    tagManager.style.display = 'none';
+    tagManager.setAttribute('aria-label', '标签管理面板');
+
+    const tagManagerHeader = document.createElement('div');
+    tagManagerHeader.className = 'pet-faq-tag-manager-header';
+
+    const tagManagerTitle = document.createElement('div');
+    tagManagerTitle.className = 'pet-faq-tag-manager-title';
+    tagManagerTitle.textContent = '标签管理';
+
+    const closeTagManagerBtn = document.createElement('button');
+    closeTagManagerBtn.type = 'button';
+    closeTagManagerBtn.className = 'pet-faq-filter-btn';
+    closeTagManagerBtn.textContent = '关闭';
+    closeTagManagerBtn.setAttribute('aria-label', '关闭标签管理');
+
+    tagManagerHeader.appendChild(tagManagerTitle);
+    tagManagerHeader.appendChild(closeTagManagerBtn);
+
+    const tagManagerList = document.createElement('div');
+    tagManagerList.className = 'pet-faq-tag-manager-list';
+    tagManagerList.setAttribute('role', 'list');
+    tagManagerList.setAttribute('aria-label', '可管理标签列表');
+
+    tagManager.appendChild(tagManagerHeader);
+    tagManager.appendChild(tagManagerList);
+
+    filterRow.appendChild(filterActions);
+    filterRow.appendChild(tagSearch);
+    filterRow.appendChild(tagList);
+    filterRow.appendChild(tagManager);
+
+    sidebar.appendChild(searchRow);
+    sidebar.appendChild(filterRow);
+
+    // 主内容区
+    const main = document.createElement('div');
+    main.className = 'pet-faq-main';
+    main.setAttribute('aria-label', '常见问题列表');
+
+    // 统计信息
+    const summary = document.createElement('div');
+    summary.className = 'pet-faq-summary';
+    summary.setAttribute('role', 'status');
+    summary.setAttribute('aria-label', '筛选结果');
+
+    // 输入行
+    const inputRow = document.createElement('div');
+    inputRow.className = 'pet-faq-input-row';
+    inputRow.setAttribute('aria-label', '添加常见问题');
+
+    const faqInput = document.createElement('textarea');
+    faqInput.className = 'pet-faq-input';
+    faqInput.placeholder = '输入问题内容，按 Ctrl+Enter 或 Shift+Enter 添加';
+    faqInput.setAttribute('aria-label', '新增常见问题');
+
+    const inputHint = document.createElement('div');
+    inputHint.className = 'pet-faq-input-hint';
+    inputHint.textContent = '支持多行内容，首行作为标题，余下作为正文。';
+
+    inputRow.appendChild(faqInput);
+    inputRow.appendChild(inputHint);
+
+    // 状态信息
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'pet-faq-status';
+    statusDiv.style.display = 'none';
+    statusDiv.setAttribute('role', 'status');
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'pet-faq-error';
+    errorDiv.style.display = 'none';
+    errorDiv.setAttribute('role', 'status');
+
+    // FAQ列表
+    const faqList = document.createElement('div');
+    faqList.className = 'pet-faq-list';
+    faqList.setAttribute('role', 'list');
+    faqList.setAttribute('aria-label', '常见问题列表');
+
+    main.appendChild(summary);
+    main.appendChild(inputRow);
+    main.appendChild(statusDiv);
+    main.appendChild(errorDiv);
+    main.appendChild(faqList);
+
+    layout.appendChild(sidebar);
+    layout.appendChild(main);
+
+    content.appendChild(layout);
+    body.appendChild(header);
+    body.appendChild(content);
+    modal.appendChild(mask);
+    modal.appendChild(body);
+
+    // 初始化状态
     if (!this.faqSelectedFilterTags) this.faqSelectedFilterTags = [];
     if (this.faqTagFilterReverse === undefined) this.faqTagFilterReverse = false;
     if (this.faqTagFilterNoTags === undefined) this.faqTagFilterNoTags = false;
+    if (this.faqTagFilterExpanded === undefined) this.faqTagFilterExpanded = false;
+    if (this.faqTagFilterVisibleCount === undefined) this.faqTagFilterVisibleCount = 20;
+    if (this.faqTagManagerVisible === undefined) this.faqTagManagerVisible = false;
+    if (this.faqTagFilterSearchKeyword === undefined) this.faqTagFilterSearchKeyword = '';
 
+    // 更新按钮状态
+    const updateTagFilterButtons = () => {
+      reverseFilterBtn.classList.toggle('active', !!this.faqTagFilterReverse);
+      noTagsFilterBtn.classList.toggle('active', !!this.faqTagFilterNoTags);
+      const hasActiveFilter = (this.faqSelectedFilterTags && this.faqSelectedFilterTags.length > 0) || 
+                              this.faqTagFilterNoTags || this.faqTagFilterReverse;
+      clearFilterBtn.disabled = !hasActiveFilter;
+      tagManagerBtn.classList.toggle('active', !!this.faqTagManagerVisible);
+      tagManager.style.display = this.faqTagManagerVisible ? 'flex' : 'none';
+      // 更新刷新按钮的禁用状态（当加载中时禁用）
+      const isLoading = modal._isLoading || false;
+      refreshBtn.disabled = isLoading;
+    };
+    modal._updateTagFilterButtons = updateTagFilterButtons;
+
+    // 事件监听
     reverseFilterBtn.addEventListener('click', () => {
       this.faqTagFilterReverse = !this.faqTagFilterReverse;
+      if (this.faqTagFilterNoTags) this.faqTagFilterNoTags = false;
       updateTagFilterButtons();
       this.loadFaqsIntoManager();
     });
 
     noTagsFilterBtn.addEventListener('click', () => {
       this.faqTagFilterNoTags = !this.faqTagFilterNoTags;
+      if (this.faqTagFilterNoTags) {
+        this.faqSelectedFilterTags = [];
+        this.faqTagFilterReverse = false;
+      }
       updateTagFilterButtons();
       this.loadFaqsIntoManager();
     });
@@ -213,305 +402,815 @@
       this.loadFaqsIntoManager();
     });
 
+    tagManagerBtn.addEventListener('click', () => {
+      this.faqTagManagerVisible = !this.faqTagManagerVisible;
+      updateTagFilterButtons();
+      if (this.faqTagManagerVisible) {
+        this.updateFaqTagManagerUI();
+      }
+    });
+
+    closeTagManagerBtn.addEventListener('click', () => {
+      this.faqTagManagerVisible = false;
+      updateTagFilterButtons();
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      this.loadFaqsIntoManager(true);
+    });
+
+    // ESC 键处理
+    body.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.closeFaqManagerOnly();
+      }
+    });
+
     this.chatWindow.appendChild(modal);
   };
 
   proto.openFaqManager = async function() {
-    this.ensureFaqManagerUi();
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal) {
-      console.error('常见问题管理弹窗未找到');
-      return;
-    }
-    modal.style.display = 'flex';
-    const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-    const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-    if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
-    if (inputToggleBtn) inputToggleBtn.style.display = 'none';
-    this.updateFaqTagFilterUI();
-    await this.loadFaqsIntoManager();
-    const closeBtn = modal.querySelector('.faq-manager-close');
-    if (closeBtn) {
-      closeBtn.onclick = () => this.closeFaqManagerOnly();
-    }
-    const cancelBtn = modal.querySelector('.faq-manager-cancel');
-    if (cancelBtn) {
-      cancelBtn.onclick = () => this.closeFaqManagerOnly();
-    }
-    const faqInput = modal.querySelector('.faq-manager-input');
-    if (faqInput) {
-      const existingHandler = faqInput._enterKeyHandler;
-      if (existingHandler) {
-        faqInput.removeEventListener('keydown', existingHandler);
-      }
-      const enterKeyHandler = (e) => {
-        if (faqInput._isComposing) return;
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey)) {
-          e.preventDefault();
-          this.addFaqFromInput();
+    try {
+      // 确保聊天窗口已打开
+      if (!this.chatWindow) {
+        console.log('常见问题：聊天窗口未初始化，尝试打开聊天窗口');
+        if (typeof this.openChatWindow === 'function') {
+          await this.openChatWindow();
+          // 等待一下，确保聊天窗口完全初始化
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } else {
+          const errorMsg = '无法打开聊天窗口：openChatWindow 方法不存在';
+          console.error(errorMsg);
+          if (typeof this.showNotification === 'function') {
+            this.showNotification('无法打开常见问题：聊天窗口未初始化', 'error');
+          }
+          return;
         }
-      };
-      faqInput._enterKeyHandler = enterKeyHandler;
-      faqInput.addEventListener('keydown', enterKeyHandler);
-      faqInput.focus();
-    }
-    const escHandler = (e) => {
-      if (e.key === 'Escape') {
-        this.closeFaqManagerOnly();
-        document.removeEventListener('keydown', escHandler);
       }
-    };
-    document.addEventListener('keydown', escHandler);
-    modal._escHandler = escHandler;
+      
+      // 再次检查聊天窗口是否存在（可能在 openChatWindow 中创建失败）
+      if (!this.chatWindow) {
+        const errorMsg = '常见问题管理器：聊天窗口未初始化';
+        console.error(errorMsg);
+        if (typeof this.showNotification === 'function') {
+          this.showNotification('无法打开常见问题：聊天窗口创建失败', 'error');
+        }
+        return;
+      }
+      
+      // 确保常见问题管理器 UI 已创建
+      this.ensureFaqManagerUi();
+      const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+      if (!modal) {
+        const errorMsg = '常见问题管理弹窗未找到';
+        console.error(errorMsg, 'chatWindow:', this.chatWindow);
+        if (typeof this.showNotification === 'function') {
+          this.showNotification('无法打开常见问题：UI 创建失败', 'error');
+        }
+        return;
+      }
+      
+      // 显示弹窗
+      modal.classList.add('show');
+      
+      // 隐藏侧边栏和输入框的折叠按钮
+      const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+      const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+      if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+      if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+      
+      // 清空搜索关键词
+      if (this.faqSearchFilter) {
+        this.faqSearchFilter = '';
+        const searchInput = modal.querySelector('.pet-faq-search-input');
+        if (searchInput) {
+          searchInput.value = '';
+        }
+      }
+      
+      // 检查 FAQ API 是否已初始化
+      if (!this.faqApi) {
+        const errorMsg = '常见问题管理器：FAQ API 未初始化';
+        console.error(errorMsg);
+        if (typeof this.showNotification === 'function') {
+          this.showNotification('常见问题功能未启用：FAQ API 未初始化', 'error');
+        }
+        modal.classList.remove('show');
+        // 恢复按钮显示
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
+        if (inputToggleBtn) inputToggleBtn.style.display = '';
+        return;
+      }
+      
+      // 检查 FAQ API 是否启用
+      if (this.faqApi && typeof this.faqApi.isEnabled === 'function' && !this.faqApi.isEnabled()) {
+        const errorMsg = '常见问题管理器：FAQ API 未启用';
+        console.error(errorMsg);
+        if (typeof this.showNotification === 'function') {
+          this.showNotification('常见问题功能未启用：FAQ API 未启用', 'error');
+        }
+        modal.classList.remove('show');
+        // 恢复按钮显示
+        if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
+        if (inputToggleBtn) inputToggleBtn.style.display = '';
+        return;
+      }
+      
+      // 如果已有数据，先更新 UI；否则加载数据
+      const hasItems = modal._allFaqs && Array.isArray(modal._allFaqs) && modal._allFaqs.length > 0;
+      if (hasItems) {
+        this.updateFaqTagFilterUI();
+        await this.loadFaqsIntoManager(false);
+      } else {
+        await this.loadFaqsIntoManager(false);
+      }
+      
+      // 将焦点设置到搜索输入框
+      const searchInput = modal.querySelector('.pet-faq-search-input');
+      if (searchInput) {
+        setTimeout(() => {
+          try {
+            searchInput.focus();
+          } catch (focusError) {
+            console.warn('设置搜索框焦点失败:', focusError);
+          }
+        }, 100);
+      }
+
+      // 设置添加常见问题的输入框快捷键
+      const faqInput = modal.querySelector('.pet-faq-input');
+      if (faqInput) {
+        const existingHandler = faqInput._enterKeyHandler;
+        if (existingHandler) {
+          faqInput.removeEventListener('keydown', existingHandler);
+        }
+        const enterKeyHandler = (e) => {
+          if (faqInput._isComposing) return;
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+            e.preventDefault();
+            this.addFaqFromInput();
+          }
+        };
+        faqInput._isComposing = false;
+        faqInput.addEventListener('compositionstart', () => { faqInput._isComposing = true; });
+        faqInput.addEventListener('compositionend', () => { faqInput._isComposing = false; });
+        faqInput._enterKeyHandler = enterKeyHandler;
+        faqInput.addEventListener('keydown', enterKeyHandler);
+      }
+    } catch (error) {
+      console.error('打开常见问题管理器失败:', error);
+      if (typeof this.showNotification === 'function') {
+        this.showNotification(`打开常见问题失败：${error.message || '未知错误'}`, 'error');
+      }
+      // 确保弹窗关闭，按钮恢复显示
+      const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+      if (modal) {
+        modal.classList.remove('show');
+      }
+      const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+      const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+      if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
+      if (inputToggleBtn) inputToggleBtn.style.display = '';
+    }
   };
 
   proto.closeFaqManagerOnly = function() {
     const modal = this.chatWindow?.querySelector('#pet-faq-manager');
     if (!modal) return;
-    if (modal._escHandler) {
-      document.removeEventListener('keydown', modal._escHandler);
-      delete modal._escHandler;
-    }
     const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
     const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
     if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
     if (inputToggleBtn) inputToggleBtn.style.display = '';
-    modal.style.display = 'none';
-    const faqInput = modal.querySelector('.faq-manager-input');
+    modal.classList.remove('show');
+    const faqInput = modal.querySelector('.pet-faq-input');
     if (faqInput) {
       faqInput.value = '';
     }
+    
+    // 尝试将焦点返回到聊天输入框
+    try {
+      const chatInput = this.chatWindow?.querySelector('#pet-chat-input');
+      if (chatInput && typeof chatInput.focus === 'function') {
+        chatInput.focus();
+        return;
+      }
+    } catch (_) {}
   };
 
   proto.getAllFaqTags = function() {
     const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal || !modal._currentFaqs) return [];
+    if (!modal || !modal._allFaqs) return [];
     const tagSet = new Set();
-    modal._currentFaqs.forEach(faq => {
-      const tags = faq.tags || [];
+    modal._allFaqs.forEach(faq => {
+      const tags = _normalizeFaqTags(faq?.tags);
       tags.forEach(tag => {
-        const trimmed = tag ? tag.trim() : '';
-        if (trimmed.length > 0) tagSet.add(trimmed);
+        const s = String(tag ?? '').trim();
+        if (!s) return;
+        const k = s.toLowerCase();
+        tagSet.add(s);
       });
     });
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true, sensitivity: 'base' }));
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  };
+
+  proto.getVisibleFaqTags = function() {
+    const all = this.getAllFaqTags();
+    const kw = String(this.faqTagFilterSearchKeyword || '').trim().toLowerCase();
+    const filtered = kw ? all.filter(t => String(t).toLowerCase().includes(kw)) : all;
+    const expanded = !!this.faqTagFilterExpanded;
+    const visibleCount = Math.max(0, Number(this.faqTagFilterVisibleCount) || 20);
+    return expanded ? filtered : filtered.slice(0, visibleCount);
   };
 
   proto.updateFaqTagFilterUI = function() {
     const modal = this.chatWindow?.querySelector('#pet-faq-manager');
     if (!modal) return;
-    const tagFilterList = modal.querySelector('.faq-tag-filter-list');
-    if (!tagFilterList) return;
-    tagFilterList.innerHTML = '';
+    const tagList = modal.querySelector('.pet-faq-tag-list');
+    if (!tagList) return;
+    tagList.innerHTML = '';
+    
     const allTags = this.getAllFaqTags();
     if (allTags.length === 0) return;
+    
+    const visibleTags = this.getVisibleFaqTags();
     const selectedTags = this.faqSelectedFilterTags || [];
-    const isReverse = !!this.faqTagFilterReverse;
-    const createTagButton = (tagName) => {
+
+    visibleTags.forEach(tag => {
       const btn = document.createElement('button');
-      btn.className = 'faq-tag-filter-btn tw-chip';
-      btn.textContent = tagName;
-      const isSelected = selectedTags.includes(tagName);
-      if (isSelected) {
-        btn.classList.add('tw-chip-active');
+      btn.type = 'button';
+      btn.className = 'pet-faq-tag';
+      btn.textContent = tag;
+      btn.setAttribute('role', 'listitem');
+      btn.setAttribute('aria-label', `筛选标签：${tag}`);
+      if (selectedTags.includes(tag)) {
+        btn.classList.add('active');
       }
       btn.addEventListener('click', () => {
-        const idx = selectedTags.indexOf(tagName);
-        if (idx >= 0) selectedTags.splice(idx, 1);
-        else selectedTags.push(tagName);
-        this.faqSelectedFilterTags = selectedTags.slice();
-        this.updateFaqTagFilterUI();
-        this.loadFaqsIntoManager();
+        this.toggleFaqTag(tag);
       });
-      return btn;
-    };
-    allTags.forEach(tag => {
-      const btn = createTagButton(tag);
-      tagFilterList.appendChild(btn);
+      tagList.appendChild(btn);
     });
+
+    // 更多/收起按钮
+    if (allTags.length > visibleTags.length) {
+      const moreBtn = document.createElement('button');
+      moreBtn.type = 'button';
+      moreBtn.className = 'pet-faq-tag more';
+      moreBtn.textContent = this.faqTagFilterExpanded ? '收起' : '更多';
+      moreBtn.setAttribute('role', 'listitem');
+      moreBtn.setAttribute('aria-label', '展开或收起标签');
+      moreBtn.addEventListener('click', () => {
+        this.faqTagFilterExpanded = !this.faqTagFilterExpanded;
+        this.updateFaqTagFilterUI();
+      });
+      tagList.appendChild(moreBtn);
+    }
+
     if (modal._updateTagFilterButtons) {
       modal._updateTagFilterButtons();
     }
   };
 
-  proto.loadFaqsIntoManager = async function() {
+  proto.toggleFaqTag = function(tag) {
+    const t = String(tag ?? '').trim();
+    if (!t) return;
+    if (!this.faqSelectedFilterTags) this.faqSelectedFilterTags = [];
+    const current = [...this.faqSelectedFilterTags];
+    const idx = current.indexOf(t);
+    if (idx >= 0) {
+      current.splice(idx, 1);
+    } else {
+      current.push(t);
+    }
+    this.faqSelectedFilterTags = current;
+    if (this.faqTagFilterNoTags) this.faqTagFilterNoTags = false;
+    this.updateFaqTagFilterUI();
+    this.loadFaqsIntoManager();
+  };
+
+  proto.updateFaqTagManagerUI = function() {
     const modal = this.chatWindow?.querySelector('#pet-faq-manager');
     if (!modal) return;
-    const faqsContainer = modal.querySelector('.faq-manager-faqs');
+    const tagManagerList = modal.querySelector('.pet-faq-tag-manager-list');
+    if (!tagManagerList) return;
+    tagManagerList.innerHTML = '';
+
+    const allTags = this.getAllFaqTags();
+    if (allTags.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'pet-faq-tag-manager-empty';
+      empty.textContent = '暂无标签';
+      tagManagerList.appendChild(empty);
+      return;
+    }
+
+    allTags.forEach(tag => {
+      const item = document.createElement('div');
+      item.className = 'pet-faq-tag-manager-item';
+      item.setAttribute('role', 'listitem');
+
+      const name = document.createElement('div');
+      name.className = 'pet-faq-tag-manager-name';
+      name.textContent = tag;
+
+      const actions = document.createElement('div');
+      actions.className = 'pet-faq-tag-manager-actions';
+
+      const renameBtn = document.createElement('button');
+      renameBtn.type = 'button';
+      renameBtn.className = 'pet-faq-filter-btn';
+      renameBtn.textContent = '重命名';
+      renameBtn.setAttribute('aria-label', '重命名标签');
+      const updateRenameBtnState = () => {
+        const isLoading = modal._isLoading || false;
+        renameBtn.disabled = isLoading;
+      };
+      renameBtn.addEventListener('click', () => this.renameFaqTag(tag));
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'pet-faq-filter-btn danger';
+      deleteBtn.textContent = '删除';
+      deleteBtn.setAttribute('aria-label', '删除标签');
+      const updateDeleteBtnState = () => {
+        const isLoading = modal._isLoading || false;
+        deleteBtn.disabled = isLoading;
+      };
+      deleteBtn.addEventListener('click', () => this.deleteFaqTag(tag));
+      
+      // 存储更新函数以便后续调用
+      item._updateBtnStates = () => {
+        updateRenameBtnState();
+        updateDeleteBtnState();
+      };
+      // 立即设置初始状态
+      item._updateBtnStates();
+
+      actions.appendChild(renameBtn);
+      actions.appendChild(deleteBtn);
+      item.appendChild(name);
+      item.appendChild(actions);
+      tagManagerList.appendChild(item);
+    });
+    
+    // 更新所有按钮状态
+    const items = tagManagerList.querySelectorAll('.pet-faq-tag-manager-item');
+    items.forEach(item => {
+      if (item._updateBtnStates) {
+        item._updateBtnStates();
+      }
+    });
+  };
+
+  proto.renameFaqTag = async function(tag) {
+    const oldTag = String(tag ?? '').trim();
+    if (!oldTag) return;
+    const nextRaw = window.prompt('重命名标签为：', oldTag);
+    if (nextRaw == null) return;
+    const newTag = String(nextRaw ?? '').trim();
+    if (!newTag || newTag === oldTag) return;
+
+    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!modal || !modal._allFaqs) return;
+    
+    const affected = modal._allFaqs.filter(faq => {
+      const tags = _normalizeFaqTags(faq?.tags);
+      return tags.includes(oldTag);
+    });
+    if (affected.length === 0) return;
+
+    try {
+      if (!this.faqApi || !this.faqApi.isEnabled()) {
+        throw new Error('FAQ API 未启用');
+      }
+      
+      for (const faq of affected) {
+        const tags = _normalizeFaqTags(faq?.tags || []).map(t => (t === oldTag ? newTag : t));
+        const key = faq.text || faq.key;
+        if (!key) {
+          console.warn('跳过缺少标识符的常见问题:', faq);
+          continue;
+        }
+        await this.faqApi.updateFaq(key, {
+          text: faq.text,
+          tags: tags
+        });
+      }
+      if (this.faqApi.clearGetCache) {
+        this.faqApi.clearGetCache();
+      }
+      await this.loadFaqsIntoManager(true);
+      this.showNotification('已重命名标签', 'success');
+    } catch (e) {
+      console.error('重命名标签失败:', e);
+      this.showNotification('重命名标签失败: ' + (e?.message || '未知错误'), 'error');
+    }
+  };
+
+  proto.deleteFaqTag = async function(tag) {
+    const target = String(tag ?? '').trim();
+    if (!target) return;
+    if (!confirm(`确定删除标签「${target}」？会从所有常见问题中移除。`)) return;
+
+    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!modal || !modal._allFaqs) return;
+    
+    const affected = modal._allFaqs.filter(faq => {
+      const tags = _normalizeFaqTags(faq?.tags);
+      return tags.includes(target);
+    });
+    if (affected.length === 0) return;
+
+    try {
+      if (!this.faqApi || !this.faqApi.isEnabled()) {
+        throw new Error('FAQ API 未启用');
+      }
+      
+      for (const faq of affected) {
+        const tags = _normalizeFaqTags(faq?.tags || []).filter(t => t !== target);
+        const key = faq.text || faq.key;
+        if (!key) {
+          console.warn('跳过缺少标识符的常见问题:', faq);
+          continue;
+        }
+        await this.faqApi.updateFaq(key, {
+          text: faq.text,
+          tags: tags
+        });
+      }
+      if (this.faqApi.clearGetCache) {
+        this.faqApi.clearGetCache();
+      }
+      // 从选中的标签中移除
+      if (this.faqSelectedFilterTags && this.faqSelectedFilterTags.includes(target)) {
+        this.faqSelectedFilterTags = this.faqSelectedFilterTags.filter(t => t !== target);
+      }
+      await this.loadFaqsIntoManager(true);
+      this.showNotification('已删除标签', 'success');
+    } catch (e) {
+      console.error('删除标签失败:', e);
+      this.showNotification('删除标签失败: ' + (e?.message || '未知错误'), 'error');
+    }
+  };
+
+  proto.loadFaqsIntoManager = async function(force = false) {
+    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!modal) return;
+    const faqsContainer = modal.querySelector('.pet-faq-list');
+    const statusDiv = modal.querySelector('.pet-faq-status');
+    const errorDiv = modal.querySelector('.pet-faq-error');
+    const summary = modal.querySelector('.pet-faq-summary');
     if (!faqsContainer) return;
 
     try {
-        if (!this.faqApi) {
-             console.error('FAQ API 未初始化');
-             return;
-        }
+      modal._isLoading = true;
+      if (modal._updateTagFilterButtons) {
+        modal._updateTagFilterButtons();
+      }
+      statusDiv.style.display = 'block';
+      statusDiv.textContent = '正在加载常见问题...';
+      errorDiv.style.display = 'none';
 
-        const faqs = await this.faqApi.getFaqs();
-        modal._allFaqs = faqs;
-        
-        let filteredFaqs = faqs;
+      if (!this.faqApi) {
+        throw new Error('FAQ API 未初始化');
+      }
 
-        const searchKeyword = (this.faqSearchFilter || '').toLowerCase().trim();
-        if (searchKeyword) {
-            filteredFaqs = filteredFaqs.filter(faq => 
-                (faq.text || '').toLowerCase().includes(searchKeyword)
-            );
-        }
+      const faqs = await this.faqApi.getFaqs();
+      const normalized = faqs.map(_normalizeFaqDoc).filter(i => i.key && (i.prompt || i.title));
+      modal._allFaqs = normalized;
 
-        const selectedTags = this.faqSelectedFilterTags || [];
-        const isReverse = !!this.faqTagFilterReverse;
-        const noTags = !!this.faqTagFilterNoTags;
+      // 筛选
+      let filteredFaqs = normalized;
+      const searchKw = String(this.faqSearchFilter || '').trim().toLowerCase();
+      if (searchKw) {
+        filteredFaqs = filteredFaqs.filter(faq => {
+          const hay = `${String(faq?.title || '')}\n${String(faq?.prompt || '')}`.toLowerCase();
+          return hay.includes(searchKw);
+        });
+      }
 
+      const selectedTags = this.faqSelectedFilterTags || [];
+      const reverse = !!this.faqTagFilterReverse;
+      const noTags = !!this.faqTagFilterNoTags;
+
+      filteredFaqs = filteredFaqs.filter((faq) => {
+        const tags = _normalizeFaqTags(faq?.tags);
         if (noTags) {
-             filteredFaqs = filteredFaqs.filter(faq => !faq.tags || faq.tags.length === 0);
-        } else if (selectedTags.length > 0) {
-            if (isReverse) {
-                filteredFaqs = filteredFaqs.filter(faq => 
-                    !faq.tags || !faq.tags.some(tag => selectedTags.includes(tag))
-                );
-            } else {
-                filteredFaqs = filteredFaqs.filter(faq => 
-                    faq.tags && faq.tags.some(tag => selectedTags.includes(tag))
-                );
+          return tags.length === 0;
+        }
+        if (selectedTags.length === 0) return true;
+        const hasAny = tags.some(t => selectedTags.includes(t));
+        return reverse ? !hasAny : hasAny;
+      });
+
+      modal._currentFaqs = filteredFaqs;
+
+      // 更新统计信息
+      if (summary) {
+        summary.textContent = `共 ${normalized.length} 条，匹配 ${filteredFaqs.length} 条`;
+      }
+
+      statusDiv.style.display = 'none';
+      faqsContainer.innerHTML = '';
+
+      if (filteredFaqs.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'pet-faq-empty';
+        empty.setAttribute('role', 'listitem');
+        empty.textContent = '未找到匹配的常见问题';
+        faqsContainer.appendChild(empty);
+      } else {
+        filteredFaqs.forEach((faq, index) => {
+          const el = this.createFaqElement(faq, index);
+          faqsContainer.appendChild(el);
+        });
+      }
+
+      this.updateFaqTagFilterUI();
+      if (this.faqTagManagerVisible) {
+        this.updateFaqTagManagerUI();
+        // 更新标签管理面板中所有按钮的状态
+        const tagManagerList = modal.querySelector('.pet-faq-tag-manager-list');
+        if (tagManagerList) {
+          const items = tagManagerList.querySelectorAll('.pet-faq-tag-manager-item');
+          items.forEach(item => {
+            if (item._updateBtnStates) {
+              item._updateBtnStates();
             }
+          });
         }
-
-        modal._currentFaqs = filteredFaqs;
-
-        faqsContainer.innerHTML = '';
-        if (filteredFaqs.length === 0) {
-             const empty = document.createElement('div');
-             empty.className = 'tw-p-8 tw-text-center tw-text-gray-400 tw-text-sm';
-             empty.textContent = '暂无常见问题';
-             faqsContainer.appendChild(empty);
-        } else {
-             filteredFaqs.forEach((faq, index) => {
-                 const el = this.createFaqElement(faq, index);
-                 faqsContainer.appendChild(el);
-             });
-        }
-
-        this.updateFaqTagFilterUI();
+      }
 
     } catch (err) {
-        console.error('加载常见问题失败:', err);
-        faqsContainer.innerHTML = `<div class="tw-p-4 tw-text-center tw-text-red-500">加载失败: ${err.message}</div>`;
+      console.error('加载常见问题失败:', err);
+      statusDiv.style.display = 'none';
+      errorDiv.style.display = 'block';
+      const errorMessage = err.message || '加载常见问题失败';
+      errorDiv.textContent = errorMessage;
+      faqsContainer.innerHTML = '';
+      
+      // 显示通知（如果方法存在）
+      if (typeof this.showNotification === 'function') {
+        this.showNotification(`加载常见问题失败: ${errorMessage}`, 'error');
+      }
+    } finally {
+      modal._isLoading = false;
+      if (modal._updateTagFilterButtons) {
+        modal._updateTagFilterButtons();
+      }
     }
   };
 
   proto.createFaqElement = function(faq, index) {
-      const item = document.createElement('div');
-      item.className = 'faq-item tw-p-3 tw-border-b tw-border-gray-100 hover:tw-bg-gray-50 tw-group tw-relative tw-transition-colors tw-cursor-pointer';
-      
-      const content = document.createElement('div');
-      content.className = 'tw-flex tw-flex-col tw-gap-1.5';
-      
-      const text = faq.text || '';
-      const lines = text.split('\n');
-      const titleText = lines[0];
-      const bodyText = lines.slice(1).join('\n');
+    const item = document.createElement('div');
+    item.className = 'pet-faq-item';
+    item.setAttribute('role', 'listitem');
+    item.setAttribute('tabindex', '0');
 
-      const title = document.createElement('div');
-      title.className = 'tw-font-medium tw-text-gray-800 tw-text-sm';
-      title.textContent = titleText;
-      content.appendChild(title);
+    const header = document.createElement('div');
+    header.className = 'pet-faq-item-header';
 
-      if (bodyText) {
-          const body = document.createElement('div');
-          body.className = 'tw-text-xs tw-text-gray-500 tw-line-clamp-2 tw-whitespace-pre-wrap';
-          body.textContent = bodyText;
-          content.appendChild(body);
-      }
-      
-      const tagsContainer = document.createElement('div');
-      tagsContainer.className = 'tw-flex tw-flex-wrap tw-gap-1.5 tw-mt-0.5';
-      if (faq.tags && faq.tags.length > 0) {
-          faq.tags.forEach(tag => {
-              const tagSpan = document.createElement('span');
-              tagSpan.className = 'tw-text-[10px] tw-px-1.5 tw-py-0.5 tw-bg-gray-100 tw-text-gray-500 tw-rounded';
-              tagSpan.textContent = tag;
-              tagsContainer.appendChild(tagSpan);
-          });
-      }
-      content.appendChild(tagsContainer);
+    const title = document.createElement('div');
+    title.className = 'pet-faq-item-title';
+    title.textContent = faq.title || '常见问题';
 
-      const actions = document.createElement('div');
-      actions.className = 'tw-absolute tw-right-2 tw-top-2 tw-hidden group-hover:tw-flex tw-gap-1 tw-bg-white/90 tw-backdrop-blur-sm tw-rounded tw-shadow-sm tw-p-0.5 tw-border tw-border-gray-100';
-      
-      const createBtn = (icon, title, onClick, colorClass) => {
-          const btn = document.createElement('button');
-          btn.className = `tw-p-1.5 tw-rounded hover:tw-bg-gray-100 tw-transition ${colorClass}`;
-          btn.title = title;
-          btn.innerHTML = icon;
-          btn.onclick = (e) => {
-              e.stopPropagation();
-              onClick();
-          };
-          return btn;
-      };
+    const actions = document.createElement('div');
+    actions.className = 'pet-faq-item-actions';
 
-      actions.appendChild(createBtn(
-          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
-          '管理标签',
-          () => this.openFaqTagManager(index),
-          'tw-text-gray-500 hover:tw-text-blue-500'
-      ));
+    const tagBtn = document.createElement('button');
+    tagBtn.type = 'button';
+    tagBtn.className = 'pet-faq-item-btn';
+    tagBtn.textContent = '标签';
+    tagBtn.setAttribute('aria-label', '标签');
+    tagBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.editFaqTags(faq);
+    });
 
-      actions.appendChild(createBtn(
-          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
-          '删除',
-          () => this.deleteFaq(faq.text),
-          'tw-text-gray-400 hover:tw-text-red-500'
-      ));
+    const insertBtn = document.createElement('button');
+    insertBtn.type = 'button';
+    insertBtn.className = 'pet-faq-item-btn';
+    insertBtn.textContent = '插入';
+    insertBtn.setAttribute('aria-label', '插入');
+    insertBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.applyFaqItem(faq, 'insert');
+      this.closeFaqManagerOnly();
+    });
 
-      item.appendChild(content);
-      item.appendChild(actions);
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'pet-faq-item-btn primary';
+    sendBtn.textContent = '发送';
+    sendBtn.setAttribute('aria-label', '发送');
+    sendBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.applyFaqItem(faq, 'send');
+      this.closeFaqManagerOnly();
+    });
 
-      item.addEventListener('click', () => {
-           const chatInput = this.chatWindow?.querySelector('#pet-chat-input');
-           if (chatInput) {
-               chatInput.value = faq.text;
-               chatInput.focus();
-               chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-               this.closeFaqManagerOnly();
-           }
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'pet-faq-item-btn danger';
+    deleteBtn.textContent = '删除';
+    deleteBtn.setAttribute('aria-label', '删除');
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.deleteFaq(faq);
+    });
+
+    actions.appendChild(tagBtn);
+    actions.appendChild(insertBtn);
+    actions.appendChild(sendBtn);
+    actions.appendChild(deleteBtn);
+
+    header.appendChild(title);
+    header.appendChild(actions);
+
+    const tagsContainer = document.createElement('div');
+    tagsContainer.className = 'pet-faq-item-tags';
+    if (Array.isArray(faq.tags) && faq.tags.length > 0) {
+      tagsContainer.setAttribute('aria-label', '问题标签');
+      faq.tags.forEach(tag => {
+        const tagBtn = document.createElement('button');
+        tagBtn.type = 'button';
+        tagBtn.className = 'pet-faq-item-tag';
+        tagBtn.textContent = tag;
+        tagBtn.setAttribute('aria-label', `筛选标签：${tag}`);
+        tagBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleFaqTag(tag);
+        });
+        tagsContainer.appendChild(tagBtn);
       });
+    }
 
-      return item;
+    const prompt = document.createElement('div');
+    prompt.className = 'pet-faq-item-prompt';
+    prompt.textContent = faq.prompt || '';
+
+    item.appendChild(header);
+    if (tagsContainer.children.length > 0) {
+      item.appendChild(tagsContainer);
+    }
+    item.appendChild(prompt);
+
+    // 点击事件
+    item.addEventListener('click', () => {
+      this.applyFaqItem(faq, 'insert');
+      this.closeFaqManagerOnly();
+    });
+
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl/Cmd + Enter: 发送
+          e.preventDefault();
+          e.stopPropagation();
+          this.applyFaqItem(faq, 'send');
+          this.closeFaqManagerOnly();
+        } else if (!e.shiftKey) {
+          // Enter (非 Shift): 插入
+          e.preventDefault();
+          e.stopPropagation();
+          this.applyFaqItem(faq, 'insert');
+          this.closeFaqManagerOnly();
+        }
+      }
+    });
+
+    return item;
+  };
+
+  proto.applyFaqItem = function(faq, mode = 'insert') {
+    const title = String(faq?.title || '').trim();
+    const prompt = String(faq?.prompt || '').trim();
+    const text = title && prompt ? `${title}\n\n${prompt}` : (prompt || title);
+    if (!text) return;
+    
+    const chatInput = this.chatWindow?.querySelector('#pet-chat-input');
+    if (chatInput) {
+      const current = String(chatInput.value || '');
+      const next = current ? `${current}\n\n${text}` : text;
+      chatInput.value = next;
+      chatInput.focus();
+      chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      // 调整输入框高度
+      try {
+        chatInput.style.height = 'auto';
+        const min = 60;
+        const max = 220;
+        const nextH = Math.max(min, Math.min(max, chatInput.scrollHeight || min));
+        chatInput.style.height = `${nextH}px`;
+      } catch (_) {}
+      
+      if (mode === 'send') {
+        setTimeout(() => {
+          try {
+            // 通过 chatWindowComponent 调用 sendMessage
+            if (this.chatWindowComponent && typeof this.chatWindowComponent.sendMessage === 'function') {
+              this.chatWindowComponent.sendMessage();
+            } else if (typeof this.sendMessage === 'function') {
+              this.sendMessage();
+            }
+          } catch (_) {}
+        }, 0);
+      }
+    }
+  };
+
+  proto.editFaqTags = async function(faq) {
+    const currentTags = _normalizeFaqTags(faq?.tags);
+    const nextRaw = window.prompt('编辑标签（逗号分隔）：', currentTags.join(', '));
+    if (nextRaw == null) return;
+    const nextTags = _normalizeFaqTags(nextRaw);
+    
+    try {
+      if (this.faqApi && this.faqApi.isEnabled()) {
+        // 使用 text 作为 key（因为 API 使用 text 作为唯一标识）
+        const key = faq.text || faq.key;
+        if (!key) {
+          throw new Error('无法确定常见问题的标识符');
+        }
+        await this.faqApi.updateFaq(key, {
+          text: faq.text,
+          tags: nextTags
+        });
+        if (this.faqApi.clearGetCache) {
+          this.faqApi.clearGetCache();
+        }
+        await this.loadFaqsIntoManager(true);
+        this.showNotification('已更新标签', 'success');
+      } else {
+        throw new Error('FAQ API 未启用');
+      }
+    } catch (e) {
+      console.error('更新标签失败:', e);
+      this.showNotification('更新标签失败: ' + (e?.message || '未知错误'), 'error');
+    }
   };
 
   proto.addFaqFromInput = async function() {
-      const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-      if (!modal) return;
-      const input = modal.querySelector('.faq-manager-input');
-      if (!input) return;
-      
-      const text = input.value.trim();
-      if (!text) return;
+    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!modal) return;
+    const input = modal.querySelector('.pet-faq-input');
+    if (!input) return;
 
-      try {
-          if (this.faqApi) {
-              await this.faqApi.createFaq({ text });
-              input.value = '';
-              await this.loadFaqsIntoManager();
-          }
-      } catch (err) {
-          console.error('添加常见问题失败:', err);
-          alert('添加失败: ' + err.message);
+    const raw = String(input.value || '').trim();
+    if (!raw) return;
+    
+    // 解析标题和正文：首行作为标题，余下作为正文
+    const lines = raw.split('\n');
+    const title = String(lines[0] || '').trim();
+    const prompt = String(lines.slice(1).join('\n') || '').trim();
+    
+    try {
+      if (this.faqApi && this.faqApi.isEnabled()) {
+        // 使用完整的 text 字段保存，API 会处理
+        const data = {
+          text: raw,  // 保存完整文本，包含标题和正文
+          tags: []
+        };
+        await this.faqApi.createFaq(data);
+        if (this.faqApi.clearGetCache) {
+          this.faqApi.clearGetCache();
+        }
+        input.value = '';
+        await this.loadFaqsIntoManager(true);
+        this.showNotification('已添加常见问题', 'success');
+        
+        // 将焦点返回到搜索输入框
+        const searchInput = modal.querySelector('.pet-faq-search-input');
+        if (searchInput) {
+          setTimeout(() => searchInput.focus(), 0);
+        }
+      } else {
+        throw new Error('FAQ API 未启用');
       }
+    } catch (err) {
+      console.error('添加常见问题失败:', err);
+      this.showNotification('添加失败: ' + (err.message || '未知错误'), 'error');
+    }
   };
 
-  proto.deleteFaq = async function(key) {
-      if (!confirm('确定要删除这条常见问题吗？')) return;
-      try {
-          if (this.faqApi) {
-              await this.faqApi.deleteFaq(key);
-              await this.loadFaqsIntoManager();
-          }
-      } catch (err) {
-          console.error('删除常见问题失败:', err);
-          alert('删除失败: ' + err.message);
+  proto.deleteFaq = async function(faq) {
+    const key = String(faq?.key || faq?.text || '').trim();
+    if (!key) return;
+    if (!confirm('确定要删除这条常见问题吗？')) return;
+    
+    try {
+      if (this.faqApi && this.faqApi.isEnabled()) {
+        await this.faqApi.deleteFaq(key);
+        if (this.faqApi.clearGetCache) {
+          this.faqApi.clearGetCache();
+        }
+        await this.loadFaqsIntoManager(true);
+        this.showNotification('已删除常见问题', 'success');
       }
+    } catch (err) {
+      console.error('删除常见问题失败:', err);
+      this.showNotification('删除失败: ' + (err.message || '未知错误'), 'error');
+    }
   };
 })();
-

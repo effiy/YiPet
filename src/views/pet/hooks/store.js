@@ -68,7 +68,7 @@ export const createStore = () => {
     const thinking = vueRef(false); // AI 正在思考
 
     // 侧边栏状态
-    const sidebarWidth = vueRef(200);
+    const sidebarWidth = vueRef(500);
     const sidebarCollapsed = vueRef(false);
     const isResizingSidebar = vueRef(false);
 

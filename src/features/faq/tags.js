@@ -210,15 +210,12 @@
                 if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
                     return;
                 }
-                quickTagBtn.style.background = '#e0e0e0';
                 quickTagBtn.style.borderColor = '#22c55e';  /* 现代绿 */
             });
             quickTagBtn.addEventListener('mouseleave', () => {
                 if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
                     return;
                 }
-                quickTagBtn.style.background = '#f0f0f0';
-                quickTagBtn.style.borderColor = '#d0d0d0';
             });
             quickTagBtn.addEventListener('click', () => {
                 if (quickTagBtn.style.cursor === 'not-allowed') {
@@ -373,9 +370,6 @@
                 btn.style.cursor = 'not-allowed';
                 btn.style.opacity = '0.8';
             } else {
-                btn.style.background = '#f0f0f0';
-                btn.style.color = '#f8fafc';  /* 量子白 */
-                btn.style.borderColor = '#d0d0d0';
                 btn.style.cursor = 'pointer';
                 btn.style.opacity = '1';
             }

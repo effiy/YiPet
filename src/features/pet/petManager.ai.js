@@ -404,13 +404,20 @@
     };
 
     // 生成宠物响应（流式版本）
-    proto.generatePetResponseStream = async function(message, onContent, abortController = null) {
+    proto.generatePetResponseStream = async function(message, onContent, abortController = null, options = {}) {
         // 开始加载动画（不等待，避免阻塞）
         this.showLoadingAnimation().catch(err => {
             console.warn('显示加载动画失败:', err);
         });
 
         try {
+            const _truncateText = (v, maxLen) => {
+                const s = String(v ?? '');
+                const limit = Math.max(0, Number(maxLen) || 0);
+                if (!limit || s.length <= limit) return s;
+                return `${s.slice(0, limit)}\n\n...(内容已截断)`;
+            };
+
             // 检查开关状态
             let includeContext = true; // 默认包含上下文
             const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
@@ -452,22 +459,36 @@
                 fullPageMarkdown = this.getPageContentAsMarkdown();
             }
 
-            // 构建包含页面内容的完整消息
-            const pageUrl = window.location.href;
+            const images = Array.isArray(options?.images)
+                ? options.images.filter(Boolean).slice(0, 4)
+                : [];
+            const baseText = (() => {
+                const t = String(message ?? '').trim();
+                if (t) return t;
+                if (images.length > 0) return '用户发送了图片，请结合图片内容回答。';
+                return '';
+            })();
+            const currentText = _truncateText(baseText, 8000);
+            const pageMd = _truncateText(fullPageMarkdown, 12000);
 
             // 根据开关状态决定是否包含页面内容
-            let userMessage = message;
-            if (includeContext && fullPageMarkdown) {
-                userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
+            let userMessage = currentText;
+            if (includeContext && pageMd) {
+                userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面内容（Markdown 格式）：\n${pageMd}\n\n【用户问题】\n${currentText}`;
             }
 
             // 调用 API，使用配置中的 URL
             const apiUrl = PET_CONFIG.api.yiaiBaseUrl;
 
+            if (typeof this.buildFromUserWithContext === 'function') {
+                userMessage = this.buildFromUserWithContext(userMessage);
+            }
+
             // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl
             const oldPayload = this.buildPromptPayload(
                 '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
-                userMessage
+                userMessage,
+                { images }
             );
 
             // 转换为 services.ai.chat_service 格式
@@ -1519,6 +1540,13 @@ ${originalText}
 
     // 构建包含会话上下文的 fromUser 参数
     proto.buildFromUserWithContext = function(baseUserPrompt, roleLabel) {
+        const _truncateText = (v, maxLen) => {
+            const s = String(v ?? '');
+            const limit = Math.max(0, Number(maxLen) || 0);
+            if (!limit || s.length <= limit) return s;
+            return `${s.slice(0, limit)}\n\n...(内容已截断)`;
+        };
+
         // 检查页面上下文开关状态
         let includeContext = true; // 默认包含上下文
         const contextSwitch = this.chatWindow ? this.chatWindow.querySelector('#context-switch') : null;
@@ -1527,6 +1555,7 @@ ${originalText}
         }
 
         const context = this.buildConversationContext();
+        const pageContent = _truncateText(context.pageContent, 12000);
 
         // 如果 baseUserPrompt 已经包含了页面内容，根据开关状态决定是否替换或移除
         let finalBasePrompt = baseUserPrompt;
@@ -1538,7 +1567,7 @@ ${originalText}
                     // 替换为会话保存的页面内容
                     finalBasePrompt = baseUserPrompt.replace(
                         /页面内容（Markdown 格式）：\s*\n[\s\S]*?(?=\n\n|$)/,
-                        `页面内容（Markdown 格式）：\n${context.pageContent}`
+                        `页面内容（Markdown 格式）：\n${pageContent}`
                     );
                 }
             } else if (!includeContext) {
@@ -1553,8 +1582,8 @@ ${originalText}
         // 如果没有消息历史，直接使用基础提示词（可能已包含页面内容）
         if (!context.hasHistory) {
             // 如果开关打开、baseUserPrompt 中没有页面内容，但会话有页面内容，添加页面内容
-            if (includeContext && context.pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
-                const pageContext = '\n\n## 页面内容：\n\n' + context.pageContent;
+            if (includeContext && pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
+                const pageContext = '\n\n## 页面内容：\n\n' + pageContent;
                 return finalBasePrompt + pageContext;
             }
             return finalBasePrompt;
@@ -1564,19 +1593,26 @@ ${originalText}
         let conversationContext = '';
         if (context.messages.length > 0) {
             conversationContext = '\n\n## 会话历史：\n\n';
-            context.messages.forEach((msg, index) => {
+            context.messages.slice(-30).forEach((msg, index) => {
                 const role = msg.type === 'user' ? '用户' : '助手';
-                const content = msg.content.trim();
-                if (content) {
-                    conversationContext += `${role}：${content}\n\n`;
-                }
+                const contentText = _truncateText(String(msg?.content || '').trim(), 12000);
+                const imageList = Array.isArray(msg?.imageDataUrls)
+                    ? msg.imageDataUrls
+                    : (typeof msg?.imageDataUrl === 'string' && msg.imageDataUrl.trim() ? [msg.imageDataUrl.trim()] : []);
+                const content = (() => {
+                    if (contentText) return contentText;
+                    if (imageList.length > 0) return imageList.length === 1 ? '[图片]' : `[图片 x${imageList.length}]`;
+                    return '';
+                })();
+                if (!content) return;
+                conversationContext += `${role}：${content}\n\n`;
             });
         }
 
         // 如果开关打开、baseUserPrompt 中没有页面内容，但会话有页面内容，添加页面内容
         let pageContext = '';
-        if (includeContext && context.pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
-            pageContext = '\n\n## 页面内容：\n\n' + context.pageContent;
+        if (includeContext && pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
+            pageContext = '\n\n## 页面内容：\n\n' + pageContent;
         }
 
         // 组合：基础提示词（已包含会话的页面上下文）+ 会话历史 + 页面内容（如果需要）

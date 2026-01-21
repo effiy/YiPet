@@ -39,7 +39,7 @@
             this.draftImages = [];
             this.imageInput = null;
             this.draftImagesContainer = null;
-            this.maxDraftImages = 9; // 最大图片数量限制
+            this.maxDraftImages = 4; // 最大图片数量限制
 
             // 防重复提交标志
             this.isProcessing = false;
@@ -988,22 +988,37 @@
 
             // Paste Image Support
             textarea.addEventListener('paste', async (e) => {
-                const items = e.clipboardData.items;
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i];
-                    if (item.type.indexOf('image') !== -1) {
-                        e.preventDefault();
-                        const file = item.getAsFile();
+                const items = e.clipboardData?.items ? Array.from(e.clipboardData.items) : [];
+                const imageItems = items.filter((item) => item && typeof item.type === 'string' && item.type.includes('image'));
+                if (imageItems.length === 0) return;
+
+                e.preventDefault();
+
+                const remainingSlots = this.maxDraftImages - this.draftImages.length;
+                if (remainingSlots <= 0) {
+                    if (typeof this.manager.showNotification === 'function') {
+                        this.manager.showNotification(`最多只能添加 ${this.maxDraftImages} 张图片`, 'warn');
+                    }
+                    return;
+                }
+
+                const itemsToRead = imageItems.slice(0, remainingSlots);
+                await Promise.all(itemsToRead.map((item) => {
+                    const file = item.getAsFile();
+                    if (!file) return Promise.resolve();
+                    return new Promise((resolve) => {
                         const reader = new FileReader();
                         reader.onload = (event) => {
-                            if (typeof manager.sendImageMessage === 'function') {
-                                manager.sendImageMessage(event.target.result);
-                            }
+                            const src = event?.target?.result;
+                            if (src) this.draftImages.push(src);
+                            resolve();
                         };
+                        reader.onerror = () => resolve();
                         reader.readAsDataURL(file);
-                        break;
-                    }
-                }
+                    });
+                }));
+
+                this.updateDraftImagesDisplay();
             });
 
             // Composition State (IME) - 与 YiWeb 保持一致
@@ -1083,9 +1098,10 @@
                     e.preventDefault();
 
                     const message = textarea.value.trim();
+                    const hasImages = Array.isArray(this.draftImages) && this.draftImages.some(Boolean);
 
                     // 检查消息是否为空
-                    if (!message) {
+                    if (!message && !hasImages) {
                         if (typeof this.manager.showNotification === 'function') {
                             this.manager.showNotification('请输入消息内容', 'error');
                         }
@@ -1093,9 +1109,9 @@
                     }
 
                     // 检查消息长度
-                    if (message.length > 2000) {
+                    if (message.length > 8000) {
                         if (typeof this.manager.showNotification === 'function') {
-                            this.manager.showNotification('消息内容过长，请控制在2000字符以内', 'error');
+                            this.manager.showNotification('消息内容过长，请控制在8000字符以内', 'error');
                         }
                         return;
                     }
@@ -1370,52 +1386,21 @@
                 return;
             }
 
-            const message = textarea.value.trim();
+            const message = String(textarea?.value ?? '').trim();
+            const imagesToSend = Array.isArray(this.draftImages) ? this.draftImages.filter(Boolean).slice(0, this.maxDraftImages) : [];
 
-            // 检查消息是否为空
-            if (!message) {
+            if (!message && imagesToSend.length === 0) return;
+
+            if (message.length > 8000) {
                 if (typeof manager.showNotification === 'function') {
-                    manager.showNotification('请输入消息内容', 'error');
+                    manager.showNotification('消息内容过长，请控制在8000字符以内', 'error');
                 }
                 return;
             }
-
-            // 检查消息长度（与 YiWeb 保持一致，限制2000字符）
-            if (message.length > 2000) {
-                if (typeof manager.showNotification === 'function') {
-                    manager.showNotification('消息内容过长，请控制在2000字符以内', 'error');
-                }
-                return;
-            }
-
-            // 保存原始输入框状态
-            const originalPlaceholder = textarea.placeholder;
-            const originalValue = textarea.value;
-            const originalDisabled = textarea.disabled;
-
-            console.log('[输入框] 原始状态:', {
-                placeholder: originalPlaceholder,
-                value: originalValue,
-                disabled: originalDisabled
-            });
 
             try {
                 // 设置处理状态
                 this.isProcessing = true;
-
-                // 禁用输入框并显示加载状态
-                textarea.disabled = true;
-                textarea.placeholder = '正在处理您的请求，请稍候...';
-                textarea.style.opacity = '0.6';
-                textarea.style.cursor = 'not-allowed';
-
-                // 添加输入框加载动画
-                textarea.classList.add('loading-input');
-
-                // 添加触觉反馈
-                if (navigator.vibrate) {
-                    navigator.vibrate(100);
-                }
 
                 // Ensure session exists
                 if (!manager.currentSessionId) {
@@ -1423,15 +1408,32 @@
                     if (typeof manager.updateChatHeaderTitle === 'function') manager.updateChatHeaderTitle();
                 }
 
-                // Send images if any
-                const imagesToSend = [...this.draftImages];
-                if (imagesToSend.length > 0) {
-                    this.clearDraftImages();
-                }
+                if (imagesToSend.length > 0) this.clearDraftImages();
 
                 // Add User Message
+                const now = Date.now();
+                const petTimestamp = now + 1;
+                const updatePetMessageInSession = (patch) => {
+                    try {
+                        const session = manager?.sessions?.[manager.currentSessionId];
+                        const list = Array.isArray(session?.messages) ? session.messages : null;
+                        if (!list) return;
+                        for (let i = list.length - 1; i >= 0; i--) {
+                            const m = list[i];
+                            if (m && m.type === 'pet' && m.timestamp === petTimestamp) {
+                                if (patch && typeof patch === 'object') {
+                                    if (Object.prototype.hasOwnProperty.call(patch, 'content')) m.content = String(patch.content ?? '');
+                                    if (Object.prototype.hasOwnProperty.call(patch, 'error')) m.error = !!patch.error;
+                                    if (Object.prototype.hasOwnProperty.call(patch, 'aborted')) m.aborted = !!patch.aborted;
+                                }
+                                session.updatedAt = Date.now();
+                                return;
+                            }
+                        }
+                    } catch (_) { }
+                };
                 if (typeof manager.createMessageElement === 'function') {
-                    const userMessage = manager.createMessageElement(message, 'user');
+                    const userMessage = manager.createMessageElement(message, 'user', imagesToSend.length > 0 ? imagesToSend : null, now);
                     // 设置消息索引 - 与 YiWeb 保持一致
                     const currentMessages = Array.from(this.messagesContainer.children).filter(
                         el => !el.hasAttribute('data-welcome-message')
@@ -1443,7 +1445,13 @@
 
                     // Add to session data
                     if (typeof manager.addMessageToSession === 'function') {
-                        await manager.addMessageToSession('user', message, imagesToSend.length > 0 ? imagesToSend : null, false);
+                        await manager.addMessageToSession(
+                            'user',
+                            message,
+                            now,
+                            false,
+                            imagesToSend.length > 0 ? (imagesToSend.length === 1 ? imagesToSend[0] : imagesToSend) : null
+                        );
                     }
 
                     // Add action buttons
@@ -1472,7 +1480,7 @@
                 let petMessageElement = null;
                 let petBubble = null;
                 if (typeof manager.createMessageElement === 'function') {
-                    petMessageElement = manager.createMessageElement('', 'pet');
+                    petMessageElement = manager.createMessageElement('', 'pet', null, petTimestamp, { streaming: true });
                     // 设置消息索引 - 与 YiWeb 保持一致
                     const currentMessages = Array.from(this.messagesContainer.children).filter(
                         el => !el.hasAttribute('data-welcome-message')
@@ -1502,11 +1510,17 @@
                     this.scrollToBottom(true); // 添加宠物消息占位符后强制滚动
                 }
 
+                if (typeof manager.addMessageToSession === 'function') {
+                    await manager.addMessageToSession('pet', '', petTimestamp, false, null, true);
+                }
+
                 // Prepare for streaming
                 this._currentAbortController = new AbortController();
                 this.updateRequestStatus('loading');
 
                 let fullContent = '';
+                let streamErrorMessage = '';
+                let streamAborted = false;
 
                 // 添加流式消息状态类（与 YiWeb 保持一致）
                 if (petMessageElement) {
@@ -1516,7 +1530,7 @@
                 try {
                     // Call generatePetResponseStream
                     if (typeof manager.generatePetResponseStream === 'function') {
-                        await manager.generatePetResponseStream(
+                        const reply = await manager.generatePetResponseStream(
                             message,
                             (chunk, accumulatedContent) => {
                                 const content = (typeof accumulatedContent === 'string') ? accumulatedContent : String(chunk ?? '');
@@ -1535,19 +1549,35 @@
                                     // 更新原始文本属性
                                     petBubble.setAttribute('data-original-text', content);
 
+                                    updatePetMessageInSession({ content, error: false, aborted: false });
                                     this.scrollToBottom(); // 流式更新时智能滚动
                                 }
                             },
-                            this._currentAbortController
+                            this._currentAbortController,
+                            { images: imagesToSend }
                         );
+                        if (typeof reply === 'string' && reply.trim()) {
+                            fullContent = reply;
+                        }
                     } else {
                         // Fallback or error if method missing
                         throw new Error('generatePetResponseStream method not found');
                     }
 
-                    // Add to session after stream complete
-                    if (typeof manager.addMessageToSession === 'function') {
-                        await manager.addMessageToSession('pet', fullContent, null, false);
+                    {
+                        const finalContent = String(fullContent ?? '').trim() || '请继续。';
+                        if (petBubble) {
+                            const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
+                            petBubble.setAttribute('data-original-text', finalContent);
+                            if (contentDiv) {
+                                if (typeof manager.renderMarkdown === 'function') {
+                                    contentDiv.innerHTML = manager.renderMarkdown(finalContent);
+                                } else {
+                                    contentDiv.textContent = finalContent;
+                                }
+                            }
+                        }
+                        updatePetMessageInSession({ content: finalContent, error: false, aborted: false });
                     }
 
                     // Add action buttons for pet message
@@ -1556,12 +1586,12 @@
                     }
 
                 } catch (error) {
-                    if (error.name === 'AbortError') {
-                        console.log('Request aborted');
+                    if (error?.name === 'AbortError' || String(error?.message || '').includes('请求已取消')) {
+                        streamAborted = true;
                         if (petBubble) {
                             const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
-                            const base = String(petBubble.getAttribute('data-original-text') || '').trim();
-                            const next = `${base}${base ? ' ' : ''}[已取消]`;
+                            const base = String(fullContent ?? '').trim();
+                            const next = base || '已停止';
                             petBubble.setAttribute('data-original-text', next);
                             if (contentDiv) {
                                 if (typeof manager.renderMarkdown === 'function') {
@@ -1571,16 +1601,17 @@
                                 }
                             }
                         }
+                        updatePetMessageInSession({ content: String(fullContent ?? '').trim() || '已停止', error: false, aborted: true });
                         // 添加已取消状态
                         if (petMessageElement) {
                             petMessageElement.classList.add('is-aborted');
                         }
                     } else {
-                        console.error('Error generating response:', error);
+                        streamErrorMessage = String(error?.message || '请求失败');
                         if (petBubble) {
                             const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
-                            const base = String(petBubble.getAttribute('data-original-text') || '').trim();
-                            const next = `${base}${base ? '\n' : ''}[错误: ${error.message}]`;
+                            const base = String(fullContent ?? '').trim();
+                            const next = base || `请求失败：${streamErrorMessage}`;
                             petBubble.setAttribute('data-original-text', next);
                             if (contentDiv) {
                                 if (typeof manager.renderMarkdown === 'function') {
@@ -1590,12 +1621,10 @@
                                 }
                             }
                         }
+                        updatePetMessageInSession({ content: String(fullContent ?? '').trim() || `请求失败：${streamErrorMessage}`, error: true, aborted: false });
                         // 添加错误状态
                         if (petMessageElement) {
                             petMessageElement.classList.add('is-error');
-                        }
-                        if (typeof manager.showNotification === 'function') {
-                            manager.showNotification(`处理失败：${error.message || '未知错误'}`, 'error');
                         }
                     }
                 } finally {
@@ -1637,20 +1666,7 @@
             } finally {
                 // 恢复输入框状态
                 this.isProcessing = false;
-                if (textarea) {
-                    textarea.disabled = originalDisabled;
-                    textarea.placeholder = originalPlaceholder;
-                    textarea.style.opacity = '';
-                    textarea.style.cursor = '';
-                    textarea.classList.remove('loading-input');
-
-                    // 恢复焦点
-                    setTimeout(() => {
-                        if (textarea && !textarea.disabled) {
-                            textarea.focus();
-                        }
-                    }, 100);
-                }
+                if (textarea) textarea.focus();
             }
         }
 

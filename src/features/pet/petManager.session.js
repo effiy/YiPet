@@ -1263,7 +1263,7 @@
         return [...priorityTagList, ...otherTags];
     };
 
-    proto.addMessageToSession = async function (type, content, timestamp = null, syncToBackend = true, imageDataUrl = null) {
+    proto.addMessageToSession = async function (type, content, timestamp = null, syncToBackend = true, imageDataUrl = null, allowEmpty = false) {
         if (!this.currentSessionId) {
             console.warn('没有当前会话，无法添加消息');
             return;
@@ -1282,11 +1282,12 @@
             session.messages = [];
         }
 
-        // 验证消息内容：必须有文本内容或图片数据
         const hasTextContent = content && typeof content === 'string' && content.trim();
-        const hasImage = imageDataUrl && typeof imageDataUrl === 'string';
+        const hasSingleImage = typeof imageDataUrl === 'string' && imageDataUrl.trim();
+        const hasMultiImages = Array.isArray(imageDataUrl) && imageDataUrl.some(v => typeof v === 'string' && v.trim());
+        const hasImage = hasSingleImage || hasMultiImages;
 
-        if (!hasTextContent && !hasImage) {
+        if (!hasTextContent && !hasImage && !allowEmpty) {
             console.warn('消息内容为空或无效（既无文本也无图片），跳过保存');
             return;
         }
@@ -1300,7 +1301,19 @@
 
         // 如果有图片数据，添加到消息对象中
         if (hasImage) {
-            message.imageDataUrl = imageDataUrl;
+            if (hasSingleImage) {
+                message.imageDataUrl = imageDataUrl.trim();
+                message.imageDataUrls = [imageDataUrl.trim()];
+            } else {
+                const list = imageDataUrl
+                    .filter(v => typeof v === 'string')
+                    .map(v => v.trim())
+                    .filter(Boolean);
+                if (list.length > 0) {
+                    message.imageDataUrls = list;
+                    message.imageDataUrl = list[0];
+                }
+            }
         }
 
         // 检查是否重复（避免重复保存相同的消息）
@@ -1309,7 +1322,7 @@
         if (lastMessage &&
             lastMessage.type === message.type &&
             lastMessage.content === message.content &&
-            lastMessage.imageDataUrl === message.imageDataUrl &&
+            String(lastMessage.imageDataUrl || '') === String(message.imageDataUrl || '') &&
             (Date.now() - lastMessage.timestamp) < 1000) { // 1秒内的相同消息视为重复
             const previewText = hasTextContent ? message.content.substring(0, 30) : (hasImage ? '[图片]' : '');
             console.log('检测到重复消息，跳过保存:', previewText);

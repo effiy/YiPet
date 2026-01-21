@@ -2,7 +2,7 @@
  * PetManager - 媒体模块
  * 负责处理图片、文件等媒体消息的发送和预览
  */
-(function() {
+(function () {
     'use strict';
 
     // 确保 PetManager 类已定义
@@ -16,7 +16,7 @@
      * 发送图片消息
      * @param {string} imageDataUrl - 图片数据的DataURL
      */
-    proto.sendImageMessage = async function(imageDataUrl) {
+    proto.sendImageMessage = async function (imageDataUrl) {
         const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
         if (!messagesContainer) return;
 
@@ -42,12 +42,8 @@
         const userBubble = userMessage.querySelector('[data-message-type="user-bubble"]');
         const copyButtonContainer = userMessage.querySelector('[data-copy-button-container]');
         if (copyButtonContainer && userBubble) {
-            // 检查是否已经添加过这些按钮（通过检查是否有删除按钮）
-            if (!copyButtonContainer.querySelector('.delete-button')) {
-                this.addDeleteButtonForUserMessage(copyButtonContainer, userBubble);
-            }
-            // 添加排序按钮
-            this.addSortButtons(copyButtonContainer, userMessage);
+            // 按钮现在由 ChatWindow.addActionButtonsToMessage 统一管理
+            // 不再需要单独调用 addDeleteButtonForUserMessage 和 addSortButtons
         }
 
         // 调用 session/save 保存会话到后端
@@ -111,7 +107,7 @@
      * @param {string} imageUrl - 图片URL或DataURL
      * @param {string} fileName - 文件名（可选）
      */
-    proto.showImagePreview = function(imageUrl, fileName = '') {
+    proto.showImagePreview = function (imageUrl, fileName = '') {
         // 如果已有预览弹窗，先关闭
         const existingModal = document.querySelector('.image-preview-modal');
         if (existingModal) {

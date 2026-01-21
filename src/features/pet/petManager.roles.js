@@ -1,8 +1,8 @@
-(function(global) {
+(function (global) {
     const proto = global.PetManager.prototype;
 
     // 获取角色图标（优先自定义，其次从角色配置列表中查找）
-    proto.getRoleIcon = function(roleConfig, allConfigs = null) {
+    proto.getRoleIcon = function (roleConfig, allConfigs = null) {
         if (!roleConfig) return '🙂';
 
         // 优先使用配置中的自定义图标
@@ -37,7 +37,7 @@
     };
 
     // 统一获取角色标签/名称（优先自定义，其次从角色配置列表中查找）
-    proto.getRoleLabel = function(roleConfig, allConfigs = null) {
+    proto.getRoleLabel = function (roleConfig, allConfigs = null) {
         if (!roleConfig) return '自定义角色';
 
         // 优先使用配置中的自定义标签
@@ -65,7 +65,7 @@
     };
 
     // 统一获取角色提示语（用于按钮的 title 属性，支持自定义）
-    proto.getRoleTooltip = function(roleConfig) {
+    proto.getRoleTooltip = function (roleConfig) {
         // 优先使用配置中的自定义提示语
         if (roleConfig && roleConfig.tooltip && typeof roleConfig.tooltip === 'string') {
             const tooltip = roleConfig.tooltip.trim();
@@ -77,7 +77,7 @@
     };
 
     // 统一获取角色完整信息（图标、标签、提示语等）
-    proto.getRoleInfoForAction = async function(actionKey) {
+    proto.getRoleInfoForAction = async function (actionKey) {
         try {
             const configs = await this.getRoleConfigs();
             const cfg = Array.isArray(configs) ? configs.find(c => c && c.actionKey === actionKey) : null;
@@ -102,7 +102,7 @@
     };
 
     // 根据 actionKey 从角色配置中获取提示语（必须从角色配置中获取 prompt）
-    proto.getRolePromptForAction = async function(actionKey, pageInfo) {
+    proto.getRolePromptForAction = async function (actionKey, pageInfo) {
         // 获取角色信息（图标、标签等）
         const roleInfo = await this.getRoleInfoForAction(actionKey);
         const cfg = roleInfo.config;
@@ -136,7 +136,7 @@ ${pageContent || '无内容'}
     };
 
     // 将角色设置应用到欢迎消息下方的动作按钮（根据 actionKey 动态更新图标、标题和提示语）
-    proto.applyRoleConfigToActionIcon = async function(iconEl, actionKey) {
+    proto.applyRoleConfigToActionIcon = async function (iconEl, actionKey) {
         try {
             if (!iconEl || !actionKey) return;
 
@@ -150,7 +150,7 @@ ${pageContent || '无内容'}
     };
 
     // 创建动作按钮（根据角色配置动态创建）
-    proto.createActionButton = async function(actionKey) {
+    proto.createActionButton = async function (actionKey) {
         const button = document.createElement('span');
         button.setAttribute('data-action-key', actionKey);
 
@@ -189,7 +189,7 @@ ${pageContent || '无内容'}
 
     // 获取按角色设置列表顺序排列的已绑定角色的 actionKey 列表
     // 此方法与 renderRoleSettingsList() 共享相同的顺序逻辑
-    proto.getOrderedBoundRoleKeys = async function() {
+    proto.getOrderedBoundRoleKeys = async function () {
         const configsRaw = await this.getRoleConfigs();
         const configs = Array.isArray(configsRaw) ? configsRaw : [];
 
@@ -207,7 +207,7 @@ ${pageContent || '无内容'}
     };
 
     // 刷新欢迎消息操作按钮：显示角色列表作为按钮（设置按钮已移动到 chat-request-status-button 后面）
-    proto.refreshWelcomeActionButtons = async function() {
+    proto.refreshWelcomeActionButtons = async function () {
         if (!this.chatWindow) return;
         const container = this.chatWindow.querySelector('#pet-welcome-actions');
         if (!container) return;
@@ -295,12 +295,12 @@ ${pageContent || '无内容'}
                 `;
 
                 // 添加 hover 效果
-                button.addEventListener('mouseenter', function() {
+                button.addEventListener('mouseenter', function () {
                     this.style.fontSize = '12px';
                     this.style.color = '#f8fafc';  /* 量子白 */
                     this.style.transform = 'scale(1.1)';
                 });
-                button.addEventListener('mouseleave', function() {
+                button.addEventListener('mouseleave', function () {
                     this.style.fontSize = '10px';
                     this.style.color = '#94a3b8';  /* 中量子灰 */
                     this.style.transform = 'scale(1)';
@@ -332,12 +332,12 @@ ${pageContent || '无内容'}
                 this.roleButtonsById[config.id] = button;
 
                 // 重新绑定 hover 效果
-                button.addEventListener('mouseenter', function() {
+                button.addEventListener('mouseenter', function () {
                     this.style.fontSize = '12px';
                     this.style.color = '#f8fafc';  /* 量子白 */
                     this.style.transform = 'scale(1.1)';
                 });
-                button.addEventListener('mouseleave', function() {
+                button.addEventListener('mouseleave', function () {
                     this.style.fontSize = '10px';
                     this.style.color = '#94a3b8';  /* 中量子灰 */
                     this.style.transform = 'scale(1)';
@@ -408,10 +408,10 @@ ${pageContent || '无内容'}
                     const response = await this.callAiApi(
                         rolePrompt,
                         fromUser,
-                        (text) => {}, // 不需要在流式输出中更新
+                        (text) => { }, // 不需要在流式输出中更新
                         null
                     );
-                    
+
                     // 处理响应结果
                     let content = '';
                     if (response && response.content) {
@@ -464,12 +464,12 @@ ${pageContent || '无内容'}
             robotButton.innerHTML = robotConfig.icon || '🤖';
             robotButton.title = robotConfig.name || '企微机器人';
 
-            robotButton.addEventListener('mouseenter', function() {
+            robotButton.addEventListener('mouseenter', function () {
                 this.style.fontSize = '18px';
                 this.style.color = '#333';
                 this.style.transform = 'scale(1.1)';
             });
-            robotButton.addEventListener('mouseleave', function() {
+            robotButton.addEventListener('mouseleave', function () {
                 this.style.fontSize = '16px';
                 this.style.color = '#666';
                 this.style.transform = 'scale(1)';
@@ -489,8 +489,8 @@ ${pageContent || '无内容'}
                 let messageContent = '';
                 if (messageBubble) {
                     messageContent = messageBubble.getAttribute('data-original-text') ||
-                                   messageBubble.innerText ||
-                                   messageBubble.textContent || '';
+                        messageBubble.innerText ||
+                        messageBubble.textContent || '';
                 }
 
                 if (!messageContent || !messageContent.trim()) {
@@ -541,7 +541,7 @@ ${pageContent || '无内容'}
     };
 
     // 刷新所有消息中的操作按钮（用于角色配置更新后同步所有按钮图标和提示语）
-    proto.refreshAllMessageActionButtons = async function() {
+    proto.refreshAllMessageActionButtons = async function () {
         if (!this.chatWindow) return;
 
         const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
@@ -561,7 +561,7 @@ ${pageContent || '无内容'}
     };
 
     // 创建角色按钮点击处理函数
-    proto.createRoleButtonHandler = function(actionKey, iconEl, processingFlag) {
+    proto.createRoleButtonHandler = function (actionKey, iconEl, processingFlag) {
         return async () => {
             if (processingFlag.value) return;
 
@@ -762,10 +762,8 @@ ${pageContent || '无内容'}
                     messageText.setAttribute('data-original-text', content);
                     // 添加复制按钮
                     if (content && content.trim()) {
-                        const copyButtonContainer = message.querySelector('[data-copy-button-container]');
-                        if (copyButtonContainer) {
-                            this.addCopyButton(copyButtonContainer, messageText);
-                        }
+                        // 按钮现在由 ChatWindow.addActionButtonsToMessage 统一管理
+                        // 不再需要单独调用 addCopyButton
                         // 添加 try again 按钮（仅当不是第一条消息时）
                         const petMessages = Array.from(messagesContainer.children).filter(
                             child => child.querySelector('[data-message-type="pet-bubble"]')
@@ -880,7 +878,7 @@ ${pageContent || '无内容'}
     }
 
     // -------- 角色设置弹框（新增/编辑/删除） --------
-    proto.openRoleSettingsModal = function(editId = null) {
+    proto.openRoleSettingsModal = function (editId = null) {
         if (!this.chatWindow) return;
         let overlay = this.chatWindow.querySelector('#pet-role-settings');
         const currentColor = this.colors[this.colorIndex];
@@ -1089,7 +1087,7 @@ ${pageContent || '无内容'}
         }
     }
 
-    proto.closeRoleSettingsModal = function() {
+    proto.closeRoleSettingsModal = function () {
         if (!this.chatWindow) return;
         const overlay = this.chatWindow.querySelector('#pet-role-settings');
         if (overlay) overlay.style.display = 'none';
@@ -1101,7 +1099,7 @@ ${pageContent || '无内容'}
         if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
     }
 
-    proto.renderRoleSettingsList = async function() {
+    proto.renderRoleSettingsList = async function () {
         if (!this.chatWindow) return;
         const list = this.chatWindow.querySelector('#pet-role-list');
         if (!list) return;
@@ -1151,7 +1149,7 @@ ${pageContent || '无内容'}
         }
     }
 
-    proto.createRoleListItem = function(c, buttonLabel, allConfigs = null) {
+    proto.createRoleListItem = function (c, buttonLabel, allConfigs = null) {
         const row = document.createElement('div');
         row.style.cssText = `
             display:flex !important;
@@ -1260,7 +1258,7 @@ ${pageContent || '无内容'}
         return row;
     }
 
-    proto.renderRoleSettingsForm = async function(editId = null, showEmptyState = false) {
+    proto.renderRoleSettingsForm = async function (editId = null, showEmptyState = false) {
         if (!this.chatWindow) return;
         const form = this.chatWindow.querySelector('#pet-role-form');
         if (!form) return;
@@ -1438,17 +1436,17 @@ ${pageContent || '无内容'}
         // 按钮绑定部分（可选）
         const actionKeyWrap = document.createElement('div');
         actionKeyWrap.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin-top: 4px;';
-        
+
         const actionKeyLabel = document.createElement('div');
         actionKeyLabel.style.cssText = 'font-size: 13px; font-weight: 500; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center;';
         actionKeyLabel.textContent = '绑定到快捷按钮';
-        
+
         // 添加提示信息
         const actionKeyTip = document.createElement('span');
         actionKeyTip.textContent = '开启后将在欢迎消息下方显示快捷按钮';
         actionKeyTip.style.cssText = 'font-size: 12px; color: #64748b; font-weight: 400;';
         actionKeyLabel.appendChild(actionKeyTip);
-        
+
         const actionKeySwitch = document.createElement('div');
         actionKeySwitch.style.cssText = `
             display: flex;
@@ -1461,7 +1459,7 @@ ${pageContent || '无内容'}
             cursor: pointer;
             transition: all 0.2s ease;
         `;
-        
+
         const switchBtn = document.createElement('div');
         const isBound = !!current?.actionKey;
         switchBtn.style.cssText = `
@@ -1485,7 +1483,7 @@ ${pageContent || '无内容'}
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         `;
         switchBtn.appendChild(switchDot);
-        
+
         const switchText = document.createElement('span');
         switchText.textContent = isBound ? '已启用' : '未启用';
         switchText.style.cssText = `
@@ -1493,10 +1491,10 @@ ${pageContent || '无内容'}
             color: ${isBound ? '#fff' : '#94a3b8'};
             font-weight: 500;
         `;
-        
+
         actionKeySwitch.appendChild(switchBtn);
         actionKeySwitch.appendChild(switchText);
-        
+
         let bindActionKey = isBound;
         actionKeySwitch.addEventListener('click', () => {
             bindActionKey = !bindActionKey;
@@ -1505,7 +1503,7 @@ ${pageContent || '无内容'}
             switchText.textContent = bindActionKey ? '已启用' : '未启用';
             switchText.style.color = bindActionKey ? '#fff' : '#94a3b8';
         });
-        
+
         actionKeyWrap.appendChild(actionKeyLabel);
         actionKeyWrap.appendChild(actionKeySwitch);
 
@@ -1591,7 +1589,7 @@ ${pageContent || '无内容'}
                 };
 
                 const arr = await this.getRoleConfigs();
-                
+
                 // 检查 actionKey 冲突（如果是绑定状态）
                 if (next.actionKey) {
                     const conflict = arr.find(x => x.actionKey === next.actionKey && x.id !== next.id);
@@ -1610,7 +1608,7 @@ ${pageContent || '无内容'}
                 }
 
                 await this.setRoleConfigs(arr);
-                
+
                 // 稍微延迟一下，让动画效果更自然
                 await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -1621,7 +1619,7 @@ ${pageContent || '无内容'}
                 await this.refreshWelcomeActionButtons();
                 // 刷新所有消息下的按钮
                 await this.refreshAllMessageActionButtons();
-                
+
                 const successMessage = isEdit ? `✅ 角色 "${next.label}" 已更新` : `✅ 角色 "${next.label}" 已创建`;
                 this.showNotification(successMessage, 'success');
 
@@ -1651,7 +1649,7 @@ ${pageContent || '无内容'}
         btns.appendChild(cancelBtn);
     }
 
-    proto.getRoleConfigs = async function() {
+    proto.getRoleConfigs = async function () {
         return new Promise((resolve) => {
             chrome.storage.local.get(['roleConfigs'], (result) => {
                 resolve(Array.isArray(result.roleConfigs) ? result.roleConfigs : []);
@@ -1659,14 +1657,14 @@ ${pageContent || '无内容'}
         });
     }
 
-    proto.setRoleConfigs = async function(configs) {
+    proto.setRoleConfigs = async function (configs) {
         return new Promise((resolve) => {
             chrome.storage.local.set({ roleConfigs: configs }, () => resolve(true));
         });
     }
 
     // 读取内置角色定义并转为默认配置（从已有配置中获取label、icon和prompt，如果没有则使用默认值）
-    proto.buildDefaultRoleConfigsFromBuiltins = function(existingConfigs = null) {
+    proto.buildDefaultRoleConfigsFromBuiltins = function (existingConfigs = null) {
         const keys = ['summary', 'mindmap', 'flashcard', 'report', 'bestPractice'];
         const includeChartsMap = {
             summary: false,
@@ -1718,7 +1716,7 @@ ${pageContent || '无内容'}
 
     // 确保默认角色已存在（仅在为空或缺少时补齐）
     // 为消息添加动作按钮（复制、重试等）
-    proto.addActionButtonsToMessage = function(messageDiv, messageId, content, isUser) {
+    proto.addActionButtonsToMessage = function (messageDiv, messageId, content, isUser) {
         if (!messageDiv) return;
 
         // 查找或创建按钮容器
@@ -1768,7 +1766,7 @@ ${pageContent || '无内容'}
         `;
         copyBtn.onmouseenter = () => { copyBtn.style.background = 'rgba(255, 255, 255, 0.1)'; copyBtn.style.color = '#f8fafc'; };  /* 量子白 */
         copyBtn.onmouseleave = () => { copyBtn.style.background = 'rgba(255, 255, 255, 0.05)'; copyBtn.style.color = '#94a3b8'; };  /* 中量子灰 */
-        
+
         copyBtn.onclick = (e) => {
             e.stopPropagation();
             if (navigator.clipboard) {
@@ -1779,7 +1777,7 @@ ${pageContent || '无内容'}
                     temp.innerHTML = content;
                     textToCopy = temp.textContent || temp.innerText || content;
                 }
-                
+
                 navigator.clipboard.writeText(textToCopy).then(() => {
                     this.showNotification('已复制到剪贴板', 'success');
                 }).catch(() => {
@@ -1793,7 +1791,7 @@ ${pageContent || '无内容'}
         // 这里简化处理，仅添加复制按钮，因为重试逻辑比较复杂且依赖上下文
     };
 
-    proto.ensureDefaultRoleConfigs = async function() {
+    proto.ensureDefaultRoleConfigs = async function () {
         const existing = await this.getRoleConfigs();
         const defaults = this.buildDefaultRoleConfigsFromBuiltins(existing);
         if (!existing || existing.length === 0) {

@@ -1423,6 +1423,7 @@
                             if (m && m.type === 'pet' && m.timestamp === petTimestamp) {
                                 if (patch && typeof patch === 'object') {
                                     if (Object.prototype.hasOwnProperty.call(patch, 'content')) m.content = String(patch.content ?? '');
+                                    if (Object.prototype.hasOwnProperty.call(patch, 'content')) m.message = String(patch.content ?? '');
                                     if (Object.prototype.hasOwnProperty.call(patch, 'error')) m.error = !!patch.error;
                                     if (Object.prototype.hasOwnProperty.call(patch, 'aborted')) m.aborted = !!patch.aborted;
                                 }

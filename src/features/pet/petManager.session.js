@@ -682,13 +682,39 @@
                 session.key = sessionKey;
             }
 
+            const normalizeMessagesForBackend = (messages) => {
+                const list = Array.isArray(messages) ? messages : [];
+                return list.map((m) => {
+                    const type = (m && m.type === 'pet') ? 'pet' : 'user';
+                    const message = String(m?.message ?? m?.content ?? '').trim();
+                    const timestamp = Number(m?.timestamp) || Date.now();
+                    const imageDataUrls = Array.isArray(m?.imageDataUrls) ? m.imageDataUrls.filter(Boolean) : [];
+                    const imageDataUrl = String(m?.imageDataUrl || '').trim();
+                    const payload = {
+                        type,
+                        message,
+                        timestamp
+                    };
+                    if (imageDataUrls.length > 0) {
+                        payload.imageDataUrls = imageDataUrls;
+                        payload.imageDataUrl = imageDataUrls[0];
+                    } else if (imageDataUrl) {
+                        payload.imageDataUrl = imageDataUrl;
+                        payload.imageDataUrls = [imageDataUrl];
+                    }
+                    if (m?.error) payload.error = true;
+                    if (m?.aborted) payload.aborted = true;
+                    return payload;
+                });
+            };
+
             const sessionData = {
                 key: sessionKey, // 使用 key 作为唯一标识符（与 YiWeb 保持一致）
                 url: sessionUrl,
                 title: title, // 会话标题（与 YiWeb 保持一致）
                 pageTitle: pageTitle,
                 pageDescription: pageDescription,
-                messages: session.messages || [],
+                messages: normalizeMessagesForBackend(session.messages),
                 tags: session.tags || [],
                 createdAt: session.createdAt || Date.now(),
                 updatedAt: session.updatedAt || Date.now(),
@@ -1296,6 +1322,7 @@
         const message = {
             type: type, // 'user' 或 'pet'
             content: hasTextContent ? content.trim() : '', // 去除首尾空白，如果没有文本则为空字符串
+            message: hasTextContent ? content.trim() : '',
             timestamp: timestamp || Date.now()
         };
 
@@ -1321,7 +1348,7 @@
         const lastMessage = session.messages[session.messages.length - 1];
         if (lastMessage &&
             lastMessage.type === message.type &&
-            lastMessage.content === message.content &&
+            String(lastMessage.content ?? lastMessage.message ?? '') === String(message.content ?? message.message ?? '') &&
             String(lastMessage.imageDataUrl || '') === String(message.imageDataUrl || '') &&
             (Date.now() - lastMessage.timestamp) < 1000) { // 1秒内的相同消息视为重复
             const previewText = hasTextContent ? message.content.substring(0, 30) : (hasImage ? '[图片]' : '');

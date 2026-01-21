@@ -83,6 +83,20 @@
             return -1;
         }
 
+        const timestampAttr = messageDiv.getAttribute('data-chat-timestamp');
+        const messageTimestamp = timestampAttr ? Number(timestampAttr) : NaN;
+        if (Number.isFinite(messageTimestamp) && messageTimestamp > 0) {
+            const chatType = messageDiv.getAttribute('data-chat-type');
+            const messageType = chatType === 'pet' ? 'pet' : (chatType === 'user' ? 'user' : null);
+            for (let i = session.messages.length - 1; i >= 0; i--) {
+                const msg = session.messages[i];
+                if (!msg) continue;
+                if (Number(msg.timestamp) === messageTimestamp && (!messageType || msg.type === messageType)) {
+                    return i;
+                }
+            }
+        }
+
         // 获取消息容器
         const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
         if (!messagesContainer) {
@@ -286,4 +300,3 @@
     };
 
 })();
-

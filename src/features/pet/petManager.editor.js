@@ -1614,13 +1614,32 @@
                     const session = this.sessions[this.currentSessionId];
                     if (session.messages && Array.isArray(session.messages)) {
                         // 找到对应的消息并更新
-                        const messageIndex = session.messages.findIndex(msg =>
-                            msg.type === 'pet' &&
-                            (msg.content === oldText || msg.content.trim() === oldText.trim())
-                        );
+                        const messageDiv = messageElement && typeof messageElement.closest === 'function'
+                            ? messageElement.closest('[data-chat-timestamp]')
+                            : null;
+                        const tsAttr = messageDiv ? messageDiv.getAttribute('data-chat-timestamp') : '';
+                        const messageTimestamp = tsAttr ? Number(tsAttr) : NaN;
+                        let messageIndex = -1;
+                        if (Number.isFinite(messageTimestamp) && messageTimestamp > 0) {
+                            for (let i = session.messages.length - 1; i >= 0; i--) {
+                                const msg = session.messages[i];
+                                if (msg && msg.type === 'pet' && Number(msg.timestamp) === messageTimestamp) {
+                                    messageIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                        if (messageIndex === -1) {
+                            messageIndex = session.messages.findIndex(msg => {
+                                if (!msg || msg.type !== 'pet') return false;
+                                const msgText = String(msg.content ?? msg.message ?? '');
+                                return msgText === oldText || msgText.trim() === oldText.trim();
+                            });
+                        }
 
                         if (messageIndex !== -1) {
                             session.messages[messageIndex].content = newText;
+                            session.messages[messageIndex].message = newText;
                             session.updatedAt = Date.now();
                             // 异步保存会话
                             await this.saveAllSessions();
@@ -1666,13 +1685,32 @@
                     const session = this.sessions[this.currentSessionId];
                     if (session.messages && Array.isArray(session.messages)) {
                         // 找到对应的消息并更新
-                        const messageIndex = session.messages.findIndex(msg =>
-                            msg.type === 'user' &&
-                            (msg.content === oldText || msg.content.trim() === oldText.trim())
-                        );
+                        const messageDiv = messageElement && typeof messageElement.closest === 'function'
+                            ? messageElement.closest('[data-chat-timestamp]')
+                            : null;
+                        const tsAttr = messageDiv ? messageDiv.getAttribute('data-chat-timestamp') : '';
+                        const messageTimestamp = tsAttr ? Number(tsAttr) : NaN;
+                        let messageIndex = -1;
+                        if (Number.isFinite(messageTimestamp) && messageTimestamp > 0) {
+                            for (let i = session.messages.length - 1; i >= 0; i--) {
+                                const msg = session.messages[i];
+                                if (msg && msg.type === 'user' && Number(msg.timestamp) === messageTimestamp) {
+                                    messageIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                        if (messageIndex === -1) {
+                            messageIndex = session.messages.findIndex(msg => {
+                                if (!msg || msg.type !== 'user') return false;
+                                const msgText = String(msg.content ?? msg.message ?? '');
+                                return msgText === oldText || msgText.trim() === oldText.trim();
+                            });
+                        }
 
                         if (messageIndex !== -1) {
                             session.messages[messageIndex].content = newText;
+                            session.messages[messageIndex].message = newText;
                             session.updatedAt = Date.now();
                             // 异步保存会话
                             await this.saveAllSessions();

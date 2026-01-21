@@ -666,10 +666,15 @@
                 const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (!messagesContainer) return;
 
-                const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                    !msg.hasAttribute('data-welcome-message')
-                );
-                const index = allMessages.indexOf(messageDiv);
+                let index = typeof this.findMessageIndexByDiv === 'function'
+                    ? this.findMessageIndexByDiv(messageDiv)
+                    : -1;
+                if (index < 0) {
+                    const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                        !msg.hasAttribute('data-welcome-message')
+                    );
+                    index = allMessages.indexOf(messageDiv);
+                }
 
                 if (index < 0 || index >= session.messages.length) return;
 
@@ -752,6 +757,7 @@
                 if (!userMsg || userMsg.type === 'pet') return;
 
                 const text = String(userMsg.content ?? userMsg.message ?? '').trim();
+                const userTimestamp = Number(userMsg.timestamp);
                 const images = (() => {
                     const list = Array.isArray(userMsg.imageDataUrls) ? userMsg.imageDataUrls.filter(Boolean) : [];
                     const first = String(userMsg.imageDataUrl || '').trim();
@@ -766,11 +772,25 @@
                 // 更新 DOM
                 const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (messagesContainer) {
-                    const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                        !msg.hasAttribute('data-welcome-message')
-                    );
-                    if (i < allMessages.length) {
-                        allMessages[i].remove();
+                    if (Number.isFinite(userTimestamp) && userTimestamp > 0) {
+                        const target = messagesContainer.querySelector(`[data-chat-timestamp="${userTimestamp}"][data-chat-type="user"]`);
+                        if (target) {
+                            target.remove();
+                        } else {
+                            const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                                !msg.hasAttribute('data-welcome-message')
+                            );
+                            if (i < allMessages.length) {
+                                allMessages[i].remove();
+                            }
+                        }
+                    } else {
+                        const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                            !msg.hasAttribute('data-welcome-message')
+                        );
+                        if (i < allMessages.length) {
+                            allMessages[i].remove();
+                        }
                     }
                 }
 
@@ -825,10 +845,15 @@
                 const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (!messagesContainer) return;
 
-                const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                    !msg.hasAttribute('data-welcome-message')
-                );
-                const index = allMessages.indexOf(messageDiv);
+                let index = typeof this.findMessageIndexByDiv === 'function'
+                    ? this.findMessageIndexByDiv(messageDiv)
+                    : -1;
+                if (index < 0) {
+                    const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                        !msg.hasAttribute('data-welcome-message')
+                    );
+                    index = allMessages.indexOf(messageDiv);
+                }
 
                 if (index < 0 || index >= session.messages.length) return;
 

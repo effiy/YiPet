@@ -1480,9 +1480,23 @@
                     const messageIdx = currentMessages.length;
                     petMessageElement.setAttribute('data-chat-idx', messageIdx.toString());
                     // Add thinking indicator or initial state if needed
-                    petBubble = petMessageElement.querySelector('.pet-message-bubble') || petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                    petBubble = petMessageElement.querySelector('.pet-chat-bubble') || petMessageElement.querySelector('[data-message-type="pet-bubble"]');
                     if (petBubble) {
-                        petBubble.innerHTML = '<span class="typing-indicator">...</span>'; // Simple typing indicator
+                        const meta = petBubble.querySelector('.pet-chat-meta');
+                        let typingDiv = petBubble.querySelector('.pet-chat-typing');
+                        if (!typingDiv) {
+                            typingDiv = document.createElement('div');
+                            typingDiv.className = 'pet-chat-typing';
+                            typingDiv.setAttribute('aria-label', '生成中');
+                            typingDiv.textContent = '...';
+                            if (meta) {
+                                petBubble.insertBefore(typingDiv, meta);
+                            } else {
+                                petBubble.appendChild(typingDiv);
+                            }
+                        } else {
+                            typingDiv.textContent = '...';
+                        }
                     }
                     this.messagesContainer.appendChild(petMessageElement);
                     this.scrollToBottom(true); // 添加宠物消息占位符后强制滚动
@@ -1504,24 +1518,12 @@
                     if (typeof manager.generatePetResponseStream === 'function') {
                         await manager.generatePetResponseStream(
                             message,
-                            (content) => {
-                                // On content update
+                            (chunk, accumulatedContent) => {
+                                const content = (typeof accumulatedContent === 'string') ? accumulatedContent : String(chunk ?? '');
                                 fullContent = content;
                                 if (petBubble) {
-                                    // 确保内容容器存在且具有正确的类名（与 YiWeb 保持一致）
-                                    let contentDiv = petBubble.querySelector('.pet-chat-content');
-                                    if (!contentDiv) {
-                                        // 如果不存在，创建内容容器
-                                        contentDiv = document.createElement('div');
-                                        contentDiv.className = 'pet-chat-content md-preview-body pet-chat-content-streaming';
-                                        petBubble.innerHTML = '';
-                                        petBubble.appendChild(contentDiv);
-                                    } else {
-                                        // 确保有 streaming 类
-                                        if (!contentDiv.classList.contains('pet-chat-content-streaming')) {
-                                            contentDiv.classList.add('pet-chat-content-streaming');
-                                        }
-                                    }
+                                    const contentDiv = this._getOrCreateMessageContentDiv(petBubble, true);
+                                    if (!contentDiv) return;
 
                                     // Render Markdown if available
                                     if (typeof manager.renderMarkdown === 'function') {
@@ -1557,11 +1559,16 @@
                     if (error.name === 'AbortError') {
                         console.log('Request aborted');
                         if (petBubble) {
-                            let contentDiv = petBubble.querySelector('.pet-chat-content');
+                            const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
+                            const base = String(petBubble.getAttribute('data-original-text') || '').trim();
+                            const next = `${base}${base ? ' ' : ''}[已取消]`;
+                            petBubble.setAttribute('data-original-text', next);
                             if (contentDiv) {
-                                contentDiv.innerHTML += ' [已取消]';
-                            } else {
-                                petBubble.innerHTML += ' [已取消]';
+                                if (typeof manager.renderMarkdown === 'function') {
+                                    contentDiv.innerHTML = manager.renderMarkdown(next);
+                                } else {
+                                    contentDiv.textContent = next;
+                                }
                             }
                         }
                         // 添加已取消状态
@@ -1571,11 +1578,16 @@
                     } else {
                         console.error('Error generating response:', error);
                         if (petBubble) {
-                            let contentDiv = petBubble.querySelector('.pet-chat-content');
+                            const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
+                            const base = String(petBubble.getAttribute('data-original-text') || '').trim();
+                            const next = `${base}${base ? '\n' : ''}[错误: ${error.message}]`;
+                            petBubble.setAttribute('data-original-text', next);
                             if (contentDiv) {
-                                contentDiv.innerHTML += `\n[错误: ${error.message}]`;
-                            } else {
-                                petBubble.innerHTML += `\n[错误: ${error.message}]`;
+                                if (typeof manager.renderMarkdown === 'function') {
+                                    contentDiv.innerHTML = manager.renderMarkdown(next);
+                                } else {
+                                    contentDiv.textContent = next;
+                                }
                             }
                         }
                         // 添加错误状态
@@ -2117,6 +2129,27 @@
             }
         }
 
+        _getOrCreateMessageContentDiv(messageBubble, streaming = false) {
+            if (!messageBubble) return null;
+            let contentDiv = messageBubble.querySelector('.pet-chat-content');
+            if (!contentDiv) {
+                contentDiv = document.createElement('div');
+                contentDiv.className = 'pet-chat-content md-preview-body';
+                const typingDiv = messageBubble.querySelector('.pet-chat-typing');
+                if (typingDiv) typingDiv.remove();
+                const meta = messageBubble.querySelector('.pet-chat-meta');
+                if (meta) {
+                    messageBubble.insertBefore(contentDiv, meta);
+                } else {
+                    messageBubble.appendChild(contentDiv);
+                }
+            }
+            if (streaming && !contentDiv.classList.contains('pet-chat-content-streaming')) {
+                contentDiv.classList.add('pet-chat-content-streaming');
+            }
+            return contentDiv;
+        }
+
         /**
          * 查找与宠物消息对应的用户消息
          * @param {HTMLElement} messageDiv - 宠物消息元素
@@ -2278,7 +2311,12 @@
                     if (typingDiv) {
                         typingDiv.remove();
                     }
-                    messageBubble.appendChild(contentDiv);
+                    const meta = messageBubble.querySelector('.pet-chat-meta');
+                    if (meta) {
+                        messageBubble.insertBefore(contentDiv, meta);
+                    } else {
+                        messageBubble.appendChild(contentDiv);
+                    }
                 } else {
                     // 确保有 streaming 类
                     if (!contentDiv.classList.contains('pet-chat-content-streaming')) {
@@ -2329,11 +2367,10 @@
 
             const waitingIcon = this._getWaitingIcon();
             // 清除现有内容，准备重新生成
-            const contentDiv = messageBubble.querySelector('.pet-chat-content');
+            const contentDiv = this._getOrCreateMessageContentDiv(messageBubble);
             if (contentDiv) {
                 contentDiv.innerHTML = this.manager.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
-            } else {
-                messageBubble.innerHTML = this.manager.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+                messageBubble.setAttribute('data-original-text', `${waitingIcon} 正在重新生成回复...`);
             }
             this.scrollToBottom(true); // 显示等待状态后强制滚动
 
@@ -2357,11 +2394,9 @@
 
                 // 确保最终内容被显示（流式更新可能已经完成，但再次确认）
                 if (reply && reply.trim()) {
-                    const finalDiv = messageBubble.querySelector('.pet-chat-content');
+                    const finalDiv = this._getOrCreateMessageContentDiv(messageBubble);
                     if (finalDiv) {
                         finalDiv.innerHTML = this.manager.renderMarkdown(reply);
-                    } else {
-                        messageBubble.innerHTML = this.manager.renderMarkdown(reply);
                     }
                     messageBubble.setAttribute('data-original-text', reply);
                     setTimeout(async () => {
@@ -2414,7 +2449,10 @@
                 if (messageBubble) {
                     const originalText = messageBubble.getAttribute('data-original-text') ||
                         '抱歉，重新生成失败，请稍后重试。';
-                    messageBubble.innerHTML = this.manager.renderMarkdown(originalText);
+                    const contentDiv = this._getOrCreateMessageContentDiv(messageBubble);
+                    if (contentDiv) {
+                        contentDiv.innerHTML = this.manager.renderMarkdown(originalText);
+                    }
                 }
             }
 
@@ -2431,121 +2469,26 @@
             const isWelcome = messageDiv.hasAttribute('data-welcome-message');
             if (isWelcome) return;
 
-            // 获取时间容器（需要在早期获取，因为后续逻辑需要使用）
-            let timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
-            // 如果时间容器不存在，可能是消息结构还没准备好，尝试等待一下
-            if (!timeAndCopyContainer) {
-                // 等待消息结构完全准备好（最多等待500ms）
-                for (let i = 0; i < 5; i++) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    timeAndCopyContainer = messageDiv.querySelector('[data-message-time]')?.parentElement?.parentElement;
-                    if (timeAndCopyContainer) break;
-                }
-            }
-
-            // 如果强制刷新，先移除现有按钮容器
-            const existingContainer = messageDiv.querySelector('[data-message-actions]');
-            const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
-
-            // 对于用户消息，如果找不到timeAndCopyContainer，尝试直接从messageDiv查找copyButtonContainer
-            let copyButtonContainer = null;
-            if (timeAndCopyContainer) {
-                copyButtonContainer = timeAndCopyContainer.querySelector('[data-copy-button-container]');
-            } else if (isUserMessage) {
-                // 用户消息：直接从messageDiv查找copyButtonContainer
-                copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]');
-                // 如果找到了copyButtonContainer，尝试找到它的父容器作为timeAndCopyContainer
-                if (copyButtonContainer && copyButtonContainer.parentElement) {
-                    timeAndCopyContainer = copyButtonContainer.parentElement;
-                }
-            }
-
-            // 如果仍然找不到timeAndCopyContainer（且不是用户消息），则返回
-            if (!timeAndCopyContainer && !isUserMessage) {
-                console.warn('无法找到消息时间容器，按钮添加失败');
-                return;
-            }
-
-            // 对于用户消息，如果仍然找不到copyButtonContainer，尝试创建它
-            if (isUserMessage && !copyButtonContainer) {
-                // 尝试找到用户消息的content容器
-                const content = messageDiv.querySelector('div[style*="flex: 1"]') ||
-                    messageDiv.querySelector('div:last-child');
-                if (content) {
-                    // 查找是否已有timeAndCopyContainer
-                    let existingTimeAndCopyContainer = content.querySelector('div[style*="justify-content: space-between"]');
-                    if (!existingTimeAndCopyContainer) {
-                        // 创建timeAndCopyContainer
-                        existingTimeAndCopyContainer = document.createElement('div');
-                        existingTimeAndCopyContainer.style.cssText = `
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: space-between !important;
-                        max-width: 80% !important;
-                        width: 100% !important;
-                        margin-top: 4px !important;
-                        margin-left: auto !important;
-                        box-sizing: border-box !important;
-                    `;
-                        content.appendChild(existingTimeAndCopyContainer);
-                    }
-                    timeAndCopyContainer = existingTimeAndCopyContainer;
-
-                    // 创建copyButtonContainer
-                    copyButtonContainer = document.createElement('div');
-                    copyButtonContainer.setAttribute('data-copy-button-container', 'true');
-                    copyButtonContainer.style.cssText = 'display: flex;';
-                    timeAndCopyContainer.insertBefore(copyButtonContainer, timeAndCopyContainer.firstChild);
-                }
-            }
-
-            if (forceRefresh && existingContainer) {
-                // 对于用户消息，如果按钮已经在 copyButtonContainer 内部，需要移除它们
-                if (isUserMessage && copyButtonContainer) {
-                    // 查找所有带有 data-action-key 或其他标识的按钮（角色按钮等）
-                    // 这些按钮可能是之前添加的，需要移除
-                    const actionButtons = copyButtonContainer.querySelectorAll('[data-action-key], [data-robot-id]');
-                    actionButtons.forEach(btn => btn.remove());
-                }
-                existingContainer.remove();
-            } else if (existingContainer) {
-                // 如果按钮容器存在但没有按钮（子元素为空），强制刷新
-                if (existingContainer.children.length === 0) {
-                    existingContainer.remove();
-                    // 继续执行后续逻辑添加按钮
-                } else {
-                    // 对于用户消息，如果按钮容器不在 copyButtonContainer 内部，需要移动
-                    if (isUserMessage && copyButtonContainer) {
-                        // 将按钮移动到 copyButtonContainer 内部
-                        while (existingContainer.firstChild) {
-                            copyButtonContainer.appendChild(existingContainer.firstChild);
-                        }
-                        existingContainer.remove();
-                        // 确保 copyButtonContainer 使用 flex 布局，保留原有样式
-                        if (!copyButtonContainer.style.display || copyButtonContainer.style.display === 'none') {
-                            copyButtonContainer.style.display = 'flex';
-                        }
-                        copyButtonContainer.style.alignItems = 'center';
-                        copyButtonContainer.style.gap = '8px';
-                    } else {
-                        // 宠物消息：如果已经有按钮容器且不强制刷新，则需要确保它在编辑按钮之前
-                        if (copyButtonContainer && existingContainer.nextSibling !== copyButtonContainer) {
-                            // 如果顺序不对，重新插入到正确位置
-                            timeAndCopyContainer.insertBefore(existingContainer, copyButtonContainer);
-                        }
-                    }
-                    return;
-                }
-            }
-
-            // 获取消息的 meta-actions 容器（与 YiWeb 一致）
             const bubble = messageDiv.querySelector('.pet-chat-bubble');
-            const meta = bubble ? bubble.querySelector('.pet-chat-meta') : null;
-            const metaActions = meta ? meta.querySelector('.pet-chat-meta-actions') : null;
-
+            const metaActions = bubble ? bubble.querySelector('.pet-chat-meta-actions') : null;
             if (!metaActions) {
                 console.warn('无法找到 pet-chat-meta-actions 容器，按钮添加失败');
                 return;
+            }
+
+            const isUserMessage = !!messageDiv.querySelector('[data-message-type="user-bubble"]');
+            const existingContainer = metaActions.querySelector('[data-message-actions]');
+
+            if (existingContainer) {
+                if (forceRefresh || existingContainer.children.length === 0) {
+                    existingContainer.remove();
+                } else {
+                    const hasStandardButtons = metaActions.querySelector('button[data-standard-button="true"]');
+                    if (!hasStandardButtons) {
+                        await this._addStandardMessageButtons(metaActions, messageDiv, isUserMessage);
+                    }
+                    return;
+                }
             }
 
             // 如果强制刷新，先移除现有的标准按钮（保留角色按钮）
@@ -2560,398 +2503,7 @@
                 // 如果已有标准按钮且不强制刷新，只添加角色按钮
             } else {
                 // 添加标准消息按钮（与 YiWeb 一致）
-                this._addStandardMessageButtons(metaActions, messageDiv, isUserMessage);
-            }
-
-            // 获取欢迎消息的按钮容器（用于角色按钮）
-            const welcomeActions = this.element.querySelector('#pet-welcome-actions');
-
-            // 创建角色按钮容器
-            const actionsContainer = document.createElement('div');
-            actionsContainer.setAttribute('data-message-actions', 'true');
-
-            // 检查是用户消息还是宠物消息，设置不同的样式
-            if (isUserMessage) {
-                // 用户消息：按钮容器紧跟在其他按钮后面，不需要左边距
-                actionsContainer.style.cssText = `
-                display: inline-flex !important;
-                align-items: center !important;
-                gap: 8px !important;
-                flex-shrink: 0 !important;
-                margin-left: 4px !important;
-            `;
-            } else {
-                // 宠物消息：保持原有样式
-                actionsContainer.style.cssText = `
-                display: inline-flex !important;
-                align-items: center !important;
-                gap: 8px !important;
-                flex-shrink: 0 !important;
-                margin-left: 8px !important;
-            `;
-            }
-
-            // 获取所有角色配置（用于没有 actionKey 的按钮）
-            const configsRaw = await this.manager.getRoleConfigs();
-
-            // 获取已绑定的角色键，用于检查哪些角色已经有按钮
-            const orderedKeys = await this.manager.getOrderedBoundRoleKeys();
-            const boundRoleIds = new Set();
-            const configsByActionKey = {};
-            const configsById = {};
-
-            for (const config of (configsRaw || [])) {
-                if (config && config.id) {
-                    configsById[config.id] = config;
-                    if (config.actionKey) {
-                        configsByActionKey[config.actionKey] = config;
-                        if (orderedKeys.includes(config.actionKey)) {
-                            boundRoleIds.add(config.id);
-                        }
-                    }
-                }
-            }
-
-            // 复制欢迎消息中的所有按钮（包括设置按钮）
-            const buttonsToCopy = welcomeActions ? Array.from(welcomeActions.children) : [];
-            const copiedButtonIds = new Set(); // 记录已复制的按钮ID
-
-            for (const originalButton of buttonsToCopy) {
-                // 创建新按钮（通过克隆并重新绑定事件）
-                const newButton = originalButton.cloneNode(true);
-
-                // 如果是设置按钮，绑定点击事件
-                if (newButton.innerHTML.trim() === '⚙️' || newButton.innerHTML.trim() === '👤' || newButton.title === '角色设置') {
-                    newButton.innerHTML = '👤';
-                    newButton.title = '角色设置';
-                    newButton.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.manager.openRoleSettingsModal();
-                    });
-                    actionsContainer.appendChild(newButton);
-                    continue;
-                } else if (newButton.hasAttribute('data-action-key')) {
-                    // 如果是角色按钮（有 actionKey），创建使用消息内容的处理函数
-                    const actionKey = newButton.getAttribute('data-action-key');
-                    const config = configsByActionKey[actionKey];
-                    if (config && config.id) {
-                        copiedButtonIds.add(config.id);
-                    }
-
-                    // 为消息下的按钮创建特殊的处理函数（使用消息内容而不是页面内容）
-                    newButton.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-
-                        // 获取当前消息的内容（根据消息类型选择正确的元素）
-                        let messageBubble = null;
-                        if (isUserMessage) {
-                            // 用户消息：从 user-bubble 获取内容
-                            messageBubble = messageDiv.querySelector('[data-message-type="user-bubble"]');
-                        } else {
-                            // 宠物消息：从 pet-bubble 获取内容
-                            messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
-                        }
-                        let messageContent = '';
-                        if (messageBubble) {
-                            // 优先使用 data-original-text（原始文本），如果没有则使用文本内容
-                            messageContent = messageBubble.getAttribute('data-original-text') ||
-                                messageBubble.innerText ||
-                                messageBubble.textContent || '';
-                        }
-
-                        // 获取角色信息
-                        const pageInfo = this.manager.getPageInfo(); // 保留用于获取角色配置，但不用于 userPrompt
-                        let roleInfo;
-                        try {
-                            roleInfo = await this.manager.getRolePromptForAction(actionKey, pageInfo);
-                        } catch (error) {
-                            console.error('获取角色信息失败:', error);
-                            roleInfo = {
-                                systemPrompt: '',
-                                userPrompt: '',
-                                label: '自定义角色',
-                                icon: '🙂'
-                            };
-                        }
-
-                        // 检查页面上下文开关状态
-                        let includeContext = true; // 默认包含上下文
-                        const contextSwitch = this.element ? this.element.querySelector('#context-switch') : null;
-                        if (contextSwitch) {
-                            includeContext = contextSwitch.checked;
-                        }
-
-                        // 构建 fromUser：以当前消息内容为主，包含会话上下文
-                        const baseMessageContent = messageContent.trim() || '无内容';
-                        let fromUser = baseMessageContent;
-
-                        // 如果没有开启页面上下文，直接使用消息内容
-                        if (!includeContext) {
-                            fromUser = baseMessageContent;
-                        } else {
-                            // 获取会话上下文，添加相关的上下文信息
-                            const context = this.manager.buildConversationContext();
-
-                            // 如果存在会话历史，在消息内容前添加上下文
-                            if (context.hasHistory && context.messages.length > 0) {
-                                // 构建消息历史上下文（只包含当前消息之前的历史）
-                                let conversationContext = '\n\n## 会话历史：\n\n';
-                                context.messages.forEach((msg) => {
-                                    const role = msg.type === 'user' ? '用户' : '助手';
-                                    const content = msg.content.trim();
-                                    if (content && content !== baseMessageContent) { // 排除当前消息本身
-                                        conversationContext += `${role}：${content}\n\n`;
-                                    }
-                                });
-                                // 将上下文放在前面，当前消息内容放在后面
-                                fromUser = conversationContext + `## 当前需要处理的消息：\n\n${baseMessageContent}`;
-                            }
-
-                            // 如果有页面内容且角色提示词包含页面内容，也添加页面内容
-                            if (context.pageContent && roleInfo.userPrompt && roleInfo.userPrompt.includes('页面内容')) {
-                                fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
-                            }
-                        }
-
-                        // 获取消息容器
-                        const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
-                        if (!messagesContainer) {
-                            console.error('无法找到消息容器');
-                            return;
-                        }
-
-                        // 创建新的消息
-                        const message = this.manager.createMessageElement('', 'pet');
-                        message.setAttribute('data-button-action', 'true');
-                        messagesContainer.appendChild(message);
-                        const messageText = message.querySelector('[data-message-type="pet-bubble"]');
-                        const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
-
-                        // 显示加载动画
-                        if (messageAvatar) {
-                            messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-                        }
-                        const loadingIcon = roleInfo.icon || '📖';
-                        if (messageText) {
-                            messageText.textContent = `${loadingIcon} 正在${roleInfo.label || '处理'}...`;
-                        }
-
-                        try {
-                            // 创建 AbortController 用于终止请求
-                            const abortController = new AbortController();
-                            this._updateRequestStatus('loading', abortController);
-
-                            // 发送请求
-                            const response = await this.manager.chatService.sendMessage({
-                                model: this.manager.currentModel,
-                                systemPrompt: roleInfo.systemPrompt,
-                                userPrompt: fromUser,
-                                onProgress: (text) => {
-                                    // 实时更新消息内容
-                                    if (messageText) {
-                                        // 检查是否包含Mermaid图表代码块
-                                        const hasMermaid = text.includes('```mermaid');
-                                        messageText.innerHTML = this.manager.renderMarkdown(text);
-                                        // 如果有Mermaid图表，需要处理渲染
-                                        if (hasMermaid && this.manager.processMermaidBlocks) {
-                                            this.manager.processMermaidBlocks(messageText);
-                                        }
-                                    }
-                                    // 滚动到底部（智能滚动）
-                                    this.scrollToBottom();
-                                },
-                                signal: abortController.signal
-                            });
-
-                            // 请求完成
-                            if (messageAvatar) {
-                                messageAvatar.style.animation = '';
-                            }
-                            this._updateRequestStatus('idle');
-
-                            // 为新消息添加按钮
-                            this.addActionButtonsToMessage(message);
-                            this.addTryAgainButton(message.querySelector('[data-message-actions]')?.parentElement || message, message);
-
-                        } catch (error) {
-                            if (error.name === 'AbortError') {
-                                console.log('请求被取消');
-                                if (messageText) messageText.textContent += ' (已取消)';
-                            } else {
-                                console.error('请求失败:', error);
-                                if (messageText) messageText.textContent += ' (请求失败)';
-                            }
-                            if (messageAvatar) {
-                                messageAvatar.style.animation = '';
-                            }
-                            this._updateRequestStatus('error');
-                        }
-                    });
-                    actionsContainer.appendChild(newButton);
-                }
-            }
-
-            // 添加其他已绑定的角色按钮（不在欢迎消息中的）
-            for (const roleId of orderedKeys) {
-                // 如果已经复制了，跳过
-                // 注意：orderedKeys 是 actionKey，需要找到对应的 id
-                const config = configsByActionKey[roleId]; // roleId here is actionKey
-                if (!config || copiedButtonIds.has(config.id)) continue;
-
-                // 创建新按钮
-                const newButton = document.createElement('button');
-                newButton.innerHTML = config.icon || '🙂';
-                newButton.title = config.label || '自定义角色';
-                newButton.setAttribute('data-action-key', config.actionKey);
-                newButton.className = 'action-button'; // 使用通用样式类
-
-                // 绑定点击事件（代码同上，应该提取为公共函数）
-                const actionKey = config.actionKey;
-                newButton.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-
-                    // 获取当前消息的内容
-                    let messageBubble = null;
-                    if (isUserMessage) {
-                        messageBubble = messageDiv.querySelector('[data-message-type="user-bubble"]');
-                    } else {
-                        messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]');
-                    }
-                    let messageContent = '';
-                    if (messageBubble) {
-                        messageContent = messageBubble.getAttribute('data-original-text') ||
-                            messageBubble.innerText ||
-                            messageBubble.textContent || '';
-                    }
-
-                    // 获取角色信息
-                    const pageInfo = this.manager.getPageInfo();
-                    let roleInfo;
-                    try {
-                        roleInfo = await this.manager.getRolePromptForAction(actionKey, pageInfo);
-                    } catch (error) {
-                        console.error('获取角色信息失败:', error);
-                        roleInfo = {
-                            systemPrompt: '',
-                            userPrompt: '',
-                            label: '自定义角色',
-                            icon: '🙂'
-                        };
-                    }
-
-                    // 检查页面上下文开关状态
-                    let includeContext = true;
-                    const contextSwitch = this.element ? this.element.querySelector('#context-switch') : null;
-                    if (contextSwitch) {
-                        includeContext = contextSwitch.checked;
-                    }
-
-                    const baseMessageContent = messageContent.trim() || '无内容';
-                    let fromUser = baseMessageContent;
-
-                    if (!includeContext) {
-                        fromUser = baseMessageContent;
-                    } else {
-                        const context = this.manager.buildConversationContext();
-                        if (context.hasHistory && context.messages.length > 0) {
-                            let conversationContext = '\n\n## 会话历史：\n\n';
-                            context.messages.forEach((msg) => {
-                                const role = msg.type === 'user' ? '用户' : '助手';
-                                const content = msg.content.trim();
-                                if (content && content !== baseMessageContent) {
-                                    conversationContext += `${role}：${content}\n\n`;
-                                }
-                            });
-                            fromUser = conversationContext + `## 当前需要处理的消息：\n\n${baseMessageContent}`;
-                        }
-
-                        if (context.pageContent && roleInfo.userPrompt && roleInfo.userPrompt.includes('页面内容')) {
-                            fromUser += `\n\n## 页面内容：\n\n${context.pageContent}`;
-                        }
-                    }
-
-                    const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
-                    if (!messagesContainer) return;
-
-                    const message = this.manager.createMessageElement('', 'pet');
-                    message.setAttribute('data-button-action', 'true');
-                    messagesContainer.appendChild(message);
-                    const messageText = message.querySelector('[data-message-type="pet-bubble"]');
-                    const messageAvatar = message.querySelector('[data-message-type="pet-avatar"]');
-
-                    if (messageAvatar) {
-                        messageAvatar.style.animation = 'petTyping 1.2s ease-in-out infinite';
-                    }
-                    const loadingIcon = roleInfo.icon || '📖';
-                    if (messageText) {
-                        messageText.textContent = `${loadingIcon} 正在${roleInfo.label || '处理'}...`;
-                    }
-
-                    try {
-                        const abortController = new AbortController();
-                        this._updateRequestStatus('loading', abortController);
-
-                        await this.manager.chatService.sendMessage({
-                            model: this.manager.currentModel,
-                            systemPrompt: roleInfo.systemPrompt,
-                            userPrompt: fromUser,
-                            onProgress: (text) => {
-                                if (messageText) {
-                                    const hasMermaid = text.includes('```mermaid');
-                                    messageText.innerHTML = this.manager.renderMarkdown(text);
-                                    if (hasMermaid && this.manager.processMermaidBlocks) {
-                                        this.manager.processMermaidBlocks(messageText);
-                                    }
-                                }
-                                this.scrollToBottom(); // 智能滚动
-                            },
-                            signal: abortController.signal
-                        });
-
-                        if (messageAvatar) {
-                            messageAvatar.style.animation = '';
-                        }
-                        this._updateRequestStatus('idle');
-
-                        this.addActionButtonsToMessage(message);
-                        this.addTryAgainButton(message.querySelector('[data-message-actions]')?.parentElement || message, message);
-
-                    } catch (error) {
-                        if (error.name === 'AbortError') {
-                            console.log('请求被取消');
-                            if (messageText) messageText.textContent += ' (已取消)';
-                        } else {
-                            console.error('请求失败:', error);
-                            if (messageText) messageText.textContent += ' (请求失败)';
-                        }
-                        if (messageAvatar) {
-                            messageAvatar.style.animation = '';
-                        }
-                        this._updateRequestStatus('error');
-                    }
-                });
-
-                actionsContainer.appendChild(newButton);
-            }
-
-            // 将按钮容器添加到消息中
-            if (isUserMessage && copyButtonContainer) {
-                // 用户消息：添加到 copyButtonContainer 内部
-                copyButtonContainer.appendChild(actionsContainer);
-                // 确保 copyButtonContainer 使用 flex 布局
-                if (!copyButtonContainer.style.display || copyButtonContainer.style.display === 'none') {
-                    copyButtonContainer.style.display = 'flex';
-                }
-                copyButtonContainer.style.alignItems = 'center';
-                copyButtonContainer.style.gap = '8px';
-            } else {
-                // 宠物消息：插入到复制按钮之前
-                const copyButton = timeAndCopyContainer.querySelector('.copy-button');
-                if (copyButton) {
-                    timeAndCopyContainer.insertBefore(actionsContainer, copyButton);
-                } else {
-                    timeAndCopyContainer.appendChild(actionsContainer);
-                }
+                await this._addStandardMessageButtons(metaActions, messageDiv, isUserMessage);
             }
         }
 
@@ -2961,7 +2513,7 @@
          * @param {HTMLElement} messageDiv - 消息元素
          * @param {boolean} isUserMessage - 是否是用户消息
          */
-        _addStandardMessageButtons(metaActions, messageDiv, isUserMessage) {
+        async _addStandardMessageButtons(metaActions, messageDiv, isUserMessage) {
             const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
             if (!messagesContainer) return;
 
@@ -3010,8 +2562,78 @@
                 metaActions.appendChild(copyBtn);
             }
 
-            // 2. 微信机器人按钮（如果是宠物消息且有内容，且配置了机器人）
-            // 注意：微信机器人功能需要从 manager 获取配置，这里先跳过
+            if (!isUserMessage && hasContent && this.manager && typeof this.manager.getWeWorkRobotConfigs === 'function') {
+                try {
+                    const configsRaw = await this.manager.getWeWorkRobotConfigs();
+                    const robotConfigs = Array.isArray(configsRaw) ? configsRaw : [];
+                    for (const robotConfig of robotConfigs) {
+                        if (!robotConfig || !robotConfig.webhookUrl) continue;
+                        const enabled = (typeof robotConfig.enabled === 'boolean') ? robotConfig.enabled : true;
+                        if (!enabled) continue;
+
+                        const robotBtn = document.createElement('button');
+                        robotBtn.type = 'button';
+                        robotBtn.className = 'pet-chat-meta-btn';
+                        robotBtn.setAttribute('data-standard-button', 'true');
+                        robotBtn.setAttribute('data-robot-id', String(robotConfig.id || ''));
+                        const robotName = String(robotConfig.name || '').trim() || '机器人';
+                        robotBtn.setAttribute('title', `发送到：${robotName}`);
+                        robotBtn.setAttribute('aria-label', `发送到机器人：${robotName}`);
+                        robotBtn.textContent = robotName;
+
+                        robotBtn.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+
+                            const rawContent = String(
+                                messageBubble?.getAttribute('data-original-text') ||
+                                messageBubble?.textContent ||
+                                messageBubble?.innerText || ''
+                            ).trim();
+                            if (!rawContent) {
+                                if (this.manager && typeof this.manager.showNotification === 'function') {
+                                    this.manager.showNotification('消息内容为空，无法发送', 'error');
+                                }
+                                return;
+                            }
+
+                            const original = robotBtn.textContent;
+                            robotBtn.disabled = true;
+                            robotBtn.textContent = '⏳';
+
+                            try {
+                                let finalContent = rawContent;
+                                if (this.manager && typeof this.manager.isMarkdownFormat === 'function' && typeof this.manager.convertToMarkdown === 'function') {
+                                    if (!this.manager.isMarkdownFormat(finalContent)) {
+                                        finalContent = await this.manager.convertToMarkdown(finalContent);
+                                    }
+                                }
+
+                                if (this.manager && typeof this.manager.sendToWeWorkRobot === 'function') {
+                                    await this.manager.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
+                                    robotBtn.textContent = '✓';
+                                    if (this.manager && typeof this.manager.showNotification === 'function') {
+                                        this.manager.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
+                                    }
+                                } else {
+                                    throw new Error('机器人发送能力不可用');
+                                }
+                            } catch (error) {
+                                robotBtn.textContent = '✕';
+                                if (this.manager && typeof this.manager.showNotification === 'function') {
+                                    this.manager.showNotification(`发送失败：${error?.message || '未知错误'}`, 'error');
+                                }
+                            } finally {
+                                setTimeout(() => {
+                                    robotBtn.textContent = original;
+                                    robotBtn.disabled = false;
+                                }, 1200);
+                            }
+                        });
+
+                        metaActions.appendChild(robotBtn);
+                    }
+                } catch (_) { }
+            }
 
             // 3. 编辑按钮
             const editBtn = document.createElement('button');
@@ -3202,9 +2824,12 @@
                             const originalText = messageBubble.getAttribute('data-original-text') ||
                                 messageBubble.textContent ||
                                 '此消息无法重新生成';
-                            messageBubble.innerHTML = this.manager.renderMarkdown(
-                                `${originalText}\n\n💡 **提示**：此消息可能是通过按钮操作生成的，无法重新生成。`
-                            );
+                            const contentDiv = this._getOrCreateMessageContentDiv(messageBubble);
+                            if (contentDiv) {
+                                contentDiv.innerHTML = this.manager.renderMarkdown(
+                                    `${originalText}\n\n💡 **提示**：此消息可能是通过按钮操作生成的，无法重新生成。`
+                                );
+                            }
                         }
 
                         this._updateTryAgainButtonState(tryAgainButton, 'idle');

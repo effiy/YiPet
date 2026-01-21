@@ -484,7 +484,7 @@
 
 
             // 处理 Markdown 中的 Mermaid 代码块
-            createMessageElement(text, sender, imageDataUrl = null, timestamp = null) {
+            createMessageElement(text, sender, imageDataUrl = null, timestamp = null, options = {}) {
                 // 与 YiWeb 保持完全一致的消息结构
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'pet-chat-message';
@@ -492,6 +492,17 @@
                     messageDiv.classList.add('is-user');
                 } else {
                     messageDiv.classList.add('is-pet');
+                }
+
+                // 处理额外状态类
+                if (options.error) {
+                    messageDiv.classList.add('is-error');
+                }
+                if (options.aborted) {
+                    messageDiv.classList.add('is-aborted');
+                }
+                if (options.streaming) {
+                    messageDiv.classList.add('is-streaming');
                 }
 
                 // 设置消息索引和时间戳（用于后续操作，与 YiWeb 保持一致）
@@ -601,6 +612,7 @@
                 // 创建时间元素
                 const messageTime = document.createElement('time');
                 messageTime.className = 'pet-chat-time';
+                messageTime.setAttribute('data-message-time', 'true');
                 const timeText = timestamp ? this.formatTimestamp(timestamp) : this.getCurrentTime();
                 messageTime.textContent = timeText;
                 if (timestamp) {
@@ -1686,7 +1698,12 @@
                         if (typingDiv) {
                             typingDiv.remove();
                         }
-                        messageBubble.appendChild(contentDiv);
+                        const meta = messageBubble.querySelector('.pet-chat-meta');
+                        if (meta) {
+                            messageBubble.insertBefore(contentDiv, meta);
+                        } else {
+                            messageBubble.appendChild(contentDiv);
+                        }
                     } else {
                         // 确保有 streaming 类
                         if (!contentDiv.classList.contains('pet-chat-content-streaming')) {
@@ -1737,12 +1754,21 @@
 
                 const waitingIcon = this._getWaitingIcon();
                 // 清除现有内容，准备重新生成
-                const contentDiv = messageBubble.querySelector('.pet-chat-content');
-                if (contentDiv) {
-                    contentDiv.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
-                } else {
-                    messageBubble.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+                let contentDiv = messageBubble.querySelector('.pet-chat-content');
+                if (!contentDiv) {
+                    contentDiv = document.createElement('div');
+                    contentDiv.className = 'pet-chat-content md-preview-body';
+                    const typingDiv = messageBubble.querySelector('.pet-chat-typing');
+                    if (typingDiv) typingDiv.remove();
+                    const meta = messageBubble.querySelector('.pet-chat-meta');
+                    if (meta) {
+                        messageBubble.insertBefore(contentDiv, meta);
+                    } else {
+                        messageBubble.appendChild(contentDiv);
+                    }
                 }
+                contentDiv.innerHTML = this.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
+                messageBubble.setAttribute('data-original-text', `${waitingIcon} 正在重新生成回复...`);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
                 // 创建流式内容更新回调（传入 messageDiv 以支持 is-streaming 类）
@@ -1765,12 +1791,18 @@
 
                     // 确保最终内容被显示（流式更新可能已经完成，但再次确认）
                     if (reply && reply.trim()) {
-                        const finalDiv = messageBubble.querySelector('.pet-chat-content');
-                        if (finalDiv) {
-                            finalDiv.innerHTML = this.renderMarkdown(reply);
-                        } else {
-                            messageBubble.innerHTML = this.renderMarkdown(reply);
+                        let finalDiv = messageBubble.querySelector('.pet-chat-content');
+                        if (!finalDiv) {
+                            finalDiv = document.createElement('div');
+                            finalDiv.className = 'pet-chat-content md-preview-body';
+                            const meta = messageBubble.querySelector('.pet-chat-meta');
+                            if (meta) {
+                                messageBubble.insertBefore(finalDiv, meta);
+                            } else {
+                                messageBubble.appendChild(finalDiv);
+                            }
                         }
+                        finalDiv.innerHTML = this.renderMarkdown(reply);
                         messageBubble.setAttribute('data-original-text', reply);
                         setTimeout(async () => {
                             const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
@@ -1781,7 +1813,7 @@
                     // 更新复制按钮
                     const copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]');
                     if (copyButtonContainer && reply && reply.trim()) {
-                        this.addCopyButton(copyButtonContainer, messageBubble);
+                        // 按钮由 ChatWindow.addActionButtonsToMessage 统一管理
                     }
 
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1821,7 +1853,18 @@
                     if (messageBubble) {
                         const originalText = messageBubble.getAttribute('data-original-text') ||
                             '抱歉，重新生成失败，请稍后重试。';
-                        messageBubble.innerHTML = this.renderMarkdown(originalText);
+                        let contentDiv = messageBubble.querySelector('.pet-chat-content');
+                        if (!contentDiv) {
+                            contentDiv = document.createElement('div');
+                            contentDiv.className = 'pet-chat-content md-preview-body';
+                            const meta = messageBubble.querySelector('.pet-chat-meta');
+                            if (meta) {
+                                messageBubble.insertBefore(contentDiv, meta);
+                            } else {
+                                messageBubble.appendChild(contentDiv);
+                            }
+                        }
+                        contentDiv.innerHTML = this.renderMarkdown(originalText);
                     }
                 }
 

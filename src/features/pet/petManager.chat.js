@@ -508,6 +508,12 @@
                 const messageContent = msg.content || msg.message || '';
                 const messageTimestamp = msg.timestamp || Date.now();
                 const messageImage = msg.imageDataUrl || (Array.isArray(msg.imageDataUrls) && msg.imageDataUrls.length > 0 ? msg.imageDataUrls : null);
+                const messageOptions = {
+                    error: !!msg.error,
+                    aborted: !!msg.aborted,
+                    // 如果需要支持流式状态，可以在这里添加判断逻辑
+                    streaming: false
+                };
 
                 // 跳过空消息
                 if (!messageContent.trim() && !messageImage) {
@@ -520,7 +526,8 @@
                         messageContent,
                         messageType,
                         messageImage,
-                        messageTimestamp
+                        messageTimestamp,
+                        messageOptions
                     );
 
                     // 设置消息索引

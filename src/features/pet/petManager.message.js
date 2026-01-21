@@ -182,6 +182,33 @@
         return null;
     };
 
+    // HTML 转义辅助函数
+    proto.escapeHtml = function(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
+    // URL 净化辅助函数
+    proto._sanitizeUrl = function(url) {
+        if (!url) return '';
+        try {
+            const prot = decodeURIComponent(url)
+                .replace(/[^A-Za-z0-9/:]/g, '')
+                .toLowerCase();
+            if (prot.indexOf('javascript:') === 0 || prot.indexOf('vbscript:') === 0 || prot.indexOf('data:') === 0) {
+                return '';
+            }
+        } catch (e) {
+            return '';
+        }
+        return url;
+    };
+
     // 渲染 Markdown
     proto.renderMarkdown = function(markdown) {
         if (!markdown) return '';
@@ -189,12 +216,48 @@
         try {
             // 检查 marked 是否可用
             if (typeof marked !== 'undefined') {
-                // 配置 marked 以增强安全性
+                const renderer = new marked.Renderer();
+
+                // 覆盖 link 渲染
+                renderer.link = (href, title, text) => {
+                    const safeHref = this._sanitizeUrl(href);
+                    const safeText = text || '';
+                    if (!safeHref) return safeText;
+                    const safeTitle = title ? ` title="${this.escapeHtml(title)}"` : '';
+                    return `<a href="${this.escapeHtml(safeHref)}"${safeTitle} target="_blank" rel="noopener noreferrer">${safeText}</a>`;
+                };
+
+                // 覆盖 image 渲染
+                renderer.image = (href, title, text) => {
+                    const safeHref = this._sanitizeUrl(href);
+                    const alt = this.escapeHtml(text || '');
+                    if (!safeHref) return alt;
+                    const safeTitle = title ? ` title="${this.escapeHtml(title)}"` : '';
+                    return `<img src="${this.escapeHtml(safeHref)}" alt="${alt}" loading="lazy"${safeTitle} />`;
+                };
+
+                // 覆盖 html 渲染 (转义 HTML)
+                renderer.html = (html) => {
+                    return this.escapeHtml(html);
+                };
+
+                // 覆盖 code 渲染 (处理 mermaid)
+                renderer.code = (code, language, isEscaped) => {
+                    const lang = (language || '').trim().toLowerCase();
+                    if (lang === 'mermaid') {
+                        return `<div class="mermaid">${code}</div>`;
+                    }
+                    return marked.Renderer.prototype.code.call(renderer, code, language, isEscaped);
+                };
+
+                // 配置 marked
                 marked.setOptions({
-                    breaks: true, // 支持换行
-                    gfm: true, // GitHub Flavored Markdown
-                    sanitize: false // 允许 HTML，但我们会通过 DOMPurify 或其他方式处理
+                    renderer: renderer,
+                    breaks: true,
+                    gfm: true,
+                    sanitize: false // 我们手动处理了 html
                 });
+
                 return marked.parse(markdown);
             } else {
                 // 如果 marked 不可用，返回转义的纯文本
@@ -204,13 +267,6 @@
             console.error('渲染 Markdown 失败:', error);
             return this.escapeHtml(markdown);
         }
-    };
-
-    // HTML 转义辅助函数
-    proto.escapeHtml = function(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     };
 
     // 渲染 Markdown 并处理 Mermaid（完整流程）

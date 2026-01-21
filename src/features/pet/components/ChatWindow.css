@@ -82,6 +82,9 @@
                 top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                 left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     pointer-events: auto !important;
+    min-height: 450px !important;
+    max-height: 90vh !important;
+    overflow: hidden !important; /* 防止内容溢出 */
     
     /* Variables scope - 使用全局主题色变量 */
     --pet-chat-primary-color: var(--primary, #667eea);
@@ -97,22 +100,47 @@
 #pet-chat-window.fullscreen {
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important; /* 使用动态视口高度，更好地适配移动设备 */
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
     top: 0 !important;
     left: 0 !important;
-    bottom: auto !important;
-    right: auto !important;
+    bottom: 0 !important;
+    right: 0 !important;
     transform: none !important;
     border-radius: 0 !important;
+    max-height: none !important; /* 全屏模式下移除最大高度限制 */
 }
 
-#pet-chat-window.fullscreen .pet-chat-header {
+#pet-chat-window.fullscreen .yi-pet-chat-header {
     border-radius: 0 !important;
 }
 
 /* Header - 限定在 YiPet 作用域内（虽然 header 已移除，但保留样式以防需要） */
-#pet-chat-window .pet-chat-header {
-    background: var(--pet-chat-primary-color) !important;
-    color: white !important;
+#pet-chat-window .yi-pet-chat-header {
+    background: linear-gradient(135deg, 
+        rgba(15, 23, 42, 0.98) 0%, 
+        rgba(30, 41, 59, 0.96) 30%,
+        rgba(51, 65, 85, 0.94) 50%,
+        rgba(30, 41, 59, 0.96) 70%,
+        rgba(15, 23, 42, 0.98) 100%) !important;
+    background-image: 
+        linear-gradient(135deg, 
+            rgba(15, 23, 42, 0.98) 0%, 
+            rgba(30, 41, 59, 0.96) 30%,
+            rgba(51, 65, 85, 0.94) 50%,
+            rgba(30, 41, 59, 0.96) 70%,
+            rgba(15, 23, 42, 0.98) 100%),
+        linear-gradient(90deg, 
+            transparent 0%, 
+            rgba(var(--primary-rgb, 102, 126, 234), 0.4) 20%,
+            rgba(var(--primary-rgb, 102, 126, 234), 0.6) 50%,
+            rgba(var(--primary-rgb, 102, 126, 234), 0.4) 80%,
+            transparent 100%) !important;
+    background-size: 100% 100%, 100% 2px !important;
+    background-position: center, bottom !important;
+    background-repeat: no-repeat !important;
+    color: var(--text-primary, #f8fafc) !important;
     padding: 15px 20px !important;
     display: flex !important;
     align-items: center !important;
@@ -121,12 +149,34 @@
     -webkit-user-select: none !important;
     user-select: none !important;
     border-radius: 16px 16px 0 0 !important;
-    transition: background 0.2s ease !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     pointer-events: auto !important;
+    box-shadow: 
+        0 2px 12px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 1px 0 rgba(255, 255, 255, 0.08) inset,
+        0 -1px 20px rgba(var(--primary-rgb, 102, 126, 234), 0.15) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
 }
 
-#pet-chat-window .pet-chat-header button,
-#pet-chat-window .pet-chat-header .pet-chat-header-buttons {
+#pet-chat-window .yi-pet-chat-header::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.3) 50%,
+        transparent 100%) !important;
+    opacity: 0.8 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+#pet-chat-window .yi-pet-chat-header button,
+#pet-chat-window .yi-pet-chat-header .yi-pet-chat-header-buttons {
     pointer-events: auto !important;
     cursor: pointer !important;
 }
@@ -134,7 +184,7 @@
 /* Input Container - 与 YiWeb 保持一致 */
 /* ========== 输入容器样式 - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 ========== */
 /* 输入容器基础样式 - 与 YiWeb pet-chat-input-container 完全一致 */
-#pet-chat-window .pet-chat-input-container {
+#pet-chat-window .yi-pet-chat-input-container {
     --pet-chat-input-border: rgba(51, 65, 85, 0.85);
     --pet-chat-input-surface: rgba(2, 6, 23, 0.96);
     --pet-chat-input-surface-2: rgba(15, 23, 42, 0.92);
@@ -156,6 +206,11 @@
     --pet-chat-textarea-focus-shadow: rgba(59, 130, 246, 0.18);
     --pet-chat-placeholder: rgba(148, 163, 184, 0.5);
 
+    flex-shrink: 0 !important; /* 防止输入框被压缩 */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     border-top: 1px solid var(--pet-chat-input-border);
     background: linear-gradient(180deg, var(--pet-chat-input-surface) 0%, var(--pet-chat-input-surface-2) 100%);
     -webkit-backdrop-filter: blur(18px);
@@ -165,12 +220,17 @@
 }
 
 /* 输入容器在 right-panel 内部时的特殊样式 - 与 YiWeb pet-chat-right-panel .chat-input-container 完全一致 */
-#pet-chat-window .pet-chat-right-panel .chat-input-container,
-#pet-chat-window .pet-chat-right-panel .pet-chat-input-container.chat-input-container,
-#pet-chat-window .pet-chat-main-content .pet-chat-input-container.chat-input-container {
+#pet-chat-window .yi-pet-chat-right-panel .chat-input-container,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
     display: flex;
     flex-direction: column;
+    flex-shrink: 0 !important; /* 防止输入容器被压缩 */
     gap: 8px;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     padding: 10px 12px;
     border-radius: 14px;
     background: var(--pet-chat-input-soft);
@@ -180,7 +240,7 @@
 }
 
 /* 工具栏样式 - 与 YiWeb pet-chat-toolbar 完全一致 */
-#pet-chat-window .pet-chat-toolbar,
+#pet-chat-window .yi-pet-chat-toolbar,
 #pet-chat-window .chat-input-toolbar {
     display: flex;
     align-items: center;
@@ -189,15 +249,15 @@
     margin-bottom: 10px;
 }
 
-#pet-chat-window .pet-chat-right-panel .chat-input-toolbar,
-#pet-chat-window .pet-chat-right-panel .pet-chat-input-container .chat-input-toolbar,
-#pet-chat-window .pet-chat-main-content .pet-chat-input-container .chat-input-toolbar {
+#pet-chat-window .yi-pet-chat-right-panel .chat-input-toolbar,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container .chat-input-toolbar,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container .chat-input-toolbar {
     margin-bottom: 8px;
 }
 
 /* 工具栏左右按钮组 - 与 YiWeb 完全一致 */
-#pet-chat-window .pet-chat-toolbar-left,
-#pet-chat-window .pet-chat-toolbar-right,
+#pet-chat-window .yi-pet-chat-toolbar-left,
+#pet-chat-window .yi-pet-chat-toolbar-right,
 #pet-chat-window .chat-input-btn-group {
     display: flex;
     align-items: center;
@@ -205,7 +265,7 @@
 }
 
 /* 按钮样式 - 与 YiWeb pet-chat-btn 完全一致 */
-#pet-chat-window .pet-chat-btn,
+#pet-chat-window .yi-pet-chat-btn,
 #pet-chat-window .chat-input-btn {
     border: 1px solid var(--pet-chat-input-btn-border);
     background: var(--pet-chat-input-btn-bg);
@@ -219,22 +279,34 @@
     user-select: none;
 }
 
-#pet-chat-window .pet-chat-btn:hover,
+#pet-chat-window .yi-pet-chat-btn:hover,
 #pet-chat-window .chat-input-btn:hover {
     background: var(--pet-chat-input-btn-bg-hover);
     border-color: var(--pet-chat-input-btn-border-hover);
     transform: translateY(-1px);
 }
 
-#pet-chat-window .pet-chat-btn:disabled,
+#pet-chat-window .yi-pet-chat-btn:disabled,
 #pet-chat-window .chat-input-btn:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+    pointer-events: none;
+}
+
+/* 编辑会话按钮特殊样式 */
+#pet-chat-window #edit-session-btn {
+    white-space: nowrap;
+}
+
+#pet-chat-window #edit-session-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 /* 上下文开关激活状态 - 与 YiWeb pet-chat-context-switch.active 完全一致 */
-#pet-chat-window .pet-chat-context-switch.active {
+#pet-chat-window .yi-pet-chat-context-switch.active {
     background: rgba(34, 211, 238, 0.18);
     border-color: rgba(34, 211, 238, 0.35);
 }
@@ -249,20 +321,27 @@
 }
 
 /* 输入框样式 - 与 YiWeb pet-chat-right-panel .chat-message-input 完全一致 */
-#pet-chat-window .pet-chat-right-panel .chat-message-input,
-#pet-chat-window .pet-chat-right-panel .pet-chat-input-container .chat-message-input,
-#pet-chat-window .pet-chat-main-content .pet-chat-input-container .chat-message-input {
+#pet-chat-window .yi-pet-chat-right-panel .chat-message-input,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container .chat-message-input,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container .chat-message-input {
     resize: none;
     min-height: 60px;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     background: var(--pet-chat-textarea-bg);
     color: var(--pet-chat-input-text);
     border: 1px solid var(--pet-chat-textarea-border);
     transition: all 0.2s ease;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    overflow-x: hidden;
 }
 
-#pet-chat-window .pet-chat-right-panel .chat-message-input:focus,
-#pet-chat-window .pet-chat-right-panel .pet-chat-input-container .chat-message-input:focus,
-#pet-chat-window .pet-chat-main-content .pet-chat-input-container .chat-message-input:focus {
+#pet-chat-window .yi-pet-chat-right-panel .chat-message-input:focus,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container .chat-message-input:focus,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container .chat-message-input:focus {
     background: var(--pet-chat-textarea-focus-bg);
     border-color: var(--pet-chat-textarea-focus-border);
     box-shadow: 0 0 0 3px var(--pet-chat-textarea-focus-shadow);
@@ -271,24 +350,33 @@
 /* 输入包装器 - 与 YiWeb chat-input-wrapper 完全一致 */
 #pet-chat-window .chat-input-wrapper {
     display: flex;
-    width: 100%;
+    flex-shrink: 0; /* 防止输入包装器被压缩 */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     gap: 10px;
     flex-direction: column;
 }
 
 /* 输入行 - 与 YiWeb pet-chat-input-row 完全一致 */
-#pet-chat-window .pet-chat-input-row {
+#pet-chat-window .yi-pet-chat-input-row {
     display: flex;
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     gap: 10px;
     align-items: flex-end;
 }
 
 /* 文本域样式 - 与 YiWeb pet-chat-textarea 完全一致 */
-#pet-chat-window .pet-chat-textarea {
-    flex: 1;
-    width: 100%;
-    box-sizing: border-box;
+#pet-chat-window .yi-pet-chat-textarea {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     min-height: 44px;
     max-height: 220px;
     border-radius: 12px;
@@ -303,39 +391,42 @@
     transition: all 0.2s ease;
     resize: none;
     overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
-#pet-chat-window .pet-chat-textarea::-webkit-scrollbar {
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar {
     width: 4px;
 }
 
-#pet-chat-window .pet-chat-textarea::-webkit-scrollbar-track {
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar-track {
     background: transparent;
 }
 
-#pet-chat-window .pet-chat-textarea::-webkit-scrollbar-thumb {
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.3);
     border-radius: 2px;
 }
 
-#pet-chat-window .pet-chat-textarea::-webkit-scrollbar-thumb:hover {
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.5);
 }
 
-#pet-chat-window .pet-chat-textarea:focus {
+#pet-chat-window .yi-pet-chat-textarea:focus {
     background: var(--pet-chat-textarea-focus-bg);
     border-color: var(--pet-chat-textarea-focus-border);
     box-shadow: 0 0 0 3px var(--pet-chat-textarea-focus-shadow);
 }
 
-#pet-chat-window .pet-chat-textarea::placeholder {
+#pet-chat-window .yi-pet-chat-textarea::placeholder {
     color: var(--pet-chat-placeholder);
 }
 
 /* ========== 输入框加载状态 - 与 YiWeb 保持一致 ========== */
-#pet-chat-window .pet-chat-textarea.loading-input,
+#pet-chat-window .yi-pet-chat-textarea.loading-input,
 #pet-chat-window .chat-message-input.loading-input {
     position: relative;
     background: var(--pet-chat-textarea-focus-bg) !important;
@@ -344,7 +435,7 @@
     transition: all 0.3s ease;
 }
 
-#pet-chat-window .pet-chat-textarea.loading-input::before,
+#pet-chat-window .yi-pet-chat-textarea.loading-input::before,
 #pet-chat-window .chat-message-input.loading-input::before {
     content: '';
     position: absolute;
@@ -366,7 +457,7 @@
     100% { transform: translateY(-50%) rotate(360deg); }
 }
 
-#pet-chat-window .pet-chat-textarea.loading-input::after,
+#pet-chat-window .yi-pet-chat-textarea.loading-input::after,
 #pet-chat-window .chat-message-input.loading-input::after {
     content: '';
     position: absolute;
@@ -388,14 +479,14 @@
 }
 
 /* 加载状态下的输入框聚焦效果 */
-#pet-chat-window .pet-chat-textarea.loading-input:focus,
+#pet-chat-window .yi-pet-chat-textarea.loading-input:focus,
 #pet-chat-window .chat-message-input.loading-input:focus {
     box-shadow: 0 0 0 3px var(--pet-chat-textarea-focus-shadow) !important;
     border-color: var(--pet-chat-textarea-focus-border) !important;
 }
 
 /* 加载状态下的占位符样式 */
-#pet-chat-window .pet-chat-textarea.loading-input::placeholder,
+#pet-chat-window .yi-pet-chat-textarea.loading-input::placeholder,
 #pet-chat-window .chat-message-input.loading-input::placeholder {
     color: var(--pet-chat-placeholder);
     font-style: italic;
@@ -403,7 +494,7 @@
 }
 
 /* Collapsed 状态 - 限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-input-container.collapsed,
+#pet-chat-window .yi-pet-chat-input-container.collapsed,
 #pet-chat-window .chat-input-container.collapsed {
     display: none !important;
 }
@@ -451,13 +542,13 @@
 /* Textarea Styles - 限定在 YiPet 作用域内（已在上面定义，这里删除重复） */
 
 
-.pet-chat-header-title {
+.yi-pet-chat-header-title {
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
 }
 
-.pet-chat-header-buttons {
+.yi-pet-chat-header-buttons {
     display: flex !important;
     align-items: center !important;
     gap: 6px !important;
@@ -466,7 +557,7 @@
     z-index: 50 !important;
 }
 
-.pet-chat-header-btn {
+.yi-pet-chat-header-btn {
     background: none !important;
     border: none !important;
     color: white !important;
@@ -482,29 +573,37 @@
     transition: background 0.3s ease !important;
 }
 
-.pet-chat-header-btn:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
+.yi-pet-chat-header-btn:hover {
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.2) !important;
+    color: var(--pet-chat-primary-color, #667eea) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.3) inset,
+                0 2px 8px rgba(var(--primary-rgb, 102, 126, 234), 0.2) !important;
 }
 
 /* ========== YiPet 样式隔离：所有样式限定在 #pet-chat-window 作用域内 ========== */
 /* Main Content - 与 YiWeb pet-chat-right-panel 完全一致，但限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-right-panel,
-#pet-chat-window .pet-chat-main-content {
+#pet-chat-window .yi-pet-chat-right-panel,
+#pet-chat-window .yi-pet-chat-main-content {
     --pet-chat-bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     --pet-chat-main-color: #3b82f6;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1 1 auto; /* 使用 flex 而不是 height: 100% */
+    min-height: 0; /* 允许 flex 收缩 */
     width: 100%;
     background: var(--pet-chat-bg-gradient);
     position: relative;
     z-index: 1;
+    overflow: hidden; /* 防止内容溢出 */
 }
 
 /* Messages - 与 YiWeb pet-chat-right-panel 完全一致，但限定在 YiPet 作用域内 */
 #pet-chat-window .pet-chat-messages,
-#pet-chat-window #pet-chat-messages {
-    flex: 1;
+#pet-chat-window .yi-pet-chat-messages,
+#pet-chat-window #yi-pet-chat-messages {
+    flex: 1 1 auto; /* 占据剩余空间 */
+    min-height: 0; /* 允许 flex 收缩，关键修复 */
     overflow-y: auto;
     overflow-x: hidden;
     padding: 10px 12px;
@@ -528,10 +627,21 @@
     width: 100%;
 }
 
-#pet-chat-window .pet-chat-message[data-welcome-message="true"] .welcome-card {
-    max-width: min(1400px, calc(100% - 24px)) !important;
+/* 移除 welcome-card 外层气泡样式 */
+#pet-chat-window .pet-chat-message[data-welcome-message="true"] .pet-chat-bubble,
+#pet-chat-window .pet-chat-message[data-welcome-message="true"] [data-message-type="pet-bubble"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
     width: 100% !important;
-    box-sizing: border-box !important;
+}
+
+#pet-chat-window .pet-chat-message[data-welcome-message="true"] .welcome-card {
+    max-width: min(1400px, 98%) !important;
+    width: 100% !important;
 }
 
 #pet-chat-window .pet-chat-message.is-user {
@@ -689,14 +799,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .pet-chat-message.is-streaming .pet-chat-content::after {
+    #pet-chat-window .pet-chat-message.is-streaming .pet-chat-content::after {
         animation: none;
         opacity: 0.4;
     }
 }
 
 /* Draft Images - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-draft-images {
+#pet-chat-window .yi-pet-chat-draft-images {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -708,7 +818,7 @@
     max-width: 320px;
 }
 
-#pet-chat-window .pet-chat-draft-image {
+#pet-chat-window .yi-pet-chat-draft-image {
     position: relative;
     width: 64px;
     height: 48px;
@@ -718,14 +828,14 @@
     background: rgba(2, 6, 23, 0.6);
 }
 
-#pet-chat-window .pet-chat-draft-image-preview {
+#pet-chat-window .yi-pet-chat-draft-image-preview {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-#pet-chat-window .pet-chat-draft-image-remove {
+#pet-chat-window .yi-pet-chat-draft-image-remove {
     position: absolute;
     top: 4px;
     right: 4px;
@@ -738,11 +848,11 @@
     cursor: pointer;
 }
 
-#pet-chat-window .pet-chat-draft-image-remove:hover {
+#pet-chat-window .yi-pet-chat-draft-image-remove:hover {
     background: rgba(51, 65, 85, 0.7);
 }
 
-#pet-chat-window .pet-chat-draft-images-clear {
+#pet-chat-window .yi-pet-chat-draft-images-clear {
     border: 1px solid rgba(51, 65, 85, 0.85);
     background: rgba(30, 41, 59, 0.6);
     color: rgba(226, 232, 240, 0.9);
@@ -753,19 +863,19 @@
     white-space: nowrap;
 }
 
-#pet-chat-window .pet-chat-draft-images-clear:hover {
+#pet-chat-window .yi-pet-chat-draft-images-clear:hover {
     background: rgba(51, 65, 85, 0.6);
 }
 
 /* 图片加载状态 - 限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-draft-image-loading {
+#pet-chat-window .yi-pet-chat-draft-image-loading {
     display: flex;
     align-items: center;
     justify-content: center;
     background: rgba(2, 6, 23, 0.6);
 }
 
-#pet-chat-window .pet-chat-draft-image-loading::after {
+#pet-chat-window .yi-pet-chat-draft-image-loading::after {
     content: '';
     width: 20px;
     height: 20px;
@@ -782,7 +892,7 @@
 }
 
 /* 图片错误状态 - 限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-draft-image-error {
+#pet-chat-window .yi-pet-chat-draft-image-error {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -790,7 +900,7 @@
     border-color: rgba(239, 68, 68, 0.3);
 }
 
-#pet-chat-window .pet-chat-draft-image-error::before {
+#pet-chat-window .yi-pet-chat-draft-image-error::before {
     content: '⚠';
     font-size: 24px;
     color: rgba(239, 68, 68, 0.6);
@@ -798,17 +908,17 @@
 
 /* 响应式设计 - 限定在 YiPet 作用域内 */
 @media (max-width: 640px) {
-    #pet-chat-window .pet-chat-draft-image {
+    #pet-chat-window .yi-pet-chat-draft-image {
         width: 64px;
         height: 64px;
     }
     
-    #pet-chat-window .pet-chat-draft-images {
+    #pet-chat-window .yi-pet-chat-draft-images {
         padding: 8px 10px;
         gap: 8px;
     }
     
-    #pet-chat-window .pet-chat-draft-images-clear {
+    #pet-chat-window .yi-pet-chat-draft-images-clear {
         padding: 5px 10px;
         font-size: 11px;
     }
@@ -816,16 +926,16 @@
 
 /* 减少动画（无障碍）- 限定在 YiPet 作用域内 */
 @media (prefers-reduced-motion: reduce) {
-    #pet-chat-window .pet-chat-draft-image,
-    #pet-chat-window .pet-chat-draft-image-preview,
-    #pet-chat-window .pet-chat-draft-image-remove,
-    #pet-chat-window .pet-chat-draft-images-clear,
-    #pet-chat-window .pet-chat-draft-images {
+    #pet-chat-window .yi-pet-chat-draft-image,
+    #pet-chat-window .yi-pet-chat-draft-image-preview,
+    #pet-chat-window .yi-pet-chat-draft-image-remove,
+    #pet-chat-window .yi-pet-chat-draft-images-clear,
+    #pet-chat-window .yi-pet-chat-draft-images {
         transition: none;
         animation: none;
     }
     
-    #pet-chat-window .pet-chat-draft-image:hover {
+    #pet-chat-window .yi-pet-chat-draft-image:hover {
         transform: none;
     }
 }
@@ -1166,31 +1276,54 @@
 /* ========== 响应式设计 ========== */
 /* 输入容器响应式优化 - 与 YiWeb 保持一致，但限定在 YiPet 作用域内 */
 @media (max-width: 768px) {
-    #pet-chat-window .pet-chat-right-panel .pet-chat-messages,
-    #pet-chat-window .pet-chat-right-panel #pet-chat-messages,
-    #pet-chat-window .pet-chat-main-content .pet-chat-messages,
-    #pet-chat-window .pet-chat-main-content #pet-chat-messages {
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-right-panel #yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content #yi-pet-chat-messages {
         padding: 10px 12px;
     }
     
-    #pet-chat-window .pet-chat-right-panel .pet-chat-input-container.chat-input-container,
-    #pet-chat-window .pet-chat-main-content .pet-chat-input-container.chat-input-container {
-        padding: 10px 12px;
+    #pet-chat-window .yi-pet-chat-input-container {
+        padding: 12px 14px !important;
     }
     
-    #pet-chat-window .pet-chat-toolbar,
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
+        padding: 10px 12px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-input-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-toolbar,
     #pet-chat-window .chat-input-toolbar {
         gap: 8px;
         margin-bottom: 8px;
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
-    #pet-chat-window .pet-chat-toolbar-left,
-    #pet-chat-window .pet-chat-toolbar-right,
+    #pet-chat-window .yi-pet-chat-toolbar-left,
+    #pet-chat-window .yi-pet-chat-toolbar-right,
     #pet-chat-window .chat-input-btn-group {
         gap: 8px;
+        flex-shrink: 0;
     }
     
-    #pet-chat-window .pet-chat-btn,
+    #pet-chat-window .yi-pet-chat-btn,
     #pet-chat-window .chat-input-btn {
         padding: 6px 8px;
         font-size: 12px;
@@ -1198,33 +1331,58 @@
 }
 
 @media (max-width: 640px) {
-    #pet-chat-window .pet-chat-right-panel .pet-chat-messages,
-    #pet-chat-window .pet-chat-right-panel #pet-chat-messages,
-    #pet-chat-window .pet-chat-main-content .pet-chat-messages,
-    #pet-chat-window .pet-chat-main-content #pet-chat-messages {
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-right-panel #yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content #yi-pet-chat-messages {
         padding: 10px 12px;
     }
     
-    #pet-chat-window .pet-chat-right-panel .pet-chat-input-container.chat-input-container,
-    #pet-chat-window .pet-chat-main-content .pet-chat-input-container.chat-input-container {
-        padding: 8px 10px;
-        gap: 6px;
+    #pet-chat-window .yi-pet-chat-input-container {
+        padding: 10px 12px !important;
     }
     
-    #pet-chat-window .pet-chat-toolbar,
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
+        padding: 8px 10px !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-input-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        padding: 8px 10px !important;
+        font-size: 13px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-toolbar,
     #pet-chat-window .chat-input-toolbar {
         flex-wrap: wrap;
         gap: 6px;
         margin-bottom: 6px;
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
-    #pet-chat-window .pet-chat-toolbar-left,
-    #pet-chat-window .pet-chat-toolbar-right,
+    #pet-chat-window .yi-pet-chat-toolbar-left,
+    #pet-chat-window .yi-pet-chat-toolbar-right,
     #pet-chat-window .chat-input-btn-group {
         gap: 6px;
+        flex-shrink: 0;
     }
     
-    #pet-chat-window .pet-chat-btn,
+    #pet-chat-window .yi-pet-chat-btn,
     #pet-chat-window .chat-input-btn {
         padding: 5px 8px;
         font-size: 11px;
@@ -1237,7 +1395,7 @@
 }
 
 /* 空状态优化 - 限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-messages:empty::before {
+#pet-chat-window .yi-pet-chat-messages:empty::before {
     content: '';
     display: block;
     height: 100%;
@@ -1245,18 +1403,18 @@
 }
 
 /* 加载状态优化 - 限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-messages.loading {
+#pet-chat-window .yi-pet-chat-messages.loading {
     opacity: 0.7;
     pointer-events: none;
 }
 
 /* 焦点可见性优化（无障碍）- 限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-right-panel:focus-within,
-#pet-chat-window .pet-chat-main-content:focus-within {
+#pet-chat-window .yi-pet-chat-right-panel:focus-within,
+#pet-chat-window .yi-pet-chat-main-content:focus-within {
     outline: none;
 }
 
-#pet-chat-window .pet-chat-messages:focus {
+#pet-chat-window .yi-pet-chat-messages:focus {
     outline: 2px solid var(--pet-chat-main-color, rgba(102, 126, 234, 0.5));
     outline-offset: -2px;
     border-radius: 4px;
@@ -1264,15 +1422,15 @@
 
 /* 高对比度模式支持 - 限定在 YiPet 作用域内 */
 @media (prefers-contrast: high) {
-    #pet-chat-window .pet-chat-right-panel,
-    #pet-chat-window .pet-chat-main-content {
+    #pet-chat-window .yi-pet-chat-right-panel,
+    #pet-chat-window .yi-pet-chat-main-content {
         border: 1px solid var(--pet-chat-border-color, rgba(255, 255, 255, 0.3));
     }
     
-    #pet-chat-window .pet-chat-right-panel .pet-chat-messages::-webkit-scrollbar-thumb,
-    #pet-chat-window .pet-chat-right-panel #pet-chat-messages::-webkit-scrollbar-thumb,
-    #pet-chat-window .pet-chat-main-content .pet-chat-messages::-webkit-scrollbar-thumb,
-    #pet-chat-window .pet-chat-main-content #pet-chat-messages::-webkit-scrollbar-thumb {
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-messages::-webkit-scrollbar-thumb,
+    #pet-chat-window .yi-pet-chat-right-panel #yi-pet-chat-messages::-webkit-scrollbar-thumb,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-messages::-webkit-scrollbar-thumb,
+    #pet-chat-window .yi-pet-chat-main-content #yi-pet-chat-messages::-webkit-scrollbar-thumb {
         background: rgba(148, 163, 184, 0.6);
     }
 }
@@ -1601,14 +1759,40 @@
 
 .welcome-card {
     margin-bottom: 20px !important;
-    padding: 18px !important;
-    background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(59, 130, 246, 0.08)) !important;
-    border-radius: 12px !important;
-    border-left: 3px solid rgba(34, 211, 238, 0.5) !important;  /* 量子青 - 适配深色主题 */
-    transition: all 0.3s ease !important;
+    padding: 20px !important;
+    background: linear-gradient(135deg, 
+        rgba(15, 23, 42, 0.65) 0%, 
+        rgba(30, 41, 59, 0.55) 25%,
+        rgba(51, 65, 85, 0.5) 50%,
+        rgba(30, 41, 59, 0.55) 75%,
+        rgba(15, 23, 42, 0.65) 100%) !important;
+    background-image: 
+        linear-gradient(135deg, 
+            rgba(15, 23, 42, 0.65) 0%, 
+            rgba(30, 41, 59, 0.55) 25%,
+            rgba(51, 65, 85, 0.5) 50%,
+            rgba(30, 41, 59, 0.55) 75%,
+            rgba(15, 23, 42, 0.65) 100%),
+        linear-gradient(90deg, 
+            transparent 0%,
+            rgba(var(--primary-rgb, 102, 126, 234), 0.35) 15%,
+            rgba(var(--primary-rgb, 102, 126, 234), 0.5) 50%,
+            rgba(var(--primary-rgb, 102, 126, 234), 0.35) 85%,
+            transparent 100%) !important;
+    background-size: 100% 100%, 100% 2px !important;
+    background-position: center, top !important;
+    background-repeat: no-repeat !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-left: 3px solid var(--pet-chat-primary-color, #667eea) !important;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
     position: relative !important;
     overflow: hidden !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 1px 0 rgba(255, 255, 255, 0.08) inset,
+        0 -1px 0 rgba(var(--primary-rgb, 102, 126, 234), 0.1) inset !important;
 }
 
 .welcome-card::before {
@@ -1618,35 +1802,93 @@
     left: 0 !important;
     right: 0 !important;
     height: 2px !important;
-    background: linear-gradient(90deg, rgba(34, 211, 238, 0.3), rgba(59, 130, 246, 0.3)) !important;
-    opacity: 0 !important;
-    transition: opacity 0.3s ease !important;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.4) 30%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.7) 50%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.4) 70%,
+        transparent 100%) !important;
+    opacity: 0.7 !important;
+    transition: opacity 0.35s ease !important;
+}
+
+.welcome-card::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 3px !important;
+    height: 100% !important;
+    background: linear-gradient(180deg,
+        var(--pet-chat-primary-color, #667eea) 0%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.8) 50%,
+        var(--pet-chat-primary-color, #667eea) 100%) !important;
+    opacity: 0.9 !important;
+    transition: opacity 0.35s ease !important;
 }
 
 .welcome-card:hover::before {
     opacity: 1 !important;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.6) 30%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.9) 50%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.6) 70%,
+        transparent 100%) !important;
+}
+
+.welcome-card:hover::after {
+    opacity: 1 !important;
+    box-shadow: 0 0 12px rgba(var(--primary-rgb, 102, 126, 234), 0.4) !important;
 }
 
 .welcome-card:hover {
-    background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(59, 130, 246, 0.12)) !important;
-    border-left-color: rgba(34, 211, 238, 0.7) !important;
-    box-shadow: 0 4px 12px rgba(34, 211, 238, 0.1) !important;
+    background: linear-gradient(135deg, 
+        rgba(30, 41, 59, 0.75) 0%, 
+        rgba(51, 65, 85, 0.65) 25%,
+        rgba(71, 85, 105, 0.6) 50%,
+        rgba(51, 65, 85, 0.65) 75%,
+        rgba(30, 41, 59, 0.75) 100%) !important;
+    border-left-color: var(--pet-chat-primary-color, #667eea) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 
+        0 6px 24px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.15) inset,
+        0 1px 0 rgba(255, 255, 255, 0.1) inset,
+        0 -1px 0 rgba(var(--primary-rgb, 102, 126, 234), 0.15) inset,
+        0 0 20px rgba(var(--primary-rgb, 102, 126, 234), 0.1) !important;
+    transform: translateY(-2px) !important;
 }
 .welcome-card-header {
-    margin-bottom: 12px !important;
+    margin-bottom: 14px !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
-    padding-bottom: 8px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
+}
+
+.welcome-card-header::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: -1px !important;
+    left: 0 !important;
+    width: 40px !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, 
+        var(--pet-chat-primary-color, #667eea) 0%,
+        transparent 100%) !important;
+    opacity: 0.6 !important;
 }
 
 .welcome-card-title {
     font-weight: 600 !important;
-    font-size: 15px !important;
-    color: rgba(226, 232, 240, 0.95) !important;  /* 适配深色主题 */
-    line-height: 1.4 !important;
+    font-size: 16px !important;
+    color: var(--text-primary, #f8fafc) !important;
+    line-height: 1.5 !important;
     word-break: break-word !important;
+    letter-spacing: -0.01em !important;
 }
 .welcome-card-section {
     margin-bottom: 12px !important;
@@ -1661,9 +1903,10 @@
 
 .welcome-card-section-title {
     font-size: 12px !important;
-    color: rgba(148, 163, 184, 0.85) !important;  /* 适配深色主题 */
+    color: var(--text-muted, #94a3b8) !important;
     font-weight: 500 !important;
     flex: 1 !important;
+    letter-spacing: 0.01em !important;
 }
 
 .welcome-card-actions {
@@ -1675,22 +1918,24 @@
 .welcome-card-action-btn {
     background: transparent !important;
     border: none !important;
-    color: rgba(148, 163, 184, 0.7) !important;
+    color: var(--text-muted, #94a3b8) !important;
+    opacity: 0.75 !important;
     cursor: pointer !important;
-    padding: 4px 6px !important;
-    border-radius: 4px !important;
+    padding: 5px 7px !important;
+    border-radius: 6px !important;
     font-size: 11px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    transition: all 0.2s ease !important;
-    opacity: 0.7 !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .welcome-card-action-btn:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: rgba(148, 163, 184, 0.9) !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.18) !important;
+    color: var(--pet-chat-primary-color, #667eea) !important;
     opacity: 1 !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.2) inset !important;
 }
 
 .welcome-card-action-btn:active {
@@ -1702,31 +1947,39 @@
 }
 .welcome-card-url {
     word-break: break-all !important;
-    color: rgba(59, 130, 246, 0.9) !important;  /* 信息蓝 - 适配深色主题 */
+    color: var(--pet-chat-primary-color, #667eea) !important;
+    opacity: 0.95 !important;
     text-decoration: none !important;
     font-size: 13px !important;
     display: inline-block !important;
     max-width: 100% !important;
-    line-height: 1.5 !important;
-    transition: all 0.2s ease !important;
+    line-height: 1.6 !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
     padding: 2px 0 !important;
-    border-radius: 3px !important;
+    border-radius: 4px !important;
+    font-weight: 500 !important;
 }
 
 .welcome-card-url:hover {
     text-decoration: underline !important;
-    color: rgba(59, 130, 246, 1) !important;
-    background: rgba(59, 130, 246, 0.1) !important;
-    padding: 2px 4px !important;
+    text-decoration-color: rgba(var(--primary-rgb, 102, 126, 234), 0.6) !important;
+    color: var(--pet-chat-primary-color, #667eea) !important;
+    opacity: 1 !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.15) !important;
+    padding: 2px 6px !important;
+    box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.2) inset !important;
 }
 
 .welcome-card-url:active {
-    color: rgba(37, 99, 235, 1) !important;
+    color: var(--pet-chat-primary-color, #667eea) !important;
+    opacity: 0.85 !important;
+    transform: scale(0.98) !important;
 }
 .welcome-card-description .markdown-content {
     font-size: 13px !important;
-    color: rgba(203, 213, 225, 0.85) !important;  /* 适配深色主题 */
-    line-height: 1.6 !important;
+    color: var(--text-secondary, #e2e8f0) !important;
+    opacity: 0.9 !important;
+    line-height: 1.7 !important;
     max-height: 300px !important;
     overflow-y: auto !important;
     padding-right: 4px !important;
@@ -1751,17 +2004,19 @@
 .welcome-card-tag {
     display: inline-flex !important;
     align-items: center !important;
-    padding: 4px 10px !important;
-    border-radius: 6px !important;
+    padding: 5px 12px !important;
+    border-radius: 8px !important;
     font-size: 11px !important;
     font-weight: 500 !important;
-    color: rgba(59, 130, 246, 0.9) !important;
-    background: rgba(59, 130, 246, 0.15) !important;
-    border: 1px solid rgba(59, 130, 246, 0.2) !important;
-    transition: all 0.2s ease !important;
+    color: var(--pet-chat-primary-color, #667eea) !important;
+    opacity: 0.95 !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.12) !important;
+    border: 1px solid rgba(var(--primary-rgb, 102, 126, 234), 0.3) !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
     cursor: default !important;
     position: relative !important;
     overflow: hidden !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
 }
 
 .welcome-card-tag::before {
@@ -1776,10 +2031,14 @@
 }
 
 .welcome-card-tag:hover {
-    background: rgba(59, 130, 246, 0.25) !important;
-    border-color: rgba(59, 130, 246, 0.4) !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2) !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.22) !important;
+    border-color: rgba(var(--primary-rgb, 102, 126, 234), 0.45) !important;
+    color: var(--pet-chat-primary-color, #667eea) !important;
+    opacity: 1 !important;
+    transform: translateY(-1px) scale(1.02) !important;
+    box-shadow: 
+        0 3px 8px rgba(var(--primary-rgb, 102, 126, 234), 0.3),
+        0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.2) inset !important;
 }
 
 .welcome-card-tag:hover::before {
@@ -3142,7 +3401,7 @@
 }
 
 /* Header Button SVG */
-#pet-chat-window .pet-chat-header-btn svg {
+#pet-chat-window .yi-pet-chat-header-btn svg {
     width: 20px !important;
     height: 20px !important;
     fill: currentColor !important;
@@ -3460,11 +3719,15 @@
 .chat-window.fullscreen {
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important; /* 使用动态视口高度，更好地适配移动设备 */
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
     top: 0 !important;
     left: 0 !important;
-    bottom: auto !important;
-    right: auto !important;
+    bottom: 0 !important;
+    right: 0 !important;
     transform: none !important;
+    max-height: none !important; /* 全屏模式下移除最大高度限制 */
 }
 
 .chat-message-buttons-container {
@@ -3677,8 +3940,8 @@
 
 /* Pet Chat Bubble - 宠物气泡提示（与消息气泡不同，用于宠物元素上的提示） */
 /* 注意：这个样式不在 #pet-chat-window 内，因为气泡是附加在宠物元素上的 */
-#chrome-pet-container .pet-chat-bubble,
-.pet-chat-bubble:not(#pet-chat-window .pet-chat-bubble) {
+#chrome-pet-container .yi-pet-chat-bubble,
+.yi-pet-chat-bubble:not(#pet-chat-window .yi-pet-chat-bubble) {
     position: absolute !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
@@ -3722,14 +3985,14 @@
 }
 
 /* Empty, Loading, Error States - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-empty,
-#pet-chat-window .pet-chat-loading,
-#pet-chat-window .pet-chat-error {
+#pet-chat-window .yi-pet-chat-empty,
+#pet-chat-window .yi-pet-chat-loading,
+#pet-chat-window .yi-pet-chat-error {
     padding: 24px 12px;
     color: rgba(148, 163, 184, 0.85);
 }
 
-#pet-chat-window .pet-chat-empty {
+#pet-chat-window .yi-pet-chat-empty {
     flex: 1;
     padding: 0;
     display: flex;
@@ -3740,7 +4003,7 @@
     position: relative;
 }
 
-#pet-chat-window .pet-chat-loading {
+#pet-chat-window .yi-pet-chat-loading {
     flex: 1;
     padding: 0;
     display: flex;
@@ -3752,7 +4015,7 @@
     gap: 16px;
 }
 
-#pet-chat-window .pet-chat-loading .loading-spinner {
+#pet-chat-window .yi-pet-chat-loading .loading-spinner {
     width: 48px;
     height: 48px;
     border: 4px solid rgba(79, 70, 229, 0.2);
@@ -3761,7 +4024,7 @@
     animation: pet-chat-spin 1s linear infinite;
 }
 
-#pet-chat-window .pet-chat-loading .loading-text {
+#pet-chat-window .yi-pet-chat-loading .loading-text {
     color: rgba(148, 163, 184, 0.85);
     font-size: 14px;
     font-weight: 500;
@@ -3775,13 +4038,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    #pet-chat-window .pet-chat-loading .loading-spinner {
+    #pet-chat-window .yi-pet-chat-loading .loading-spinner {
         animation-duration: 0.01ms;
         animation-iteration-count: 1;
     }
 }
 
-#pet-chat-window .pet-chat-error {
+#pet-chat-window .yi-pet-chat-error {
     flex: 1;
     padding: 0;
     display: flex;
@@ -3793,7 +4056,7 @@
     position: relative;
 }
 
-#pet-chat-window .pet-chat-error .error-text {
+#pet-chat-window .yi-pet-chat-error .error-text {
     color: rgba(248, 113, 113, 0.9);
     font-size: 14px;
     text-align: center;
@@ -3801,7 +4064,7 @@
 }
 
 /* 空状态卡片 - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-empty-card {
+#pet-chat-window .yi-pet-chat-empty-card {
     width: min(480px, 90%);
     max-width: 100%;
     margin: 0 auto;
@@ -3820,7 +4083,7 @@
     -webkit-backdrop-filter: blur(10px);
 }
 
-#pet-chat-window .pet-chat-empty-card::before {
+#pet-chat-window .yi-pet-chat-empty-card::before {
     content: '';
     position: absolute;
     top: 0;
@@ -3836,7 +4099,7 @@
     opacity: 0.6;
 }
 
-#pet-chat-window .pet-chat-empty-card:hover {
+#pet-chat-window .yi-pet-chat-empty-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 24px 72px rgba(0, 0, 0, 0.4), 
                 0 0 0 1px rgba(255, 255, 255, 0.08) inset,
@@ -3844,7 +4107,7 @@
     border-color: rgba(148, 163, 184, 0.3);
 }
 
-#pet-chat-window .pet-chat-empty-icon {
+#pet-chat-window .yi-pet-chat-empty-icon {
     width: 64px;
     height: 64px;
     margin: 0 auto 20px;
@@ -3865,13 +4128,13 @@
     transition: all 0.3s ease;
 }
 
-#pet-chat-window .pet-chat-empty-card:hover .pet-chat-empty-icon {
+#pet-chat-window .yi-pet-chat-empty-card:hover .yi-pet-chat-empty-icon {
     transform: scale(1.05);
     box-shadow: 0 12px 32px rgba(79, 70, 229, 0.3),
                 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
 }
 
-#pet-chat-window .pet-chat-empty-icon::after {
+#pet-chat-window .yi-pet-chat-empty-icon::after {
     content: '';
     position: absolute;
     inset: -2px;
@@ -3884,11 +4147,11 @@
     z-index: -1;
 }
 
-#pet-chat-window .pet-chat-empty-card:hover .pet-chat-empty-icon::after {
+#pet-chat-window .yi-pet-chat-empty-card:hover .yi-pet-chat-empty-icon::after {
     opacity: 1;
 }
 
-#pet-chat-window .pet-chat-empty-title {
+#pet-chat-window .yi-pet-chat-empty-title {
     font-size: 18px;
     font-weight: 650;
     margin-bottom: 10px;
@@ -3896,14 +4159,14 @@
     letter-spacing: -0.01em;
 }
 
-#pet-chat-window .pet-chat-empty-subtitle {
+#pet-chat-window .yi-pet-chat-empty-subtitle {
     font-size: 14px;
     color: rgba(203, 213, 225, 0.85);
     line-height: 1.6;
     margin-bottom: 8px;
 }
 
-#pet-chat-window .pet-chat-empty-hint {
+#pet-chat-window .yi-pet-chat-empty-hint {
     margin-top: 16px;
     padding-top: 16px;
     border-top: 1px solid rgba(148, 163, 184, 0.15);
@@ -3915,20 +4178,24 @@
 
 /* 确保消息容器支持 role 和 aria 属性 - 限定在 YiPet 作用域内 */
 #pet-chat-window .pet-chat-messages[role="log"],
-#pet-chat-window #pet-chat-messages[role="log"] {
+#pet-chat-window .yi-pet-chat-messages[role="log"],
+#pet-chat-window #yi-pet-chat-messages[role="log"] {
     /* 已通过前面的样式定义 */
 }
 
 /* 消息状态类 - 与 YiWeb 保持一致，但限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-message.is-streaming {
+#pet-chat-window .pet-chat-message.is-streaming,
+#pet-chat-window .yi-pet-chat-message.is-streaming {
     /* 流式消息状态 */
 }
 
-#pet-chat-window .pet-chat-message.is-error {
+#pet-chat-window .pet-chat-message.is-error,
+#pet-chat-window .yi-pet-chat-message.is-error {
     /* 错误消息状态 */
 }
 
-#pet-chat-window .pet-chat-message.is-aborted {
+#pet-chat-window .pet-chat-message.is-aborted,
+#pet-chat-window .yi-pet-chat-message.is-aborted {
     /* 中断消息状态 */
 }
 
@@ -3939,36 +4206,42 @@
 
 /* 响应式优化 - 与 YiWeb 保持一致，但限定在 YiPet 作用域内 */
 @media (max-width: 1200px) {
-    #pet-chat-window .pet-chat-bubble {
+    #pet-chat-window .pet-chat-bubble,
+    #pet-chat-window .yi-pet-chat-bubble {
         max-width: min(900px, calc(100% - 24px));
     }
 }
 
 @media (max-width: 768px) {
-    #pet-chat-window .pet-chat-bubble {
+    #pet-chat-window .pet-chat-bubble,
+    #pet-chat-window .yi-pet-chat-bubble {
         max-width: calc(100% - 24px);
         padding: 10px 14px;
     }
     
-    #pet-chat-window .pet-chat-meta {
+    #pet-chat-window .pet-chat-meta,
+    #pet-chat-window .yi-pet-chat-meta {
         flex-direction: column;
         align-items: flex-start;
         gap: 6px;
     }
     
-    #pet-chat-window .pet-chat-meta-actions {
+    #pet-chat-window .pet-chat-meta-actions,
+    #pet-chat-window .yi-pet-chat-meta-actions {
         width: 100%;
         justify-content: flex-start;
     }
     
-    #pet-chat-window .pet-chat-meta-btn {
+    #pet-chat-window .pet-chat-meta-btn,
+    #pet-chat-window .yi-pet-chat-meta-btn {
         font-size: 11px;
         padding: 5px 8px;
     }
 }
 
 @media (max-width: 480px) {
-    #pet-chat-window .pet-chat-bubble {
+    #pet-chat-window .pet-chat-bubble,
+    #pet-chat-window .yi-pet-chat-bubble {
         max-width: calc(100% - 16px);
         padding: 10px 12px;
         border-radius: 12px;

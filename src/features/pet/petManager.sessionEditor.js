@@ -1,133 +1,140 @@
 (function() {
     'use strict';
 
-    function extendPetManager() {
-        if (typeof window.PetManager === 'undefined') {
-            setTimeout(extendPetManager, 100);
+    // 确保 PetManager 类已定义
+    if (typeof window.PetManager === 'undefined') {
+        console.error('[SessionEditor] PetManager 未定义，无法扩展 SessionEditor 模块');
+        return;
+    }
+
+    const proto = window.PetManager.prototype;
+    
+    // 调试：确认方法已添加
+    console.log('[SessionEditor] 开始扩展 PetManager 原型，添加 openSessionInfoEditor 方法');
+
+    // 打开会话信息编辑对话框
+    proto.openSessionInfoEditor = function(sessionId, originalTitle, originalDescription) {
+        // 确保对话框UI存在
+        this.ensureSessionInfoEditorUi();
+    
+        const overlay = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
+            || document.body.querySelector('#pet-session-info-editor');
+        if (!overlay) {
+            console.error('会话信息编辑对话框未找到');
             return;
         }
 
-        const proto = window.PetManager.prototype;
+        // 显示对话框
+        overlay.style.display = 'flex';
+        overlay.dataset.sessionId = sessionId;
 
-        // 打开会话信息编辑对话框
-        proto.openSessionInfoEditor = function(sessionId, originalTitle, originalDescription) {
-            // 确保对话框UI存在
-            this.ensureSessionInfoEditorUi();
-    
-            const modal = document.body.querySelector('#pet-session-info-editor');
-            if (!modal) {
-                console.error('会话信息编辑对话框未找到');
-                return;
+        // 获取会话数据
+        const session = this.sessions[sessionId];
+        const originalUrl = session?.url || '';
+
+        // 填充当前值
+        const titleInput = overlay.querySelector('#session-edit-title');
+        const urlInput = overlay.querySelector('#session-edit-url');
+        const descriptionInput = overlay.querySelector('#session-edit-description');
+
+        if (titleInput) {
+            titleInput.value = originalTitle || '';
+        }
+        if (urlInput) {
+            urlInput.value = originalUrl;
+        }
+        if (descriptionInput) {
+            descriptionInput.value = originalDescription || '';
+        }
+
+        // 聚焦到标题输入框
+        if (titleInput) {
+            setTimeout(() => {
+                titleInput.focus();
+                titleInput.select();
+            }, 100);
+        }
+
+        // 添加关闭事件
+        const closeBtn = overlay.querySelector('.aicr-session-context-modal-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeSessionInfoEditor();
+        }
+
+        // 添加保存事件
+        const saveBtn = overlay.querySelector('.session-editor-save');
+        if (saveBtn) {
+            saveBtn.onclick = () => this.saveSessionInfo(sessionId);
+        }
+
+        // 添加智能生成描述事件
+        const generateDescriptionBtn = overlay.querySelector('.session-editor-generate-description');
+        if (generateDescriptionBtn) {
+            generateDescriptionBtn.onclick = () => this.generateSessionDescription(sessionId);
+        }
+
+        // ESC 键关闭
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeSessionInfoEditor();
+                document.removeEventListener('keydown', escHandler);
             }
-    
-            // 显示对话框
-            modal.style.display = 'flex';
-            modal.dataset.sessionId = sessionId;
-    
-            // 获取会话数据
-            const session = this.sessions[sessionId];
-            const originalUrl = session?.url || '';
-    
-            // 填充当前值
-            const titleInput = modal.querySelector('#session-edit-title');
-            const urlInput = modal.querySelector('#session-edit-url');
-            const descriptionInput = modal.querySelector('#session-edit-description');
-    
-            if (titleInput) {
-                titleInput.value = originalTitle || '';
-            }
-            if (urlInput) {
-                urlInput.value = originalUrl;
-            }
-            if (descriptionInput) {
-                descriptionInput.value = originalDescription || '';
-            }
-    
-            // 聚焦到标题输入框
-            if (titleInput) {
-                setTimeout(() => {
-                    titleInput.focus();
-                    titleInput.select();
-                }, 100);
-            }
-    
-            // 添加关闭事件
-            const closeBtn = modal.querySelector('.aicr-session-context-modal-close');
-            if (closeBtn) {
-                closeBtn.onclick = () => this.closeSessionInfoEditor();
-            }
-    
-            // 添加保存事件
-            const saveBtn = modal.querySelector('.session-editor-save');
-            if (saveBtn) {
-                saveBtn.onclick = () => this.saveSessionInfo(sessionId);
-            }
-    
-            // 添加智能生成描述事件
-            const generateDescriptionBtn = modal.querySelector('.session-editor-generate-description');
-            if (generateDescriptionBtn) {
-                generateDescriptionBtn.onclick = () => this.generateSessionDescription(sessionId);
-            }
-    
-            // ESC 键关闭
-            const escHandler = (e) => {
-                if (e.key === 'Escape') {
-                    this.closeSessionInfoEditor();
-                    document.removeEventListener('keydown', escHandler);
-                }
-            };
-            document.addEventListener('keydown', escHandler);
         };
-
-        // 确保会话信息编辑对话框UI存在
-        proto.ensureSessionInfoEditorUi = function() {
-            if (document.body.querySelector('#pet-session-info-editor')) return;
+        document.addEventListener('keydown', escHandler);
+    };
     
-            const modal = document.createElement('div');
-            modal.id = 'pet-session-info-editor';
-            modal.className = 'aicr-session-context-modal';
-            modal.setAttribute('role', 'dialog');
-            modal.setAttribute('aria-modal', 'true');
-            modal.setAttribute('aria-label', '编辑会话');
-            modal.style.cssText = `
-                position: fixed !important;
+    console.log('[SessionEditor] openSessionInfoEditor 方法已添加到原型');
+
+    // 确保会话信息编辑对话框UI存在
+    proto.ensureSessionInfoEditorUi = function() {
+            const existing = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
+                || document.body.querySelector('#pet-session-info-editor');
+            if (existing) return;
+    
+            const overlay = document.createElement('div');
+            overlay.id = 'pet-session-info-editor';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-modal', 'true');
+            overlay.setAttribute('aria-label', '编辑会话');
+            overlay.style.cssText = `
+                position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
-                z-index: 2147483653 !important;
+                background: rgba(0,0,0,0.6) !important;
+                backdrop-filter: blur(2px) !important;
+                z-index: 1000 !important;
                 display: none !important;
+                align-items: center !important;
+                justify-content: center !important;
+                animation: fadeIn 0.2s ease !important;
             `;
     
-            // 遮罩层
-            const mask = document.createElement('div');
-            mask.className = 'aicr-session-context-modal-mask';
-            mask.style.cssText = `
-                position: absolute !important;
-                inset: 0 !important;
-                background: rgba(0, 0, 0, 0.55) !important;
-            `;
-            mask.addEventListener('click', () => this.closeSessionInfoEditor());
-            modal.appendChild(mask);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    this.closeSessionInfoEditor();
+                }
+            });
     
             // 主体容器
-            const panel = document.createElement('div');
-            panel.className = 'aicr-session-context-modal-body aicr-session-settings-modal-body';
-            panel.setAttribute('tabindex', '0');
-            panel.style.cssText = `
-                position: absolute !important;
-                inset: 16px !important;
-                max-width: 980px !important;
-                margin: 0 auto !important;
-                background: rgba(15, 23, 42, 0.95) !important;
-                border: 1px solid rgba(51, 65, 85, 0.85) !important;
-                border-radius: 14px !important;
-                box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55) !important;
-                overflow: hidden !important;
+            const modal = document.createElement('div');
+            modal.className = 'aicr-session-context-modal-body aicr-session-settings-modal-body';
+            modal.setAttribute('tabindex', '0');
+            modal.style.cssText = `
+                position: relative !important;
+                max-width: 800px !important;
+                width: calc(100% - 80px) !important;
+                height: calc(100vh - 120px) !important;
+                max-height: 90vh !important;
+                margin: 60px auto !important;
+                background: #1a1b1e !important;
                 display: flex !important;
                 flex-direction: column !important;
-                min-height: 0 !important;
-                animation: fadeInUp 0.18s ease-out !important;
+                overflow: hidden !important;
+                border-radius: 16px !important;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+                animation: fadeInUp 0.2s ease-out !important;
             `;
             
             // 添加淡入动画（如果不存在）
@@ -148,7 +155,7 @@
                 `;
                 document.head.appendChild(style);
             }
-            panel.addEventListener('keydown', (e) => {
+            modal.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     this.closeSessionInfoEditor();
                 }
@@ -158,24 +165,18 @@
             const header = document.createElement('div');
             header.className = 'aicr-session-context-modal-header';
             header.style.cssText = `
+                padding: 16px !important;
+                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
                 display: flex !important;
-                align-items: center !important;
                 justify-content: space-between !important;
-                padding: 12px 14px !important;
-                border-bottom: 1px solid rgba(51, 65, 85, 0.85) !important;
+                align-items: center !important;
+                background: #25262b !important;
             `;
     
             const title = document.createElement('div');
             title.className = 'aicr-session-context-modal-title';
             title.textContent = '✏️ 编辑会话';
-            title.style.cssText = `
-                color: rgba(226, 232, 240, 0.95) !important;
-                font-weight: 650 !important;
-                font-size: 14px !important;
-                display: flex !important;
-                align-items: baseline !important;
-                gap: 8px !important;
-            `;
+            title.style.cssText = 'color: #fff !important; font-weight: 500 !important; font-size: 15px !important;';
     
             const headerRight = document.createElement('div');
             headerRight.className = 'aicr-session-context-modal-header-right';
@@ -214,48 +215,41 @@
                 saveBtn.style.transform = 'none';
             });
     
-            const closeBtn = document.createElement('button');
+            const closeBtn = document.createElement('div');
             closeBtn.className = 'aicr-session-context-modal-close';
-            closeBtn.type = 'button';
             closeBtn.innerHTML = '✕';
             closeBtn.setAttribute('aria-label', '关闭');
             closeBtn.style.cssText = `
-                border: 1px solid rgba(51, 65, 85, 0.85) !important;
-                background: rgba(30, 41, 59, 0.6) !important;
-                color: rgba(226, 232, 240, 0.9) !important;
-                border-radius: 10px !important;
-                padding: 6px 10px !important;
+                color: rgba(255,255,255,0.5) !important;
                 cursor: pointer !important;
-                transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+                padding: 4px !important;
+                font-size: 14px !important;
             `;
-            closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = 'rgba(51, 65, 85, 0.6)';
-                closeBtn.style.borderColor = 'rgba(51, 65, 85, 0.95)';
-                closeBtn.style.transform = 'translateY(-1px)';
-            });
-            closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'rgba(30, 41, 59, 0.6)';
-                closeBtn.style.borderColor = 'rgba(51, 65, 85, 0.85)';
-                closeBtn.style.transform = 'none';
-            });
+            closeBtn.onclick = () => this.closeSessionInfoEditor();
     
             headerRight.appendChild(saveBtn);
             headerRight.appendChild(closeBtn);
             header.appendChild(title);
             header.appendChild(headerRight);
-            panel.appendChild(header);
     
             // 内容区域
             const content = document.createElement('div');
             content.className = 'aicr-session-context-modal-content aicr-session-settings-modal-content';
             content.style.cssText = `
-                padding: 12px 14px 14px !important;
                 flex: 1 !important;
-                min-height: 0 !important;
-                overflow: auto !important;
+                overflow-y: auto !important;
+                padding: 16px !important;
                 display: flex !important;
                 flex-direction: column !important;
-                gap: 12px !important;
+                gap: 20px !important;
+            `;
+            content.style.cssText = `
+                flex: 1 !important;
+                overflow-y: auto !important;
+                padding: 16px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 20px !important;
             `;
     
             // 标题字段
@@ -473,16 +467,24 @@
             descriptionField.appendChild(descriptionHint);
             content.appendChild(descriptionField);
     
-            panel.appendChild(content);
-            modal.appendChild(panel);
-            document.body.appendChild(modal);
+            modal.appendChild(header);
+            modal.appendChild(content);
+            overlay.appendChild(modal);
+            
+            // 添加到聊天窗口（如果存在），否则添加到 body
+            if (this.chatWindow) {
+                this.chatWindow.appendChild(overlay);
+            } else {
+                document.body.appendChild(overlay);
+            }
         };
 
         // 关闭会话信息编辑对话框
         proto.closeSessionInfoEditor = function() {
-            const modal = document.body.querySelector('#pet-session-info-editor');
-            if (modal) {
-                modal.style.display = 'none';
+            const overlay = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
+                || document.body.querySelector('#pet-session-info-editor');
+            if (overlay) {
+                overlay.style.display = 'none';
             }
         };
 
@@ -498,9 +500,11 @@
                 return;
             }
     
-            const titleInput = modal.querySelector('#session-edit-title');
-            const urlInput = modal.querySelector('#session-edit-url');
-            const descriptionInput = modal.querySelector('#session-edit-description');
+            const overlay = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
+                || document.body.querySelector('#pet-session-info-editor');
+            const titleInput = overlay?.querySelector('#session-edit-title');
+            const urlInput = overlay?.querySelector('#session-edit-url');
+            const descriptionInput = overlay?.querySelector('#session-edit-description');
     
             if (!titleInput) {
                 console.error('标题输入框未找到');
@@ -737,8 +741,10 @@
                 return;
             }
     
-            const generateBtn = modal.querySelector('.session-editor-generate-title');
-            const titleInput = modal.querySelector('.session-editor-title-input');
+            const overlay = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
+                || document.body.querySelector('#pet-session-info-editor');
+            const generateBtn = overlay?.querySelector('.session-editor-generate-title');
+            const titleInput = overlay?.querySelector('.session-editor-title-input');
     
             if (!generateBtn || !titleInput) {
                 return;
@@ -952,8 +958,10 @@
                 return;
             }
     
-            const generateBtn = modal.querySelector('.session-editor-generate-description');
-            const descriptionInput = modal.querySelector('#session-edit-description');
+            const overlay = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
+                || document.body.querySelector('#pet-session-info-editor');
+            const generateBtn = overlay?.querySelector('.session-editor-generate-description');
+            const descriptionInput = overlay?.querySelector('#session-edit-description');
     
             if (!generateBtn || !descriptionInput) {
                 return;
@@ -1390,7 +1398,9 @@
     
             // 禁用按钮，显示加载状态
             const modal = document.body.querySelector('#pet-session-info-editor');
-            const translateBtn = modal ? modal.querySelector(`button[data-translate-field="${fieldType}"][data-target-lang="${targetLanguage}"]`) : null;
+            const overlay = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
+                || document.body.querySelector('#pet-session-info-editor');
+            const translateBtn = overlay ? overlay.querySelector(`button[data-translate-field="${fieldType}"][data-target-lang="${targetLanguage}"]`) : null;
             const originalBtnText = translateBtn ? translateBtn.textContent : '';
             if (translateBtn) {
                 translateBtn.disabled = true;
@@ -1637,7 +1647,6 @@
                 this._hideLoadingAnimation();
             }
         };
-    }
-
-    extendPetManager();
+    
+    console.log('[SessionEditor] 所有方法已添加到原型');
 })();

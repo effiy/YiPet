@@ -353,7 +353,7 @@ ${pageContent || '无内容'}
                 const originalIcon = button.innerHTML;
 
                 // 获取消息容器
-                const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#yi-pet-chat-messages') : null;
                 if (!messagesContainer) {
                     console.error('无法找到消息容器');
                     processingFlag.value = false;
@@ -479,7 +479,7 @@ ${pageContent || '无内容'}
                 e.stopPropagation();
 
                 // 获取欢迎消息的内容
-                const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#yi-pet-chat-messages') : null;
                 if (!messagesContainer) return;
 
                 const welcomeMessage = messagesContainer.querySelector('[data-welcome-message]');
@@ -544,7 +544,7 @@ ${pageContent || '无内容'}
     proto.refreshAllMessageActionButtons = async function() {
         if (!this.chatWindow) return;
 
-        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
         if (!messagesContainer) return;
 
         // 查找所有有按钮容器的消息（不包括第一条欢迎消息）

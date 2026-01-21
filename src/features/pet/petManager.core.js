@@ -66,8 +66,6 @@
 
                 this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
                 this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
-                this.calendarCollapsed = true; // 日历是否折叠
-                this.calendarMonth = null; // 当前显示的日历月份
 
                 // 批量操作相关
                 this.batchMode = false; // 是否处于批量选择模式
@@ -264,7 +262,7 @@
                     return;
                 }
 
-                const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+                const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
                 if (messagesContainer) {
                     messagesContainer.innerHTML = '';
                     console.log('已清空聊天会话内容');
@@ -443,7 +441,7 @@
 
                         // 清空消息显示
                         if (this.chatWindow && this.isChatOpen) {
-                            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+                            const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
                             if (messagesContainer) {
                                 messagesContainer.innerHTML = '';
                             }
@@ -634,8 +632,36 @@
                 const metaActions = meta.querySelector('.pet-chat-meta-actions');
                 if (!metaActions) return;
 
-                // 如果已经有按钮，不再重复添加
-                if (metaActions.children.length > 0) return;
+                // 移除所有没有 type='button' 的按钮
+                const allChildren = Array.from(metaActions.children);
+                for (const child of allChildren) {
+                    // 如果是按钮元素，检查 type 属性
+                    if (child.tagName === 'BUTTON') {
+                        if (child.type !== 'button') {
+                            child.remove();
+                        }
+                    }
+                    // 如果不是按钮元素（如容器），检查内部按钮
+                    else {
+                        // 检查容器内的按钮，移除不符合条件的
+                        const buttonsInContainer = child.querySelectorAll('button');
+                        buttonsInContainer.forEach(btn => {
+                            if (btn.type !== 'button') {
+                                btn.remove();
+                            }
+                        });
+                        // 如果容器内没有 type='button' 的按钮了，移除容器
+                        // 注意：如果容器内完全没有按钮，可能是异步添加的，暂时保留
+                        const validButtons = child.querySelectorAll('button[type="button"]');
+                        if (buttonsInContainer.length > 0 && validButtons.length === 0) {
+                            child.remove();
+                        }
+                    }
+                }
+
+                // 如果已经有 type='button' 的按钮，不再重复添加
+                const hasButtonButtons = Array.from(metaActions.querySelectorAll('button[type="button"]')).length > 0;
+                if (hasButtonButtons) return;
 
                 const isPet = sender === 'pet';
                 const hasContent = text && text.trim();
@@ -789,7 +815,7 @@
                 });
                 metaActions.appendChild(editBtn);
 
-                // 4. 重新发送按钮（仅用户消息）
+                // 4. 重新发送按钮（仅用户消息，与 YiWeb 保持一致）
                 if (!isPet) {
                     const resendBtn = document.createElement('button');
                     resendBtn.type = 'button';
@@ -797,16 +823,25 @@
                     resendBtn.setAttribute('aria-label', '重新发送');
                     resendBtn.setAttribute('title', '重新发送');
                     resendBtn.textContent = '📨';
+                    // 检查是否正在发送（与 YiWeb 保持一致）
+                    const isSending = this.chatWindowComponent?.isProcessing || false;
+                    if (isSending) {
+                        resendBtn.disabled = true;
+                    }
                     resendBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
-                        if (this.resendMessage) {
+                        if (isSending) return;
+                        const idx = this.findMessageIndexByDiv(messageDiv);
+                        if (idx >= 0 && this.resendMessageAt) {
+                            await this.resendMessageAt(idx);
+                        } else if (this.resendMessage) {
                             await this.resendMessage(messageDiv);
                         }
                     });
                     metaActions.appendChild(resendBtn);
                 }
 
-                // 5. 上移按钮
+                // 5. 上移按钮（与 YiWeb 保持一致）
                 const moveUpBtn = document.createElement('button');
                 moveUpBtn.type = 'button';
                 moveUpBtn.className = 'pet-chat-meta-btn';
@@ -815,20 +850,18 @@
                 moveUpBtn.textContent = '⬆️';
                 moveUpBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
-                    if (messagesContainer && this.moveMessageUp) {
-                        const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                            !msg.hasAttribute('data-welcome-message')
-                        );
-                        const currentIndex = allMessages.indexOf(messageDiv);
-                        if (currentIndex > 0) {
-                            await this.moveMessageUp(messageDiv, currentIndex);
+                    const idx = this.findMessageIndexByDiv(messageDiv);
+                    if (idx >= 0 && idx > 0) {
+                        if (this.moveMessageUpAt) {
+                            await this.moveMessageUpAt(idx);
+                        } else if (this.moveMessageUp) {
+                            await this.moveMessageUp(messageDiv, idx);
                         }
                     }
                 });
                 metaActions.appendChild(moveUpBtn);
 
-                // 6. 下移按钮
+                // 6. 下移按钮（与 YiWeb 保持一致）
                 const moveDownBtn = document.createElement('button');
                 moveDownBtn.type = 'button';
                 moveDownBtn.className = 'pet-chat-meta-btn';
@@ -837,14 +870,18 @@
                 moveDownBtn.textContent = '⬇️';
                 moveDownBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
-                    if (messagesContainer && this.moveMessageDown) {
+                    const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
+                    if (messagesContainer) {
                         const allMessages = Array.from(messagesContainer.children).filter(msg =>
                             !msg.hasAttribute('data-welcome-message')
                         );
-                        const currentIndex = allMessages.indexOf(messageDiv);
-                        if (currentIndex >= 0 && currentIndex < allMessages.length - 1) {
-                            await this.moveMessageDown(messageDiv, currentIndex);
+                        const idx = this.findMessageIndexByDiv(messageDiv);
+                        if (idx >= 0 && idx < allMessages.length - 1) {
+                            if (this.moveMessageDownAt) {
+                                await this.moveMessageDownAt(idx);
+                            } else if (this.moveMessageDown) {
+                                await this.moveMessageDown(messageDiv, idx);
+                            }
                         }
                     }
                 });
@@ -883,6 +920,29 @@
                     }
                 });
                 metaActions.appendChild(deleteBtn);
+
+                // 最后再次确保只保留 type='button' 的按钮
+                const finalCheck = Array.from(metaActions.children);
+                for (const child of finalCheck) {
+                    if (child.tagName === 'BUTTON') {
+                        if (child.type !== 'button') {
+                            child.remove();
+                        }
+                    } else {
+                        // 对于非按钮元素（如容器），检查内部按钮
+                        const buttonsInContainer = child.querySelectorAll('button');
+                        buttonsInContainer.forEach(btn => {
+                            if (btn.type !== 'button') {
+                                btn.remove();
+                            }
+                        });
+                        // 如果容器内有按钮但没有 type='button' 的按钮，移除容器
+                        const validButtons = child.querySelectorAll('button[type="button"]');
+                        if (buttonsInContainer.length > 0 && validButtons.length === 0) {
+                            child.remove();
+                        }
+                    }
+                }
             }
 
             // 删除消息（与 YiWeb 一致）
@@ -892,7 +952,7 @@
                 const session = this.sessions[this.currentSessionId];
                 if (!session || !session.messages) return;
 
-                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (!messagesContainer) return;
 
                 const allMessages = Array.from(messagesContainer.children).filter(msg =>
@@ -905,7 +965,9 @@
                 // 删除消息（如果是用户消息，同时删除对应的宠物回复）
                 const target = session.messages[index];
                 const next = session.messages[index + 1];
-                if (target && target.type !== 'pet' && next && next.type === 'pet') {
+                const shouldDeleteNext = target && target.type !== 'pet' && next && next.type === 'pet';
+                
+                if (shouldDeleteNext) {
                     session.messages.splice(index, 2);
                 } else {
                     session.messages.splice(index, 1);
@@ -916,8 +978,22 @@
                 // 动画删除消息
                 messageDiv.style.transition = 'opacity 0.3s ease';
                 messageDiv.style.opacity = '0';
+                
+                // 如果需要同时删除下一条宠物消息，也添加删除动画
+                let nextMessageDiv = null;
+                if (shouldDeleteNext && index + 1 < allMessages.length) {
+                    nextMessageDiv = allMessages[index + 1];
+                    if (nextMessageDiv) {
+                        nextMessageDiv.style.transition = 'opacity 0.3s ease';
+                        nextMessageDiv.style.opacity = '0';
+                    }
+                }
+                
                 setTimeout(() => {
                     messageDiv.remove();
+                    if (nextMessageDiv) {
+                        nextMessageDiv.remove();
+                    }
                     // 保存会话
                     this.saveCurrentSession().then(() => {
                         if (this.syncSessionToBackend) {
@@ -932,21 +1008,99 @@
             }
 
             // 重新发送消息（仅用户消息）
-            async resendMessage(messageDiv) {
-                if (!messageDiv || !this.currentSessionId) return;
+            // 滚动到指定索引的消息（与 YiWeb 保持一致）
+            _scrollToMessageIndex(idx) {
+                try {
+                    const i = Number(idx);
+                    if (!Number.isFinite(i) || i < 0) return;
+                    setTimeout(() => {
+                        try {
+                            const el = document.querySelector(`[data-chat-idx="${i}"]`);
+                            if (el && typeof el.scrollIntoView === 'function') {
+                                el.scrollIntoView({ block: 'nearest' });
+                                return;
+                            }
+                            const container = this.chatWindow?.querySelector('#yi-pet-chat-messages');
+                            if (container) container.scrollTop = container.scrollHeight;
+                        } catch (_) { }
+                    }, 0);
+                } catch (_) { }
+            }
+
+            // 重新发送消息（与 YiWeb 保持一致，使用索引）
+            async resendMessageAt(idx) {
+                if (!this.currentSessionId) return;
                 
                 const session = this.sessions[this.currentSessionId];
-                if (!session || !session.messages) return;
+                if (!session || !Array.isArray(session.messages)) return;
 
-                const bubble = messageDiv.querySelector('.pet-chat-bubble');
-                if (!bubble) return;
+                const i = Number(idx);
+                if (!Number.isFinite(i) || i < 0 || i >= session.messages.length) return;
 
-                const content = bubble.getAttribute('data-original-text') || '';
-                const imageDataUrl = bubble.querySelector('.pet-chat-image')?.src || null;
+                const userMsg = session.messages[i];
+                if (!userMsg || userMsg.type === 'pet') return;
 
-                // 重新发送消息
-                if (this.sendMessage) {
-                    await this.sendMessage(content, imageDataUrl);
+                const text = String(userMsg.content ?? userMsg.message ?? '').trim();
+                const images = (() => {
+                    const list = Array.isArray(userMsg.imageDataUrls) ? userMsg.imageDataUrls.filter(Boolean) : [];
+                    const first = String(userMsg.imageDataUrl || '').trim();
+                    if (first) list.unshift(first);
+                    return Array.from(new Set(list)).slice(0, 4);
+                })();
+                if (!text && images.length === 0) return;
+
+                // 删除原消息
+                session.messages.splice(i, 1);
+                
+                // 更新 DOM
+                const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
+                if (messagesContainer) {
+                    const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                        !msg.hasAttribute('data-welcome-message')
+                    );
+                    if (i < allMessages.length) {
+                        allMessages[i].remove();
+                    }
+                }
+
+                // 保存会话
+                session.updatedAt = Date.now();
+                await this.saveAllSessions();
+                if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                    await this.syncSessionToBackend(this.currentSessionId, true);
+                }
+
+                // 重新发送消息（通过设置输入框内容并发送）
+                const chatWindowComponent = this.chatWindowComponent;
+                if (chatWindowComponent && chatWindowComponent.messageInput) {
+                    const textarea = chatWindowComponent.messageInput;
+                    textarea.value = text;
+                    
+                    // 设置图片
+                    if (images.length > 0 && chatWindowComponent.draftImages) {
+                        chatWindowComponent.draftImages = [...images];
+                        // 更新图片预览
+                        if (chatWindowComponent.updateDraftImagesDisplay) {
+                            chatWindowComponent.updateDraftImagesDisplay();
+                        }
+                    }
+                    
+                    // 触发输入事件以更新高度
+                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    // 发送消息
+                    if (typeof chatWindowComponent.sendMessage === 'function') {
+                        await chatWindowComponent.sendMessage();
+                    }
+                }
+            }
+
+            // 重新发送消息（兼容旧版本，使用 messageDiv）
+            async resendMessage(messageDiv) {
+                if (!messageDiv) return;
+                const idx = this.findMessageIndexByDiv(messageDiv);
+                if (idx >= 0) {
+                    await this.resendMessageAt(idx);
                 }
             }
 
@@ -957,7 +1111,7 @@
                 const session = this.sessions[this.currentSessionId];
                 if (!session || !session.messages) return;
 
-                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (!messagesContainer) return;
 
                 const allMessages = Array.from(messagesContainer.children).filter(msg =>
@@ -1086,9 +1240,46 @@
 
             // 添加复制按钮的辅助方法
             addCopyButton(container, messageTextElement) {
-                // 如果已经有复制按钮，就不再添加
-                if (container.querySelector('.copy-button')) {
-                    return;
+                // 检查是否是用户消息
+                const isUserMessage = messageTextElement.closest('[data-message-type="user-bubble"]');
+                const isPetMessage = messageTextElement.closest('[data-message-type="pet-bubble"]');
+
+                // 对于用户消息，只添加复制按钮，不添加删除和编辑按钮
+                // 这些按钮应该由 addDeleteButtonForUserMessage 统一处理
+                if (isUserMessage) {
+                    // 如果已经有复制按钮，就不再添加
+                    if (container.querySelector('.copy-button')) {
+                        return;
+                    }
+                } else if (isPetMessage) {
+                    // 对于宠物消息，先移除可能存在的重复按钮
+                    const existingCopyButtons = container.querySelectorAll('.copy-button');
+                    const existingEditButtons = container.querySelectorAll('.edit-button');
+                    const existingDeleteButtons = container.querySelectorAll('.delete-button');
+                    
+                    // 如果已经有完整的按钮组，只保留第一个，移除多余的
+                    if (existingCopyButtons.length > 0 && 
+                        existingEditButtons.length > 0 && 
+                        existingDeleteButtons.length > 0) {
+                        // 移除多余的复制按钮
+                        for (let i = 1; i < existingCopyButtons.length; i++) {
+                            existingCopyButtons[i].remove();
+                        }
+                        // 移除多余的编辑按钮
+                        for (let i = 1; i < existingEditButtons.length; i++) {
+                            existingEditButtons[i].remove();
+                        }
+                        // 移除多余的删除按钮
+                        for (let i = 1; i < existingDeleteButtons.length; i++) {
+                            existingDeleteButtons[i].remove();
+                        }
+                        return;
+                    }
+                    
+                    // 如果只有部分按钮，移除它们，重新创建完整的按钮组
+                    existingCopyButtons.forEach(btn => btn.remove());
+                    existingEditButtons.forEach(btn => btn.remove());
+                    existingDeleteButtons.forEach(btn => btn.remove());
                 }
 
                 // 检查是否已经有编辑按钮（说明之前已经添加过其他按钮）
@@ -1177,15 +1368,23 @@
                     }
                 });
 
-                // 创建编辑按钮（仅对宠物消息显示）
-                const isPetMessage = messageTextElement.closest('[data-message-type="pet-bubble"]');
+                // 对于用户消息，只添加复制按钮，不添加删除和编辑按钮
+                // 这些按钮应该由 addDeleteButtonForUserMessage 统一处理
+                if (isUserMessage) {
+                    container.appendChild(copyButton);
+                    return;
+                }
 
-                // 如果已经有编辑和删除按钮，只添加复制按钮
+                // 对于宠物消息，如果已经有编辑和删除按钮，只添加复制按钮（如果还没有）
                 if (hasEditButton && hasDeleteButton) {
-                    // 在编辑按钮之前插入复制按钮
-                    container.insertBefore(copyButton, hasEditButton);
-                } else {
-                    // 如果没有其他按钮，创建完整的按钮组
+                    // 如果已经有复制按钮，就不再添加
+                    if (!container.querySelector('.copy-button')) {
+                        // 在编辑按钮之前插入复制按钮
+                        container.insertBefore(copyButton, hasEditButton);
+                    }
+                    return;
+                } else if (isPetMessage) {
+                    // 如果是宠物消息且没有其他按钮，创建完整的按钮组
                     // 创建删除按钮 - 与 YiWeb 保持一致
                     const deleteButton = document.createElement('button');
                     // 与 YiWeb 保持一致，同时保持向后兼容
@@ -1317,7 +1516,7 @@
                                     } else {
                                         console.warn('无法找到对应的消息对象，尝试通过DOM索引删除');
                                         // 如果找不到消息对象，尝试通过DOM索引来删除
-                                        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                                        const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                                         if (messagesContainer) {
                                             const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
                                                 return !div.hasAttribute('data-welcome-message') &&
@@ -1388,8 +1587,11 @@
                     // 与 YiWeb 保持一致，同时保持向后兼容
                     editButton.className = 'pet-chat-meta-btn edit-button';
                     editButton.innerHTML = '✏️';
-                    editButton.setAttribute('title', '编辑消息');
-                    editButton.setAttribute('aria-label', '编辑消息');
+                    // 只在没有 title 时设置，避免重复设置
+                    if (!editButton.getAttribute('title')) {
+                        editButton.setAttribute('title', '编辑消息');
+                        editButton.setAttribute('aria-label', '编辑消息');
+                    }
 
                     // 点击编辑 - 打开弹窗编辑器
                     editButton.addEventListener('click', (e) => {
@@ -1415,7 +1617,7 @@
                     return;
                 }
 
-                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (!messagesContainer) return;
 
                 // 获取所有消息元素（排除欢迎消息）
@@ -1471,106 +1673,137 @@
             }
 
             // 上移消息
-            async moveMessageUp(messageDiv, currentIndex) {
-                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
-                if (!messagesContainer || !this.currentSessionId) return;
-
-                // 获取所有消息元素（排除欢迎消息）
-                const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                    !msg.hasAttribute('data-welcome-message')
-                );
-
-                if (currentIndex <= 0 || currentIndex >= allMessages.length) return;
-
-                const previousMessage = allMessages[currentIndex - 1];
-
-                // 在DOM中交换位置
-                messageDiv.style.transition = 'transform 0.3s ease';
-                previousMessage.style.transition = 'transform 0.3s ease';
-
-                // 使用 insertBefore 交换位置
-                messagesContainer.insertBefore(messageDiv, previousMessage);
-
-                // 更新会话中的消息顺序
+            // 移动消息（与 YiWeb 保持一致，使用索引）
+            async _moveMessageBlock(idx, direction) {
+                if (!this.currentSessionId) return;
+                
                 const session = this.sessions[this.currentSessionId];
-                if (session && session.messages && Array.isArray(session.messages)) {
-                    // 交换数组中的位置
-                    const temp = session.messages[currentIndex];
-                    session.messages[currentIndex] = session.messages[currentIndex - 1];
-                    session.messages[currentIndex - 1] = temp;
+                if (!session || !Array.isArray(session.messages)) return;
 
+                const i = Number(idx);
+                if (!Number.isFinite(i) || i < 0 || i >= session.messages.length) return;
+
+                if (String(direction) === 'up') {
+                    if (i <= 0) return;
+                    const nextMessages = [...session.messages];
+                    const tmp = nextMessages[i - 1];
+                    nextMessages[i - 1] = nextMessages[i];
+                    nextMessages[i] = tmp;
+                    session.messages = nextMessages;
                     session.updatedAt = Date.now();
+                    session.lastAccessTime = Date.now();
+
+                    // 更新 DOM
+                    const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
+                    if (messagesContainer) {
+                        const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                            !msg.hasAttribute('data-welcome-message')
+                        );
+                        if (i > 0 && i < allMessages.length) {
+                            const currentMsg = allMessages[i];
+                            const previousMsg = allMessages[i - 1];
+                            messagesContainer.insertBefore(currentMsg, previousMsg);
+                            
+                            // 更新 data-chat-idx 属性
+                            allMessages.forEach((msg, idx) => {
+                                msg.setAttribute('data-chat-idx', idx.toString());
+                            });
+                        }
+                    }
 
                     // 保存会话
                     await this.saveAllSessions();
-
-                    // 同步到后端
                     if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
                         await this.syncSessionToBackend(this.currentSessionId, true);
                     }
 
-                    // 更新所有消息的排序按钮状态
-                    setTimeout(() => {
-                        this.updateAllSortButtons();
-                    }, 100);
+                    // 滚动到新位置
+                    this._scrollToMessageIndex(i - 1);
+                    return;
+                }
+
+                if (String(direction) === 'down') {
+                    if (i >= session.messages.length - 1) return;
+                    const nextMessages = [...session.messages];
+                    const tmp = nextMessages[i + 1];
+                    nextMessages[i + 1] = nextMessages[i];
+                    nextMessages[i] = tmp;
+                    session.messages = nextMessages;
+                    session.updatedAt = Date.now();
+                    session.lastAccessTime = Date.now();
+
+                    // 更新 DOM
+                    const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
+                    if (messagesContainer) {
+                        const allMessages = Array.from(messagesContainer.children).filter(msg =>
+                            !msg.hasAttribute('data-welcome-message')
+                        );
+                        if (i >= 0 && i < allMessages.length - 1) {
+                            const currentMsg = allMessages[i];
+                            const nextMsg = allMessages[i + 1];
+                            if (nextMsg.nextSibling) {
+                                messagesContainer.insertBefore(currentMsg, nextMsg.nextSibling);
+                            } else {
+                                messagesContainer.appendChild(currentMsg);
+                            }
+                            
+                            // 更新 data-chat-idx 属性
+                            Array.from(messagesContainer.children)
+                                .filter(msg => !msg.hasAttribute('data-welcome-message'))
+                                .forEach((msg, idx) => {
+                                    msg.setAttribute('data-chat-idx', idx.toString());
+                                });
+                        }
+                    }
+
+                    // 保存会话
+                    await this.saveAllSessions();
+                    if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+                        await this.syncSessionToBackend(this.currentSessionId, true);
+                    }
+
+                    // 滚动到新位置
+                    this._scrollToMessageIndex(i + 1);
                 }
             }
 
-            // 下移消息
-            async moveMessageDown(messageDiv, currentIndex) {
-                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
-                if (!messagesContainer || !this.currentSessionId) return;
+            // 上移消息（与 YiWeb 保持一致，使用索引）
+            async moveMessageUpAt(idx) {
+                await this._moveMessageBlock(idx, 'up');
+            }
 
-                // 获取所有消息元素（排除欢迎消息）
-                const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                    !msg.hasAttribute('data-welcome-message')
-                );
-
-                if (currentIndex < 0 || currentIndex >= allMessages.length - 1) return;
-
-                const nextMessage = allMessages[currentIndex + 1];
-
-                // 在DOM中交换位置
-                messageDiv.style.transition = 'transform 0.3s ease';
-                nextMessage.style.transition = 'transform 0.3s ease';
-
-                // 使用 insertBefore 交换位置（将当前消息插入到下一个消息之后）
-                // 先移除当前消息，然后插入到下一个消息之后
-                messageDiv.remove();
-                if (nextMessage.nextSibling) {
-                    messagesContainer.insertBefore(messageDiv, nextMessage.nextSibling);
-                } else {
-                    messagesContainer.appendChild(messageDiv);
-                }
-
-                // 更新会话中的消息顺序
-                const session = this.sessions[this.currentSessionId];
-                if (session && session.messages && Array.isArray(session.messages)) {
-                    // 交换数组中的位置
-                    const temp = session.messages[currentIndex];
-                    session.messages[currentIndex] = session.messages[currentIndex + 1];
-                    session.messages[currentIndex + 1] = temp;
-
-                    session.updatedAt = Date.now();
-
-                    // 保存会话
-                    await this.saveAllSessions();
-
-                    // 同步到后端
-                    if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                        await this.syncSessionToBackend(this.currentSessionId, true);
+            // 上移消息（兼容旧版本，使用 messageDiv）
+            async moveMessageUp(messageDiv, currentIndex) {
+                if (messageDiv && typeof currentIndex === 'number' && currentIndex >= 0) {
+                    await this.moveMessageUpAt(currentIndex);
+                } else if (messageDiv) {
+                    const idx = this.findMessageIndexByDiv(messageDiv);
+                    if (idx >= 0) {
+                        await this.moveMessageUpAt(idx);
                     }
+                }
+            }
 
-                    // 更新所有消息的排序按钮状态
-                    setTimeout(() => {
-                        this.updateAllSortButtons();
-                    }, 100);
+            // 下移消息（与 YiWeb 保持一致，使用索引）
+            async moveMessageDownAt(idx) {
+                await this._moveMessageBlock(idx, 'down');
+            }
+
+            // 下移消息（兼容旧版本，使用 messageDiv）
+            async moveMessageDown(messageDiv, currentIndex) {
+                if (messageDiv && typeof currentIndex === 'number' && currentIndex >= 0) {
+                    await this.moveMessageDownAt(currentIndex);
+                } else if (messageDiv) {
+                    const idx = this.findMessageIndexByDiv(messageDiv);
+                    if (idx >= 0) {
+                        await this.moveMessageDownAt(idx);
+                    }
                 }
             }
 
             // 更新所有消息的排序按钮状态
             updateAllSortButtons() {
-                const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (!messagesContainer) return;
 
                 // 获取所有消息元素（排除欢迎消息）
@@ -1898,12 +2131,38 @@
 
             // 为用户消息添加删除和编辑按钮
             addDeleteButtonForUserMessage(container, messageTextElement) {
-                // 如果已经添加过，就不再添加
-                if (container.querySelector('.delete-button') &&
-                    container.querySelector('.edit-button') &&
-                    container.querySelector('.resend-button')) {
+                // 先移除可能存在的重复按钮（避免重复添加）
+                const existingDeleteButtons = container.querySelectorAll('.delete-button');
+                const existingEditButtons = container.querySelectorAll('.edit-button');
+                const existingResendButtons = container.querySelectorAll('.chat-message-resend-btn');
+                
+                // 如果已经有完整的按钮组，就不再添加
+                if (existingDeleteButtons.length > 0 &&
+                    existingEditButtons.length > 0 &&
+                    existingResendButtons.length > 0) {
+                    // 确保只有一个按钮组，移除多余的
+                    if (existingDeleteButtons.length > 1) {
+                        for (let i = 1; i < existingDeleteButtons.length; i++) {
+                            existingDeleteButtons[i].remove();
+                        }
+                    }
+                    if (existingEditButtons.length > 1) {
+                        for (let i = 1; i < existingEditButtons.length; i++) {
+                            existingEditButtons[i].remove();
+                        }
+                    }
+                    if (existingResendButtons.length > 1) {
+                        for (let i = 1; i < existingResendButtons.length; i++) {
+                            existingResendButtons[i].remove();
+                        }
+                    }
                     return;
                 }
+                
+                // 移除可能存在的部分按钮（避免不完整的按钮组）
+                existingDeleteButtons.forEach(btn => btn.remove());
+                existingEditButtons.forEach(btn => btn.remove());
+                existingResendButtons.forEach(btn => btn.remove());
 
                 const deleteButton = document.createElement('button');
                 // 与 YiWeb 保持一致，同时保持向后兼容
@@ -2035,7 +2294,7 @@
                                 } else {
                                     console.warn('无法找到对应的消息对象，尝试通过DOM索引删除');
                                     // 如果找不到消息对象，尝试通过DOM索引来删除
-                                    const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+                                    const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                                     if (messagesContainer) {
                                         const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
                                             return !div.hasAttribute('data-welcome-message') &&
@@ -2109,7 +2368,10 @@
                 const editButton = document.createElement('button');
                 editButton.className = 'edit-button';
                 editButton.innerHTML = '✏️';
-                editButton.setAttribute('title', '编辑消息');
+                // 只在没有 title 时设置，避免重复设置
+                if (!editButton.getAttribute('title')) {
+                    editButton.setAttribute('title', '编辑消息');
+                }
 
                 // 点击编辑 - 打开弹窗编辑器（类似上下文编辑器，与宠物消息保持一致）
                 editButton.addEventListener('click', (e) => {
@@ -2121,8 +2383,8 @@
 
                 // 创建重新发送按钮
                 const resendButton = document.createElement('button');
-                // 与 YiWeb 保持一致，同时保持向后兼容
-                resendButton.className = 'pet-chat-meta-btn resend-button';
+                // 与 YiWeb 保持一致，使用统一的类名
+                resendButton.className = 'pet-chat-meta-btn chat-message-resend-btn';
                 // 使用 SVG 图标替代 emoji，更专业美观
                 resendButton.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
@@ -2131,51 +2393,85 @@
             </svg>
         `;
                 resendButton.setAttribute('title', '重新发送 prompt 请求');
-                // 与 YiWeb 保持一致，同时保持向后兼容
-                resendButton.className = 'pet-chat-meta-btn resend-button chat-message-resend-btn';
 
                 // 悬停效果 (handled by CSS)
 
-                // 点击重新发送
+                // 点击重新发送（与 YiWeb 保持一致，使用 resendMessageAt 方法）
                 let isResending = false;
                 resendButton.addEventListener('click', async (e) => {
                     e.stopPropagation();
+                    e.preventDefault();
 
-                    if (isResending) return;
+                    console.log('[重新发送] 按钮被点击', { 
+                        isResending, 
+                        isProcessing: this.chatWindow?.isProcessing,
+                        container, 
+                        messageTextElement 
+                    });
+
+                    // 检查是否正在处理其他请求
+                    if (this.chatWindow && this.chatWindow.isProcessing) {
+                        console.log('[重新发送] 正在处理其他请求，忽略点击');
+                        return;
+                    }
+
+                    if (isResending) {
+                        console.log('[重新发送] 正在处理中，忽略重复点击');
+                        return;
+                    }
                     isResending = true;
 
                     try {
-                        // 获取用户消息的原始文本
-                        let userMessageText = messageTextElement.getAttribute('data-original-text');
-                        if (!userMessageText) {
-                            userMessageText = messageTextElement.textContent || messageTextElement.innerText || '';
+                        console.log('[重新发送] 开始处理重新发送请求');
+                        
+                        // 获取消息容器（支持多种查找方式）
+                        let messagesContainer = null;
+                        if (this.chatWindow) {
+                            // 如果 chatWindow 是 DOM 元素
+                            if (this.chatWindow.querySelector) {
+                                messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
+                            }
+                            // 如果 chatWindow 是 ChatWindow 实例，使用 element 属性
+                            if (!messagesContainer && this.chatWindow.element) {
+                                messagesContainer = this.chatWindow.element.querySelector('#yi-pet-chat-messages');
+                            }
                         }
-
-                        if (!userMessageText || !userMessageText.trim()) {
-                            console.warn('无法获取用户消息内容');
-                            isResending = false;
-                            return;
-                        }
-
-                        // 获取消息容器
-                        const messagesContainer = this.chatWindow ? this.chatWindow.querySelector('#pet-chat-messages') : null;
+                        // 如果还是找不到，尝试全局查找
                         if (!messagesContainer) {
-                            console.warn('无法找到消息容器');
+                            messagesContainer = document.querySelector('#yi-pet-chat-messages');
+                        }
+                        if (!messagesContainer) {
+                            console.warn('[重新发送] 无法找到消息容器', { chatWindow: this.chatWindow });
                             isResending = false;
                             return;
                         }
 
                         // 找到当前用户消息元素
                         let currentMessage = container.parentElement;
-                        while (currentMessage && !currentMessage.classList.contains('chat-message')) {
+                        while (currentMessage && 
+                               !currentMessage.classList.contains('pet-chat-message') && 
+                               !currentMessage.classList.contains('chat-message') &&
+                               currentMessage !== messagesContainer) {
                             currentMessage = currentMessage.parentElement;
                         }
 
-                        if (!currentMessage) {
-                            console.warn('无法找到当前消息元素');
+                        // 确保找到的是用户消息
+                        if (!currentMessage || 
+                            (!currentMessage.classList.contains('pet-chat-message') && 
+                             !currentMessage.classList.contains('chat-message')) ||
+                            (!currentMessage.classList.contains('is-user') && 
+                             !currentMessage.classList.contains('chat-message--user'))) {
+                            console.warn('[重新发送] 无法找到当前用户消息元素', { 
+                                currentMessage, 
+                                classes: currentMessage ? Array.from(currentMessage.classList) : null,
+                                container: container,
+                                containerParent: container.parentElement
+                            });
                             isResending = false;
                             return;
                         }
+                        
+                        console.log('[重新发送] 找到用户消息元素', currentMessage);
 
                         // 更新按钮状态
                         resendButton.innerHTML = `
@@ -2187,109 +2483,21 @@
                     </svg>
                 `;
                         resendButton.classList.add('chat-message-resend-btn--loading');
+                        resendButton.classList.remove('chat-message-resend-btn--success', 'chat-message-resend-btn--error');
+                        resendButton.disabled = true;
 
-                        // 创建打字指示器
-                        const typingIndicator = this.createTypingIndicator();
+                        // 使用 resendMessageAt 方法（与 YiWeb 保持一致）
+                        // 找到消息索引
+                        const idx = typeof this.findMessageIndexByDiv === 'function' 
+                            ? this.findMessageIndexByDiv(currentMessage) 
+                            : -1;
 
-                        // 在当前用户消息之后插入打字指示器
-                        if (currentMessage.nextSibling) {
-                            messagesContainer.insertBefore(typingIndicator, currentMessage.nextSibling);
+                        if (idx >= 0 && typeof this.resendMessageAt === 'function') {
+                            // 调用 resendMessageAt，它会删除原消息，设置输入框内容，然后调用 sendMessage 发送消息
+                            await this.resendMessageAt(idx);
                         } else {
-                            messagesContainer.appendChild(typingIndicator);
-                        }
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-                        // 生成回复
-                        let fullContent = '';
-                        const messageBubble = typingIndicator.querySelector('[data-message-type="pet-bubble"]');
-
-                        const onStreamContent = (chunk, accumulatedContent) => {
-                            fullContent = accumulatedContent;
-                            if (messageBubble) {
-                                messageBubble.innerHTML = this.renderMarkdown(fullContent);
-                                messageBubble.setAttribute('data-original-text', fullContent);
-
-                                // 处理可能的 Mermaid 图表
-                                if (messageBubble._mermaidTimeout) {
-                                    clearTimeout(messageBubble._mermaidTimeout);
-                                }
-                                messageBubble._mermaidTimeout = setTimeout(async () => {
-                                    await this.processMermaidBlocks(messageBubble);
-                                    messageBubble._mermaidTimeout = null;
-                                }, 500);
-
-                                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                            }
-                        };
-
-                        // 创建 AbortController 用于终止请求
-                        const abortController = new AbortController();
-                        if (this.chatWindow && this.chatWindow._setAbortController) {
-                            this.chatWindow._setAbortController(abortController);
-                        }
-                        if (this.chatWindow && this.chatWindow._updateRequestStatus) {
-                            this.chatWindow._updateRequestStatus('loading');
-                        }
-
-                        // 调用 API 生成回复
-                        const reply = await this.generatePetResponseStream(userMessageText.trim(), onStreamContent, abortController);
-
-                        // 移除打字指示器，创建正式的消息元素
-                        typingIndicator.remove();
-
-                        // 创建正式的宠物消息
-                        const petMessage = this.createMessageElement(reply, 'pet');
-                        if (currentMessage.nextSibling) {
-                            messagesContainer.insertBefore(petMessage, currentMessage.nextSibling);
-                        } else {
-                            messagesContainer.appendChild(petMessage);
-                        }
-
-                        // 确保最终内容被显示
-                        const finalMessageBubble = petMessage.querySelector('[data-message-type="pet-bubble"]');
-                        if (finalMessageBubble && fullContent !== reply) {
-                            finalMessageBubble.innerHTML = this.renderMarkdown(reply);
-                            finalMessageBubble.setAttribute('data-original-text', reply);
-                            setTimeout(async () => {
-                                await this.processMermaidBlocks(finalMessageBubble);
-                            }, 100);
-                        }
-
-                        // 添加复制按钮等操作按钮
-                        const copyButtonContainer = petMessage.querySelector('[data-copy-button-container]');
-                        if (copyButtonContainer && reply && reply.trim()) {
-                            this.addCopyButton(copyButtonContainer, finalMessageBubble);
-                        }
-
-                        // 添加排序按钮
-                        if (copyButtonContainer) {
-                            this.addSortButtons(copyButtonContainer, petMessage);
-                        }
-
-                        // 添加重试按钮
-                        const tryAgainButtonContainer = petMessage.querySelector('[data-try-again-button-container]');
-                        if (tryAgainButtonContainer) {
-                            this.addTryAgainButton(tryAgainButtonContainer, petMessage);
-                        }
-
-                        // 添加消息到会话
-                        if (this.currentSessionId && reply && reply.trim()) {
-                            await this.addMessageToSession('pet', reply, null, true);
-
-                            // 调用 session/save 保存会话到后端
-                            if (this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                                await this.syncSessionToBackend(this.currentSessionId, true);
-                            }
-                        }
-
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-                        // 更新状态为空闲
-                        if (this.chatWindow && this.chatWindow._setAbortController) {
-                            this.chatWindow._setAbortController(null);
-                        }
-                        if (this.chatWindow && this.chatWindow._updateRequestStatus) {
-                            this.chatWindow._updateRequestStatus('idle');
+                            console.warn('[重新发送] 无法找到消息索引或 resendMessageAt 方法', { idx });
+                            throw new Error('无法重新发送消息：找不到消息索引或方法');
                         }
 
                         // 恢复按钮状态
@@ -2300,6 +2508,7 @@
                 `;
                         resendButton.classList.remove('chat-message-resend-btn--loading');
                         resendButton.classList.add('chat-message-resend-btn--success');
+                        resendButton.disabled = false;
 
                         setTimeout(() => {
                             resendButton.innerHTML = `
@@ -2313,20 +2522,7 @@
                         }, 1500);
 
                     } catch (error) {
-                        // 检查是否是取消错误
-                        const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
-
-                        if (!isAbortError) {
-                            console.error('重新发送 prompt 请求失败:', error);
-                        }
-
-                        // 更新状态为空闲
-                        if (this.chatWindow && this.chatWindow._setAbortController) {
-                            this.chatWindow._setAbortController(null);
-                        }
-                        if (this.chatWindow && this.chatWindow._updateRequestStatus) {
-                            this.chatWindow._updateRequestStatus('idle');
-                        }
+                        console.error('[重新发送] 重新发送消息失败:', error);
 
                         // 恢复按钮状态
                         resendButton.innerHTML = `
@@ -2337,6 +2533,7 @@
                 `;
                         resendButton.classList.remove('chat-message-resend-btn--loading');
                         resendButton.classList.add('chat-message-resend-btn--error');
+                        resendButton.disabled = false;
 
                         setTimeout(() => {
                             resendButton.innerHTML = `
@@ -2355,7 +2552,7 @@
                 if (!container.querySelector('.edit-button')) {
                     container.appendChild(editButton);
                 }
-                if (!container.querySelector('.resend-button')) {
+                if (!container.querySelector('.chat-message-resend-btn')) {
                     container.appendChild(resendButton);
                 }
                 if (!container.querySelector('.delete-button')) {

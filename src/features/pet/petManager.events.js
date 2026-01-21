@@ -159,7 +159,14 @@
                 console.log('检测到聊天快捷键 Ctrl+Shift+X');
 
                 // 仅切换显示/隐藏，不影响其他功能
-                this.toggleChatWindowVisibility();
+                if (typeof this.toggleChatWindowVisibility === 'function') {
+                    this.toggleChatWindowVisibility();
+                } else {
+                    console.warn('toggleChatWindowVisibility 函数未定义，使用 toggleChatWindow 作为后备');
+                    if (typeof this.toggleChatWindow === 'function') {
+                        this.toggleChatWindow();
+                    }
+                }
                 return false;
             }
 

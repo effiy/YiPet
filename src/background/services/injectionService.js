@@ -40,7 +40,6 @@ class InjectionService {
         'src/features/pet/petManager.io.js',
         'src/features/faq/faq.js',
         'src/features/faq/tags.js',
-        'src/features/pet/petManager.calendar.js',
         'src/features/pet/petManager.messaging.js',
         'src/features/pet/petManager.pageInfo.js',
         'src/features/pet/petManager.session.js',

@@ -441,15 +441,19 @@
 
         try {
             if (this.faqApi && this.faqApi.isEnabled()) {
-                await this.faqApi.updateFaq(faq.key || faq.text, {
-                    text: faq.text,
+                // 使用 key 作为标识符（参考 YiWeb 实现）
+                const key = String(faq?.key || '').trim();
+                if (!key) {
+                    throw new Error('无法确定常见问题的标识符');
+                }
+                await this.faqApi.updateFaq(key, {
                     tags: faq.tags
                 });
 
                 if (this.faqApi.clearGetCache) {
                     this.faqApi.clearGetCache();
                 }
-                const targetFaq = modal._currentFaqs.find(f => f.text === faq.text);
+                const targetFaq = modal._currentFaqs.find(f => f.key === faq.key);
                 if (targetFaq) {
                     targetFaq.tags = faq.tags;
                 }

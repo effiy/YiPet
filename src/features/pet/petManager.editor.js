@@ -10,52 +10,43 @@
 
         const overlay = document.createElement('div');
         overlay.id = 'pet-context-editor';
-        // 初始使用顶部不遮住 chat-header 的定位（根据当前 header 高度）
-        const chatHeaderEl = this.chatWindow.querySelector('.chat-header');
-        const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60;
         overlay.style.cssText = `
             position: absolute !important;
+            top: 0 !important;
             left: 0 !important;
             right: 0 !important;
             bottom: 0 !important;
-            top: ${headerH}px !important;
-            background: transparent !important;
+            background: rgba(0,0,0,0.6) !important;
+            backdrop-filter: blur(2px) !important;
+            z-index: 1000 !important;
             display: none !important;
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 1} !important;
-            pointer-events: none !important;
+            flex-direction: column !important;
+            animation: fadeIn 0.2s ease !important;
         `;
 
-        const panel = document.createElement('div');
-        panel.style.cssText = `
-            width: calc(100% - 24px) !important;
-            height: calc(100% - 12px) !important;
-            margin: 0 12px 12px 12px !important;
-            background: #1f1f1f !important;
-            color: #fff !important;
-            border-radius: 12px !important;
-            border: 1px solid rgba(255,255,255,0.12) !important;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.35) !important;
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            flex: 1 !important;
+            background: #1a1b1e !important;
             display: flex !important;
             flex-direction: column !important;
             overflow: hidden !important;
-            min-height: 0 !important;
-            pointer-events: auto !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
         `;
 
         const header = document.createElement('div');
         header.style.cssText = `
-            padding: 10px 14px !important;
+            padding: 16px !important;
+            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
             display: flex !important;
-            align-items: center !important;
             justify-content: space-between !important;
-            border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-            background: rgba(255,255,255,0.04) !important;
+            align-items: center !important;
+            background: #25262b !important;
         `;
         const title = document.createElement('div');
-        title.textContent = '页面上下文（Markdown）';
-        title.style.cssText = 'font-weight: 600;';
+        title.textContent = '📝 页面上下文（Markdown）';
+        title.style.cssText = 'color: #fff !important; font-weight: 500 !important; font-size: 15px !important;';
         const headerBtns = document.createElement('div');
         headerBtns.className = 'editor-header-btns';
         // 简洁模式切换：并排 / 仅编辑 / 仅预览
@@ -75,14 +66,18 @@
         modeGroup.appendChild(btnSplit);
         modeGroup.appendChild(btnEdit);
         modeGroup.appendChild(btnPreview);
-        const closeBtn = document.createElement('button');
+        const closeBtn = document.createElement('div');
         closeBtn.id = 'pet-context-close-btn';
-        closeBtn.className = 'chat-toolbar-btn';
         closeBtn.setAttribute('aria-label', '关闭上下文面板 (Esc)');
         closeBtn.setAttribute('title', '关闭 (Esc)');
-        closeBtn.textContent = '✕';
-        closeBtn.classList.add('context-close-btn');
-        closeBtn.addEventListener('click', () => this.closeContextEditor());
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = `
+            color: rgba(255,255,255,0.5) !important;
+            cursor: pointer !important;
+            padding: 4px !important;
+            font-size: 14px !important;
+        `;
+        closeBtn.onclick = () => this.closeContextEditor();
         headerBtns.appendChild(modeGroup);
         // 复制按钮
         const copyBtn = document.createElement('button');
@@ -381,11 +376,21 @@
         header.appendChild(title);
         header.appendChild(headerBtns);
 
+        // 内容区域
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 16px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 20px !important;
+        `;
+
         const body = document.createElement('div');
         body.style.cssText = `
             flex: 1 !important;
             display: flex !important;
-            padding: 10px !important;
             gap: 10px !important;
             min-height: 0 !important;
         `;
@@ -452,10 +457,10 @@
         }, { passive: true });
         body.appendChild(textarea);
         body.appendChild(preview);
-
-        panel.appendChild(header);
-        panel.appendChild(body);
-        overlay.appendChild(panel);
+        content.appendChild(body);
+        modal.appendChild(header);
+        modal.appendChild(content);
+        overlay.appendChild(modal);
         // 确保聊天窗口容器为定位上下文
         const currentPosition = window.getComputedStyle(this.chatWindow).position;
         if (currentPosition === 'static') {

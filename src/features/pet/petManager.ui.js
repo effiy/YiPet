@@ -424,7 +424,7 @@
     // Fallback - 支持新的嵌套结构
     if (!this.chatWindow) return;
     // 优先查找外层容器（与 YiWeb 保持一致）
-    let inputContainer = this.chatWindow.querySelector('.pet-chat-input-container');
+    let inputContainer = this.chatWindow.querySelector('.yi-pet-chat-input-container');
     // 如果没有找到外层容器，回退到内层容器（向后兼容）
     if (!inputContainer) {
       inputContainer = this.chatWindow.querySelector('.chat-input-container');

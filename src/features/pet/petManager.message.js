@@ -84,7 +84,7 @@
         }
 
         // 获取消息容器
-        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
         if (!messagesContainer) {
             return -1;
         }

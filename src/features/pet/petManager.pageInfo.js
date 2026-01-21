@@ -96,25 +96,32 @@
 
             // 如果找到了主要内容区域
             if (mainContent) {
-                // 克隆内容以避免修改原始DOM
-                const cloned = mainContent.cloneNode(true);
+                try {
+                    // 克隆内容以避免修改原始DOM
+                    const cloned = mainContent.cloneNode(true);
 
-                // 移除不需要的元素
-                excludeSelectors.forEach(sel => {
-                    try {
-                        const elements = cloned.querySelectorAll(sel);
-                        elements.forEach(el => el.remove());
-                    } catch (e) {
-                        // 忽略无效的选择器
+                    // 移除不需要的元素
+                    excludeSelectors.forEach(sel => {
+                        try {
+                            const elements = cloned.querySelectorAll(sel);
+                            elements.forEach(el => el.remove());
+                        } catch (e) {
+                            // 忽略无效的选择器
+                        }
+                    });
+
+                    const textContent = cloned.textContent || cloned.innerText || '';
+                    const trimmedText = textContent.trim();
+
+                    // 如果内容足够长，返回
+                    if (trimmedText.length > 100) {
+                        return trimmedText;
                     }
-                });
-
-                const textContent = cloned.textContent || cloned.innerText || '';
-                const trimmedText = textContent.trim();
-
-                // 如果内容足够长，返回
-                if (trimmedText.length > 100) {
-                    return trimmedText;
+                } catch (cloneError) {
+                    // 如果克隆失败（例如元素已被移除），记录警告并继续使用其他方法
+                    logger.debug('克隆主要内容区域失败，尝试其他方法', { 
+                        error: String(cloneError && cloneError.message || cloneError) 
+                    });
                 }
             }
 
@@ -180,20 +187,27 @@
             // 最后尝试从整个body获取
             const body = document.body;
             if (body) {
-                const clonedBody = body.cloneNode(true);
+                try {
+                    const clonedBody = body.cloneNode(true);
 
-                // 移除不需要的元素
-                excludeSelectors.forEach(sel => {
-                    try {
-                        const elements = clonedBody.querySelectorAll(sel);
-                        elements.forEach(el => el.remove());
-                    } catch (e) {
-                        // 忽略无效的选择器
-                    }
-                });
+                    // 移除不需要的元素
+                    excludeSelectors.forEach(sel => {
+                        try {
+                            const elements = clonedBody.querySelectorAll(sel);
+                            elements.forEach(el => el.remove());
+                        } catch (e) {
+                            // 忽略无效的选择器
+                        }
+                    });
 
-                const textContent = clonedBody.textContent || clonedBody.innerText || '';
-                return textContent.trim();
+                    const textContent = clonedBody.textContent || clonedBody.innerText || '';
+                    return textContent.trim();
+                } catch (cloneError) {
+                    // 如果克隆 body 失败，记录警告并返回空字符串
+                    logger.debug('克隆 body 失败', { 
+                        error: String(cloneError && cloneError.message || cloneError) 
+                    });
+                }
             }
 
             return '';
@@ -252,8 +266,13 @@
             // 尝试从主要内容区域获取
             let mainContent = null;
             for (const selector of contentSelectors) {
-                mainContent = document.querySelector(selector);
-                if (mainContent) break;
+                try {
+                    mainContent = document.querySelector(selector);
+                    if (mainContent) break;
+                } catch (e) {
+                    // 忽略选择器错误
+                    continue;
+                }
             }
 
             // 如果没有找到主要内容区域，使用body
@@ -261,8 +280,24 @@
                 mainContent = document.body;
             }
 
+            // 检查 mainContent 是否为 null（在某些情况下 document.body 可能为 null）
+            if (!mainContent) {
+                logger.warn('无法找到有效的内容元素（mainContent 和 document.body 均为 null），返回空字符串');
+                return '';
+            }
+
             // 克隆内容
-            const cloned = mainContent.cloneNode(true);
+            let cloned;
+            try {
+                cloned = mainContent.cloneNode(true);
+            } catch (cloneError) {
+                logger.warn('克隆内容失败，返回纯文本', { 
+                    error: String(cloneError && cloneError.message || cloneError) 
+                });
+                // 如果克隆失败，尝试直接获取文本内容
+                const textContent = mainContent.textContent || mainContent.innerText || '';
+                return textContent.trim();
+            }
 
             // 移除不需要的元素
             excludeSelectors.forEach(sel => {
@@ -272,19 +307,35 @@
                 } catch (e) {}
             });
 
-            // 使用 Turndown 转换
-            const turndownService = new TurndownService({
-                headingStyle: 'atx',
-                bulletListMarker: '-',
-                codeBlockStyle: 'fenced',
-                fence: '```',
-                emDelimiter: '*',
-                strongDelimiter: '**',
-                linkStyle: 'inlined',
-                linkReferenceStyle: 'collapsed'
-            });
+            // 检查克隆的元素是否有效
+            if (!cloned || !cloned.nodeType) {
+                logger.warn('克隆的内容无效，返回纯文本');
+                return this.getFullPageText();
+            }
 
-            const markdown = turndownService.turndown(cloned);
+            // 使用 Turndown 转换
+            let markdown;
+            try {
+                const turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    bulletListMarker: '-',
+                    codeBlockStyle: 'fenced',
+                    fence: '```',
+                    emDelimiter: '*',
+                    strongDelimiter: '**',
+                    linkStyle: 'inlined',
+                    linkReferenceStyle: 'collapsed'
+                });
+
+                markdown = turndownService.turndown(cloned);
+            } catch (turndownError) {
+                // Turndown 转换失败，记录警告并返回纯文本
+                logger.warn('Turndown 转换失败，使用纯文本', { 
+                    error: String(turndownError && turndownError.message || turndownError) 
+                });
+                const textContent = cloned.textContent || cloned.innerText || '';
+                return textContent.trim();
+            }
 
             // 如果 Markdown 内容太短或为空，返回纯文本
             if (!markdown || markdown.trim().length < 100) {
@@ -294,9 +345,20 @@
 
             return markdown.trim();
         } catch (error) {
-            logger.error('转换为 Markdown 时出错', { error: String(error && error.message || error) });
+            // 捕获所有其他错误，静默处理并返回纯文本
+            logger.warn('转换为 Markdown 时出错，使用纯文本', { 
+                error: String(error && error.message || error) 
+            });
             // 出错时返回纯文本
-            return this.getFullPageText();
+            try {
+                return this.getFullPageText();
+            } catch (fallbackError) {
+                // 如果连获取纯文本都失败，返回空字符串
+                logger.warn('获取纯文本也失败', { 
+                    error: String(fallbackError && fallbackError.message || fallbackError) 
+                });
+                return '';
+            }
         }
     };
 

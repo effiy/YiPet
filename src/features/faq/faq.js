@@ -67,39 +67,83 @@
     }
     if (this.chatWindow.querySelector('#pet-faq-manager')) return;
 
+    const overlay = document.createElement('div');
+    overlay.id = 'pet-faq-manager';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', '常见问题');
+    overlay.style.cssText = `
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      background: rgba(0,0,0,0.6) !important;
+      backdrop-filter: blur(2px) !important;
+      z-index: 1000 !important;
+      display: none !important;
+      flex-direction: column !important;
+      animation: fadeIn 0.2s ease !important;
+    `;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        this.closeFaqManagerOnly();
+      }
+    });
+
     const modal = document.createElement('div');
-    modal.id = 'pet-faq-manager';
-    modal.className = 'pet-faq-modal';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-label', '常见问题');
+    modal.style.cssText = `
+      flex: 1 !important;
+      background: #1a1b1e !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+    `;
 
-    const mask = document.createElement('div');
-    mask.className = 'pet-faq-modal-mask';
-    mask.addEventListener('click', () => this.closeFaqManagerOnly());
-
-    const body = document.createElement('div');
-    body.className = 'pet-faq-modal-body';
-    body.setAttribute('tabindex', '0');
-
+    // 头部
     const header = document.createElement('div');
-    header.className = 'pet-faq-modal-header';
+    header.style.cssText = `
+      padding: 16px !important;
+      border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      background: #25262b !important;
+    `;
 
     const titleDiv = document.createElement('div');
-    titleDiv.className = 'pet-faq-modal-title';
-    titleDiv.innerHTML = '💡 常见问题 <span class="pet-faq-modal-subtitle">（一键插入/发送）</span>';
+    titleDiv.innerHTML = '💡 常见问题 <span style="font-size: 12px; color: rgba(255,255,255,0.6);">（一键插入/发送）</span>';
+    titleDiv.style.cssText = 'color: #fff !important; font-weight: 500 !important; font-size: 15px !important;';
 
-    const closeBtn = document.createElement('button');
+    const closeBtn = document.createElement('div');
     closeBtn.className = 'pet-faq-modal-close';
     closeBtn.innerHTML = '✕';
     closeBtn.setAttribute('aria-label', '关闭');
-    closeBtn.addEventListener('click', () => this.closeFaqManagerOnly());
+    closeBtn.style.cssText = `
+      color: rgba(255,255,255,0.5) !important;
+      cursor: pointer !important;
+      padding: 4px !important;
+      font-size: 14px !important;
+    `;
+    closeBtn.onclick = () => this.closeFaqManagerOnly();
 
     header.appendChild(titleDiv);
     header.appendChild(closeBtn);
 
+    // 内容区域
     const content = document.createElement('div');
     content.className = 'pet-faq-modal-content';
+    content.style.cssText = `
+      flex: 1 !important;
+      overflow-y: auto !important;
+      padding: 16px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 20px !important;
+    `;
 
     const layout = document.createElement('div');
     layout.className = 'pet-faq-layout';
@@ -346,10 +390,9 @@
     layout.appendChild(main);
 
     content.appendChild(layout);
-    body.appendChild(header);
-    body.appendChild(content);
-    modal.appendChild(mask);
-    modal.appendChild(body);
+    modal.appendChild(header);
+    modal.appendChild(content);
+    overlay.appendChild(modal);
 
     // 初始化状态
     if (!this.faqSelectedFilterTags) this.faqSelectedFilterTags = [];
@@ -370,10 +413,10 @@
       tagManagerBtn.classList.toggle('active', !!this.faqTagManagerVisible);
       tagManager.style.display = this.faqTagManagerVisible ? 'flex' : 'none';
       // 更新刷新按钮的禁用状态（当加载中时禁用）
-      const isLoading = modal._isLoading || false;
+      const isLoading = overlay._isLoading || false;
       refreshBtn.disabled = isLoading;
     };
-    modal._updateTagFilterButtons = updateTagFilterButtons;
+    overlay._updateTagFilterButtons = updateTagFilterButtons;
 
     // 事件监听
     reverseFilterBtn.addEventListener('click', () => {
@@ -420,13 +463,15 @@
     });
 
     // ESC 键处理
-    body.addEventListener('keydown', (e) => {
+    const escHandler = (e) => {
       if (e.key === 'Escape') {
         this.closeFaqManagerOnly();
+        document.removeEventListener('keydown', escHandler);
       }
-    });
+    };
+    document.addEventListener('keydown', escHandler);
 
-    this.chatWindow.appendChild(modal);
+    this.chatWindow.appendChild(overlay);
   };
 
   proto.openFaqManager = async function() {
@@ -460,8 +505,8 @@
       
       // 确保常见问题管理器 UI 已创建
       this.ensureFaqManagerUi();
-      const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-      if (!modal) {
+      const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+      if (!overlay) {
         const errorMsg = '常见问题管理弹窗未找到';
         console.error(errorMsg, 'chatWindow:', this.chatWindow);
         if (typeof this.showNotification === 'function') {
@@ -471,7 +516,7 @@
       }
       
       // 显示弹窗
-      modal.classList.add('show');
+      overlay.style.display = 'flex';
       
       // 隐藏侧边栏和输入框的折叠按钮
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
@@ -482,7 +527,7 @@
       // 清空搜索关键词
       if (this.faqSearchFilter) {
         this.faqSearchFilter = '';
-        const searchInput = modal.querySelector('.pet-faq-search-input');
+        const searchInput = overlay.querySelector('.pet-faq-search-input');
         if (searchInput) {
           searchInput.value = '';
         }
@@ -495,7 +540,7 @@
         if (typeof this.showNotification === 'function') {
           this.showNotification('常见问题功能未启用：FAQ API 未初始化', 'error');
         }
-        modal.classList.remove('show');
+        overlay.style.display = 'none';
         // 恢复按钮显示
         if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
         if (inputToggleBtn) inputToggleBtn.style.display = '';
@@ -509,7 +554,7 @@
         if (typeof this.showNotification === 'function') {
           this.showNotification('常见问题功能未启用：FAQ API 未启用', 'error');
         }
-        modal.classList.remove('show');
+        overlay.style.display = 'none';
         // 恢复按钮显示
         if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
         if (inputToggleBtn) inputToggleBtn.style.display = '';
@@ -517,7 +562,7 @@
       }
       
       // 如果已有数据，先更新 UI；否则加载数据
-      const hasItems = modal._allFaqs && Array.isArray(modal._allFaqs) && modal._allFaqs.length > 0;
+      const hasItems = overlay._allFaqs && Array.isArray(overlay._allFaqs) && overlay._allFaqs.length > 0;
       if (hasItems) {
         this.updateFaqTagFilterUI();
         await this.loadFaqsIntoManager(false);
@@ -526,7 +571,7 @@
       }
       
       // 将焦点设置到搜索输入框
-      const searchInput = modal.querySelector('.pet-faq-search-input');
+      const searchInput = overlay.querySelector('.pet-faq-search-input');
       if (searchInput) {
         setTimeout(() => {
           try {
@@ -538,7 +583,7 @@
       }
 
       // 设置添加常见问题的输入框快捷键
-      const faqInput = modal.querySelector('.pet-faq-input');
+      const faqInput = overlay.querySelector('.pet-faq-input');
       if (faqInput) {
         const existingHandler = faqInput._enterKeyHandler;
         if (existingHandler) {
@@ -563,9 +608,9 @@
         this.showNotification(`打开常见问题失败：${error.message || '未知错误'}`, 'error');
       }
       // 确保弹窗关闭，按钮恢复显示
-      const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-      if (modal) {
-        modal.classList.remove('show');
+      const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+      if (overlay) {
+        overlay.style.display = 'none';
       }
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
       const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
@@ -575,14 +620,14 @@
   };
 
   proto.closeFaqManagerOnly = function() {
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal) return;
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay) return;
     const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
     const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
     if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
     if (inputToggleBtn) inputToggleBtn.style.display = '';
-    modal.classList.remove('show');
-    const faqInput = modal.querySelector('.pet-faq-input');
+    overlay.style.display = 'none';
+    const faqInput = overlay.querySelector('.pet-faq-input');
     if (faqInput) {
       faqInput.value = '';
     }
@@ -598,10 +643,10 @@
   };
 
   proto.getAllFaqTags = function() {
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal || !modal._allFaqs) return [];
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay || !overlay._allFaqs) return [];
     const tagSet = new Set();
-    modal._allFaqs.forEach(faq => {
+    overlay._allFaqs.forEach(faq => {
       const tags = _normalizeFaqTags(faq?.tags);
       tags.forEach(tag => {
         const s = String(tag ?? '').trim();
@@ -623,9 +668,9 @@
   };
 
   proto.updateFaqTagFilterUI = function() {
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal) return;
-    const tagList = modal.querySelector('.pet-faq-tag-list');
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay) return;
+    const tagList = overlay.querySelector('.pet-faq-tag-list');
     if (!tagList) return;
     tagList.innerHTML = '';
     
@@ -666,8 +711,8 @@
       tagList.appendChild(moreBtn);
     }
 
-    if (modal._updateTagFilterButtons) {
-      modal._updateTagFilterButtons();
+    if (overlay._updateTagFilterButtons) {
+      overlay._updateTagFilterButtons();
     }
   };
 
@@ -689,9 +734,9 @@
   };
 
   proto.updateFaqTagManagerUI = function() {
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal) return;
-    const tagManagerList = modal.querySelector('.pet-faq-tag-manager-list');
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay) return;
+    const tagManagerList = overlay.querySelector('.pet-faq-tag-manager-list');
     if (!tagManagerList) return;
     tagManagerList.innerHTML = '';
 
@@ -722,7 +767,7 @@
       renameBtn.textContent = '重命名';
       renameBtn.setAttribute('aria-label', '重命名标签');
       const updateRenameBtnState = () => {
-        const isLoading = modal._isLoading || false;
+        const isLoading = overlay._isLoading || false;
         renameBtn.disabled = isLoading;
       };
       renameBtn.addEventListener('click', () => this.renameFaqTag(tag));
@@ -733,7 +778,7 @@
       deleteBtn.textContent = '删除';
       deleteBtn.setAttribute('aria-label', '删除标签');
       const updateDeleteBtnState = () => {
-        const isLoading = modal._isLoading || false;
+        const isLoading = overlay._isLoading || false;
         deleteBtn.disabled = isLoading;
       };
       deleteBtn.addEventListener('click', () => this.deleteFaqTag(tag));
@@ -770,10 +815,10 @@
     const newTag = String(nextRaw ?? '').trim();
     if (!newTag || newTag === oldTag) return;
 
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal || !modal._allFaqs) return;
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay || !overlay._allFaqs) return;
     
-    const affected = modal._allFaqs.filter(faq => {
+    const affected = overlay._allFaqs.filter(faq => {
       const tags = _normalizeFaqTags(faq?.tags);
       return tags.includes(oldTag);
     });
@@ -812,10 +857,10 @@
     if (!target) return;
     if (!confirm(`确定删除标签「${target}」？会从所有常见问题中移除。`)) return;
 
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal || !modal._allFaqs) return;
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay || !overlay._allFaqs) return;
     
-    const affected = modal._allFaqs.filter(faq => {
+    const affected = overlay._allFaqs.filter(faq => {
       const tags = _normalizeFaqTags(faq?.tags);
       return tags.includes(target);
     });
@@ -854,18 +899,18 @@
   };
 
   proto.loadFaqsIntoManager = async function(force = false) {
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal) return;
-    const faqsContainer = modal.querySelector('.pet-faq-list');
-    const statusDiv = modal.querySelector('.pet-faq-status');
-    const errorDiv = modal.querySelector('.pet-faq-error');
-    const summary = modal.querySelector('.pet-faq-summary');
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay) return;
+    const faqsContainer = overlay.querySelector('.pet-faq-list');
+    const statusDiv = overlay.querySelector('.pet-faq-status');
+    const errorDiv = overlay.querySelector('.pet-faq-error');
+    const summary = overlay.querySelector('.pet-faq-summary');
     if (!faqsContainer) return;
 
     try {
-      modal._isLoading = true;
-      if (modal._updateTagFilterButtons) {
-        modal._updateTagFilterButtons();
+      overlay._isLoading = true;
+      if (overlay._updateTagFilterButtons) {
+        overlay._updateTagFilterButtons();
       }
       statusDiv.style.display = 'block';
       statusDiv.textContent = '正在加载常见问题...';
@@ -877,7 +922,7 @@
 
       const faqs = await this.faqApi.getFaqs();
       const normalized = faqs.map(_normalizeFaqDoc).filter(i => i.key && (i.prompt || i.title));
-      modal._allFaqs = normalized;
+      overlay._allFaqs = normalized;
 
       // 筛选
       let filteredFaqs = normalized;
@@ -903,7 +948,7 @@
         return reverse ? !hasAny : hasAny;
       });
 
-      modal._currentFaqs = filteredFaqs;
+      overlay._currentFaqs = filteredFaqs;
 
       // 更新统计信息
       if (summary) {
@@ -930,7 +975,7 @@
       if (this.faqTagManagerVisible) {
         this.updateFaqTagManagerUI();
         // 更新标签管理面板中所有按钮的状态
-        const tagManagerList = modal.querySelector('.pet-faq-tag-manager-list');
+        const tagManagerList = overlay.querySelector('.pet-faq-tag-manager-list');
         if (tagManagerList) {
           const items = tagManagerList.querySelectorAll('.pet-faq-tag-manager-item');
           items.forEach(item => {
@@ -954,9 +999,9 @@
         this.showNotification(`加载常见问题失败: ${errorMessage}`, 'error');
       }
     } finally {
-      modal._isLoading = false;
-      if (modal._updateTagFilterButtons) {
-        modal._updateTagFilterButtons();
+      overlay._isLoading = false;
+      if (overlay._updateTagFilterButtons) {
+        overlay._updateTagFilterButtons();
       }
     }
   };
@@ -1083,8 +1128,18 @@
   };
 
   proto.applyFaqItem = function(faq, mode = 'insert') {
-    const title = String(faq?.title || '').trim();
-    const prompt = String(faq?.prompt || '').trim();
+    // 提取标题和正文（参考 YiWeb 实现）
+    let title = String(faq?.title || '').trim();
+    let prompt = String(faq?.prompt || '').trim();
+    
+    // 如果没有title和prompt，尝试从text字段解析（兼容旧格式）
+    if (!title && !prompt && faq?.text) {
+      const lines = String(faq.text).split('\n');
+      title = String(lines[0] || '').trim();
+      prompt = String(lines.slice(1).join('\n') || '').trim();
+    }
+    
+    // 组合文本：如果有标题和正文，用两个换行符分隔；否则使用正文或标题
     const text = title && prompt ? `${title}\n\n${prompt}` : (prompt || title);
     if (!text) return;
     
@@ -1096,7 +1151,7 @@
       chatInput.focus();
       chatInput.dispatchEvent(new Event('input', { bubbles: true }));
       
-      // 调整输入框高度
+      // 调整输入框高度（参考 YiWeb 实现）
       try {
         chatInput.style.height = 'auto';
         const min = 60;
@@ -1105,7 +1160,8 @@
         chatInput.style.height = `${nextH}px`;
       } catch (_) {}
       
-      if (mode === 'send') {
+      // 如果是send模式，自动发送消息
+      if (String(mode) === 'send') {
         setTimeout(() => {
           try {
             // 通过 chatWindowComponent 调用 sendMessage
@@ -1128,13 +1184,12 @@
     
     try {
       if (this.faqApi && this.faqApi.isEnabled()) {
-        // 使用 text 作为 key（因为 API 使用 text 作为唯一标识）
-        const key = faq.text || faq.key;
+        // 使用 key 作为标识符（参考 YiWeb 实现）
+        const key = String(faq?.key || '').trim();
         if (!key) {
           throw new Error('无法确定常见问题的标识符');
         }
         await this.faqApi.updateFaq(key, {
-          text: faq.text,
           tags: nextTags
         });
         if (this.faqApi.clearGetCache) {
@@ -1152,9 +1207,9 @@
   };
 
   proto.addFaqFromInput = async function() {
-    const modal = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!modal) return;
-    const input = modal.querySelector('.pet-faq-input');
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    if (!overlay) return;
+    const input = overlay.querySelector('.pet-faq-input');
     if (!input) return;
 
     const raw = String(input.value || '').trim();
@@ -1181,7 +1236,7 @@
         this.showNotification('已添加常见问题', 'success');
         
         // 将焦点返回到搜索输入框
-        const searchInput = modal.querySelector('.pet-faq-search-input');
+        const searchInput = overlay.querySelector('.pet-faq-search-input');
         if (searchInput) {
           setTimeout(() => searchInput.focus(), 0);
         }
@@ -1196,21 +1251,60 @@
 
   proto.deleteFaq = async function(faq) {
     const key = String(faq?.key || faq?.text || '').trim();
-    if (!key) return;
+    if (!key) {
+      if (typeof this.showNotification === 'function') {
+        this.showNotification('无法删除：常见问题标识符无效', 'error');
+      }
+      return;
+    }
     if (!confirm('确定要删除这条常见问题吗？')) return;
     
-    try {
-      if (this.faqApi && this.faqApi.isEnabled()) {
-        await this.faqApi.deleteFaq(key);
-        if (this.faqApi.clearGetCache) {
-          this.faqApi.clearGetCache();
+    // 查找对应的删除按钮并禁用
+    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
+    let deleteBtn = null;
+    if (overlay) {
+      const faqItems = overlay.querySelectorAll('.pet-faq-item');
+      for (const item of faqItems) {
+        const titleEl = item.querySelector('.pet-faq-item-title');
+        if (titleEl && titleEl.textContent === (faq.title || '常见问题')) {
+          deleteBtn = item.querySelector('.pet-faq-item-btn.danger');
+          break;
         }
-        await this.loadFaqsIntoManager(true);
+      }
+    }
+    
+    // 禁用按钮并显示加载状态
+    if (deleteBtn) {
+      deleteBtn.disabled = true;
+      deleteBtn.dataset.deleting = 'true';
+      const originalText = deleteBtn.textContent;
+      deleteBtn.textContent = '删除中...';
+    }
+    
+    try {
+      if (!this.faqApi || !this.faqApi.isEnabled()) {
+        throw new Error('FAQ API 未启用');
+      }
+      
+      await this.faqApi.deleteFaq(key);
+      if (this.faqApi.clearGetCache) {
+        this.faqApi.clearGetCache();
+      }
+      await this.loadFaqsIntoManager(true);
+      if (typeof this.showNotification === 'function') {
         this.showNotification('已删除常见问题', 'success');
       }
     } catch (err) {
       console.error('删除常见问题失败:', err);
-      this.showNotification('删除失败: ' + (err.message || '未知错误'), 'error');
+      if (typeof this.showNotification === 'function') {
+        this.showNotification('删除失败: ' + (err.message || '未知错误'), 'error');
+      }
+      // 恢复按钮状态
+      if (deleteBtn) {
+        deleteBtn.disabled = false;
+        deleteBtn.dataset.deleting = 'false';
+        deleteBtn.textContent = '删除';
+      }
     }
   };
 })();

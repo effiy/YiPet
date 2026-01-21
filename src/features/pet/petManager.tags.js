@@ -7,14 +7,15 @@
 
     if (typeof window === 'undefined') return;
 
-    // 辅助函数：确保 PetManager 已加载
-    function extendPetManager() {
-        if (typeof window.PetManager === 'undefined') {
-            setTimeout(extendPetManager, 100);
-            return;
-        }
+    // 确保 PetManager 类已定义
+    if (typeof window.PetManager === 'undefined') {
+        console.error('[TagManager] PetManager 未定义，无法扩展 TagManager 模块');
+        return;
+    }
 
-        const proto = window.PetManager.prototype;
+    const proto = window.PetManager.prototype;
+    
+    console.log('[TagManager] 开始扩展 PetManager 原型，添加 openTagManager 方法');
 
         /**
          * 根据标签名称生成颜色（确保相同标签颜色一致）
@@ -70,39 +71,39 @@
 
             // 创建标签管理弹窗
             this.ensureTagManagerUi();
-            const modal = document.querySelector('#pet-tag-manager');
-            if (!modal) {
+            const overlay = document.querySelector('#pet-tag-manager');
+            if (!overlay) {
                 console.error('标签管理弹窗未找到');
                 return;
             }
 
             // 创建标签副本，避免直接修改 session.tags
-            modal._currentTags = currentTags;
+            overlay._currentTags = currentTags;
 
             // 显示弹窗
-            modal.style.display = 'flex';
-            modal.dataset.sessionId = sessionId;
+            overlay.style.display = 'flex';
+            overlay.dataset.sessionId = sessionId;
 
             // 加载当前标签
             this.loadTagsIntoManager(sessionId, currentTags);
 
             // 初始化快捷标签列表
-            this.refreshQuickTags(modal);
+            this.refreshQuickTags(overlay);
 
             // 添加关闭事件
-            const closeBtn = modal.querySelector('.tag-manager-close');
+            const closeBtn = overlay.querySelector('.tag-manager-close');
             if (closeBtn) {
                 closeBtn.onclick = () => this.closeTagManager();
             }
 
             // 添加保存事件
-            const saveBtn = modal.querySelector('.tag-manager-save');
+            const saveBtn = overlay.querySelector('.tag-manager-save');
             if (saveBtn) {
                 saveBtn.onclick = () => this.saveTags(sessionId);
             }
 
             // 添加输入框回车事件（兼容中文输入法）
-            const tagInput = modal.querySelector('.tag-manager-input');
+            const tagInput = overlay.querySelector('.tag-manager-input');
             if (tagInput) {
                 const existingHandler = tagInput._enterKeyHandler;
                 if (existingHandler) {
@@ -163,99 +164,82 @@
         proto.ensureTagManagerUi = function() {
             if (document.querySelector('#pet-tag-manager')) return;
 
-            const modal = document.createElement('div');
-            modal.id = 'pet-tag-manager';
-            modal.style.cssText = `
-                position: fixed !important;
+            const overlay = document.createElement('div');
+            overlay.id = 'pet-tag-manager';
+            overlay.style.cssText = `
+                position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
-                background: rgba(0, 0, 0, 0.75) !important;
-                backdrop-filter: blur(8px) !important;
+                background: rgba(0,0,0,0.6) !important;
+                backdrop-filter: blur(2px) !important;
+                z-index: 1000 !important;
                 display: none !important;
-                align-items: center !important;
-                justify-content: center !important;
-                z-index: 2147483654 !important;
+                flex-direction: column !important;
+                animation: fadeIn 0.2s ease !important;
             `;
 
             // 点击背景关闭
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    const sessionId = modal.dataset.sessionId;
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    const sessionId = overlay.dataset.sessionId;
                     if (sessionId) {
                         this.closeTagManager();
                     }
                 }
             });
 
-            const panel = document.createElement('div');
-            panel.style.cssText = `
-                background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%) !important;
-                border-radius: 24px !important;
-                padding: 32px !important;
-                width: 90% !important;
-                max-width: 640px !important;
-                max-height: 85vh !important;
-                overflow-y: auto !important;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
-                border: 1px solid rgba(255, 255, 255, 0.05) !important;
-                backdrop-filter: blur(20px) !important;
-                color: #f8fafc !important;
+            const modalContainer = document.createElement('div');
+            modalContainer.style.cssText = `
+                flex: 1 !important;
+                background: #1a1b1e !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
             `;
 
-            // 标题
+            // 头部
             const header = document.createElement('div');
             header.style.cssText = `
+                padding: 16px !important;
+                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
                 display: flex !important;
                 justify-content: space-between !important;
                 align-items: center !important;
-                margin-bottom: 24px !important;
-                padding-bottom: 16px !important;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+                background: #25262b !important;
             `;
 
-            const title = document.createElement('h3');
-            title.textContent = '管理标签';
-            title.style.cssText = `
-                margin: 0 !important;
-                font-size: 18px !important;
-                font-weight: 600 !important;
-                color: #f8fafc !important;
-                letter-spacing: -0.01em !important;
-            `;
+            const title = document.createElement('div');
+            title.textContent = '🏷️ 管理标签';
+            title.style.cssText = 'color: #fff !important; font-weight: 500 !important; font-size: 15px !important;';
 
-            const closeBtn = document.createElement('button');
+            const closeBtn = document.createElement('div');
             closeBtn.className = 'tag-manager-close';
-            closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-            if (!closeBtn.querySelector('i')) closeBtn.innerHTML = '✕';
-
+            closeBtn.innerHTML = '✕';
             closeBtn.style.cssText = `
-                background: transparent !important;
-                border: none !important;
-                font-size: 16px !important;
+                color: rgba(255,255,255,0.5) !important;
                 cursor: pointer !important;
-                color: #94a3b8 !important;
-                padding: 8px !important;
-                width: 32px !important;
-                height: 32px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                border-radius: 50% !important;
-                transition: all 0.2s ease !important;
+                padding: 4px !important;
+                font-size: 14px !important;
             `;
-            closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-                closeBtn.style.color = '#f8fafc';
-            });
-            closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'transparent';
-                closeBtn.style.color = '#94a3b8';
-            });
+            closeBtn.onclick = () => this.closeTagManager();
 
             header.appendChild(title);
             header.appendChild(closeBtn);
+
+            // 内容区域
+            const content = document.createElement('div');
+            content.style.cssText = `
+                flex: 1 !important;
+                overflow-y: auto !important;
+                padding: 16px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 20px !important;
+            `;
 
             // 输入区域
             const inputGroup = document.createElement('div');
@@ -263,7 +247,6 @@
             inputGroup.style.cssText = `
                 display: flex !important;
                 gap: 12px !important;
-                margin-bottom: 24px !important;
             `;
 
             const tagInput = document.createElement('input');
@@ -325,7 +308,7 @@
                 addBtn.style.transform = 'translateY(0)';
             });
             addBtn.addEventListener('click', () => {
-                const sessionId = modal.dataset.sessionId;
+                const sessionId = overlay.dataset.sessionId;
                 if (sessionId) {
                     this.addTagFromInput(sessionId);
                 }
@@ -363,7 +346,7 @@
                 }
             });
             smartGenerateBtn.addEventListener('click', () => {
-                const sessionId = modal.dataset.sessionId;
+                const sessionId = overlay.dataset.sessionId;
                 if (sessionId) {
                     this.generateSmartTags(sessionId, smartGenerateBtn);
                 }
@@ -430,7 +413,7 @@
                 cancelBtn.style.color = '#94a3b8';
             });
             cancelBtn.addEventListener('click', () => {
-                const sessionId = modal.dataset.sessionId;
+                const sessionId = overlay.dataset.sessionId;
                 if (sessionId) {
                     this.closeTagManager();
                 }
@@ -463,13 +446,20 @@
             footer.appendChild(cancelBtn);
             footer.appendChild(saveBtn);
 
-            panel.appendChild(header);
-            panel.appendChild(inputGroup);
-            panel.appendChild(quickTagsContainer);
-            panel.appendChild(tagsContainer);
-            panel.appendChild(footer);
-            modal.appendChild(panel);
-            document.body.appendChild(modal);
+            content.appendChild(inputGroup);
+            content.appendChild(quickTagsContainer);
+            content.appendChild(tagsContainer);
+            content.appendChild(footer);
+            modalContainer.appendChild(header);
+            modalContainer.appendChild(content);
+            overlay.appendChild(modalContainer);
+            
+            // 添加到聊天窗口
+            if (this.chatWindow) {
+                this.chatWindow.appendChild(overlay);
+            } else {
+                document.body.appendChild(overlay);
+            }
 
             // 添加拖拽样式
             if (!document.getElementById('tag-manager-drag-styles')) {
@@ -532,20 +522,20 @@
          * 加载标签到管理器
          */
         proto.loadTagsIntoManager = function(sessionId, tags) {
-            const modal = document.querySelector('#pet-tag-manager');
-            if (!modal) return;
+            const overlay = document.querySelector('#pet-tag-manager');
+            if (!overlay) return;
 
-            const tagsContainer = modal.querySelector('.tag-manager-tags');
+            const tagsContainer = overlay.querySelector('.tag-manager-tags');
             if (!tagsContainer) return;
 
             tagsContainer.innerHTML = '';
 
             // 使用临时标签数据
-            if (!modal._currentTags) modal._currentTags = [];
+            if (!overlay._currentTags) overlay._currentTags = [];
             if (tags) {
-                modal._currentTags = [...tags];
+                overlay._currentTags = [...tags];
             }
-            const currentTags = modal._currentTags;
+            const currentTags = overlay._currentTags;
 
             if (!currentTags || currentTags.length === 0) {
                 const emptyMsg = document.createElement('div');
@@ -559,7 +549,7 @@
                 `;
                 tagsContainer.appendChild(emptyMsg);
                 // 更新快捷标签按钮状态
-                this.updateQuickTagButtons(modal, currentTags);
+                this.updateQuickTagButtons(overlay, currentTags);
                 return;
             }
 
@@ -636,7 +626,7 @@
                 removeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    const sessionId = modal.dataset.sessionId;
+                    const sessionId = overlay.dataset.sessionId;
                     if (sessionId) {
                         this.removeTag(sessionId, index);
                     }
@@ -715,11 +705,11 @@
                         return;
                     }
 
-                    const sessionId = modal.dataset.sessionId;
+                    const sessionId = overlay.dataset.sessionId;
                     if (!sessionId) return;
 
-                    if (!modal._currentTags) return;
-                    const currentTags = modal._currentTags;
+                    if (!overlay._currentTags) return;
+                    const currentTags = overlay._currentTags;
 
                     const rect = tagItem.getBoundingClientRect();
                     const midY = rect.top + rect.height / 2;
@@ -738,9 +728,9 @@
                     newTags.splice(draggedIndex, 1);
                     newTags.splice(insertIndex, 0, draggedTag);
 
-                    modal._currentTags = newTags;
+                    overlay._currentTags = newTags;
                     this.loadTagsIntoManager(sessionId, newTags);
-                    this.updateQuickTagButtons(modal, newTags);
+                    this.updateQuickTagButtons(overlay, newTags);
                 });
 
                 tagItem.appendChild(tagText);
@@ -749,16 +739,16 @@
             });
 
             // 更新快捷标签按钮状态
-            this.updateQuickTagButtons(modal, currentTags);
+            this.updateQuickTagButtons(overlay, currentTags);
         };
 
         /**
          * 更新快捷标签按钮状态
          */
-        proto.updateQuickTagButtons = function(modal, currentTags) {
-            if (!modal) return;
+        proto.updateQuickTagButtons = function(overlay, currentTags) {
+            if (!overlay) return;
 
-            const quickTagButtons = modal.querySelectorAll('.tag-manager-quick-tag-btn');
+            const quickTagButtons = overlay.querySelectorAll('.tag-manager-quick-tag-btn');
             quickTagButtons.forEach(btn => {
                 const tagName = btn.dataset.tagName;
                 const isAdded = currentTags && currentTags.includes(tagName);
@@ -786,10 +776,10 @@
         /**
          * 刷新快捷标签列表
          */
-        proto.refreshQuickTags = function(modal) {
-            if (!modal) return;
+        proto.refreshQuickTags = function(overlay) {
+            if (!overlay) return;
 
-            const quickTagsContainer = modal.querySelector('.tag-manager-quick-tags');
+            const quickTagsContainer = overlay.querySelector('.tag-manager-quick-tags');
             if (!quickTagsContainer) return;
 
             // 获取所有标签
@@ -843,9 +833,9 @@
                 return;
             }
 
-            const sessionId = modal.dataset.sessionId;
+            const sessionId = overlay.dataset.sessionId;
             const session = this.sessions[sessionId];
-            const currentTags = modal._currentTags || session?.tags || [];
+            const currentTags = overlay._currentTags || session?.tags || [];
 
             quickTags.forEach(tagName => {
                 const isAdded = currentTags && currentTags.includes(tagName);
@@ -889,7 +879,7 @@
                     if (isAdded || quickTagBtn.style.cursor === 'not-allowed') {
                         return;
                     }
-                    const sessionId = modal.dataset.sessionId;
+                    const sessionId = overlay.dataset.sessionId;
                     if (sessionId) {
                         this.addQuickTag(sessionId, tagName);
                     }
@@ -902,18 +892,18 @@
          * 从输入框添加标签
          */
         proto.addTagFromInput = function(sessionId) {
-            const modal = document.querySelector('#pet-tag-manager');
-            if (!modal) return;
+            const overlay = document.querySelector('#pet-tag-manager');
+            if (!overlay) return;
 
-            const tagInput = modal.querySelector('.tag-manager-input');
+            const tagInput = overlay.querySelector('.tag-manager-input');
             if (!tagInput) return;
 
             const tagName = tagInput.value.trim();
             if (!tagName) return;
 
             // 使用临时标签数据
-            if (!modal._currentTags) modal._currentTags = [];
-            const currentTags = modal._currentTags;
+            if (!overlay._currentTags) overlay._currentTags = [];
+            const currentTags = overlay._currentTags;
 
             // 检查标签是否已存在
             if (currentTags.includes(tagName)) {
@@ -932,7 +922,10 @@
 
             // 如果添加了新标签，刷新快捷标签列表
             setTimeout(() => {
-                this.refreshQuickTags(modal);
+                const overlay = document.querySelector('#pet-tag-manager');
+                if (overlay) {
+                    this.refreshQuickTags(overlay);
+                }
             }, 100);
         };
 
@@ -940,12 +933,12 @@
          * 添加快捷标签
          */
         proto.addQuickTag = function(sessionId, tagName) {
-            const modal = document.querySelector('#pet-tag-manager');
-            if (!modal) return;
+            const overlay = document.querySelector('#pet-tag-manager');
+            if (!overlay) return;
 
             // 使用临时标签数据
-            if (!modal._currentTags) modal._currentTags = [];
-            const currentTags = modal._currentTags;
+            if (!overlay._currentTags) overlay._currentTags = [];
+            const currentTags = overlay._currentTags;
 
             // 检查标签是否已存在
             if (currentTags.includes(tagName)) {
@@ -959,29 +952,29 @@
             this.loadTagsIntoManager(sessionId, currentTags);
 
             // 更新快捷标签按钮状态
-            this.updateQuickTagButtons(modal, currentTags);
+            this.updateQuickTagButtons(overlay, currentTags);
         };
 
         /**
          * 移除标签
          */
         proto.removeTag = function(sessionId, index) {
-            const modal = document.querySelector('#pet-tag-manager');
-            if (!modal) return;
+            const overlay = document.querySelector('#pet-tag-manager');
+            if (!overlay) return;
 
             // 使用临时标签数据
-            if (!modal._currentTags) return;
-            const currentTags = modal._currentTags;
+            if (!overlay._currentTags) return;
+            const currentTags = overlay._currentTags;
 
             currentTags.splice(index, 1);
             this.loadTagsIntoManager(sessionId, currentTags);
 
             // 更新快捷标签按钮状态
-            this.updateQuickTagButtons(modal, currentTags);
+            this.updateQuickTagButtons(overlay, currentTags);
 
             // 如果删除的标签不再被任何会话使用，刷新快捷标签列表
             setTimeout(() => {
-                this.refreshQuickTags(modal);
+                this.refreshQuickTags(overlay);
             }, 100);
         };
 
@@ -995,9 +988,9 @@
             }
 
             const session = this.sessions[sessionId];
-            const modal = document.querySelector('#pet-tag-manager');
+            const overlay = document.querySelector('#pet-tag-manager');
 
-            if (!modal) {
+            if (!overlay) {
                 console.error('标签管理弹窗未找到');
                 return;
             }
@@ -1055,7 +1048,8 @@
                         userPrompt += `\n\n会话内容摘要：\n${messageSummary}`;
                     }
 
-                    const currentTags = modal._currentTags || session.tags || [];
+                    const overlay = document.querySelector('#pet-tag-manager');
+                    const currentTags = overlay?._currentTags || session.tags || [];
                     if (currentTags.length > 0) {
                         userPrompt += `\n\n已有标签：${currentTags.join(', ')}\n请避免生成重复的标签。`;
                     }
@@ -1228,11 +1222,11 @@
                         }
 
                         // 确保标签数组存在（使用临时标签数据）
-                        const modal = document.querySelector('#pet-tag-manager');
-                        if (!modal) return;
+                        const tagManagerOverlay = document.querySelector('#pet-tag-manager');
+                        if (!tagManagerOverlay) return;
                         
-                        if (!modal._currentTags) modal._currentTags = [];
-                        const tagsList = modal._currentTags;
+                        if (!tagManagerOverlay._currentTags) tagManagerOverlay._currentTags = [];
+                        const tagsList = tagManagerOverlay._currentTags;
 
                         // 添加新标签（排除已存在的标签）
                         let addedCount = 0;
@@ -1249,9 +1243,9 @@
                             this.loadTagsIntoManager(sessionId, tagsList);
 
                             // 更新快捷标签按钮状态和列表
-                            this.updateQuickTagButtons(modal, tagsList);
+                            this.updateQuickTagButtons(tagManagerOverlay, tagsList);
                             setTimeout(() => {
-                                this.refreshQuickTags(modal);
+                                this.refreshQuickTags(tagManagerOverlay);
                             }, 100);
 
                             console.log(`成功生成并添加 ${addedCount} 个标签:`, generatedTags.filter(tag => tagsList.includes(tag.trim())));
@@ -1269,10 +1263,10 @@
                         : `生成标签失败：${errorMessage}`;
 
                     // 在弹框内显示错误提示，而不是使用 alert（alert 会阻塞）
-                    const modal = document.querySelector('#pet-tag-manager');
-                    if (modal) {
+                    const overlay = document.querySelector('#pet-tag-manager');
+                    if (overlay) {
                         // 移除已存在的错误提示
-                        const existingError = modal.querySelector('.tag-error-message');
+                        const existingError = overlay.querySelector('.tag-error-message');
                         if (existingError) {
                             existingError.remove();
                         }
@@ -1294,9 +1288,9 @@
                             animation: fadeIn 0.3s ease !important;
                         `;
 
-                        const inputGroup = modal.querySelector('.tag-manager-input-group');
+                        const inputGroup = overlay.querySelector('.tag-manager-input-group');
                         if (inputGroup && inputGroup.parentNode) {
-                            const tagsContainer = modal.querySelector('.tag-manager-tags');
+                            const tagsContainer = overlay.querySelector('.tag-manager-tags');
                             if (tagsContainer && tagsContainer.parentNode) {
                                 tagsContainer.parentNode.insertBefore(errorDiv, tagsContainer);
                             } else {
@@ -1343,15 +1337,15 @@
             }
 
             try {
-                const modal = document.querySelector('#pet-tag-manager');
-                if (!modal) return;
+                const overlay = document.querySelector('#pet-tag-manager');
+                if (!overlay) return;
 
                 const session = this.sessions[sessionId];
                 
                 // 从临时标签数据获取
                 let newTags = [];
-                if (modal._currentTags) {
-                    newTags = [...modal._currentTags];
+                if (overlay?._currentTags) {
+                    newTags = [...overlay._currentTags];
                 } else if (session.tags) {
                     newTags = [...session.tags];
                 }
@@ -1395,22 +1389,21 @@
          * 关闭标签管理器
          */
         proto.closeTagManager = async function() {
-            const modal = document.querySelector('#pet-tag-manager');
-            if (modal) {
-                modal.style.display = 'none';
+            const overlay = document.querySelector('#pet-tag-manager');
+            if (overlay) {
+                overlay.style.display = 'none';
                 
                 // 清空临时数据
-                if (modal._currentTags) {
-                    delete modal._currentTags;
+                if (overlay?._currentTags) {
+                    delete overlay._currentTags;
                 }
                 
-                const tagInput = modal.querySelector('.tag-manager-input');
+                const tagInput = overlay?.querySelector('.tag-manager-input');
                 if (tagInput) {
                     tagInput.value = '';
                 }
             }
         };
-    }
-
-    extendPetManager();
+    
+    console.log('[TagManager] 所有方法已添加到原型');
 })();

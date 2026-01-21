@@ -82,31 +82,62 @@ class FaqApiManager extends BaseApiManager {
     
     /**
      * 创建常见问题
-     * @param {Object} faqData - FAQ数据 { text: string, tags: Array<string>, order: number }
+     * @param {Object} faqData - FAQ数据 
+     *   支持格式1: { text: string, tags: Array<string>, order: number } - 兼容旧格式
+     *   支持格式2: { key: string, title: string, prompt: string, tags: Array<string> } - 新格式（参考 YiWeb）
      * @returns {Promise<Object>} 创建的FAQ对象
      */
     async createFaq(faqData) {
-        if (!faqData || !faqData.text) {
-            throw new Error('FAQ数据无效：缺少text字段');
+        if (!faqData) {
+            throw new Error('FAQ数据无效');
         }
         
         try {
-            const document = {
-                text: faqData.text,
-                tags: faqData.tags || [],
-            };
-            if (faqData.order !== undefined && faqData.order !== null) {
-                document.order = faqData.order;
-            }
-
-            const params = {
-                cname: this.cname,
-                document: document
-            };
-            const url = this._buildGenericApiUrl('insert_document', params);
+            let data = {};
             
+            // 如果提供了text字段（兼容旧格式），解析为title和prompt
+            if (faqData.text) {
+                const lines = String(faqData.text).split('\n');
+                const title = String(lines[0] || '').trim();
+                const prompt = String(lines.slice(1).join('\n') || '').trim();
+                
+                data = {
+                    key: faqData.key || `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                    title: faqData.title || title || (prompt ? prompt.slice(0, 40) : '常见问题'),
+                    prompt: faqData.prompt || prompt,
+                    tags: faqData.tags || []
+                };
+            } else if (faqData.title || faqData.prompt) {
+                // 新格式：直接使用title和prompt
+                data = {
+                    key: faqData.key || `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                    title: faqData.title || (faqData.prompt ? faqData.prompt.slice(0, 40) : '常见问题'),
+                    prompt: faqData.prompt || '',
+                    tags: faqData.tags || []
+                };
+            } else {
+                throw new Error('FAQ数据无效：缺少text、title或prompt字段');
+            }
+            
+            // 如果提供了order字段，添加到data中
+            if (faqData.order !== undefined && faqData.order !== null) {
+                data.order = faqData.order;
+            }
+            
+            // 使用 create_document（单数）和 data 参数（参考 YiWeb 实现）
+            const payload = {
+                module_name: 'services.database.data_service',
+                method_name: 'create_document',
+                parameters: {
+                    cname: this.cname,
+                    data: data
+                }
+            };
+            
+            const url = `${this.baseUrl}/`;
             const result = await this._request(url, {
-                method: 'POST'
+                method: 'POST',
+                body: JSON.stringify(payload)
             });
             
             let faq = null;
@@ -134,47 +165,41 @@ class FaqApiManager extends BaseApiManager {
     
     /**
      * 更新常见问题
-     * @param {string} key - FAQ key（text，优先使用）
-     * @param {Object} faqData - FAQ数据 { text: string, tags: Array<string> }
+     * @param {string} key - FAQ key
+     * @param {Object} patch - 要更新的字段 { title?: string, prompt?: string, tags?: Array<string>, order?: number }
      * @returns {Promise<Object>} 更新后的FAQ对象
      */
-    async updateFaq(key, faqData) {
+    async updateFaq(key, patch) {
         if (!key) {
             throw new Error('FAQ key无效');
         }
         
-        if (!faqData || !faqData.text) {
-            throw new Error('FAQ数据无效：缺少text字段');
+        if (!patch || typeof patch !== 'object') {
+            throw new Error('更新数据无效');
         }
         
         try {
-            const params = {
-                cname: this.cname,
-                filter: { text: key },
-                update: {
-                    '$set': {
-                        text: faqData.text,
-                        tags: faqData.tags || []
+            // 使用 update_document（单数）和 data 参数（参考 YiWeb 实现）
+            // data 中必须包含 key 以通过校验，同时包含要更新的字段
+            const payload = {
+                module_name: 'services.database.data_service',
+                method_name: 'update_document',
+                parameters: {
+                    cname: this.cname,
+                    data: {
+                        key: key,
+                        ...patch
                     }
                 }
             };
             
-            const url = this._buildGenericApiUrl('update_documents', params);
-            
+            const url = `${this.baseUrl}/`;
             const result = await this._request(url, {
-                method: 'POST'
+                method: 'POST',
+                body: JSON.stringify(payload)
             });
             
-            let faq = null;
-            if (result.success && result.data) {
-                faq = result.data;
-            } else if (result.data) {
-                faq = result.data;
-            } else {
-                faq = result;
-            }
-            
-            return faq;
+            return result;
         } catch (error) {
             console.error('更新常见问题失败:', error);
             throw error;
@@ -192,15 +217,20 @@ class FaqApiManager extends BaseApiManager {
         }
         
         try {
-            const params = {
-                cname: this.cname,
-                filter: { text: key }
+            // 使用 delete_document（单数）和 key 参数（参考 YiWeb 实现）
+            const payload = {
+                module_name: 'services.database.data_service',
+                method_name: 'delete_document',
+                parameters: {
+                    cname: this.cname,
+                    key: key
+                }
             };
             
-            const url = this._buildGenericApiUrl('delete_documents', params);
-            
+            const url = `${this.baseUrl}/`;
             const result = await this._request(url, {
-                method: 'POST'
+                method: 'POST',
+                body: JSON.stringify(payload)
             });
             
             return result;

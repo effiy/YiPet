@@ -17,7 +17,7 @@
      * @param {string} imageDataUrl - 图片数据的DataURL
      */
     proto.sendImageMessage = async function(imageDataUrl) {
-        const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+        const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
         if (!messagesContainer) return;
 
         // 确保有当前会话（如果没有，先初始化会话）

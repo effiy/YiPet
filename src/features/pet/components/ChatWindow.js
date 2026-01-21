@@ -71,7 +71,7 @@
 
             // Create Main Content Container - 与 YiWeb pet-chat-right-panel 完全一致
             this.mainContent = document.createElement('div');
-            this.mainContent.className = 'pet-chat-right-panel';
+            this.mainContent.className = 'yi-pet-chat-right-panel';
             this.mainContent.setAttribute('aria-label', '会话聊天面板');
 
             // 侧边栏已移除，确保引用为 null
@@ -80,8 +80,8 @@
 
             // Messages Container - 消息列表区域，与 YiWeb 完全一致
             this.messagesContainer = document.createElement('div');
-            this.messagesContainer.id = 'pet-chat-messages';
-            this.messagesContainer.className = 'pet-chat-messages';
+            this.messagesContainer.id = 'yi-pet-chat-messages';
+            this.messagesContainer.className = 'yi-pet-chat-messages';
             this.messagesContainer.setAttribute('role', 'log');
             this.messagesContainer.setAttribute('aria-live', 'polite');
             this.mainContent.appendChild(this.messagesContainer);
@@ -104,25 +104,25 @@
         createHeader(currentColor) {
             const manager = this.manager;
             const chatHeader = document.createElement('div');
-            chatHeader.className = 'pet-chat-header';
+            chatHeader.className = 'yi-pet-chat-header';
             chatHeader.title = '拖拽移动窗口 | 双击全屏';
 
             // Title
             const headerTitle = document.createElement('div');
-            headerTitle.className = 'pet-chat-header-title';
-            headerTitle.id = 'pet-chat-header-title';
+            headerTitle.className = 'yi-pet-chat-header-title';
+            headerTitle.id = 'yi-pet-chat-header-title';
             headerTitle.innerHTML = `
                 <span style="font-size: 20px;">💕</span>
-                <span id="pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span>
+                <span id="yi-pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span>
             `;
 
             // Buttons Container
             const headerButtons = document.createElement('div');
-            headerButtons.className = 'pet-chat-header-buttons';
+            headerButtons.className = 'yi-pet-chat-header-buttons';
 
             // Auth Button
             const authBtn = this.createHeaderButton(
-                'pet-chat-auth-btn',
+                'yi-pet-chat-auth-btn',
                 'API 鉴权',
                 '<path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z"/>',
                 () => manager.openAuth()
@@ -130,7 +130,7 @@
 
             // Refresh Button
             const refreshBtn = this.createHeaderButton(
-                'pet-chat-refresh-btn',
+                'yi-pet-chat-refresh-btn',
                 '刷新',
                 '<path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z"/>',
                 () => manager.manualRefresh()
@@ -148,7 +148,7 @@
         createHeaderButton(id, label, path, onClick) {
             const btn = document.createElement('button');
             btn.id = id;
-            btn.className = 'pet-chat-header-btn';
+            btn.className = 'yi-pet-chat-header-btn';
             btn.setAttribute('aria-label', label);
             btn.setAttribute('title', label);
             btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
@@ -729,20 +729,20 @@
 
             // Outer container - 与 YiWeb 保持一致
             const inputContainer = document.createElement('div');
-            inputContainer.className = 'pet-chat-input-container chat-input-container';
+            inputContainer.className = 'yi-pet-chat-input-container chat-input-container';
 
             // Top Toolbar
             const topToolbar = document.createElement('div');
-            topToolbar.className = 'pet-chat-toolbar chat-input-toolbar';
+            topToolbar.className = 'yi-pet-chat-toolbar chat-input-toolbar';
 
             // Left Button Group - 与 YiWeb 保持一致
             const inputLeftButtonGroup = document.createElement('div');
-            inputLeftButtonGroup.className = 'pet-chat-toolbar-left chat-input-btn-group';
+            inputLeftButtonGroup.className = 'yi-pet-chat-toolbar-left chat-input-btn-group';
 
             // Context Editor Button
             const contextBtn = manager.createButton({
                 text: '📝 页面上下文',
-                className: 'pet-chat-btn chat-input-btn chat-input-text-btn ui-btn ui-btn--md ui-btn--primary',
+                className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '编辑页面上下文', 'aria-label': '页面上下文' },
                 onClick: () => {
                     if (typeof manager.openContextEditor === 'function') manager.openContextEditor();
@@ -750,10 +750,87 @@
             });
             inputLeftButtonGroup.appendChild(contextBtn);
 
+            // Edit Session Button - 编辑会话按钮（在标签管理按钮前面）
+            const editSessionBtn = manager.createButton({
+                text: '✏️ 编辑会话',
+                className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
+                attrs: { 
+                    title: '编辑当前会话信息（标题、描述等）', 
+                    'aria-label': '编辑会话',
+                    id: 'edit-session-btn'
+                },
+                onClick: async (e) => {
+                    e.stopPropagation();
+                    if (!manager.currentSessionId) {
+                        manager.showNotification('当前没有活动会话', 'warning');
+                        return;
+                    }
+                    if (typeof manager.editSessionTitle === 'function') {
+                        await manager.editSessionTitle(manager.currentSessionId);
+                    } else {
+                        console.warn('editSessionTitle 方法不存在');
+                        manager.showNotification('编辑功能不可用', 'error');
+                    }
+                }
+            });
+            inputLeftButtonGroup.appendChild(editSessionBtn);
+            this.editSessionButton = editSessionBtn;
+
+            // Tag Manager Button
+            const tagManagerBtn = manager.createButton({
+                text: '🏷️ 标签管理',
+                className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
+                attrs: { title: '管理会话标签', 'aria-label': '标签管理' },
+                onClick: async () => {
+                    try {
+                        // 关闭其他弹窗（如微信机器人设置、页面上下文等）
+                        if (typeof manager.closeWeWorkRobotSettingsModal === 'function') {
+                            manager.closeWeWorkRobotSettingsModal();
+                        }
+                        if (typeof manager.closeContextEditor === 'function') {
+                            manager.closeContextEditor();
+                        }
+                        
+                        // 检查是否有当前会话
+                        if (!manager.currentSessionId) {
+                            if (typeof manager.showNotification === 'function') {
+                                manager.showNotification('请先选择一个会话', 'warning');
+                            }
+                            return;
+                        }
+
+                        // 确保会话存在
+                        if (!manager.sessions || !manager.sessions[manager.currentSessionId]) {
+                            if (typeof manager.showNotification === 'function') {
+                                manager.showNotification('会话不存在，无法管理标签', 'error');
+                            }
+                            return;
+                        }
+
+                        // 打开标签管理器
+                        if (typeof manager.openTagManager === 'function') {
+                            manager.openTagManager(manager.currentSessionId);
+                        } else {
+                            const errorMsg = '标签管理按钮：openTagManager 方法不存在';
+                            console.error(errorMsg);
+                            if (typeof manager.showNotification === 'function') {
+                                manager.showNotification('标签管理功能不可用', 'error');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('标签管理按钮点击错误:', error);
+                        if (typeof manager.showNotification === 'function') {
+                            manager.showNotification(`打开标签管理失败：${error.message || '未知错误'}`, 'error');
+                        }
+                    }
+                }
+            });
+            inputLeftButtonGroup.appendChild(tagManagerBtn);
+
             // FAQ Button
             const faqBtn = manager.createButton({
                 text: '💡 常见问题',
-                className: 'pet-chat-btn chat-input-btn chat-input-text-btn',
+                className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '常见问题', 'aria-label': '常见问题' },
                 onClick: async () => {
                     try {
@@ -789,7 +866,7 @@
             // WeChat Settings Button
             const weChatBtn = manager.createButton({
                 text: '🤖 微信机器人',
-                className: 'pet-chat-btn chat-input-btn chat-input-text-btn',
+                className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '微信机器人设置', 'aria-label': '微信机器人设置' },
                 onClick: () => {
                     if (typeof manager.openWeChatSettings === 'function') {
@@ -804,7 +881,7 @@
             // Image Upload Button
             const imageBtn = manager.createButton({
                 text: '🖼️ 图片',
-                className: 'pet-chat-btn chat-input-btn chat-input-text-btn',
+                className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '上传图片', 'aria-label': '上传图片' },
                 onClick: () => {
                     if (this.imageInput) {
@@ -820,7 +897,7 @@
             this.imageInput.accept = 'image/*';
             this.imageInput.multiple = true;
             this.imageInput.style.display = 'none';
-            this.imageInput.id = 'pet-chat-image-input';
+            this.imageInput.id = 'yi-pet-chat-image-input';
             this.imageInput.addEventListener('change', (e) => {
                 this.handleImageInputChange(e);
             });
@@ -830,7 +907,7 @@
 
             // Right Button Group - 与 YiWeb 保持一致
             const inputRightButtonGroup = document.createElement('div');
-            inputRightButtonGroup.className = 'pet-chat-toolbar-right chat-input-btn-group';
+            inputRightButtonGroup.className = 'yi-pet-chat-toolbar-right chat-input-btn-group';
 
             // Context Switch
             const contextSwitch = this.createContextSwitch();
@@ -861,19 +938,19 @@
 
             // Draft Images Container
             this.draftImagesContainer = document.createElement('div');
-            this.draftImagesContainer.className = 'pet-chat-draft-images';
+            this.draftImagesContainer.className = 'yi-pet-chat-draft-images';
             this.draftImagesContainer.style.display = 'none';
             this.draftImagesContainer.setAttribute('aria-label', '待发送图片');
             inputWrapper.appendChild(this.draftImagesContainer);
 
             // Input Row
             const inputRow = document.createElement('div');
-            inputRow.className = 'pet-chat-input-row';
+            inputRow.className = 'yi-pet-chat-input-row';
 
             const textarea = document.createElement('textarea');
             this.messageInput = textarea; // Store reference
-            textarea.id = 'pet-chat-input';
-            textarea.className = 'pet-chat-textarea chat-message-input';
+            textarea.id = 'yi-pet-chat-input';
+            textarea.className = 'yi-pet-chat-textarea chat-message-input';
             textarea.placeholder = '输入消息... (Enter 发送, Shift+Enter 换行)';
             textarea.rows = 2;
             textarea.setAttribute('aria-label', '会话输入框');
@@ -1103,37 +1180,37 @@
             const fragment = document.createDocumentFragment();
             
             // 清空容器（保留结构）
-            const existingImages = this.draftImagesContainer.querySelectorAll('.pet-chat-draft-image');
+            const existingImages = this.draftImagesContainer.querySelectorAll('.yi-pet-chat-draft-image');
             existingImages.forEach(img => img.remove());
-            const existingClearBtn = this.draftImagesContainer.querySelector('.pet-chat-draft-images-clear');
+            const existingClearBtn = this.draftImagesContainer.querySelector('.yi-pet-chat-draft-images-clear');
             if (existingClearBtn) existingClearBtn.remove();
 
             this.draftImages.forEach((src, index) => {
                 const imageWrapper = document.createElement('div');
-                imageWrapper.className = 'pet-chat-draft-image';
+                imageWrapper.className = 'yi-pet-chat-draft-image';
                 imageWrapper.setAttribute('data-image-index', index);
 
                 const img = document.createElement('img');
-                img.className = 'pet-chat-draft-image-preview';
+                img.className = 'yi-pet-chat-draft-image-preview';
                 img.src = src;
                 img.alt = `待发送图片 ${index + 1}`;
                 img.loading = 'lazy'; // 懒加载
 
                 // 图片加载错误处理
                 img.addEventListener('error', () => {
-                    imageWrapper.classList.add('pet-chat-draft-image-error');
+                    imageWrapper.classList.add('yi-pet-chat-draft-image-error');
                     img.style.display = 'none';
                 });
 
                 // 图片加载成功
                 img.addEventListener('load', () => {
-                    imageWrapper.classList.remove('pet-chat-draft-image-loading');
+                    imageWrapper.classList.remove('yi-pet-chat-draft-image-loading');
                 });
 
                 // 点击预览
                 imageWrapper.addEventListener('click', (e) => {
                     // 如果点击的是删除按钮，不触发预览
-                    if (e.target.classList.contains('pet-chat-draft-image-remove')) {
+                    if (e.target.classList.contains('yi-pet-chat-draft-image-remove')) {
                         return;
                     }
                     this.previewDraftImage(src, index);
@@ -1141,7 +1218,7 @@
 
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
-                removeBtn.className = 'pet-chat-draft-image-remove';
+                removeBtn.className = 'yi-pet-chat-draft-image-remove';
                 removeBtn.innerHTML = '✕';
                 removeBtn.setAttribute('aria-label', `移除第 ${index + 1} 张图片`);
                 removeBtn.title = '移除';
@@ -1151,7 +1228,7 @@
                 });
 
                 // 初始加载状态
-                imageWrapper.classList.add('pet-chat-draft-image-loading');
+                imageWrapper.classList.add('yi-pet-chat-draft-image-loading');
                 
                 imageWrapper.appendChild(img);
                 imageWrapper.appendChild(removeBtn);
@@ -1163,7 +1240,7 @@
             // Add clear all button
             const clearBtn = document.createElement('button');
             clearBtn.type = 'button';
-            clearBtn.className = 'pet-chat-draft-images-clear';
+            clearBtn.className = 'yi-pet-chat-draft-images-clear';
             clearBtn.textContent = `清空图片 (${this.draftImages.length})`;
             clearBtn.setAttribute('aria-label', `清空所有 ${this.draftImages.length} 张图片`);
             clearBtn.title = '清空所有图片';
@@ -1283,6 +1360,7 @@
         }
 
         async sendMessage() {
+
             const manager = this.manager;
             const textarea = this.messageInput;
             
@@ -1623,7 +1701,7 @@
             this.header.addEventListener('mousedown', (e) => {
                 // 检查是否点击了按钮或按钮内的元素
                 const isButton = e.target.closest('button') ||
-                    e.target.closest('.pet-chat-header-btn');
+                    e.target.closest('.yi-pet-chat-header-btn');
                 if (isButton) {
                     return;
                 }
@@ -1634,7 +1712,7 @@
             // Double click to maximize
             this.header.addEventListener('dblclick', (e) => {
                 const isButton = e.target.closest('button') ||
-                    e.target.closest('.pet-chat-header-btn');
+                    e.target.closest('.yi-pet-chat-header-btn');
                 if (isButton) return;
                 if (this._fullscreenAnimating) return;
                 this._fullscreenAnimating = true;
@@ -1721,7 +1799,8 @@
             const startY = e.clientY;
             const startRect = this.element.getBoundingClientRect();
             const minWidth = 400;
-            const minHeight = 300;
+            const minHeight = 450;
+            const maxHeight = window.innerHeight * 0.9;
 
             const onMouseMove = (e) => {
                 if (!this.isResizing) return;
@@ -1735,14 +1814,14 @@
                 let newTop = startRect.top;
 
                 if (pos.includes('e')) newWidth = Math.max(minWidth, startRect.width + dx);
-                if (pos.includes('s')) newHeight = Math.max(minHeight, startRect.height + dy);
+                if (pos.includes('s')) newHeight = Math.min(maxHeight, Math.max(minHeight, startRect.height + dy));
                 if (pos.includes('w')) {
                     const width = Math.max(minWidth, startRect.width - dx);
                     newLeft = startRect.left + (startRect.width - width);
                     newWidth = width;
                 }
                 if (pos.includes('n')) {
-                    const height = Math.max(minHeight, startRect.height - dy);
+                    const height = Math.min(maxHeight, Math.max(minHeight, startRect.height - dy));
                     newTop = startRect.top + (startRect.height - height);
                     newHeight = height;
                 }
@@ -1830,7 +1909,7 @@
         updateChatHeaderTitle() {
             if (!this.element) return;
 
-            const titleTextEl = this.element.querySelector('#pet-chat-header-title-text');
+            const titleTextEl = this.element.querySelector('#yi-pet-chat-header-title-text');
             if (!titleTextEl) return;
 
             const manager = this.manager;
@@ -1848,6 +1927,20 @@
             } else {
                 // 如果没有会话，显示默认文本
                 titleTextEl.textContent = '与我聊天';
+            }
+
+            // 更新编辑会话按钮状态
+            const editSessionBtn = this.element.querySelector('#edit-session-btn');
+            if (editSessionBtn) {
+                if (manager.currentSessionId && manager.sessions && manager.sessions[manager.currentSessionId]) {
+                    editSessionBtn.disabled = false;
+                    editSessionBtn.style.opacity = '1';
+                    editSessionBtn.style.cursor = 'pointer';
+                } else {
+                    editSessionBtn.disabled = true;
+                    editSessionBtn.style.opacity = '0.5';
+                    editSessionBtn.style.cursor = 'not-allowed';
+                }
             }
         }
 
@@ -1885,7 +1978,7 @@
             }
 
             const width = state.width || 850;
-            const height = state.height || 600;
+            const height = state.height || 720;
             const left = state.x;
             const top = state.y;
 
@@ -1970,7 +2063,7 @@
             if (!this.messagesContainer) return;
             this.clearMessagesContainer();
             const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'pet-chat-loading';
+            loadingDiv.className = 'yi-pet-chat-loading';
             loadingDiv.setAttribute('role', 'status');
             loadingDiv.setAttribute('aria-live', 'polite');
             loadingDiv.innerHTML = `
@@ -1987,7 +2080,7 @@
             if (!this.messagesContainer) return;
             this.clearMessagesContainer();
             const errorDiv = document.createElement('div');
-            errorDiv.className = 'pet-chat-error';
+            errorDiv.className = 'yi-pet-chat-error';
             errorDiv.setAttribute('role', 'alert');
             errorDiv.setAttribute('aria-live', 'polite');
             errorDiv.innerHTML = `
@@ -2003,7 +2096,7 @@
             if (!this.messagesContainer) return;
             this.clearMessagesContainer();
             const emptyDiv = document.createElement('div');
-            emptyDiv.className = 'pet-chat-empty';
+            emptyDiv.className = 'yi-pet-chat-empty';
             emptyDiv.innerHTML = `
                 <div class="sr-only" role="status" aria-live="polite">${subtitle}</div>
                 <div class="pet-chat-empty-card">
@@ -2223,7 +2316,7 @@
 
             const waitingIcon = this._getWaitingIcon();
             // 清除现有内容，准备重新生成
-            const contentDiv = messageBubble.querySelector('.pet-chat-content');
+                const contentDiv = messageBubble.querySelector('.pet-chat-content');
             if (contentDiv) {
                 contentDiv.innerHTML = this.manager.renderMarkdown(`${waitingIcon} 正在重新生成回复...`);
             } else {
@@ -2317,7 +2410,7 @@
         // 为消息添加动作按钮（复制欢迎消息的按钮，设置按钮已移动到 chat-request-status-button 后面）
         async addActionButtonsToMessage(messageDiv, forceRefresh = false) {
             // 检查是否是欢迎消息，如果是则不添加（因为它已经有按钮了）
-            const messagesContainer = this.element ? this.element.querySelector('#pet-chat-messages') : null;
+            const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
             if (!messagesContainer) return;
 
             // 检查当前消息是否是欢迎消息，如果是则跳过（欢迎消息已经有按钮了）
@@ -2582,7 +2675,7 @@
                         }
 
                         // 获取消息容器
-                        const messagesContainer = this.element ? this.element.querySelector('#pet-chat-messages') : null;
+                        const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
                         if (!messagesContainer) {
                             console.error('无法找到消息容器');
                             return;
@@ -2738,7 +2831,7 @@
                         }
                     }
 
-                    const messagesContainer = this.element ? this.element.querySelector('#pet-chat-messages') : null;
+                    const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
                     if (!messagesContainer) return;
 
                     const message = this.manager.createMessageElement('', 'pet');
@@ -2839,7 +2932,7 @@
                 return;
             }
 
-            const messagesContainer = this.element ? this.element.querySelector('#pet-chat-messages') : null;
+            const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
             if (!messagesContainer) {
                 return;
             }
@@ -2935,12 +3028,38 @@
 
         // 为用户消息添加删除和编辑按钮
         addDeleteButtonForUserMessage(container, messageTextElement) {
-            // 如果已经添加过，就不再添加
-            if (container.querySelector('.delete-button') &&
-                container.querySelector('.edit-button') &&
-                container.querySelector('.resend-button')) {
+            // 先移除可能存在的重复按钮（避免重复添加）
+            const existingDeleteButtons = container.querySelectorAll('.delete-button');
+            const existingEditButtons = container.querySelectorAll('.edit-button');
+            const existingResendButtons = container.querySelectorAll('.chat-message-resend-btn');
+            
+            // 如果已经有完整的按钮组，就不再添加
+            if (existingDeleteButtons.length > 0 &&
+                existingEditButtons.length > 0 &&
+                existingResendButtons.length > 0) {
+                // 确保只有一个按钮组，移除多余的
+                if (existingDeleteButtons.length > 1) {
+                    for (let i = 1; i < existingDeleteButtons.length; i++) {
+                        existingDeleteButtons[i].remove();
+                    }
+                }
+                if (existingEditButtons.length > 1) {
+                    for (let i = 1; i < existingEditButtons.length; i++) {
+                        existingEditButtons[i].remove();
+                    }
+                }
+                if (existingResendButtons.length > 1) {
+                    for (let i = 1; i < existingResendButtons.length; i++) {
+                        existingResendButtons[i].remove();
+                    }
+                }
                 return;
             }
+            
+            // 移除可能存在的部分按钮（避免不完整的按钮组）
+            existingDeleteButtons.forEach(btn => btn.remove());
+            existingEditButtons.forEach(btn => btn.remove());
+            existingResendButtons.forEach(btn => btn.remove());
 
             const deleteButton = document.createElement('button');
             deleteButton.className = 'delete-button';
@@ -3064,7 +3183,7 @@
                             } else {
                                 console.warn('无法找到对应的消息对象，尝试通过DOM索引删除');
                                 // 如果找不到消息对象，尝试通过DOM索引来删除
-                                const messagesContainer = this.element ? this.element.querySelector('#pet-chat-messages') : null;
+                                const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
                                 if (messagesContainer) {
                                     const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
                                         return !div.hasAttribute('data-welcome-message') &&
@@ -3135,7 +3254,10 @@
             const editButton = document.createElement('button');
             editButton.className = 'edit-button';
             editButton.innerHTML = '✏️';
-            editButton.setAttribute('title', '编辑消息');
+            // 只在没有 title 时设置，避免重复设置
+            if (!editButton.getAttribute('title')) {
+                editButton.setAttribute('title', '编辑消息');
+            }
 
             // 点击编辑 - 打开弹窗编辑器
             editButton.addEventListener('click', (e) => {
@@ -3147,7 +3269,8 @@
 
             // 创建重新发送按钮
             const resendButton = document.createElement('button');
-            resendButton.className = 'resend-button';
+            // 与 petManager.core.js 保持一致，使用相同的类名
+            resendButton.className = 'pet-chat-meta-btn chat-message-resend-btn';
             resendButton.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
                 <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -3155,68 +3278,66 @@
             </svg>
         `;
             resendButton.setAttribute('title', '重新发送 prompt 请求');
-            resendButton.style.cssText = `
-            background: transparent !important;
-            border: none !important;
-            cursor: pointer !important;
-            padding: 4px 8px !important;
-            opacity: 0.7 !important;
-            transition: opacity 0.2s ease, color 0.2s ease !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            color: currentColor !important;
-            min-width: 24px !important;
-            min-height: 24px !important;
-        `;
+            resendButton.setAttribute('aria-label', '重新发送');
 
-            resendButton.addEventListener('mouseenter', () => {
-                resendButton.style.opacity = '1';
-            });
-            resendButton.addEventListener('mouseleave', () => {
-                resendButton.style.opacity = '0.7';
-            });
+            // 悬停效果由 CSS 处理
 
-            // 点击重新发送
+            // 点击重新发送（与 YiWeb 保持一致，使用 resendMessageAt 方法）
             let isResending = false;
             resendButton.addEventListener('click', async (e) => {
                 e.stopPropagation();
+                e.preventDefault();
 
-                if (isResending) return;
+                console.log('[重新发送] 按钮被点击', { isResending, isProcessing: this.isProcessing, container, messageTextElement });
+
+                // 检查是否正在处理其他请求
+                if (this.isProcessing) {
+                    console.log('[重新发送] 正在处理其他请求，忽略点击');
+                    return;
+                }
+
+                if (isResending) {
+                    console.log('[重新发送] 正在处理中，忽略重复点击');
+                    return;
+                }
                 isResending = true;
 
                 try {
-                    // 获取用户消息的原始文本
-                    let userMessageText = messageTextElement.getAttribute('data-original-text');
-                    if (!userMessageText) {
-                        userMessageText = messageTextElement.textContent || messageTextElement.innerText || '';
-                    }
-
-                    if (!userMessageText || !userMessageText.trim()) {
-                        console.warn('无法获取用户消息内容');
-                        isResending = false;
-                        return;
-                    }
-
-                    // 获取消息容器
-                    const messagesContainer = this.element ? this.element.querySelector('#pet-chat-messages') : null;
-                    if (!messagesContainer) {
-                        console.warn('无法找到消息容器');
-                        isResending = false;
-                        return;
-                    }
-
+                    console.log('[重新发送] 开始处理重新发送请求');
+                    
                     // 找到当前用户消息元素
+                    const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
+                    if (!messagesContainer) {
+                        console.warn('[重新发送] 无法找到消息容器', { element: this.element });
+                        isResending = false;
+                        return;
+                    }
+
                     let currentMessage = container.parentElement;
-                    while (currentMessage && !currentMessage.style.cssText.includes('margin-bottom: 15px')) {
+                    while (currentMessage && 
+                           !currentMessage.classList.contains('pet-chat-message') && 
+                           !currentMessage.classList.contains('chat-message') &&
+                           currentMessage !== messagesContainer) {
                         currentMessage = currentMessage.parentElement;
                     }
 
-                    if (!currentMessage) {
-                        console.warn('无法找到当前消息元素');
+                    // 确保找到的是用户消息
+                    if (!currentMessage || 
+                        (!currentMessage.classList.contains('pet-chat-message') && 
+                         !currentMessage.classList.contains('chat-message')) ||
+                        (!currentMessage.classList.contains('is-user') && 
+                         !currentMessage.classList.contains('chat-message--user'))) {
+                        console.warn('[重新发送] 无法找到当前用户消息元素', { 
+                            currentMessage, 
+                            classes: currentMessage ? Array.from(currentMessage.classList) : null,
+                            container: container,
+                            containerParent: container.parentElement
+                        });
                         isResending = false;
                         return;
                     }
+                    
+                    console.log('[重新发送] 找到用户消息元素', currentMessage);
 
                     // 更新按钮状态
                     resendButton.innerHTML = `
@@ -3227,102 +3348,23 @@
                         </circle>
                     </svg>
                 `;
-                    resendButton.style.opacity = '0.6';
-                    resendButton.style.cursor = 'not-allowed';
-                    resendButton.style.color = '';
+                    resendButton.classList.add('chat-message-resend-btn--loading');
+                    resendButton.classList.remove('chat-message-resend-btn--success', 'chat-message-resend-btn--error');
+                    resendButton.disabled = true;
 
-                    // 创建打字指示器
-                    const typingIndicator = this.manager.createTypingIndicator();
+                    // 使用 resendMessageAt 方法（与 YiWeb 保持一致）
+                    // 找到消息索引
+                    const idx = this.manager && typeof this.manager.findMessageIndexByDiv === 'function' 
+                        ? this.manager.findMessageIndexByDiv(currentMessage) 
+                        : -1;
 
-                    // 在当前用户消息之后插入打字指示器
-                    if (currentMessage.nextSibling) {
-                        messagesContainer.insertBefore(typingIndicator, currentMessage.nextSibling);
+                    if (idx >= 0 && this.manager && typeof this.manager.resendMessageAt === 'function') {
+                        // 调用 resendMessageAt，它会删除原消息，设置输入框内容，然后调用 sendMessage 发送消息
+                        await this.manager.resendMessageAt(idx);
                     } else {
-                        messagesContainer.appendChild(typingIndicator);
+                        console.warn('[重新发送] 无法找到消息索引或 resendMessageAt 方法', { idx, manager: this.manager });
+                        throw new Error('无法重新发送消息：找不到消息索引或方法');
                     }
-                    this.scrollToBottom(true); // 添加等待指示器后强制滚动
-
-                    // 生成回复
-                    let fullContent = '';
-                    const messageBubble = typingIndicator.querySelector('[data-message-type="pet-bubble"]');
-
-                    const onStreamContent = (chunk, accumulatedContent) => {
-                        fullContent = accumulatedContent;
-                        if (messageBubble) {
-                            messageBubble.innerHTML = this.manager.renderMarkdown(fullContent);
-                            messageBubble.setAttribute('data-original-text', fullContent);
-
-                            // 处理可能的 Mermaid 图表
-                            if (messageBubble._mermaidTimeout) {
-                                clearTimeout(messageBubble._mermaidTimeout);
-                            }
-                            messageBubble._mermaidTimeout = setTimeout(async () => {
-                                await this.manager.processMermaidBlocks(messageBubble);
-                                messageBubble._mermaidTimeout = null;
-                            }, 500);
-
-                            this.scrollToBottom(); // 智能滚动
-                        }
-                    };
-
-                    // 创建 AbortController 用于终止请求
-                    const abortController = new AbortController();
-                    this._updateRequestStatus('loading', abortController);
-
-                    // 调用 API 生成回复
-                    const reply = await this.manager.generatePetResponseStream(userMessageText.trim(), onStreamContent, abortController);
-
-                    // 移除打字指示器，创建正式的消息元素
-                    typingIndicator.remove();
-
-                    // 创建正式的宠物消息
-                    const petMessage = this.manager.createMessageElement(reply, 'pet');
-                    if (currentMessage.nextSibling) {
-                        messagesContainer.insertBefore(petMessage, currentMessage.nextSibling);
-                    } else {
-                        messagesContainer.appendChild(petMessage);
-                    }
-
-                    // 确保最终内容被显示
-                    const finalMessageBubble = petMessage.querySelector('[data-message-type="pet-bubble"]');
-                    if (finalMessageBubble && fullContent !== reply) {
-                        finalMessageBubble.innerHTML = this.manager.renderMarkdown(reply);
-                        finalMessageBubble.setAttribute('data-original-text', reply);
-                        setTimeout(async () => {
-                            await this.manager.processMermaidBlocks(finalMessageBubble);
-                        }, 100);
-                    }
-
-                    // 添加复制按钮等操作按钮
-                    const copyButtonContainer = petMessage.querySelector('[data-copy-button-container]');
-                    if (copyButtonContainer && reply && reply.trim()) {
-                        this.manager.addCopyButton(copyButtonContainer, finalMessageBubble);
-                    }
-
-                    // 添加排序按钮
-                    if (copyButtonContainer) {
-                        this.manager.addSortButtons(copyButtonContainer, petMessage);
-                    }
-
-                    // 添加重试按钮
-                    const tryAgainButtonContainer = petMessage.querySelector('[data-try-again-button-container]');
-                    if (tryAgainButtonContainer) {
-                        this.addTryAgainButton(tryAgainButtonContainer, petMessage);
-                    }
-
-                    // 添加消息到会话
-                    if (this.manager.currentSessionId && reply && reply.trim()) {
-                        await this.manager.addMessageToSession('pet', reply, null, true);
-
-                        // 调用 session/save 保存会话到后端
-                        if (this.manager.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                            await this.manager.syncSessionToBackend(this.manager.currentSessionId, true);
-                        }
-                    }
-
-                    this.scrollToBottom(); // 智能滚动
-
-                    this._updateRequestStatus('idle');
 
                     // 恢复按钮状态
                     resendButton.innerHTML = `
@@ -3330,7 +3372,9 @@
                         <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 `;
-                    resendButton.style.color = '#22c55e';  /* 现代绿 */
+                    resendButton.classList.remove('chat-message-resend-btn--loading');
+                    resendButton.classList.add('chat-message-resend-btn--success');
+                    resendButton.disabled = false;
 
                     setTimeout(() => {
                         resendButton.innerHTML = `
@@ -3339,28 +3383,23 @@
                             <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
                         </svg>
                     `;
-                        resendButton.style.color = '';
-                        resendButton.style.opacity = '0.7';
-                        resendButton.style.cursor = 'pointer';
+                        resendButton.classList.remove('chat-message-resend-btn--success', 'chat-message-resend-btn--loading');
                         isResending = false;
                     }, 1500);
 
                 } catch (error) {
-                    const isAbortError = error.name === 'AbortError' || error.message === '请求已取消';
+                    console.error('[重新发送] 重新发送消息失败:', error);
 
-                    if (!isAbortError) {
-                        console.error('重新发送 prompt 请求失败:', error);
-                    }
-
-                    this._updateRequestStatus('idle');
-
+                    // 恢复按钮状态
                     resendButton.innerHTML = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
                         <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 `;
-                    resendButton.style.color = '#ef4444';  /* 量子红 */
+                    resendButton.classList.remove('chat-message-resend-btn--loading');
+                    resendButton.classList.add('chat-message-resend-btn--error');
+                    resendButton.disabled = false;
 
                     setTimeout(() => {
                         resendButton.innerHTML = `
@@ -3369,9 +3408,7 @@
                             <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
                         </svg>
                     `;
-                        resendButton.style.color = '';
-                        resendButton.style.opacity = '0.7';
-                        resendButton.style.cursor = 'pointer';
+                        resendButton.classList.remove('chat-message-resend-btn--error', 'chat-message-resend-btn--loading');
                         isResending = false;
                     }, 1500);
                 }
@@ -3380,7 +3417,7 @@
             if (!container.querySelector('.edit-button')) {
                 container.appendChild(editButton);
             }
-            if (!container.querySelector('.resend-button')) {
+            if (!container.querySelector('.chat-message-resend-btn')) {
                 container.appendChild(resendButton);
             }
             if (!container.querySelector('.delete-button')) {

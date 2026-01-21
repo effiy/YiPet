@@ -1355,17 +1355,34 @@
             return;
         }
 
-        // 获取当前页面信息
-        const pageInfo = this.getPageInfo();
         const session = this.sessions[this.currentSessionId];
 
-        // 关键检查：只有当会话URL和当前页面URL匹配时，才允许更新页面信息
-        // 这样可以确保切换到不同URL的会话时，不会互相影响数据
-        const isUrlMatched = session.url === pageInfo.url;
+        // 获取当前页面信息（添加错误处理，避免在删除消息等操作时因 DOM 变化导致错误）
+        let pageInfo = null;
+        let isUrlMatched = false;
+        try {
+            pageInfo = this.getPageInfo();
+            // 关键检查：只有当会话URL和当前页面URL匹配时，才允许更新页面信息
+            // 这样可以确保切换到不同URL的会话时，不会互相影响数据
+            isUrlMatched = session.url === pageInfo.url;
+        } catch (error) {
+            // 如果获取页面信息失败（例如在删除消息时 DOM 正在变化），使用会话中已有的信息
+            console.warn('获取页面信息失败，使用会话中已有的信息', { 
+                error: String(error && error.message || error) 
+            });
+            // 不更新页面信息，保持会话中已有的信息不变
+            pageInfo = {
+                url: session.url || window.location.href,
+                title: session.pageTitle || session.title || document.title || '未命名页面',
+                description: session.pageDescription || '',
+                content: session.pageContent || ''
+            };
+            isUrlMatched = session.url === pageInfo.url;
+        }
 
         // 如果聊天窗口已打开，同步消息记录（从DOM中提取，确保完整性）
         if (this.chatWindow) {
-            const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+            const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
             if (messagesContainer) {
                 // 获取所有消息元素
                 const messageElements = Array.from(messagesContainer.children);
@@ -1737,7 +1754,7 @@
         // 获取UI元素引用
         const clickedItem = this.sessionSidebar?.querySelector(`[data-session-id="${sessionId}"]`);
         const previousActiveItem = this.sessionSidebar?.querySelector('.session-item.active');
-        const messagesContainer = this.chatWindow?.querySelector('#pet-chat-messages');
+        const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
 
         // 显示加载状态
         if (clickedItem) {
@@ -2098,7 +2115,7 @@
 
                 // 清空消息显示
                 if (this.chatWindow && this.isChatOpen) {
-                    const messagesContainer = this.chatWindow.querySelector('#pet-chat-messages');
+                    const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
                     if (messagesContainer) {
                         messagesContainer.innerHTML = '';
                     }
@@ -2235,7 +2252,14 @@
         const originalDescription = session.pageDescription || '';
 
         // 打开编辑对话框
-        this.openSessionInfoEditor(sessionId, originalTitle, originalDescription);
+        if (typeof this.openSessionInfoEditor === 'function') {
+            this.openSessionInfoEditor(sessionId, originalTitle, originalDescription);
+        } else {
+            console.error('openSessionInfoEditor 方法不存在，请确保 petManager.sessionEditor.js 已正确加载');
+            if (typeof this.showNotification === 'function') {
+                this.showNotification('编辑功能不可用：编辑器模块未加载', 'error');
+            }
+        }
     };
 
     // 切换会话收藏状态

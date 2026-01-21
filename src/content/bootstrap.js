@@ -70,8 +70,8 @@ if (typeof PET_CONFIG === 'undefined') {
             sizeLimits: { min: 80, max: 400 }
         },
         chatWindow: {
-            defaultSize: { width: 700, height: 600 },
-            sizeLimits: { minWidth: 300, maxWidth: 10000, minHeight: 200, maxHeight: 10000 },
+            defaultSize: { width: 700, height: 720 },
+            sizeLimits: { minWidth: 300, maxWidth: 10000, minHeight: 450, maxHeight: 10000 },
             input: { maxLength: 0, placeholder: '输入消息...' }, // 0表示无限制
             message: { maxLength: 0, thinkingDelay: { min: 1000, max: 2000 } } // 0表示无限制
         },

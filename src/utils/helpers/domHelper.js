@@ -122,6 +122,18 @@ class DomHelper {
             }
         });
     }
+
+    /**
+     * HTML转义（防止XSS攻击）
+     * @param {string} text - 要转义的文本
+     * @returns {string} 转义后的HTML字符串
+     */
+    static escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 }
 
 // 导出

@@ -25,7 +25,7 @@
         }
 
         // 显示对话框
-        overlay.style.display = 'flex';
+        overlay.classList.add('js-visible');
         overlay.dataset.sessionId = sessionId;
 
         // 获取会话数据
@@ -96,20 +96,8 @@
             overlay.setAttribute('role', 'dialog');
             overlay.setAttribute('aria-modal', 'true');
             overlay.setAttribute('aria-label', '编辑会话');
-            overlay.style.cssText = `
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                background: rgba(0,0,0,0.6) !important;
-                backdrop-filter: blur(2px) !important;
-                z-index: 1000 !important;
-                display: none !important;
-                align-items: center !important;
-                justify-content: center !important;
-                animation: fadeIn 0.2s ease !important;
-            `;
+            overlay.id = 'pet-session-info-editor';
+            // 样式已通过 CSS 类定义
     
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
@@ -119,23 +107,9 @@
     
             // 主体容器
             const modal = document.createElement('div');
-            modal.className = 'aicr-session-context-modal-body aicr-session-settings-modal-body';
+            modal.className = 'aicr-session-context-modal-body aicr-session-settings-modal-body session-editor-modal';
             modal.setAttribute('tabindex', '0');
-            modal.style.cssText = `
-                position: relative !important;
-                max-width: 800px !important;
-                width: calc(100% - 80px) !important;
-                height: calc(100vh - 120px) !important;
-                max-height: 90vh !important;
-                margin: 60px auto !important;
-                background: #1a1b1e !important;
-                display: flex !important;
-                flex-direction: column !important;
-                overflow: hidden !important;
-                border-radius: 16px !important;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
-                animation: fadeInUp 0.2s ease-out !important;
-            `;
+            // 样式已通过 CSS 类定义
             
             // 添加淡入动画（如果不存在）
             if (!document.getElementById('pet-session-editor-animations')) {
@@ -163,28 +137,15 @@
     
             // 头部
             const header = document.createElement('div');
-            header.className = 'aicr-session-context-modal-header';
-            header.style.cssText = `
-                padding: 16px !important;
-                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-                display: flex !important;
-                justify-content: space-between !important;
-                align-items: center !important;
-                background: #25262b !important;
-            `;
+            header.className = 'aicr-session-context-modal-header session-editor-header';
+            // 样式已通过 CSS 类定义
     
             const title = document.createElement('div');
-            title.className = 'aicr-session-context-modal-title';
+            title.className = 'aicr-session-context-modal-title session-editor-title';
             title.textContent = '✏️ 编辑会话';
-            title.style.cssText = 'color: #fff !important; font-weight: 500 !important; font-size: 15px !important;';
     
             const headerRight = document.createElement('div');
-            headerRight.className = 'aicr-session-context-modal-header-right';
-            headerRight.style.cssText = `
-                display: inline-flex !important;
-                align-items: center !important;
-                gap: 10px !important;
-            `;
+            headerRight.className = 'aicr-session-context-modal-header-right session-editor-header-right';
     
             const saveBtn = document.createElement('button');
             saveBtn.className = 'aicr-session-context-toolbar-btn primary session-editor-save';
@@ -192,39 +153,11 @@
             saveBtn.textContent = '保存';
             saveBtn.setAttribute('aria-label', '保存');
             saveBtn.setAttribute('title', '保存');
-            saveBtn.style.cssText = `
-                border: 1px solid rgba(79, 70, 229, 0.45) !important;
-                background: rgba(79, 70, 229, 0.85) !important;
-                color: rgba(248, 250, 252, 0.98) !important;
-                border-radius: 10px !important;
-                padding: 6px 10px !important;
-                font-size: 12px !important;
-                cursor: pointer !important;
-                white-space: nowrap !important;
-                font-weight: 650 !important;
-                transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
-            `;
-            saveBtn.addEventListener('mouseenter', () => {
-                saveBtn.style.background = 'rgba(79, 70, 229, 0.95)';
-                saveBtn.style.borderColor = 'rgba(79, 70, 229, 0.6)';
-                saveBtn.style.transform = 'translateY(-1px)';
-            });
-            saveBtn.addEventListener('mouseleave', () => {
-                saveBtn.style.background = 'rgba(79, 70, 229, 0.85)';
-                saveBtn.style.borderColor = 'rgba(79, 70, 229, 0.45)';
-                saveBtn.style.transform = 'none';
-            });
     
             const closeBtn = document.createElement('div');
             closeBtn.className = 'aicr-session-context-modal-close';
             closeBtn.innerHTML = '✕';
             closeBtn.setAttribute('aria-label', '关闭');
-            closeBtn.style.cssText = `
-                color: rgba(255,255,255,0.5) !important;
-                cursor: pointer !important;
-                padding: 4px !important;
-                font-size: 14px !important;
-            `;
             closeBtn.onclick = () => this.closeSessionInfoEditor();
     
             headerRight.appendChild(saveBtn);
@@ -235,41 +168,15 @@
             // 内容区域
             const content = document.createElement('div');
             content.className = 'aicr-session-context-modal-content aicr-session-settings-modal-content';
-            content.style.cssText = `
-                flex: 1 !important;
-                overflow-y: auto !important;
-                padding: 16px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 20px !important;
-            `;
-            content.style.cssText = `
-                flex: 1 !important;
-                overflow-y: auto !important;
-                padding: 16px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 20px !important;
-            `;
     
             // 标题字段
             const titleField = document.createElement('div');
             titleField.className = 'aicr-session-settings-field';
-            titleField.style.cssText = `
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
-            `;
     
             const titleLabel = document.createElement('label');
             titleLabel.className = 'aicr-session-settings-label';
             titleLabel.setAttribute('for', 'session-edit-title');
             titleLabel.textContent = '标题';
-            titleLabel.style.cssText = `
-                color: rgba(226, 232, 240, 0.92) !important;
-                font-weight: 650 !important;
-                font-size: 13px !important;
-            `;
     
             const titleInput = document.createElement('input');
             titleInput.id = 'session-edit-title';
@@ -279,25 +186,6 @@
             titleInput.setAttribute('autocomplete', 'off');
             titleInput.setAttribute('spellcheck', 'false');
             titleInput.setAttribute('aria-label', '会话标题');
-            titleInput.style.cssText = `
-                width: 100% !important;
-                border-radius: 12px !important;
-                padding: 10px 12px !important;
-                border: 1px solid rgba(51, 65, 85, 0.85) !important;
-                background: rgba(2, 6, 23, 0.60) !important;
-                color: rgba(226, 232, 240, 0.95) !important;
-                outline: none !important;
-                font-size: 14px !important;
-                box-sizing: border-box !important;
-            `;
-            titleInput.addEventListener('focus', () => {
-                titleInput.style.borderColor = 'rgba(34, 211, 238, 0.45)';
-                titleInput.style.boxShadow = '0 0 0 3px rgba(34, 211, 238, 0.18)';
-            });
-            titleInput.addEventListener('blur', () => {
-                titleInput.style.borderColor = 'rgba(51, 65, 85, 0.85)';
-                titleInput.style.boxShadow = 'none';
-            });
     
             titleField.appendChild(titleLabel);
             titleField.appendChild(titleInput);
@@ -306,21 +194,11 @@
             // 网址字段
             const urlField = document.createElement('div');
             urlField.className = 'aicr-session-settings-field';
-            urlField.style.cssText = `
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
-            `;
     
             const urlLabel = document.createElement('label');
             urlLabel.className = 'aicr-session-settings-label';
             urlLabel.setAttribute('for', 'session-edit-url');
             urlLabel.textContent = '网址';
-            urlLabel.style.cssText = `
-                color: rgba(226, 232, 240, 0.92) !important;
-                font-weight: 650 !important;
-                font-size: 13px !important;
-            `;
     
             const urlInput = document.createElement('input');
             urlInput.id = 'session-edit-url';
@@ -330,34 +208,10 @@
             urlInput.setAttribute('autocomplete', 'off');
             urlInput.setAttribute('spellcheck', 'false');
             urlInput.setAttribute('aria-label', '会话网址');
-            urlInput.style.cssText = `
-                width: 100% !important;
-                border-radius: 12px !important;
-                padding: 10px 12px !important;
-                border: 1px solid rgba(51, 65, 85, 0.85) !important;
-                background: rgba(2, 6, 23, 0.60) !important;
-                color: rgba(226, 232, 240, 0.95) !important;
-                outline: none !important;
-                font-size: 14px !important;
-                box-sizing: border-box !important;
-            `;
-            urlInput.addEventListener('focus', () => {
-                urlInput.style.borderColor = 'rgba(34, 211, 238, 0.45)';
-                urlInput.style.boxShadow = '0 0 0 3px rgba(34, 211, 238, 0.18)';
-            });
-            urlInput.addEventListener('blur', () => {
-                urlInput.style.borderColor = 'rgba(51, 65, 85, 0.85)';
-                urlInput.style.boxShadow = 'none';
-            });
     
             const urlHint = document.createElement('div');
             urlHint.className = 'aicr-session-settings-hint';
             urlHint.textContent = '网址将显示在欢迎卡片中';
-            urlHint.style.cssText = `
-                color: rgba(148, 163, 184, 0.75) !important;
-                font-size: 12px !important;
-                line-height: 1.5 !important;
-            `;
     
             urlField.appendChild(urlLabel);
             urlField.appendChild(urlInput);
@@ -367,30 +221,14 @@
             // 描述字段
             const descriptionField = document.createElement('div');
             descriptionField.className = 'aicr-session-settings-field';
-            descriptionField.style.cssText = `
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
-            `;
     
             const descriptionHeader = document.createElement('div');
             descriptionHeader.className = 'aicr-session-edit-description-header';
-            descriptionHeader.style.cssText = `
-                display: flex !important;
-                justify-content: space-between !important;
-                align-items: center !important;
-                margin-bottom: 8px !important;
-            `;
     
             const descriptionLabel = document.createElement('label');
             descriptionLabel.className = 'aicr-session-settings-label';
             descriptionLabel.setAttribute('for', 'session-edit-description');
             descriptionLabel.textContent = '描述';
-            descriptionLabel.style.cssText = `
-                color: rgba(226, 232, 240, 0.92) !important;
-                font-weight: 650 !important;
-                font-size: 13px !important;
-            `;
     
             const generateDescriptionBtn = document.createElement('button');
             generateDescriptionBtn.className = 'aicr-session-context-toolbar-btn session-editor-generate-description';
@@ -398,27 +236,6 @@
             generateDescriptionBtn.innerHTML = '<span>✨ AI生成</span>';
             generateDescriptionBtn.setAttribute('aria-label', 'AI生成描述');
             generateDescriptionBtn.setAttribute('title', '根据页面上下文内容AI智能生成描述');
-            generateDescriptionBtn.style.cssText = `
-                border: 1px solid rgba(51, 65, 85, 0.85) !important;
-                background: rgba(30, 41, 59, 0.6) !important;
-                color: rgba(226, 232, 240, 0.9) !important;
-                border-radius: 10px !important;
-                padding: 6px 10px !important;
-                font-size: 12px !important;
-                cursor: pointer !important;
-                white-space: nowrap !important;
-                transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
-            `;
-            generateDescriptionBtn.addEventListener('mouseenter', () => {
-                generateDescriptionBtn.style.background = 'rgba(51, 65, 85, 0.6)';
-                generateDescriptionBtn.style.borderColor = 'rgba(51, 65, 85, 0.95)';
-                generateDescriptionBtn.style.transform = 'translateY(-1px)';
-            });
-            generateDescriptionBtn.addEventListener('mouseleave', () => {
-                generateDescriptionBtn.style.background = 'rgba(30, 41, 59, 0.6)';
-                generateDescriptionBtn.style.borderColor = 'rgba(51, 65, 85, 0.85)';
-                generateDescriptionBtn.style.transform = 'none';
-            });
     
             descriptionHeader.appendChild(descriptionLabel);
             descriptionHeader.appendChild(generateDescriptionBtn);
@@ -429,38 +246,10 @@
             descriptionInput.rows = 6;
             descriptionInput.placeholder = '请输入会话描述，或点击AI生成按钮自动生成';
             descriptionInput.setAttribute('aria-label', '会话描述');
-            descriptionInput.style.cssText = `
-                width: 100% !important;
-                resize: vertical !important;
-                min-height: 220px !important;
-                border-radius: 12px !important;
-                padding: 10px 12px !important;
-                border: 1px solid rgba(51, 65, 85, 0.85) !important;
-                background: rgba(2, 6, 23, 0.60) !important;
-                color: rgba(226, 232, 240, 0.95) !important;
-                outline: none !important;
-                font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial !important;
-                font-size: 14px !important;
-                line-height: 1.6 !important;
-                box-sizing: border-box !important;
-            `;
-            descriptionInput.addEventListener('focus', () => {
-                descriptionInput.style.borderColor = 'rgba(34, 211, 238, 0.45)';
-                descriptionInput.style.boxShadow = '0 0 0 3px rgba(34, 211, 238, 0.18)';
-            });
-            descriptionInput.addEventListener('blur', () => {
-                descriptionInput.style.borderColor = 'rgba(51, 65, 85, 0.85)';
-                descriptionInput.style.boxShadow = 'none';
-            });
     
             const descriptionHint = document.createElement('div');
             descriptionHint.className = 'aicr-session-settings-hint';
             descriptionHint.textContent = '描述将帮助您更好地理解和管理会话内容';
-            descriptionHint.style.cssText = `
-                color: rgba(148, 163, 184, 0.75) !important;
-                font-size: 12px !important;
-                line-height: 1.5 !important;
-            `;
     
             descriptionField.appendChild(descriptionHeader);
             descriptionField.appendChild(descriptionInput);
@@ -484,7 +273,7 @@
             const overlay = (this.chatWindow ? this.chatWindow.querySelector('#pet-session-info-editor') : null) 
                 || document.body.querySelector('#pet-session-info-editor');
             if (overlay) {
-                overlay.style.display = 'none';
+                overlay.classList.remove('js-visible');
             }
         };
 
@@ -754,8 +543,6 @@
             const originalText = generateBtn.innerHTML;
             generateBtn.disabled = true;
             generateBtn.innerHTML = '生成中...';
-            generateBtn.style.opacity = '0.6';
-            generateBtn.style.cursor = 'not-allowed';
     
             try {
                 // 获取会话上下文
@@ -941,8 +728,6 @@
                 // 恢复按钮状态
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = originalText;
-                generateBtn.style.opacity = '1';
-                generateBtn.style.cursor = 'pointer';
             }
         };
 
@@ -971,8 +756,6 @@
             const originalText = generateBtn.innerHTML;
             generateBtn.disabled = true;
             generateBtn.innerHTML = '<span>生成中...</span>';
-            generateBtn.style.opacity = '0.6';
-            generateBtn.style.cursor = 'not-allowed';
     
             try {
                 // 获取会话上下文
@@ -1155,8 +938,6 @@
                 // 恢复按钮状态
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = '<span>✨ AI生成</span>';
-                generateBtn.style.opacity = '1';
-                generateBtn.style.cursor = 'pointer';
             }
         };
         proto.optimizeSessionDescription = async function(sessionId) {
@@ -1189,8 +970,6 @@
             const originalText = optimizeBtn.innerHTML;
             optimizeBtn.disabled = true;
             optimizeBtn.innerHTML = '优化中...';
-            optimizeBtn.style.opacity = '0.6';
-            optimizeBtn.style.cursor = 'not-allowed';
     
             try {
                 // 获取会话上下文
@@ -1381,8 +1160,6 @@
                 // 恢复按钮状态
                 optimizeBtn.disabled = false;
                 optimizeBtn.innerHTML = originalText;
-                optimizeBtn.style.opacity = '1';
-                optimizeBtn.style.cursor = 'pointer';
             }
         };
 
@@ -1405,8 +1182,6 @@
             if (translateBtn) {
                 translateBtn.disabled = true;
                 translateBtn.textContent = '翻译中...';
-                translateBtn.style.opacity = '0.6';
-                translateBtn.style.cursor = 'not-allowed';
             }
     
             try {
@@ -1640,8 +1415,6 @@
                 if (translateBtn) {
                     translateBtn.disabled = false;
                     translateBtn.textContent = originalBtnText;
-                    translateBtn.style.opacity = '1';
-                    translateBtn.style.cursor = 'pointer';
                 }
                 // 隐藏加载动画
                 this._hideLoadingAnimation();

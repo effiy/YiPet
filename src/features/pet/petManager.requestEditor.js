@@ -61,17 +61,11 @@
         // 创建表单组（辅助函数）
         proto.createFormGroup = function(labelText, inputType, inputClass, placeholder, rows = 1) {
             const group = document.createElement('div');
-            group.style.cssText = `margin-bottom: 16px !important;`;
+            group.className = 'pet-request-form-group';
 
             const label = document.createElement('label');
             label.textContent = labelText;
-            label.style.cssText = `
-                display: block !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                color: #374151 !important;
-                margin-bottom: 8px !important;
-            `;
+            label.className = 'pet-request-form-label';
 
             let input;
             if (inputType === 'textarea') {
@@ -81,24 +75,9 @@
                 input = document.createElement('input');
                 input.type = inputType;
             }
-            input.className = inputClass;
+            input.className = inputClass || '';
+            input.classList.add('pet-request-form-input');
             input.placeholder = placeholder;
-            input.style.cssText = `
-                width: 100% !important;
-                padding: 10px 12px !important;
-                border: 1px solid #d1d5db !important;
-                border-radius: 8px !important;
-                font-size: 14px !important;
-                box-sizing: border-box !important;
-                transition: border-color 0.2s ease !important;
-                font-family: inherit !important;
-            `;
-            input.addEventListener('focus', () => {
-                input.style.borderColor = '#3b82f6';
-            });
-            input.addEventListener('blur', () => {
-                input.style.borderColor = '#d1d5db';
-            });
 
             group.appendChild(label);
             group.appendChild(input);
@@ -130,27 +109,7 @@
             // 添加"添加Header"按钮
             const addBtn = document.createElement('button');
             addBtn.textContent = '+ 添加Header';
-            addBtn.style.cssText = `
-                width: 100% !important;
-                padding: 10px !important;
-                border: 1px dashed #d1d5db !important;
-                border-top: none !important;
-                background: #1e293b !important;  /* 量子灰 */
-                color: #6b7280 !important;
-                font-size: 13px !important;
-                cursor: pointer !important;
-                transition: all 0.2s ease !important;
-            `;
-            addBtn.addEventListener('mouseenter', () => {
-                addBtn.style.background = '#f9fafb';
-                addBtn.style.borderColor = '#3b82f6';
-                addBtn.style.color = '#3b82f6';
-            });
-            addBtn.addEventListener('mouseleave', () => {
-                addBtn.style.background = '#1e293b';  /* 量子灰 */
-                addBtn.style.borderColor = '#d1d5db';
-                addBtn.style.color = '#6b7280';
-            });
+            addBtn.className = 'pet-request-headers-add-btn';
             addBtn.addEventListener('click', () => {
                 const newRow = this.createHeaderRow('', '', true, headerRows.length);
                 container.insertBefore(newRow, addBtn);
@@ -161,58 +120,23 @@
         // 创建Header行
         proto.createHeaderRow = function(key, value, enabled, index) {
             const row = document.createElement('div');
-            row.style.cssText = `
-                display: flex !important;
-                gap: 8px !important;
-                padding: 8px !important;
-                border-bottom: 1px solid #e5e7eb !important;
-                align-items: center !important;
-            `;
+            row.className = 'pet-request-header-row';
 
             const keyInput = document.createElement('input');
             keyInput.type = 'text';
             keyInput.placeholder = 'Header名称';
             keyInput.value = key;
-            keyInput.style.cssText = `
-                flex: 1 !important;
-                padding: 6px 8px !important;
-                border: 1px solid #d1d5db !important;
-                border-radius: 4px !important;
-                font-size: 12px !important;
-                font-family: 'Monaco', 'Menlo', monospace !important;
-            `;
+            keyInput.className = 'pet-request-header-key';
 
             const valueInput = document.createElement('input');
             valueInput.type = 'text';
             valueInput.placeholder = 'Header值';
             valueInput.value = value;
-            valueInput.style.cssText = `
-                flex: 2 !important;
-                padding: 6px 8px !important;
-                border: 1px solid #d1d5db !important;
-                border-radius: 4px !important;
-                font-size: 12px !important;
-                font-family: 'Monaco', 'Menlo', monospace !important;
-            `;
+            valueInput.className = 'pet-request-header-value';
 
             const deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '✕';
-            deleteBtn.style.cssText = `
-                padding: 4px 8px !important;
-                border: none !important;
-                background: #ef4444 !important;
-                color: white !important;
-                border-radius: 4px !important;
-                cursor: pointer !important;
-                font-size: 12px !important;
-                transition: all 0.2s ease !important;
-            `;
-            deleteBtn.addEventListener('mouseenter', () => {
-                deleteBtn.style.background = '#dc2626';
-            });
-            deleteBtn.addEventListener('mouseleave', () => {
-                deleteBtn.style.background = '#ef4444';
-            });
+            deleteBtn.className = 'pet-request-header-delete';
             deleteBtn.addEventListener('click', () => {
                 row.remove();
             });
@@ -246,10 +170,10 @@
             const type = typeSelect.value;
 
             if (type === 'none') {
-                textarea.style.display = 'none';
+                textarea.classList.add('js-hidden');
                 textarea.value = '';
             } else {
-                textarea.style.display = 'block';
+                textarea.classList.remove('js-hidden');
 
                 if (body !== null && body !== undefined) {
                     if (type === 'json') {

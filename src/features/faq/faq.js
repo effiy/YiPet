@@ -72,19 +72,7 @@
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', '常见问题');
-    overlay.style.cssText = `
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      background: rgba(0,0,0,0.6) !important;
-      backdrop-filter: blur(2px) !important;
-      z-index: 1000 !important;
-      display: none !important;
-      flex-direction: column !important;
-      animation: fadeIn 0.2s ease !important;
-    `;
+    overlay.className = 'pet-faq-manager';
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
@@ -93,41 +81,20 @@
     });
 
     const modal = document.createElement('div');
-    modal.style.cssText = `
-      flex: 1 !important;
-      background: #1a1b1e !important;
-      display: flex !important;
-      flex-direction: column !important;
-      overflow: hidden !important;
-      margin: 0 !important;
-      border-radius: 0 !important;
-    `;
+    modal.className = 'pet-faq-manager-modal';
 
     // 头部
     const header = document.createElement('div');
-    header.style.cssText = `
-      padding: 16px !important;
-      border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-      display: flex !important;
-      justify-content: space-between !important;
-      align-items: center !important;
-      background: #25262b !important;
-    `;
+    header.className = 'pet-faq-manager-header';
 
     const titleDiv = document.createElement('div');
-    titleDiv.innerHTML = '💡 常见问题 <span style="font-size: 12px; color: rgba(255,255,255,0.6);">（一键插入/发送）</span>';
-    titleDiv.style.cssText = 'color: #fff !important; font-weight: 500 !important; font-size: 15px !important;';
+    titleDiv.innerHTML = '💡 常见问题 <span class="pet-faq-manager-title-sub">（一键插入/发送）</span>';
+    titleDiv.className = 'pet-faq-manager-title';
 
     const closeBtn = document.createElement('div');
     closeBtn.className = 'pet-faq-modal-close';
     closeBtn.innerHTML = '✕';
     closeBtn.setAttribute('aria-label', '关闭');
-    closeBtn.style.cssText = `
-      color: rgba(255,255,255,0.5) !important;
-      cursor: pointer !important;
-      padding: 4px !important;
-      font-size: 14px !important;
-    `;
     closeBtn.onclick = () => this.closeFaqManagerOnly();
 
     header.appendChild(titleDiv);
@@ -136,14 +103,6 @@
     // 内容区域
     const content = document.createElement('div');
     content.className = 'pet-faq-modal-content';
-    content.style.cssText = `
-      flex: 1 !important;
-      overflow-y: auto !important;
-      padding: 16px !important;
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 20px !important;
-    `;
 
     const layout = document.createElement('div');
     layout.className = 'pet-faq-layout';
@@ -300,7 +259,7 @@
     // 标签管理面板
     const tagManager = document.createElement('div');
     tagManager.className = 'pet-faq-tag-manager';
-    tagManager.style.display = 'none';
+    tagManager.classList.add('tw-hidden');
     tagManager.setAttribute('aria-label', '标签管理面板');
 
     const tagManagerHeader = document.createElement('div');
@@ -366,12 +325,12 @@
     // 状态信息
     const statusDiv = document.createElement('div');
     statusDiv.className = 'pet-faq-status';
-    statusDiv.style.display = 'none';
+    statusDiv.classList.add('tw-hidden');
     statusDiv.setAttribute('role', 'status');
 
     const errorDiv = document.createElement('div');
     errorDiv.className = 'pet-faq-error';
-    errorDiv.style.display = 'none';
+    errorDiv.classList.add('tw-hidden');
     errorDiv.setAttribute('role', 'status');
 
     // FAQ列表
@@ -411,7 +370,7 @@
                               this.faqTagFilterNoTags || this.faqTagFilterReverse;
       clearFilterBtn.disabled = !hasActiveFilter;
       tagManagerBtn.classList.toggle('active', !!this.faqTagManagerVisible);
-      tagManager.style.display = this.faqTagManagerVisible ? 'flex' : 'none';
+      tagManager.classList.toggle('tw-hidden', !this.faqTagManagerVisible);
       // 更新刷新按钮的禁用状态（当加载中时禁用）
       const isLoading = overlay._isLoading || false;
       refreshBtn.disabled = isLoading;
@@ -516,13 +475,13 @@
       }
       
       // 显示弹窗
-      overlay.style.display = 'flex';
+      overlay.classList.add('pet-is-visible');
       
       // 隐藏侧边栏和输入框的折叠按钮
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
       const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-      if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
-      if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+      if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+      if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
       
       // 清空搜索关键词
       if (this.faqSearchFilter) {
@@ -540,10 +499,10 @@
         if (typeof this.showNotification === 'function') {
           this.showNotification('常见问题功能未启用：FAQ API 未初始化', 'error');
         }
-        overlay.style.display = 'none';
+        overlay.classList.remove('pet-is-visible');
         // 恢复按钮显示
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
-        if (inputToggleBtn) inputToggleBtn.style.display = '';
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         return;
       }
       
@@ -554,10 +513,10 @@
         if (typeof this.showNotification === 'function') {
           this.showNotification('常见问题功能未启用：FAQ API 未启用', 'error');
         }
-        overlay.style.display = 'none';
+        overlay.classList.remove('pet-is-visible');
         // 恢复按钮显示
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
-        if (inputToggleBtn) inputToggleBtn.style.display = '';
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         return;
       }
       
@@ -610,12 +569,12 @@
       // 确保弹窗关闭，按钮恢复显示
       const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
       if (overlay) {
-        overlay.style.display = 'none';
+        overlay.classList.remove('pet-is-visible');
       }
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
       const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-      if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
-      if (inputToggleBtn) inputToggleBtn.style.display = '';
+      if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+      if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     }
   };
 
@@ -624,9 +583,9 @@
     if (!overlay) return;
     const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
     const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-    if (sidebarToggleBtn) sidebarToggleBtn.style.display = '';
-    if (inputToggleBtn) inputToggleBtn.style.display = '';
-    overlay.style.display = 'none';
+    if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+    if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
+    overlay.classList.remove('pet-is-visible');
     const faqInput = overlay.querySelector('.pet-faq-input');
     if (faqInput) {
       faqInput.value = '';
@@ -912,9 +871,9 @@
       if (overlay._updateTagFilterButtons) {
         overlay._updateTagFilterButtons();
       }
-      statusDiv.style.display = 'block';
+      statusDiv.classList.remove('tw-hidden');
       statusDiv.textContent = '正在加载常见问题...';
-      errorDiv.style.display = 'none';
+      errorDiv.classList.add('tw-hidden');
 
       if (!this.faqApi) {
         throw new Error('FAQ API 未初始化');
@@ -955,7 +914,7 @@
         summary.textContent = `共 ${normalized.length} 条，匹配 ${filteredFaqs.length} 条`;
       }
 
-      statusDiv.style.display = 'none';
+      statusDiv.classList.add('tw-hidden');
       faqsContainer.innerHTML = '';
 
       if (filteredFaqs.length === 0) {
@@ -988,8 +947,8 @@
 
     } catch (err) {
       console.error('加载常见问题失败:', err);
-      statusDiv.style.display = 'none';
-      errorDiv.style.display = 'block';
+      statusDiv.classList.add('tw-hidden');
+      errorDiv.classList.remove('tw-hidden');
       const errorMessage = err.message || '加载常见问题失败';
       errorDiv.textContent = errorMessage;
       faqsContainer.innerHTML = '';

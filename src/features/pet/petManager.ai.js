@@ -16,62 +16,27 @@
         if (existing) existing.remove();
         const overlay = document.createElement('div');
         overlay.id = 'pet-ai-settings';
-        overlay.style.cssText = `
-            position: fixed !important;
-            inset: 0 !important;
-            background: rgba(0,0,0,0.5) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: ${PET_CONFIG.ui.zIndex.modal} !important;
-        `;
+        overlay.style.setProperty('z-index', `${PET_CONFIG.ui.zIndex.modal}`, 'important');
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 overlay.remove();
                 const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
                 const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-                if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
-                if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+                if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+                if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
             }
         });
         const panel = document.createElement('div');
-        panel.style.cssText = `
-            background: #1e293b !important;  /* 量子灰 */
-            border-radius: 12px !important;
-            padding: 20px !important;
-            width: 90% !important;
-            max-width: 520px !important;
-            box-shadow: 0 12px 24px rgba(0,0,0,0.2) !important;
-        `;
         const title = document.createElement('div');
-        title.style.cssText = `
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            margin-bottom: 12px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            color: #1f2937 !important;
-        `;
+        title.className = 'pet-ai-settings-title';
         title.innerHTML = `⚙️ AI 设置`;
         const row = document.createElement('div');
-        row.style.cssText = `
-            display: flex !important;
-            gap: 12px !important;
-            align-items: center !important;
-            margin-bottom: 16px !important;
-        `;
+        row.className = 'pet-ai-settings-row';
         const label = document.createElement('label');
+        label.className = 'pet-ai-settings-label';
         label.textContent = '模型';
-        label.style.cssText = `min-width: 48px !important; color: #374151 !important;`;
         const select = document.createElement('select');
-        select.style.cssText = `
-            flex: 1 !important;
-            padding: 8px 10px !important;
-            border: 1px solid #e5e7eb !important;
-            border-radius: 8px !important;
-            outline: none !important;
-        `;
+        select.className = 'pet-ai-settings-select';
         const models = (PET_CONFIG.chatModels && Array.isArray(PET_CONFIG.chatModels.models)) ? PET_CONFIG.chatModels.models : [];
         models.forEach(m => {
             const opt = document.createElement('option');
@@ -83,60 +48,35 @@
         row.appendChild(label);
         row.appendChild(select);
         const buttons = document.createElement('div');
-        buttons.style.cssText = `
-            display: flex !important;
-            justify-content: flex-end !important;
-            gap: 10px !important;
-        `;
+        buttons.className = 'pet-ai-settings-buttons';
         const tokenBtn = document.createElement('button');
+        tokenBtn.className = 'pet-ai-settings-token-btn';
         tokenBtn.textContent = '设置 Token';
-        tokenBtn.style.cssText = `
-            padding: 8px 12px !important;
-            border-radius: 8px !important;
-            border: 1px solid #e5e7eb !important;
-            background: #334155 !important;  /* 中量子灰 */
-            color: #f8fafc !important;  /* 量子白 */
-            cursor: pointer !important;
-        `;
         tokenBtn.addEventListener('click', () => {
             this.openAuth && this.openAuth();
         });
         const saveBtn = document.createElement('button');
+        saveBtn.className = 'pet-ai-settings-save-btn';
         saveBtn.textContent = '保存';
-        saveBtn.style.cssText = `
-            padding: 8px 12px !important;
-            border-radius: 8px !important;
-            border: 1px solid #3b82f6 !important;
-            background: #3b82f6 !important;
-            color: #fff !important;
-            cursor: pointer !important;
-        `;
         saveBtn.addEventListener('click', () => {
             this.currentModel = select.value;
             this.saveState && this.saveState();
             overlay.remove();
             const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
             const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
-            if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+            if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
             this.showNotification && this.showNotification('模型已更新', 'success');
         });
         const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'pet-ai-settings-cancel-btn';
         cancelBtn.textContent = '取消';
-        cancelBtn.style.cssText = `
-            padding: 8px 12px !important;
-            border-radius: 8px !important;
-            border: 1px solid #e5e7eb !important;
-            background: #1e293b !important;  /* 量子灰 */
-            color: #f8fafc !important;  /* 量子白 */
-            cursor: pointer !important;
-        `;
         cancelBtn.addEventListener('click', () => {
             overlay.remove();
             const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
             const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
-            if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+            if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         });
         buttons.appendChild(tokenBtn);
         buttons.appendChild(cancelBtn);
@@ -148,8 +88,8 @@
         this.chatWindow.appendChild(overlay);
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
         const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
-        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
     };
 
     // 去除 think 内容（思考过程）
@@ -342,6 +282,13 @@
                             fullContent += chunk.message.content;
                             if (onContent) {
                                 onContent(chunk.message.content, fullContent);
+                            }
+                        }
+                        // 支持嵌套格式: chunk.data.message
+                        else if (chunk.data && chunk.data.message) {
+                            fullContent += chunk.data.message;
+                            if (onContent) {
+                                onContent(chunk.data.message, fullContent);
                             }
                         }
                         // 支持旧的自定义格式: data.type === 'content'
@@ -537,6 +484,7 @@
             const decoder = new TextDecoder();
             let buffer = '';
             let fullContent = '';
+            let processedContent = ''; // 保存处理后的内容，确保与显示内容一致
 
             while (true) {
                 // 检查是否已中止
@@ -586,17 +534,41 @@
                             // 支持 Ollama 格式: chunk.message.content
                             else if (chunk.message && chunk.message.content) {
                                 fullContent += chunk.message.content;
+                                // 实时处理并保存处理后的内容，确保与显示内容一致
+                                processedContent = this.stripThinkContent(fullContent);
                                 if (onContent) {
                                     // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
-                                    onContent(chunk.message.content, this.stripThinkContent(fullContent));
+                                    onContent(chunk.message.content, processedContent);
+                                }
+                            }
+                            // 支持嵌套格式: chunk.data.message
+                            else if (chunk.data && chunk.data.message) {
+                                fullContent += chunk.data.message;
+                                // 实时处理并保存处理后的内容，确保与显示内容一致
+                                processedContent = this.stripThinkContent(fullContent);
+                                if (onContent) {
+                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
+                                    onContent(chunk.data.message, processedContent);
+                                }
+                            }
+                            // 支持通用格式: chunk.content
+                            else if (chunk.content) {
+                                fullContent += chunk.content;
+                                // 实时处理并保存处理后的内容，确保与显示内容一致
+                                processedContent = this.stripThinkContent(fullContent);
+                                if (onContent) {
+                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
+                                    onContent(chunk.content, processedContent);
                                 }
                             }
                             // 支持旧的自定义格式: data.type === 'content'
                             else if (chunk.type === 'content') {
                                 fullContent += chunk.data;
+                                // 实时处理并保存处理后的内容，确保与显示内容一致
+                                processedContent = this.stripThinkContent(fullContent);
                                 if (onContent) {
                                     // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
-                                    onContent(chunk.data, this.stripThinkContent(fullContent));
+                                    onContent(chunk.data, processedContent);
                                 }
                             }
                             // 检查是否完成
@@ -634,22 +606,12 @@
                 }
             }
 
-            // prompt 接口调用后触发 session/save
-            if (this.currentSessionId && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                try {
-                    // 保存当前会话（同步DOM中的完整消息状态，确保数据一致性）
-                    await this.saveCurrentSession(false, false);
+            // 注意：流式接口完成后不再自动保存会话
+            // 会话保存由 sendMessage 方法在流式完成后统一调用 update_document 接口处理
 
-                    // 调用 session/save 接口保存会话
-                    await this.syncSessionToBackend(this.currentSessionId, true);
-                    console.log(`流式 prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
-                } catch (error) {
-                    console.warn('流式 prompt 接口调用后保存会话失败:', error);
-                }
-            }
-
-            // 返回去除 think 内容后的完整内容
-            return this.stripThinkContent(fullContent);
+            // 返回去除 think 内容后的完整内容（使用处理后的内容，确保与显示内容一致）
+            // 如果 processedContent 为空，说明没有内容被处理，使用 stripThinkContent 处理原始内容
+            return processedContent || this.stripThinkContent(fullContent);
         } catch (error) {
             // 如果是中止错误，不记录为错误
             if (error.name === 'AbortError' || error.message === '请求已取消') {
@@ -961,8 +923,6 @@
         if (optimizeBtn) {
             optimizeBtn.disabled = true;
             optimizeBtn.textContent = '优化中...';
-            optimizeBtn.style.opacity = '0.6';
-            optimizeBtn.style.cursor = 'not-allowed';
         }
 
         try {
@@ -1061,7 +1021,12 @@ ${originalText}
                                 break;
                             }
                             if (chunk.data) {
-                                accumulatedData += chunk.data;
+                                // 支持嵌套格式: chunk.data.message
+                                if (typeof chunk.data === 'object' && chunk.data.message) {
+                                    accumulatedData += chunk.data.message;
+                                } else if (typeof chunk.data === 'string') {
+                                    accumulatedData += chunk.data;
+                                }
                             } else if (chunk.content) {
                                 accumulatedData += chunk.content;
                             } else if (chunk.message && chunk.message.content) {
@@ -1187,7 +1152,7 @@ ${originalText}
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
             if (undoBtn) {
-                undoBtn.style.display = 'block';
+                undoBtn.classList.add('js-visible');
             }
 
             const charCount = optimizedText.length;
@@ -1218,8 +1183,6 @@ ${originalText}
             if (optimizeBtn) {
                 optimizeBtn.disabled = false;
                 optimizeBtn.textContent = originalBtnText;
-                optimizeBtn.style.opacity = '1';
-                optimizeBtn.style.cursor = 'pointer';
             }
         }
     };
@@ -1241,8 +1204,6 @@ ${originalText}
 
         const translateZhBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-zh-btn') : null;
         const translateEnBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-en-btn') : null;
-        const targetBtn = targetLang === 'zh' ? translateZhBtn : translateEnBtn;
-        const originalBtnText = targetBtn ? targetBtn.textContent : '';
 
         if (translateZhBtn) {
             translateZhBtn.disabled = true;
@@ -1250,8 +1211,6 @@ ${originalText}
             if (targetLang === 'zh') {
                 translateZhBtn.textContent = '翻译中...';
             }
-            translateZhBtn.style.opacity = '0.6';
-            translateZhBtn.style.cursor = 'not-allowed';
         }
         if (translateEnBtn) {
             translateEnBtn.disabled = true;
@@ -1259,8 +1218,6 @@ ${originalText}
             if (targetLang === 'en') {
                 translateEnBtn.textContent = '翻译中...';
             }
-            translateEnBtn.style.opacity = '0.6';
-            translateEnBtn.style.cursor = 'not-allowed';
         }
 
         try {
@@ -1340,7 +1297,12 @@ ${originalText}
                                 break;
                             }
                             if (chunk.data) {
-                                accumulatedData += chunk.data;
+                                // 支持嵌套格式: chunk.data.message
+                                if (typeof chunk.data === 'object' && chunk.data.message) {
+                                    accumulatedData += chunk.data.message;
+                                } else if (typeof chunk.data === 'string') {
+                                    accumulatedData += chunk.data;
+                                }
                             } else if (chunk.content) {
                                 accumulatedData += chunk.content;
                             } else if (chunk.message && chunk.message.content) {
@@ -1495,15 +1457,11 @@ ${originalText}
                 translateZhBtn.disabled = false;
                 translateZhBtn.removeAttribute('data-translating');
                 translateZhBtn.textContent = '🇨🇳 中文';
-                translateZhBtn.style.opacity = '1';
-                translateZhBtn.style.cursor = 'pointer';
             }
             if (translateEnBtn) {
                 translateEnBtn.disabled = false;
                 translateEnBtn.removeAttribute('data-translating');
                 translateEnBtn.textContent = '🇺🇸 英文';
-                translateEnBtn.style.opacity = '1';
-                translateEnBtn.style.cursor = 'pointer';
             }
         }
     };

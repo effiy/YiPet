@@ -100,20 +100,7 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
 
     // 显示加载提示
     const loadingToast = document.createElement('div');
-    loadingToast.style.cssText = `
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        background: rgba(59, 130, 246, 0.95) !important;
-        color: white !important;
-        padding: 16px 24px !important;
-        border-radius: 8px !important;
-        font-size: 14px !important;
-        font-weight: 500 !important;
-        z-index: 2147483650 !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    `;
+    loadingToast.className = 'pet-export-toast is-loading';
     loadingToast.textContent = '正在准备导出...';
     document.body.appendChild(loadingToast);
 
@@ -131,21 +118,7 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
 
         // 创建一个临时容器来准备导出内容（使用适合手机阅读的尺寸）
         const exportContainer = document.createElement('div');
-        exportContainer.style.cssText = `
-            position: fixed !important;
-            left: -9999px !important;
-            top: 0 !important;
-            width: 750px !important;
-            max-width: 750px !important;
-            background: white !important;
-            padding: 20px !important;
-            margin: 0 !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif !important;
-            box-sizing: border-box !important;
-            line-height: 1.8 !important;
-            overflow-x: hidden !important;
-            overflow-y: visible !important;
-        `;
+        exportContainer.className = 'export-container';
 
         // 克隆消息内容
         const messagesClone = messagesContainer.cloneNode(true);
@@ -153,30 +126,14 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
         // 获取原始容器的计算样式
         const originalStyle = window.getComputedStyle(messagesContainer);
         
-        messagesClone.style.cssText = `
-            max-height: none !important;
-            overflow: visible !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: transparent !important;
-            width: 100% !important;
-        `;
+        messagesClone.className = 'export-messages-clone';
 
         // 获取所有消息div（不依赖 data-message-type 属性）
         const messageElements = Array.from(messagesClone.children);
         
         // 创建一个新的容器来存放只包含 markdown-content 的元素
         const contentOnlyContainer = document.createElement('div');
-        contentOnlyContainer.style.cssText = `
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: transparent !important;
-            box-sizing: border-box !important;
-            overflow-x: hidden !important;
-            overflow-y: visible !important;
-        `;
+        contentOnlyContainer.className = 'export-content-only-container';
         
         messageElements.forEach((messageDiv, index) => {
             // 获取原始消息元素（用于复制样式）
@@ -198,169 +155,16 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             
             // 创建一个容器来包装 markdown-content
             const contentWrapper = document.createElement('div');
-            contentWrapper.style.cssText = `
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                box-sizing: border-box !important;
-                background: transparent !important;
-                overflow-x: hidden !important;
-                overflow-y: visible !important;
-            `;
+            contentWrapper.className = 'export-content-wrapper';
             
             // 保留原始的间距（如果是第一条消息则不加间距）
             if (index > 0) {
-                contentWrapper.style.marginTop = '16px';
+                contentWrapper.classList.add('has-top-gap');
             }
             
             // 递归复制原始 markdown-content 及其所有子元素的样式
             copyAllElementStyles(markdownContent, markdownClone);
-            
-            // 设置必要的样式（优化移动端阅读体验）
-            markdownClone.style.setProperty('width', '100%', 'important');
-            markdownClone.style.setProperty('max-width', '100%', 'important');
-            markdownClone.style.setProperty('word-wrap', 'break-word', 'important');
-            markdownClone.style.setProperty('overflow-wrap', 'break-word', 'important');
-            markdownClone.style.setProperty('word-break', 'break-word', 'important');
-            markdownClone.style.setProperty('white-space', 'pre-wrap', 'important');
-            markdownClone.style.setProperty('font-size', '16px', 'important');
-            markdownClone.style.setProperty('line-height', '1.8', 'important');
-            markdownClone.style.setProperty('color', '#f8fafc', 'important');  /* 量子白 */
-            markdownClone.style.setProperty('box-sizing', 'border-box', 'important');
-            markdownClone.style.setProperty('overflow-x', 'hidden', 'important');
-            markdownClone.style.setProperty('overflow-y', 'visible', 'important');
-            
-            // 优化标题样式
-            const headings = markdownClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
-            headings.forEach(heading => {
-                heading.style.setProperty('margin', '1.2em 0 0.6em 0', 'important');
-                heading.style.setProperty('line-height', '1.4', 'important');
-                heading.style.setProperty('font-weight', '600', 'important');
-                heading.style.setProperty('color', '#222', 'important');
-            });
-            
-            // 优化段落样式
-            const paragraphs = markdownClone.querySelectorAll('p');
-            paragraphs.forEach(p => {
-                p.style.setProperty('margin', '0.8em 0', 'important');
-                p.style.setProperty('line-height', '1.8', 'important');
-            });
-            
-            // 优化列表样式
-            const lists = markdownClone.querySelectorAll('ul, ol');
-            lists.forEach(list => {
-                list.style.setProperty('padding-left', '1.8em', 'important');
-                list.style.setProperty('margin', '0.8em 0', 'important');
-            });
-            
-            const listItems = markdownClone.querySelectorAll('li');
-            listItems.forEach(li => {
-                li.style.setProperty('margin', '0.4em 0', 'important');
-                li.style.setProperty('line-height', '1.8', 'important');
-            });
-            
-            // 优化代码块样式
-            const codeBlocks = markdownClone.querySelectorAll('pre');
-            codeBlocks.forEach(pre => {
-                pre.style.setProperty('background', '#2d3748', 'important');
-                pre.style.setProperty('color', '#e2e8f0', 'important');
-                pre.style.setProperty('padding', '16px', 'important');
-                pre.style.setProperty('border-radius', '8px', 'important');
-                pre.style.setProperty('overflow-x', 'auto', 'important');
-                pre.style.setProperty('overflow-y', 'visible', 'important');
-                pre.style.setProperty('margin', '1em 0', 'important');
-                pre.style.setProperty('font-size', '14px', 'important');
-                pre.style.setProperty('line-height', '1.6', 'important');
-                pre.style.setProperty('max-width', '100%', 'important');
-                pre.style.setProperty('box-sizing', 'border-box', 'important');
-                pre.style.setProperty('word-wrap', 'break-word', 'important');
-                pre.style.setProperty('white-space', 'pre-wrap', 'important');
-            });
-            
-            const inlineCodes = markdownClone.querySelectorAll('code:not(pre code)');
-            inlineCodes.forEach(code => {
-                code.style.setProperty('background', '#f1f5f9', 'important');
-                code.style.setProperty('color', '#e53e3e', 'important');
-                code.style.setProperty('padding', '2px 6px', 'important');
-                code.style.setProperty('border-radius', '4px', 'important');
-                code.style.setProperty('font-size', '0.9em', 'important');
-            });
-            
-            // 优化表格样式
-            const tables = markdownClone.querySelectorAll('table');
-            tables.forEach(table => {
-                table.style.setProperty('width', '100%', 'important');
-                table.style.setProperty('max-width', '100%', 'important');
-                table.style.setProperty('border-collapse', 'collapse', 'important');
-                table.style.setProperty('margin', '1em 0', 'important');
-                table.style.setProperty('font-size', '14px', 'important');
-                table.style.setProperty('box-sizing', 'border-box', 'important');
-                table.style.setProperty('table-layout', 'auto', 'important');
-                table.style.setProperty('word-wrap', 'break-word', 'important');
-            });
-            
-            const tableCells = markdownClone.querySelectorAll('th, td');
-            tableCells.forEach(cell => {
-                cell.style.setProperty('border', '1px solid #e2e8f0', 'important');
-                cell.style.setProperty('padding', '10px', 'important');
-                cell.style.setProperty('text-align', 'left', 'important');
-                cell.style.setProperty('word-wrap', 'break-word', 'important');
-                cell.style.setProperty('overflow-wrap', 'break-word', 'important');
-                cell.style.setProperty('word-break', 'break-word', 'important');
-                cell.style.setProperty('max-width', '0', 'important');
-                cell.style.setProperty('box-sizing', 'border-box', 'important');
-            });
-            
-            const tableHeaders = markdownClone.querySelectorAll('th');
-            tableHeaders.forEach(th => {
-                th.style.setProperty('background', '#f7fafc', 'important');
-                th.style.setProperty('font-weight', '600', 'important');
-            });
-            
-            // 优化引用块样式
-            const blockquotes = markdownClone.querySelectorAll('blockquote');
-            blockquotes.forEach(blockquote => {
-                blockquote.style.setProperty('border-left', '4px solid #4299e1', 'important');
-                blockquote.style.setProperty('padding-left', '16px', 'important');
-                blockquote.style.setProperty('margin', '1em 0', 'important');
-                blockquote.style.setProperty('color', '#4a5568', 'important');
-                blockquote.style.setProperty('font-style', 'italic', 'important');
-            });
-            
-            // 处理图片
-            const images = markdownClone.querySelectorAll('img');
-            images.forEach(img => {
-                img.style.setProperty('max-width', '100%', 'important');
-                img.style.setProperty('height', 'auto', 'important');
-                img.style.setProperty('display', 'block', 'important');
-                img.style.setProperty('margin', '1em auto', 'important');
-                img.style.setProperty('border-radius', '8px', 'important');
-            });
-            
-            // 优化链接样式
-            const links = markdownClone.querySelectorAll('a');
-            links.forEach(link => {
-                link.style.setProperty('color', '#3182ce', 'important');
-                link.style.setProperty('text-decoration', 'underline', 'important');
-            });
-            
-            // 移除可能影响显示的动画和过渡效果，并确保所有元素都有正确的盒模型
-            const allElements = markdownClone.querySelectorAll('*');
-            allElements.forEach(el => {
-                el.style.animation = 'none';
-                el.style.transition = 'none';
-                // 确保所有元素都使用 border-box，防止 padding 导致溢出
-                if (!el.style.boxSizing) {
-                    el.style.setProperty('box-sizing', 'border-box', 'important');
-                }
-                // 确保文本元素能够正确换行
-                if (['P', 'SPAN', 'DIV', 'LI', 'TD', 'TH', 'A', 'STRONG', 'EM', 'CODE'].includes(el.tagName)) {
-                    el.style.setProperty('word-wrap', 'break-word', 'important');
-                    el.style.setProperty('overflow-wrap', 'break-word', 'important');
-                    el.style.setProperty('word-break', 'break-word', 'important');
-                }
-            });
+            markdownClone.classList.add('export-markdown', 'is-light-text');
             
             // 将 markdown-content 添加到包装容器
             contentWrapper.appendChild(markdownClone);
@@ -458,21 +262,7 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
  */
 function showExportSuccess(fileName) {
     const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        background: rgba(34, 197, 94, 0.95) !important;
-        color: white !important;
-        padding: 16px 24px !important;
-        border-radius: 8px !important;
-        font-size: 14px !important;
-        font-weight: 500 !important;
-        z-index: 2147483650 !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-        animation: fadeInOut 2s ease-in-out !important;
-    `;
+    toast.className = 'pet-export-toast is-success';
     toast.textContent = `✓ 导出成功: ${fileName}`;
     document.body.appendChild(toast);
 
@@ -486,42 +276,13 @@ function showExportSuccess(fileName) {
  */
 function showExportError(message) {
     const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        background: rgba(239, 68, 68, 0.95) !important;
-        color: white !important;
-        padding: 16px 24px !important;
-        border-radius: 8px !important;
-        font-size: 14px !important;
-        font-weight: 500 !important;
-        z-index: 2147483650 !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-        animation: fadeInOut 3s ease-in-out !important;
-    `;
+    toast.className = 'pet-export-toast is-error';
     toast.textContent = `✗ 导出失败: ${message}`;
     document.body.appendChild(toast);
 
     setTimeout(() => {
         document.body.removeChild(toast);
     }, 3000);
-}
-
-// 添加淡入淡出动画
-if (!document.getElementById('export-chat-animation-styles')) {
-    const style = document.createElement('style');
-    style.id = 'export-chat-animation-styles';
-    style.textContent = `
-        @keyframes fadeInOut {
-            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-            10% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-            90% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 /**
@@ -538,20 +299,7 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
 
     // 显示加载提示
     const loadingToast = document.createElement('div');
-    loadingToast.style.cssText = `
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        background: rgba(59, 130, 246, 0.95) !important;
-        color: white !important;
-        padding: 16px 24px !important;
-        border-radius: 8px !important;
-        font-size: 14px !important;
-        font-weight: 500 !important;
-        z-index: 2147483650 !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    `;
+    loadingToast.className = 'pet-export-toast is-loading';
     loadingToast.textContent = '正在生成超高清图片...';
     document.body.appendChild(loadingToast);
 
@@ -576,21 +324,7 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
 
         // 创建一个临时容器来准备导出内容（使用适合手机阅读的尺寸）
         const exportContainer = document.createElement('div');
-        exportContainer.style.cssText = `
-            position: fixed !important;
-            left: -9999px !important;
-            top: 0 !important;
-            width: 750px !important;
-            max-width: 750px !important;
-            background: white !important;
-            padding: 20px !important;
-            margin: 0 !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif !important;
-            box-sizing: border-box !important;
-            line-height: 1.8 !important;
-            overflow-x: hidden !important;
-            overflow-y: visible !important;
-        `;
+        exportContainer.className = 'export-container';
 
         // 查找 markdown-content 元素
         const markdownContent = messageElement.querySelector('.markdown-content');
@@ -618,165 +352,12 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         
         // 创建一个容器来包装 markdown-content
         const messageClone = document.createElement('div');
-        messageClone.style.cssText = `
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            box-sizing: border-box !important;
-            opacity: 1 !important;
-            background: transparent !important;
-            overflow-x: hidden !important;
-            overflow-y: visible !important;
-        `;
+        messageClone.className = 'export-message-clone';
         
         // 递归复制原始 markdown-content 及其所有子元素的样式
         copyAllElementStyles(markdownContent, markdownClone);
         
-        // 设置必要的样式（优化移动端阅读体验）
-        markdownClone.style.setProperty('width', '100%', 'important');
-        markdownClone.style.setProperty('max-width', '100%', 'important');
-        markdownClone.style.setProperty('word-wrap', 'break-word', 'important');
-        markdownClone.style.setProperty('overflow-wrap', 'break-word', 'important');
-        markdownClone.style.setProperty('word-break', 'break-word', 'important');
-        markdownClone.style.setProperty('white-space', 'pre-wrap', 'important');
-        markdownClone.style.setProperty('font-size', '16px', 'important');
-        markdownClone.style.setProperty('line-height', '1.8', 'important');
-        markdownClone.style.setProperty('color', '#333', 'important');
-        markdownClone.style.setProperty('box-sizing', 'border-box', 'important');
-        markdownClone.style.setProperty('overflow-x', 'hidden', 'important');
-        markdownClone.style.setProperty('overflow-y', 'visible', 'important');
-        
-        // 优化标题样式
-        const headings = markdownClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
-        headings.forEach(heading => {
-            heading.style.setProperty('margin', '1.2em 0 0.6em 0', 'important');
-            heading.style.setProperty('line-height', '1.4', 'important');
-            heading.style.setProperty('font-weight', '600', 'important');
-            heading.style.setProperty('color', '#222', 'important');
-        });
-        
-        // 优化段落样式
-        const paragraphs = markdownClone.querySelectorAll('p');
-        paragraphs.forEach(p => {
-            p.style.setProperty('margin', '0.8em 0', 'important');
-            p.style.setProperty('line-height', '1.8', 'important');
-        });
-        
-        // 优化列表样式
-        const lists = markdownClone.querySelectorAll('ul, ol');
-        lists.forEach(list => {
-            list.style.setProperty('padding-left', '1.8em', 'important');
-            list.style.setProperty('margin', '0.8em 0', 'important');
-        });
-        
-        const listItems = markdownClone.querySelectorAll('li');
-        listItems.forEach(li => {
-            li.style.setProperty('margin', '0.4em 0', 'important');
-            li.style.setProperty('line-height', '1.8', 'important');
-        });
-        
-        // 优化代码块样式
-        const codeBlocks = markdownClone.querySelectorAll('pre');
-        codeBlocks.forEach(pre => {
-            pre.style.setProperty('background', '#2d3748', 'important');
-            pre.style.setProperty('color', '#e2e8f0', 'important');
-            pre.style.setProperty('padding', '16px', 'important');
-            pre.style.setProperty('border-radius', '8px', 'important');
-            pre.style.setProperty('overflow-x', 'auto', 'important');
-            pre.style.setProperty('overflow-y', 'visible', 'important');
-            pre.style.setProperty('margin', '1em 0', 'important');
-            pre.style.setProperty('font-size', '14px', 'important');
-            pre.style.setProperty('line-height', '1.6', 'important');
-            pre.style.setProperty('max-width', '100%', 'important');
-            pre.style.setProperty('box-sizing', 'border-box', 'important');
-            pre.style.setProperty('word-wrap', 'break-word', 'important');
-            pre.style.setProperty('white-space', 'pre-wrap', 'important');
-        });
-        
-        const inlineCodes = markdownClone.querySelectorAll('code:not(pre code)');
-        inlineCodes.forEach(code => {
-            code.style.setProperty('background', '#f1f5f9', 'important');
-            code.style.setProperty('color', '#e53e3e', 'important');
-            code.style.setProperty('padding', '2px 6px', 'important');
-            code.style.setProperty('border-radius', '4px', 'important');
-            code.style.setProperty('font-size', '0.9em', 'important');
-        });
-        
-        // 优化表格样式
-        const tables = markdownClone.querySelectorAll('table');
-        tables.forEach(table => {
-            table.style.setProperty('width', '100%', 'important');
-            table.style.setProperty('max-width', '100%', 'important');
-            table.style.setProperty('border-collapse', 'collapse', 'important');
-            table.style.setProperty('margin', '1em 0', 'important');
-            table.style.setProperty('font-size', '14px', 'important');
-            table.style.setProperty('box-sizing', 'border-box', 'important');
-            table.style.setProperty('table-layout', 'auto', 'important');
-            table.style.setProperty('word-wrap', 'break-word', 'important');
-        });
-        
-        const tableCells = markdownClone.querySelectorAll('th, td');
-        tableCells.forEach(cell => {
-            cell.style.setProperty('border', '1px solid #e2e8f0', 'important');
-            cell.style.setProperty('padding', '10px', 'important');
-            cell.style.setProperty('text-align', 'left', 'important');
-            cell.style.setProperty('word-wrap', 'break-word', 'important');
-            cell.style.setProperty('overflow-wrap', 'break-word', 'important');
-            cell.style.setProperty('word-break', 'break-word', 'important');
-            cell.style.setProperty('max-width', '0', 'important');
-            cell.style.setProperty('box-sizing', 'border-box', 'important');
-        });
-        
-        const tableHeaders = markdownClone.querySelectorAll('th');
-        tableHeaders.forEach(th => {
-            th.style.setProperty('background', '#f7fafc', 'important');
-            th.style.setProperty('font-weight', '600', 'important');
-        });
-        
-        // 优化引用块样式
-        const blockquotes = markdownClone.querySelectorAll('blockquote');
-        blockquotes.forEach(blockquote => {
-            blockquote.style.setProperty('border-left', '4px solid #4299e1', 'important');
-            blockquote.style.setProperty('padding-left', '16px', 'important');
-            blockquote.style.setProperty('margin', '1em 0', 'important');
-            blockquote.style.setProperty('color', '#4a5568', 'important');
-            blockquote.style.setProperty('font-style', 'italic', 'important');
-        });
-        
-        // 处理图片
-        const images = markdownClone.querySelectorAll('img');
-        images.forEach(img => {
-            img.style.setProperty('max-width', '100%', 'important');
-            img.style.setProperty('height', 'auto', 'important');
-            img.style.setProperty('display', 'block', 'important');
-            img.style.setProperty('margin', '1em auto', 'important');
-            img.style.setProperty('border-radius', '8px', 'important');
-        });
-        
-        // 优化链接样式
-        const links = markdownClone.querySelectorAll('a');
-        links.forEach(link => {
-            link.style.setProperty('color', '#3182ce', 'important');
-            link.style.setProperty('text-decoration', 'underline', 'important');
-        });
-        
-        // 移除可能影响显示的动画和过渡效果，并确保所有元素都有正确的盒模型
-        const allElements = markdownClone.querySelectorAll('*');
-        allElements.forEach(el => {
-            el.style.animation = 'none';
-            el.style.transition = 'none';
-            // 确保所有元素都使用 border-box，防止 padding 导致溢出
-            if (!el.style.boxSizing) {
-                el.style.setProperty('box-sizing', 'border-box', 'important');
-            }
-            // 确保文本元素能够正确换行
-            if (['P', 'SPAN', 'DIV', 'LI', 'TD', 'TH', 'A', 'STRONG', 'EM', 'CODE'].includes(el.tagName)) {
-                el.style.setProperty('word-wrap', 'break-word', 'important');
-                el.style.setProperty('overflow-wrap', 'break-word', 'important');
-                el.style.setProperty('word-break', 'break-word', 'important');
-            }
-        });
+        markdownClone.classList.add('export-markdown', 'is-dark-text');
         
         // 替换克隆中的 iframe，避免 html2canvas 在处理 iframe 时抛出错误
         const clonedIframes = markdownClone.querySelectorAll('iframe');
@@ -785,23 +366,11 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             const placeholderWidth = Math.max(Number.isFinite(info.width) ? info.width : 200, 50);
             const placeholderHeight = Math.max(Number.isFinite(info.height) ? info.height : 150, 30);
             const placeholder = document.createElement('div');
-            placeholder.style.cssText = `
-                width: ${placeholderWidth}px !important;
-                height: ${placeholderHeight}px !important;
-                min-width: ${placeholderWidth}px !important;
-                min-height: ${placeholderHeight}px !important;
-                background: #f3f4f6 !important;
-                border: 1px solid #d1d5db !important;
-                border-radius: 8px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                color: #6b7280 !important;
-                font-size: 12px !important;
-                text-align: center !important;
-                padding: 8px !important;
-                box-sizing: border-box !important;
-            `;
+            placeholder.className = 'export-iframe-placeholder';
+            placeholder.style.setProperty('width', `${placeholderWidth}px`, 'important');
+            placeholder.style.setProperty('height', `${placeholderHeight}px`, 'important');
+            placeholder.style.setProperty('min-width', `${placeholderWidth}px`, 'important');
+            placeholder.style.setProperty('min-height', `${placeholderHeight}px`, 'important');
             placeholder.textContent = info.title ? `[iframe: ${info.title}]` : '[iframe 内容]';
             if (iframe.parentNode) {
                 iframe.parentNode.replaceChild(placeholder, iframe);
@@ -886,7 +455,7 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
         console.error('导出消息失败:', error);
         
         // 移除临时容器（如果存在）
-        const exportContainer = document.querySelector('[style*="left: -9999px"]');
+        const exportContainer = document.querySelector('.export-container');
         if (exportContainer && exportContainer.parentNode) {
             try {
                 exportContainer.parentNode.removeChild(exportContainer);
@@ -907,4 +476,3 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
 // 导出函数供外部使用
 window.exportChatToPNG = exportChatToPNG;
 window.exportSingleMessageToPNG = exportSingleMessageToPNG;
-

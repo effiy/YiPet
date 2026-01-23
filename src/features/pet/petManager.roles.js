@@ -166,23 +166,8 @@ ${pageContent || '无内容'}
             button.title = fallbackInfo.tooltip;
         }
 
-        // 统一的按钮样式
-        button.style.cssText = `
-            padding: 2px !important;
-            cursor: pointer !important;
-            font-size: 10px !important;
-            color: #666 !important;
-            font-weight: 300 !important;
-            transition: all 0.2s ease !important;
-            flex-shrink: 0 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            user-select: none !important;
-            width: 18px !important;
-            height: 18px !important;
-            line-height: 18px !important;
-        `;
+        // 统一的按钮样式（使用 CSS 类）
+        button.className = 'role-button';
 
         return button;
     };
@@ -216,12 +201,7 @@ ${pageContent || '无内容'}
         container.innerHTML = '';
 
         // 确保按钮样式容器正确（横向排列）
-        container.style.cssText = `
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            flex-shrink: 0 !important;
-        `;
+        container.className = 'role-button-container';
 
         // 获取所有角色配置
         const configsRaw = await this.getRoleConfigs();
@@ -277,34 +257,9 @@ ${pageContent || '无内容'}
             if (!button) {
                 button = document.createElement('span');
                 button.setAttribute('data-role-id', config.id);
-                button.style.cssText = `
-                    padding: 2px !important;
-                    cursor: pointer !important;
-                    font-size: 10px !important;
-                    color: #94a3b8 !important;  /* 中量子灰 */
-                    font-weight: 300 !important;
-                    transition: all 0.2s ease !important;
-                    flex-shrink: 0 !important;
-                    display: inline-flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    user-select: none !important;
-                    width: 18px !important;
-                    height: 18px !important;
-                    line-height: 18px !important;
-                `;
+                button.className = 'role-button';
 
-                // 添加 hover 效果
-                button.addEventListener('mouseenter', function () {
-                    this.style.fontSize = '12px';
-                    this.style.color = '#f8fafc';  /* 量子白 */
-                    this.style.transform = 'scale(1.1)';
-                });
-                button.addEventListener('mouseleave', function () {
-                    this.style.fontSize = '10px';
-                    this.style.color = '#94a3b8';  /* 中量子灰 */
-                    this.style.transform = 'scale(1)';
-                });
+                // hover 效果已通过 CSS 类定义
 
                 this.roleButtonsById[config.id] = button;
             }
@@ -331,17 +286,7 @@ ${pageContent || '无内容'}
                 button = newButton;
                 this.roleButtonsById[config.id] = button;
 
-                // 重新绑定 hover 效果
-                button.addEventListener('mouseenter', function () {
-                    this.style.fontSize = '12px';
-                    this.style.color = '#f8fafc';  /* 量子白 */
-                    this.style.transform = 'scale(1.1)';
-                });
-                button.addEventListener('mouseleave', function () {
-                    this.style.fontSize = '10px';
-                    this.style.color = '#94a3b8';  /* 中量子灰 */
-                    this.style.transform = 'scale(1)';
-                });
+                // hover 效果已通过 CSS 类定义
             }
 
             // 绑定点击事件
@@ -399,8 +344,7 @@ ${pageContent || '无内容'}
                 const fromUser = this.buildFromUserWithContext(baseUserPrompt, roleLabel);
 
                 // 更新UI状态
-                button.style.opacity = '0.5';
-                button.style.cursor = 'wait';
+                button.classList.add('js-loading');
                 button.innerHTML = '⏳';
 
                 try {
@@ -429,8 +373,7 @@ ${pageContent || '无内容'}
                 } finally {
                     processingFlag.value = false;
                     button.innerHTML = originalIcon;
-                    button.style.opacity = '1';
-                    button.style.cursor = 'pointer';
+                    button.classList.remove('js-loading');
                 }
             });
 
@@ -443,37 +386,10 @@ ${pageContent || '无内容'}
             if (!robotConfig || !robotConfig.webhookUrl) continue;
 
             const robotButton = document.createElement('span');
+            robotButton.className = 'robot-button';
             robotButton.setAttribute('data-robot-id', robotConfig.id);
-            robotButton.style.cssText = `
-                padding: 4px !important;
-                cursor: pointer !important;
-                font-size: 16px !important;
-                color: #666 !important;
-                font-weight: 300 !important;
-                transition: all 0.2s ease !important;
-                flex-shrink: 0 !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                user-select: none !important;
-                width: 22px !important;
-                height: 22px !important;
-                line-height: 22px !important;
-            `;
-
             robotButton.innerHTML = robotConfig.icon || '🤖';
             robotButton.title = robotConfig.name || '企微机器人';
-
-            robotButton.addEventListener('mouseenter', function () {
-                this.style.fontSize = '18px';
-                this.style.color = '#333';
-                this.style.transform = 'scale(1.1)';
-            });
-            robotButton.addEventListener('mouseleave', function () {
-                this.style.fontSize = '16px';
-                this.style.color = '#666';
-                this.style.transform = 'scale(1)';
-            });
 
             robotButton.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -500,9 +416,10 @@ ${pageContent || '无内容'}
 
                 const trimmedContent = messageContent.trim();
                 const originalIcon = robotButton.innerHTML;
+                const originalColor = robotButton.style.color;
                 robotButton.innerHTML = '⏳';
+                robotButton.classList.add('js-loading');
                 robotButton.style.color = '#3b82f6';  /* 信息蓝 */
-                robotButton.style.cursor = 'default';
 
                 try {
                     let finalContent = '';
@@ -514,24 +431,28 @@ ${pageContent || '无内容'}
 
                     await this.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
                     robotButton.innerHTML = '✓';
+                    robotButton.classList.remove('js-loading');
+                    robotButton.classList.add('js-success');
                     robotButton.style.color = '#22c55e';  /* 现代绿 */
                     this.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
 
                     setTimeout(() => {
                         robotButton.innerHTML = originalIcon;
-                        robotButton.style.color = '#94a3b8';  /* 中量子灰 */
-                        robotButton.style.cursor = 'pointer';
+                        robotButton.classList.remove('js-success');
+                        robotButton.style.color = originalColor;
                     }, 2000);
                 } catch (error) {
                     console.error('发送到企微机器人失败:', error);
                     robotButton.innerHTML = '✕';
+                    robotButton.classList.remove('js-loading');
+                    robotButton.classList.add('js-error');
                     robotButton.style.color = '#ef4444';  /* 量子红 */
                     this.showNotification(`发送失败：${error.message || '未知错误'}`, 'error');
 
                     setTimeout(() => {
                         robotButton.innerHTML = originalIcon;
-                        robotButton.style.color = '#94a3b8';  /* 中量子灰 */
-                        robotButton.style.cursor = 'pointer';
+                        robotButton.classList.remove('js-error');
+                        robotButton.style.color = originalColor;
                     }, 2000);
                 }
             });
@@ -555,8 +476,10 @@ ${pageContent || '无内容'}
         // 跳过第一条消息，从第二条开始刷新
         for (let i = 1; i < allMessages.length; i++) {
             const messageDiv = allMessages[i];
-            // 强制刷新按钮
-            await this.addActionButtonsToMessage(messageDiv, true);
+            // 强制刷新按钮 - 使用 ChatWindow 的统一方法
+            if (this.chatWindowComponent && typeof this.chatWindowComponent.addActionButtonsToMessage === 'function') {
+                await this.chatWindowComponent.addActionButtonsToMessage(messageDiv, true);
+            }
         }
     };
 
@@ -804,15 +727,13 @@ ${pageContent || '无内容'}
                 }
 
                 iconEl.innerHTML = '✓';
-                iconEl.style.cursor = 'default';
-                iconEl.style.color = '#22c55e';  /* 现代绿 */
+                iconEl.classList.remove('js-error');
+                iconEl.classList.add('js-success');
 
                 // 2秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                 setTimeout(() => {
                     this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                    iconEl.style.color = '#94a3b8';  /* 中量子灰 */
-                    iconEl.style.cursor = 'pointer';
-                    iconEl.style.opacity = '1';
+                    iconEl.classList.remove('js-success');
                     processingFlag.value = false;
                 }, 2000);
 
@@ -848,23 +769,19 @@ ${pageContent || '无内容'}
 
                 if (!isAbortError) {
                     iconEl.innerHTML = '✕';
-                    iconEl.style.cursor = 'default';
-                    iconEl.style.color = '#ef4444';  /* 量子红 */
+                    iconEl.classList.remove('js-success');
+                    iconEl.classList.add('js-error');
 
                     // 1.5秒后恢复初始状态，允许再次点击（根据角色设置恢复图标与标题）
                     setTimeout(() => {
                         this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                        iconEl.style.color = '#94a3b8';  /* 中量子灰 */
-                        iconEl.style.cursor = 'pointer';
-                        iconEl.style.opacity = '1';
+                        iconEl.classList.remove('js-error');
                         processingFlag.value = false;
                     }, 1500);
                 } else {
                     // 请求被取消，立即恢复状态
                     this.applyRoleConfigToActionIcon(iconEl, actionKey);
-                    iconEl.style.color = '#94a3b8';  /* 中量子灰 */
-                    iconEl.style.cursor = 'pointer';
-                    iconEl.style.opacity = '1';
+                    iconEl.classList.remove('js-success', 'js-error');
                     processingFlag.value = false;
                 }
             } finally {
@@ -888,91 +805,28 @@ ${pageContent || '无内容'}
             overlay.id = 'pet-role-settings';
             const chatHeaderEl = this.chatWindow.querySelector('.chat-header');
             const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60;
-            overlay.style.cssText = `
-                position: absolute !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                top: ${headerH}px !important;
-                background: transparent !important;
-                display: none !important;
-                align-items: center !important;
-                justify-content: center !important;
-                z-index: ${PET_CONFIG.ui.zIndex.inputContainer + 1} !important;
-                pointer-events: none !important;
-            `;
+            overlay.className = 'pet-role-settings-overlay';
+            overlay.style.top = `${headerH}px`;
+            overlay.style.zIndex = String(PET_CONFIG.ui.zIndex.inputContainer + 1);
 
             const panel = document.createElement('div');
             panel.id = 'pet-role-settings-panel';
-            panel.style.cssText = `
-                width: calc(100% - 24px) !important;
-                height: calc(100% - 12px) !important;
-                margin: 0 12px 12px 12px !important;
-                background: #1f1f1f !important;
-                color: #fff !important;
-                border-radius: 12px !important;
-                border: 1px solid rgba(255,255,255,0.12) !important;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.35) !important;
-                display: flex !important;
-                flex-direction: column !important;
-                overflow: hidden !important;
-                pointer-events: auto !important;
-            `;
+            panel.className = 'pet-role-settings-panel';
 
             const header = document.createElement('div');
-            header.style.cssText = `
-                display: flex !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                padding: 16px 20px !important;
-                border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-                background: rgba(255,255,255,0.04) !important;
-                flex-shrink: 0 !important;
-            `;
+            header.className = 'pet-role-settings-header';
             const title = document.createElement('div');
             title.textContent = '角色设置';
-            title.style.cssText = 'font-weight: 600; font-size: 16px; color: #fff;';
+            title.className = 'pet-role-settings-header-title';
 
             const headerBtns = document.createElement('div');
-            headerBtns.style.cssText = 'display:flex; gap:10px; align-items:center;';
+            headerBtns.className = 'pet-role-settings-header-btns';
             const closeBtn = document.createElement('button');
             closeBtn.id = 'pet-role-settings-close-btn';
             closeBtn.setAttribute('aria-label', '关闭角色设置 (Esc)');
             closeBtn.setAttribute('title', '关闭 (Esc)');
             closeBtn.textContent = '✕';
-            closeBtn.style.cssText = `
-                width: 32px !important;
-                height: 32px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                border-radius: 6px !important;
-                border: 1px solid rgba(255,255,255,0.15) !important;
-                background: rgba(255,255,255,0.06) !important;
-                color: #e5e7eb !important;
-                cursor: pointer !important;
-                font-size: 16px !important;
-                transition: all 0.2s ease !important;
-                outline: none !important;
-            `;
-            closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = 'rgba(239, 68, 68, 0.15)';
-                closeBtn.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                closeBtn.style.color = '#ef4444';
-                closeBtn.style.transform = 'translateY(-1px)';
-            });
-            closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'rgba(255,255,255,0.06)';
-                closeBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-                closeBtn.style.color = '#e5e7eb';
-                closeBtn.style.transform = 'translateY(0)';
-            });
-            closeBtn.addEventListener('mousedown', () => {
-                closeBtn.style.transform = 'scale(0.96)';
-            });
-            closeBtn.addEventListener('mouseup', () => {
-                closeBtn.style.transform = 'scale(1)';
-            });
+            closeBtn.className = 'pet-role-settings-close-btn';
             closeBtn.addEventListener('click', () => this.closeRoleSettingsModal());
             headerBtns.appendChild(closeBtn);
             header.appendChild(title);
@@ -980,87 +834,28 @@ ${pageContent || '无内容'}
 
             const body = document.createElement('div');
             body.id = 'pet-role-settings-body';
-            body.style.cssText = `
-                display: flex !important;
-                gap: 16px !important;
-                padding: 16px 20px !important;
-                height: 100% !important;
-                min-height: 0 !important;
-                overflow: hidden !important;
-            `;
+            body.className = 'pet-role-settings-body';
 
             // 左侧：角色列表
             const listContainer = document.createElement('div');
-            listContainer.style.cssText = `
-                width: 38% !important;
-                min-width: 280px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 12px !important;
-            `;
+            listContainer.className = 'pet-role-settings-list-container';
 
             // 新增角色按钮（放在列表顶部）
             const addBtn = document.createElement('button');
             addBtn.textContent = '新增角色';
-            addBtn.style.cssText = `
-                padding: 8px 16px !important;
-                font-size: 13px !important;
-                font-weight: 500 !important;
-                border-radius: 6px !important;
-                border: 1px solid rgba(255,255,255,0.15) !important;
-                background: rgba(255,255,255,0.06) !important;
-                color: #e5e7eb !important;
-                cursor: pointer !important;
-                transition: all 0.2s ease !important;
-                flex-shrink: 0 !important;
-            `;
-            addBtn.addEventListener('mouseenter', () => {
-                addBtn.style.background = 'rgba(255,255,255,0.12)';
-                addBtn.style.borderColor = 'rgba(255,255,255,0.25)';
-                addBtn.style.transform = 'translateY(-1px)';
-            });
-            addBtn.addEventListener('mouseleave', () => {
-                addBtn.style.background = 'rgba(255,255,255,0.06)';
-                addBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-                addBtn.style.transform = 'translateY(0)';
-            });
+            addBtn.className = 'pet-role-settings-add-btn';
             addBtn.addEventListener('click', () => this.renderRoleSettingsForm(null, false));
             listContainer.appendChild(addBtn);
 
             const list = document.createElement('div');
             list.id = 'pet-role-list';
-            list.style.cssText = `
-                flex: 1 !important;
-                min-height: 0 !important;
-                background: #181818 !important;
-                color: #e5e7eb !important;
-                border: 1px solid rgba(255,255,255,0.12) !important;
-                border-radius: 10px !important;
-                overflow-y: auto !important;
-                overflow-x: hidden !important;
-                padding: 12px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 10px !important;
-            `;
+            list.className = 'pet-role-settings-list';
             listContainer.appendChild(list);
 
             // 右侧：表单区
             const form = document.createElement('div');
             form.id = 'pet-role-form';
-            form.style.cssText = `
-                flex: 1 !important;
-                background: #181818 !important;
-                color: #e5e7eb !important;
-                border: 1px solid rgba(255,255,255,0.12) !important;
-                border-radius: 10px !important;
-                padding: 20px !important;
-                overflow-y: auto !important;
-                overflow-x: hidden !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 16px !important;
-            `;
+            form.className = 'pet-role-settings-form';
 
             body.appendChild(listContainer);
             body.appendChild(form);
@@ -1070,13 +865,13 @@ ${pageContent || '无内容'}
             this.chatWindow.appendChild(overlay);
         }
 
-        overlay.style.display = 'flex';
+        overlay.classList.add('pet-is-visible');
 
         // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
         const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
-        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
 
         // 直接渲染当前配置（不再强制补齐默认项，便于"删除"生效）
         this.renderRoleSettingsList();
@@ -1090,13 +885,13 @@ ${pageContent || '无内容'}
     proto.closeRoleSettingsModal = function () {
         if (!this.chatWindow) return;
         const overlay = this.chatWindow.querySelector('#pet-role-settings');
-        if (overlay) overlay.style.display = 'none';
+        if (overlay) overlay.classList.remove('pet-is-visible');
 
         // 显示折叠按钮
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
         const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
-        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     }
 
     proto.renderRoleSettingsList = async function () {
@@ -1127,11 +922,7 @@ ${pageContent || '无内容'}
             // 如果有已绑定的角色，添加分隔线
             if (orderedKeys.length > 0) {
                 const separator = document.createElement('div');
-                separator.style.cssText = `
-                    height: 1px;
-                    background: rgba(255,255,255,0.08);
-                    margin: 4px 0;
-                `;
+                separator.className = 'pet-role-settings-separator';
                 list.appendChild(separator);
             }
 
@@ -1144,102 +935,37 @@ ${pageContent || '无内容'}
         if (list.children.length === 0) {
             const empty = document.createElement('div');
             empty.textContent = '暂无自定义角色。点击"新增角色"开始创建';
-            empty.style.cssText = 'color: #64748b; font-size: 13px; padding: 24px 12px; text-align: center; line-height: 1.5;';
+            empty.className = 'pet-role-settings-empty';
             list.appendChild(empty);
         }
     }
 
     proto.createRoleListItem = function (c, buttonLabel, allConfigs = null) {
         const row = document.createElement('div');
-        row.style.cssText = `
-            display:flex !important;
-            align-items:center !important;
-            justify-content: space-between !important;
-            gap: 12px !important;
-            padding: 12px !important;
-            border: 1px solid rgba(255,255,255,0.08) !important;
-            border-radius: 8px !important;
-            background: rgba(255,255,255,0.02) !important;
-            transition: all 0.2s ease !important;
-            cursor: pointer !important;
-        `;
-        row.addEventListener('mouseenter', () => {
-            row.style.background = 'rgba(255,255,255,0.05)';
-            row.style.borderColor = 'rgba(255,255,255,0.15)';
-            row.style.transform = 'translateX(2px)';
-        });
-        row.addEventListener('mouseleave', () => {
-            row.style.background = 'rgba(255,255,255,0.02)';
-            row.style.borderColor = 'rgba(255,255,255,0.08)';
-            row.style.transform = 'translateX(0)';
-        });
+        row.className = 'pet-role-settings-item';
         const info = document.createElement('div');
-        info.style.cssText = 'display:flex; flex-direction:column; gap:6px; flex:1; min-width:0;';
+        info.className = 'pet-role-settings-item-info';
         const name = document.createElement('div');
         const displayIcon = this.getRoleIcon(c, allConfigs);
         name.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${c.label || '(未命名)'}`;
-        name.style.cssText = 'font-weight: 600; font-size: 13px; color: #fff; line-height: 1.4; word-break: break-word;';
+        name.className = 'pet-role-settings-item-name';
         info.appendChild(name);
         if (buttonLabel && buttonLabel.trim()) {
             const sub = document.createElement('div');
             sub.textContent = buttonLabel;
-            sub.style.cssText = 'color: #94a3b8; font-size: 11px; line-height: 1.3;';
+            sub.className = 'pet-role-settings-item-sub';
             info.appendChild(sub);
         }
 
         const btns = document.createElement('div');
-        btns.style.cssText = 'display:flex; gap:6px; flex-shrink:0;';
+        btns.className = 'pet-role-settings-item-btns';
         const edit = document.createElement('button');
         edit.textContent = '编辑';
-        edit.style.cssText = `
-            padding: 6px 10px !important;
-            font-size: 12px !important;
-            font-weight: 500 !important;
-            border-radius: 6px !important;
-            border: 1px solid rgba(255,255,255,0.15) !important;
-            background: rgba(255,255,255,0.06) !important;
-            color: #e5e7eb !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-        `;
-        edit.addEventListener('mouseenter', () => {
-            edit.style.background = 'rgba(59, 130, 246, 0.15)';
-            edit.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-            edit.style.color = '#60a5fa';
-            edit.style.transform = 'translateY(-1px)';
-        });
-        edit.addEventListener('mouseleave', () => {
-            edit.style.background = 'rgba(255,255,255,0.06)';
-            edit.style.borderColor = 'rgba(255,255,255,0.15)';
-            edit.style.color = '#e5e7eb';
-            edit.style.transform = 'translateY(0)';
-        });
+        edit.className = 'pet-role-settings-item-edit';
         edit.addEventListener('click', () => this.renderRoleSettingsForm(c.id));
         const del = document.createElement('button');
         del.textContent = '删除';
-        del.style.cssText = `
-            padding: 6px 10px !important;
-            font-size: 12px !important;
-            font-weight: 500 !important;
-            border-radius: 6px !important;
-            border: 1px solid rgba(255,255,255,0.15) !important;
-            background: rgba(255,255,255,0.06) !important;
-            color: #e5e7eb !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-        `;
-        del.addEventListener('mouseenter', () => {
-            del.style.background = 'rgba(239, 68, 68, 0.15)';
-            del.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-            del.style.color = '#f87171';
-            del.style.transform = 'translateY(-1px)';
-        });
-        del.addEventListener('mouseleave', () => {
-            del.style.background = 'rgba(255,255,255,0.06)';
-            del.style.borderColor = 'rgba(255,255,255,0.15)';
-            del.style.color = '#e5e7eb';
-            del.style.transform = 'translateY(0)';
-        });
+        del.className = 'pet-role-settings-item-del';
         del.addEventListener('click', async () => {
             const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id);
             await this.setRoleConfigs(next);
@@ -1273,66 +999,23 @@ ${pageContent || '无内容'}
         // 如果显示空白状态（没有选中角色且不是主动新增）
         if (showEmptyState && !editId && !current) {
             const emptyState = document.createElement('div');
-            emptyState.style.cssText = `
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                justify-content: center !important;
-                height: 100% !important;
-                padding: 40px 20px !important;
-                text-align: center !important;
-            `;
+            emptyState.className = 'pet-role-settings-empty-state';
 
             const icon = document.createElement('div');
             icon.textContent = '👤';
-            icon.style.cssText = `
-                font-size: 64px !important;
-                margin-bottom: 20px !important;
-                opacity: 0.6 !important;
-            `;
+            icon.className = 'pet-role-settings-empty-icon';
 
             const title = document.createElement('div');
             title.textContent = '选择一个角色开始编辑';
-            title.style.cssText = `
-                font-weight: 600 !important;
-                font-size: 16px !important;
-                color: #e5e7eb !important;
-                margin-bottom: 8px !important;
-            `;
+            title.className = 'pet-role-settings-empty-title';
 
             const desc = document.createElement('div');
             desc.textContent = '从左侧列表选择角色进行编辑，或点击"新增角色"创建新角色';
-            desc.style.cssText = `
-                font-size: 13px !important;
-                color: #94a3b8 !important;
-                line-height: 1.6 !important;
-                max-width: 320px !important;
-            `;
+            desc.className = 'pet-role-settings-empty-desc';
 
             const actionBtn = document.createElement('button');
             actionBtn.textContent = '新增角色';
-            actionBtn.style.cssText = `
-                margin-top: 24px !important;
-                padding: 10px 24px !important;
-                font-size: 13px !important;
-                font-weight: 500 !important;
-                border-radius: 8px !important;
-                border: 1px solid rgba(255,255,255,0.15) !important;
-                background: rgba(255,255,255,0.06) !important;
-                color: #e5e7eb !important;
-                cursor: pointer !important;
-                transition: all 0.2s ease !important;
-            `;
-            actionBtn.addEventListener('mouseenter', () => {
-                actionBtn.style.background = 'rgba(255,255,255,0.12)';
-                actionBtn.style.borderColor = 'rgba(255,255,255,0.25)';
-                actionBtn.style.transform = 'translateY(-2px)';
-            });
-            actionBtn.addEventListener('mouseleave', () => {
-                actionBtn.style.background = 'rgba(255,255,255,0.06)';
-                actionBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-                actionBtn.style.transform = 'translateY(0)';
-            });
+            actionBtn.className = 'pet-role-settings-empty-action';
             actionBtn.addEventListener('click', () => {
                 this.renderRoleSettingsForm(null, false);
             });
@@ -1347,14 +1030,14 @@ ${pageContent || '无内容'}
 
         const title = document.createElement('div');
         title.textContent = current ? '编辑角色' : '新增角色';
-        title.style.cssText = 'font-weight: 600; font-size: 18px; color: #fff; margin-bottom: 4px;';
+        title.className = 'pet-role-settings-form-title';
 
         const row = (labelText, inputEl) => {
             const wrap = document.createElement('div');
-            wrap.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
+            wrap.className = 'pet-role-settings-field';
             const lab = document.createElement('label');
             lab.textContent = labelText;
-            lab.style.cssText = 'font-size: 13px; font-weight: 500; color: #cbd5e1;';
+            lab.className = 'pet-role-settings-label';
             wrap.appendChild(lab);
             wrap.appendChild(inputEl);
             return wrap;
@@ -1364,133 +1047,49 @@ ${pageContent || '无内容'}
         labelInput.type = 'text';
         labelInput.value = current?.label || '';
         labelInput.placeholder = '角色名称，如：翻译官';
-        labelInput.style.cssText = `
-            padding: 10px 12px !important;
-            border: 1px solid rgba(255,255,255,0.12) !important;
-            border-radius: 8px !important;
-            outline: none !important;
-            background: #121212 !important;
-            color: #fff !important;
-            font-size: 13px !important;
-            transition: all 0.2s ease !important;
-        `;
-        labelInput.addEventListener('focus', () => {
-            labelInput.style.borderColor = 'rgba(255,255,255,0.25)';
-            labelInput.style.background = '#1a1a1a';
-        });
-        labelInput.addEventListener('blur', () => {
-            labelInput.style.borderColor = 'rgba(255,255,255,0.12)';
-            labelInput.style.background = '#121212';
-        });
+        labelInput.className = 'pet-role-settings-input';
 
         const iconInput = document.createElement('input');
         iconInput.type = 'text';
         iconInput.value = current?.icon || '🙂';
         iconInput.placeholder = '图标（Emoji）';
-        iconInput.style.cssText = `
-            padding: 10px 12px !important;
-            width: 80px !important;
-            text-align: center !important;
-            font-size: 18px !important;
-            border: 1px solid rgba(255,255,255,0.12) !important;
-            border-radius: 8px !important;
-            outline: none !important;
-            background: #121212 !important;
-            color: #fff !important;
-            transition: all 0.2s ease !important;
-        `;
-        iconInput.addEventListener('focus', () => {
-            iconInput.style.borderColor = 'rgba(255,255,255,0.25)';
-            iconInput.style.background = '#1a1a1a';
-        });
-        iconInput.addEventListener('blur', () => {
-            iconInput.style.borderColor = 'rgba(255,255,255,0.12)';
-            iconInput.style.background = '#121212';
-        });
+        iconInput.className = 'pet-role-settings-icon-input';
 
         const promptInput = document.createElement('textarea');
         promptInput.value = current?.prompt || '';
         promptInput.placeholder = '角色提示词（System Prompt）。\n例如：你是一个专业的翻译官，请将我发送的内容翻译成英文。';
-        promptInput.style.cssText = `
-            padding: 12px !important;
-            border: 1px solid rgba(255,255,255,0.12) !important;
-            border-radius: 8px !important;
-            outline: none !important;
-            background: #121212 !important;
-            color: #fff !important;
-            font-size: 13px !important;
-            line-height: 1.6 !important;
-            min-height: 120px !important;
-            resize: vertical !important;
-            transition: all 0.2s ease !important;
-        `;
-        promptInput.addEventListener('focus', () => {
-            promptInput.style.borderColor = 'rgba(255,255,255,0.25)';
-            promptInput.style.background = '#1a1a1a';
-        });
-        promptInput.addEventListener('blur', () => {
-            promptInput.style.borderColor = 'rgba(255,255,255,0.12)';
-            promptInput.style.background = '#121212';
-        });
+        promptInput.className = 'pet-role-settings-textarea';
 
         // 按钮绑定部分（可选）
         const actionKeyWrap = document.createElement('div');
-        actionKeyWrap.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin-top: 4px;';
+        actionKeyWrap.className = 'pet-role-settings-action-key-wrap';
 
         const actionKeyLabel = document.createElement('div');
-        actionKeyLabel.style.cssText = 'font-size: 13px; font-weight: 500; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center;';
+        actionKeyLabel.className = 'pet-role-settings-action-key-label';
         actionKeyLabel.textContent = '绑定到快捷按钮';
 
         // 添加提示信息
         const actionKeyTip = document.createElement('span');
         actionKeyTip.textContent = '开启后将在欢迎消息下方显示快捷按钮';
-        actionKeyTip.style.cssText = 'font-size: 12px; color: #64748b; font-weight: 400;';
+        actionKeyTip.className = 'pet-role-settings-action-key-tip';
         actionKeyLabel.appendChild(actionKeyTip);
 
         const actionKeySwitch = document.createElement('div');
-        actionKeySwitch.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.08);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        `;
+        actionKeySwitch.className = 'pet-role-settings-action-key-switch';
 
         const switchBtn = document.createElement('div');
         const isBound = !!current?.actionKey;
-        switchBtn.style.cssText = `
-            width: 36px;
-            height: 20px;
-            background: ${isBound ? '#3b82f6' : 'rgba(255,255,255,0.2)'};
-            border-radius: 10px;
-            position: relative;
-            transition: all 0.3s ease;
-        `;
+        switchBtn.className = 'pet-role-settings-switch';
+        switchBtn.style.background = isBound ? '#3b82f6' : 'rgba(255,255,255,0.2)';
         const switchDot = document.createElement('div');
-        switchDot.style.cssText = `
-            width: 16px;
-            height: 16px;
-            background: #1e293b;  /* 量子灰 */
-            border-radius: 50%;
-            position: absolute;
-            top: 2px;
-            left: ${isBound ? '18px' : '2px'};
-            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        `;
+        switchDot.className = 'pet-role-settings-switch-dot';
+        switchDot.style.left = isBound ? '18px' : '2px';
         switchBtn.appendChild(switchDot);
 
         const switchText = document.createElement('span');
         switchText.textContent = isBound ? '已启用' : '未启用';
-        switchText.style.cssText = `
-            font-size: 13px;
-            color: ${isBound ? '#fff' : '#94a3b8'};
-            font-weight: 500;
-        `;
+        switchText.className = 'pet-role-settings-switch-text';
+        switchText.style.color = isBound ? '#fff' : '#94a3b8';
 
         actionKeySwitch.appendChild(switchBtn);
         actionKeySwitch.appendChild(switchText);
@@ -1508,55 +1107,13 @@ ${pageContent || '无内容'}
         actionKeyWrap.appendChild(actionKeySwitch);
 
         const btns = document.createElement('div');
-        btns.style.cssText = 'display:flex; gap:10px; margin-top: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);';
+        btns.className = 'pet-role-settings-form-btns';
         const saveBtn = document.createElement('button');
         saveBtn.textContent = '保存';
-        saveBtn.style.cssText = `
-            padding: 10px 20px !important;
-            font-size: 13px !important;
-            font-weight: 500 !important;
-            border-radius: 8px !important;
-            border: 1px solid rgba(34, 197, 94, 0.3) !important;
-            background: rgba(34, 197, 94, 0.15) !important;
-            color: #4ade80 !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-            flex: 1 !important;
-        `;
-        saveBtn.addEventListener('mouseenter', () => {
-            saveBtn.style.background = 'rgba(34, 197, 94, 0.25)';
-            saveBtn.style.borderColor = 'rgba(34, 197, 94, 0.4)';
-            saveBtn.style.transform = 'translateY(-1px)';
-        });
-        saveBtn.addEventListener('mouseleave', () => {
-            saveBtn.style.background = 'rgba(34, 197, 94, 0.15)';
-            saveBtn.style.borderColor = 'rgba(34, 197, 94, 0.3)';
-            saveBtn.style.transform = 'translateY(0)';
-        });
+        saveBtn.className = 'pet-role-settings-save-btn';
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = '取消';
-        cancelBtn.style.cssText = `
-            padding: 10px 20px !important;
-            font-size: 13px !important;
-            font-weight: 500 !important;
-            border-radius: 8px !important;
-            border: 1px solid rgba(255,255,255,0.15) !important;
-            background: rgba(255,255,255,0.06) !important;
-            color: #e5e7eb !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-            flex: 1 !important;
-        `;
-        cancelBtn.addEventListener('mouseenter', () => {
-            cancelBtn.style.background = 'rgba(255,255,255,0.12)';
-            cancelBtn.style.borderColor = 'rgba(255,255,255,0.25)';
-            cancelBtn.style.transform = 'translateY(-1px)';
-        });
-        cancelBtn.addEventListener('mouseleave', () => {
-            cancelBtn.style.background = 'rgba(255,255,255,0.06)';
-            cancelBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-            cancelBtn.style.transform = 'translateY(0)';
-        });
+        cancelBtn.className = 'pet-role-settings-cancel-btn';
 
         saveBtn.addEventListener('click', async () => {
             const originalText = saveBtn.textContent;
@@ -1566,8 +1123,7 @@ ${pageContent || '无内容'}
             saveBtn.dataset.loading = 'true';
             saveBtn.textContent = '保存中...';
             saveBtn.disabled = true;
-            saveBtn.style.opacity = '0.7';
-            saveBtn.style.cursor = 'not-allowed';
+            saveBtn.classList.add('is-loading');
 
             try {
                 if (!labelInput.value.trim()) {
@@ -1630,8 +1186,7 @@ ${pageContent || '无内容'}
                 saveBtn.dataset.loading = 'false';
                 saveBtn.textContent = originalText;
                 saveBtn.disabled = false;
-                saveBtn.style.opacity = '1';
-                saveBtn.style.cursor = 'pointer';
+                saveBtn.classList.remove('is-loading');
             }
         });
 
@@ -1715,81 +1270,8 @@ ${pageContent || '无内容'}
     }
 
     // 确保默认角色已存在（仅在为空或缺少时补齐）
-    // 为消息添加动作按钮（复制、重试等）
-    proto.addActionButtonsToMessage = function (messageDiv, messageId, content, isUser) {
-        if (!messageDiv) return;
-
-        // 查找或创建按钮容器
-        let actionsContainer = messageDiv.querySelector('.message-actions');
-        if (!actionsContainer) {
-            actionsContainer = document.createElement('div');
-            actionsContainer.className = 'message-actions';
-            actionsContainer.style.cssText = `
-                display: flex;
-                gap: 8px;
-                margin-top: 4px;
-                justify-content: flex-end;
-                opacity: 0;
-                transition: opacity 0.2s;
-                padding-right: 4px;
-            `;
-
-            // 鼠标悬停显示按钮
-            messageDiv.addEventListener('mouseenter', () => {
-                actionsContainer.style.opacity = '1';
-            });
-            messageDiv.addEventListener('mouseleave', () => {
-                actionsContainer.style.opacity = '0';
-            });
-
-            // 将按钮容器添加到消息内容后面
-            // 注意：messageDiv 结构通常是: avatar + content-wrapper(bubble)
-            const bubble = messageDiv.querySelector('.pet-message-bubble, .user-message-bubble') || messageDiv;
-            bubble.appendChild(actionsContainer);
-        }
-
-        // 清空现有按钮
-        actionsContainer.innerHTML = '';
-
-        // 1. 复制按钮
-        const copyBtn = document.createElement('span');
-        copyBtn.innerHTML = '📋';
-        copyBtn.title = '复制内容';
-        copyBtn.style.cssText = `
-            cursor: pointer;
-            font-size: 12px;
-            padding: 2px 4px;
-            border-radius: 4px;
-            background: rgba(240, 240, 240, 0.6);
-            color: #94a3b8;  /* 中量子灰 */
-            transition: all 0.2s;
-        `;
-        copyBtn.onmouseenter = () => { copyBtn.style.background = 'rgba(255, 255, 255, 0.1)'; copyBtn.style.color = '#f8fafc'; };  /* 量子白 */
-        copyBtn.onmouseleave = () => { copyBtn.style.background = 'rgba(255, 255, 255, 0.05)'; copyBtn.style.color = '#94a3b8'; };  /* 中量子灰 */
-
-        copyBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (navigator.clipboard) {
-                // 如果是 HTML 内容，尝试获取纯文本
-                let textToCopy = content;
-                if (content.includes('<') && content.includes('>')) {
-                    const temp = document.createElement('div');
-                    temp.innerHTML = content;
-                    textToCopy = temp.textContent || temp.innerText || content;
-                }
-
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    this.showNotification('已复制到剪贴板', 'success');
-                }).catch(() => {
-                    this.showNotification('复制失败', 'error');
-                });
-            }
-        };
-        actionsContainer.appendChild(copyBtn);
-
-        // 2. 如果是 AI 消息，添加重试按钮（仅用于触发重新生成，逻辑需配合 chatUi）
-        // 这里简化处理，仅添加复制按钮，因为重试逻辑比较复杂且依赖上下文
-    };
+    // 注意：消息按钮的创建逻辑已移至 ChatWindow.addActionButtonsToMessage 统一管理
+    // 此方法已删除，请使用 chatWindowComponent.addActionButtonsToMessage
 
     proto.ensureDefaultRoleConfigs = async function () {
         const existing = await this.getRoleConfigs();

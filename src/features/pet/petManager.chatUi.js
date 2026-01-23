@@ -32,9 +32,26 @@
         // Create the window
         this.chatWindow = await this.chatUiComponent.create();
         
+        // 设置 chatWindowComponent 引用（用于侧边栏控制等方法）
+        this.chatWindowComponent = this.chatUiComponent;
+        
         // Add to document if not already added
         if (this.chatWindow && !this.chatWindow.parentNode) {
             document.body.appendChild(this.chatWindow);
+        }
+        
+        // 加载并应用侧边栏折叠状态（确保侧边栏正确显示）
+        if (typeof this.loadSidebarCollapsed === 'function') {
+            this.loadSidebarCollapsed();
+        } else {
+            // 如果加载方法不存在，确保侧边栏默认显示
+            this.sidebarCollapsed = false;
+            if (this.chatWindowComponent && typeof this.chatWindowComponent.setSidebarCollapsed === 'function') {
+                this.chatWindowComponent.setSidebarCollapsed(false);
+            } else if (this.sessionSidebar) {
+                this.sessionSidebar.classList.remove('js-hidden');
+                this.sessionSidebar.classList.remove('collapsed');
+            }
         }
         
         // Initialize messages only; 会话列表由打开聊天窗口时统一加载

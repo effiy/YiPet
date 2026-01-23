@@ -9,24 +9,65 @@ body {
     width: 350px;
     min-height: 500px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
-    color: #f8fafc;  /* 量子白 */
+    background: var(--bg-gradient, linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%));
+    color: var(--text-primary, #f8fafc);
     overflow-x: hidden;
     overflow-y: auto;
 }
 
+.notification {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    z-index: 1000;
+    animation: slideDown 0.3s ease-out;
+}
+
+.notification.success {
+    background: var(--success, #22c55e);
+}
+
+.notification.error {
+    background: var(--error, #ef4444);
+}
+
+.notification.info {
+    background: var(--info, #3b82f6);
+}
+
+.notification.warn,
+.notification.warning {
+    background: var(--warning, #f59e0b);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
 .popup-container {
-    background: #1e293b;  /* 量子灰 */
+    background: var(--bg-secondary, #1e293b);
     border-radius: 12px;
     margin: 8px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.6));
     overflow: visible;
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.12));
 }
 
 /* 头部 */
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background: var(--primary-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%));
     color: white;
     padding: 20px;
     display: flex;
@@ -67,16 +108,17 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(255,255,255,0.2);
+    background: var(--bg-hover, rgba(255, 255, 255, 0.05));
     padding: 6px 12px;
     border-radius: 20px;
     font-size: 12px;
+    border: 1px solid var(--border-glass, rgba(255,255,255,0.08));
 }
 
 .status-dot {
     width: 8px;
     height: 8px;
-    background: #22c55e;  /* 现代绿 */
+    background: var(--success, #22c55e);
     border-radius: 50%;
     animation: pulse 2s infinite;
 }
@@ -107,10 +149,10 @@ body {
 .control-section h3 {
     font-size: 14px;
     font-weight: 600;
-    color: #f8fafc;  /* 量子白 */
+    color: var(--text-primary, #f8fafc);
     margin-bottom: 15px;
     padding-bottom: 8px;
-    border-bottom: 2px solid rgba(255,255,255,0.12);
+    border-bottom: 2px solid var(--border-primary, rgba(255,255,255,0.12));
 }
 
 .control-group {
@@ -126,7 +168,7 @@ body {
     justify-content: center;
     gap: 8px;
     padding: 12px 16px;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 8px;
     font-size: 13px;
     font-weight: 500;
@@ -152,47 +194,54 @@ body {
 }
 
 .control-btn.primary {
-    background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
-    color: white;
+    background: var(--primary-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%));
+    color: var(--text-on-accent, #ffffff);
+    box-shadow: var(--shadow-primary, 0 4px 20px rgba(102,126,234,0.4));
 }
 
 .control-btn.primary:hover {
-    background: linear-gradient(135deg, #16a34a 0%, #15803d 50%, #166534 100%);
+    background: var(--primary-gradient-hover, linear-gradient(135deg, #5a67d8 0%, #6b46c1 50%, #d946ef 100%));
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
 .control-btn.secondary {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
-    color: white;
+    background: var(--gradient-secondary, linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%));
+    color: var(--text-on-accent, #ffffff);
 }
 
 .control-btn.secondary:hover {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    filter: brightness(1.05);
+}
+
+.control-btn.success {
+    background: var(--success-gradient, linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%));
+    color: var(--text-on-accent, #ffffff);
+}
+
+.control-btn.success:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
 }
 
 .control-btn.warning {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%);
-    color: white;
+    background: var(--warning-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%));
+    color: var(--text-on-accent, #ffffff);
 }
 
 .control-btn.warning:hover {
-    background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #92400e 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    filter: brightness(1.05);
 }
 
 .control-btn.info {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-    color: white;
+    background: var(--info-gradient, linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%));
+    color: var(--text-on-accent, #ffffff);
 }
 
 .control-btn.info:hover {
-    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 50%, #d946ef 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    filter: brightness(1.05);
 }
 
 .btn-icon {
@@ -214,7 +263,7 @@ body {
     gap: 8px;
     font-size: 13px;
     font-weight: 500;
-    color: #e2e8f0;  /* 浅量子灰 */
+    color: var(--text-secondary, #e2e8f0);
     margin-bottom: 10px;
 }
 
@@ -226,7 +275,7 @@ body {
     width: 100%;
     height: 6px;
     border-radius: 3px;
-    background: #334155;  /* 中量子灰 */
+    background: var(--bg-tertiary, #334155);
     outline: none;
     -webkit-appearance: none;
     appearance: none;
@@ -238,7 +287,7 @@ body {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background: var(--primary-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%));
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     transition: all 0.3s ease;
@@ -246,14 +295,14 @@ body {
 
 .slider::-webkit-slider-thumb:hover {
     transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb, 102, 126, 234), 0.4);
 }
 
 .slider::-moz-range-thumb {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background: var(--primary-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%));
     cursor: pointer;
     border: none;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
@@ -262,30 +311,30 @@ body {
 .select {
     width: 100%;
     padding: 10px 12px;
-    border: 2px solid rgba(255,255,255,0.12);
+    border: 2px solid var(--border-primary, rgba(255,255,255,0.12));
     border-radius: 8px;
-    background: #334155;  /* 中量子灰 */
+    background: var(--bg-tertiary, #334155);
     font-size: 13px;
-    color: #f8fafc;  /* 量子白 */
+    color: var(--text-primary, #f8fafc);
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .select:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--primary, #667eea);
+    box-shadow: 0 0 0 3px var(--primary-alpha, rgba(102, 126, 234, 0.1));
 }
 
 .select:hover {
-    border-color: #818cf8;
+    border-color: var(--primary-light, #818cf8);
 }
 
 /* 底部 */
 .footer {
-    background: #0f172a;  /* 深空黑 */
+    background: var(--bg-primary, #0f172a);
     padding: 15px 20px;
-    border-top: 1px solid rgba(255,255,255,0.12);
+    border-top: 1px solid var(--border-primary, rgba(255,255,255,0.12));
 }
 
 .info-text {
@@ -294,7 +343,7 @@ body {
 
 .info-text p {
     font-size: 11px;
-    color: #94a3b8;  /* 中量子灰 */
+    color: var(--text-muted, #94a3b8);
     margin-bottom: 4px;
     line-height: 1.4;
 }
@@ -305,8 +354,8 @@ body {
 
 .version span {
     font-size: 10px;
-    color: #64748b;  /* 第三级文字色 */
-    background: #334155;  /* 中量子灰 */
+    color: var(--text-tertiary, #64748b);
+    background: var(--bg-tertiary, #334155);
     padding: 2px 8px;
     border-radius: 10px;
 }
@@ -355,4 +404,3 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-

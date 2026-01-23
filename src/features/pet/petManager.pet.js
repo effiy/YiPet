@@ -91,22 +91,18 @@
         const role = this.role || ((typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS) ? PET_CONFIG.constants.DEFAULTS.PET_ROLE : '教师');
         const iconUrl = chrome.runtime.getURL(`src/assets/images/${role}/icon.png`);
 
-        this.pet.style.cssText = `
-            position: fixed !important;
-            top: ${this.position.y}px !important;
-            left: ${this.position.x}px !important;
-            width: ${this.size}px !important;
-            height: ${this.size}px !important;
-            background: url(${iconUrl}) center/contain no-repeat !important;
-            border-radius: 12px !important;
-            z-index: ${PET_CONFIG.ui.zIndex.pet} !important;
-            cursor: grab !important;
-            pointer-events: auto !important;
-            box-shadow: none !important;
-            transition: all 0.3s ease !important;
-            display: ${this.isVisible ? 'block' : 'none'} !important;
-            background-color: transparent !important;
-        `;
+        // 设置动态属性（位置、大小、显示状态、背景图片、z-index）
+        this.pet.style.top = `${this.position.y}px`;
+        this.pet.style.left = `${this.position.x}px`;
+        this.pet.style.width = `${this.size}px`;
+        this.pet.style.height = `${this.size}px`;
+        this.pet.style.backgroundImage = `url(${iconUrl})`;
+        this.pet.style.zIndex = `${PET_CONFIG.ui.zIndex.pet}`;
+        if (this.isVisible) {
+            this.pet.classList.remove('tw-hidden');
+        } else {
+            this.pet.classList.add('tw-hidden');
+        }
     };
 
     // 显示加载动画（使用角色run目录下的连续图片，优化版：避免重复请求）
@@ -305,4 +301,3 @@
     };
 
 })();
-

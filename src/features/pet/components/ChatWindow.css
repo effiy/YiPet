@@ -103,17 +103,124 @@
     height: 100dvh !important; /* 使用动态视口高度，更好地适配移动设备 */
     min-height: 100vh !important;
     min-height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important; /* 确保不超过视口高度 */
     top: 0 !important;
     left: 0 !important;
     bottom: 0 !important;
     right: 0 !important;
     transform: none !important;
     border-radius: 0 !important;
-    max-height: none !important; /* 全屏模式下移除最大高度限制 */
+    overflow: hidden !important; /* 确保窗口本身不产生滚动条 */
+    box-sizing: border-box !important; /* 确保 padding 和 border 包含在高度内 */
 }
 
 #pet-chat-window.fullscreen .yi-pet-chat-header {
     border-radius: 0 !important;
+    flex-shrink: 0 !important; /* 防止 header 被压缩 */
+}
+
+/* 全屏模式下确保内容容器正确计算高度 */
+#pet-chat-window.fullscreen .yi-pet-chat-content-container {
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，确保正确计算 */
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+}
+
+/* 全屏模式下确保消息容器正确显示滚动条，同时为输入框留出空间 */
+#pet-chat-window.fullscreen .pet-chat-messages,
+#pet-chat-window.fullscreen .yi-pet-chat-messages,
+#pet-chat-window.fullscreen #yi-pet-chat-messages {
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩 */
+    max-height: none !important; /* 移除 max-height 限制，让 flex 完全控制高度 */
+    height: 0 !important; /* 设置为 0，让 flex: 1 控制高度，这是关键修复 */
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important; /* iOS 平滑滚动 */
+    box-sizing: border-box !important; /* 确保 padding 包含在高度计算内 */
+    flex-shrink: 1 !important; /* 允许消息容器收缩，为输入框让出空间 */
+    flex-grow: 1 !important; /* 允许消息容器增长，占据剩余空间 */
+}
+
+/* 全屏模式下确保输入框容器正确显示 */
+#pet-chat-window.fullscreen .yi-pet-chat-input-container {
+    flex: 0 0 auto !important; /* 使用 auto flex-basis，不允许收缩或增长，使用内容高度 */
+    flex-shrink: 0 !important; /* 防止输入框被压缩 */
+    flex-grow: 0 !important; /* 防止输入框被拉伸 */
+    position: relative !important;
+    z-index: 10 !important; /* 确保输入框在其他内容之上 */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important; /* 确保可见 */
+    opacity: 1 !important; /* 确保不透明 */
+    order: 999 !important; /* 确保输入框在最后（底部） */
+    margin-top: auto !important; /* 确保输入框在底部，但不会被裁剪 */
+}
+
+/* 全屏模式下确保主内容区域正确布局 */
+#pet-chat-window.fullscreen .yi-pet-chat-right-panel,
+#pet-chat-window.fullscreen .yi-pet-chat-main-content {
+    flex: 1 1 0 !important;
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩 */
+    max-height: 100% !important;
+    height: 100% !important; /* 设置为 100% 以确保占据全部可用高度 */
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important; /* 保持 hidden，但确保子元素正确布局 */
+    position: relative !important;
+    align-items: stretch !important;
+    width: 100% !important; /* 确保占据全部宽度 */
+    padding-bottom: 0 !important; /* 确保底部没有额外 padding */
+    /* 确保 flex 容器正确分配空间给子元素 */
+    justify-content: flex-start !important;
+}
+
+/* 全屏模式下，当会话栏折叠时，right-panel 应该占据全部空间 */
+/* 使用兄弟选择器，当 sidebar 折叠（display: none）时，right-panel 占据全部空间 */
+#pet-chat-window.fullscreen .session-sidebar.collapsed ~ .yi-pet-chat-right-panel,
+#pet-chat-window.fullscreen .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel {
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+/* 全屏模式下，如果 content-container 只有一个子元素（right-panel），确保它占据全部空间 */
+#pet-chat-window.fullscreen .yi-pet-chat-content-container:not(:has(.session-sidebar:not(.collapsed))) .yi-pet-chat-right-panel {
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+/* 非全屏模式下，当会话栏折叠时，right-panel 应该占据全部空间 */
+#pet-chat-window:not(.fullscreen) .session-sidebar.collapsed ~ .yi-pet-chat-right-panel,
+#pet-chat-window:not(.fullscreen) .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel {
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+/* 确保消息容器在所有情况下都能自适应高度（包括折叠侧边栏后） */
+#pet-chat-window .session-sidebar.collapsed ~ .yi-pet-chat-right-panel .yi-pet-chat-messages,
+#pet-chat-window .session-sidebar.collapsed ~ .yi-pet-chat-right-panel #yi-pet-chat-messages,
+#pet-chat-window .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel .yi-pet-chat-messages,
+#pet-chat-window .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel #yi-pet-chat-messages {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
 /* Header - 限定在 YiPet 作用域内（虽然 header 已移除，但保留样式以防需要） */
@@ -206,7 +313,9 @@
     --pet-chat-textarea-focus-shadow: rgba(59, 130, 246, 0.18);
     --pet-chat-placeholder: rgba(148, 163, 184, 0.5);
 
+    flex: 0 0 auto !important; /* 使用 auto flex-basis，不允许收缩或增长，使用内容高度 */
     flex-shrink: 0 !important; /* 防止输入框被压缩 */
+    flex-grow: 0 !important; /* 防止输入框被拉伸 */
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
@@ -217,6 +326,13 @@
     backdrop-filter: blur(18px);
     padding: 14px 18px;
     box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
+    position: relative !important; /* 确保定位正确 */
+    z-index: 10 !important; /* 确保输入框在其他内容之上 */
+    order: 999 !important; /* 确保输入框在最后（底部） */
+    display: flex !important; /* 确保是 flex 容器 */
+    flex-direction: column !important;
+    visibility: visible !important; /* 确保可见 */
+    opacity: 1 !important; /* 确保不透明 */
 }
 
 /* 输入容器在 right-panel 内部时的特殊样式 - 与 YiWeb pet-chat-right-panel .chat-input-container 完全一致 */
@@ -225,6 +341,7 @@
 #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
     display: flex;
     flex-direction: column;
+    flex: 0 0 auto !important; /* 使用 auto flex-basis，不允许收缩或增长 */
     flex-shrink: 0 !important; /* 防止输入容器被压缩 */
     gap: 8px;
     width: 100% !important;
@@ -237,6 +354,19 @@
     border: 1px solid var(--pet-chat-input-soft-border);
     border-top: none;
     box-shadow: none;
+    position: relative !important; /* 确保定位正确 */
+    z-index: 10 !important; /* 确保输入容器在其他内容之上 */
+}
+
+/* 全屏模式下，确保 right-panel 内的输入容器完全可见 */
+#pet-chat-window.fullscreen .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+#pet-chat-window.fullscreen .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    margin-top: auto !important; /* 确保输入框在底部，但不会被裁剪 */
+    position: relative !important;
+    z-index: 10 !important;
 }
 
 /* 工具栏样式 - 与 YiWeb pet-chat-toolbar 完全一致 */
@@ -546,6 +676,7 @@
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
+    margin-left: 52px !important; /* 为 sidebar-toggle-btn (32px + 20px padding) 留出空间 */
 }
 
 .yi-pet-chat-header-buttons {
@@ -582,35 +713,55 @@
 }
 
 /* ========== YiPet 样式隔离：所有样式限定在 #pet-chat-window 作用域内 ========== */
-/* Main Content - 与 YiWeb pet-chat-right-panel 完全一致，但限定在 YiPet 作用域内 */
+/* Main Content - 重新设计高度自适应，确保能够撑满弹框高度，并正确分配子元素空间 */
 #pet-chat-window .yi-pet-chat-right-panel,
 #pet-chat-window .yi-pet-chat-main-content {
     --pet-chat-bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     --pet-chat-main-color: #3b82f6;
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto; /* 使用 flex 而不是 height: 100% */
-    min-height: 0; /* 允许 flex 收缩 */
-    width: 100%;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据所有剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩，这是 flex 布局正确工作的必要条件 */
+    max-height: 100% !important; /* 确保不超过父容器高度 */
+    height: 100% !important; /* 设置为 100% 以撑满父容器（content-container）的高度 */
+    width: 100% !important; /* 确保占据全部宽度 */
     background: var(--pet-chat-bg-gradient);
     position: relative;
     z-index: 1;
-    overflow: hidden; /* 防止内容溢出 */
+    overflow: hidden !important; /* 防止内容溢出 */
+    box-sizing: border-box !important; /* 确保 padding 和 border 包含在高度计算内 */
+    align-items: stretch !important; /* 确保子元素拉伸 */
+    /* 确保 flex 容器正确计算子元素高度 */
+    contain: layout style !important;
 }
 
-/* Messages - 与 YiWeb pet-chat-right-panel 完全一致，但限定在 YiPet 作用域内 */
+/* Messages - 重新设计高度自适应，确保能够自适应窗口高度，同时为输入框留出空间 */
 #pet-chat-window .pet-chat-messages,
 #pet-chat-window .yi-pet-chat-messages,
 #pet-chat-window #yi-pet-chat-messages {
-    flex: 1 1 auto; /* 占据剩余空间 */
-    min-height: 0; /* 允许 flex 收缩，关键修复 */
-    overflow-y: auto;
-    overflow-x: hidden;
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据所有剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩，这是 flex 布局正确工作的必要条件 */
+    max-height: none !important; /* 移除 max-height 限制，让 flex 完全控制高度 */
+    height: 0 !important; /* 设置为 0，让 flex: 1 控制高度，这是关键修复 */
+    overflow-y: auto !important; /* 内容超出时显示滚动条 */
+    overflow-x: hidden !important; /* 防止水平滚动 */
     padding: 10px 12px;
+    padding-bottom: 10px !important; /* 确保底部有 padding，为输入框留出空间 */
     display: flex;
     flex-direction: column;
     gap: 0;
     align-items: flex-start;
+    order: 1; /* 确保消息容器在输入框之前 */
+    position: relative; /* 确保定位上下文正确 */
+    box-sizing: border-box; /* 确保 padding 包含在高度计算内 */
+    flex-shrink: 1 !important; /* 允许消息容器收缩，为输入框让出空间 */
+    flex-grow: 1 !important; /* 允许消息容器增长，占据剩余空间 */
+    margin-bottom: 0 !important; /* 确保没有额外的底部边距 */
+}
+
+#pet-chat-window #yi-pet-chat-messages.pet-is-fading {
+    opacity: 0.5;
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 
@@ -641,7 +792,7 @@
 
 #pet-chat-window .pet-chat-message[data-welcome-message="true"] .welcome-card {
     max-width: min(1400px, 98%) !important;
-    width: 100% !important;
+    width: 80% !important;
 }
 
 #pet-chat-window .pet-chat-message.is-user {
@@ -1003,11 +1154,26 @@
     color: rgba(34, 211, 238, 0.95);
 }
 
+/* Content Container - 包裹侧边栏和主内容区域，确保能够撑满弹框高度 */
+#pet-chat-window .yi-pet-chat-content-container {
+    display: flex !important;
+    flex-direction: row !important;
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据所有剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩 */
+    max-height: 100% !important; /* 确保不超过父容器高度 */
+    height: calc(100% - 70px) !important; /* 设置为 100% 以撑满父容器（弹框）的高度 */
+    overflow: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important; /* 确保 padding 和 border 包含在高度计算内 */
+    align-items: stretch !important; /* 确保子元素（侧边栏和 right-panel）拉伸 */
+}
+
 /* Sidebar - 参考 YiWeb aicr-sidebar 设计 */
+#pet-chat-window .session-sidebar,
 .session-sidebar {
-    min-width: 320px;
+    min-width: 200px;
     max-width: 800px;
-    width: 500px;
+    width: 320px;
     background: var(--bg-secondary, #1e293b);
     border-right: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12));
     box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.4));
@@ -1017,15 +1183,49 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    flex-shrink: 0; /* 防止侧边栏被压缩 */
 }
 
+#pet-chat-window .session-sidebar:hover,
 .session-sidebar:hover {
     box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.5));
     border-right-color: var(--border-secondary, rgba(6,182,212,0.3));
 }
 
+#pet-chat-window .session-sidebar.collapsed,
 .session-sidebar.collapsed {
     display: none !important;
+}
+
+#pet-chat-window .pet-view-toggle-btn {
+    background: transparent;
+    color: #6b7280;
+    border: none;
+}
+
+#pet-chat-window [data-pet-color-index="0"] .pet-view-toggle-btn.pet-view-toggle-active {
+    background: #667eea;
+    color: #fff;
+}
+
+#pet-chat-window [data-pet-color-index="1"] .pet-view-toggle-btn.pet-view-toggle-active {
+    background: #6366f1;
+    color: #fff;
+}
+
+#pet-chat-window [data-pet-color-index="2"] .pet-view-toggle-btn.pet-view-toggle-active {
+    background: #06b6d4;
+    color: #fff;
+}
+
+#pet-chat-window [data-pet-color-index="3"] .pet-view-toggle-btn.pet-view-toggle-active {
+    background: #22c55e;
+    color: #fff;
+}
+
+#pet-chat-window [data-pet-color-index="4"] .pet-view-toggle-btn.pet-view-toggle-active {
+    background: #f59e0b;
+    color: #fff;
 }
 
 /* Sidebar Header - 参考 YiWeb file-tree-header-container */
@@ -1161,46 +1361,49 @@
     flex: 0 0 auto !important;
 }
 
-/* Action Buttons - 参考 YiWeb toolbar-btn 设计 */
+/* Action Buttons - 优化后的现代设计 */
 .session-action-btn {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 6px !important;
-    padding: 6px 10px !important;
+    gap: 5px !important;
+    padding: 7px 14px !important;
     height: auto !important;
-    min-height: 32px !important;
-    font-size: 13px !important;
+    min-height: 34px !important;
+    font-size: 12.5px !important;
     font-weight: 500 !important;
     color: #ffffff !important;
-    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
-    border: 1px solid #4f46e5 !important;
-    border-radius: 6px !important;
+    background: rgba(99, 102, 241, 0.85) !important;
+    border: 1px solid rgba(99, 102, 241, 0.5) !important;
+    border-radius: 8px !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     white-space: nowrap !important;
     box-sizing: border-box !important;
     width: auto !important;
     min-width: 0 !important;
     -webkit-user-select: none !important;
     user-select: none !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
 }
 
 .session-actions-left-group .session-action-btn {
     width: auto !important;
-    padding: 6px 10px !important;
+    padding: 7px 14px !important;
     height: auto !important;
-    min-height: 32px !important;
+    min-height: 34px !important;
 }
 
 .session-action-btn:hover {
-    background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+    background: rgba(99, 102, 241, 1) !important;
+    border-color: rgba(99, 102, 241, 0.7) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35) !important;
 }
 
 .session-action-btn:active {
     transform: translateY(0) !important;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25) !important;
 }
 
 .session-action-btn:disabled {
@@ -1209,55 +1412,66 @@
     pointer-events: none !important;
 }
 
-/* 批量按钮 - 参考 YiWeb 设计 */
+/* 批量按钮 - 使用柔和的灰色系 */
 .session-action-btn--batch {
-    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
-    border-color: #4f46e5 !important;
+    background: rgba(71, 85, 105, 0.85) !important;
+    border-color: rgba(71, 85, 105, 0.5) !important;
+}
+
+.session-action-btn--batch:hover {
+    background: rgba(71, 85, 105, 1) !important;
+    border-color: rgba(71, 85, 105, 0.7) !important;
+    box-shadow: 0 4px 12px rgba(71, 85, 105, 0.35) !important;
 }
 
 .session-action-btn--batch.active {
-    background: linear-gradient(135deg, #10b981, #059669) !important;
-    border-color: #059669 !important;
+    background: rgba(16, 185, 129, 0.9) !important;
+    border-color: rgba(16, 185, 129, 0.6) !important;
 }
 
 .session-action-btn--batch.active:hover {
-    background: linear-gradient(135deg, #059669, #047857) !important;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
+    background: rgba(16, 185, 129, 1) !important;
+    border-color: rgba(16, 185, 129, 0.8) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4) !important;
 }
 
-/* 导出按钮 - 使用蓝色系 */
+/* 导出按钮 - 使用清新的蓝色系 */
 .session-action-btn--export {
-    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-    border-color: #2563eb !important;
+    background: rgba(59, 130, 246, 0.85) !important;
+    border-color: rgba(59, 130, 246, 0.5) !important;
 }
 
 .session-action-btn--export:hover {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+    background: rgba(59, 130, 246, 1) !important;
+    border-color: rgba(59, 130, 246, 0.7) !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35) !important;
 }
 
-/* 导入按钮 - 使用绿色系 */
+/* 导入按钮 - 使用温和的绿色系 */
 .session-action-btn--import {
-    background: linear-gradient(135deg, #10b981, #059669) !important;
-    border-color: #059669 !important;
+    background: rgba(34, 197, 94, 0.85) !important;
+    border-color: rgba(34, 197, 94, 0.5) !important;
 }
 
 .session-action-btn--import:hover {
-    background: linear-gradient(135deg, #059669, #047857) !important;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
+    background: rgba(34, 197, 94, 1) !important;
+    border-color: rgba(34, 197, 94, 0.7) !important;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35) !important;
 }
 
-/* 新建按钮 - 使用主题色，占据剩余空间 */
+/* 新建按钮 - 使用突出的紫色系，占据剩余空间 */
 .session-action-btn--add {
-    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
-    border: 1px solid #4f46e5 !important;
+    background: rgba(139, 92, 246, 0.9) !important;
+    border: 1px solid rgba(139, 92, 246, 0.6) !important;
     flex: 1 !important;
     min-width: 0 !important;
+    font-weight: 600 !important;
 }
 
 .session-action-btn--add:hover {
-    background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
+    background: rgba(139, 92, 246, 1) !important;
+    border-color: rgba(139, 92, 246, 0.8) !important;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4) !important;
 }
 
 .session-actions-right-group {
@@ -1440,7 +1654,7 @@
 /* 中等屏幕 */
 @media (max-width: 1200px) {
     .session-sidebar {
-        min-width: 320px;
+        min-width: 200px;
     }
 }
 
@@ -1480,15 +1694,15 @@
     }
     
     .session-action-btn {
-        padding: 4px 8px;
-        min-width: 28px;
-        min-height: 28px;
+        padding: 6px 10px;
+        min-width: 30px;
+        min-height: 30px;
         font-size: 12px;
     }
     
     .session-actions-left-group .session-action-btn {
-        padding: 4px 8px;
-        min-height: 28px;
+        padding: 6px 10px;
+        min-height: 30px;
     }
     
     .session-item {
@@ -1563,7 +1777,7 @@
 /* Sidebar Scrollable Content - 参考 YiWeb sidebar-scroll-container */
 .session-sidebar-scrollable-content {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
     width: 100%;
     position: relative;
@@ -1573,21 +1787,21 @@
 }
 
 /* 滚动条样式 - 参考 YiWeb aicr-sidebar 滚动条 */
-.session-sidebar-scrollable-content::-webkit-scrollbar {
+.session-list::-webkit-scrollbar {
     width: 6px;
 }
 
-.session-sidebar-scrollable-content::-webkit-scrollbar-track {
+.session-list::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.session-sidebar-scrollable-content::-webkit-scrollbar-thumb {
+.session-list::-webkit-scrollbar-thumb {
     background: var(--border-primary, rgba(255, 255, 255, 0.12));
     border-radius: 3px;
     transition: background 0.2s ease;
 }
 
-.session-sidebar-scrollable-content::-webkit-scrollbar-thumb:hover {
+.session-list::-webkit-scrollbar-thumb:hover {
     background: var(--border-secondary, rgba(6,182,212,0.3));
 }
 
@@ -1633,10 +1847,10 @@
 }
 
 /* Pet Message Colors by CSS variables */
-[data-message-type="pet-avatar"] {
+#pet-chat-window .chat-message[data-typing-indicator="true"] [data-message-type="pet-avatar"] {
     background: var(--pet-chat-primary-color) !important;
 }
-[data-message-type="pet-bubble"] {
+#pet-chat-window .chat-message[data-typing-indicator="true"] [data-message-type="pet-bubble"] {
     background: var(--pet-chat-primary-color) !important;
 }
 
@@ -2186,10 +2400,12 @@
 /* Session List - 使用设计系统变量，参考 YiWeb 设计 */
 .session-list {
     flex: 1;
-    overflow: visible;
-    padding: 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px;
     scroll-padding-bottom: 20px;
     box-sizing: border-box;
+    min-height: 0;
 }
 
 /* Session List Items Container - 参考 YiWeb 设计 */
@@ -2215,7 +2431,7 @@
     gap: 12px;
     -webkit-user-select: none;
     user-select: none;
-    margin-bottom: 10px;
+    margin-bottom: 0;
 }
 
 .session-item:hover {
@@ -2223,6 +2439,11 @@
     background: linear-gradient(145deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%) !important;
     box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.2) !important;
     transform: translateY(-2px);
+}
+
+.session-item:focus-within {
+    border-color: rgba(99, 102, 241, 0.5) !important;
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25) !important;
 }
 
 /* 会话项图标 hover 效果 */
@@ -2448,7 +2669,7 @@
     line-height: 1.4;
     letter-spacing: 0.01em;
     display: inline-block;
-    max-width: 220px;
+    max-width: none;
     vertical-align: middle;
 }
 
@@ -2462,6 +2683,7 @@
     gap: 8px;
 }
 
+.session-item-tags,
 .session-tags {
     display: flex;
     flex-wrap: wrap;
@@ -2476,9 +2698,9 @@
     border-radius: 6px;
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-secondary, #e2e8f0);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--tag-text, var(--text-secondary, #e2e8f0));
+    background: var(--tag-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--tag-border, rgba(255, 255, 255, 0.08));
     transition: all 0.2s;
     line-height: 1.3;
     cursor: pointer;
@@ -2859,6 +3081,10 @@
     opacity: 0.8;
 }
 
+.tag-filter-search-container.has-keyword .tag-filter-search-icon {
+    opacity: 0.8;
+}
+
 .tag-filter-search-clear {
     position: absolute;
     right: 6px;
@@ -3183,6 +3409,15 @@
 .pet-manual-save-btn:disabled {
     opacity: 0.7 !important;
 }
+.pet-manual-save-btn.loading .save-btn-icon {
+    display: none !important;
+}
+.pet-manual-save-btn.loading .save-btn-text {
+    opacity: 0 !important;
+}
+.pet-manual-save-btn.loading .save-btn-loader {
+    display: block !important;
+}
 .save-btn-icon {
     display: inline-flex !important;
     align-items: center !important;
@@ -3400,6 +3635,11 @@
     filter: brightness(1.05) !important;
 }
 
+.context-optimize-btn:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
 /* Header Button SVG */
 #pet-chat-window .yi-pet-chat-header-btn svg {
     width: 20px !important;
@@ -3408,8 +3648,41 @@
 }
 
 /* Sidebar width via CSS variable */
+#pet-chat-window .session-sidebar,
 .session-sidebar {
-    width: var(--session-sidebar-width, 500px) !important;
+    width: var(--session-sidebar-width, 320px) !important;
+}
+
+/* 侧边栏折叠按钮样式 - 始终在 title 左边 */
+#pet-chat-window .sidebar-toggle-btn {
+    display: flex !important;
+    position: absolute !important;
+    left: 20px !important; /* 与 header padding 对齐，在 title 左边 */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 100 !important;
+    background: var(--bg-secondary, #1e293b) !important;
+    border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+    border-radius: 50% !important;
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+#pet-chat-window .sidebar-toggle-btn:hover {
+    background: var(--bg-primary, #0f172a) !important;
+    border-color: var(--border-secondary, rgba(6,182,212,0.3)) !important;
+    transform: translateY(-50%) scale(1.1) !important;
+}
+
+#pet-chat-window .sidebar-toggle-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+    fill: currentColor !important;
 }
 .sidebar-resizer {
     position: absolute !important;
@@ -3722,12 +3995,14 @@
     height: 100dvh !important; /* 使用动态视口高度，更好地适配移动设备 */
     min-height: 100vh !important;
     min-height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important; /* 确保不超过视口高度 */
     top: 0 !important;
     left: 0 !important;
     bottom: 0 !important;
     right: 0 !important;
     transform: none !important;
-    max-height: none !important; /* 全屏模式下移除最大高度限制 */
+    overflow: hidden !important; /* 确保窗口本身不产生滚动条 */
 }
 
 .chat-message-buttons-container {
@@ -3770,24 +4045,6 @@
     color: #ef4444 !important;  /* 量子红 */
     opacity: 0.7 !important;
     cursor: pointer !important;
-}
-
-.chat-message-edit-textarea {
-    width: 100% !important;
-    min-height: 80px !important;
-    max-height: 400px !important;
-    padding: 12px 16px !important;
-    border: 2px solid rgba(255, 255, 255, 0.5) !important;
-    border-radius: 8px !important;
-    background: rgba(255, 255, 255, 0.2) !important;
-    color: white !important;
-    font-size: 14px !important;
-    font-family: inherit !important;
-    line-height: 1.6 !important;
-    resize: vertical !important;
-    outline: none !important;
-    box-sizing: border-box !important;
-    overflow-y: auto !important;
 }
 
 .clipboard-textarea-hidden {
@@ -4246,4 +4503,149 @@
         padding: 10px 12px;
         border-radius: 12px;
     }
+}
+
+/* ============================================
+   JS 提取的样式类 - 从内联样式重构而来
+   ============================================ */
+
+/* Session Actions Right Group */
+#pet-chat-window .session-actions-right-group {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 4px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+/* Hidden Elements */
+#pet-chat-window .js-hidden,
+.js-hidden {
+    display: none !important;
+}
+
+/* Draft Images Container */
+#pet-chat-window .yi-pet-chat-draft-images.js-hidden {
+    display: none !important;
+}
+
+#pet-chat-window .yi-pet-chat-draft-images:not(.js-hidden) {
+    display: flex !important;
+}
+
+/* Image Preview Modal */
+#pet-chat-window .pet-draft-image-preview-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 10000 !important;
+    cursor: pointer !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+#pet-chat-window .pet-draft-image-preview-modal img {
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    object-fit: contain !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+#pet-chat-window .pet-draft-image-preview-modal .modal-close-btn {
+    position: absolute !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px !important;
+    height: 40px !important;
+    border: none !important;
+    background: rgba(15, 23, 42, 0.9) !important;
+    color: white !important;
+    border-radius: 50% !important;
+    font-size: 20px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+}
+
+#pet-chat-window .pet-draft-image-preview-modal .modal-close-btn:hover {
+    background: rgba(239, 68, 68, 0.9) !important;
+    transform: scale(1.1) !important;
+}
+
+/* Textarea Auto-resize (动态高度通过 JS 控制，这里只定义基础样式) */
+#pet-chat-window .yi-pet-chat-textarea {
+    min-height: 60px !important;
+}
+
+/* Batch Toolbar */
+#pet-chat-window #batch-toolbar.js-visible,
+#batch-toolbar.js-visible {
+    display: flex !important;
+}
+
+#pet-chat-window #batch-toolbar:not(.js-visible),
+#batch-toolbar:not(.js-visible) {
+    display: none !important;
+}
+
+/* Message Delete Animation */
+#pet-chat-window .pet-chat-message.js-deleting,
+.pet-chat-message.js-deleting {
+    transition: opacity 0.3s ease !important;
+    opacity: 0 !important;
+}
+
+/* Session List */
+#pet-chat-window .session-list.js-visible,
+.session-list.js-visible {
+    display: block !important;
+}
+
+/* API Request List Hidden */
+#pet-chat-window .api-request-list.js-hidden,
+.api-request-list.js-hidden {
+    display: none !important;
+}
+
+#pet-chat-window .api-request-tag-filter-container.js-hidden,
+.api-request-tag-filter-container.js-hidden {
+    display: none !important;
+}
+
+/* Tag Filter Container */
+#pet-chat-window .tag-filter-container.js-visible,
+.tag-filter-container.js-visible {
+    display: block !important;
+}
+
+/* Scrollable Content */
+#pet-chat-window .session-sidebar-scrollable-content.js-visible,
+.session-sidebar-scrollable-content.js-visible {
+    display: flex !important;
+}
+
+/* Chat Window Visibility States */
+#pet-chat-window.js-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
+#pet-chat-window:not(.js-hidden) {
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Copy Button Success State */
+#pet-chat-window .pet-chat-meta-btn.js-copy-success {
+    color: rgba(34, 197, 94, 0.9) !important;
 }

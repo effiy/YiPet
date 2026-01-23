@@ -176,15 +176,7 @@ class ErrorHandler {
         err.meta = meta;
         return err;
     }
-    static async safeExecute(asyncFn, options = {}) {
-        try {
-            const data = await asyncFn();
-            return { success: true, data };
-        } catch (error) {
-            const handled = this.handle(error, options);
-            return handled;
-        }
-    }
+    // 注意：safeExecute 方法已在上面定义（第69行），此处删除重复定义
 }
 
 // 导出

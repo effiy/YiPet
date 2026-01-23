@@ -50,9 +50,13 @@ class StorageUtils {
     }
     
     /**
-     * 检查是否是扩展上下文失效错误
+     * 检查是否是扩展上下文失效错误（使用 ErrorHandler）
      */
     isContextInvalidatedError(error) {
+        if (typeof ErrorHandler !== 'undefined' && typeof ErrorHandler.isContextInvalidated === 'function') {
+            return ErrorHandler.isContextInvalidated(error);
+        }
+        // 降级实现
         if (!error) return false;
         const errorMsg = (error.message || error.toString() || '').toLowerCase();
         return errorMsg.includes('extension context invalidated') ||
@@ -60,15 +64,19 @@ class StorageUtils {
     }
     
     /**
-     * 检查是否是配额错误
+     * 检查是否是配额错误（使用 ErrorHandler）
      */
     isQuotaError(error) {
+        if (typeof ErrorHandler !== 'undefined' && typeof ErrorHandler.isQuotaError === 'function') {
+            return ErrorHandler.isQuotaError(error);
+        }
+        // 降级实现
         if (!error) return false;
-        const errorMsg = error.message || error.toString();
-        return errorMsg.includes('QUOTA_BYTES') || 
+        const errorMsg = (error.message || error.toString() || '').toLowerCase();
+        return errorMsg.includes('quota_bytes') || 
                errorMsg.includes('quota exceeded') ||
-               errorMsg.includes('MAX_WRITE_OPERATIONS') ||
-               errorMsg.includes('QUOTA_BYTES_PER_HOUR');
+               errorMsg.includes('max_write_operations') ||
+               errorMsg.includes('quota_bytes_per_hour');
     }
     
     /**

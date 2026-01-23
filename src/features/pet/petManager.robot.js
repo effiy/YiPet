@@ -50,54 +50,22 @@
 
         const overlay = document.createElement('div');
         overlay.id = 'pet-robot-settings';
-        overlay.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(2px);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            animation: fadeIn 0.2s ease;
-        `;
+        // 样式已通过 CSS 类定义
 
         const modal = document.createElement('div');
-        modal.style.cssText = `
-            flex: 1;
-            background: #1a1b1e;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            margin: 0;
-            border-radius: 0;
-        `;
+        modal.className = 'robot-settings-modal';
 
         // 头部
         const header = document.createElement('div');
-        header.style.cssText = `
-            padding: 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #25262b;
-        `;
+        header.className = 'robot-settings-header';
         
         const title = document.createElement('div');
+        title.className = 'robot-settings-title';
         title.innerHTML = '🤖 企微机器人设置';
-        title.style.cssText = 'color: #fff; font-weight: 500; font-size: 15px;';
         
         const closeBtn = document.createElement('div');
+        closeBtn.className = 'robot-settings-close';
         closeBtn.innerHTML = '✕';
-        closeBtn.style.cssText = `
-            color: rgba(255,255,255,0.5);
-            cursor: pointer;
-            padding: 4px;
-            font-size: 14px;
-        `;
         closeBtn.onclick = () => this.closeWeWorkRobotSettingsModal();
         
         header.appendChild(title);
@@ -105,57 +73,22 @@
 
         // 内容区域
         const content = document.createElement('div');
-        content.style.cssText = `
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        `;
+        content.className = 'robot-settings-content';
 
         // 列表容器
         const listContainer = document.createElement('div');
         listContainer.id = 'pet-robot-list';
-        listContainer.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        `;
+        listContainer.className = 'robot-list';
 
         // 表单容器
         const formContainer = document.createElement('div');
         formContainer.id = 'pet-robot-form';
-        formContainer.style.cssText = `
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px;
-            padding: 16px;
-            border: 1px solid rgba(255,255,255,0.1);
-        `;
+        formContainer.className = 'robot-form';
 
         // 新增按钮
         const addBtn = document.createElement('button');
         addBtn.innerHTML = '+ 新增机器人';
-        addBtn.style.cssText = `
-            width: 100%;
-            padding: 8px;
-            background: rgba(255,255,255,0.05);
-            border: 1px dashed rgba(255,255,255,0.2);
-            border-radius: 6px;
-            color: rgba(255,255,255,0.7);
-            cursor: pointer;
-            font-size: 13px;
-            margin-bottom: 12px;
-            transition: all 0.2s;
-        `;
-        addBtn.onmouseenter = () => {
-            addBtn.style.background = 'rgba(255,255,255,0.08)';
-            addBtn.style.borderColor = 'rgba(255,255,255,0.3)';
-        };
-        addBtn.onmouseleave = () => {
-            addBtn.style.background = 'rgba(255,255,255,0.05)';
-            addBtn.style.borderColor = 'rgba(255,255,255,0.2)';
-        };
+        addBtn.className = 'robot-add-btn';
         addBtn.onclick = () => this.renderWeWorkRobotSettingsForm(null);
 
         content.appendChild(addBtn);
@@ -167,11 +100,7 @@
         overlay.appendChild(modal);
         this.chatWindow.appendChild(overlay);
 
-        // 隐藏折叠按钮
-        const sidebarToggleBtn = this.chatWindow.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
-        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        this.chatWindow.classList.add('robot-settings-open');
 
         this.renderWeWorkRobotSettingsList();
         this.renderWeWorkRobotSettingsForm(editId, !editId); // 如果没有 editId，显示空白状态
@@ -181,12 +110,7 @@
         if (!this.chatWindow) return;
         const overlay = this.chatWindow.querySelector('#pet-robot-settings');
         if (overlay) overlay.remove();
-
-        // 显示折叠按钮
-        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
-        if (inputToggleBtn) inputToggleBtn.style.display = 'flex';
+        this.chatWindow.classList.remove('robot-settings-open');
     };
 
     proto.renderWeWorkRobotSettingsList = async function() {
@@ -200,7 +124,7 @@
         if (configs.length === 0) {
             const empty = document.createElement('div');
             empty.textContent = '暂无配置机器人';
-            empty.style.cssText = 'color: #64748b; font-size: 13px; padding: 12px; text-align: center;';
+            empty.className = 'robot-list-empty';
             list.appendChild(empty);
             return;
         }
@@ -213,38 +137,26 @@
 
     proto.createWeWorkRobotListItem = function(config) {
         const row = document.createElement('div');
-        row.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px;
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        `;
-        row.onmouseenter = () => row.style.background = 'rgba(255,255,255,0.05)';
-        row.onmouseleave = () => row.style.background = 'rgba(255,255,255,0.02)';
+        row.className = 'robot-list-item';
         row.onclick = () => this.renderWeWorkRobotSettingsForm(config.id);
 
         const info = document.createElement('div');
-        info.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+        info.className = 'robot-list-item-info';
         
         const icon = document.createElement('span');
         icon.textContent = config.icon || '🤖';
-        icon.style.fontSize = '18px';
+        icon.className = 'robot-list-item-icon';
         
         const name = document.createElement('div');
-        name.style.cssText = 'display: flex; flex-direction: column; gap: 2px;';
+        name.className = 'robot-list-item-name';
         
         const nameText = document.createElement('span');
         nameText.textContent = config.name || '未命名机器人';
-        nameText.style.cssText = 'color: #e5e7eb; font-size: 14px; font-weight: 500;';
+        nameText.className = 'robot-list-item-name-text';
         
         const urlText = document.createElement('span');
         urlText.textContent = config.webhookUrl ? (config.webhookUrl.substring(0, 30) + '...') : '未配置 Webhook';
-        urlText.style.cssText = 'color: #9ca3af; font-size: 12px;';
+        urlText.className = 'robot-list-item-url-text';
         
         name.appendChild(nameText);
         name.appendChild(urlText);
@@ -253,20 +165,12 @@
         info.appendChild(name);
 
         const btns = document.createElement('div');
-        btns.style.cssText = 'display: flex; gap: 8px;';
+        btns.className = 'robot-list-item-actions';
 
         const del = document.createElement('button');
         del.innerHTML = '🗑️';
         del.title = '删除';
-        del.style.cssText = `
-            padding: 6px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 4px;
-            cursor: pointer;
-            color: #ef4444;
-            transition: all 0.2s;
-        `;
+        del.className = 'robot-list-item-delete-btn';
         del.onclick = async (e) => {
             e.stopPropagation();
             if (confirm('确定要删除这个机器人配置吗？')) {
@@ -297,7 +201,7 @@
             form.innerHTML = '';
             const empty = document.createElement('div');
             empty.textContent = '👈 请选择左侧列表进行编辑，或点击"新增机器人"';
-            empty.style.cssText = 'color: #64748b; font-size: 13px; text-align: center; padding: 20px;';
+            empty.className = 'robot-form-empty';
             form.appendChild(empty);
             return;
         }
@@ -319,7 +223,7 @@
 
         const createInput = (label, value, placeholder, key, type = 'text') => {
             const container = document.createElement('div');
-            container.style.marginBottom = '12px';
+            container.className = 'robot-config-field';
             
             const labelEl = document.createElement('div');
             labelEl.textContent = label;

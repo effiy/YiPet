@@ -53,7 +53,7 @@
             // 注：我们仍然需要通过页面上下文传递 URL，使用隐藏的 data 属性
             const urlContainer = document.createElement('div');
             urlContainer.id = '__mermaid_url_container__';
-            urlContainer.style.display = 'none';
+            urlContainer.classList.add('tw-hidden');
             urlContainer.setAttribute('data-mermaid-url', scriptUrl);
             (document.head || document.documentElement).appendChild(urlContainer);
 
@@ -111,25 +111,50 @@
         if (!container) return;
 
         // 检查是否需要加载 mermaid - 更全面的选择器
-        const mermaidBlocks = container.querySelectorAll('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+        // 1. 查找 code.language-mermaid（原始代码块）
+        // 2. 查找已转换为 div.mermaid 的元素（renderMarkdown 转换后的）
+        const mermaidCodeBlocks = container.querySelectorAll('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+        const mermaidDivs = container.querySelectorAll('div.mermaid:not([data-mermaid-rendered])');
 
-        if (mermaidBlocks.length === 0) return;
+        // 合并两种类型的元素
+        const allMermaidElements = [...Array.from(mermaidCodeBlocks), ...Array.from(mermaidDivs)];
+
+        if (allMermaidElements.length === 0) return;
 
         // 过滤掉已经处理过的块
-        const unprocessedBlocks = Array.from(mermaidBlocks).filter(block => {
-            // 检查是否已经是mermaid div或被标记为已处理
-            const preElement = block.parentElement;
-            if (preElement && preElement.tagName === 'PRE') {
-                // 如果父元素的下一个兄弟元素是mermaid div，说明已经处理过
-                const nextSibling = preElement.nextElementSibling;
-                if (nextSibling && nextSibling.classList.contains('mermaid')) {
+        const unprocessedBlocks = allMermaidElements.filter(element => {
+            // 如果是 div.mermaid，检查是否已渲染
+            if (element.tagName === 'DIV' && element.classList.contains('mermaid')) {
+                // 如果已经有 SVG 子元素，说明已经渲染过
+                if (element.querySelector('svg')) {
                     return false;
                 }
-                // 检查是否有处理标记
-                if (block.classList.contains('mermaid-processed')) {
+                // 如果已标记为已成功渲染（值为 "true"），跳过
+                const rendered = element.getAttribute('data-mermaid-rendered');
+                if (rendered === 'true') {
                     return false;
                 }
+                // 如果值为 "false" 或没有属性，说明需要处理（可能是首次处理或之前处理失败）
+                return true;
             }
+            
+            // 如果是 code 元素，检查是否已处理
+            if (element.tagName === 'CODE') {
+                const preElement = element.parentElement;
+                if (preElement && preElement.tagName === 'PRE') {
+                    // 如果父元素的下一个兄弟元素是mermaid div，说明已经处理过
+                    const nextSibling = preElement.nextElementSibling;
+                    if (nextSibling && nextSibling.classList.contains('mermaid')) {
+                        return false;
+                    }
+                    // 检查是否有处理标记
+                    if (element.classList.contains('mermaid-processed')) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            
             return true;
         });
 
@@ -143,163 +168,221 @@
         }
 
         // 处理每个未处理的 mermaid 代码块
-        unprocessedBlocks.forEach((codeBlock, index) => {
-            const preElement = codeBlock.parentElement;
-            if (preElement && preElement.tagName === 'PRE') {
-                const mermaidId = `mermaid-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
-                const mermaidContent = codeBlock.textContent || codeBlock.innerText || '';
+        unprocessedBlocks.forEach((element, index) => {
+            const mermaidId = `mermaid-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
+            let mermaidDiv = null;
+            let mermaidContent = '';
 
-                if (!mermaidContent.trim()) {
-                    return; // 跳过空内容
+            // 如果已经是 div.mermaid，直接使用
+            if (element.tagName === 'DIV' && element.classList.contains('mermaid')) {
+                mermaidDiv = element;
+                mermaidContent = element.textContent || element.innerText || '';
+                
+                // 确保有 ID
+                if (!mermaidDiv.id) {
+                    mermaidDiv.id = mermaidId;
+                } else {
+                    mermaidId = mermaidDiv.id;
                 }
+                
+                // 保存源代码（如果还没有）
+                if (!mermaidDiv.hasAttribute('data-mermaid-source')) {
+                    mermaidDiv.setAttribute('data-mermaid-source', mermaidContent);
+                }
+                
+                // 确保样式正确（使用 CSS 类，样式已在 content.css 中定义）
+                // mermaid div 的样式已通过 CSS 类定义，无需内联样式
+            } else if (element.tagName === 'CODE') {
+                // 如果是 code 元素，需要替换为 div
+                const preElement = element.parentElement;
+                if (preElement && preElement.tagName === 'PRE') {
+                    mermaidContent = element.textContent || element.innerText || '';
 
-                // 创建 mermaid 容器
-                const mermaidDiv = document.createElement('div');
-                mermaidDiv.className = 'mermaid';
-                mermaidDiv.id = mermaidId;
-                mermaidDiv.textContent = mermaidContent;
-                // 保存源代码以便后续复制功能使用
-                mermaidDiv.setAttribute('data-mermaid-source', mermaidContent);
-                mermaidDiv.style.cssText = `
-                    background: rgba(255, 255, 255, 0.1) !important;
-                    padding: 15px !important;
-                    border-radius: 8px !important;
-                    margin: 15px 0 !important;
-                    overflow-x: auto !important;
-                    min-height: 100px !important;
-                `;
-
-                // 标记为已处理
-                codeBlock.classList.add('mermaid-processed');
-
-                // 替换代码块
-                try {
-                    preElement.parentNode.replaceChild(mermaidDiv, preElement);
-
-                    // 渲染 mermaid 图表 - 使用页面上下文中的 mermaid
-                    // 因为 mermaid 在页面上下文中，我们需要通过注入脚本执行渲染
-                    // 通过 data 属性传递渲染 ID（避免内联脚本）
-                    // 为每个 mermaid 块使用唯一的容器 ID，避免冲突
-                    const renderIdContainer = document.createElement('div');
-                    renderIdContainer.id = `__mermaid_render_id_container__${mermaidId}`;
-                    renderIdContainer.style.display = 'none';
-                    renderIdContainer.setAttribute('data-mermaid-id', mermaidId);
-                    // 确保容器在页面上下文中（不是在 content script 的隔离 DOM）
-                    (document.head || document.documentElement).appendChild(renderIdContainer);
-
-                    // 监听渲染结果（在加载脚本之前设置）
-                    const handleRender = (event) => {
-                        if (event.detail.id === mermaidId) {
-                            window.removeEventListener('mermaid-rendered', handleRender);
-                            if (!event.detail.success) {
-                                const errorDiv = document.createElement('div');
-                                errorDiv.className = 'mermaid-error';
-                                errorDiv.style.cssText = `
-                                    background: rgba(255, 0, 0, 0.1) !important;
-                                    padding: 10px !important;
-                                    border-radius: 5px !important;
-                                    color: #ef4444 !important;  /* 量子红 */
-                                    font-size: 12px !important;
-                                    margin: 10px 0 !important;
-                                `;
-                                errorDiv.innerHTML = `
-                                    <div>❌ Mermaid 图表渲染失败</div>
-                                    <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
-                                `;
-                                if (mermaidDiv.parentNode) {
-                                    mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
-                                }
-                            } else {
-                                // 渲染成功，添加复制和下载按钮
-                                setTimeout(() => {
-                                    this.addMermaidActions(mermaidDiv, event.detail.svgContent || '', mermaidContent);
-                                }, 100);
-                            }
-                            // 清理 ID 容器
-                            if (renderIdContainer.parentNode) {
-                                renderIdContainer.parentNode.removeChild(renderIdContainer);
-                            }
-                        }
-                    };
-                    window.addEventListener('mermaid-rendered', handleRender);
-
-                    // 延迟加载渲染脚本，确保 mermaid div 已经添加到 DOM 且事件监听器已设置
-                    // 增加延迟时间，确保 DOM 完全更新
-                    setTimeout(() => {
-                        // 再次检查 mermaid div 是否存在（确保 DOM 已更新）
-                        const checkDiv = document.getElementById(mermaidId);
-                        if (!checkDiv) {
-                            console.warn('[ProcessMermaid] mermaid div 尚未准备好，延迟渲染:', mermaidId);
-                            // 如果还没准备好，再等一会
-                            setTimeout(() => {
-                                const renderScript = document.createElement('script');
-                                renderScript.src = chrome.runtime.getURL('src/features/mermaid/render-mermaid.js');
-                                renderScript.charset = 'UTF-8';
-                                renderScript.async = false;
-                                document.documentElement.appendChild(renderScript);
-
-                                setTimeout(() => {
-                                    if (renderScript.parentNode) {
-                                        renderScript.parentNode.removeChild(renderScript);
-                                    }
-                                }, 3000);
-                            }, 150);
-                            return;
-                        }
-
-                        // 加载外部渲染脚本（避免 CSP 限制）
-                        const renderScript = document.createElement('script');
-                        renderScript.src = chrome.runtime.getURL('src/features/mermaid/render-mermaid.js');
-                        renderScript.charset = 'UTF-8';
-                        renderScript.async = false;
-
-                        // 注入渲染脚本到页面上下文
-                        document.documentElement.appendChild(renderScript);
-
-                        // 清理脚本（渲染完成后）
-                        setTimeout(() => {
-                            if (renderScript.parentNode) {
-                                renderScript.parentNode.removeChild(renderScript);
-                            }
-                        }, 3000);
-                    }, 200);
-                } catch (error) {
-                    console.error('替换 Mermaid 代码块时出错:', error);
-                    // 出错时显示错误信息，但保留原始代码
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'mermaid-error';
-                    errorDiv.style.cssText = `
-                        background: rgba(255, 0, 0, 0.1) !important;
-                        padding: 10px !important;
-                        border-radius: 5px !important;
-                        color: #ff6b6b !important;
-                        font-size: 12px !important;
-                        margin: 10px 0 !important;
-                    `;
-                    errorDiv.innerHTML = `
-                        <div>❌ Mermaid 图表渲染失败</div>
-                        <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
-                    `;
-                    if (mermaidDiv.parentNode) {
-                        mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
+                    if (!mermaidContent.trim()) {
+                        return; // 跳过空内容
                     }
+
+                    // 创建 mermaid 容器（样式已通过 CSS 类定义）
+                    mermaidDiv = document.createElement('div');
+                    mermaidDiv.className = 'mermaid';
+                    mermaidDiv.id = mermaidId;
+                    mermaidDiv.textContent = mermaidContent;
+                    // 保存源代码以便后续复制功能使用
+                    mermaidDiv.setAttribute('data-mermaid-source', mermaidContent);
+
+                    // 标记为已处理
+                    element.classList.add('mermaid-processed');
+
+                    // 替换代码块
+                    try {
+                        preElement.parentNode.replaceChild(mermaidDiv, preElement);
+                    } catch (error) {
+                        console.error('替换 Mermaid 代码块时出错:', error);
+                        return;
+                    }
+                } else {
+                    return; // 如果不是在 pre 中，跳过
+                }
+            } else {
+                return; // 未知类型，跳过
+            }
+
+            if (!mermaidContent.trim()) {
+                return; // 跳过空内容
+            }
+
+            // 继续处理渲染逻辑
+            try {
+                // 标记为正在处理（避免重复处理）
+                mermaidDiv.setAttribute('data-mermaid-rendered', 'false');
+
+                // 渲染 mermaid 图表 - 使用页面上下文中的 mermaid
+                // 因为 mermaid 在页面上下文中，我们需要通过注入脚本执行渲染
+                // 通过 data 属性传递渲染 ID（避免内联脚本）
+                // 为每个 mermaid 块使用唯一的容器 ID，避免冲突
+                const renderIdContainer = document.createElement('div');
+                renderIdContainer.id = `__mermaid_render_id_container__${mermaidId}`;
+                renderIdContainer.classList.add('tw-hidden');
+                renderIdContainer.setAttribute('data-mermaid-id', mermaidId);
+                // 确保容器在页面上下文中（不是在 content script 的隔离 DOM）
+                (document.head || document.documentElement).appendChild(renderIdContainer);
+
+                // 监听渲染结果（在加载脚本之前设置）
+                const handleRender = (event) => {
+                    if (event.detail.id === mermaidId) {
+                        window.removeEventListener('mermaid-rendered', handleRender);
+                        if (!event.detail.success) {
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'mermaid-error';
+                            // 样式已通过 CSS 类定义
+                            errorDiv.innerHTML = `
+                                <div>❌ Mermaid 图表渲染失败</div>
+                                <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
+                            `;
+                            if (mermaidDiv.parentNode) {
+                                mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
+                            }
+                        } else {
+                            // 渲染成功，标记为已渲染
+                            mermaidDiv.setAttribute('data-mermaid-rendered', 'true');
+                            // 添加复制和下载按钮
+                            setTimeout(() => {
+                                this.addMermaidActions(mermaidDiv, event.detail.svgContent || '', mermaidContent);
+                            }, 100);
+                        }
+                        // 清理 ID 容器
+                        if (renderIdContainer.parentNode) {
+                            renderIdContainer.parentNode.removeChild(renderIdContainer);
+                        }
+                    }
+                };
+                window.addEventListener('mermaid-rendered', handleRender);
+
+                // 延迟加载渲染脚本，确保 mermaid div 已经添加到 DOM 且事件监听器已设置
+                // 增加延迟时间，确保 DOM 完全更新
+                setTimeout(() => {
+                    // 再次检查 mermaid div 是否存在（确保 DOM 已更新）
+                    const checkDiv = document.getElementById(mermaidId);
+                    if (!checkDiv) {
+                        console.warn('[ProcessMermaid] mermaid div 尚未准备好，延迟渲染:', mermaidId);
+                        // 如果还没准备好，再等一会
+                        setTimeout(() => {
+                            const renderScript = document.createElement('script');
+                            renderScript.src = chrome.runtime.getURL('src/features/mermaid/render-mermaid.js');
+                            renderScript.charset = 'UTF-8';
+                            renderScript.async = false;
+                            document.documentElement.appendChild(renderScript);
+
+                            setTimeout(() => {
+                                if (renderScript.parentNode) {
+                                    renderScript.parentNode.removeChild(renderScript);
+                                }
+                            }, 3000);
+                        }, 150);
+                        return;
+                    }
+
+                    // 加载外部渲染脚本（避免 CSP 限制）
+                    const renderScript = document.createElement('script');
+                    renderScript.src = chrome.runtime.getURL('src/features/mermaid/render-mermaid.js');
+                    renderScript.charset = 'UTF-8';
+                    renderScript.async = false;
+
+                    // 注入渲染脚本到页面上下文
+                    document.documentElement.appendChild(renderScript);
+
+                    // 清理脚本（渲染完成后）
+                    setTimeout(() => {
+                        if (renderScript.parentNode) {
+                            renderScript.parentNode.removeChild(renderScript);
+                        }
+                    }, 3000);
+                }, 200);
+            } catch (error) {
+                console.error('处理 Mermaid 代码块时出错:', error);
+                // 出错时显示错误信息，但保留原始代码
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'mermaid-error';
+                // 样式已通过 CSS 类定义
+                errorDiv.innerHTML = `
+                    <div>❌ Mermaid 图表渲染失败</div>
+                    <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
+                `;
+                if (mermaidDiv && mermaidDiv.parentNode) {
+                    mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
                 }
             }
         });
     };
 
-    // 渲染 Markdown 为 HTML（保持同步以兼容现有代码）
+    // 渲染 Markdown 为 HTML（使用 petManager.message.js 中的实现，确保 mermaid 处理一致）
     proto.renderMarkdown = function (markdown) {
         if (!markdown) return '';
 
         try {
             // 检查 marked 是否可用
             if (typeof marked !== 'undefined') {
-                // 配置 marked 以增强安全性
+                // 创建自定义渲染器（与 petManager.message.js 保持一致）
+                const renderer = new marked.Renderer();
+
+                // 覆盖 link 渲染（安全处理）
+                renderer.link = (href, title, text) => {
+                    const safeHref = this._sanitizeUrl ? this._sanitizeUrl(href) : href;
+                    const safeText = text || '';
+                    if (!safeHref) return safeText;
+                    const safeTitle = title ? ` title="${this.escapeHtml(title)}"` : '';
+                    return `<a href="${this.escapeHtml(safeHref)}"${safeTitle} target="_blank" rel="noopener noreferrer">${safeText}</a>`;
+                };
+
+                // 覆盖 image 渲染（安全处理）
+                renderer.image = (href, title, text) => {
+                    const safeHref = this._sanitizeUrl ? this._sanitizeUrl(href) : href;
+                    const alt = this.escapeHtml(text || '');
+                    if (!safeHref) return alt;
+                    const safeTitle = title ? ` title="${this.escapeHtml(title)}"` : '';
+                    return `<img src="${this.escapeHtml(safeHref)}" alt="${alt}" loading="lazy"${safeTitle} />`;
+                };
+
+                // 覆盖 html 渲染（转义 HTML）
+                renderer.html = (html) => {
+                    return this.escapeHtml(html);
+                };
+
+                // 覆盖 code 渲染（处理 mermaid）- 关键：将 mermaid 转换为 div.mermaid
+                renderer.code = (code, language, isEscaped) => {
+                    const lang = (language || '').trim().toLowerCase();
+                    if (lang === 'mermaid' || lang === 'mmd') {
+                        return `<div class="mermaid">${code}</div>`;
+                    }
+                    return marked.Renderer.prototype.code.call(renderer, code, language, isEscaped);
+                };
+
+                // 配置 marked
                 marked.setOptions({
+                    renderer: renderer,
                     breaks: true, // 支持换行
                     gfm: true, // GitHub Flavored Markdown
-                    sanitize: false // 允许 HTML，但我们会通过 DOMPurify 或其他方式处理
+                    sanitize: false // 允许 HTML，但我们会通过手动处理确保安全
                 });
                 return marked.parse(markdown);
             } else {
@@ -328,8 +411,29 @@
         return html;
     };
 
-    // HTML 转义辅助函数
+    // URL 净化辅助函数（与 petManager.message.js 保持一致）
+    proto._sanitizeUrl = function(url) {
+        if (!url) return '';
+        try {
+            const prot = decodeURIComponent(url)
+                .replace(/[^A-Za-z0-9/:]/g, '')
+                .toLowerCase();
+            if (prot.indexOf('javascript:') === 0 || prot.indexOf('vbscript:') === 0 || prot.indexOf('data:') === 0) {
+                return '';
+            }
+        } catch (e) {
+            return '';
+        }
+        return url;
+    };
+
+    // HTML 转义辅助函数（使用 DomHelper，保留兼容性）
     proto.escapeHtml = function (text) {
+        if (typeof DomHelper !== 'undefined' && typeof DomHelper.escapeHtml === 'function') {
+            return DomHelper.escapeHtml(text);
+        }
+        // 降级实现
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -344,109 +448,39 @@
             return;
         }
 
-        // 创建按钮容器
+        // 创建按钮容器（样式已通过 CSS 类定义）
         const actionsContainer = document.createElement('div');
         actionsContainer.className = 'mermaid-actions';
-        actionsContainer.style.cssText = `
-            position: absolute !important;
-            top: 10px !important;
-            right: 10px !important;
-            display: flex !important;
-            gap: 8px !important;
-            z-index: 10 !important;
-            opacity: 0 !important;
-            transition: opacity 0.2s ease !important;
-        `;
 
-        // 确保 mermaid div 有相对定位
+        // 确保 mermaid div 有相对定位（用于绝对定位的按钮容器）
         const currentPosition = window.getComputedStyle(mermaidDiv).position;
         if (currentPosition === 'static') {
-            mermaidDiv.style.position = 'relative';
+            mermaidDiv.classList.add('mermaid-has-relative-position');
         }
 
-        // 创建复制按钮
+        // 创建复制按钮（样式已通过 CSS 类定义）
         const copyButton = document.createElement('button');
         copyButton.className = 'mermaid-copy-button';
         copyButton.title = '复制 Mermaid 代码';
         copyButton.innerHTML = '📋';
-        copyButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: none !important;
-            border-radius: 4px !important;
-            width: 28px !important;
-            height: 28px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            font-size: 14px !important;
-            transition: all 0.2s ease !important;
-            opacity: 0.8 !important;
-            backdrop-filter: blur(4px) !important;
-        `;
 
-        // 创建下载 SVG 按钮
+        // 创建下载 SVG 按钮（样式已通过 CSS 类定义）
         const downloadButton = document.createElement('button');
         downloadButton.className = 'mermaid-download-button';
         downloadButton.title = '下载 SVG';
         downloadButton.innerHTML = '💾';
-        downloadButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: none !important;
-            border-radius: 4px !important;
-            width: 28px !important;
-            height: 28px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            font-size: 14px !important;
-            transition: all 0.2s ease !important;
-            opacity: 0.8 !important;
-            backdrop-filter: blur(4px) !important;
-        `;
 
-        // 创建下载 PNG 按钮
+        // 创建下载 PNG 按钮（样式已通过 CSS 类定义）
         const downloadPngButton = document.createElement('button');
         downloadPngButton.className = 'mermaid-download-png-button';
         downloadPngButton.title = '下载 PNG';
         downloadPngButton.innerHTML = '🖼️';
-        downloadPngButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: none !important;
-            border-radius: 4px !important;
-            width: 28px !important;
-            height: 28px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            font-size: 14px !important;
-            transition: all 0.2s ease !important;
-            opacity: 0.8 !important;
-            backdrop-filter: blur(4px) !important;
-        `;
 
         // 创建编辑按钮（在新标签页打开 Mermaid Live Editor）
         const editButton = document.createElement('button');
         editButton.className = 'mermaid-edit-button';
         editButton.title = '在 Mermaid Live Editor 中打开';
         editButton.innerHTML = '✏️';
-        editButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: none !important;
-            border-radius: 4px !important;
-            width: 28px !important;
-            height: 28px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            font-size: 14px !important;
-            transition: all 0.2s ease !important;
-            opacity: 0.8 !important;
-            backdrop-filter: blur(4px) !important;
-        `;
 
         // 获取 SVG 内容的辅助函数
         const getSvgContent = () => {
@@ -564,7 +598,7 @@
                     const link = document.createElement('a');
                     link.href = url;
                     link.download = `mermaid-diagram-${Date.now()}.svg`;
-                    link.style.display = 'none';
+                    link.classList.add('tw-hidden');
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -884,7 +918,7 @@
                 if (svg) {
                     // 显示加载状态
                     downloadPngButton.innerHTML = '⏳';
-                    downloadPngButton.style.cursor = 'wait';
+                    downloadPngButton.classList.add('js-loading');
 
                     // 转换为 PNG
                     const pngBlob = await svgToPng(svg);
@@ -894,7 +928,7 @@
                     const link = document.createElement('a');
                     link.href = url;
                     link.download = `mermaid-diagram-${Date.now()}.png`;
-                    link.style.display = 'none';
+                    link.classList.add('tw-hidden');
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -902,11 +936,11 @@
 
                     // 显示成功提示
                     downloadPngButton.innerHTML = '✓';
-                    downloadPngButton.style.background = 'rgba(76, 175, 80, 0.3) !important';
-                    downloadPngButton.style.cursor = 'pointer';
+                    downloadPngButton.classList.remove('js-loading');
+                    downloadPngButton.classList.add('js-success');
                     setTimeout(() => {
                         downloadPngButton.innerHTML = '🖼️';
-                        downloadPngButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                        downloadPngButton.classList.remove('js-success');
                     }, 1000);
                 } else {
                     throw new Error('无法获取 SVG 内容');
@@ -914,11 +948,11 @@
             } catch (error) {
                 console.error('下载 PNG 失败:', error);
                 downloadPngButton.innerHTML = '✗';
-                downloadPngButton.style.background = 'rgba(244, 67, 54, 0.3) !important';
-                downloadPngButton.style.cursor = 'pointer';
+                downloadPngButton.classList.remove('js-loading');
+                downloadPngButton.classList.add('js-error');
                 setTimeout(() => {
                     downloadPngButton.innerHTML = '🖼️';
-                    downloadPngButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
+                    downloadPngButton.classList.remove('js-error');
                 }, 1000);
             }
         });
@@ -941,7 +975,7 @@
                 // 显示加载状态
                 const originalHTML = editButton.innerHTML;
                 editButton.innerHTML = '⏳';
-                editButton.style.cursor = 'wait';
+                editButton.classList.add('js-loading');
 
                 // 同时使用多种方式传递代码，提高成功率
                 let urlOpened = false;
@@ -960,9 +994,7 @@
                     try {
                         const textArea = document.createElement('textarea');
                         textArea.value = codeToEdit;
-                        textArea.style.position = 'fixed';
-                        textArea.style.opacity = '0';
-                        textArea.style.left = '-9999px';
+                        textArea.classList.add('pet-offscreen-invisible');
                         document.body.appendChild(textArea);
                         textArea.select();
                         const successful = document.execCommand('copy');
@@ -1052,44 +1084,15 @@
                     // 更新按钮状态
                     if (clipboardSuccess || urlOpened) {
                         editButton.innerHTML = '✓';
-                        editButton.style.background = clipboardSuccess ? 'rgba(76, 175, 80, 0.3) !important' : 'rgba(255, 193, 7, 0.3) !important';
+                        editButton.classList.toggle('js-success', clipboardSuccess);
+                        editButton.classList.toggle('js-warning', !clipboardSuccess && urlOpened);
                     }
 
                     // 创建临时提示（仅在成功复制或打开时显示）
                     if (clipboardSuccess || urlOpened) {
                         const tip = document.createElement('div');
                         tip.textContent = tipMessage;
-                        tip.style.cssText = `
-                            position: fixed !important;
-                            top: 50% !important;
-                            left: 50% !important;
-                            transform: translate(-50%, -50%) !important;
-                            background: rgba(0, 0, 0, 0.85) !important;
-                            color: white !important;
-                            padding: 14px 28px !important;
-                            border-radius: 8px !important;
-                            font-size: 14px !important;
-                            z-index: 10000 !important;
-                            pointer-events: none !important;
-                            animation: fadeInOut 2.5s ease-in-out !important;
-                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-                            max-width: 90% !important;
-                            text-align: center !important;
-                            word-wrap: break-word !important;
-                        `;
-
-                        // 添加动画样式（如果还没有）
-                        if (!document.getElementById('mermaid-tip-styles')) {
-                            const style = document.createElement('style');
-                            style.id = 'mermaid-tip-styles';
-                            style.textContent = `
-                                @keyframes fadeInOut {
-                                    0%, 100% { opacity: 0; transform: translate(-50%, -50%) translateY(-10px); }
-                                    10%, 90% { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
-                                }
-                            `;
-                            document.head.appendChild(style);
-                        }
+                        tip.className = 'mermaid-tip';
 
                         document.body.appendChild(tip);
                         setTimeout(() => {
@@ -1102,8 +1105,8 @@
                     // 恢复按钮状态
                     setTimeout(() => {
                         editButton.innerHTML = originalHTML;
-                        editButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
-                        editButton.style.cursor = 'pointer';
+                        editButton.classList.remove('js-success', 'js-warning');
+                        editButton.classList.remove('js-loading');
                     }, 2000);
                 }, 100);
 
@@ -1118,7 +1121,7 @@
                 // 恢复按钮状态
                 setTimeout(() => {
                     editButton.innerHTML = '✏️';
-                    editButton.style.cursor = 'pointer';
+                    editButton.classList.remove('js-loading');
                 }, 1000);
             }
         });
@@ -1128,21 +1131,6 @@
         fullscreenButton.className = 'mermaid-fullscreen-button';
         fullscreenButton.title = '全屏查看';
         fullscreenButton.innerHTML = '⛶';
-        fullscreenButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: none !important;
-            border-radius: 4px !important;
-            width: 28px !important;
-            height: 28px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            font-size: 14px !important;
-            transition: all 0.2s ease !important;
-            opacity: 0.8 !important;
-            backdrop-filter: blur(4px) !important;
-        `;
 
         // 全屏按钮点击事件
         fullscreenButton.addEventListener('click', async (e) => {
@@ -1151,76 +1139,12 @@
             this.openMermaidFullscreen(mermaidDiv, mermaidSourceCode);
         });
 
-        // 悬停显示按钮
-        mermaidDiv.addEventListener('mouseenter', () => {
-            actionsContainer.style.opacity = '1';
-        });
-        mermaidDiv.addEventListener('mouseleave', () => {
-            actionsContainer.style.opacity = '0';
-        });
-
         actionsContainer.appendChild(copyButton);
         actionsContainer.appendChild(downloadButton);
         actionsContainer.appendChild(downloadPngButton);
         actionsContainer.appendChild(editButton);
         actionsContainer.appendChild(fullscreenButton);
         mermaidDiv.appendChild(actionsContainer);
-
-        // 按钮悬停效果
-        copyButton.addEventListener('mouseenter', () => {
-            copyButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
-            copyButton.style.transform = 'scale(1.1)';
-            copyButton.style.opacity = '1';
-        });
-        copyButton.addEventListener('mouseleave', () => {
-            copyButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
-            copyButton.style.transform = 'scale(1)';
-            copyButton.style.opacity = '0.8';
-        });
-
-        downloadButton.addEventListener('mouseenter', () => {
-            downloadButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
-            downloadButton.style.transform = 'scale(1.1)';
-            downloadButton.style.opacity = '1';
-        });
-        downloadButton.addEventListener('mouseleave', () => {
-            downloadButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
-            downloadButton.style.transform = 'scale(1)';
-            downloadButton.style.opacity = '0.8';
-        });
-
-        downloadPngButton.addEventListener('mouseenter', () => {
-            downloadPngButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
-            downloadPngButton.style.transform = 'scale(1.1)';
-            downloadPngButton.style.opacity = '1';
-        });
-        downloadPngButton.addEventListener('mouseleave', () => {
-            downloadPngButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
-            downloadPngButton.style.transform = 'scale(1)';
-            downloadPngButton.style.opacity = '0.8';
-        });
-
-        editButton.addEventListener('mouseenter', () => {
-            editButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
-            editButton.style.transform = 'scale(1.1)';
-            editButton.style.opacity = '1';
-        });
-        editButton.addEventListener('mouseleave', () => {
-            editButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
-            editButton.style.transform = 'scale(1)';
-            editButton.style.opacity = '0.8';
-        });
-
-        fullscreenButton.addEventListener('mouseenter', () => {
-            fullscreenButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
-            fullscreenButton.style.transform = 'scale(1.1)';
-            fullscreenButton.style.opacity = '1';
-        });
-        fullscreenButton.addEventListener('mouseleave', () => {
-            fullscreenButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
-            fullscreenButton.style.transform = 'scale(1)';
-            fullscreenButton.style.opacity = '0.8';
-        });
     };
 
     // 打开 Mermaid 图表全屏查看
@@ -1244,68 +1168,29 @@
         // 创建全屏容器
         const fullscreenContainer = document.createElement('div');
         fullscreenContainer.id = 'mermaid-fullscreen-container';
+        fullscreenContainer.className = 'mermaid-fullscreen-container';
         // 使用比聊天窗口更高的 z-index（聊天窗口是 2147483648）
         const fullscreenZIndex = 2147483649;
-        fullscreenContainer.style.cssText = `
-            position: fixed !important;
-            top: ${chatRect.top}px !important;
-            left: ${chatRect.left}px !important;
-            width: ${chatRect.width}px !important;
-            height: ${chatRect.height}px !important;
-            background: rgba(0, 0, 0, 0.95) !important;
-            z-index: ${fullscreenZIndex} !important;
-            display: flex !important;
-            flex-direction: column !important;
-            border-radius: 8px !important;
-            overflow: hidden !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
-        `;
+        fullscreenContainer.style.top = `${chatRect.top}px`;
+        fullscreenContainer.style.left = `${chatRect.left}px`;
+        fullscreenContainer.style.width = `${chatRect.width}px`;
+        fullscreenContainer.style.height = `${chatRect.height}px`;
+        fullscreenContainer.style.zIndex = String(fullscreenZIndex);
 
         // 创建头部栏（包含关闭按钮）
         const headerBar = document.createElement('div');
-        headerBar.style.cssText = `
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            padding: 10px 15px !important;
-            background: rgba(255, 255, 255, 0.1) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-            flex-shrink: 0 !important;
-        `;
+        headerBar.className = 'mermaid-fullscreen-header';
 
         const title = document.createElement('div');
         title.textContent = 'Mermaid 图表全屏查看';
-        title.style.cssText = `
-            color: white !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-        `;
+        title.className = 'mermaid-fullscreen-title';
 
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.title = '关闭全屏';
-        closeButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: none !important;
-            color: white !important;
-            font-size: 18px !important;
-            cursor: pointer !important;
-            width: 28px !important;
-            height: 28px !important;
-            border-radius: 4px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            transition: all 0.2s ease !important;
-        `;
+        closeButton.className = 'mermaid-fullscreen-close';
         closeButton.addEventListener('click', () => {
             fullscreenContainer.remove();
-        });
-        closeButton.addEventListener('mouseenter', () => {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.3) !important';
-        });
-        closeButton.addEventListener('mouseleave', () => {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2) !important';
         });
 
         headerBar.appendChild(title);
@@ -1313,31 +1198,11 @@
 
         // 创建内容区域
         const contentArea = document.createElement('div');
-        contentArea.style.cssText = `
-            flex: 1 !important;
-            overflow: hidden !important;
-            display: flex !important;
-            align-items: stretch !important;
-            justify-content: stretch !important;
-            padding: 0 !important;
-            position: relative !important;
-        `;
+        contentArea.className = 'mermaid-fullscreen-content';
 
         // 克隆 mermaid 图表
         const clonedMermaid = mermaidDiv.cloneNode(true);
-        clonedMermaid.style.cssText = `
-            width: 100% !important;
-            height: 100% !important;
-            min-width: 0 !important;
-            min-height: 0 !important;
-            background: rgba(255, 255, 255, 0.1) !important;
-            padding: 20px !important;
-            border-radius: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            overflow: hidden !important;
-        `;
+        clonedMermaid.classList.add('mermaid-fullscreen-mermaid');
 
         // 移除克隆元素中的操作按钮
         const clonedActions = clonedMermaid.querySelector('.mermaid-actions');
@@ -1349,12 +1214,6 @@
         const adjustSvgSize = () => {
             const svg = clonedMermaid.querySelector('svg');
             if (svg) {
-                svg.style.cssText = `
-                    width: 100% !important;
-                    height: 100% !important;
-                    max-width: 100% !important;
-                    max-height: 100% !important;
-                `;
                 // 确保 SVG 有 viewBox 属性以便自适应
                 if (!svg.getAttribute('viewBox') && svg.getAttribute('width') && svg.getAttribute('height')) {
                     const width = svg.getAttribute('width');
@@ -1393,7 +1252,7 @@
                 const renderIdContainer = document.createElement('div');
                 renderIdContainer.id = `__mermaid_render_id_container__${clonedMermaidId}`;
                 renderIdContainer.setAttribute('data-mermaid-id', clonedMermaidId);
-                renderIdContainer.style.display = 'none';
+                renderIdContainer.classList.add('tw-hidden');
                 document.body.appendChild(renderIdContainer);
 
                 const handleRender = (event) => {

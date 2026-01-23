@@ -197,7 +197,7 @@ class ImageResourceManager {
      * @returns {Promise<Image>} 图标 Image 对象
      */
     async loadRoleIcon(role = '教师') {
-        const imagePath = `assets/images/${role}/icon.png`;
+        const imagePath = `src/assets/images/${role}/icon.png`;
         return this.loadImage(imagePath);
     }
 

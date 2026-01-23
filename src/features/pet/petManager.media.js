@@ -116,103 +116,34 @@
 
         const modal = document.createElement('div');
         modal.className = 'image-preview-modal';
-        modal.style.cssText = `
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            background: rgba(0, 0, 0, 0.95) !important;
-            z-index: 2147483650 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            animation: fadeIn 0.3s ease-out !important;
-        `;
-
-        // 添加fadeIn动画
-        if (!document.getElementById('image-preview-fade-style')) {
-            const style = document.createElement('style');
-            style.id = 'image-preview-fade-style';
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
+        // 样式已通过 CSS 类定义
 
         // 创建图片容器
         const imageContainer = document.createElement('div');
-        imageContainer.style.cssText = `
-            position: relative !important;
-            max-width: 95% !important;
-            max-height: 90% !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            
-        `;
+        imageContainer.className = 'image-preview-container';
 
         // 创建加载指示器
         const loadingIndicator = document.createElement('div');
-        loadingIndicator.style.cssText = `
-            position: absolute !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 40px !important;
-            height: 40px !important;
-            border: 3px solid rgba(255, 255, 255, 0.3) !important;
-            border-top-color: #fff !important;
-            border-radius: 50% !important;
-            animation: spin 0.8s linear infinite !important;
-        `;
-
-        // 添加spin动画
-        if (!document.getElementById('image-preview-spin-style')) {
-            const style = document.createElement('style');
-            style.id = 'image-preview-spin-style';
-            style.textContent = `
-                @keyframes spin {
-                    to { transform: translate(-50%, -50%) rotate(360deg); }
-                }
-            `;
-            document.head.appendChild(style);
-        }
+        loadingIndicator.className = 'image-preview-loading';
 
         imageContainer.appendChild(loadingIndicator);
 
         const img = document.createElement('img');
-        img.style.cssText = `
-            max-width: 100% !important;
-            max-height: 85vh !important;
-            border-radius: 8px !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
-            opacity: 0 !important;
-            transition: opacity 0.3s ease !important;
-            object-fit: contain !important;
-        `;
+        // 样式已通过 CSS 类定义
         img.alt = fileName || '图片预览';
 
         // 图片加载成功
         img.onload = () => {
-            loadingIndicator.style.display = 'none';
-            img.style.opacity = '1';
+            loadingIndicator.classList.add('js-hidden');
+            img.classList.add('js-loaded');
         };
 
         // 图片加载失败
         img.onerror = () => {
-            loadingIndicator.style.display = 'none';
+            loadingIndicator.classList.add('js-hidden');
             const errorMsg = document.createElement('div');
-            errorMsg.style.cssText = `
-                color: white !important;
-                text-align: center !important;
-                padding: 20px !important;
-                font-size: 16px !important;
-            `;
+            errorMsg.className = 'image-preview-error';
+            // 样式已通过 CSS 类定义
             errorMsg.textContent = '图片加载失败';
             imageContainer.appendChild(errorMsg);
         };
@@ -225,59 +156,23 @@
         let titleBar = null;
         if (fileName) {
             titleBar = document.createElement('div');
-            titleBar.style.cssText = `
-                position: absolute !important;
-                top: 20px !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                background: rgba(0, 0, 0, 0.6) !important;
-                color: white !important;
-                padding: 8px 16px !important;
-                border-radius: 20px !important;
-                font-size: 14px !important;
-                max-width: 80% !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                white-space: nowrap !important;
-                backdrop-filter: blur(10px) !important;
-            `;
+            titleBar.className = 'image-preview-title-bar';
             titleBar.textContent = fileName;
             modal.appendChild(titleBar);
         }
 
         // 创建按钮容器（下载和关闭按钮）
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
-            position: absolute !important;
-            top: 20px !important;
-            right: 20px !important;
-            display: flex !important;
-            gap: 12px !important;
-            align-items: center !important;
-        `;
+        buttonContainer.className = 'image-preview-button-container';
 
         // 创建下载按钮（仅当有文件名时显示）
         let downloadBtn = null;
         if (fileName) {
             downloadBtn = document.createElement('button');
+            downloadBtn.className = 'image-preview-download-btn';
             downloadBtn.innerHTML = '⬇️';
             downloadBtn.title = '下载文件';
-            downloadBtn.style.cssText = `
-                background: rgba(255, 255, 255, 0.15) !important;
-                color: white !important;
-                border: none !important;
-                width: 44px !important;
-                height: 44px !important;
-                border-radius: 50% !important;
-                font-size: 20px !important;
-                cursor: pointer !important;
-                transition: all 0.3s ease !important;
-                backdrop-filter: blur(10px) !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                line-height: 1 !important;
-            `;
+            // 样式已通过 CSS 类定义
             downloadBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 // 通用下载逻辑
@@ -289,51 +184,17 @@
                 document.body.removeChild(link);
             });
 
-            downloadBtn.addEventListener('mouseenter', () => {
-                downloadBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-                downloadBtn.style.transform = 'scale(1.1)';
-            });
-
-            downloadBtn.addEventListener('mouseleave', () => {
-                downloadBtn.style.background = 'rgba(255, 255, 255, 0.15)';
-                downloadBtn.style.transform = 'scale(1)';
-            });
-
             buttonContainer.appendChild(downloadBtn);
         }
 
         // 创建关闭按钮
         const closeBtn = document.createElement('button');
+        closeBtn.className = 'image-preview-close-btn';
         closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-            background: rgba(255, 255, 255, 0.15) !important;
-            color: white !important;
-            border: none !important;
-            width: 44px !important;
-            height: 44px !important;
-            border-radius: 50% !important;
-            font-size: 24px !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-            backdrop-filter: blur(10px) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            line-height: 1 !important;
-        `;
+        // 样式已通过 CSS 类定义
         closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             modal.remove();
-        });
-
-        closeBtn.addEventListener('mouseenter', () => {
-            closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-            closeBtn.style.transform = 'scale(1.1)';
-        });
-
-        closeBtn.addEventListener('mouseleave', () => {
-            closeBtn.style.background = 'rgba(255, 255, 255, 0.15)';
-            closeBtn.style.transform = 'scale(1)';
         });
 
         buttonContainer.appendChild(closeBtn);

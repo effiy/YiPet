@@ -526,46 +526,7 @@ class PopupController {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.textContent = message;
-        
-        // 根据类型选择背景颜色
-        const backgroundColor = type === 'error' ? ((PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.NOTIFICATION_ERROR : '#f44336') : 
-                               type === 'info' ? ((PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.NOTIFICATION_INFO : '#2196F3') : ((PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.NOTIFICATION_SUCCESS : '#4CAF50');
-        
-        // 设置通知样式
-        notification.style.cssText = `
-            position: fixed;
-            top: ${(PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.NOTIFICATION_TOP : 10}px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: ${backgroundColor};
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 12px;
-            z-index: 1000;
-            animation: slideDown 0.3s ease-out;
-        `;
-        
-        // 添加动画样式（如果尚未添加）
-        if (!document.getElementById('notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
-                @keyframes slideDown {
-                    from {
-                        opacity: 0;
-                        transform: translateX(-50%) translateY(-20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateX(-50%) translateY(0);
-                    }
-                }
-            `;
-            if (document.head) {
-                document.head.appendChild(style);
-            }
-        }
+        notification.style.top = `${(PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.NOTIFICATION_TOP : 10}px`;
         
         // 将通知添加到页面
         if (document.body) {
@@ -598,4 +559,3 @@ window.addEventListener('beforeunload', () => {
         popupController.stopStatusSync();
     }
 });
-

@@ -30,14 +30,29 @@
 
         if (this.isChatOpen) {
             // 仅隐藏窗口，不保存会话，不影响其他功能
-            this.chatWindow.style.setProperty('display', 'none', 'important');
-            this.chatWindow.style.setProperty('visibility', 'hidden', 'important');
+            this.chatWindow.classList.add('js-hidden');
             this.isChatOpen = false;
         } else {
             // 仅显示窗口，不重新初始化，不影响其他功能
-            this.chatWindow.style.setProperty('display', 'block', 'important');
-            this.chatWindow.style.setProperty('visibility', 'visible', 'important');
+            this.chatWindow.classList.remove('js-hidden');
             this.isChatOpen = true;
+            
+            // 窗口显示后，检查并处理未渲染的 Mermaid 图表
+            setTimeout(async () => {
+                try {
+                    const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
+                    if (messagesContainer) {
+                        await this.loadMermaid();
+                        const unrenderedMermaid = messagesContainer.querySelectorAll('div.mermaid:not([data-mermaid-rendered="true"]), code.language-mermaid:not(.mermaid-processed)');
+                        if (unrenderedMermaid.length > 0) {
+                            console.log(`窗口显示后，发现 ${unrenderedMermaid.length} 个未渲染的 Mermaid 图表，开始处理...`);
+                            await this.processMermaidBlocks(messagesContainer);
+                        }
+                    }
+                } catch (error) {
+                    console.error('窗口显示后处理 Mermaid 图表时出错:', error);
+                }
+            }, 300);
         }
     };
 
@@ -76,10 +91,8 @@
 
         if (this.chatWindow) {
             // 移除之前设置的隐藏样式
-            this.chatWindow.style.removeProperty('visibility');
-            this.chatWindow.style.removeProperty('opacity');
+            this.chatWindow.classList.remove('js-hidden');
             this.chatWindow.removeAttribute('hidden');
-            this.chatWindow.style.display = 'block';
             this.isChatOpen = true;
 
             // 更新聊天窗口样式（确保高度等样式正确）
@@ -209,10 +222,8 @@
             if (chatWindowElement) {
                 console.log('[PetManager] 正在隐藏聊天窗口');
 
-                // 使用 setProperty 和 !important 确保样式生效
-                chatWindowElement.style.setProperty('display', 'none', 'important');
-                chatWindowElement.style.setProperty('visibility', 'hidden', 'important');
-                chatWindowElement.style.setProperty('opacity', '0', 'important');
+                // 使用 CSS 类控制隐藏状态
+                chatWindowElement.classList.add('js-hidden');
                 chatWindowElement.setAttribute('hidden', ''); // 添加 hidden 属性
 
                 this.isChatOpen = false;
@@ -325,12 +336,8 @@
         if (editSessionBtn) {
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 editSessionBtn.disabled = false;
-                editSessionBtn.style.opacity = '1';
-                editSessionBtn.style.cursor = 'pointer';
             } else {
                 editSessionBtn.disabled = true;
-                editSessionBtn.style.opacity = '0.5';
-                editSessionBtn.style.cursor = 'not-allowed';
             }
         }
     };
@@ -556,6 +563,23 @@
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         }, 100);
+
+        // 统一处理所有消息中的 Mermaid 图表（确保在消息加载完成后处理）
+        // 使用更长的延迟确保所有消息的 DOM 都已准备好，包括异步渲染的内容
+        setTimeout(async () => {
+            try {
+                await this.loadMermaid();
+                // 查找所有消息容器中的 mermaid 元素（包括未渲染的 div.mermaid）
+                const allMermaidElements = messagesContainer.querySelectorAll('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid:not([data-mermaid-rendered="true"])');
+                if (allMermaidElements.length > 0) {
+                    console.log(`发现 ${allMermaidElements.length} 个 Mermaid 图表，开始批量渲染...`);
+                    await this.processMermaidBlocks(messagesContainer);
+                    console.log('Mermaid 图表批量渲染完成');
+                }
+            } catch (error) {
+                console.error('批量处理 Mermaid 图表时出错:', error);
+            }
+        }, 500); // 延迟 500ms 确保所有消息的 DOM 和异步内容都已准备好
     };
 
     // 绑定欢迎卡片的交互事件
@@ -596,10 +620,10 @@
                         if (icon) {
                             const originalClass = icon.className;
                             icon.className = 'fas fa-check';
-                            btn.style.color = 'rgba(34, 197, 94, 0.9)';
+                            btn.classList.add('js-copy-success');
                             setTimeout(() => {
                                 icon.className = originalClass;
-                                btn.style.color = '';
+                                btn.classList.remove('js-copy-success');
                             }, 2000);
                         }
                     } catch (err) {
@@ -685,34 +709,7 @@
         let pageInfoHtml = '<div class="welcome-card">';
 
         // 检查是否有任何内容可显示
-        const hasTitle = pageInfo.title && pageInfo.title.trim();
         const hasUrl = shouldShowUrl && pageInfo.url && pageInfo.url.trim();
-        const hasDescription = pageInfo.description && pageInfo.description.trim();
-        const hasAnyContent = hasTitle || hasUrl || hasDescription || sessionTags.length > 0 || 
-                             sessionMessages.length > 0 || sessionCreatedAt || sessionUpdatedAt;
-
-        // 如果没有任何内容，显示空状态提示
-        if (!hasAnyContent) {
-            pageInfoHtml += `
-                <div class="welcome-card-header">
-                    <span class="welcome-card-title">当前页面</span>
-                </div>
-                <div class="welcome-card-section">
-                    <div class="welcome-card-empty">暂无页面信息</div>
-                </div>
-            `;
-            pageInfoHtml += '</div>';
-            return pageInfoHtml;
-        }
-
-        // 标题（如果有）
-        if (hasTitle) {
-            pageInfoHtml += `
-                <div class="welcome-card-header">
-                    <span class="welcome-card-title">${this.escapeHtml(pageInfo.title)}</span>
-                </div>
-            `;
-        }
 
         // 网址（如果有且应该显示）
         // 如果会话存在但没有 url 对象或者 url 对象为空，就不显示网址和网址内容
@@ -1341,20 +1338,34 @@
         }, 2000);
     };
 
-    // HTML转义辅助方法（防止XSS）
+    // HTML转义辅助方法（使用 DomHelper，保留兼容性）
     proto.escapeHtml = function (text) {
+        if (typeof DomHelper !== 'undefined' && typeof DomHelper.escapeHtml === 'function') {
+            return DomHelper.escapeHtml(text);
+        }
+        // 降级实现
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     };
 
+    // 时间格式化方法已迁移到 TimeUtils 工具类，这里保留兼容性方法
     proto.getCurrentTime = function () {
+        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.getCurrentTime === 'function') {
+            return TimeUtils.getCurrentTime();
+        }
+        // 降级实现
         const now = new Date();
         return this.formatTimestamp(now.getTime());
     };
 
-    // 格式化时间戳为年月日时分格式
+    // 格式化时间戳为年月日时分格式（使用 TimeUtils）
     proto.formatTimestamp = function (timestamp) {
+        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.formatTimestamp === 'function') {
+            return TimeUtils.formatTimestamp(timestamp);
+        }
+        // 降级实现
         const date = new Date(timestamp);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -1364,8 +1375,12 @@
         return `${year}年${month}月${day}日 ${hour}:${minute}`;
     };
 
-    // 格式化日期为 YYYY/MM/DD 格式
+    // 格式化日期为 YYYY/MM/DD 格式（使用 TimeUtils）
     proto.formatDate = function (date) {
+        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.formatDate === 'function') {
+            return TimeUtils.formatDate(date);
+        }
+        // 降级实现
         if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
             return '';
         }
@@ -1373,60 +1388,6 @@
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}/${month}/${day}`;
-    };
-
-    // 添加聊天滚动条样式
-    proto.addChatScrollbarStyles = function () {
-        if (document.getElementById('pet-chat-styles')) return;
-
-        const style = document.createElement('style');
-        style.id = 'pet-chat-styles';
-        style.textContent = `
-            @keyframes messageSlideIn {
-                from {
-                    opacity: 0;
-                    transform: translateY(10px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            /* Chrome/Safari 滚动条样式 */
-            #yi-pet-chat-messages::-webkit-scrollbar {
-                width: 8px;
-            }
-
-            #yi-pet-chat-messages::-webkit-scrollbar-track {
-                background: rgba(241, 241, 241, 0.5);
-                border-radius: 4px;
-            }
-
-            #yi-pet-chat-messages::-webkit-scrollbar-thumb {
-                background: #c1c1c1;
-                border-radius: 4px;
-                border: 1px solid transparent;
-                background-clip: padding-box;
-            }
-
-            #yi-pet-chat-messages::-webkit-scrollbar-thumb:hover {
-                background: #a8a8a8;
-            }
-
-            /* Firefox 滚动条样式 */
-            #yi-pet-chat-messages {
-                scrollbar-width: thin;
-                scrollbar-color: #c1c1c1 rgba(241, 241, 241, 0.5);
-            }
-
-            /* 确保消息容器可以滚动 */
-            #yi-pet-chat-messages {
-                overflow-y: auto !important;
-                overflow-x: hidden !important;
-            }
-        `;
-        document.head.appendChild(style);
     };
 
     // 播放聊天动画

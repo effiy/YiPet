@@ -19,13 +19,14 @@
             return;
         }
 
-        tagModal.style.display = 'flex';
+        tagModal.classList.remove('tw-hidden');
+        tagModal.classList.add('tw-flex');
         tagModal.dataset.faqIndex = faqIndex;
 
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
         const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
-        if (inputToggleBtn) inputToggleBtn.style.display = 'none';
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
 
         this.loadFaqTagsIntoManager(faqIndex, currentTags);
 
@@ -83,6 +84,25 @@
         tagModal._escHandler = escHandler;
     };
 
+  proto.closeFaqTagManager = function() {
+        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
+        if (!tagModal) return;
+
+        tagModal.classList.add('tw-hidden');
+        tagModal.classList.remove('tw-flex');
+
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
+
+        const escHandler = tagModal._escHandler;
+        if (escHandler) {
+            document.removeEventListener('keydown', escHandler);
+            tagModal._escHandler = null;
+        }
+    };
+
   proto.ensureFaqTagManagerUi = function() {
         if (!this.chatWindow) return;
         if (this.chatWindow.querySelector('#pet-faq-tag-manager')) return;
@@ -108,17 +128,9 @@
         title.className = 'tw-text-base tw-font-semibold tw-text-gray-700';
 
         const closeBtn = document.createElement('button');
-        closeBtn.className = 'faq-tag-manager-close';
         closeBtn.innerHTML = '✕';
         closeBtn.className = 'tw-btn tw-btn-light';
-        closeBtn.style.width = '30px';
-        closeBtn.style.height = '30px';
-        closeBtn.addEventListener('mouseenter', () => {
-            closeBtn.classList.add('tw-transition');
-        });
-        closeBtn.addEventListener('mouseleave', () => {
-            closeBtn.classList.remove('tw-transition');
-        });
+        closeBtn.classList.add('faq-tag-manager-close');
 
         header.appendChild(title);
         header.appendChild(closeBtn);
@@ -128,11 +140,9 @@
         inputGroup.className = 'faq-tag-manager-input-group tw-flex tw-gap-2 tw-mb-2';
 
         const tagInput = document.createElement('input');
-        tagInput.className = 'faq-tag-manager-input';
         tagInput.type = 'text';
         tagInput.placeholder = '输入标签名称，按回车添加';
         tagInput.className = 'faq-tag-manager-input tw-input';
-        tagInput.style.flex = '1';
 
         tagInput._isComposing = false;
         tagInput.addEventListener('compositionstart', () => {
@@ -142,24 +152,9 @@
             tagInput._isComposing = false;
         });
 
-        tagInput.addEventListener('focus', () => {
-            tagInput.style.borderColor = '#22c55e';  /* 现代绿 */
-        });
-        tagInput.addEventListener('blur', () => {
-            tagInput.style.borderColor = '#e0e0e0';
-        });
-
         const addBtn = document.createElement('button');
         addBtn.textContent = '添加';
-        addBtn.className = 'tw-btn';
-        addBtn.style.background = '#4CAF50';
-        addBtn.style.color = '#fff';
-        addBtn.addEventListener('mouseenter', () => {
-            addBtn.style.background = '#45a049';
-        });
-        addBtn.addEventListener('mouseleave', () => {
-            addBtn.style.background = '#22c55e';  /* 现代绿 */
-        });
+        addBtn.className = 'faq-tag-manager-add-btn tw-btn';
         addBtn.addEventListener('click', () => {
             const faqIndex = modal.dataset.faqIndex;
             if (faqIndex !== undefined) {
@@ -168,22 +163,8 @@
         });
 
         const smartGenerateBtn = document.createElement('button');
-        smartGenerateBtn.className = 'faq-tag-manager-smart-generate';
         smartGenerateBtn.textContent = '✨ 智能生成';
-        smartGenerateBtn.className = 'tw-btn';
-        smartGenerateBtn.style.background = '#9C27B0';
-        smartGenerateBtn.style.color = '#fff';
-        smartGenerateBtn.style.whiteSpace = 'nowrap';
-        smartGenerateBtn.addEventListener('mouseenter', () => {
-            if (!smartGenerateBtn.disabled) {
-                smartGenerateBtn.style.background = '#7B1FA2';
-            }
-        });
-        smartGenerateBtn.addEventListener('mouseleave', () => {
-            if (!smartGenerateBtn.disabled) {
-                smartGenerateBtn.style.background = '#9C27B0';
-            }
-        });
+        smartGenerateBtn.className = 'faq-tag-manager-smart-generate tw-btn';
         smartGenerateBtn.addEventListener('click', () => {
             const faqIndex = modal.dataset.faqIndex;
             if (faqIndex !== undefined) {
@@ -205,22 +186,8 @@
             quickTagBtn.textContent = tagName;
             quickTagBtn.className = 'faq-tag-manager-quick-tag-btn';
             quickTagBtn.dataset.tagName = tagName;
-            quickTagBtn.className = 'tw-chip';
-            quickTagBtn.addEventListener('mouseenter', () => {
-                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
-                    return;
-                }
-                quickTagBtn.style.borderColor = '#22c55e';  /* 现代绿 */
-            });
-            quickTagBtn.addEventListener('mouseleave', () => {
-                if (quickTagBtn.style.background === 'rgb(76, 175, 80)') {
-                    return;
-                }
-            });
+            quickTagBtn.className = 'faq-tag-manager-quick-tag-btn tw-chip';
             quickTagBtn.addEventListener('click', () => {
-                if (quickTagBtn.style.cursor === 'not-allowed') {
-                    return;
-                }
                 const faqIndex = modal.dataset.faqIndex;
                 if (faqIndex !== undefined) {
                     this.addFaqQuickTag(parseInt(faqIndex), tagName);
@@ -230,14 +197,7 @@
         });
 
         const tagsContainer = document.createElement('div');
-        tagsContainer.className = 'faq-tag-manager-tags';
-        tagsContainer.className = 'faq-tag-manager-tags tw-overflow-y-auto';
-        tagsContainer.style.minHeight = '100px';
-        tagsContainer.style.maxHeight = '300px';
-        tagsContainer.style.marginBottom = '20px';
-        tagsContainer.style.padding = '12px';
-        tagsContainer.style.background = '#0f172a';  /* 深空黑 */
-        tagsContainer.style.borderRadius = '6px';
+        tagsContainer.className = 'faq-tag-manager-tags tw-overflow-y-auto faq-tag-manager-tags-box';
 
         const footer = document.createElement('div');
         footer.className = 'tw-flex tw-justify-end tw-gap-2';
@@ -256,15 +216,7 @@
         const saveBtn = document.createElement('button');
         saveBtn.className = 'faq-tag-manager-save';
         saveBtn.textContent = '保存';
-        saveBtn.className = 'tw-btn';
-        saveBtn.style.background = '#3b82f6';  /* 信息蓝 */
-        saveBtn.style.color = '#fff';
-        saveBtn.addEventListener('mouseenter', () => {
-            saveBtn.style.background = '#1976D2';
-        });
-        saveBtn.addEventListener('mouseleave', () => {
-            saveBtn.style.background = '#3b82f6';  /* 信息蓝 */
-        });
+        saveBtn.className = 'faq-tag-manager-save tw-btn faq-tag-manager-save-btn';
 
         footer.appendChild(cancelBtn);
         footer.appendChild(saveBtn);
@@ -303,21 +255,6 @@
         const createTagChip = (tagName, index) => {
             const tagChip = document.createElement('div');
             tagChip.className = 'faq-tag-chip';
-            tagChip.style.cssText = `
-                display: inline-flex !important;
-                align-items: center !important;
-                gap: 8px !important;
-                padding: 6px 12px !important;
-                margin: 6px !important;
-                background: #e8f5e9 !important;
-                color: #2e7d32 !important;
-                border: 1px solid #c8e6c9 !important;
-                border-radius: 16px !important;
-                font-size: 13px !important;
-                font-weight: 500 !important;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
-                transition: all 0.2s ease !important;
-            `;
 
             const tagLabel = document.createElement('span');
             tagLabel.textContent = tagName;
@@ -325,27 +262,7 @@
             const removeBtn = document.createElement('button');
             removeBtn.textContent = '✕';
             removeBtn.title = '删除标签';
-            removeBtn.style.cssText = `
-                background: transparent !important;
-                border: none !important;
-                color: #2e7d32 !important;
-                cursor: pointer !important;
-                font-size: 13px !important;
-                padding: 0 !important;
-                width: 18px !important;
-                height: 18px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                border-radius: 50% !important;
-                transition: all 0.2s ease !important;
-            `;
-            removeBtn.addEventListener('mouseenter', () => {
-                removeBtn.style.background = 'rgba(46, 125, 50, 0.1)';
-            });
-            removeBtn.addEventListener('mouseleave', () => {
-                removeBtn.style.background = 'transparent';
-            });
+            removeBtn.className = 'faq-tag-chip-remove';
             removeBtn.addEventListener('click', () => this.removeFaqTag(faqIndex, index));
 
             tagChip.appendChild(tagLabel);
@@ -364,14 +281,11 @@
         quickTagButtons.forEach(btn => {
             const tagName = btn.dataset.tagName || btn.textContent;
             if (tagModal._currentTags.includes(tagName)) {
-                btn.style.background = '#22c55e';  /* 现代绿 */
-                btn.style.color = 'white';
-                btn.style.borderColor = '#22c55e';
-                btn.style.cursor = 'not-allowed';
-                btn.style.opacity = '0.8';
+                btn.classList.add('is-selected');
+                btn.disabled = true;
             } else {
-                btn.style.cursor = 'pointer';
-                btn.style.opacity = '1';
+                btn.classList.remove('is-selected');
+                btn.disabled = false;
             }
         });
     };
@@ -495,8 +409,6 @@
 
         if (buttonElement) {
             buttonElement.disabled = true;
-            buttonElement.style.background = '#ccc';
-            buttonElement.style.cursor = 'not-allowed';
             const originalText = buttonElement.textContent;
             buttonElement.textContent = '生成中...';
 
@@ -523,12 +435,9 @@
             } finally {
                 if (buttonElement) {
                     buttonElement.disabled = false;
-                    buttonElement.style.background = '#9C27B0';
-                    buttonElement.style.cursor = 'pointer';
                     buttonElement.textContent = '✨ 智能生成';
                 }
             }
         }
     };
 })();
-

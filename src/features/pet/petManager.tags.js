@@ -81,7 +81,7 @@
             overlay._currentTags = currentTags;
 
             // 显示弹窗
-            overlay.style.display = 'flex';
+            overlay.classList.add('js-visible');
             overlay.dataset.sessionId = sessionId;
 
             // 加载当前标签
@@ -166,19 +166,7 @@
 
             const overlay = document.createElement('div');
             overlay.id = 'pet-tag-manager';
-            overlay.style.cssText = `
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                background: rgba(0,0,0,0.6) !important;
-                backdrop-filter: blur(2px) !important;
-                z-index: 1000 !important;
-                display: none !important;
-                flex-direction: column !important;
-                animation: fadeIn 0.2s ease !important;
-            `;
+            // 样式已通过 CSS 类定义
 
             // 点击背景关闭
             overlay.addEventListener('click', (e) => {
@@ -191,40 +179,19 @@
             });
 
             const modalContainer = document.createElement('div');
-            modalContainer.style.cssText = `
-                flex: 1 !important;
-                background: #1a1b1e !important;
-                display: flex !important;
-                flex-direction: column !important;
-                overflow: hidden !important;
-                margin: 0 !important;
-                border-radius: 0 !important;
-            `;
+            modalContainer.className = 'tag-manager-modal-container';
 
             // 头部
             const header = document.createElement('div');
-            header.style.cssText = `
-                padding: 16px !important;
-                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-                display: flex !important;
-                justify-content: space-between !important;
-                align-items: center !important;
-                background: #25262b !important;
-            `;
+            header.className = 'tag-manager-header';
 
             const title = document.createElement('div');
+            title.className = 'tag-manager-title';
             title.textContent = '🏷️ 管理标签';
-            title.style.cssText = 'color: #fff !important; font-weight: 500 !important; font-size: 15px !important;';
 
             const closeBtn = document.createElement('div');
             closeBtn.className = 'tag-manager-close';
             closeBtn.innerHTML = '✕';
-            closeBtn.style.cssText = `
-                color: rgba(255,255,255,0.5) !important;
-                cursor: pointer !important;
-                padding: 4px !important;
-                font-size: 14px !important;
-            `;
             closeBtn.onclick = () => this.closeTagManager();
 
             header.appendChild(title);
@@ -232,39 +199,17 @@
 
             // 内容区域
             const content = document.createElement('div');
-            content.style.cssText = `
-                flex: 1 !important;
-                overflow-y: auto !important;
-                padding: 16px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 20px !important;
-            `;
+            content.className = 'tag-manager-content';
 
             // 输入区域
             const inputGroup = document.createElement('div');
             inputGroup.className = 'tag-manager-input-group';
-            inputGroup.style.cssText = `
-                display: flex !important;
-                gap: 12px !important;
-            `;
 
             const tagInput = document.createElement('input');
             tagInput.className = 'tag-manager-input';
             tagInput.type = 'text';
             tagInput.placeholder = '输入标签名称，按回车添加';
-            tagInput.style.cssText = `
-                flex: 1 !important;
-                padding: 12px 16px !important;
-                border: 1px solid rgba(255, 255, 255, 0.1) !important;
-                border-radius: 12px !important;
-                font-size: 14px !important;
-                outline: none !important;
-                background: rgba(15, 23, 42, 0.6) !important;
-                color: #f8fafc !important;
-                transition: all 0.2s ease !important;
-                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2) !important;
-            `;
+            // 样式已通过 CSS 类定义
 
             tagInput._isComposing = false;
             tagInput.addEventListener('compositionstart', () => {
@@ -274,39 +219,10 @@
                 tagInput._isComposing = false;
             });
 
-            tagInput.addEventListener('focus', () => {
-                tagInput.style.borderColor = '#6366f1';
-                tagInput.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.25)';
-                tagInput.style.background = 'rgba(15, 23, 42, 0.8)';
-            });
-            tagInput.addEventListener('blur', () => {
-                tagInput.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                tagInput.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.2)';
-                tagInput.style.background = 'rgba(15, 23, 42, 0.6)';
-            });
-
             const addBtn = document.createElement('button');
+            addBtn.className = 'tag-manager-add-btn';
             addBtn.textContent = '添加';
-            addBtn.style.cssText = `
-                padding: 12px 24px !important;
-                background: #4f46e5 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 12px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: all 0.2s ease !important;
-                box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1), 0 2px 4px -1px rgba(79, 70, 229, 0.06) !important;
-            `;
-            addBtn.addEventListener('mouseenter', () => {
-                addBtn.style.background = '#4338ca';
-                addBtn.style.transform = 'translateY(-1px)';
-            });
-            addBtn.addEventListener('mouseleave', () => {
-                addBtn.style.background = '#4f46e5';
-                addBtn.style.transform = 'translateY(0)';
-            });
+            // 样式已通过 CSS 类定义
             addBtn.addEventListener('click', () => {
                 const sessionId = overlay.dataset.sessionId;
                 if (sessionId) {
@@ -318,33 +234,7 @@
             const smartGenerateBtn = document.createElement('button');
             smartGenerateBtn.className = 'tag-manager-smart-generate';
             smartGenerateBtn.textContent = '✨ 智能生成';
-            smartGenerateBtn.style.cssText = `
-                padding: 12px 24px !important;
-                background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 12px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: all 0.3s ease !important;
-                white-space: nowrap !important;
-                box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.2), 0 2px 4px -1px rgba(139, 92, 246, 0.1) !important;
-            `;
-            smartGenerateBtn.addEventListener('mouseenter', () => {
-                if (!smartGenerateBtn.disabled) {
-                    smartGenerateBtn.style.filter = 'brightness(1.1)';
-                    smartGenerateBtn.style.transform = 'translateY(-1px)';
-                    smartGenerateBtn.style.boxShadow = '0 10px 15px -3px rgba(139, 92, 246, 0.3), 0 4px 6px -2px rgba(139, 92, 246, 0.1)';
-                }
-            });
-            smartGenerateBtn.addEventListener('mouseleave', () => {
-                if (!smartGenerateBtn.disabled) {
-                    smartGenerateBtn.style.filter = 'brightness(1)';
-                    smartGenerateBtn.style.transform = 'translateY(0)';
-                    smartGenerateBtn.style.boxShadow = '0 4px 6px -1px rgba(139, 92, 246, 0.2), 0 2px 4px -1px rgba(139, 92, 246, 0.1)';
-                }
-            });
+            // 样式已通过 CSS 类定义
             smartGenerateBtn.addEventListener('click', () => {
                 const sessionId = overlay.dataset.sessionId;
                 if (sessionId) {
@@ -359,59 +249,18 @@
             // 快捷标签按钮容器
             const quickTagsContainer = document.createElement('div');
             quickTagsContainer.className = 'tag-manager-quick-tags';
-            quickTagsContainer.style.cssText = `
-                display: flex !important;
-                flex-wrap: wrap !important;
-                gap: 6px !important;
-                margin-bottom: 24px !important;
-            `;
 
             // 标签列表
             const tagsContainer = document.createElement('div');
             tagsContainer.className = 'tag-manager-tags';
-            tagsContainer.style.cssText = `
-                min-height: 100px !important;
-                max-height: 300px !important;
-                overflow-y: auto !important;
-                margin-bottom: 24px !important;
-                padding: 16px !important;
-                background: rgba(0, 0, 0, 0.2) !important;
-                border-radius: 16px !important;
-                border: 1px dashed rgba(255, 255, 255, 0.1) !important;
-            `;
 
             // 底部按钮
             const footer = document.createElement('div');
-            footer.style.cssText = `
-                display: flex !important;
-                justify-content: flex-end !important;
-                gap: 12px !important;
-            `;
+            footer.className = 'tag-manager-footer';
 
             const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'tag-manager-cancel-btn';
             cancelBtn.textContent = '取消';
-            cancelBtn.style.cssText = `
-                padding: 12px 24px !important;
-                background: transparent !important;
-                color: #94a3b8 !important;
-                border: 1px solid rgba(255, 255, 255, 0.1) !important;
-                border-radius: 12px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: all 0.2s ease !important;
-                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
-            `;
-            cancelBtn.addEventListener('mouseenter', () => {
-                cancelBtn.style.background = 'rgba(255, 255, 255, 0.05)';
-                cancelBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                cancelBtn.style.color = '#f8fafc';
-            });
-            cancelBtn.addEventListener('mouseleave', () => {
-                cancelBtn.style.background = 'transparent';
-                cancelBtn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                cancelBtn.style.color = '#94a3b8';
-            });
             cancelBtn.addEventListener('click', () => {
                 const sessionId = overlay.dataset.sessionId;
                 if (sessionId) {
@@ -422,26 +271,6 @@
             const saveBtn = document.createElement('button');
             saveBtn.className = 'tag-manager-save';
             saveBtn.textContent = '保存';
-            saveBtn.style.cssText = `
-                padding: 12px 24px !important;
-                background: #4f46e5 !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 12px !important;
-                cursor: pointer !important;
-                font-size: 14px !important;
-                font-weight: 500 !important;
-                transition: all 0.2s ease !important;
-                box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1), 0 2px 4px -1px rgba(79, 70, 229, 0.06) !important;
-            `;
-            saveBtn.addEventListener('mouseenter', () => {
-                saveBtn.style.background = '#4338ca';
-                saveBtn.style.transform = 'translateY(-1px)';
-            });
-            saveBtn.addEventListener('mouseleave', () => {
-                saveBtn.style.background = '#4f46e5';
-                saveBtn.style.transform = 'translateY(0)';
-            });
 
             footer.appendChild(cancelBtn);
             footer.appendChild(saveBtn);
@@ -459,62 +288,6 @@
                 this.chatWindow.appendChild(overlay);
             } else {
                 document.body.appendChild(overlay);
-            }
-
-            // 添加拖拽样式
-            if (!document.getElementById('tag-manager-drag-styles')) {
-                const style = document.createElement('style');
-                style.id = 'tag-manager-drag-styles';
-                style.textContent = `
-                    .tag-manager-tag-item.tag-dragging {
-                        opacity: 0.5 !important;
-                        transform: scale(0.95) !important;
-                    }
-                    .tag-manager-tag-item.tag-drag-over-top::before {
-                        content: '' !important;
-                        position: absolute !important;
-                        top: -2px !important;
-                        left: 0 !important;
-                        right: 0 !important;
-                        height: 3px !important;
-                        background: #6366f1 !important;
-                        border-radius: 2px !important;
-                        z-index: 10 !important;
-                    }
-                    .tag-manager-tag-item.tag-drag-over-bottom::after {
-                        content: '' !important;
-                        position: absolute !important;
-                        bottom: -2px !important;
-                        left: 0 !important;
-                        right: 0 !important;
-                        height: 3px !important;
-                        background: #6366f1 !important;
-                        border-radius: 2px !important;
-                        z-index: 10 !important;
-                    }
-                    .tag-manager-tag-item.tag-drag-hover {
-                        transform: scale(1.05) !important;
-                        box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3) !important;
-                    }
-                    .tag-manager-tag-item {
-                        position: relative !important;
-                    }
-                    .tag-manager-tags::-webkit-scrollbar {
-                        width: 6px !important;
-                    }
-                    .tag-manager-tags::-webkit-scrollbar-track {
-                        background: rgba(255, 255, 255, 0.05) !important;
-                        border-radius: 3px !important;
-                    }
-                    .tag-manager-tags::-webkit-scrollbar-thumb {
-                        background: rgba(255, 255, 255, 0.2) !important;
-                        border-radius: 3px !important;
-                    }
-                    .tag-manager-tags::-webkit-scrollbar-thumb:hover {
-                        background: rgba(255, 255, 255, 0.3) !important;
-                    }
-                `;
-                document.head.appendChild(style);
             }
         };
 
@@ -539,90 +312,30 @@
 
             if (!currentTags || currentTags.length === 0) {
                 const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'tag-manager-empty-msg';
                 emptyMsg.textContent = '暂无标签';
-                emptyMsg.style.cssText = `
-                    text-align: center !important;
-                    color: #94a3b8 !important;
-                    padding: 20px !important;
-                    font-size: 14px !important;
-                    font-weight: 500 !important;
-                `;
                 tagsContainer.appendChild(emptyMsg);
                 // 更新快捷标签按钮状态
                 this.updateQuickTagButtons(overlay, currentTags);
                 return;
             }
 
-            // 标签颜色方案（与 YiWeb 一致）
-            const tagColors = [
-                { bg: 'rgba(99, 102, 241, 0.2)', text: '#e0e7ff', border: 'rgba(99, 102, 241, 0.4)' },
-                { bg: 'rgba(34, 197, 94, 0.2)', text: '#dcfce7', border: 'rgba(34, 197, 94, 0.4)' },
-                { bg: 'rgba(245, 158, 11, 0.2)', text: '#fef3c7', border: 'rgba(245, 158, 11, 0.4)' },
-                { bg: 'rgba(239, 68, 68, 0.2)', text: '#fee2e2', border: 'rgba(239, 68, 68, 0.4)' },
-                { bg: 'rgba(139, 92, 246, 0.2)', text: '#ede9fe', border: 'rgba(139, 92, 246, 0.4)' },
-                { bg: 'rgba(6, 182, 212, 0.2)', text: '#cffafe', border: 'rgba(6, 182, 212, 0.4)' },
-                { bg: 'rgba(236, 72, 153, 0.2)', text: '#fce7f3', border: 'rgba(236, 72, 153, 0.4)' },
-                { bg: 'rgba(20, 184, 166, 0.2)', text: '#ccfbf1', border: 'rgba(20, 184, 166, 0.4)' }
-            ];
+            const tagColorCount = 8;
 
             currentTags.forEach((tag, index) => {
-                const colorScheme = tagColors[index % tagColors.length];
+                const colorIndex = index % tagColorCount;
                 const tagItem = document.createElement('div');
-                tagItem.className = 'tag-manager-tag-item';
+                tagItem.className = `tag-manager-tag-item tag-color-${colorIndex}`;
                 tagItem.dataset.tagName = tag;
                 tagItem.dataset.tagIndex = index;
                 tagItem.draggable = true;
-                tagItem.style.cssText = `
-                    display: inline-flex !important;
-                    align-items: center !important;
-                    gap: 6px !important;
-                    background: ${colorScheme.bg} !important;
-                    color: ${colorScheme.text} !important;
-                    border: 1px solid ${colorScheme.border} !important;
-                    padding: 5px 12px !important;
-                    border-radius: 9999px !important;
-                    margin: 4px !important;
-                    font-size: 13px !important;
-                    font-weight: 500 !important;
-                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-                    transition: all 0.2s ease !important;
-                    cursor: move !important;
-                    user-select: none !important;
-                `;
 
                 const tagText = document.createElement('span');
                 tagText.textContent = tag;
 
                 const removeBtn = document.createElement('button');
+                removeBtn.className = 'tag-remove-btn';
                 removeBtn.innerHTML = '✕';
-                removeBtn.style.cssText = `
-                    background: rgba(255, 255, 255, 0.1) !important;
-                    border: none !important;
-                    color: ${colorScheme.text} !important;
-                    width: 20px !important;
-                    height: 20px !important;
-                    border-radius: 50% !important;
-                    cursor: pointer !important;
-                    font-size: 11px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    padding: 0 !important;
-                    transition: all 0.2s ease !important;
-                    font-weight: 700 !important;
-                    flex-shrink: 0 !important;
-                    opacity: 0.7 !important;
-                `;
-                removeBtn.addEventListener('mouseenter', () => {
-                    removeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-                    removeBtn.style.transform = 'scale(1.1)';
-                    removeBtn.style.opacity = '1';
-                });
-                removeBtn.addEventListener('mouseleave', () => {
-                    removeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-                    removeBtn.style.transform = 'scale(1)';
-                    removeBtn.style.opacity = '0.7';
-                });
                 removeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -753,23 +466,8 @@
                 const tagName = btn.dataset.tagName;
                 const isAdded = currentTags && currentTags.includes(tagName);
 
-                if (isAdded) {
-                    btn.style.background = 'rgba(99, 102, 241, 0.2)';
-                    btn.style.color = '#a5b4fc';
-                    btn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-                    btn.style.opacity = '0.8';
-                    btn.style.cursor = 'not-allowed';
-                    btn.style.boxShadow = 'none';
-                    btn.style.transform = 'none';
-                } else {
-                    btn.style.background = 'rgba(30, 41, 59, 0.6)';
-                    btn.style.color = '#94a3b8';
-                    btn.style.borderColor = 'rgba(51, 65, 85, 0.5)';
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
-                    btn.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.2)';
-                    btn.style.transform = 'none';
-                }
+                btn.classList.toggle('added', !!isAdded);
+                btn.disabled = !!isAdded;
             });
         };
 
@@ -820,15 +518,8 @@
 
             if (quickTags.length === 0) {
                 const emptyHint = document.createElement('div');
+                emptyHint.className = 'tag-manager-empty-msg';
                 emptyHint.textContent = '暂无可用标签';
-                emptyHint.style.cssText = `
-                    width: 100% !important;
-                    text-align: center !important;
-                    color: #94a3b8 !important;
-                    padding: 12px !important;
-                    font-size: 13px !important;
-                    font-weight: 500 !important;
-                `;
                 quickTagsContainer.appendChild(emptyHint);
                 return;
             }
@@ -841,42 +532,12 @@
                 const isAdded = currentTags && currentTags.includes(tagName);
                 const quickTagBtn = document.createElement('button');
                 quickTagBtn.textContent = tagName;
-                quickTagBtn.className = 'tag-manager-quick-tag-btn';
+                quickTagBtn.className = isAdded ? 'tag-manager-quick-tag-btn added' : 'tag-manager-quick-tag-btn';
                 quickTagBtn.dataset.tagName = tagName;
-                
-                quickTagBtn.style.cssText = `
-                    padding: 8px 16px !important;
-                    background: ${isAdded ? 'rgba(99, 102, 241, 0.2)' : 'rgba(30, 41, 59, 0.6)'} !important;
-                    color: ${isAdded ? '#a5b4fc' : '#94a3b8'} !important;
-                    border: 1px solid ${isAdded ? 'rgba(99, 102, 241, 0.3)' : 'rgba(51, 65, 85, 0.5)'} !important;
-                    border-radius: 8px !important;
-                    cursor: ${isAdded ? 'not-allowed' : 'pointer'} !important;
-                    font-size: 13px !important;
-                    font-weight: 500 !important;
-                    transition: all 0.2s ease !important;
-                    opacity: ${isAdded ? '0.8' : '1'} !important;
-                    box-shadow: ${isAdded ? 'none' : '0 1px 2px 0 rgba(0, 0, 0, 0.2)'} !important;
-                `;
-
-                if (!isAdded) {
-                    quickTagBtn.addEventListener('mouseenter', () => {
-                        quickTagBtn.style.background = 'rgba(51, 65, 85, 0.8)';
-                        quickTagBtn.style.borderColor = '#6366f1';
-                        quickTagBtn.style.color = '#f8fafc';
-                        quickTagBtn.style.transform = 'translateY(-1px)';
-                        quickTagBtn.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.3)';
-                    });
-                    quickTagBtn.addEventListener('mouseleave', () => {
-                        quickTagBtn.style.background = 'rgba(30, 41, 59, 0.6)';
-                        quickTagBtn.style.borderColor = 'rgba(51, 65, 85, 0.5)';
-                        quickTagBtn.style.color = '#94a3b8';
-                        quickTagBtn.style.transform = 'translateY(0)';
-                        quickTagBtn.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.2)';
-                    });
-                }
+                quickTagBtn.disabled = !!isAdded;
 
                 quickTagBtn.addEventListener('click', () => {
-                    if (isAdded || quickTagBtn.style.cursor === 'not-allowed') {
+                    if (isAdded) {
                         return;
                     }
                     const sessionId = overlay.dataset.sessionId;
@@ -998,9 +659,7 @@
             // 禁用按钮，显示加载状态
             if (buttonElement) {
                 buttonElement.disabled = true;
-                buttonElement.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)';
-                buttonElement.style.cursor = 'not-allowed';
-                buttonElement.style.boxShadow = 'none';
+                buttonElement.classList.add('is-loading');
                 const originalText = buttonElement.textContent;
                 buttonElement.textContent = '生成中...';
 
@@ -1275,18 +934,6 @@
                         const errorDiv = document.createElement('div');
                         errorDiv.className = 'tag-error-message';
                         errorDiv.textContent = errorText;
-                        errorDiv.style.cssText = `
-                            padding: 12px 16px !important;
-                            margin: 10px 0 !important;
-                            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
-                            color: #dc2626 !important;
-                            border: 1.5px solid #fca5a5 !important;
-                            border-radius: 10px !important;
-                            font-size: 13px !important;
-                            font-weight: 500 !important;
-                            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1) !important;
-                            animation: fadeIn 0.3s ease !important;
-                        `;
 
                         const inputGroup = overlay.querySelector('.tag-manager-input-group');
                         if (inputGroup && inputGroup.parentNode) {
@@ -1300,8 +947,7 @@
                             // 3秒后自动移除错误提示
                             setTimeout(() => {
                                 if (errorDiv.parentNode) {
-                                    errorDiv.style.opacity = '0';
-                                    errorDiv.style.transition = 'opacity 0.3s ease';
+                                    errorDiv.classList.add('is-hiding');
                                     setTimeout(() => {
                                         if (errorDiv.parentNode) {
                                             errorDiv.remove();
@@ -1318,10 +964,8 @@
                     // 恢复按钮状态
                     if (buttonElement) {
                         buttonElement.disabled = false;
-                        buttonElement.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)';
-                        buttonElement.style.cursor = 'pointer';
-                        buttonElement.style.boxShadow = '0 4px 6px -1px rgba(139, 92, 246, 0.2), 0 2px 4px -1px rgba(139, 92, 246, 0.1)';
                         buttonElement.textContent = '✨ 智能生成';
+                        buttonElement.classList.remove('is-loading');
                     }
                 }
             }
@@ -1391,7 +1035,7 @@
         proto.closeTagManager = async function() {
             const overlay = document.querySelector('#pet-tag-manager');
             if (overlay) {
-                overlay.style.display = 'none';
+                overlay.classList.remove('js-visible');
                 
                 // 清空临时数据
                 if (overlay?._currentTags) {

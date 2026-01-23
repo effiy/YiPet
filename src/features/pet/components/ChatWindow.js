@@ -25,15 +25,17 @@
             this.resizeHandles = {};
             this.isResizing = false;
             this.isDragging = false;
+            this._fullscreenResizeHandler = null; // 全屏模式下的 resize 事件处理器
 
             // UI State
-            this.sidebarWidth = manager.sidebarWidth || 500;
+            this.sidebarWidth = manager.sidebarWidth || 320;
             this.inputHeight = manager.inputHeight || 150;
             this._currentAbortController = null;
             this._searchTimer = null;
             this.isResizingSidebar = false;
             this._suppressDragUntil = 0;
             this._fullscreenAnimating = false;
+            this._fullscreenResizeTimer = null; // 全屏 resize 防抖定时器
 
             // Draft Images
             this.draftImages = [];
@@ -69,14 +71,19 @@
             this.header = this.createHeader(currentColor);
             this.element.appendChild(this.header);
 
+            // Create Content Container - 包裹侧边栏和主内容区域（水平布局）
+            const contentContainer = document.createElement('div');
+            contentContainer.className = 'yi-pet-chat-content-container';
+
+            // Create Sidebar - 会话列表侧边栏
+            this.sidebar = this.createSidebar();
+            manager.sessionSidebar = this.sidebar;
+            contentContainer.appendChild(this.sidebar);
+
             // Create Main Content Container - 与 YiWeb pet-chat-right-panel 完全一致
             this.mainContent = document.createElement('div');
             this.mainContent.className = 'yi-pet-chat-right-panel';
             this.mainContent.setAttribute('aria-label', '会话聊天面板');
-
-            // 侧边栏已移除，确保引用为 null
-            this.sidebar = null;
-            manager.sessionSidebar = null;
 
             // Messages Container - 消息列表区域，与 YiWeb 完全一致
             this.messagesContainer = document.createElement('div');
@@ -90,13 +97,22 @@
             this.inputContainer = this.createInputContainer(currentColor);
             this.mainContent.appendChild(this.inputContainer);
 
-            this.element.appendChild(this.mainContent);
+            contentContainer.appendChild(this.mainContent);
+            this.element.appendChild(contentContainer);
 
             // Create Resize Handles (只保留四个角)
             this.createResizeHandles();
 
             // Bind Events
             this.bindEvents();
+
+            // 确保侧边栏默认显示（加载状态会在 createChatWindow 中处理）
+            // 如果 manager 的 sidebarCollapsed 未定义，默认为 false（显示）
+            if (manager.sidebarCollapsed === undefined) {
+                manager.sidebarCollapsed = false;
+            }
+            // 立即应用状态
+            this.setSidebarCollapsed(manager.sidebarCollapsed);
 
             return this.element;
         }
@@ -141,6 +157,31 @@
 
             chatHeader.appendChild(headerTitle);
             chatHeader.appendChild(headerButtons);
+            
+            // Sidebar Toggle Button - 添加到 header（绝对定位）
+            chatHeader.style.position = 'relative';
+            const sidebarToggleBtn = document.createElement('button');
+            sidebarToggleBtn.id = 'sidebar-toggle-btn';
+            sidebarToggleBtn.className = 'yi-pet-chat-header-btn sidebar-toggle-btn';
+            sidebarToggleBtn.setAttribute('aria-label', '折叠/展开会话列表');
+            sidebarToggleBtn.setAttribute('title', '折叠会话列表');
+            // 初始图标（侧边栏展开时显示三条横线）
+            sidebarToggleBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>';
+            sidebarToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (this.toggleSidebar) {
+                    this.toggleSidebar();
+                }
+            });
+            // 位置和样式通过 CSS 类设置，按钮将始终在 title 左边
+            // 不再根据侧边栏宽度设置 left，改为通过 CSS 定位在 title 左边
+            chatHeader.appendChild(sidebarToggleBtn);
+            
+            // 初始化按钮状态
+            requestAnimationFrame(() => {
+                this.updateSidebarToggleButton(manager.sidebarCollapsed || false);
+            });
 
             return chatHeader;
         }
@@ -166,7 +207,10 @@
             const manager = this.manager;
             const sidebar = document.createElement('div');
             sidebar.className = 'session-sidebar';
-            sidebar.style.setProperty('--session-sidebar-width', `${manager.sidebarWidth}px`);
+            // 确保侧边栏宽度使用新的默认值
+            const sidebarWidth = manager.sidebarWidth || 320;
+            manager.sidebarWidth = sidebarWidth;
+            sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
 
             // Expose sidebar to manager for legacy compatibility
             manager.sessionSidebar = sidebar;
@@ -278,7 +322,7 @@
                 const fileInput = document.createElement('input');
                 fileInput.type = 'file';
                 fileInput.accept = '.zip';
-                fileInput.style.display = 'none';
+                fileInput.className = 'js-hidden';
                 fileInput.addEventListener('change', async (e) => {
                     const file = e.target.files[0];
                     if (file && typeof manager.importSessionsFromZip === 'function') {
@@ -297,7 +341,6 @@
             // Right Group: Add New
             const rightButtonGroup = document.createElement('div');
             rightButtonGroup.className = 'session-actions-right-group';
-            rightButtonGroup.style.cssText = 'display: flex; align-items: stretch; gap: 4px; flex: 1; min-width: 0;';
 
             const addSessionBtn = document.createElement('button');
             addSessionBtn.type = 'button';
@@ -550,6 +593,12 @@
                     const manager = this.manager;
                     manager.sidebarWidth = defaultWidth;
                     sidebar.style.setProperty('width', `${defaultWidth}px`, 'important');
+                    
+                    // 更新折叠按钮位置（如果按钮存在且侧边栏未折叠）
+                    const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
+                    if (toggleBtn && !manager.sidebarCollapsed) {
+                        toggleBtn.style.left = `${defaultWidth}px`;
+                    }
 
                     // 保存宽度偏好
                     if (chrome && chrome.storage) {
@@ -578,10 +627,7 @@
             const manager = this.manager;
 
             // 添加全局样式，禁用文本选择
-            const originalUserSelect = document.body.style.userSelect;
-            const originalCursor = document.body.style.cursor;
-            document.body.style.userSelect = 'none';
-            document.body.style.cursor = 'col-resize';
+            document.body.classList.add('pet-is-resizing');
 
             // 使用 requestAnimationFrame 优化性能
             let rafId = null;
@@ -597,6 +643,11 @@
                     rafId = requestAnimationFrame(() => {
                         sidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
                         manager.sidebarWidth = pendingWidth;
+                        // 更新折叠按钮位置（如果按钮存在且侧边栏未折叠）
+                        const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
+                        if (toggleBtn && !manager.sidebarCollapsed) {
+                            toggleBtn.style.left = `${pendingWidth}px`;
+                        }
                         rafId = null;
                     });
                 }
@@ -619,14 +670,19 @@
                 // 确保最终宽度已应用
                 sidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
                 manager.sidebarWidth = pendingWidth;
+                
+                // 更新折叠按钮位置（如果按钮存在且侧边栏未折叠）
+                const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
+                if (toggleBtn && !manager.sidebarCollapsed) {
+                    toggleBtn.style.left = `${pendingWidth}px`;
+                }
 
                 this.isResizingSidebar = false;
                 resizer.classList.remove('dragging');
                 resizer.classList.remove('hover');
 
                 // 恢复全局样式
-                document.body.style.userSelect = originalUserSelect;
-                document.body.style.cursor = originalCursor;
+                document.body.classList.remove('pet-is-resizing');
 
                 // 立即保存宽度偏好
                 if (chrome && chrome.storage) {
@@ -741,7 +797,7 @@
 
             // Context Editor Button
             const contextBtn = manager.createButton({
-                text: '📝 页面上下文',
+                text: '📝',
                 className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '编辑页面上下文', 'aria-label': '页面上下文' },
                 onClick: () => {
@@ -752,7 +808,7 @@
 
             // Edit Session Button - 编辑会话按钮（在标签管理按钮前面）
             const editSessionBtn = manager.createButton({
-                text: '✏️ 编辑会话',
+                text: '✏️',
                 className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: {
                     title: '编辑当前会话信息（标题、描述等）',
@@ -778,7 +834,7 @@
 
             // Tag Manager Button
             const tagManagerBtn = manager.createButton({
-                text: '🏷️ 标签管理',
+                text: '🏷️',
                 className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '管理会话标签', 'aria-label': '标签管理' },
                 onClick: async () => {
@@ -829,7 +885,7 @@
 
             // FAQ Button
             const faqBtn = manager.createButton({
-                text: '💡 常见问题',
+                text: '💡',
                 className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '常见问题', 'aria-label': '常见问题' },
                 onClick: async () => {
@@ -865,7 +921,7 @@
 
             // WeChat Settings Button
             const weChatBtn = manager.createButton({
-                text: '🤖 微信机器人',
+                text: '🤖',
                 className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '微信机器人设置', 'aria-label': '微信机器人设置' },
                 onClick: () => {
@@ -880,7 +936,7 @@
 
             // Image Upload Button
             const imageBtn = manager.createButton({
-                text: '🖼️ 图片',
+                text: '🖼️',
                 className: 'yi-pet-chat-btn chat-input-btn chat-input-text-btn',
                 attrs: { title: '上传图片', 'aria-label': '上传图片' },
                 onClick: () => {
@@ -896,7 +952,7 @@
             this.imageInput.type = 'file';
             this.imageInput.accept = 'image/*';
             this.imageInput.multiple = true;
-            this.imageInput.style.display = 'none';
+            this.imageInput.className = 'js-hidden';
             this.imageInput.id = 'yi-pet-chat-image-input';
             this.imageInput.addEventListener('change', (e) => {
                 this.handleImageInputChange(e);
@@ -938,8 +994,7 @@
 
             // Draft Images Container
             this.draftImagesContainer = document.createElement('div');
-            this.draftImagesContainer.className = 'yi-pet-chat-draft-images';
-            this.draftImagesContainer.style.display = 'none';
+            this.draftImagesContainer.className = 'yi-pet-chat-draft-images js-hidden';
             this.draftImagesContainer.setAttribute('aria-label', '待发送图片');
             inputWrapper.appendChild(this.draftImagesContainer);
 
@@ -951,8 +1006,8 @@
             this.messageInput = textarea; // Store reference
             textarea.id = 'yi-pet-chat-input';
             textarea.className = 'yi-pet-chat-textarea chat-message-input';
-            textarea.placeholder = '输入消息... (Enter 发送, Shift+Enter 换行)';
-            textarea.rows = 2;
+            textarea.placeholder = '输入消息... (Shift+Enter 换行，Enter 发送)';
+            textarea.rows = 4;
             textarea.setAttribute('aria-label', '会话输入框');
 
 
@@ -1046,19 +1101,7 @@
                 console.log('[输入法检测] 输入法结束');
             });
 
-            // Send Logic
-            const triggerSend = () => {
-                // 检查是否正在处理中
-                if (this.isProcessing) {
-                    console.log('[防重复] 正在处理中，忽略重复请求');
-                    return;
-                }
-
-                this.sendMessage();
-                updateInputState();
-            };
-
-            // 处理消息输入框的回车事件 - 与 YiWeb 保持一致
+            // 处理消息输入框的回车事件
             textarea.addEventListener('keydown', (e) => {
                 // 检查是否按下回车键
                 if (e.key !== 'Enter') {
@@ -1073,7 +1116,7 @@
                     return;
                 }
 
-                // 输入法检测 - 与 YiWeb 保持一致
+                // 输入法检测
                 if (e.isComposing || e.keyCode === 229 || textarea.composing || isComposing) {
                     console.log('[输入法检测] 检测到输入法输入，忽略回车事件');
                     return;
@@ -1096,35 +1139,18 @@
                 // 处理 Enter（发送）
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-
-                    const message = textarea.value.trim();
-                    const hasImages = Array.isArray(this.draftImages) && this.draftImages.some(Boolean);
-
-                    // 检查消息是否为空
-                    if (!message && !hasImages) {
-                        if (typeof this.manager.showNotification === 'function') {
-                            this.manager.showNotification('请输入消息内容', 'error');
-                        }
-                        return;
+                    // 调用 sendMessage 发送消息
+                    if (typeof this.sendMessage === 'function') {
+                        this.sendMessage();
                     }
-
-                    // 检查消息长度
-                    if (message.length > 8000) {
-                        if (typeof this.manager.showNotification === 'function') {
-                            this.manager.showNotification('消息内容过长，请控制在8000字符以内', 'error');
-                        }
-                        return;
-                    }
-
-                    triggerSend();
-                    compositionEndTime = 0;
+                    return;
                 }
             });
 
             inputRow.appendChild(textarea);
             inputWrapper.appendChild(inputRow);
 
-            // 与 YiWeb 保持一致：直接将工具栏和输入包装器添加到输入容器
+            // 直接将工具栏和输入包装器添加到输入容器
             inputContainer.appendChild(topToolbar);
             inputContainer.appendChild(inputWrapper);
 
@@ -1185,12 +1211,12 @@
             if (!this.draftImagesContainer) return;
 
             if (this.draftImages.length === 0) {
-                this.draftImagesContainer.style.display = 'none';
+                this.draftImagesContainer.classList.add('js-hidden');
                 this.draftImagesContainer.innerHTML = '';
                 return;
             }
 
-            this.draftImagesContainer.style.display = 'flex';
+            this.draftImagesContainer.classList.remove('js-hidden');
 
             // 使用 DocumentFragment 提高性能
             const fragment = document.createDocumentFragment();
@@ -1215,12 +1241,13 @@
                 // 图片加载错误处理
                 img.addEventListener('error', () => {
                     imageWrapper.classList.add('yi-pet-chat-draft-image-error');
-                    img.style.display = 'none';
+                    img.classList.add('tw-hidden');
                 });
 
                 // 图片加载成功
                 img.addEventListener('load', () => {
                     imageWrapper.classList.remove('yi-pet-chat-draft-image-loading');
+                    img.classList.remove('tw-hidden');
                 });
 
                 // 点击预览
@@ -1286,59 +1313,13 @@
             // 创建预览模态框
             const modal = document.createElement('div');
             modal.className = 'pet-draft-image-preview-modal';
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.85);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 10000;
-                cursor: pointer;
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-            `;
 
             const img = document.createElement('img');
             img.src = src;
-            img.style.cssText = `
-                max-width: 90vw;
-                max-height: 90vh;
-                object-fit: contain;
-                border-radius: 8px;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            `;
 
             const closeBtn = document.createElement('button');
             closeBtn.innerHTML = '✕';
-            closeBtn.style.cssText = `
-                position: absolute;
-                top: 20px;
-                right: 20px;
-                width: 40px;
-                height: 40px;
-                border: none;
-                background: rgba(15, 23, 42, 0.9);
-                color: white;
-                border-radius: 50%;
-                font-size: 20px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: all 0.2s ease;
-            `;
-            closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = 'rgba(239, 68, 68, 0.9)';
-                closeBtn.style.transform = 'scale(1.1)';
-            });
-            closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'rgba(15, 23, 42, 0.9)';
-                closeBtn.style.transform = 'scale(1)';
-            });
+            closeBtn.className = 'modal-close-btn';
 
             const closeModal = () => {
                 modal.remove();
@@ -1375,299 +1356,238 @@
             this.updateDraftImagesDisplay();
         }
 
-        async sendMessage() {
-
+        async sendMessage(userContent = null, userImageDataUrl = null) {
             const manager = this.manager;
-            const textarea = this.messageInput;
-
-            // 防止重复提交
-            if (this.isProcessing) {
-                console.log('[防重复] 正在处理中，忽略重复请求');
+            if (!manager) {
+                console.error('[消息发送] Manager 未初始化');
                 return;
             }
 
-            const message = String(textarea?.value ?? '').trim();
-            const imagesToSend = Array.isArray(this.draftImages) ? this.draftImages.filter(Boolean).slice(0, this.maxDraftImages) : [];
+            // 获取用户输入
+            const textarea = this.messageInput;
+            if (!textarea) {
+                console.error('[消息发送] 输入框未找到');
+                return;
+            }
 
-            if (!message && imagesToSend.length === 0) return;
+            // 使用传入的内容，或从输入框获取
+            const messageText = userContent !== null ? String(userContent).trim() : textarea.value.trim();
+            const images = userImageDataUrl ? [userImageDataUrl] : (this.draftImages || []);
 
-            if (message.length > 8000) {
+            // 检查是否有内容
+            if (!messageText && images.length === 0) {
                 if (typeof manager.showNotification === 'function') {
-                    manager.showNotification('消息内容过长，请控制在8000字符以内', 'error');
+                    manager.showNotification('请输入消息或添加图片', 'info');
                 }
                 return;
             }
+
+            // 检查是否正在处理
+            if (this.isProcessing || this._currentAbortController) {
+                console.log('[消息发送] 正在处理中，忽略重复请求');
+                return;
+            }
+
+            // 确保有当前会话
+            if (!manager.currentSessionId) {
+                await manager.initSession();
+            }
+
+            const messagesContainer = this.messagesContainer;
+            if (!messagesContainer) {
+                console.error('[消息发送] 消息容器未找到');
+                return;
+            }
+
+            // 设置处理状态
+            this.isProcessing = true;
+            const abortController = new AbortController();
+            this._currentAbortController = abortController;
+            this._updateRequestStatus('loading', abortController);
 
             try {
-                // 设置处理状态
-                this.isProcessing = true;
+                // 1. 创建用户消息元素并添加到 DOM（不保存到会话）
+                const userTimestamp = Date.now();
+                const userMessageElement = manager.createMessageElement(
+                    messageText,
+                    'user',
+                    images.length > 0 ? images[0] : null,
+                    userTimestamp,
+                    {}
+                );
+                userMessageElement.setAttribute('data-chat-timestamp', userTimestamp.toString());
+                const allMessages = Array.from(messagesContainer.children).filter(msg => !msg.hasAttribute('data-welcome-message'));
+                userMessageElement.setAttribute('data-chat-idx', allMessages.length.toString());
+                messagesContainer.appendChild(userMessageElement);
 
-                // Ensure session exists
-                if (!manager.currentSessionId) {
-                    if (typeof manager.initSession === 'function') await manager.initSession();
-                    if (typeof manager.updateChatHeaderTitle === 'function') manager.updateChatHeaderTitle();
-                }
-
-                if (imagesToSend.length > 0) this.clearDraftImages();
-
-                // Add User Message
-                const now = Date.now();
-                const petTimestamp = now + 1;
-                const updatePetMessageInSession = (patch) => {
-                    try {
-                        const session = manager?.sessions?.[manager.currentSessionId];
-                        const list = Array.isArray(session?.messages) ? session.messages : null;
-                        if (!list) return;
-                        for (let i = list.length - 1; i >= 0; i--) {
-                            const m = list[i];
-                            if (m && m.type === 'pet' && m.timestamp === petTimestamp) {
-                                if (patch && typeof patch === 'object') {
-                                    if (Object.prototype.hasOwnProperty.call(patch, 'content')) m.content = String(patch.content ?? '');
-                                    if (Object.prototype.hasOwnProperty.call(patch, 'content')) m.message = String(patch.content ?? '');
-                                    if (Object.prototype.hasOwnProperty.call(patch, 'error')) m.error = !!patch.error;
-                                    if (Object.prototype.hasOwnProperty.call(patch, 'aborted')) m.aborted = !!patch.aborted;
-                                }
-                                session.updatedAt = Date.now();
-                                return;
-                            }
-                        }
-                    } catch (_) { }
-                };
-                if (typeof manager.createMessageElement === 'function') {
-                    const userMessage = manager.createMessageElement(message, 'user', imagesToSend.length > 0 ? imagesToSend : null, now);
-                    // 设置消息索引 - 与 YiWeb 保持一致
-                    const currentMessages = Array.from(this.messagesContainer.children).filter(
-                        el => !el.hasAttribute('data-welcome-message')
-                    );
-                    const messageIdx = currentMessages.length;
-                    userMessage.setAttribute('data-chat-idx', messageIdx.toString());
-                    this.messagesContainer.appendChild(userMessage);
-                    this.scrollToBottom(true); // 用户发送消息后强制滚动
-
-                    // Add to session data
-                    if (typeof manager.addMessageToSession === 'function') {
-                        await manager.addMessageToSession(
-                            'user',
-                            message,
-                            now,
-                            false,
-                            imagesToSend.length > 0 ? (imagesToSend.length === 1 ? imagesToSend[0] : imagesToSend) : null
-                        );
-                    }
-
-                    // Add action buttons
+                // 添加操作按钮
+                setTimeout(() => {
                     if (typeof manager.addActionButtonsToMessage === 'function') {
-                        await manager.addActionButtonsToMessage(userMessage);
+                        manager.addActionButtonsToMessage(userMessageElement);
                     }
+                }, 0);
 
-                    // Add delete/edit/resend buttons
-                    const userBubble = userMessage.querySelector('[data-message-type="user-bubble"]');
-                    const copyButtonContainer = userMessage.querySelector('[data-copy-button-container]');
-                    if (copyButtonContainer && userBubble) {
-                        if (!copyButtonContainer.querySelector('.delete-button')) {
-                            // 按钮现在由 addActionButtonsToMessage 统一管理
-                            // 不再需要单独调用 addDeleteButtonForUserMessage 和 addSortButtons
+                // 2. 清空输入框和图片
+                if (userContent === null) {
+                    textarea.value = '';
+                    textarea.style.height = '60px';
+                }
+                this.clearDraftImages();
+
+                // 3. 创建宠物回复消息元素（占位）
+                const waitingIcon = this._getWaitingIcon();
+                const petMessageElement = manager.createMessageElement(
+                    `${waitingIcon} 正在思考...`,
+                    'pet',
+                    null,
+                    Date.now(),
+                    { streaming: true }
+                );
+                petMessageElement.classList.add('is-streaming');
+                const petTimestamp = Date.now();
+                petMessageElement.setAttribute('data-chat-timestamp', petTimestamp.toString());
+                messagesContainer.appendChild(petMessageElement);
+
+                // 添加操作按钮
+                setTimeout(() => {
+                    if (typeof manager.addActionButtonsToMessage === 'function') {
+                        manager.addActionButtonsToMessage(petMessageElement);
+                    }
+                }, 0);
+
+                // 滚动到底部
+                this.scrollToBottom(true);
+
+                // 4. 创建流式内容更新回调
+                const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                if (!messageBubble) {
+                    throw new Error('未找到宠物消息气泡');
+                }
+
+                const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer, petMessageElement);
+
+                // 5. 调用流式生成 API（第一个接口）
+                const imagesForApi = images.length > 0 ? images : null;
+                const reply = await manager.generatePetResponseStream(
+                    messageText,
+                    onStreamContent,
+                    abortController,
+                    { images: imagesForApi }
+                );
+
+                // 6. 获取最终内容（优先使用流式回调中保存的内容，确保与显示内容一致）
+                // 如果流式回调中有内容，优先使用；否则使用 API 返回的内容
+                const streamedReply = (onStreamContent && typeof onStreamContent.getFullContent === 'function')
+                    ? onStreamContent.getFullContent()
+                    : '';
+                
+                // 如果流式回调中没有内容，尝试从 DOM 中获取实际显示的内容（备选方案）
+                let domContent = '';
+                if (!streamedReply && messageBubble) {
+                    const dataOriginalText = messageBubble.getAttribute('data-original-text');
+                    if (dataOriginalText) {
+                        domContent = dataOriginalText.trim();
+                    }
+                }
+                
+                // 确保使用实际显示的内容，优先级：streamedReply > reply > domContent
+                const finalContent = String(streamedReply || reply || domContent || '').trim() || '请继续。';
+                
+                // 调试日志：检查内容一致性
+                if (streamedReply && reply && streamedReply !== reply) {
+                    console.warn('[消息发送] 流式回调内容和 API 返回内容不一致，使用流式回调内容');
+                    console.log('流式回调内容长度:', streamedReply.length);
+                    console.log('API 返回内容长度:', reply.length);
+                }
+
+                // 7. 移除流式消息状态类
+                petMessageElement.classList.remove('is-streaming');
+                const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
+                if (finalContentDiv) {
+                    finalContentDiv.classList.remove('pet-chat-content-streaming');
+                }
+
+                // 8. 确保最终内容被显示
+                if (finalContent) {
+                    const finalDiv = this._getOrCreateMessageContentDiv(messageBubble);
+                    if (finalDiv) {
+                        finalDiv.innerHTML = manager.renderMarkdown(finalContent);
+                    }
+                    messageBubble.setAttribute('data-original-text', finalContent);
+
+                    // 处理 Mermaid 图表
+                    setTimeout(async () => {
+                        const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
+                        await manager.processMermaidBlocks(targetDiv);
+                    }, 100);
+                }
+
+                // 9. 流式完成后，调用 update_document 接口（第二个接口）
+                if (manager.currentSessionId && typeof manager.callUpdateDocument === 'function') {
+                    try {
+                        // 构建消息数据
+                        const userMessage = {
+                            type: 'user',
+                            content: messageText,
+                            timestamp: userTimestamp
+                        };
+                        if (images.length > 0) {
+                            userMessage.imageDataUrl = images[0];
                         }
+
+                        const petMessage = {
+                            type: 'pet',
+                            content: finalContent,
+                            timestamp: petTimestamp
+                        };
+
+                        // 调用 update_document 接口更新会话
+                        await manager.callUpdateDocument(manager.currentSessionId, [userMessage, petMessage]);
+                        console.log('[消息发送] update_document 接口调用成功');
+                    } catch (error) {
+                        console.error('[消息发送] 调用 update_document 接口时出错:', error);
+                        // 不阻止流程，只记录错误
                     }
                 }
 
-                // Clear Input
-                textarea.value = '';
-                textarea.style.height = '';
-                void textarea.offsetHeight; // Force reflow
-                textarea.style.height = '60px';
+                // 10. 滚动到底部
+                this.scrollToBottom();
 
-                // Create Pet Message Placeholder
-                let petMessageElement = null;
-                let petBubble = null;
-                if (typeof manager.createMessageElement === 'function') {
-                    petMessageElement = manager.createMessageElement('', 'pet', null, petTimestamp, { streaming: true });
-                    // 设置消息索引 - 与 YiWeb 保持一致
-                    const currentMessages = Array.from(this.messagesContainer.children).filter(
-                        el => !el.hasAttribute('data-welcome-message')
-                    );
-                    const messageIdx = currentMessages.length;
-                    petMessageElement.setAttribute('data-chat-idx', messageIdx.toString());
-                    // Add thinking indicator or initial state if needed
-                    petBubble = petMessageElement.querySelector('.pet-chat-bubble') || petMessageElement.querySelector('[data-message-type="pet-bubble"]');
-                    if (petBubble) {
-                        const meta = petBubble.querySelector('.pet-chat-meta');
-                        let typingDiv = petBubble.querySelector('.pet-chat-typing');
-                        if (!typingDiv) {
-                            typingDiv = document.createElement('div');
-                            typingDiv.className = 'pet-chat-typing';
-                            typingDiv.setAttribute('aria-label', '生成中');
-                            typingDiv.textContent = '...';
-                            if (meta) {
-                                petBubble.insertBefore(typingDiv, meta);
-                            } else {
-                                petBubble.appendChild(typingDiv);
-                            }
-                        } else {
-                            typingDiv.textContent = '...';
-                        }
+            } catch (error) {
+                console.error('[消息发送] 发送消息时出错:', error);
+
+                // 如果是取消操作，不显示错误
+                if (error.name === 'AbortError' || abortController.signal.aborted) {
+                    console.log('[消息发送] 请求已取消');
+                    if (typeof manager.showNotification === 'function') {
+                        manager.showNotification('请求已取消', 'info');
                     }
-                    this.messagesContainer.appendChild(petMessageElement);
-                    this.scrollToBottom(true); // 添加宠物消息占位符后强制滚动
-                }
-
-                if (typeof manager.addMessageToSession === 'function') {
-                    await manager.addMessageToSession('pet', '', petTimestamp, false, null, true);
-                }
-
-                // Prepare for streaming
-                this._currentAbortController = new AbortController();
-                this.updateRequestStatus('loading');
-
-                let fullContent = '';
-                let streamErrorMessage = '';
-                let streamAborted = false;
-
-                // 添加流式消息状态类（与 YiWeb 保持一致）
-                if (petMessageElement) {
-                    petMessageElement.classList.add('is-streaming');
-                }
-
-                try {
-                    // Call generatePetResponseStream
-                    if (typeof manager.generatePetResponseStream === 'function') {
-                        const reply = await manager.generatePetResponseStream(
-                            message,
-                            (chunk, accumulatedContent) => {
-                                const content = (typeof accumulatedContent === 'string') ? accumulatedContent : String(chunk ?? '');
-                                fullContent = content;
-                                if (petBubble) {
-                                    const contentDiv = this._getOrCreateMessageContentDiv(petBubble, true);
-                                    if (!contentDiv) return;
-
-                                    // Render Markdown if available
-                                    if (typeof manager.renderMarkdown === 'function') {
-                                        contentDiv.innerHTML = manager.renderMarkdown(content);
-                                    } else {
-                                        contentDiv.textContent = content;
-                                    }
-
-                                    // 更新原始文本属性
-                                    petBubble.setAttribute('data-original-text', content);
-
-                                    updatePetMessageInSession({ content, error: false, aborted: false });
-                                    this.scrollToBottom(); // 流式更新时智能滚动
-                                }
-                            },
-                            this._currentAbortController,
-                            { images: imagesToSend }
-                        );
-                        if (typeof reply === 'string' && reply.trim()) {
-                            fullContent = reply;
-                        }
-                    } else {
-                        // Fallback or error if method missing
-                        throw new Error('generatePetResponseStream method not found');
+                } else {
+                    // 显示错误消息
+                    const errorMessage = error.message || '发送消息失败，请重试';
+                    if (typeof manager.showNotification === 'function') {
+                        manager.showNotification(errorMessage, 'error');
                     }
 
-                    {
-                        const finalContent = String(fullContent ?? '').trim() || '请继续。';
-                        if (petBubble) {
-                            const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
-                            petBubble.setAttribute('data-original-text', finalContent);
-                            if (contentDiv) {
-                                if (typeof manager.renderMarkdown === 'function') {
-                                    contentDiv.innerHTML = manager.renderMarkdown(finalContent);
-                                } else {
-                                    contentDiv.textContent = finalContent;
-                                }
-                            }
-                        }
-                        updatePetMessageInSession({ content: finalContent, error: false, aborted: false });
-                    }
-
-                    // Add action buttons for pet message
-                    if (petMessageElement && typeof manager.addActionButtonsToMessage === 'function') {
-                        await manager.addActionButtonsToMessage(petMessageElement);
-                    }
-
-                } catch (error) {
-                    if (error?.name === 'AbortError' || String(error?.message || '').includes('请求已取消')) {
-                        streamAborted = true;
-                        if (petBubble) {
-                            const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
-                            const base = String(fullContent ?? '').trim();
-                            const next = base || '已停止';
-                            petBubble.setAttribute('data-original-text', next);
-                            if (contentDiv) {
-                                if (typeof manager.renderMarkdown === 'function') {
-                                    contentDiv.innerHTML = manager.renderMarkdown(next);
-                                } else {
-                                    contentDiv.textContent = next;
-                                }
-                            }
-                        }
-                        updatePetMessageInSession({ content: String(fullContent ?? '').trim() || '已停止', error: false, aborted: true });
-                        // 添加已取消状态
-                        if (petMessageElement) {
-                            petMessageElement.classList.add('is-aborted');
-                        }
-                    } else {
-                        streamErrorMessage = String(error?.message || '请求失败');
-                        if (petBubble) {
-                            const contentDiv = this._getOrCreateMessageContentDiv(petBubble);
-                            const base = String(fullContent ?? '').trim();
-                            const next = base || `请求失败：${streamErrorMessage}`;
-                            petBubble.setAttribute('data-original-text', next);
-                            if (contentDiv) {
-                                if (typeof manager.renderMarkdown === 'function') {
-                                    contentDiv.innerHTML = manager.renderMarkdown(next);
-                                } else {
-                                    contentDiv.textContent = next;
-                                }
-                            }
-                        }
-                        updatePetMessageInSession({ content: String(fullContent ?? '').trim() || `请求失败：${streamErrorMessage}`, error: true, aborted: false });
-                        // 添加错误状态
-                        if (petMessageElement) {
-                            petMessageElement.classList.add('is-error');
-                        }
-                    }
-                } finally {
-                    // 移除流式消息状态类（与 YiWeb 保持一致）
+                    // 移除流式状态类
+                    const petMessageElement = messagesContainer.querySelector('.is-streaming');
                     if (petMessageElement) {
                         petMessageElement.classList.remove('is-streaming');
-                    }
-                    if (petBubble) {
-                        const contentDiv = petBubble.querySelector('.pet-chat-content');
-                        if (contentDiv) {
-                            contentDiv.classList.remove('pet-chat-content-streaming');
-                        }
-                    }
-
-                    this._currentAbortController = null;
-                    this.updateRequestStatus('idle');
-
-                    // Save Session
-                    try {
-                        if (typeof manager.saveCurrentSession === 'function') {
-                            await manager.saveCurrentSession(false, false);
-                        }
-
-                        if (manager.currentSessionId && manager.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
-                            if (typeof manager.syncSessionToBackend === 'function') {
-                                await manager.syncSessionToBackend(manager.currentSessionId, true);
-                                console.log('会话已保存到后端:', manager.currentSessionId);
+                        const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+                        if (messageBubble) {
+                            const contentDiv = messageBubble.querySelector('.pet-chat-content');
+                            if (contentDiv) {
+                                contentDiv.classList.remove('pet-chat-content-streaming');
+                                contentDiv.innerHTML = manager.renderMarkdown(`❌ ${errorMessage}`);
                             }
                         }
-                    } catch (error) {
-                        console.error('保存会话失败:', error);
                     }
                 }
-            } catch (error) {
-                console.error('[发送消息] 异常处理:', error);
-                if (typeof manager.showNotification === 'function') {
-                    manager.showNotification(`发送消息失败：${error.message || '未知错误'}`, 'error');
-                }
             } finally {
-                // 恢复输入框状态
+                // 清理状态
                 this.isProcessing = false;
-                if (textarea) textarea.focus();
+                this._currentAbortController = null;
+                this._updateRequestStatus('idle');
             }
         }
 
@@ -1901,10 +1821,40 @@
                 this.element.style.removeProperty('bottom');
                 this.element.style.removeProperty('right');
                 this.element.style.removeProperty('transform');
+                this.element.style.removeProperty('max-height');
 
                 manager.isFullscreen = true;
                 manager.chatWindowState.isFullscreen = true;
                 this.element.classList.add('fullscreen');
+
+                // 立即更新全屏高度
+                this.updateFullscreenHeight();
+
+                // 延迟再次更新，确保 CSS 类已应用
+                requestAnimationFrame(() => {
+                    this.updateFullscreenHeight();
+                });
+
+                // 添加窗口 resize 事件监听，确保全屏时高度始终正确
+                if (!this._fullscreenResizeHandler) {
+                    this._fullscreenResizeHandler = () => {
+                        if (manager.isFullscreen) {
+                            // 使用防抖，避免频繁更新
+                            if (this._fullscreenResizeTimer) {
+                                clearTimeout(this._fullscreenResizeTimer);
+                            }
+                            this._fullscreenResizeTimer = setTimeout(() => {
+                                this.updateFullscreenHeight();
+                            }, 50);
+                        }
+                    };
+                    window.addEventListener('resize', this._fullscreenResizeHandler);
+                    // 也监听 visualViewport 变化（移动设备浏览器工具栏）
+                    if (window.visualViewport) {
+                        window.visualViewport.addEventListener('resize', this._fullscreenResizeHandler);
+                        window.visualViewport.addEventListener('scroll', this._fullscreenResizeHandler);
+                    }
+                }
 
                 if (this.header) {
                     this.header.title = '双击退出全屏';
@@ -1912,6 +1862,22 @@
                 }
             } else {
                 // Exit fullscreen
+                // 清除防抖定时器
+                if (this._fullscreenResizeTimer) {
+                    clearTimeout(this._fullscreenResizeTimer);
+                    this._fullscreenResizeTimer = null;
+                }
+
+                // 移除 resize 事件监听
+                if (this._fullscreenResizeHandler) {
+                    window.removeEventListener('resize', this._fullscreenResizeHandler);
+                    if (window.visualViewport) {
+                        window.visualViewport.removeEventListener('resize', this._fullscreenResizeHandler);
+                        window.visualViewport.removeEventListener('scroll', this._fullscreenResizeHandler);
+                    }
+                    this._fullscreenResizeHandler = null;
+                }
+
                 if (manager.preFullscreenStyle) {
                     Object.assign(this.element.style, manager.preFullscreenStyle);
                 }
@@ -1926,6 +1892,64 @@
                     // header borderRadius handled by CSS class
                 }
             }
+        }
+
+        /**
+         * 更新全屏模式下的窗口高度
+         */
+        updateFullscreenHeight() {
+            if (!this.manager || !this.manager.isFullscreen || !this.element) return;
+
+            // 获取视口高度，优先使用 visualViewport（移动设备，处理浏览器工具栏）
+            let viewportHeight;
+            if (window.visualViewport && window.visualViewport.height) {
+                viewportHeight = window.visualViewport.height;
+            } else {
+                viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            }
+
+            // 确保高度是有效数值
+            if (!viewportHeight || viewportHeight <= 0) {
+                viewportHeight = window.innerHeight || document.documentElement.clientHeight || 800;
+            }
+
+            // 设置窗口高度和最大高度
+            this.element.style.setProperty('height', `${viewportHeight}px`, 'important');
+            this.element.style.setProperty('max-height', `${viewportHeight}px`, 'important');
+            this.element.style.setProperty('min-height', `${viewportHeight}px`, 'important');
+
+            // 强制重新计算布局，确保子元素高度正确
+            requestAnimationFrame(() => {
+                // 触发重排
+                void this.element.offsetHeight;
+                
+                // 确保内容容器高度正确
+                const contentContainer = this.element.querySelector('.yi-pet-chat-content-container');
+                if (contentContainer) {
+                    void contentContainer.offsetHeight;
+                }
+                
+                // 确保主内容区域高度正确
+                const mainContent = this.element.querySelector('.yi-pet-chat-main-content, .yi-pet-chat-right-panel');
+                if (mainContent) {
+                    void mainContent.offsetHeight;
+                }
+                
+                // 确保消息容器能正确显示滚动条
+                if (this.messagesContainer) {
+                    void this.messagesContainer.offsetHeight;
+                }
+                
+                // 确保输入框容器可见
+                const inputContainer = this.inputContainer || this.element.querySelector('.yi-pet-chat-input-container');
+                if (inputContainer) {
+                    void inputContainer.offsetHeight;
+                    // 确保输入框容器在视口内且不被压缩
+                    inputContainer.style.setProperty('flex-shrink', '0', 'important');
+                    inputContainer.style.setProperty('position', 'relative', 'important');
+                    inputContainer.style.setProperty('z-index', '10', 'important');
+                }
+            });
         }
 
         /**
@@ -1959,12 +1983,8 @@
             if (editSessionBtn) {
                 if (manager.currentSessionId && manager.sessions && manager.sessions[manager.currentSessionId]) {
                     editSessionBtn.disabled = false;
-                    editSessionBtn.style.opacity = '1';
-                    editSessionBtn.style.cursor = 'pointer';
                 } else {
                     editSessionBtn.disabled = true;
-                    editSessionBtn.style.opacity = '0.5';
-                    editSessionBtn.style.cursor = 'not-allowed';
                 }
             }
         }
@@ -2028,7 +2048,7 @@
         }
 
         /**
-         * 判断是否应该自动滚动到底部 - 与 YiWeb 保持一致
+         * 判断是否应该自动滚动到底部
          * @returns {boolean} 如果距离底部小于 140px 则返回 true
          */
         shouldAutoScroll() {
@@ -2043,7 +2063,7 @@
         }
 
         /**
-         * 滚动到指定索引的消息 - 与 YiWeb 保持一致
+         * 滚动到指定索引的消息
          * @param {number} targetIdx - 目标消息索引
          */
         scrollToIndex(targetIdx) {
@@ -2258,11 +2278,6 @@
             if (state !== 'idle') {
                 button.classList.add(`try-again-button--${state}`);
             }
-
-            // 清理可能存在的内联样式
-            button.style.opacity = '';
-            button.style.cursor = '';
-            button.style.color = '';
         }
 
         /**
@@ -2285,8 +2300,7 @@
                     buttons.forEach(btn => {
                         // 只更新编辑、重新发送、重新生成、删除按钮的 disabled 状态
                         const btnText = btn.textContent || '';
-                        if (btnText.includes('✏️') || btnText.includes('📨') ||
-                            btnText.includes('🔄') || btnText.includes('🗑️')) {
+                        if (btnText.includes('📨') || btnText.includes('🔄') || btnText.includes('🗑️')) {
                             btn.disabled = this.isProcessing;
                         }
                     });
@@ -2314,7 +2328,7 @@
                 messageDiv.classList.add('is-streaming');
             }
 
-            return (chunk, accumulatedContent) => {
+            const callback = (chunk, accumulatedContent) => {
                 fullContent = accumulatedContent;
 
                 // 确保内容容器存在且具有正确的类名（与 YiWeb 保持一致）
@@ -2352,7 +2366,7 @@
                 messageBubble._mermaidTimeout = setTimeout(async () => {
                     try {
                         await this.manager.loadMermaid();
-                        const hasMermaidCode = contentDiv.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"]');
+                        const hasMermaidCode = contentDiv.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid');
                         if (hasMermaidCode) {
                             await this.manager.processMermaidBlocks(contentDiv);
                         }
@@ -2367,6 +2381,8 @@
                 }
                 return fullContent;
             };
+            callback.getFullContent = () => fullContent;
+            return callback;
         }
 
         /**
@@ -2401,6 +2417,10 @@
             try {
                 // 调用 API 重新生成
                 const reply = await this.manager.generatePetResponseStream(userMessageText, onStreamContent, abortController);
+                const streamedReply = (onStreamContent && typeof onStreamContent.getFullContent === 'function')
+                    ? onStreamContent.getFullContent()
+                    : '';
+                const finalContent = String(streamedReply || reply || '').trim() || '请继续。';
 
                 // 移除流式消息状态类（与 YiWeb 保持一致）
                 messageDiv.classList.remove('is-streaming');
@@ -2410,12 +2430,12 @@
                 }
 
                 // 确保最终内容被显示（流式更新可能已经完成，但再次确认）
-                if (reply && reply.trim()) {
+                if (finalContent) {
                     const finalDiv = this._getOrCreateMessageContentDiv(messageBubble);
                     if (finalDiv) {
-                        finalDiv.innerHTML = this.manager.renderMarkdown(reply);
+                        finalDiv.innerHTML = this.manager.renderMarkdown(finalContent);
                     }
-                    messageBubble.setAttribute('data-original-text', reply);
+                    messageBubble.setAttribute('data-original-text', finalContent);
                     setTimeout(async () => {
                         const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
                         await this.manager.processMermaidBlocks(targetDiv);
@@ -2424,14 +2444,14 @@
 
                 // 更新复制按钮
                 const copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]');
-                if (copyButtonContainer && reply && reply.trim()) {
+                if (copyButtonContainer && finalContent) {
                     // 按钮现在由 addActionButtonsToMessage 统一管理
                     // 不再需要单独调用 addCopyButton
                 }
 
                 this.scrollToBottom(); // 智能滚动
 
-                return reply;
+                return finalContent;
             } catch (error) {
                 // 移除流式消息状态类（确保即使出错也能清理）
                 messageDiv.classList.remove('is-streaming');
@@ -2652,24 +2672,7 @@
                 } catch (_) { }
             }
 
-            // 3. 编辑按钮
-            const editBtn = document.createElement('button');
-            editBtn.type = 'button';
-            editBtn.className = 'pet-chat-meta-btn';
-            editBtn.setAttribute('data-standard-button', 'true');
-            editBtn.setAttribute('aria-label', '编辑消息');
-            editBtn.setAttribute('title', '编辑');
-            editBtn.textContent = '✏️';
-            editBtn.disabled = this.isProcessing || false;
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (messageBubble) {
-                    this.manager.openMessageEditor(messageBubble, isUserMessage ? 'user' : 'pet');
-                }
-            });
-            metaActions.appendChild(editBtn);
-
-            // 4. 重新发送按钮（仅用户消息）
+            // 3. 重新发送按钮（仅用户消息）
             if (isUserMessage) {
                 const resendBtn = document.createElement('button');
                 resendBtn.type = 'button';
@@ -2688,7 +2691,7 @@
                 metaActions.appendChild(resendBtn);
             }
 
-            // 5. 上移按钮
+            // 4. 上移按钮
             const moveUpBtn = document.createElement('button');
             moveUpBtn.type = 'button';
             moveUpBtn.className = 'pet-chat-meta-btn';
@@ -2696,7 +2699,7 @@
             moveUpBtn.setAttribute('aria-label', '上移消息');
             moveUpBtn.setAttribute('title', '上移');
             moveUpBtn.textContent = '⬆️';
-            moveUpBtn.disabled = idx <= 0;
+            moveUpBtn.disabled = false;
             moveUpBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if (this.manager && typeof this.manager.moveMessageUpAt === 'function') {
@@ -2705,7 +2708,7 @@
             });
             metaActions.appendChild(moveUpBtn);
 
-            // 6. 下移按钮
+            // 5. 下移按钮
             const moveDownBtn = document.createElement('button');
             moveDownBtn.type = 'button';
             moveDownBtn.className = 'pet-chat-meta-btn';
@@ -2713,7 +2716,7 @@
             moveDownBtn.setAttribute('aria-label', '下移消息');
             moveDownBtn.setAttribute('title', '下移');
             moveDownBtn.textContent = '⬇️';
-            moveDownBtn.disabled = idx >= allMessages.length - 1;
+            moveDownBtn.disabled = false;
             moveDownBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if (this.manager && typeof this.manager.moveMessageDownAt === 'function') {
@@ -2722,7 +2725,7 @@
             });
             metaActions.appendChild(moveDownBtn);
 
-            // 7. 重新生成按钮（仅宠物消息，且可以重新生成）
+            // 6. 重新生成按钮（仅宠物消息，且可以重新生成）
             if (!isUserMessage) {
                 // 检查前面是否有用户消息（可以重新生成的条件）
                 let canRegenerate = false;
@@ -2764,7 +2767,7 @@
                 }
             }
 
-            // 8. 删除按钮
+            // 7. 删除按钮
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'pet-chat-meta-btn';
@@ -2888,418 +2891,54 @@
             });
 
             container.appendChild(tryAgainButton);
-            container.style.display = 'flex';
-            container.style.gap = '8px';
-
-            // 确保容器可见
-            if (container.style.display === 'none') {
-                container.style.display = 'flex';
-            }
         }
 
-        // 为用户消息添加删除和编辑按钮
-        // 已废弃，由 _addStandardMessageButtons 统一管理
-        addDeleteButtonForUserMessage(container, messageTextElement) {
-            // 已废弃：按钮现在由 _addStandardMessageButtons 统一管理
-            // 此方法保留仅为向后兼容，不再执行任何操作
-            return;
-            // 先移除可能存在的重复按钮（避免重复添加）
-            const existingDeleteButtons = container.querySelectorAll('.delete-button');
-            const existingEditButtons = container.querySelectorAll('.edit-button');
-            const existingResendButtons = container.querySelectorAll('.chat-message-resend-btn');
-
-            // 如果已经有完整的按钮组，就不再添加
-            if (existingDeleteButtons.length > 0 &&
-                existingEditButtons.length > 0 &&
-                existingResendButtons.length > 0) {
-                // 确保只有一个按钮组，移除多余的
-                if (existingDeleteButtons.length > 1) {
-                    for (let i = 1; i < existingDeleteButtons.length; i++) {
-                        existingDeleteButtons[i].remove();
-                    }
-                }
-                if (existingEditButtons.length > 1) {
-                    for (let i = 1; i < existingEditButtons.length; i++) {
-                        existingEditButtons[i].remove();
-                    }
-                }
-                if (existingResendButtons.length > 1) {
-                    for (let i = 1; i < existingResendButtons.length; i++) {
-                        existingResendButtons[i].remove();
-                    }
-                }
-                return;
+        // 设置侧边栏折叠状态
+        setSidebarCollapsed(collapsed) {
+            if (!this.sidebar) return;
+            if (collapsed) {
+                this.sidebar.classList.add('collapsed');
+            } else {
+                this.sidebar.classList.remove('collapsed');
             }
-
-            // 移除可能存在的部分按钮（避免不完整的按钮组）
-            existingDeleteButtons.forEach(btn => btn.remove());
-            existingEditButtons.forEach(btn => btn.remove());
-            existingResendButtons.forEach(btn => btn.remove());
-
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'delete-button';
-            deleteButton.innerHTML = '🗑️';
-            deleteButton.setAttribute('title', '删除消息');
-
-            // 点击删除
-            deleteButton.addEventListener('click', async (e) => {
-                e.stopPropagation();
-
-                // 防止重复点击
-                if (deleteButton.disabled || deleteButton.dataset.deleting === 'true') {
-                    return;
-                }
-
-                // 确认删除
-                if (!confirm('确定要删除这条消息吗？')) {
-                    return;
-                }
-
-                // 标记为正在删除
-                deleteButton.disabled = true;
-                deleteButton.dataset.deleting = 'true';
-                const originalHTML = deleteButton.innerHTML;
-                deleteButton.innerHTML = '...';
-                deleteButton.style.opacity = '0.5';
-
-                try {
-                    // 找到包含删除按钮容器的消息元素
-                    let currentMessage = container.parentElement;
-                    let foundMessageDiv = null;
-
-                    while (currentMessage &&
-                        currentMessage !== document.body &&
-                        currentMessage !== document.documentElement) {
-                        // 检查是否包含消息气泡
-                        const hasBubble = currentMessage.querySelector('[data-message-type="user-bubble"]') ||
-                            currentMessage.querySelector('[data-message-type="pet-bubble"]');
-
-                        if (hasBubble) {
-                            // 检查是否包含头像（通过检查子元素中是否有包含 👤 或 🐾 的元素）
-                            const children = Array.from(currentMessage.children);
-                            const hasAvatar = children.some(child => {
-                                const text = child.textContent || '';
-                                return text.includes('👤') || text.includes('🐾');
-                            });
-
-                            // 如果同时包含气泡和头像，说明找到了完整的 messageDiv
-                            if (hasAvatar) {
-                                foundMessageDiv = currentMessage;
-                                break;
-                            }
-                        }
-
-                        currentMessage = currentMessage.parentElement;
-                    }
-
-                    // 如果没找到包含头像的 messageDiv，回退到只包含气泡的元素
-                    if (!foundMessageDiv && currentMessage) {
-                        let parentElement = currentMessage.parentElement;
-                        while (parentElement &&
-                            parentElement !== document.body &&
-                            parentElement !== document.documentElement) {
-                            const children = Array.from(parentElement.children);
-                            const hasAvatar = children.some(child => {
-                                const text = child.textContent || '';
-                                return text.includes('👤') || text.includes('🐾');
-                            });
-                            const hasBubble = parentElement.querySelector('[data-message-type="user-bubble"]') ||
-                                parentElement.querySelector('[data-message-type="pet-bubble"]');
-                            if (hasAvatar && hasBubble) {
-                                foundMessageDiv = parentElement;
-                                break;
-                            }
-                            parentElement = parentElement.parentElement;
-                        }
-                    }
-
-                    currentMessage = foundMessageDiv || currentMessage;
-
-                    if (!currentMessage) {
-                        console.warn('无法找到消息元素');
-                        deleteButton.disabled = false;
-                        deleteButton.dataset.deleting = 'false';
-                        deleteButton.innerHTML = originalHTML;
-                        deleteButton.style.opacity = '';
-                        return;
-                    }
-
-                    // 从会话中删除对应的消息
-                    if (this.manager.currentSessionId && this.manager.sessions[this.manager.currentSessionId]) {
-                        const session = this.manager.sessions[this.manager.currentSessionId];
-                        if (session.messages && Array.isArray(session.messages)) {
-                            // 使用改进的消息匹配方法
-                            const messageResult = this.manager.findMessageObjectByDiv(currentMessage);
-
-                            if (messageResult && messageResult.index !== undefined && messageResult.index >= 0) {
-                                // 从本地会话中删除消息
-                                session.messages.splice(messageResult.index, 1);
-                                session.updatedAt = Date.now();
-
-                                console.log(`已从会话 ${this.manager.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
-
-                                // 动画删除消息
-                                currentMessage.style.transition = 'opacity 0.3s ease';
-                                currentMessage.style.opacity = '0';
-                                setTimeout(() => {
-                                    currentMessage.remove();
-                                    // 删除后保存会话并同步到后端（确保数据同步）
-                                    this.manager.saveCurrentSession().then(() => {
-                                        // 同步到后端
-                                        if (this.manager.isChatOpen && this.manager.currentSessionId && this.manager.sessionManager && this.manager.sessionManager.enableBackendSync) {
-                                            this.manager.sessionManager.syncSessionToBackend(this.manager.currentSessionId, true).catch(err => {
-                                                console.error('删除消息后同步到后端失败:', err);
-                                            });
-                                        }
-                                    }).catch(err => {
-                                        console.error('删除消息后保存会话失败:', err);
-                                    });
-                                }, 300);
-                            } else {
-                                console.warn('无法找到对应的消息对象，尝试通过DOM索引删除');
-                                // 如果找不到消息对象，尝试通过DOM索引来删除
-                                const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
-                                if (messagesContainer) {
-                                    const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
-                                        return !div.hasAttribute('data-welcome-message') &&
-                                            (div.querySelector('[data-message-type="user-bubble"]') ||
-                                                div.querySelector('[data-message-type="pet-bubble"]'));
-                                    });
-                                    const domIndex = allMessageDivs.indexOf(currentMessage);
-                                    if (domIndex >= 0 && domIndex < session.messages.length) {
-                                        // 通过DOM索引删除消息
-                                        session.messages.splice(domIndex, 1);
-                                        session.updatedAt = Date.now();
-                                        console.log(`已通过DOM索引从会话 ${this.manager.currentSessionId} 中删除消息，剩余 ${session.messages.length} 条消息`);
-
-                                        // 动画删除消息
-                                        currentMessage.style.transition = 'opacity 0.3s ease';
-                                        currentMessage.style.opacity = '0';
-                                        setTimeout(() => {
-                                            currentMessage.remove();
-                                            // 删除后保存会话并同步到后端
-                                            this.manager.saveCurrentSession().then(() => {
-                                                if (this.manager.isChatOpen && this.manager.currentSessionId && this.manager.sessionManager && this.manager.sessionManager.enableBackendSync) {
-                                                    this.manager.sessionManager.syncSessionToBackend(this.manager.currentSessionId, true).catch(err => {
-                                                        console.error('删除消息后同步到后端失败:', err);
-                                                    });
-                                                }
-                                            }).catch(err => {
-                                                console.error('删除消息后保存会话失败:', err);
-                                            });
-                                        }, 300);
-                                    } else {
-                                        currentMessage.style.transition = 'opacity 0.3s ease';
-                                        currentMessage.style.opacity = '0';
-                                        setTimeout(() => {
-                                            currentMessage.remove();
-                                        }, 300);
-                                    }
-                                } else {
-                                    currentMessage.style.transition = 'opacity 0.3s ease';
-                                    currentMessage.style.opacity = '0';
-                                    setTimeout(() => {
-                                        currentMessage.remove();
-                                    }, 300);
-                                }
-                            }
-                        }
-                    } else {
-                        // 如果没有会话，直接删除DOM元素
-                        currentMessage.style.transition = 'opacity 0.3s ease';
-                        currentMessage.style.opacity = '0';
-                        setTimeout(() => {
-                            currentMessage.remove();
-                        }, 300);
-                    }
-                } catch (error) {
-                    console.error('删除消息时发生错误:', error);
-                } finally {
-                    // 恢复按钮状态
-                    if (deleteButton.isConnected) {
-                        deleteButton.disabled = false;
-                        deleteButton.dataset.deleting = 'false';
-                        deleteButton.innerHTML = originalHTML;
-                        deleteButton.style.opacity = '';
-                    }
-                }
-            });
-
-            // 创建编辑按钮
-            const editButton = document.createElement('button');
-            editButton.className = 'edit-button';
-            editButton.innerHTML = '✏️';
-            // 只在没有 title 时设置，避免重复设置
-            if (!editButton.getAttribute('title')) {
-                editButton.setAttribute('title', '编辑消息');
+            // 更新 manager 状态
+            if (this.manager) {
+                this.manager.sidebarCollapsed = collapsed;
             }
-
-            // 点击编辑 - 打开弹窗编辑器
-            editButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (messageTextElement) {
-                    this.manager.openMessageEditor(messageTextElement, 'user');
-                }
-            });
-
-            // 创建重新发送按钮
-            const resendButton = document.createElement('button');
-            // 与 petManager.core.js 保持一致，使用相同的类名
-            resendButton.className = 'pet-chat-meta-btn chat-message-resend-btn';
-            resendButton.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>
-        `;
-            resendButton.setAttribute('title', '重新发送 prompt 请求');
-            resendButton.setAttribute('aria-label', '重新发送');
-
-            // 悬停效果由 CSS 处理
-
-            // 点击重新发送（与 YiWeb 保持一致，使用 resendMessageAt 方法）
-            let isResending = false;
-            resendButton.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-
-                console.log('[重新发送] 按钮被点击', { isResending, isProcessing: this.isProcessing, container, messageTextElement });
-
-                // 检查是否正在处理其他请求
-                if (this.isProcessing) {
-                    console.log('[重新发送] 正在处理其他请求，忽略点击');
-                    return;
-                }
-
-                if (isResending) {
-                    console.log('[重新发送] 正在处理中，忽略重复点击');
-                    return;
-                }
-                isResending = true;
-
-                try {
-                    console.log('[重新发送] 开始处理重新发送请求');
-
-                    // 找到当前用户消息元素
-                    const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null;
-                    if (!messagesContainer) {
-                        console.warn('[重新发送] 无法找到消息容器', { element: this.element });
-                        isResending = false;
-                        return;
-                    }
-
-                    let currentMessage = container.parentElement;
-                    while (currentMessage &&
-                        !currentMessage.classList.contains('pet-chat-message') &&
-                        !currentMessage.classList.contains('chat-message') &&
-                        currentMessage !== messagesContainer) {
-                        currentMessage = currentMessage.parentElement;
-                    }
-
-                    // 确保找到的是用户消息
-                    if (!currentMessage ||
-                        (!currentMessage.classList.contains('pet-chat-message') &&
-                            !currentMessage.classList.contains('chat-message')) ||
-                        (!currentMessage.classList.contains('is-user') &&
-                            !currentMessage.classList.contains('chat-message--user'))) {
-                        console.warn('[重新发送] 无法找到当前用户消息元素', {
-                            currentMessage,
-                            classes: currentMessage ? Array.from(currentMessage.classList) : null,
-                            container: container,
-                            containerParent: container.parentElement
-                        });
-                        isResending = false;
-                        return;
-                    }
-
-                    console.log('[重新发送] 找到用户消息元素', currentMessage);
-
-                    // 更新按钮状态
-                    resendButton.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416" opacity="0.3">
-                            <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416;0 31.416" repeatCount="indefinite"/>
-                            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416;-31.416" repeatCount="indefinite"/>
-                        </circle>
-                    </svg>
-                `;
-                    resendButton.classList.add('chat-message-resend-btn--loading');
-                    resendButton.classList.remove('chat-message-resend-btn--success', 'chat-message-resend-btn--error');
-                    resendButton.disabled = true;
-
-                    // 使用 resendMessageAt 方法（与 YiWeb 保持一致）
-                    // 找到消息索引
-                    const idx = this.manager && typeof this.manager.findMessageIndexByDiv === 'function'
-                        ? this.manager.findMessageIndexByDiv(currentMessage)
-                        : -1;
-
-                    if (idx >= 0 && this.manager && typeof this.manager.resendMessageAt === 'function') {
-                        // 调用 resendMessageAt，它会删除原消息，设置输入框内容，然后调用 sendMessage 发送消息
-                        await this.manager.resendMessageAt(idx);
-                    } else {
-                        console.warn('[重新发送] 无法找到消息索引或 resendMessageAt 方法', { idx, manager: this.manager });
-                        throw new Error('无法重新发送消息：找不到消息索引或方法');
-                    }
-
-                    // 恢复按钮状态
-                    resendButton.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                        <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                `;
-                    resendButton.classList.remove('chat-message-resend-btn--loading');
-                    resendButton.classList.add('chat-message-resend-btn--success');
-                    resendButton.disabled = false;
-
-                    setTimeout(() => {
-                        resendButton.innerHTML = `
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                            <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        </svg>
-                    `;
-                        resendButton.classList.remove('chat-message-resend-btn--success', 'chat-message-resend-btn--loading');
-                        isResending = false;
-                    }, 1500);
-
-                } catch (error) {
-                    console.error('[重新发送] 重新发送消息失败:', error);
-
-                    // 恢复按钮状态
-                    resendButton.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                `;
-                    resendButton.classList.remove('chat-message-resend-btn--loading');
-                    resendButton.classList.add('chat-message-resend-btn--error');
-                    resendButton.disabled = false;
-
-                    setTimeout(() => {
-                        resendButton.innerHTML = `
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                            <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        </svg>
-                    `;
-                        resendButton.classList.remove('chat-message-resend-btn--error', 'chat-message-resend-btn--loading');
-                        isResending = false;
-                    }, 1500);
-                }
-            });
-
-            if (!container.querySelector('.edit-button')) {
-                container.appendChild(editButton);
+            // 更新折叠按钮图标和位置
+            this.updateSidebarToggleButton(collapsed);
+        }
+        
+        // 更新侧边栏折叠按钮
+        updateSidebarToggleButton(collapsed) {
+            const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
+            if (!toggleBtn) return;
+            
+            if (collapsed) {
+                // 侧边栏已折叠，显示展开图标（向右箭头）
+                toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>';
+                toggleBtn.setAttribute('title', '展开会话列表');
+            } else {
+                // 侧边栏已展开，显示折叠图标（三条横线）
+                toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>';
+                toggleBtn.setAttribute('title', '折叠会话列表');
+                // 按钮位置由 CSS 控制，始终在 title 左边，不再需要根据侧边栏宽度设置
             }
-            if (!container.querySelector('.chat-message-resend-btn')) {
-                container.appendChild(resendButton);
+            
+            // 注意：不在这里调用 manager.updateToggleButtonPosition，避免循环调用
+            // manager.updateToggleButtonPosition 会在需要时单独调用
+        }
+
+        // 切换侧边栏折叠状态
+        toggleSidebar() {
+            if (!this.sidebar) return;
+            const isCollapsed = this.sidebar.classList.contains('collapsed');
+            this.setSidebarCollapsed(!isCollapsed);
+            // 保存状态
+            if (this.manager && typeof this.manager.saveSidebarCollapsed === 'function') {
+                this.manager.saveSidebarCollapsed();
             }
-            if (!container.querySelector('.delete-button')) {
-                container.appendChild(deleteButton);
-            }
-            container.style.display = 'flex';
-            container.style.gap = '8px';
+            // 注意：updateSidebarToggleButton 已经在 setSidebarCollapsed 中调用，不需要再次调用
         }
 
         // 设置输入容器折叠状态 - 与 YiWeb 保持一致

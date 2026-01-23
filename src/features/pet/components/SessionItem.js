@@ -180,15 +180,12 @@
             const contentWrapper = document.createElement('div');
             contentWrapper.className = 'session-item-content';
 
-            // 1. Header (Title + Fav)
             const header = document.createElement('div');
             header.className = 'session-item-header';
 
-            // 标题组（包含复选框和标题文本，参考 YiWeb 的 session-item-title-group）
             const titleGroup = document.createElement('div');
             titleGroup.className = 'session-item-title-group';
 
-            // 批量模式下的复选框（仅在批量模式下显示）
             if (manager.batchMode) {
                 const checkbox = this.createCheckbox(sessionItem);
                 if (checkbox) {
@@ -196,114 +193,97 @@
                 }
             }
 
-            const title = document.createElement('div');
-            title.className = 'session-item-title';
-
-            // Fav Icon - 使用 session-favorite-btn 类名与 YiWeb 保持一致
-            const favIcon = document.createElement('button');
-            favIcon.type = 'button';
-            favIcon.className = 'session-favorite-btn';
-            favIcon.textContent = session.isFavorite ? '❤️' : '🤍';
-            if (session.isFavorite) {
-                favIcon.classList.add('active');
-            }
-            favIcon.title = session.isFavorite ? '取消收藏' : '收藏';
-            favIcon.setAttribute('aria-label', session.isFavorite ? '取消收藏' : '收藏');
-            favIcon.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const newVal = !session.isFavorite;
-                try {
-                    const sessionKey = session.key;
-                    if (!sessionKey) {
-                        console.warn('会话缺少 key 字段，无法更新收藏状态:', session);
-                        return;
-                    }
-                    await manager.setSessionFavorite(sessionKey, newVal);
-                    favIcon.textContent = newVal ? '❤️' : '🤍';
-                    if (newVal) {
-                        favIcon.classList.add('active');
-                    } else {
-                        favIcon.classList.remove('active');
-                    }
-                    favIcon.title = newVal ? '取消收藏' : '收藏';
-                    favIcon.setAttribute('aria-label', newVal ? '取消收藏' : '收藏');
-
-                    const titleText = title.querySelector('.title-text');
-                    if (titleText) {
-                        if (newVal) {
-                            titleText.classList.add('title-text--favorite');
-                        } else {
-                            titleText.classList.remove('title-text--favorite');
-                        }
-                    }
-
-                    // Note: Calling updateSessionSidebar might be too heavy here if we just updated DOM
-                    // But to be safe and consistent with original code:
-                    await manager.updateSessionSidebar(false, false);
-                    manager.showNotification(newVal ? '已收藏会话' : '已取消收藏', 'success');
-                } catch (err) {
-                    console.error('更新收藏状态失败:', err);
-                    manager.showNotification('更新收藏状态失败', 'error');
-                }
-            });
-
-            // Title Text
             const titleText = document.createElement('span');
-            titleText.className = 'title-text';
+            titleText.className = 'session-title-text';
             const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.pageTitle || session.title || '未命名会话');
             titleText.textContent = sessionTitle;
             titleText.title = sessionTitle;
             if (session.isFavorite) {
-                titleText.classList.add('title-text--favorite');
+                titleText.classList.add('session-title-text--favorite');
             }
-
-            // 收藏按钮（批量模式下隐藏，在标题行右侧）
-            if (!manager.batchMode) {
-                title.appendChild(favIcon);
-            }
-            title.appendChild(titleText);
-            titleGroup.appendChild(title);
+            titleGroup.appendChild(titleText);
             header.appendChild(titleGroup);
-            
-            // 在非批量模式下，收藏按钮也在 header 右侧（如果需要的话）
-            // 注意：favIcon 已经在 title 内，所以不需要重复添加
-            
+
+            let favIcon = null;
+            if (!manager.batchMode) {
+                favIcon = document.createElement('button');
+                favIcon.type = 'button';
+                favIcon.className = 'session-favorite-btn';
+                favIcon.textContent = session.isFavorite ? '❤️' : '🤍';
+                if (session.isFavorite) {
+                    favIcon.classList.add('active');
+                }
+                favIcon.title = session.isFavorite ? '取消收藏' : '收藏';
+                favIcon.setAttribute('aria-label', session.isFavorite ? '取消收藏' : '收藏');
+                favIcon.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const newVal = !session.isFavorite;
+                    try {
+                        const sessionKey = session.key;
+                        if (!sessionKey) {
+                            console.warn('会话缺少 key 字段，无法更新收藏状态:', session);
+                            return;
+                        }
+                        await manager.setSessionFavorite(sessionKey, newVal);
+                        favIcon.textContent = newVal ? '❤️' : '🤍';
+                        if (newVal) {
+                            favIcon.classList.add('active');
+                            titleText.classList.add('session-title-text--favorite');
+                        } else {
+                            favIcon.classList.remove('active');
+                            titleText.classList.remove('session-title-text--favorite');
+                        }
+                        favIcon.title = newVal ? '取消收藏' : '收藏';
+                        favIcon.setAttribute('aria-label', newVal ? '取消收藏' : '收藏');
+                        await manager.updateSessionSidebar(false, false);
+                        manager.showNotification(newVal ? '已收藏会话' : '已取消收藏', 'success');
+                    } catch (err) {
+                        console.error('更新收藏状态失败:', err);
+                        manager.showNotification('更新收藏状态失败', 'error');
+                    }
+                });
+                header.appendChild(favIcon);
+            }
             contentWrapper.appendChild(header);
 
-            // 2. Session Info (Tags + Footer)
             const sessionInfo = document.createElement('div');
             sessionInfo.className = 'session-item-info';
 
-            // Tags
-            if (session.tags && session.tags.length > 0) {
-                const tagsContainer = document.createElement('div');
-                tagsContainer.className = 'session-tags';
+            const tagsContainer = document.createElement('div');
+            tagsContainer.className = 'session-item-tags';
+            const normalizedTags = Array.isArray(session.tags)
+                ? session.tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0)
+                : [];
 
-                const normalizedTags = session.tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0);
+            if (normalizedTags.length > 0) {
                 normalizedTags.forEach(tag => {
                     const tagElement = document.createElement('span');
                     tagElement.className = 'session-tag-item';
                     tagElement.textContent = tag;
-                    const tagColor = manager.getTagColor(tag);
-                    tagElement.style.setProperty('--tag-bg', tagColor.background);
-                    tagElement.style.setProperty('--tag-text', tagColor.text);
-                    tagElement.style.setProperty('--tag-border', tagColor.border);
-
-                    // Add click handler for tag filtering if needed
-                    // tagElement.addEventListener('click', (e) => { ... });
-
+                    if (typeof manager.getTagColor === 'function') {
+                        const tagColor = manager.getTagColor(tag);
+                        if (tagColor) {
+                            if (tagColor.background) tagElement.style.setProperty('--tag-bg', tagColor.background);
+                            if (tagColor.text) tagElement.style.setProperty('--tag-text', tagColor.text);
+                            if (tagColor.border) tagElement.style.setProperty('--tag-border', tagColor.border);
+                        }
+                    }
                     tagsContainer.appendChild(tagElement);
                 });
-                sessionInfo.appendChild(tagsContainer);
+            } else {
+                const tagElement = document.createElement('span');
+                tagElement.className = 'session-tag-item session-tag-no-tags';
+                tagElement.textContent = '没有标签';
+                tagsContainer.appendChild(tagElement);
             }
+            sessionInfo.appendChild(tagsContainer);
 
-            // Footer (Time + Buttons)
             const footer = document.createElement('div');
             footer.className = 'session-item-footer';
 
-            // Time
             const timeSpan = document.createElement('span');
+            timeSpan.className = 'session-item-time';
             const sessionTime = session.lastAccessTime || session.lastActiveAt || session.updatedAt || session.createdAt || 0;
             if (sessionTime) {
                 const date = new Date(sessionTime);
@@ -317,10 +297,9 @@
             const footerButtonContainer = document.createElement('div');
             footerButtonContainer.className = 'session-action-buttons';
             if (manager.batchMode) {
-                footerButtonContainer.style.display = 'none';
+                footerButtonContainer.classList.add('js-hidden');
             }
 
-            // Create buttons - 使用图标和类名匹配 YiWeb 设计
             const createBtn = (icon, title, className, onClick) => {
                 const btn = document.createElement('button');
                 btn.innerHTML = icon;
@@ -335,15 +314,13 @@
                 return btn;
             };
 
-            // Edit
             const editBtn = createBtn('✏️', '编辑会话', 'session-edit-btn', async () => {
-                const sessionKey = session.key || sessionId;
+                const sessionKey = session.key;
                 if (!sessionKey) {
                     console.warn('会话缺少 key 字段，无法编辑:', session);
                     manager.showNotification('无法编辑：会话缺少标识符', 'error');
                     return;
                 }
-                // 调用 editSessionTitle 方法打开编辑对话框
                 if (typeof manager.editSessionTitle === 'function') {
                     await manager.editSessionTitle(sessionKey);
                 } else {
@@ -352,7 +329,6 @@
                 }
             });
 
-            // Tag
             const tagBtn = createBtn('🏷️', '管理标签', 'session-tag-btn', async () => {
                 const sessionKey = session.key;
                 if (!sessionKey) {
@@ -365,7 +341,6 @@
                 }
             });
 
-            // Duplicate
             const duplicateBtn = createBtn('📋', '创建副本', 'session-duplicate-btn', async () => {
                 const sessionKey = session.key;
                 if (!sessionKey) {
@@ -383,7 +358,6 @@
                 }
             });
 
-            // Context
             const contextBtn = createBtn('📝', '页面上下文', 'session-context-btn', () => {
                 const sessionKey = session.key;
                 if (!sessionKey) {

@@ -67,25 +67,12 @@ class LoadingAnimation {
         // 创建容器
         const container = document.createElement('div');
         container.id = 'pet-loading-animation';
-        container.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2147483649;
-            pointer-events: none;
-            display: none;
-        `;
-        
+        // 样式已通过 CSS 类定义
+
         // 创建图片元素
         const img = document.createElement('img');
         img.id = 'pet-loading-animation-img';
-        img.style.cssText = `
-            width: 120px;
-            height: 120px;
-            object-fit: contain;
-            animation: none;
-        `;
+        // 样式已通过 CSS 类定义
         
         container.appendChild(img);
         document.body.appendChild(container);
@@ -131,7 +118,7 @@ class LoadingAnimation {
         
         // 显示容器
         if (this.animationElement) {
-            this.animationElement.style.display = 'block';
+            this.animationElement.classList.add('js-visible');
         }
         
         // 开始动画循环
@@ -160,7 +147,7 @@ class LoadingAnimation {
         
         // 隐藏容器
         if (this.animationElement) {
-            this.animationElement.style.display = 'none';
+            this.animationElement.classList.remove('js-visible');
         }
     }
     

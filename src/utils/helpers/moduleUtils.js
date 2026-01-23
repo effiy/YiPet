@@ -20,9 +20,15 @@
 class ModuleUtils {
     /**
      * 获取全局对象（根据环境自动选择）
+     * 使用 GlobalAccessor 的实现，避免重复代码
      * @returns {Object} 全局对象（globalThis、self、window 或 global）
      */
     static getGlobal() {
+        // 优先使用 GlobalAccessor（如果已加载）
+        if (typeof GlobalAccessor !== 'undefined' && typeof GlobalAccessor.getGlobal === 'function') {
+            return GlobalAccessor.getGlobal();
+        }
+        // 降级方案：直接实现（避免循环依赖）
         if (typeof globalThis !== 'undefined') {
             return globalThis;
         }

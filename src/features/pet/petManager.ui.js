@@ -10,37 +10,27 @@
     if (!tagList) return;
     const reverseBtn = this.sessionSidebar.querySelector('.tag-filter-reverse');
     const noTagsBtn = this.sessionSidebar.querySelector('.tag-filter-no-tags');
-    const clearBtn = this.sessionSidebar.querySelector('.tag-filter-clear');
+    const clearBtn = this.sessionSidebar.querySelector('.tag-filter-clear-btn');
     const searchInput = this.sessionSidebar.querySelector('.tag-filter-search');
-    const searchIcon = this.sessionSidebar.querySelector('.tag-filter-search-container span');
+    const searchContainer = this.sessionSidebar.querySelector('.tag-filter-search-container');
     const allTags = typeof this.getAllTags === 'function' ? this.getAllTags() : [];
     const keyword = (this.tagFilterSearchKeyword || '').trim().toLowerCase();
     const filtered = keyword ? allTags.filter(t => t.toLowerCase().includes(keyword)) : allTags;
     const visibleCount = typeof this.tagFilterVisibleCount === 'number' ? this.tagFilterVisibleCount : 8;
     if (reverseBtn) {
-      reverseBtn.style.color = this.tagFilterReverse ? '#22c55e' : '#9ca3af';  /* 现代绿 */
-      reverseBtn.style.opacity = this.tagFilterReverse ? '1' : '0.6';
+      reverseBtn.classList.toggle('active', !!this.tagFilterReverse);
     }
     if (noTagsBtn) {
-      noTagsBtn.style.color = this.tagFilterNoTags ? '#22c55e' : '#9ca3af';  /* 现代绿 */
-      noTagsBtn.style.opacity = this.tagFilterNoTags ? '1' : '0.6';
-      if (!noTagsBtn._bound) {
-        noTagsBtn.addEventListener('click', () => {
-          this.tagFilterNoTags = !this.tagFilterNoTags;
-          this.updateTagFilterUI();
-          this.updateSessionSidebar();
-        });
-        noTagsBtn._bound = true;
-      }
+      noTagsBtn.classList.toggle('active', !!this.tagFilterNoTags);
     }
     if (clearBtn) {
       const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0;
       const hasSearchKeyword = keyword.length > 0;
       const hasActiveFilter = hasSelectedTags || this.tagFilterNoTags || hasSearchKeyword;
-      clearBtn.style.opacity = hasActiveFilter ? '0.8' : '0.4';
+      clearBtn.classList.toggle('active', !!hasActiveFilter);
     }
-    if (searchInput && searchIcon) {
-      searchIcon.style.opacity = keyword ? '0.8' : '0.5';
+    if (searchInput && searchContainer) {
+      searchContainer.classList.toggle('has-keyword', !!keyword);
     }
     tagList.innerHTML = '';
 
@@ -211,21 +201,8 @@
     if (!this.sessionSidebar) return;
     const btnSession = this.sessionSidebar.querySelector('#view-toggle-session');
     if (!btnSession) return;
-    const currentColor = this.colors[this.colorIndex];
-    const currentMainColor = this.getMainColorFromGradient(currentColor);
-    const resetBtn = (b) => {
-      if (!b) return;
-      b.style.background = 'transparent';
-      b.style.color = '#6b7280';
-      b.style.border = 'none';
-    };
-    const activateBtn = (b) => {
-      if (!b) return;
-      b.style.background = currentMainColor;
-      b.style.color = '#fff';
-      b.style.border = 'none';
-    };
-    activateBtn(btnSession);
+    this.sessionSidebar.dataset.petColorIndex = String(this.colorIndex ?? 0);
+    btnSession.classList.add('pet-view-toggle-btn', 'pet-view-toggle-active');
   };
   proto.updateSessionSidebar = async function (forceRefresh = false, skipBackendRefresh = false) {
     if (!this.sessionSidebar) {
@@ -234,29 +211,29 @@
     }
     const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
     if (apiRequestList) {
-      apiRequestList.style.display = 'none';
+      apiRequestList.classList.add('js-hidden');
     }
     const apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
     if (apiRequestTagFilterContainer) {
-      apiRequestTagFilterContainer.style.display = 'none';
+      apiRequestTagFilterContainer.classList.add('js-hidden');
     }
     const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
     const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
     const scrollableContent = this.sessionSidebar.querySelector('.session-sidebar-scrollable-content');
     if (tagFilterContainer) {
-      tagFilterContainer.style.display = 'block';
+      tagFilterContainer.classList.add('js-visible');
     }
     if (batchToolbar) {
       if (this.batchMode) {
-        batchToolbar.classList.add('visible');
+        batchToolbar.classList.add('visible', 'js-visible');
         if (this.sessionSidebar) this.sessionSidebar.classList.add('batch-mode-active');
       } else {
-        batchToolbar.classList.remove('visible');
+        batchToolbar.classList.remove('visible', 'js-visible');
         if (this.sessionSidebar) this.sessionSidebar.classList.remove('batch-mode-active');
       }
     }
     if (scrollableContent) {
-      scrollableContent.style.display = 'flex';
+      scrollableContent.classList.add('js-visible');
     }
     const searchInput = this.sessionSidebar.querySelector('#session-search-input');
     if (searchInput) {
@@ -274,7 +251,8 @@
       console.log('会话列表容器未找到，跳过更新');
       return;
     }
-    sessionList.style.display = 'block';
+    sessionList.classList.add('js-visible');
+    const prevScrollTop = sessionList.scrollTop;
     let allSessions = this._getFilteredSessions();
     sessionList.innerHTML = '';
     console.log('当前会话数量:', allSessions.length);
@@ -312,12 +290,16 @@
       const bTitle = String(b.pageTitle || b.id || '').trim();
       return aTitle.localeCompare(bTitle);
     });
+    const listItems = document.createElement('div');
+    listItems.className = 'session-list-items';
     for (const session of sortedSessions) {
       if (window.PetManager && window.PetManager.Components && window.PetManager.Components.SessionItem) {
         const sessionItem = new window.PetManager.Components.SessionItem(this, session);
-        sessionList.appendChild(sessionItem.create());
+        listItems.appendChild(sessionItem.element || sessionItem.create());
       }
     }
+    sessionList.appendChild(listItems);
+    sessionList.scrollTop = prevScrollTop;
     console.log('会话侧边栏已更新，显示', sortedSessions.length, '个会话');
   };
 
@@ -365,12 +347,22 @@
       chrome.storage.local.get(['sessionSidebarCollapsed'], (result) => {
         if (result.sessionSidebarCollapsed !== undefined) {
           this.sidebarCollapsed = result.sessionSidebarCollapsed;
-          if (this.sessionSidebar) {
-            this.applySidebarCollapsedState();
-          }
+        } else {
+          // 如果存储中没有状态，默认显示侧边栏
+          this.sidebarCollapsed = false;
+        }
+        // 应用状态
+        if (this.sessionSidebar || this.chatWindowComponent) {
+          this.applySidebarCollapsedState();
         }
       });
-    } catch (error) { }
+    } catch (error) {
+      // 出错时默认显示侧边栏
+      this.sidebarCollapsed = false;
+      if (this.sessionSidebar || this.chatWindowComponent) {
+        this.applySidebarCollapsedState();
+      }
+    }
   };
   proto.saveSidebarCollapsed = function () {
     try {
@@ -384,11 +376,24 @@
     }
     // Fallback for legacy or if component not ready
     if (!this.sessionSidebar) return;
-    if (this.sidebarCollapsed) {
-      this.sessionSidebar.style.setProperty('display', 'none', 'important');
-    } else {
-      this.sessionSidebar.style.setProperty('display', 'flex', 'important');
-    }
+    this.sessionSidebar.classList.toggle('collapsed', !!this.sidebarCollapsed);
+    // 更新折叠按钮位置（仅更新位置，不更新图标，避免循环调用）
+    // 按钮位置由 CSS 控制，始终在 title 左边，不再需要根据侧边栏宽度设置
+    // const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+    // if (toggleBtn) {
+    //   if (this.sidebarCollapsed) {
+    //     toggleBtn.style.left = '0px';
+    //   } else {
+    //     toggleBtn.style.left = `${this.sidebarWidth || 320}px`;
+    //   }
+    // }
+  };
+  
+  // 强制显示侧边栏（用于恢复显示）
+  proto.showSidebar = function () {
+    this.sidebarCollapsed = false;
+    this.applySidebarCollapsedState();
+    this.saveSidebarCollapsed();
   };
   proto.toggleSidebar = function () {
     if (this.chatWindowComponent && typeof this.chatWindowComponent.toggleSidebar === 'function') {
@@ -430,20 +435,10 @@
       inputContainer = this.chatWindow.querySelector('.chat-input-container');
     }
     if (!inputContainer) return;
-    if (this.inputContainerCollapsed) {
-      inputContainer.style.setProperty('display', 'none', 'important');
-      // 同时隐藏内层容器（如果存在）
-      const innerContainer = inputContainer.querySelector('.chat-input-container');
-      if (innerContainer) {
-        innerContainer.style.setProperty('display', 'none', 'important');
-      }
-    } else {
-      inputContainer.style.setProperty('display', 'flex', 'important');
-      // 同时显示内层容器（如果存在）
-      const innerContainer = inputContainer.querySelector('.chat-input-container');
-      if (innerContainer) {
-        innerContainer.style.setProperty('display', 'flex', 'important');
-      }
+    inputContainer.classList.toggle('collapsed', !!this.inputContainerCollapsed);
+    const innerContainer = inputContainer.querySelector('.chat-input-container');
+    if (innerContainer) {
+      innerContainer.classList.toggle('collapsed', !!this.inputContainerCollapsed);
     }
   };
   proto.toggleInputContainer = function () {
@@ -466,10 +461,10 @@
     if (selectedCount) {
       if (count > 0) {
         selectedCount.textContent = `已选 ${count} 项`;
-        selectedCount.style.display = '';
+        selectedCount.classList.remove('js-hidden');
       } else {
         selectedCount.textContent = '';
-        selectedCount.style.display = 'none';
+        selectedCount.classList.add('js-hidden');
       }
     }
 
@@ -538,7 +533,6 @@
     const toolbar = document.createElement('div');
     toolbar.id = 'batch-toolbar';
     toolbar.className = 'session-batch-toolbar';
-    toolbar.style.display = 'none'; // 默认隐藏，通过 batchMode 控制显示
 
     // Left section: 全选 checkbox + 已选数量
     const leftSection = document.createElement('div');
@@ -566,6 +560,7 @@
     const selectedCount = document.createElement('span');
     selectedCount.id = 'selected-count';
     selectedCount.className = 'batch-selected-count';
+    selectedCount.classList.add('js-hidden');
     selectedCount.textContent = '';
     leftSection.appendChild(selectedCount);
 
@@ -756,10 +751,7 @@
       const startWidth = this.sidebarWidth;
 
       // 添加全局样式，禁用文本选择
-      const originalUserSelect = document.body.style.userSelect;
-      const originalCursor = document.body.style.cursor;
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'col-resize';
+      document.body.classList.add('pet-is-resizing');
 
       // 使用 requestAnimationFrame 优化性能
       let rafId = null;
@@ -823,8 +815,7 @@
         resizer.classList.remove('hover');
 
         // 恢复全局样式
-        document.body.style.userSelect = originalUserSelect;
-        document.body.style.cursor = originalCursor;
+      document.body.classList.remove('pet-is-resizing');
 
         // 立即保存宽度
         if (saveTimeout) {
@@ -846,13 +837,14 @@
   };
 
   // 更新折叠按钮位置的辅助方法
+  // 按钮位置现在由 CSS 控制，始终在 title 左边，不再需要根据侧边栏宽度动态设置
   proto.updateToggleButtonPosition = function (width) {
     const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-    if (toggleBtn && !this.sidebarCollapsed) {
-      toggleBtn.style.left = `${width}px`;
-      // 确保 transform 样式正确，按钮完全在外面（保留scale用于hover效果）
+    if (toggleBtn) {
+      // 按钮位置由 CSS 控制，始终在 title 左边
+      // 只需要确保 transform 样式正确（保留scale用于hover效果）
       const currentTransform = toggleBtn.style.transform;
-      const baseTransform = 'translateY(-50%) translateX(14px)';
+      const baseTransform = 'translateY(-50%)';
       if (!currentTransform.includes('scale')) {
         toggleBtn.style.transform = baseTransform;
       } else {
@@ -863,6 +855,8 @@
           toggleBtn.style.transform = baseTransform;
         }
       }
+      // 注意：不在这里调用 chatWindowComponent.updateSidebarToggleButton，避免循环调用
+      // updateSidebarToggleButton 会在 setSidebarCollapsed 时自动调用
     }
   };
 

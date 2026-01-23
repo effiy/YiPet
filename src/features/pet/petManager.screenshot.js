@@ -42,15 +42,19 @@
             }
 
             // 隐藏聊天窗口以获取更清晰的截图
-            const originalDisplay = this.chatWindow ? this.chatWindow.style.display : 'block';
+            const originalChatHidden = this.chatWindow
+                ? (this.chatWindow.classList.contains('tw-hidden') || getComputedStyle(this.chatWindow).display === 'none')
+                : false;
             if (this.chatWindow) {
-                this.chatWindow.style.display = 'none';
+                this.chatWindow.classList.add('tw-hidden');
             }
 
             // 隐藏宠物（如果显示的话）
-            const originalPetDisplay = this.pet ? this.pet.style.display : 'block';
+            const originalPetHidden = this.pet
+                ? (this.pet.classList.contains('tw-hidden') || getComputedStyle(this.pet).display === 'none')
+                : false;
             if (this.pet) {
-                this.pet.style.display = 'none';
+                this.pet.classList.add('tw-hidden');
             }
 
             // 等待一小段时间确保窗口完全隐藏
@@ -68,15 +72,10 @@
 
             if (dataUrl) {
                 // 保持聊天窗口和宠物隐藏，直到区域选择完成
-                this.showAreaSelector(dataUrl, originalDisplay, originalPetDisplay);
+                this.showAreaSelector(dataUrl, originalChatHidden, originalPetHidden);
             } else {
                 // 如果截图失败，恢复显示
-                if (this.chatWindow) {
-                    this.chatWindow.style.display = originalDisplay;
-                }
-                if (this.pet) {
-                    this.pet.style.display = originalPetDisplay;
-                }
+                this.restoreElements(originalChatHidden, originalPetHidden);
                 this.showScreenshotNotification('截图失败，请检查权限设置或尝试刷新页面', 'error');
                 this.showPermissionHelp();
             }
@@ -86,30 +85,16 @@
             this.showScreenshotNotification('截图失败，请重试', 'error');
 
             // 确保聊天窗口和宠物恢复显示
-            if (this.chatWindow) {
-                this.chatWindow.style.display = 'block';
-            }
-            if (this.pet) {
-                this.pet.style.display = 'block';
-            }
+            this.restoreElements(false, false);
         }
     };
 
     // 显示区域选择器
-    proto.showAreaSelector = function (dataUrl, originalChatDisplay = 'block', originalPetDisplay = 'block') {
+    proto.showAreaSelector = function (dataUrl, originalChatHidden = false, originalPetHidden = false) {
         // 创建区域选择器覆盖层
         const overlay = document.createElement('div');
         overlay.id = 'area-selector-overlay';
-        overlay.style.cssText = `
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            z-index: 2147483651 !important;
-            cursor: crosshair !important;
-            user-select: none !important;
-        `;
+        // 样式已通过 CSS 类定义
 
         // 先加载图片以获取真实尺寸
         const img = new Image();
@@ -117,58 +102,24 @@
 
         // 创建截图背景容器
         const screenshotBg = document.createElement('div');
-        screenshotBg.style.cssText = `
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            opacity: 0.7 !important;
-        `;
+        screenshotBg.className = 'screenshot-bg';
 
         // 创建实际图片元素
         const screenshotImg = document.createElement('img');
         screenshotImg.src = dataUrl;
-        screenshotImg.style.cssText = `
-            max-width: 100% !important;
-            max-height: 100% !important;
-            object-fit: contain !important;
-        `;
 
         screenshotBg.appendChild(screenshotImg);
 
         // 创建选择框
         const selectionBox = document.createElement('div');
         selectionBox.id = 'selection-box';
-        selectionBox.style.cssText = `
-            position: absolute !important;
-            border: 2px solid #3b82f6 !important;  /* 信息蓝 */
-            background: rgba(33, 150, 243, 0.1) !important;
-            pointer-events: none !important;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3) !important;
-            display: none !important;
-        `;
+        // 样式已通过 CSS 类定义
 
         // 创建工具提示
         const tipText = document.createElement('div');
         tipText.id = 'selection-tip';
         tipText.textContent = '拖动鼠标选择截图区域，双击确认';
-        tipText.style.cssText = `
-            position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            background: rgba(0, 0, 0, 0.8) !important;
-            color: white !important;
-            padding: 12px 20px !important;
-            border-radius: 8px !important;
-            font-size: 14px !important;
-            pointer-events: none !important;
-            z-index: 2147483652 !important;
-        `;
+        // 样式已通过 CSS 类定义
 
         overlay.appendChild(screenshotBg);
         overlay.appendChild(selectionBox);
@@ -202,10 +153,10 @@
                 selectionBox.style.top = startY + 'px';
                 selectionBox.style.width = '0px';
                 selectionBox.style.height = '0px';
-                selectionBox.style.display = 'block';
+                selectionBox.classList.add('js-visible');
 
                 // 隐藏提示
-                tipText.style.display = 'none';
+                tipText.classList.add('js-hidden');
 
                 e.preventDefault();
             });
@@ -242,7 +193,7 @@
                         overlay.parentNode.removeChild(overlay);
                     }
                     // 恢复聊天窗口和宠物显示
-                    this.restoreElements(originalChatDisplay, originalPetDisplay);
+                    this.restoreElements(originalChatHidden, originalPetHidden);
                     return;
                 }
 
@@ -278,7 +229,7 @@
                 }
 
                 // 恢复聊天窗口和宠物显示
-                this.restoreElements(originalChatDisplay, originalPetDisplay);
+                this.restoreElements(originalChatHidden, originalPetHidden);
 
                 // 裁剪图片
                 this.cropAndDisplayScreenshot(dataUrl, actualX, actualY, actualWidth, actualHeight);
@@ -294,7 +245,7 @@
                         overlay.parentNode.removeChild(overlay);
                     }
                     // 恢复聊天窗口和宠物显示
-                    this.restoreElements(originalChatDisplay, originalPetDisplay);
+                    this.restoreElements(originalChatHidden, originalPetHidden);
                     window.removeEventListener('keydown', cancelHandler);
                 }
             };
@@ -303,12 +254,20 @@
     };
 
     // 恢复元素显示
-    proto.restoreElements = function (chatDisplay, petDisplay) {
+    proto.restoreElements = function (chatHidden, petHidden) {
         if (this.chatWindow) {
-            this.chatWindow.style.display = chatDisplay;
+            if (chatHidden) {
+                this.chatWindow.classList.add('tw-hidden');
+            } else {
+                this.chatWindow.classList.remove('tw-hidden');
+            }
         }
         if (this.pet) {
-            this.pet.style.display = petDisplay;
+            if (petHidden) {
+                this.pet.classList.add('tw-hidden');
+            } else {
+                this.pet.classList.remove('tw-hidden');
+            }
         }
     };
 
@@ -388,41 +347,19 @@
     proto.showPermissionHelp = function () {
         const helpModal = document.createElement('div');
         helpModal.id = 'permission-help-modal';
-        helpModal.style.cssText = `
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            background: rgba(0, 0, 0, 0.8) !important;
-            z-index: 2147483651 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            animation: fadeIn 0.3s ease-out !important;
-        `;
+        helpModal.className = 'pet-permission-help-modal';
 
         const helpContainer = document.createElement('div');
-        helpContainer.style.cssText = `
-            background: #1e293b !important;  /* 量子灰 */
-            border-radius: 16px !important;
-            padding: 30px !important;
-            max-width: 500px !important;
-            max-height: 80% !important;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-            position: relative !important;
-            animation: scaleIn 0.3s ease-out !important;
-            overflow-y: auto !important;
-        `;
+        helpContainer.className = 'pet-permission-help-container';
 
         helpContainer.innerHTML = `
-            <h3 style="margin: 0 0 20px 0; color: #f8fafc; font-size: 20px; font-weight: 600; text-align: center;">  /* 量子白 */
+            <h3 class="pet-permission-help-title">
                 🔧 权限问题解决方案
             </h3>
 
-            <div style="margin-bottom: 20px;">
-                <h4 style="color: #ef4444; margin-bottom: 10px;">📋 解决步骤：</h4>  /* 量子红 */
-                <ol style="color: #e2e8f0; line-height: 1.6; padding-left: 20px;">  /* 浅量子灰 */
+            <div class="pet-permission-help-section">
+                <h4 class="pet-permission-help-subtitle is-danger">📋 解决步骤：</h4>
+                <ol class="pet-permission-help-list is-ordered">
                     <li>打开 Chrome 扩展管理页面：<code>chrome://extensions/</code></li>
                     <li>找到"温柔陪伴助手"扩展</li>
                     <li>点击"重新加载"按钮</li>
@@ -432,9 +369,9 @@
                 </ol>
             </div>
 
-            <div style="margin-bottom: 20px;">
-                <h4 style="color: #FF9800; margin-bottom: 10px;">⚠️ Chrome API问题：</h4>
-                <ul style="color: #e2e8f0; line-height: 1.6; padding-left: 20px;">  /* 浅量子灰 */
+            <div class="pet-permission-help-section">
+                <h4 class="pet-permission-help-subtitle is-warning">⚠️ Chrome API问题：</h4>
+                <ul class="pet-permission-help-list">
                     <li>如果显示"Chrome API不可用"，请刷新页面</li>
                     <li>确保在普通网页中使用（非系统页面）</li>
                     <li>检查浏览器是否是最新版本</li>
@@ -442,9 +379,9 @@
                 </ul>
             </div>
 
-            <div style="margin-bottom: 20px;">
-                <h4 style="color: #22c55e; margin-bottom: 10px;">💡 其他解决方案：</h4>  /* 现代绿 */
-                <ul style="color: #e2e8f0; line-height: 1.6; padding-left: 20px;">  /* 浅量子灰 */
+            <div class="pet-permission-help-section">
+                <h4 class="pet-permission-help-subtitle is-success">💡 其他解决方案：</h4>
+                <ul class="pet-permission-help-list">
                     <li>尝试在其他网页中使用截图功能</li>
                     <li>检查浏览器是否是最新版本</li>
                     <li>暂时禁用其他可能冲突的扩展</li>
@@ -452,31 +389,9 @@
                 </ul>
             </div>
 
-            <div style="text-align: center;">
-                <button id="open-extensions-page" style="
-                    padding: 12px 24px;
-                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);  /* 信息蓝渐变 */
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    margin-right: 10px;
-                    transition: all 0.3s ease;
-                ">🚀 打开扩展管理页面</button>
-
-                <button id="close-help-modal" style="
-                    padding: 12px 24px;
-                    background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);  /* 量子红渐变 */
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                ">关闭</button>
+            <div class="pet-permission-help-actions">
+                <button id="open-extensions-page" class="pet-permission-help-btn is-primary">🚀 打开扩展管理页面</button>
+                <button id="close-help-modal" class="pet-permission-help-btn is-danger">关闭</button>
             </div>
         `;
 
@@ -498,37 +413,13 @@
                 this.closePermissionHelp();
             }
         });
-
-        // 添加动画样式
-        if (!document.getElementById('help-modal-styles')) {
-            const style = document.createElement('style');
-            style.id = 'help-modal-styles';
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-
-                @keyframes scaleIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.8);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
     };
 
     // 关闭权限帮助
     proto.closePermissionHelp = function () {
         const modal = document.getElementById('permission-help-modal');
         if (modal) {
-            modal.style.animation = 'fadeIn 0.3s ease-out reverse';
+            modal.classList.add('is-closing');
             setTimeout(() => {
                 if (modal.parentNode) {
                     modal.parentNode.removeChild(modal);
@@ -669,11 +560,7 @@
 
                     const video = document.createElement('video');
                     video.srcObject = stream;
-                    video.style.position = 'fixed';
-                    video.style.top = '-9999px';
-                    video.style.left = '-9999px';
-                    video.style.opacity = '0';
-                    video.style.pointerEvents = 'none';
+                    video.classList.add('pet-offscreen-invisible');
                     document.body.appendChild(video);
 
                     return new Promise((resolve) => {
@@ -832,81 +719,30 @@
         // 创建截图预览模态框
         const modal = document.createElement('div');
         modal.id = 'screenshot-preview-modal';
-        modal.style.cssText = `
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            background: rgba(0, 0, 0, 0.8) !important;
-            z-index: 2147483649 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            animation: fadeIn 0.3s ease-out !important;
-        `;
+        modal.className = 'pet-screenshot-preview-modal';
 
         // 创建预览容器
         const previewContainer = document.createElement('div');
-        previewContainer.style.cssText = `
-            background: #1e293b !important;  /* 量子灰 */
-            border-radius: 16px !important;
-            padding: 20px !important;
-            max-width: 90% !important;
-            max-height: 90% !important;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-            position: relative !important;
-            animation: scaleIn 0.3s ease-out !important;
-        `;
+        previewContainer.className = 'pet-screenshot-preview-container';
 
         // 创建标题
         const title = document.createElement('h3');
         title.innerHTML = '📷 截图预览';
-        title.style.cssText = `
-            margin: 0 0 20px 0 !important;
-            color: #f8fafc !important;  /* 量子白 */
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            text-align: center !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 8px !important;
-        `;
+        title.className = 'pet-screenshot-preview-title';
 
         // 创建图片预览
         const img = document.createElement('img');
         img.src = dataUrl;
-        img.style.cssText = `
-            max-width: 100% !important;
-            max-height: 60vh !important;
-            border-radius: 8px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-        `;
+        img.className = 'pet-screenshot-preview-image';
 
         // 创建按钮容器
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
-            display: flex !important;
-            gap: 12px !important;
-            margin-top: 20px !important;
-            justify-content: center !important;
-        `;
+        buttonContainer.className = 'pet-screenshot-preview-buttons';
 
         // 保存按钮
         const saveButton = document.createElement('button');
         saveButton.innerHTML = '💾 保存图片';
-        saveButton.style.cssText = `
-            padding: 12px 24px !important;
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%) !important;  /* 现代绿渐变 */
-            color: white !important;
-            border: none !important;
-            border-radius: 8px !important;
-            font-size: 14px !important;
-            font-weight: 600 !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-        `;
+        saveButton.className = 'pet-screenshot-preview-btn is-save';
         saveButton.addEventListener('click', () => {
             this.downloadScreenshot(dataUrl);
             this.closeScreenshotPreview();
@@ -915,17 +751,7 @@
         // 复制按钮
         const copyButton = document.createElement('button');
         copyButton.innerHTML = '📋 复制';
-        copyButton.style.cssText = `
-            padding: 12px 24px !important;
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%) !important;  /* 信息蓝渐变 */
-            color: white !important;
-            border: none !important;
-            border-radius: 8px !important;
-            font-size: 14px !important;
-            font-weight: 600 !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-        `;
+        copyButton.className = 'pet-screenshot-preview-btn is-copy';
         copyButton.addEventListener('click', async () => {
             try {
                 // 将图片转换为blob
@@ -947,31 +773,9 @@
         // 关闭按钮
         const closeButton = document.createElement('button');
         closeButton.textContent = '关闭';
-        closeButton.style.cssText = `
-            padding: 12px 24px !important;
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%) !important;  /* 量子红渐变 */
-            color: white !important;
-            border: none !important;
-            border-radius: 8px !important;
-            font-size: 14px !important;
-            font-weight: 600 !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-        `;
+        closeButton.className = 'pet-screenshot-preview-btn is-close';
         closeButton.addEventListener('click', () => {
             this.closeScreenshotPreview();
-        });
-
-        // 添加悬停效果
-        [saveButton, copyButton, closeButton].forEach(button => {
-            button.addEventListener('mouseenter', () => {
-                button.style.transform = 'translateY(-2px)';
-                button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-            });
-            button.addEventListener('mouseleave', () => {
-                button.style.transform = 'translateY(0)';
-                button.style.boxShadow = 'none';
-            });
         });
 
         // 组装预览框
@@ -992,37 +796,13 @@
                 this.closeScreenshotPreview();
             }
         });
-
-        // 添加动画样式
-        if (!document.getElementById('screenshot-modal-styles')) {
-            const style = document.createElement('style');
-            style.id = 'screenshot-modal-styles';
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-
-                @keyframes scaleIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.8);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
     };
 
     // 关闭截图预览
     proto.closeScreenshotPreview = function () {
         const modal = document.getElementById('screenshot-preview-modal');
         if (modal) {
-            modal.style.animation = 'fadeIn 0.3s ease-out reverse';
+            modal.classList.add('is-closing');
             setTimeout(() => {
                 if (modal.parentNode) {
                     modal.parentNode.removeChild(modal);
@@ -1052,55 +832,22 @@
     };
 
     // 显示通知
+    // 显示通知（使用 NotificationUtils，保留兼容性）
     proto.showNotification = function (message, type = 'success') {
-        // 创建通知元素
+        if (typeof NotificationUtils !== 'undefined' && typeof NotificationUtils.show === 'function') {
+            return NotificationUtils.show(message, type, { position: 'right' });
+        }
+        // 降级实现（保留原有逻辑以确保兼容性）
         const notification = document.createElement('div');
         notification.className = `pet-notification ${type}`;
         notification.textContent = message;
 
-        const backgroundColor = type === 'error' ? '#ef4444' :  /* 量子红 */
-                               type === 'info' ? '#3b82f6' : '#22c55e';  /* 信息蓝 / 现代绿 */
-
-        notification.style.cssText = `
-            position: fixed !important;
-            top: 20px !important;
-            right: 20px !important;
-            background: ${backgroundColor} !important;
-            color: white !important;
-            padding: 12px 20px !important;
-            border-radius: 8px !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            z-index: 2147483650 !important;
-            animation: slideInRight 0.3s ease-out !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
-        `;
-
-        // 添加动画样式
-        if (!document.getElementById('notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
-                @keyframes slideInRight {
-                    from {
-                        opacity: 0;
-                        transform: translateX(100%);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateX(0);
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
         document.body.appendChild(notification);
 
         // 3秒后移除通知
         setTimeout(() => {
             if (notification.parentNode) {
-                notification.style.animation = 'slideInRight 0.3s ease-out reverse';
+                notification.classList.add('is-closing');
                 setTimeout(() => {
                     if (notification.parentNode) {
                         notification.parentNode.removeChild(notification);
@@ -1110,63 +857,8 @@
         }, 3000);
     };
 
-    // 显示截图通知
+    // 显示截图通知（使用统一的 showNotification 方法，避免重复代码）
     proto.showScreenshotNotification = function (message, type = 'success') {
-        // 创建通知元素
-        const notification = document.createElement('div');
-        notification.className = `screenshot-notification ${type}`;
-        notification.textContent = message;
-
-        const backgroundColor = type === 'error' ? '#ef4444' :  /* 量子红 */
-                               type === 'info' ? '#3b82f6' : '#22c55e';  /* 信息蓝 / 现代绿 */
-
-        notification.style.cssText = `
-            position: fixed !important;
-            top: 20px !important;
-            right: 20px !important;
-            background: ${backgroundColor} !important;
-            color: white !important;
-            padding: 12px 20px !important;
-            border-radius: 8px !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            z-index: 2147483650 !important;
-            animation: slideInRight 0.3s ease-out !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
-        `;
-
-        // 添加动画样式
-        if (!document.getElementById('screenshot-notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'screenshot-notification-styles';
-            style.textContent = `
-                @keyframes slideInRight {
-                    from {
-                        opacity: 0;
-                        transform: translateX(100%);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateX(0);
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        document.body.appendChild(notification);
-
-        // 3秒后移除通知
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.style.animation = 'slideInRight 0.3s ease-out reverse';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }
-        }, 3000);
+        return this.showNotification(message, type);
     };
 })();
-

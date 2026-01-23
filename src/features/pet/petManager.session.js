@@ -1386,6 +1386,82 @@
         // addMessageToSession 不再自动保存，保存逻辑由 prompt 接口调用后统一处理
     };
 
+    // 调用 update_document 接口更新会话（用于消息发送后）
+    proto.callUpdateDocument = async function (sessionId, newMessages = []) {
+        if (!sessionId) {
+            console.warn('没有会话 ID，无法调用 update_document');
+            return;
+        }
+
+        try {
+            // 获取当前会话数据
+            const session = this.sessions[sessionId] || {};
+            const existingMessages = Array.isArray(session.messages) ? session.messages : [];
+            
+            // 合并新消息到现有消息列表
+            const updatedMessages = [...existingMessages, ...newMessages];
+            
+            // 构建完整的会话数据
+            const sessionData = {
+                key: sessionId,
+                url: session.url || '',
+                title: session.title || session.pageTitle || '',
+                pageTitle: session.pageTitle || session.title || '',
+                pageDescription: session.pageDescription || '',
+                pageContent: session.pageContent || '',
+                messages: updatedMessages,
+                tags: Array.isArray(session.tags) ? session.tags : [],
+                isFavorite: session.isFavorite !== undefined ? Boolean(session.isFavorite) : false,
+                createdAt: session.createdAt || Date.now(),
+                updatedAt: Date.now(),
+                lastAccessTime: Date.now()
+            };
+
+            // 更新本地会话数据
+            if (!this.sessions[sessionId]) {
+                this.sessions[sessionId] = {};
+            }
+            Object.assign(this.sessions[sessionId], sessionData);
+
+            // 调用 update_document 接口
+            if (this.sessionApi && this.sessionApi.isEnabled()) {
+                const payload = {
+                    module_name: 'services.database.data_service',
+                    method_name: 'update_document',
+                    parameters: {
+                        cname: 'sessions',
+                        key: sessionId,
+                        data: sessionData
+                    }
+                };
+
+                const apiUrl = this.sessionApi.baseUrl || (typeof PET_CONFIG !== 'undefined' ? PET_CONFIG.api.yiaiBaseUrl : '');
+                const response = await fetch(`${apiUrl}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+                console.log('[callUpdateDocument] update_document 接口调用成功:', sessionId);
+                return result;
+            } else {
+                console.warn('[callUpdateDocument] 会话 API 未启用，跳过 update_document 调用');
+            }
+        } catch (error) {
+            console.error('[callUpdateDocument] 调用 update_document 接口失败:', error);
+            throw error;
+        }
+    };
+
     proto.saveCurrentSession = async function (force = false, syncToBackend = true) {
         if (!this.currentSessionId) return;
 
@@ -1806,8 +1882,7 @@
 
         // 添加淡出效果
         if (messagesContainer && this.isChatOpen) {
-            messagesContainer.style.opacity = '0.5';
-            messagesContainer.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            messagesContainer.classList.add('pet-is-fading');
         }
 
         try {
@@ -1854,7 +1929,7 @@
 
                 requestAnimationFrame(() => {
                     if (messagesContainer) {
-                        messagesContainer.style.opacity = '1';
+                        messagesContainer.classList.remove('pet-is-fading');
                     }
                 });
             }
@@ -1869,7 +1944,7 @@
                 clickedItem.classList.remove('switching');
             }
             if (messagesContainer) {
-                messagesContainer.style.opacity = '1';
+                messagesContainer.classList.remove('pet-is-fading');
             }
 
             this.showNotification('切换会话失败，请重试', 'error');
@@ -2265,7 +2340,12 @@
         }
     };
 
+    // 格式化会话时间（使用 TimeUtils.formatRelativeTime）
     proto.formatSessionTime = function (timestamp) {
+        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.formatRelativeTime === 'function') {
+            return TimeUtils.formatRelativeTime(timestamp);
+        }
+        // 降级实现
         if (!timestamp) return '';
         const now = Date.now();
         const diff = now - timestamp;

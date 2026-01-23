@@ -80,80 +80,33 @@
                 existingModal.remove();
             }
 
-            // 确保 CSS 动画已定义
-            if (!document.getElementById('token-modal-animations')) {
-                const style = document.createElement('style');
-                style.id = 'token-modal-animations';
-                style.textContent = `
-                    @keyframes fadeIn {
-                        from { opacity: 0; }
-                        to { opacity: 1; }
-                    }
-                    @keyframes scaleIn {
-                        from { transform: scale(0.9); opacity: 0; }
-                        to { transform: scale(1); opacity: 1; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
             // 获取当前 token
             const curToken = this.getApiToken();
 
             // 创建模态框
             const modal = document.createElement('div');
             modal.id = 'token-settings-modal';
-            modal.style.cssText = `
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                background: rgba(0, 0, 0, 0.7) !important;
-                z-index: ${PET_CONFIG.ui.zIndex.modal} !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                animation: fadeIn 0.3s ease-out !important;
-            `;
+            modal.className = 'token-settings-modal';
+            try {
+                const zIndex = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal)
+                    ? PET_CONFIG.ui.zIndex.modal
+                    : 2147483649;
+                modal.style.zIndex = String(zIndex);
+            } catch (e) {}
 
             // 创建弹框容器
             const container = document.createElement('div');
-            container.style.cssText = `
-                background: #1e293b !important;  /* 量子灰 */
-                border-radius: 16px !important;
-                padding: 30px !important;
-                max-width: 500px !important;
-                width: 90% !important;
-                box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-                position: relative !important;
-                animation: scaleIn 0.3s ease-out !important;
-            `;
+            container.className = 'token-settings-container';
 
             // 创建标题
             const title = document.createElement('h3');
             title.innerHTML = '🔑 设置 X-Token';
-            title.style.cssText = `
-                margin: 0 0 10px 0 !important;
-                color: #f8fafc !important;  /* 量子白 */
-                font-size: 20px !important;
-                font-weight: 600 !important;
-                text-align: center !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                gap: 8px !important;
-            `;
+            title.className = 'token-settings-title';
 
             // 创建说明文字
             const description = document.createElement('p');
             description.textContent = '请输入 X-Token 以访问 api.effiy.cn 服务';
-            description.style.cssText = `
-                margin: 0 0 20px 0 !important;
-                color: #94a3b8 !important;  /* 中量子灰 */
-                font-size: 14px !important;
-                text-align: center !important;
-            `;
+            description.className = 'token-settings-description';
 
             // 创建输入框容器
             const inputContainer = document.createElement('div');

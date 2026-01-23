@@ -5,58 +5,8 @@
   const proto = window.PetManager.prototype;
 
   proto.attachTagDragStyles = function () {
-    if (document.getElementById('tag-drag-styles')) {
-      return;
-    }
-    const style = document.createElement('style');
-    style.id = 'tag-drag-styles';
-    style.textContent = `
-      .tag-filter-item.dragging {
-        opacity: 0.5 !important;
-        transform: scale(0.92) rotate(2deg) !important;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
-        cursor: grabbing !important;
-        z-index: 1000 !important;
-        position: relative !important;
-      }
-      .tag-filter-item.drag-over-top {
-        border-top: 3px solid var(--primary, #6366f1) !important;
-        margin-top: 4px !important;
-        padding-top: 2px !important;
-        animation: pulse-top 0.3s ease !important;
-      }
-      .tag-filter-item.drag-over-bottom {
-        border-bottom: 3px solid var(--primary, #6366f1) !important;
-        margin-bottom: 4px !important;
-        padding-bottom: 2px !important;
-        animation: pulse-bottom 0.3s ease !important;
-      }
-      @keyframes pulse-top {
-        0%, 100% { border-top-width: 3px; margin-top: 4px; }
-        50% { border-top-width: 4px; margin-top: 6px; }
-      }
-      @keyframes pulse-bottom {
-        0%, 100% { border-bottom-width: 3px; margin-bottom: 4px; }
-        50% { border-bottom-width: 4px; margin-bottom: 6px; }
-      }
-      .tag-filter-item.drag-hover {
-        background: rgba(99, 102, 241, 0.15) !important;
-        border-color: var(--primary, #6366f1) !important;
-        transform: scale(1.05) !important;
-      }
-      .tag-filter-item.drag-hover.selected {
-        background: rgba(99, 102, 241, 0.8) !important;
-      }
-      .tag-filter-item.tag-no-tags.drag-hover {
-        background: rgba(99, 102, 241, 0.15) !important;
-        border-color: var(--primary, #6366f1) !important;
-      }
-      .tag-filter-item.tag-expand-btn.drag-hover {
-        background: rgba(99, 102, 241, 0.05) !important;
-        border-color: var(--primary, #6366f1) !important;
-      }
-    `;
-    document.head.appendChild(style);
+    // 样式已迁移到 content.css，此方法保留以保持兼容性
+    // 不再需要动态创建 style 元素
   };
 
   proto.attachDragHandlersToTag = function (tagBtn, tag) {
@@ -78,11 +28,7 @@
       e.dataTransfer.setData('text/plain', tag);
       tagBtn.classList.add('dragging');
       const dragImage = tagBtn.cloneNode(true);
-      dragImage.style.opacity = '0.8';
-      dragImage.style.transform = 'rotate(3deg)';
-      dragImage.style.boxShadow = '0 8px 16px rgba(99, 102, 241, 0.3)';
-      dragImage.style.position = 'absolute';
-      dragImage.style.top = '-1000px';
+      dragImage.classList.add('pet-drag-image-preview');
       document.body.appendChild(dragImage);
       e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
       setTimeout(() => {
@@ -93,19 +39,12 @@
     });
     tagBtn.addEventListener('dragend', () => {
       tagBtn.classList.remove('dragging');
-      tagBtn.style.cursor = 'grab';
       // 延迟重置 isDragging，避免触发 click 事件
       setTimeout(() => {
         isDragging = false;
       }, 100);
       document.querySelectorAll('.tag-filter-item').forEach(item => {
         item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover');
-        item.style.borderTop = '';
-        item.style.borderBottom = '';
-        item.style.marginTop = '';
-        item.style.marginBottom = '';
-        item.style.paddingTop = '';
-        item.style.paddingBottom = '';
       });
     });
     tagBtn.addEventListener('dragover', (e) => {
@@ -211,13 +150,15 @@
     let startLeft = 0;
     let startTop = 0;
 
+    this.pet.classList.add('pet-draggable');
+
     this.pet.addEventListener('mousedown', (e) => {
         isDragging = true;
         startX = e.clientX;
         startY = e.clientY;
         startLeft = this.position.x;
         startTop = this.position.y;
-        this.pet.style.cursor = 'grabbing';
+        this.pet.classList.add('pet-is-dragging');
         e.preventDefault();
     });
 
@@ -235,7 +176,7 @@
     document.addEventListener('mouseup', () => {
         isDragging = false;
         if (this.pet) {
-            this.pet.style.cursor = 'grab';
+            this.pet.classList.remove('pet-is-dragging');
             this.saveState(); // 拖拽结束后保存状态
             // 立即同步到全局状态
             this.syncToGlobalState();
@@ -244,63 +185,10 @@
 
     this.pet.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        this.pet.style.transform = 'scale(1.1)';
+        this.pet.classList.add('pet-is-zooming');
         setTimeout(() => {
             if (this.pet) {
-                this.pet.style.transform = 'scale(1)';
-            }
-        }, 150);
-
-        // 切换聊天窗口
-        this.toggleChatWindow();
-    });
-  };
-  proto.addInteractions = function() {
-    if (!this.pet) return;
-
-    let isDragging = false;
-    let startX = 0;
-    let startY = 0;
-    let startLeft = 0;
-    let startTop = 0;
-
-    this.pet.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        startLeft = this.position.x;
-        startTop = this.position.y;
-        this.pet.style.cursor = 'grabbing';
-        e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (isDragging && this.pet) {
-            const deltaX = e.clientX - startX;
-            const deltaY = e.clientY - startY;
-            this.position.x = Math.max(0, Math.min(window.innerWidth - this.size, startLeft + deltaX));
-            this.position.y = Math.max(0, Math.min(window.innerHeight - this.size, startTop + deltaY));
-            this.pet.style.left = this.position.x + 'px';
-            this.pet.style.top = this.position.y + 'px';
-        }
-    });
-
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        if (this.pet) {
-            this.pet.style.cursor = 'grab';
-            this.saveState(); // 拖拽结束后保存状态
-            // 立即同步到全局状态
-            this.syncToGlobalState();
-        }
-    });
-
-    this.pet.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        this.pet.style.transform = 'scale(1.1)';
-        setTimeout(() => {
-            if (this.pet) {
-                this.pet.style.transform = 'scale(1)';
+                this.pet.classList.remove('pet-is-zooming');
             }
         }, 150);
 
@@ -309,4 +197,3 @@
     });
   };
 })();
-

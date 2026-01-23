@@ -196,8 +196,12 @@
         return null;
     };
 
-    // HTML 转义辅助函数
+    // HTML 转义辅助函数（使用 DomHelper，保留兼容性）
     proto.escapeHtml = function(text) {
+        if (typeof DomHelper !== 'undefined' && typeof DomHelper.escapeHtml === 'function') {
+            return DomHelper.escapeHtml(text);
+        }
+        // 降级实现（使用 replace 方法）
         if (!text) return '';
         return String(text)
             .replace(/&/g, '&amp;')

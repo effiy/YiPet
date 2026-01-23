@@ -51,43 +51,43 @@
 .tw-text-base { font-size: 14px !important }
 .tw-font-medium { font-weight: 500 !important }
 .tw-font-semibold { font-weight: 600 !important }
-.tw-text-gray-900 { color: #f8fafc !important }  /* 量子白 */
-.tw-text-gray-700 { color: #e2e8f0 !important }  /* 浅量子灰 */
-.tw-text-gray-600 { color: #cbd5e1 !important }  /* 中量子灰 */
-.tw-text-gray-500 { color: #94a3b8 !important }  /* 中量子灰 */
+.tw-text-gray-900 { color: var(--text-primary, #f8fafc) !important }
+.tw-text-gray-700 { color: var(--text-secondary, #e2e8f0) !important }
+.tw-text-gray-600 { color: rgba(226, 232, 240, 0.82) !important }
+.tw-text-gray-500 { color: var(--text-muted, #94a3b8) !important }
 
 /* Colors and backgrounds */
-.tw-bg-white { background: #1e293b !important }  /* 量子灰 */
-.tw-bg-gray-50 { background: #334155 !important }  /* 中量子灰 */
-.tw-bg-gray-100 { background: #334155 !important }  /* 中量子灰 */
+.tw-bg-white { background: var(--bg-secondary, #1e293b) !important }
+.tw-bg-gray-50 { background: var(--bg-tertiary, #334155) !important }
+.tw-bg-gray-100 { background: var(--bg-tertiary, #334155) !important }
 .tw-bg-black-25 { background: rgba(0, 0, 0, 0.25) !important }
-.tw-border { border: 1px solid rgba(255,255,255,0.12) !important }
-.tw-border-gray-200 { border-color: rgba(255,255,255,0.12) !important }
+.tw-border { border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important }
+.tw-border-gray-200 { border-color: var(--border-primary, rgba(255,255,255,0.12)) !important }
 .tw-border-gray-300 { border-color: rgba(255,255,255,0.15) !important }
 
 /* Radius and shadow */
 .tw-rounded { border-radius: 8px !important }
 .tw-rounded-lg { border-radius: 12px !important }
 .tw-rounded-xl { border-radius: 16px !important }
-.tw-shadow { box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important }
-.tw-shadow-2xl { box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important }
+.tw-shadow { box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.5)) !important }
+.tw-shadow-2xl { box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.6)) !important }
 
 /* Transitions */
 .tw-transition { transition: all 0.2s ease !important }
 
 /* Form elements */
-.tw-input { padding: 10px 12px !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important; outline: none !important; font-size: 13px !important; transition: all 0.2s ease !important; background: #334155 !important; color: #f8fafc !important }
-.tw-textarea { padding: 12px 16px !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important; outline: none !important; font-size: 14px !important; line-height: 1.5 !important; transition: all 0.2s ease !important; resize: vertical !important; background: #334155 !important; color: #f8fafc !important }
+.tw-input { padding: 10px 12px !important; border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important; border-radius: 8px !important; outline: none !important; font-size: 13px !important; transition: all 0.2s ease !important; background: var(--bg-tertiary, #334155) !important; color: var(--text-primary, #f8fafc) !important }
+.tw-textarea { padding: 12px 16px !important; border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important; border-radius: 8px !important; outline: none !important; font-size: 14px !important; line-height: 1.5 !important; transition: all 0.2s ease !important; resize: vertical !important; background: var(--bg-tertiary, #334155) !important; color: var(--text-primary, #f8fafc) !important }
 
 /* Buttons */
 .tw-btn { padding: 8px 16px !important; border-radius: 8px !important; cursor: pointer !important; font-size: 13px !important; font-weight: 500 !important; transition: all 0.2s ease !important; display: inline-flex !important; align-items: center !important; justify-content: center !important }
-.tw-btn-gray { background: #334155 !important; color: #f8fafc !important; border: 1px solid rgba(255,255,255,0.12) !important }
-.tw-btn-light { background: #334155 !important; color: #e2e8f0 !important; border: 1px solid rgba(255,255,255,0.12) !important }
-.tw-btn-light:hover { background: rgba(30,41,59,0.9) !important; color: #f8fafc !important }
+.tw-btn-gray { background: var(--bg-tertiary, #334155) !important; color: var(--text-primary, #f8fafc) !important; border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important }
+.tw-btn-light { background: var(--bg-tertiary, #334155) !important; color: var(--text-secondary, #e2e8f0) !important; border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important }
+.tw-btn-light:hover { background: var(--bg-elevated, rgba(30,41,59,0.9)) !important; color: var(--text-primary, #f8fafc) !important }
 
 /* Chips/tags */
-.tw-chip { padding: 3px 10px !important; border-radius: 12px !important; font-size: 11px !important; font-weight: 500 !important; cursor: pointer !important; transition: all 0.2s ease !important; border: 1px solid rgba(255,255,255,0.12) !important; color: #94a3b8 !important; background: #334155 !important }
-.tw-chip-active { border-color: #22c55e !important; color: #22c55e !important; background: rgba(34,197,94,0.1) !important }  /* 现代绿 */
+.tw-chip { padding: 3px 10px !important; border-radius: 12px !important; font-size: 11px !important; font-weight: 500 !important; cursor: pointer !important; transition: all 0.2s ease !important; border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important; color: var(--text-muted, #94a3b8) !important; background: var(--bg-tertiary, #334155) !important }
+.tw-chip-active { border-color: var(--primary, #667eea) !important; color: var(--primary, #667eea) !important; background: var(--primary-alpha, rgba(102, 126, 234, 0.1)) !important }
 
 /* FAQ Manager Styles - 参考 YiWeb 设计 */
 .pet-faq-modal {
@@ -662,4 +662,3 @@
     transform: translateY(0);
   }
 }
-

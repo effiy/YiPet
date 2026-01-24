@@ -116,10 +116,10 @@
   height: calc(100vh - 120px) !important;
   max-height: 90vh !important;
   margin: 60px auto !important;
-  background: rgba(2, 6, 23, 0.95) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.95) !important;
   border-radius: 20px !important;
-  border: 1px solid rgba(51, 65, 85, 0.85) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.6)) !important;
   display: flex !important;
   flex-direction: column !important;
   animation: fadeInUp 0.18s ease-out !important;
@@ -130,17 +130,17 @@
   align-items: center !important;
   justify-content: space-between !important;
   padding: 16px 20px !important;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.7) !important;
+  border-bottom: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
 }
 
 .pet-faq-modal-title {
-  color: rgba(226, 232, 240, 0.95) !important;
+  color: var(--text-primary, #f8fafc) !important;
   font-weight: 650 !important;
   font-size: 16px !important;
 }
 
 .pet-faq-modal-subtitle {
-  color: rgba(148, 163, 184, 0.75) !important;
+  color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.75) !important;
   font-size: 13px !important;
   font-weight: 400 !important;
 }
@@ -148,7 +148,7 @@
 .pet-faq-modal-close {
   background: transparent !important;
   border: none !important;
-  color: rgba(226, 232, 240, 0.9) !important;
+  color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9) !important;
   font-size: 20px !important;
   cursor: pointer !important;
   padding: 4px 8px !important;
@@ -157,7 +157,7 @@
 }
 
 .pet-faq-modal-close:hover {
-  background: rgba(51, 65, 85, 0.6) !important;
+  background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6) !important;
 }
 
 .pet-faq-modal-content {
@@ -206,22 +206,22 @@
   flex: 1 !important;
   border-radius: 12px !important;
   padding: 10px 12px !important;
-  border: 1px solid rgba(51, 65, 85, 0.85) !important;
-  background: rgba(2, 6, 23, 0.60) !important;
-  color: rgba(226, 232, 240, 0.95) !important;
+  border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.60) !important;
+  color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95) !important;
   outline: none !important;
   font-size: 14px !important;
 }
 
 .pet-faq-search-input:focus {
-  border-color: rgba(34, 211, 238, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+  border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.18) !important;
 }
 
 .pet-faq-search-clear {
-  border: 1px solid rgba(51, 65, 85, 0.85) !important;
-  background: rgba(30, 41, 59, 0.6) !important;
-  color: rgba(226, 232, 240, 0.9) !important;
+  border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+  background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.6) !important;
+  color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9) !important;
   border-radius: 12px !important;
   padding: 10px 12px !important;
   font-size: 13px !important;
@@ -231,7 +231,7 @@
 }
 
 .pet-faq-search-clear:hover:enabled {
-  background: rgba(51, 65, 85, 0.6) !important;
+  background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -256,9 +256,9 @@
 }
 
 .pet-faq-filter-btn {
-  border: 1px solid rgba(51, 65, 85, 0.85) !important;
-  background: rgba(30, 41, 59, 0.6) !important;
-  color: rgba(226, 232, 240, 0.9) !important;
+  border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+  background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.6) !important;
+  color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9) !important;
   border-radius: 12px !important;
   padding: 8px 10px !important;
   font-size: 12px !important;
@@ -268,7 +268,7 @@
 }
 
 .pet-faq-filter-btn:hover:enabled {
-  background: rgba(51, 65, 85, 0.6) !important;
+  background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -279,8 +279,8 @@
 }
 
 .pet-faq-filter-btn.active {
-  border-color: rgba(34, 211, 238, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12) !important;
+  border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.12) !important;
 }
 
 .pet-faq-filter-btn.danger {
@@ -298,16 +298,16 @@
   flex: 1 !important;
   border-radius: 12px !important;
   padding: 10px 12px !important;
-  border: 1px solid rgba(51, 65, 85, 0.85) !important;
-  background: rgba(2, 6, 23, 0.60) !important;
-  color: rgba(226, 232, 240, 0.95) !important;
+  border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.60) !important;
+  color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95) !important;
   outline: none !important;
   font-size: 13px !important;
 }
 
 .pet-faq-tag-search-input:focus {
-  border-color: rgba(34, 211, 238, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+  border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.18) !important;
 }
 
 .pet-faq-tag-list {
@@ -318,9 +318,9 @@
 }
 
 .pet-faq-tag {
-  border: 1px solid rgba(51, 65, 85, 0.75) !important;
-  background: rgba(2, 6, 23, 0.35) !important;
-  color: rgba(226, 232, 240, 0.9) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.75) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.35) !important;
+  color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9) !important;
   border-radius: 999px !important;
   padding: 6px 10px !important;
   font-size: 12px !important;
@@ -329,13 +329,13 @@
 }
 
 .pet-faq-tag:hover {
-  background: rgba(51, 65, 85, 0.35) !important;
+  background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.35) !important;
   transform: translateY(-1px) !important;
 }
 
 .pet-faq-tag.active {
-  border-color: rgba(79, 70, 229, 0.55) !important;
-  background: rgba(79, 70, 229, 0.25) !important;
+  border-color: rgba(var(--primary-dark-rgb, 79, 70, 229), 0.55) !important;
+  background: rgba(var(--primary-dark-rgb, 79, 70, 229), 0.25) !important;
 }
 
 .pet-faq-tag.more {
@@ -344,8 +344,8 @@
 }
 
 .pet-faq-tag-manager {
-  border: 1px solid rgba(51, 65, 85, 0.75) !important;
-  background: rgba(2, 6, 23, 0.25) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.75) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.25) !important;
   border-radius: 14px !important;
   padding: 12px !important;
   display: flex !important;
@@ -361,7 +361,7 @@
 }
 
 .pet-faq-tag-manager-title {
-  color: rgba(226, 232, 240, 0.95) !important;
+  color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95) !important;
   font-weight: 650 !important;
   font-size: 13px !important;
 }
@@ -376,8 +376,8 @@
 }
 
 .pet-faq-tag-manager-item {
-  border: 1px solid rgba(51, 65, 85, 0.6) !important;
-  background: rgba(2, 6, 23, 0.25) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.25) !important;
   border-radius: 12px !important;
   padding: 10px !important;
   display: flex !important;
@@ -387,7 +387,7 @@
 }
 
 .pet-faq-tag-manager-name {
-  color: rgba(226, 232, 240, 0.9) !important;
+  color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9) !important;
   font-size: 13px !important;
   word-break: break-word !important;
 }
@@ -402,17 +402,17 @@
 .pet-faq-tag-manager-empty {
   padding: 12px !important;
   text-align: center !important;
-  color: rgba(148, 163, 184, 0.75) !important;
-  border: 1px dashed rgba(51, 65, 85, 0.6) !important;
+  color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.75) !important;
+  border: 1px dashed rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6) !important;
   border-radius: 12px !important;
 }
 
 .pet-faq-summary {
   padding: 10px 12px !important;
-  border: 1px solid rgba(51, 65, 85, 0.7) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.7) !important;
   border-radius: 14px !important;
-  background: rgba(2, 6, 23, 0.2) !important;
-  color: rgba(148, 163, 184, 0.9) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.2) !important;
+  color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.9) !important;
   font-size: 13px !important;
 }
 
@@ -429,30 +429,30 @@
   max-height: 220px !important;
   border-radius: 12px !important;
   padding: 10px 12px !important;
-  border: 1px solid rgba(51, 65, 85, 0.85) !important;
-  background: rgba(2, 6, 23, 0.60) !important;
-  color: rgba(226, 232, 240, 0.95) !important;
+  border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.60) !important;
+  color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95) !important;
   outline: none !important;
   font-size: 14px !important;
   line-height: 1.6 !important;
 }
 
 .pet-faq-input:focus {
-  border-color: rgba(34, 211, 238, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+  border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.18) !important;
 }
 
 .pet-faq-input-hint {
-  color: rgba(148, 163, 184, 0.75) !important;
+  color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.75) !important;
   font-size: 12px !important;
 }
 
 .pet-faq-status {
   padding: 10px 12px !important;
-  border: 1px solid rgba(51, 65, 85, 0.7) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.7) !important;
   border-radius: 14px !important;
-  background: rgba(2, 6, 23, 0.25) !important;
-  color: rgba(148, 163, 184, 0.9) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.25) !important;
+  color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.9) !important;
   font-size: 13px !important;
 }
 
@@ -477,8 +477,8 @@
 }
 
 .pet-faq-item {
-  border: 1px solid rgba(51, 65, 85, 0.75) !important;
-  background: rgba(2, 6, 23, 0.35) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.75) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.35) !important;
   border-radius: 14px !important;
   padding: 12px 14px !important;
   cursor: pointer !important;
@@ -487,13 +487,13 @@
 }
 
 .pet-faq-item:hover {
-  background: rgba(2, 6, 23, 0.45) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.45) !important;
   transform: translateY(-1px) !important;
 }
 
 .pet-faq-item:focus-visible {
-  border-color: rgba(34, 211, 238, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14) !important;
+  border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.14) !important;
 }
 
 .pet-faq-item-header {
@@ -504,7 +504,7 @@
 }
 
 .pet-faq-item-title {
-  color: rgba(226, 232, 240, 0.95) !important;
+  color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95) !important;
   font-weight: 650 !important;
   font-size: 14px !important;
 }
@@ -527,9 +527,9 @@
 }
 
 .pet-faq-item-btn {
-  border: 1px solid rgba(51, 65, 85, 0.85) !important;
-  background: rgba(30, 41, 59, 0.6) !important;
-  color: rgba(226, 232, 240, 0.9) !important;
+  border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+  background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.6) !important;
+  color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9) !important;
   border-radius: 10px !important;
   padding: 6px 10px !important;
   font-size: 12px !important;
@@ -538,14 +538,14 @@
 }
 
 .pet-faq-item-btn:hover {
-  background: rgba(51, 65, 85, 0.6) !important;
+  background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6) !important;
   transform: translateY(-1px) !important;
 }
 
 .pet-faq-item-btn.primary {
-  border-color: rgba(79, 70, 229, 0.45) !important;
-  background: rgba(79, 70, 229, 0.85) !important;
-  color: rgba(248, 250, 252, 0.98) !important;
+  border-color: rgba(var(--primary-dark-rgb, 79, 70, 229), 0.45) !important;
+  background: rgba(var(--primary-dark-rgb, 79, 70, 229), 0.85) !important;
+  color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.98) !important;
   font-weight: 650 !important;
 }
 
@@ -564,9 +564,9 @@
 }
 
 .pet-faq-item-tag {
-  border: 1px solid rgba(51, 65, 85, 0.65) !important;
-  background: rgba(2, 6, 23, 0.25) !important;
-  color: rgba(226, 232, 240, 0.85) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.65) !important;
+  background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.25) !important;
+  color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.85) !important;
   border-radius: 999px !important;
   padding: 4px 10px !important;
   font-size: 12px !important;
@@ -575,13 +575,13 @@
 }
 
 .pet-faq-item-tag:hover {
-  background: rgba(51, 65, 85, 0.35) !important;
+  background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.35) !important;
   transform: translateY(-1px) !important;
 }
 
 .pet-faq-item-prompt {
   margin-top: 10px !important;
-  color: rgba(148, 163, 184, 0.85) !important;
+  color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.85) !important;
   font-size: 13px !important;
   line-height: 1.6 !important;
   white-space: pre-wrap !important;
@@ -595,8 +595,8 @@
 .pet-faq-empty {
   padding: 18px 12px !important;
   text-align: center !important;
-  color: rgba(148, 163, 184, 0.8) !important;
-  border: 1px dashed rgba(51, 65, 85, 0.7) !important;
+  color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.8) !important;
+  border: 1px dashed rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.7) !important;
   border-radius: 14px !important;
 }
 

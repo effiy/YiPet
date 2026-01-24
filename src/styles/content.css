@@ -11,12 +11,14 @@
     --primary: #667eea;
     --primary-hover: #5a67d8;
     --primary-light: #818cf8;
+    --primary-dark: #4f46e5;
     --primary-rgb: 102, 126, 234;
     --primary-alpha: rgba(102, 126, 234, 0.1);
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     --primary-gradient-hover: linear-gradient(135deg, #5a67d8 0%, #6b46c1 50%, #d946ef 100%);
 
     --accent: #06b6d4;
+    --accent-rgb: 6, 182, 212;
     --success: #22c55e;
     --warning: #f59e0b;
     --error: #ef4444;
@@ -33,6 +35,9 @@
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
     --bg-tertiary: #334155;
+    --bg-primary-rgb: 15, 23, 42;
+    --bg-secondary-rgb: 30, 41, 59;
+    --bg-tertiary-rgb: 51, 65, 85;
     --bg-elevated: rgba(30, 41, 59, 0.9);
     --bg-hover: rgba(255, 255, 255, 0.05);
     --bg-glass: rgba(255, 255, 255, 0.03);
@@ -42,8 +47,13 @@
     --text-muted: #94a3b8;
     --text-tertiary: #64748b;
     --text-on-accent: #ffffff;
+    --text-primary-rgb: 248, 250, 252;
+    --text-secondary-rgb: 226, 232, 240;
+    --text-muted-rgb: 148, 163, 184;
 
     --border-primary: rgba(255, 255, 255, 0.12);
+    --border-secondary: rgba(6, 182, 212, 0.3);
+    --border-focus: #06b6d4;
     --border-glass: rgba(255, 255, 255, 0.08);
     --border-hover: rgba(255, 255, 255, 0.2);
 
@@ -460,17 +470,17 @@
     width: 100% !important;
     padding: 12px 14px !important;
     border-radius: 12px !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    background: rgba(2, 6, 23, 0.35) !important;
-    color: #f8fafc !important;
+    border: 1px solid rgba(var(--text-muted-rgb, 148, 163, 184), 0.35) !important;
+    background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.35) !important;
+    color: var(--text-primary, #f8fafc) !important;
     outline: none !important;
     font-size: 14px !important;
     box-sizing: border-box !important;
 }
 
 #token-settings-modal .auth-input:focus {
-    border-color: rgba(34, 211, 238, 0.55) !important;
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+    border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.55) !important;
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.18) !important;
 }
 
 #token-settings-modal .auth-input.invalid {
@@ -3887,7 +3897,7 @@ body.pet-is-resizing {
 }
 
 .aicr-session-settings-label {
-    color: rgba(226, 232, 240, 0.92) !important;
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.92) !important;
     font-weight: 650 !important;
     font-size: 13px !important;
 }
@@ -3896,17 +3906,17 @@ body.pet-is-resizing {
     width: 100% !important;
     border-radius: 12px !important;
     padding: 10px 12px !important;
-    border: 1px solid rgba(51, 65, 85, 0.85) !important;
-    background: rgba(2, 6, 23, 0.60) !important;
-    color: rgba(226, 232, 240, 0.95) !important;
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+    background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.60) !important;
+    color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95) !important;
     outline: none !important;
     font-size: 14px !important;
     box-sizing: border-box !important;
 }
 
 .aicr-session-settings-input:focus {
-    border-color: rgba(34, 211, 238, 0.45) !important;
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+    border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45) !important;
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.18) !important;
 }
 
 .aicr-session-settings-textarea {
@@ -3915,9 +3925,9 @@ body.pet-is-resizing {
     min-height: 220px !important;
     border-radius: 12px !important;
     padding: 10px 12px !important;
-    border: 1px solid rgba(51, 65, 85, 0.85) !important;
-    background: rgba(2, 6, 23, 0.60) !important;
-    color: rgba(226, 232, 240, 0.95) !important;
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+    background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.60) !important;
+    color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95) !important;
     outline: none !important;
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial !important;
     font-size: 14px !important;
@@ -3926,12 +3936,12 @@ body.pet-is-resizing {
 }
 
 .aicr-session-settings-textarea:focus {
-    border-color: rgba(34, 211, 238, 0.45) !important;
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18) !important;
+    border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45) !important;
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 6, 182, 212), 0.18) !important;
 }
 
 .aicr-session-settings-hint {
-    color: rgba(148, 163, 184, 0.75) !important;
+    color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.75) !important;
     font-size: 12px !important;
     line-height: 1.5 !important;
 }
@@ -3944,9 +3954,9 @@ body.pet-is-resizing {
 }
 
 .session-editor-generate-description {
-    border: 1px solid rgba(51, 65, 85, 0.85) !important;
-    background: rgba(30, 41, 59, 0.6) !important;
-    color: rgba(226, 232, 240, 0.9) !important;
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.12)) !important;
+    background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.6) !important;
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9) !important;
     border-radius: 10px !important;
     padding: 6px 10px !important;
     font-size: 12px !important;
@@ -3956,8 +3966,8 @@ body.pet-is-resizing {
 }
 
 .session-editor-generate-description:hover {
-    background: rgba(51, 65, 85, 0.6) !important;
-    border-color: rgba(51, 65, 85, 0.95) !important;
+    background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6) !important;
+    border-color: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.95) !important;
     transform: translateY(-1px) !important;
 }
 
@@ -4057,9 +4067,9 @@ body.pet-is-resizing {
 
 .tag-manager-quick-tag-btn {
     padding: 8px 16px !important;
-    background: rgba(30, 41, 59, 0.6) !important;
+    background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.6) !important;
     color: var(--text-muted, #94a3b8) !important;
-    border: 1px solid rgba(51, 65, 85, 0.5) !important;
+    border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.5) !important;
     border-radius: 8px !important;
     cursor: pointer !important;
     font-size: 13px !important;
@@ -4069,7 +4079,7 @@ body.pet-is-resizing {
 }
 
 .tag-manager-quick-tag-btn:hover {
-    background: rgba(51, 65, 85, 0.8) !important;
+    background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.8) !important;
     border-color: var(--primary, #667eea) !important;
     color: var(--text-primary, #f8fafc) !important;
     transform: translateY(-1px) !important;

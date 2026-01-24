@@ -127,9 +127,18 @@
   
   /* ===== 兼容性变量 ===== */
   --primary-color: var(--primary);
-  --primary-hover: var(--primary-hover);
-  --primary-color-alpha: rgba(99, 102, 241, 0.1);
+  --primary-color-hover: var(--primary-hover);
+  --primary-color-alpha: var(--primary-alpha);
   --bg-hover: rgba(255, 255, 255, 0.05);
+  --primary-dark: #4f46e5;
+  --primary-dark-rgb: 79, 70, 229;
+  --accent-rgb: 6, 182, 212;
+  --bg-primary-rgb: 15, 23, 42;
+  --bg-secondary-rgb: 30, 41, 59;
+  --bg-tertiary-rgb: 51, 65, 85;
+  --text-primary-rgb: 248, 250, 252;
+  --text-secondary-rgb: 226, 232, 240;
+  --text-muted-rgb: 148, 163, 184;
 }
 
 /* ===== 深色模式优化 ===== */
@@ -173,4 +182,3 @@
     --info-gradient: #3b82f6;          /* 使用纯色替代渐变 */
   }
 }
-

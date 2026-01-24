@@ -174,7 +174,7 @@ const DEFAULT_CONFIG = {
 };
 
 // --- Environment Processing ---
-let __ENV_MODE = "development";
+let __ENV_MODE = "production";
 
 // Detect mode from Window or Process
 if (typeof window !== "undefined" && window.__PET_ENV_MODE__) {

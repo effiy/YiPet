@@ -1662,6 +1662,14 @@
                 }
             }
 
+            // 确保新会话存在于本地 sessions 中
+            // 如果 loadSessionsFromBackend 覆盖了 this.sessions 且没有包含新会话（可能是后端延迟），我们需要手动添加回去
+            // 使用 UUID 作为键，与后端返回的数据格式保持一致
+            if (!this.sessions[sessionKey]) {
+                console.log('[createBlankSession] 新会话未在后端列表中返回，手动添加到本地列表:', sessionKey);
+                this.sessions[sessionKey] = sessionData;
+            }
+
             // 更新会话侧边栏
             await this.updateSessionSidebar(true);
 
@@ -1669,29 +1677,20 @@
             // 等待会话列表刷新完成
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            // 查找新创建的会话（可能已经通过 loadSessionsFromBackend 更新）
-            const sessions = Object.values(this.sessions || {});
-            const newSession = sessions.find(s => s && s.key === sessionKey);
-            if (newSession) {
-                // 找到对应的 sessionId
-                const targetSessionId = Object.keys(this.sessions).find(id =>
-                    this.sessions[id] && this.sessions[id].key === sessionKey
-                );
-                if (targetSessionId) {
-                    await this.activateSession(targetSessionId, {
-                        saveCurrent: false,
-                        updateConsistency: false,
-                        updateUI: true,
-                        syncToBackend: false,
-                        skipBackendFetch: false // 从后端获取最新数据
-                    });
+            // 激活新会话
+            // 此时 this.sessions[sessionKey] 肯定存在（要么是后端返回的，要么是手动添加的）
+            await this.activateSession(sessionKey, {
+                saveCurrent: false,
+                updateConsistency: false,
+                updateUI: true,
+                syncToBackend: false,
+                skipBackendFetch: false // 从后端获取最新数据
+            });
 
-                    // 滚动到会话项位置（等待侧边栏更新完成）
-                    if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                        await this.scrollToSessionItem(targetSessionId);
-                    }
-                }
+            // 滚动到会话项位置（等待侧边栏更新完成）
+            if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.scrollToSessionItem(sessionKey);
             }
 
             // 显示成功通知

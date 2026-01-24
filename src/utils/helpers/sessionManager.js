@@ -272,11 +272,37 @@ class SessionManager {
         const now = Date.now();
         const tags = this._getSessionTags(sessionId, pageInfo);
         
+        // 获取页面标题，优先使用 pageInfo.title 或 pageInfo.pageTitle
+        let pageTitle = pageInfo.pageTitle || pageInfo.title || document.title || '';
+        // title 字段与 pageTitle 保持一致（与 YiWeb 保持一致）
+        let title = pageTitle || '新会话';
+        
+        // 辅助函数：如果字符串不为空且没有 .md 后缀，则添加后缀
+        const addMdSuffix = (str) => {
+            if (!str || !str.trim()) return str;
+            return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md';
+        };
+        
+        // 为 title 和 pageTitle 添加 .md 后缀
+        if (pageTitle) {
+            pageTitle = addMdSuffix(pageTitle);
+        } else {
+            // 如果 pageTitle 为空，设置为 "新会话.md"
+            pageTitle = '新会话.md';
+        }
+        if (title) {
+            title = addMdSuffix(title);
+        } else {
+            // 如果 title 为空，设置为 "新会话.md"
+            title = '新会话.md';
+        }
+        
         return {
             key: this._generateUUID(), // 生成 UUID 格式的 key
             url: pageInfo.url || window.location.href,
+            title: title, // 会话标题（与 YiWeb 保持一致）
             // 兼容 pageInfo 中可能只有 title 字段而没有 pageTitle 字段的情况
-            pageTitle: pageInfo.pageTitle || pageInfo.title || document.title || '',
+            pageTitle: pageTitle,
             // 兼容 pageInfo 中可能只有 description 字段而没有 pageDescription 字段的情况
             pageDescription: pageInfo.pageDescription || pageInfo.description || '',
             // 兼容 pageInfo 中可能只有 content 字段而没有 pageContent 字段的情况

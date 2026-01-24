@@ -349,6 +349,9 @@
             // 为 title 和 pageTitle 添加 .md 后缀
             if (pageTitle) {
                 pageTitle = addMdSuffix(pageTitle);
+            } else {
+                // 如果 pageTitle 为空，设置为 "新会话.md"
+                pageTitle = '新会话.md';
             }
             if (title) {
                 title = addMdSuffix(title);
@@ -363,21 +366,21 @@
                     // 跳过自定义协议（如 blank-session://, import-session:// 等）
                     const customProtocols = ['blank-session://', 'import-session://', 'aicr-session://'];
                     const isCustomProtocol = customProtocols.some(protocol => pageInfo.url.startsWith(protocol));
-                    
+
                     if (!isCustomProtocol) {
                         // 确保URL有协议
                         let urlToProcess = pageInfo.url;
                         if (!urlToProcess.startsWith('http://') && !urlToProcess.startsWith('https://')) {
                             urlToProcess = 'https://' + urlToProcess;
                         }
-                        
+
                         // 提取域名
                         const urlObj = new URL(urlToProcess);
                         const domain = urlObj.hostname;
-                        
+
                         // 去掉 www. 前缀（可选）
                         const mainDomain = domain.startsWith('www.') ? domain.substring(4) : domain;
-                        
+
                         // 如果域名存在且不在标签列表中，则添加
                         if (mainDomain && !tags.includes(mainDomain)) {
                             tags.push(mainDomain);
@@ -915,9 +918,9 @@
                 }
 
                 const sessionUrl = backendSession.url || '';
-                const isBlankSession = sessionUrl.startsWith('blank-session://') || 
-                                      sessionUrl.startsWith('aicr-session://') || 
-                                      backendSession._isBlankSession;
+                const isBlankSession = sessionUrl.startsWith('blank-session://') ||
+                    sessionUrl.startsWith('aicr-session://') ||
+                    backendSession._isBlankSession;
 
                 // 解析时间字段
                 const createdAt = parseTime(backendSession.createdAt) ||
@@ -1182,7 +1185,7 @@
         let sessionTitle = session.pageTitle || session.title || '未命名会话';
 
         // 如果是空白会话且标题是默认值，尝试生成更友好的标题（支持 blank-session:// 和 aicr-session:// 协议）
-        if (session._isBlankSession || 
+        if (session._isBlankSession ||
             (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://')))) {
             if (!session.pageTitle || session.pageTitle === '新会话' || session.pageTitle === '未命名会话') {
                 // 如果有消息，使用第一条用户消息的前几个字
@@ -1397,10 +1400,10 @@
             // 获取当前会话数据
             const session = this.sessions[sessionId] || {};
             const existingMessages = Array.isArray(session.messages) ? session.messages : [];
-            
+
             // 合并新消息到现有消息列表
             const updatedMessages = [...existingMessages, ...newMessages];
-            
+
             // 构建完整的会话数据
             const sessionData = {
                 key: sessionId,
@@ -1483,8 +1486,8 @@
             isUrlMatched = session.url === pageInfo.url;
         } catch (error) {
             // 如果获取页面信息失败（例如在删除消息时 DOM 正在变化），使用会话中已有的信息
-            console.warn('获取页面信息失败，使用会话中已有的信息', { 
-                error: String(error && error.message || error) 
+            console.warn('获取页面信息失败，使用会话中已有的信息', {
+                error: String(error && error.message || error)
             });
             // 不更新页面信息，保持会话中已有的信息不变
             pageInfo = {
@@ -1553,7 +1556,7 @@
     /**
      * 生成 UUID v4 格式的 key（与 YiWeb 保持一致）
      */
-    proto._generateUUID = function() {
+    proto._generateUUID = function () {
         // 优先使用 crypto.randomUUID（如果可用）
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
             return crypto.randomUUID();
@@ -1576,7 +1579,16 @@
             return; // 用户取消或输入为空
         }
 
-        const sessionTitle = title.trim();
+        let sessionTitle = title.trim();
+
+        // 辅助函数：如果字符串不为空且没有 .md 后缀，则添加后缀
+        const addMdSuffix = (str) => {
+            if (!str || !str.trim()) return str;
+            return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md';
+        };
+
+        // 为标题添加 .md 后缀
+        sessionTitle = addMdSuffix(sessionTitle);
 
         // 确保已加载所有会话
         await this.loadAllSessions();
@@ -1669,13 +1681,13 @@
             // 自动选中新创建的会话（与 YiWeb 保持一致）
             // 等待会话列表刷新完成
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             // 查找新创建的会话（可能已经通过 loadSessionsFromBackend 更新）
             const sessions = Object.values(this.sessions || {});
             const newSession = sessions.find(s => s && s.key === sessionKey);
             if (newSession) {
                 // 找到对应的 sessionId
-                const targetSessionId = Object.keys(this.sessions).find(id => 
+                const targetSessionId = Object.keys(this.sessions).find(id =>
                     this.sessions[id] && this.sessions[id].key === sessionKey
                 );
                 if (targetSessionId) {
@@ -1973,8 +1985,8 @@
         }
 
         // 获取 API 基础 URL（参考 YiWeb 的实现）
-        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL)) 
-            ? String(window.API_URL).replace(/\/+$/, '') 
+        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
+            ? String(window.API_URL).replace(/\/+$/, '')
             : (PET_CONFIG?.api?.yiaiBaseUrl || '');
 
         if (!apiBase) {
@@ -1998,7 +2010,7 @@
         fileName = String(fileName).replace(/\//g, '-'); // 清理文件名中的斜杠
         cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
         cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
-        
+
         // 移除 static/ 前缀（如果有）
         if (cleanPath.startsWith('static/')) {
             cleanPath = cleanPath.substring(7);
@@ -2057,8 +2069,8 @@
         }
 
         // 获取 API 基础 URL（参考 YiWeb 的实现）
-        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL)) 
-            ? String(window.API_URL).replace(/\/+$/, '') 
+        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
+            ? String(window.API_URL).replace(/\/+$/, '')
             : (PET_CONFIG?.api?.yiaiBaseUrl || '');
 
         if (!apiBase) {
@@ -2124,7 +2136,7 @@
                     if (json.data.type !== 'base64') {
                         const staticContent = json.data.content;
                         console.log('[fetchSessionPageContent] read-file 接口调用成功，内容长度:', staticContent.length);
-                        
+
                         // 更新会话的 pageContent（不更新时间戳，保持排列位置不变）
                         if (session) {
                             session.pageContent = staticContent;

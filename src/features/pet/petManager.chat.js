@@ -36,7 +36,7 @@
             // 仅显示窗口，不重新初始化，不影响其他功能
             this.chatWindow.classList.remove('js-hidden');
             this.isChatOpen = true;
-            
+
             // 窗口显示后，检查并处理未渲染的 Mermaid 图表
             setTimeout(async () => {
                 try {
@@ -143,12 +143,12 @@
             setTimeout(() => {
                 const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 const mainContent = this.chatWindow?.querySelector('.yi-pet-chat-main-content');
-                
+
                 if (messagesContainer && mainContent) {
                     // 移除可能冲突的内联样式，让 CSS 的 flex 布局生效
                     mainContent.style.removeProperty('height');
                     messagesContainer.style.removeProperty('height');
-                    
+
                     // 触发重排以确保 flex 布局正确计算
                     void mainContent.offsetHeight;
                     void messagesContainer.offsetHeight;
@@ -509,7 +509,7 @@
             // 遍历消息并渲染
             for (let idx = 0; idx < messages.length; idx++) {
                 const msg = messages[idx];
-                
+
                 // 规范化消息类型
                 const messageType = msg.type === 'pet' ? 'pet' : 'user';
                 const messageContent = msg.content || msg.message || '';
@@ -592,9 +592,9 @@
             btn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 let textToCopy = '';
-                
+
                 // 从目标元素复制
                 const copyTarget = btn.getAttribute('data-copy-target');
                 if (copyTarget) {
@@ -603,7 +603,7 @@
                         textToCopy = targetElement.textContent || targetElement.innerText || '';
                     }
                 }
-                
+
                 // 从属性复制
                 if (!textToCopy) {
                     const copyText = btn.getAttribute('data-copy-text');
@@ -611,7 +611,7 @@
                         textToCopy = copyText;
                     }
                 }
-                
+
                 if (textToCopy) {
                     try {
                         await navigator.clipboard.writeText(textToCopy);
@@ -639,20 +639,20 @@
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const targetId = btn.getAttribute('data-toggle-target');
                 const previewText = btn.getAttribute('data-preview-text');
                 const fullText = btn.getAttribute('data-full-text');
-                
+
                 if (!targetId) return;
-                
+
                 const targetElement = container.querySelector(`#${targetId}`);
                 const icon = btn.querySelector('i');
-                
+
                 if (!targetElement) return;
-                
+
                 const isExpanded = targetElement.classList.contains('expanded');
-                
+
                 if (isExpanded) {
                     // 折叠
                     targetElement.classList.remove('expanded');
@@ -678,13 +678,13 @@
         if (!session && this.currentSessionId) {
             session = this.sessions[this.currentSessionId];
         }
-        
+
         // 获取会话信息（如果有）
         const sessionTags = session && Array.isArray(session.tags) ? session.tags.filter(t => t && t.trim()) : [];
         let sessionMessages = session && Array.isArray(session.messages) ? session.messages : [];
         const sessionCreatedAt = session && session.createdAt ? session.createdAt : null;
         const sessionUpdatedAt = session && session.updatedAt ? session.updatedAt : null;
-        
+
         // 调试日志：检查会话消息（仅在开发环境或消息数量大于0时输出）
         if (sessionMessages.length > 0 || !session) {
             console.log('[buildWelcomeCardHtml] 会话信息:', {
@@ -771,7 +771,7 @@
                 const role = m.role || (m.type === 'pet' ? 'pet' : (m.type === 'assistant' ? 'assistant' : null));
                 return role === 'assistant' || role === 'pet';
             }).length;
-            
+
             pageInfoHtml += `
                 <div class="welcome-card-section">
                     <div class="welcome-card-section-title">💬 对话记录</div>
@@ -790,9 +790,9 @@
             const updatedDate = sessionUpdatedAt ? new Date(sessionUpdatedAt) : null;
             const hasValidCreated = createdDate && !isNaN(createdDate.getTime());
             const hasValidUpdated = updatedDate && !isNaN(updatedDate.getTime());
-            const isSameTime = hasValidCreated && hasValidUpdated && 
-                              Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000; // 1分钟内视为相同
-            
+            const isSameTime = hasValidCreated && hasValidUpdated &&
+                Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000; // 1分钟内视为相同
+
             if (hasValidCreated || hasValidUpdated) {
                 pageInfoHtml += `
                     <div class="welcome-card-section">
@@ -817,7 +817,7 @@
     proto.createWelcomeMessage = async function (messagesContainer, pageInfo = null, skipAutoHandle = false) {
         // 获取当前会话信息
         const session = this.currentSessionId ? this.sessions[this.currentSessionId] : null;
-        
+
         // 调试日志（仅在开发环境或会话有消息时输出）
         if (!session || (session.messages && session.messages.length > 0)) {
             console.log('[createWelcomeMessage] 创建欢迎消息:', {
@@ -883,7 +883,7 @@
             messageText.innerHTML = pageInfoHtml;
             // 保存原始HTML用于后续保存（虽然欢迎消息不会被保存到消息数组中）
             messageText.setAttribute('data-original-text', pageInfoHtml);
-            
+
             // 绑定交互事件
             this.bindWelcomeCardEvents(messageText);
         }
@@ -938,7 +938,7 @@
             messageText.innerHTML = pageInfoHtml;
             // 更新原始HTML
             messageText.setAttribute('data-original-text', pageInfoHtml);
-            
+
             // 绑定交互事件
             this.bindWelcomeCardEvents(messageText);
         }
@@ -1092,7 +1092,7 @@
                     const sessionDataToSave = {
                         // 不包含 key 字段，让后端生成
                         url: currentUrl || sessionData.url || '',
-                        title: sessionData.title || sessionData.pageTitle || '新会话',
+                        title: sessionData.title || sessionData.pageTitle || '新会话.md',
                         pageTitle: sessionData.pageTitle || sessionData.title || '',
                         pageDescription: sessionData.pageDescription || '',
                         pageContent: sessionData.pageContent || '',

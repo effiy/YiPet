@@ -50,6 +50,7 @@
 
         const overlay = document.createElement('div');
         overlay.id = 'pet-robot-settings';
+        overlay.classList.add('js-visible');
         // 样式已通过 CSS 类定义
 
         const modal = document.createElement('div');

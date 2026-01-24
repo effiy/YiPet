@@ -1808,28 +1808,31 @@
     };
 
     // 手动刷新
-    proto.manualRefresh = async function () {
-        const refreshBtn = document.getElementById('pet-chat-refresh-btn');
-        if (!refreshBtn) return;
+    proto.manualRefresh = async function (btnElement) {
+        console.log('[petManager] manualRefresh called');
+        const refreshBtn = btnElement || document.getElementById('yi-pet-chat-refresh-btn');
+        if (!refreshBtn) {
+            console.warn('[petManager] Refresh button not found: yi-pet-chat-refresh-btn');
+            return;
+        }
 
         // 防止重复刷新
         if (refreshBtn.classList.contains('is-spinning')) {
+            console.log('[petManager] Already refreshing');
             return;
         }
 
         refreshBtn.classList.add('is-spinning');
         try {
-            // 刷新会话列表
-            await this.loadSessionsFromBackend(true);
-            // 重新加载所有会话（包括本地存储的会话）
+            console.log('[petManager] Starting refresh...');
+            // 重新加载所有会话（强制从后端获取）
             await this.loadAllSessions();
-            // 更新会话侧边栏
-            if (this.sessionSidebar) {
-                await this.updateSessionSidebar();
-            }
+            
             console.log('手动刷新完成');
+            this.showNotification('刷新成功', 'success');
         } catch (error) {
             console.warn('手动刷新失败:', error);
+            this.showNotification('刷新失败: ' + error.message, 'error');
         } finally {
             refreshBtn.classList.remove('is-spinning');
         }

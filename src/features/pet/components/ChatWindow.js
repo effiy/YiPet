@@ -149,8 +149,9 @@
                 'yi-pet-chat-refresh-btn',
                 '刷新',
                 '<path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z"/>',
-                () => manager.manualRefresh()
+                (e, btn) => manager.manualRefresh(btn)
             );
+            refreshBtn.classList.add('pet-chat-refresh-btn');
 
             headerButtons.appendChild(authBtn);
             headerButtons.appendChild(refreshBtn);
@@ -195,10 +196,10 @@
             btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
 
             btn.addEventListener('click', (e) => {
-                console.error(`[ChatWindow] Header button clicked: ${label}`);
+                console.log(`[ChatWindow] Header button clicked: ${label}`);
                 e.stopPropagation();
                 e.preventDefault();
-                onClick();
+                onClick(e, btn);
             });
             return btn;
         }

@@ -222,7 +222,9 @@
                             if (fullSession.pageDescription) {
                                 existingSession.pageDescription = fullSession.pageDescription;
                             }
-                            if (fullSession.pageContent) {
+                            const isAicrSession = String(existingSession.url || '').startsWith('aicr-session://') ||
+                                String(existingSession.pageDescription || '').includes('文件：');
+                            if (!isAicrSession && fullSession.pageContent) {
                                 existingSession.pageContent = fullSession.pageContent;
                             }
                             const title = fullSession.title || existingSession.title;
@@ -716,8 +718,9 @@
             // 包含 pageContent 字段的情况：
             // 1. 手动保存页面上下文时（includePageContent = true）
             // 2. 接口会话中有pageContent时（即使includePageContent = false，也应该保存）
-            if (includePageContent ||
-                (session._isApiRequestSession && pageContent && pageContent.trim() !== '')) {
+            const isAicrSession = String(sessionUrl || '').startsWith('aicr-session://') || String(pageDescription || '').includes('文件：');
+            if (!isAicrSession && (includePageContent ||
+                (session._isApiRequestSession && pageContent && pageContent.trim() !== ''))) {
                 sessionData.pageContent = pageContent;
             }
 
@@ -840,7 +843,8 @@
 
                         // 包含 pageContent 字段的情况：
                         // 1. 手动保存页面上下文时（includePageContent = true）
-                        if (includePageContent) {
+                        const isAicrSession = String(fallbackSessionUrl || '').startsWith('aicr-session://') || String(fallbackPageDescription || '').includes('文件：');
+                        if (!isAicrSession && includePageContent) {
                             sessionData.pageContent = fallbackPageContent;
                         }
 
@@ -932,7 +936,7 @@
                     url: sessionUrl,
                     title: (backendSession.title || '新会话'),
                     pageDescription: backendSession.pageDescription || '',
-                    pageContent: backendSession.pageContent || '',
+                    pageContent: isBlankSession ? (backendSession.pageContent || '') : ((sessionUrl.startsWith('aicr-session://') || String(backendSession.pageDescription || '').includes('文件：')) ? '' : (backendSession.pageContent || '')),
                     messages: backendSession.messages || [],
                     tags: backendSession.tags || [],
                     createdAt: createdAt,

@@ -150,7 +150,6 @@ class SessionApiManager extends BaseApiManager {
                 url: String(sessionData.url || ''),
                 title: String(sessionData.title || ''),
                 pageDescription: String(sessionData.pageDescription || ''),
-                pageContent: String(sessionData.pageContent || ''),
                 messages: Array.isArray(sessionData.messages) ? sessionData.messages : [],
                 tags: Array.isArray(sessionData.tags) ? sessionData.tags : [],
                 isFavorite: sessionData.isFavorite !== undefined ? Boolean(sessionData.isFavorite) : false,
@@ -158,6 +157,10 @@ class SessionApiManager extends BaseApiManager {
                 updatedAt: this._normalizeTimestamp(sessionData.updatedAt),
                 lastAccessTime: this._normalizeTimestamp(sessionData.lastAccessTime)
             };
+            const isAicrSession = normalized.url.startsWith('aicr-session://') || normalized.pageDescription.includes('文件：');
+            if (!isAicrSession) {
+                normalized.pageContent = String(sessionData.pageContent || '');
+            }
 
             // 检查会话是否存在（通过 key 查询）
             let existingSession = null;

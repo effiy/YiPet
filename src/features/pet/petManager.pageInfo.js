@@ -367,7 +367,7 @@
      * @returns {Object} 页面信息对象
      */
     proto.getPageInfo = function() {
-        const pageTitle = document.title || '未命名页面';
+        const title = document.title || '未命名页面';
         const pageUrl = window.location.href;
 
         // 获取页面描述（meta description）
@@ -378,7 +378,7 @@
         const pageContent = this.getPageContentAsMarkdown();
 
         return {
-            title: pageTitle.trim(),
+            title: title.trim(),
             url: pageUrl,
             description: pageDescription,
             content: pageContent
@@ -386,4 +386,3 @@
     };
 
 })();
-

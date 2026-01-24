@@ -14,7 +14,7 @@
 
     // 生成context.md内容
     proto._generateContextMd = function(session) {
-        let content = `# ${session.pageTitle || '未命名会话'}\n\n`;
+        let content = `# ${session.title || '未命名会话'}\n\n`;
         content += `**创建时间**: ${new Date(session.createdAt || Date.now()).toLocaleString('zh-CN')}\n\n`;
         content += `**更新时间**: ${new Date(session.updatedAt || session.createdAt || Date.now()).toLocaleString('zh-CN')}\n\n`;
         content += `**URL**: ${session.url || ''}\n\n`;
@@ -62,8 +62,14 @@
 
     // 解析markdown内容，提取页面信息和聊天记录
     proto._parseMarkdownContent = function(markdownContent) {
+        const ensureMdSuffix = (str) => {
+            if (!str || !String(str).trim()) return '';
+            const s = String(str).trim();
+            return s.endsWith('.md') ? s : `${s}.md`;
+        };
+
         const result = {
-            pageTitle: '',
+            title: '',
             url: '',
             pageDescription: '',
             pageContent: '',
@@ -90,7 +96,7 @@
         // 提取标题（第一行的 # 标题）
         const titleMatch = pageInfoContent.match(/^#\s+(.+?)$/m);
         if (titleMatch) {
-            result.pageTitle = titleMatch[1].trim();
+            result.title = ensureMdSuffix(titleMatch[1].trim());
         }
 
         // 提取创建时间

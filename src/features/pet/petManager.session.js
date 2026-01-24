@@ -225,12 +225,8 @@
                             if (fullSession.pageContent) {
                                 existingSession.pageContent = fullSession.pageContent;
                             }
-                            // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                            // 即使 pageTitle 是空字符串，也要更新（因为可能是有效的空值）
-                            const pageTitle = fullSession.pageTitle !== undefined ? fullSession.pageTitle : (fullSession.title !== undefined ? fullSession.title : existingSession.pageTitle);
-                            if (pageTitle !== undefined) {
-                                existingSession.pageTitle = pageTitle;
-                            }
+                            const title = fullSession.title || existingSession.title;
+                            existingSession.title = title;
                             // 如果 preserveOrder 为 true，不更新时间戳，保持排列位置不变
                             if (!preserveOrder) {
                                 existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
@@ -243,15 +239,14 @@
 
                         } else {
                             // 如果本地不存在，直接使用后端数据
-                            // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                            const pageTitle = fullSession.pageTitle || fullSession.title || '';
+                            const title = fullSession.title || '';
                             // 确保有 key
                             if (!fullSession.key) {
                                 fullSession.key = this._generateUUID();
                             }
                             this.sessions[sessionId] = {
                                 ...fullSession,
-                                pageTitle: pageTitle
+                                title: title
                             };
                         }
 
@@ -330,15 +325,13 @@
         const createdAt = existingSession?.createdAt || now;
         const lastAccessTime = now; // 每次创建或更新时都更新访问时间
 
-        // 获取页面标题，优先使用 pageInfo.title 或 pageInfo.pageTitle
-        let pageTitle = pageInfo.title || pageInfo.pageTitle || '';
-        // title 字段与 pageTitle 保持一致（与 YiWeb 保持一致）
-        let title = pageTitle || '新会话';
+        const rawTitle = pageInfo.title || '';
+        let title = rawTitle || '新会话';
 
         // 初始化标签数组
         let tags = existingSession?.tags ? [...existingSession.tags] : [];
 
-        // 如果是自动新建的会话（existingSession 为 null），在 title 和 pageTitle 后面添加 .md 后缀，并添加域名标签
+        // 如果是自动新建的会话（existingSession 为 null），在标题后面添加 .md 后缀，并添加域名标签
         if (!existingSession) {
             // 辅助函数：如果字符串不为空且没有 .md 后缀，则添加后缀
             const addMdSuffix = (str) => {
@@ -346,17 +339,9 @@
                 return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md';
             };
 
-            // 为 title 和 pageTitle 添加 .md 后缀
-            if (pageTitle) {
-                pageTitle = addMdSuffix(pageTitle);
+            if (rawTitle) {
+                title = addMdSuffix(rawTitle);
             } else {
-                // 如果 pageTitle 为空，设置为 "新会话.md"
-                pageTitle = '新会话.md';
-            }
-            if (title) {
-                title = addMdSuffix(title);
-            } else {
-                // 如果 title 为空，设置为 "新会话.md"
                 title = '新会话.md';
             }
 
@@ -396,7 +381,6 @@
         return {
             url: pageInfo.url, // 页面URL（用于查找会话，作为会话的唯一标识）
             title: title, // 会话标题（与 YiWeb 保持一致）
-            pageTitle: pageTitle, // 页面标题（与页面上下文对应）
             pageDescription: pageInfo.description || '', // 页面描述（meta description）
             pageContent: pageInfo.content || '', // 页面内容（Markdown格式，用于AI理解上下文）
             messages: messages, // 聊天记录（该会话的所有对话）
@@ -458,23 +442,31 @@
         // 确保页面标题一致
         // 只有当会话的标题为空或者是默认值时，才用当前页面的标题更新
         // 这样可以保留从后端加载的有效标题，避免被当前页面标题覆盖
-        const currentPageTitle = pageInfo.title || pageInfo.pageTitle || '';
-        const sessionPageTitle = session.pageTitle || session.title || '';
-        const isDefaultTitle = !sessionPageTitle ||
-            sessionPageTitle.trim() === '' ||
-            sessionPageTitle === '未命名会话' ||
-            sessionPageTitle === '新会话' ||
-            sessionPageTitle === '未命名页面' ||
-            sessionPageTitle === '当前页面';
+        const currentPageTitle = pageInfo.title || '';
+        const sessionTitle = session.title || '';
+        const isDefaultTitle = !sessionTitle ||
+            sessionTitle.trim() === '' ||
+            sessionTitle === '未命名会话' ||
+            sessionTitle === '新会话' ||
+            sessionTitle === '未命名页面' ||
+            sessionTitle === '当前页面' ||
+            sessionTitle === '新会话.md';
 
-        if (isDefaultTitle && currentPageTitle && currentPageTitle !== sessionPageTitle) {
-            console.log(`修复会话 ${sessionId} 的页面标题（从默认值更新）:`, sessionPageTitle, '->', currentPageTitle);
-            session.pageTitle = currentPageTitle;
+        const addMdSuffix = (str) => {
+            if (!str || !str.trim()) return str;
+            return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md';
+        };
+
+        const nextTitle = currentPageTitle ? addMdSuffix(currentPageTitle) : '';
+
+        if (isDefaultTitle && nextTitle && nextTitle !== sessionTitle) {
+            console.log(`修复会话 ${sessionId} 的标题（从默认值更新）:`, sessionTitle, '->', nextTitle);
+            session.title = nextTitle;
             updated = true;
-        } else if (!isDefaultTitle && sessionPageTitle !== currentPageTitle) {
+        } else if (!isDefaultTitle && sessionTitle !== nextTitle && currentPageTitle) {
             // 如果会话已经有有效标题，但当前页面标题不同，记录日志但不强制更新
             // 这样可以保留从后端加载的标题
-            console.log(`会话 ${sessionId} 的标题与当前页面不同，保留会话标题:`, sessionPageTitle, '（当前页面标题:', currentPageTitle, '）');
+            console.log(`会话 ${sessionId} 的标题与当前页面不同，保留会话标题:`, sessionTitle, '（当前页面标题:', currentPageTitle, '）');
         }
 
         // 确保页面描述一致
@@ -525,7 +517,7 @@
 
         const session = this.sessions[sessionId];
 
-        // 空白会话不应该更新URL、pageTitle、pageDescription和pageContent
+        // 空白会话不应该更新URL、pageDescription和pageContent
         // 这些信息应该保持为创建时的信息
         const isBlankSession = session._isBlankSession ||
             !session.url ||
@@ -555,7 +547,6 @@
         Object.assign(session, {
             url: sessionData.url,
             title: sessionData.title, // 更新 title 字段（与 YiWeb 保持一致）
-            pageTitle: sessionData.pageTitle,
             pageDescription: sessionData.pageDescription || '',
             pageContent: sessionData.pageContent || session.pageContent || '', // 保留已有内容，但如果缺失则补充
             updatedAt: sessionData.updatedAt,
@@ -672,11 +663,9 @@
                 sessionUrl = session.url || '';
             }
 
-            let pageTitle = session.pageTitle || '';
             let pageDescription = session.pageDescription || '';
             let pageContent = session.pageContent || '';
-            // title 字段与 pageTitle 保持一致（与 YiWeb 保持一致）
-            const title = pageTitle || session.title || '新会话';
+            const title = session.title || '新会话';
 
             // 确保有 key 字段（使用 key 作为唯一标识符，与 YiWeb 保持一致）
             const sessionKey = session.key || this._generateUUID();
@@ -715,7 +704,6 @@
                 key: sessionKey, // 使用 key 作为唯一标识符（与 YiWeb 保持一致）
                 url: sessionUrl,
                 title: title, // 会话标题（与 YiWeb 保持一致）
-                pageTitle: pageTitle,
                 pageDescription: pageDescription,
                 messages: normalizeMessagesForBackend(session.messages),
                 tags: session.tags || [],
@@ -756,15 +744,14 @@
                                     pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                         ? localSession.pageContent
                                         : (updatedSession.pageContent || localSession.pageContent || ''),
-                                    // 优先保留本地的 pageTitle（如果本地有内容）
-                                    pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
-                                        ? localSession.pageTitle
-                                        : (updatedSession.pageTitle || localSession.pageTitle || ''),
                                     // 优先保留本地的 isFavorite（如果本地有值），确保用户操作立即生效
                                     isFavorite: localSession.isFavorite !== undefined
                                         ? !!localSession.isFavorite
                                         : (updatedSession.isFavorite !== undefined ? !!updatedSession.isFavorite : false)
                                 };
+                                if (!this.sessions[sessionId].title) {
+                                    this.sessions[sessionId].title = updatedSession.title || localSession.title || '新会话';
+                                }
                             }
                         }
 
@@ -835,14 +822,14 @@
                             fallbackSessionUrl = session.url || '';
                         }
 
-                        let fallbackPageTitle = session.pageTitle || '';
+                        let fallbackTitle = session.title || '';
                         let fallbackPageDescription = session.pageDescription || '';
                         let fallbackPageContent = session.pageContent || '';
 
                         const sessionData = {
                             key: session.key || this._generateUUID(),
                             url: fallbackSessionUrl,
-                            pageTitle: fallbackPageTitle,
+                            title: fallbackTitle,
                             pageDescription: fallbackPageDescription,
                             messages: session.messages || [],
                             tags: session.tags || [],
@@ -943,8 +930,7 @@
                 const localSession = {
                     key: backendSession.key,
                     url: sessionUrl,
-                    title: backendSession.title || backendSession.pageTitle || '新会话',
-                    pageTitle: backendSession.pageTitle || backendSession.title || '',
+                    title: (backendSession.title || '新会话'),
                     pageDescription: backendSession.pageDescription || '',
                     pageContent: backendSession.pageContent || '',
                     messages: backendSession.messages || [],
@@ -1088,13 +1074,12 @@
         const q = (this.sessionTitleFilter || '').trim().toLowerCase();
         if (q) {
             filteredNonFavorite = filteredNonFavorite.filter(session => {
-                // 与YiH5保持一致：搜索title, pageTitle, preview, url, tags
+                // 与YiH5保持一致：搜索title, preview, url, tags
                 const title = session.title || '';
-                const pageTitle = session.pageTitle || '';
                 const preview = session.preview || session.pageDescription || '';
                 const url = session.url || '';
                 const tags = Array.isArray(session.tags) ? session.tags.join(' ') : '';
-                const hay = `${title} ${pageTitle} ${preview} ${url} ${tags}`.toLowerCase();
+                const hay = `${title} ${preview} ${url} ${tags}`.toLowerCase();
                 return hay.includes(q);
             });
         }
@@ -1181,13 +1166,13 @@
     proto._getSessionDisplayTitle = function (session) {
         if (!session) return '未命名会话';
 
-        // 优先使用会话的 pageTitle，如果没有则使用 title
-        let sessionTitle = session.pageTitle || session.title || '未命名会话';
+        // 优先使用会话的 title
+        let sessionTitle = session.title || '未命名会话';
 
         // 如果是空白会话且标题是默认值，尝试生成更友好的标题（支持 blank-session:// 和 aicr-session:// 协议）
         if (session._isBlankSession ||
             (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://')))) {
-            if (!session.pageTitle || session.pageTitle === '新会话' || session.pageTitle === '未命名会话') {
+            if (!session.title || session.title === '新会话' || session.title === '未命名会话' || session.title === '新会话.md') {
                 // 如果有消息，使用第一条用户消息的前几个字
                 if (session.messages && session.messages.length > 0) {
                     const firstUserMessage = session.messages.find(m => m.type === 'user');
@@ -1408,8 +1393,7 @@
             const sessionData = {
                 key: sessionId,
                 url: session.url || '',
-                title: session.title || session.pageTitle || '',
-                pageTitle: session.pageTitle || session.title || '',
+                title: session.title || '',
                 pageDescription: session.pageDescription || '',
                 pageContent: session.pageContent || '',
                 messages: updatedMessages,
@@ -1492,7 +1476,7 @@
             // 不更新页面信息，保持会话中已有的信息不变
             pageInfo = {
                 url: session.url || window.location.href,
-                title: session.pageTitle || session.title || document.title || '未命名页面',
+                title: session.title || document.title || '未命名页面',
                 description: session.pageDescription || '',
                 content: session.pageContent || ''
             };
@@ -1609,7 +1593,6 @@
             key: sessionKey,
             url: uniqueUrl,
             title: sessionTitle,
-            pageTitle: sessionTitle,
             pageDescription: '',
             pageContent: '',
             messages: [],
@@ -1785,8 +1768,7 @@
                                     const sessionUrl = backendSession.url || '';
                                     if (sessionUrl && this.sessions) {
                                         const sessionId = await this.generateSessionId(sessionUrl);
-                                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                                        const pageTitle = sessionDetail.pageTitle || sessionDetail.title || '';
+                                        const title = sessionDetail.title || '';
                                         // 确保保留原有的 key（如果后端返回的 key 不存在或无效）
                                         const existingKey = this.sessions[sessionId]?.key;
                                         if (this.sessions[sessionId]) {
@@ -1795,8 +1777,7 @@
                                                 ...sessionDetail,
                                                 // 确保 key 字段存在（使用 key 作为唯一标识符，与 YiWeb 保持一致）
                                                 key: sessionDetail.key || existingKey || this._generateUUID(),
-                                                // 确保 pageTitle 字段正确设置
-                                                pageTitle: pageTitle || this.sessions[sessionId].pageTitle || ''
+                                                title: title || this.sessions[sessionId].title || ''
                                             };
                                         }
                                     }
@@ -2005,8 +1986,8 @@
             currentPath = currentPath ? currentPath + '/' + folderName : folderName;
         });
 
-        // 使用 title 或 pageTitle 作为文件名
-        let fileName = session.title || session.pageTitle || 'Untitled';
+        // 使用 title 作为文件名
+        let fileName = session.title || 'Untitled';
         fileName = String(fileName).replace(/\//g, '-'); // 清理文件名中的斜杠
         cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
         cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -2089,7 +2070,7 @@
             currentPath = currentPath ? currentPath + '/' + folderName : folderName;
         });
 
-        let fileName = session.title || session.pageTitle || 'Untitled';
+        let fileName = session.title || 'Untitled';
         fileName = String(fileName).replace(/\//g, '-');
         cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
         cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -2162,7 +2143,7 @@
 
         // 获取会话标题用于提示
         const session = this.sessions[sessionId];
-        const sessionTitle = session?.pageTitle || sessionId || '未命名会话';
+        const sessionTitle = session?.title || sessionId || '未命名会话';
 
         // 确认删除（如果未跳过确认）
         if (!skipConfirm) {
@@ -2297,7 +2278,15 @@
             const duplicatedSession = {
                 key: this._generateUUID(), // 生成新的 UUID key
                 url: newUrl,
-                pageTitle: sourceSession.pageTitle ? `${sourceSession.pageTitle} (副本)` : '新会话 (副本)',
+                title: (() => {
+                    const base = sourceSession.title || '新会话.md';
+                    const s = String(base || '').trim();
+                    if (!s) return '新会话 (副本).md';
+                    if (s.endsWith('.md')) {
+                        return `${s.slice(0, -3)} (副本).md`;
+                    }
+                    return `${s} (副本)`;
+                })(),
                 pageDescription: sourceSession.pageDescription || '',
                 pageContent: sourceSession.pageContent || '',
                 messages: [], // messages为空数组
@@ -2380,7 +2369,7 @@
         }
 
         const session = this.sessions[sessionId];
-        const originalTitle = session.pageTitle || '未命名会话';
+        const originalTitle = session.title || '未命名会话';
         const originalDescription = session.pageDescription || '';
 
         // 打开编辑对话框

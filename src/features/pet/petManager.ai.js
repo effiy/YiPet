@@ -374,7 +374,7 @@
 
             // 优先使用会话保存的页面内容，如果没有则使用当前页面内容
             let fullPageMarkdown = '';
-            let pageTitle = document.title || '当前页面';
+            let contextTitle = document.title || '当前页面';
 
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
@@ -387,18 +387,32 @@
                 // 如果会话有保存的页面内容，使用它
                 if (session.pageContent && session.pageContent.trim() !== '') {
                     fullPageMarkdown = session.pageContent;
-                    pageTitle = session.pageTitle || pageTitle;
+                    contextTitle = session.title || contextTitle;
                 } else if (!isBlankSession) {
                     // 如果不是空白会话且没有保存的页面内容，获取当前页面内容并保存到会话
                     fullPageMarkdown = this.getPageContentAsMarkdown();
-                    pageTitle = document.title || '当前页面';
+                    contextTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
-                    session.pageTitle = pageTitle;
+                    const ensureMdSuffix = (str) => {
+                        if (!str || !String(str).trim()) return '';
+                        const s = String(str).trim();
+                        return s.endsWith('.md') ? s : `${s}.md`;
+                    };
+                    const currentTitle = session.title || '';
+                    const isDefaultTitle = !currentTitle ||
+                        currentTitle.trim() === '' ||
+                        currentTitle === '未命名会话' ||
+                        currentTitle === '新会话' ||
+                        currentTitle === '未命名页面' ||
+                        currentTitle === '当前页面';
+                    if (isDefaultTitle) {
+                        session.title = ensureMdSuffix(contextTitle);
+                    }
                     // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
                 } else {
                     // 空白会话：不填充页面内容，使用空内容
                     fullPageMarkdown = '';
-                    pageTitle = session.pageTitle || '新会话';
+                    contextTitle = session.title || '新会话';
                     console.log('空白会话，不填充页面内容');
                 }
             } else {
@@ -421,7 +435,7 @@
             // 根据开关状态决定是否包含页面内容
             let userMessage = currentText;
             if (includeContext && pageMd) {
-                userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面内容（Markdown 格式）：\n${pageMd}\n\n【用户问题】\n${currentText}`;
+                userMessage = `【当前页面上下文】\n页面标题：${contextTitle}\n页面内容（Markdown 格式）：\n${pageMd}\n\n【用户问题】\n${currentText}`;
             }
 
             // 调用 API，使用配置中的 URL
@@ -643,7 +657,7 @@
 
             // 优先使用会话保存的页面内容，如果没有则使用当前页面内容
             let fullPageMarkdown = '';
-            let pageTitle = document.title || '当前页面';
+            let contextTitle = document.title || '当前页面';
 
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
@@ -656,18 +670,32 @@
                 // 如果会话有保存的页面内容，使用它
                 if (session.pageContent && session.pageContent.trim() !== '') {
                     fullPageMarkdown = session.pageContent;
-                    pageTitle = session.pageTitle || pageTitle;
+                    contextTitle = session.title || contextTitle;
                 } else if (!isBlankSession) {
                     // 如果不是空白会话且没有保存的页面内容，获取当前页面内容并保存到会话
                     fullPageMarkdown = this.getPageContentAsMarkdown();
-                    pageTitle = document.title || '当前页面';
+                    contextTitle = document.title || '当前页面';
                     session.pageContent = fullPageMarkdown;
-                    session.pageTitle = pageTitle;
+                    const ensureMdSuffix = (str) => {
+                        if (!str || !String(str).trim()) return '';
+                        const s = String(str).trim();
+                        return s.endsWith('.md') ? s : `${s}.md`;
+                    };
+                    const currentTitle = session.title || '';
+                    const isDefaultTitle = !currentTitle ||
+                        currentTitle.trim() === '' ||
+                        currentTitle === '未命名会话' ||
+                        currentTitle === '新会话' ||
+                        currentTitle === '未命名页面' ||
+                        currentTitle === '当前页面';
+                    if (isDefaultTitle) {
+                        session.title = ensureMdSuffix(contextTitle);
+                    }
                     // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
                 } else {
                     // 空白会话：不填充页面内容，使用空内容
                     fullPageMarkdown = '';
-                    pageTitle = session.pageTitle || '新会话';
+                    contextTitle = session.title || '新会话';
                     console.log('空白会话，不填充页面内容');
                 }
             } else {
@@ -679,7 +707,7 @@
             // 根据开关状态决定是否包含页面内容
             let userMessage = message;
             if (includeContext && fullPageMarkdown) {
-                userMessage = `【当前页面上下文】\n页面标题：${pageTitle}\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
+                userMessage = `【当前页面上下文】\n页面标题：${contextTitle}\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`;
             }
 
             // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl（如果是 qwen3-vl 模型）

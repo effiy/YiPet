@@ -272,10 +272,8 @@ class SessionManager {
         const now = Date.now();
         const tags = this._getSessionTags(sessionId, pageInfo);
         
-        // 获取页面标题，优先使用 pageInfo.title 或 pageInfo.pageTitle
-        let pageTitle = pageInfo.pageTitle || pageInfo.title || document.title || '';
-        // title 字段与 pageTitle 保持一致（与 YiWeb 保持一致）
-        let title = pageTitle || '新会话';
+        const rawTitle = pageInfo.title || document.title || '';
+        let title = rawTitle || '新会话';
         
         // 辅助函数：如果字符串不为空且没有 .md 后缀，则添加后缀
         const addMdSuffix = (str) => {
@@ -283,13 +281,6 @@ class SessionManager {
             return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md';
         };
         
-        // 为 title 和 pageTitle 添加 .md 后缀
-        if (pageTitle) {
-            pageTitle = addMdSuffix(pageTitle);
-        } else {
-            // 如果 pageTitle 为空，设置为 "新会话.md"
-            pageTitle = '新会话.md';
-        }
         if (title) {
             title = addMdSuffix(title);
         } else {
@@ -301,8 +292,6 @@ class SessionManager {
             key: this._generateUUID(), // 生成 UUID 格式的 key
             url: pageInfo.url || window.location.href,
             title: title, // 会话标题（与 YiWeb 保持一致）
-            // 兼容 pageInfo 中可能只有 title 字段而没有 pageTitle 字段的情况
-            pageTitle: pageTitle,
             // 兼容 pageInfo 中可能只有 description 字段而没有 pageDescription 字段的情况
             pageDescription: pageInfo.pageDescription || pageInfo.description || '',
             // 兼容 pageInfo 中可能只有 content 字段而没有 pageContent 字段的情况
@@ -322,7 +311,6 @@ class SessionManager {
         return {
             url: window.location.href,
             title: document.title,
-            pageTitle: document.title,
             pageDescription: this._extractPageDescription(),
             pageContent: this._extractPageContent()
         };
@@ -378,6 +366,7 @@ class SessionManager {
         }
         
         try {
+            const pageInfo = this.getPageInfo();
             // 获取标签（支持项目目录映射）
             let tags = session.tags || [];
             if (!Array.isArray(tags) || tags.length === 0) {
@@ -398,8 +387,7 @@ class SessionManager {
             const sessionData = {
                 key: String(sessionKey), // 必须包含 key
                 url: String(session.url || ''),
-                title: String(session.pageTitle || session.title || ''),
-                pageTitle: String(session.pageTitle || session.title || ''),
+                title: String(session.title || ''),
                 pageDescription: String(session.pageDescription || ''),
                 pageContent: String(session.pageContent || ''),
                 messages: this._normalizeMessages(session.messages || []),
@@ -565,6 +553,7 @@ class SessionManager {
             if (!session || !session.id) {
                 continue;
             }
+
             
             const sessionId = session.id;
             const existingSession = sessionMap.get(sessionId);
@@ -594,8 +583,8 @@ class SessionManager {
             }
             
             // 如果收藏状态相同，按文件名排序（不区分大小写，支持中文和数字）
-            const aTitle = (a.pageTitle || '').trim();
-            const bTitle = (b.pageTitle || '').trim();
+            const aTitle = String(a.title || '').trim();
+            const bTitle = String(b.title || '').trim();
             const titleCompare = aTitle.localeCompare(bTitle, 'zh-CN', { numeric: true, sensitivity: 'base' });
             if (titleCompare !== 0) {
                 return titleCompare;
@@ -648,6 +637,7 @@ class SessionManager {
         if (!sourceSession) {
             throw new Error('源会话不存在');
         }
+
         
         // 如果启用后端同步且有 sessionApi，先从后端获取源会话的完整数据（包括页面上下文）
         if (this.enableBackendSync && this.sessionApi) {
@@ -677,7 +667,9 @@ class SessionManager {
         const duplicatedSession = {
             id: newSessionId,
             url: sourceSession.url || '',
-            pageTitle: sourceSession.pageTitle ? `${sourceSession.pageTitle} (副本)` : '新会话 (副本)',
+            title: sourceSession.title
+                ? `${sourceSession.title} (副本)`
+                : '新会话 (副本)',
             pageDescription: sourceSession.pageDescription || '',
             pageContent: sourceSession.pageContent || '',
             messages: sourceSession.messages ? JSON.parse(JSON.stringify(sourceSession.messages)) : [],
@@ -713,20 +705,18 @@ class SessionManager {
         const now = Date.now();
         
         session.url = info.url || session.url;
-        // 兼容 pageInfo 中可能只有 title 字段而没有 pageTitle 字段的情况
-        // 只有当 pageInfo 中有有效标题时，才更新（避免覆盖从后端加载的有效标题）
-        const newPageTitle = info.pageTitle || info.title || '';
-        const currentPageTitle = session.pageTitle || session.title || '';
-        const isDefaultTitle = !currentPageTitle || 
-                              currentPageTitle.trim() === '' ||
-                              currentPageTitle === '未命名会话' ||
-                              currentPageTitle === '新会话' ||
-                              currentPageTitle === '未命名页面' ||
-                              currentPageTitle === '当前页面';
+        const newTitle = info.title || '';
+        const currentTitle = session.title || '';
+        const isDefaultTitle = !currentTitle ||
+                              currentTitle.trim() === '' ||
+                              currentTitle === '未命名会话' ||
+                              currentTitle === '新会话' ||
+                              currentTitle === '未命名页面' ||
+                              currentTitle === '当前页面';
         
         // 只有当新标题有效且（当前标题是默认值或新标题与当前标题不同）时才更新
-        if (newPageTitle && newPageTitle.trim() !== '' && (isDefaultTitle || newPageTitle !== currentPageTitle)) {
-            session.pageTitle = newPageTitle;
+        if (newTitle && newTitle.trim() !== '' && (isDefaultTitle || newTitle !== currentTitle)) {
+            session.title = newTitle;
         }
         // 兼容 pageInfo 中可能只有 description 字段而没有 pageDescription 字段的情况
         session.pageDescription = info.pageDescription || info.description || session.pageDescription;
@@ -746,7 +736,7 @@ class SessionManager {
             return false;
         }
         
-        session.pageTitle = title;
+        session.title = title;
         session.updatedAt = Date.now();
         return true;
     }
@@ -915,7 +905,7 @@ class SessionManager {
         
         // 先从本地搜索
         const localResults = this.getAllSessions().filter(session => {
-            const searchText = `${session.pageTitle} ${session.url}`.toLowerCase();
+            const searchText = `${session.title || ''} ${session.url}`.toLowerCase();
             return searchText.includes(query.toLowerCase());
         }).slice(0, limit);
         
@@ -965,4 +955,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.SessionManager = SessionManager;
 }
-

@@ -195,7 +195,7 @@
 
             const titleText = document.createElement('span');
             titleText.className = 'session-title-text';
-            const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.pageTitle || session.title || '未命名会话');
+            const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.title || '未命名会话');
             titleText.textContent = sessionTitle;
             titleText.title = sessionTitle;
             if (session.isFavorite) {
@@ -446,7 +446,7 @@
                             manager.showNotification('无法删除：会话缺少标识符', 'error');
                             return;
                         }
-                        const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.pageTitle || session.title || '未命名会话');
+                        const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.title || '未命名会话');
                         if (confirm(`确定要删除会话 "${sessionTitle}" 吗？`)) {
                             await manager.deleteSession(sessionKey);
                         }

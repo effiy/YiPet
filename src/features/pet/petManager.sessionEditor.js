@@ -300,12 +300,23 @@
                 return;
             }
     
-            const newTitle = titleInput.value.trim();
+            const ensureMdSuffix = (str) => {
+                if (!str || !String(str).trim()) return '';
+                const s = String(str).trim();
+                return s.endsWith('.md') ? s : `${s}.md`;
+            };
+
+            const stripMdSuffix = (str) => {
+                const s = String(str || '').trim();
+                return s.toLowerCase().endsWith('.md') ? s.slice(0, -3) : s;
+            };
+
+            const rawNewTitle = titleInput.value.trim();
             const newUrl = urlInput ? urlInput.value.trim() : '';
             const newDescription = descriptionInput ? descriptionInput.value.trim() : '';
     
             // 如果标题为空，不进行更新
-            if (newTitle === '') {
+            if (rawNewTitle === '') {
                 if (this.showNotification) {
                     this.showNotification('标题不能为空', 'error');
                 } else {
@@ -316,10 +327,12 @@
             }
     
             const session = this.sessions[sessionId];
-            const originalTitle = session.pageTitle || session.title || '未命名会话';
+            const originalTitle = session.title || '未命名会话';
             const originalUrl = session.url || '';
             const originalDescription = session.pageDescription || '';
-            const titleChanged = newTitle !== originalTitle;
+            const normalizedNewTitle = ensureMdSuffix(rawNewTitle);
+            const normalizedOriginalTitle = ensureMdSuffix(originalTitle);
+            const titleChanged = normalizedNewTitle !== normalizedOriginalTitle;
     
             // 如果标题、网址和描述都没有变化，不需要更新
             if (!titleChanged && newUrl === originalUrl && newDescription === originalDescription) {
@@ -330,7 +343,7 @@
             try {
                 // 如果标题改变，需要调用 rename-file 接口重命名文件
                 if (titleChanged) {
-                    console.log('[saveSessionInfo] 标题已改变，需要重命名文件:', originalTitle, '->', newTitle);
+                    console.log('[saveSessionInfo] 标题已改变，需要重命名文件:', normalizedOriginalTitle, '->', normalizedNewTitle);
                     
                     // 构建文件路径的辅助函数
                     const buildFilePath = (session, title) => {
@@ -374,9 +387,9 @@
                     
                     // 构建旧路径和新路径
                     // 注意：构建新路径时，需要临时使用新标题，但保持其他会话数据不变
-                    const oldPath = buildFilePath(session, originalTitle);
-                    const tempSession = { ...session, pageTitle: newTitle, title: newTitle };
-                    const newPath = buildFilePath(tempSession, newTitle);
+                    const oldPath = buildFilePath(session, normalizedOriginalTitle);
+                    const tempSession = { ...session, title: normalizedNewTitle };
+                    const newPath = buildFilePath(tempSession, normalizedNewTitle);
                     
                     // 如果路径不同，调用 rename-file 接口
                     if (oldPath && newPath && oldPath !== newPath) {
@@ -433,8 +446,7 @@
                 }
                 
                 // 更新会话信息
-                session.pageTitle = newTitle;
-                session.title = newTitle;
+                session.title = normalizedNewTitle;
                 session.url = newUrl;
                 session.pageDescription = newDescription;
                 session.updatedAt = Date.now();
@@ -456,7 +468,7 @@
                     }
                 }
     
-                console.log('会话信息已更新:', { title: newTitle, url: newUrl, description: newDescription });
+                console.log('会话信息已更新:', { title: normalizedNewTitle, url: newUrl, description: newDescription });
     
                 // 显示成功提示
                 if (this.showNotification) {
@@ -480,7 +492,7 @@
             const context = {
                 messages: [],
                 pageContent: '',
-                pageTitle: '',
+                title: '',
                 pageDescription: '',
                 url: '',
                 hasHistory: false
@@ -505,9 +517,7 @@
             if (session.pageContent && session.pageContent.trim()) {
                 context.pageContent = session.pageContent.trim();
             }
-            if (session.pageTitle) {
-                context.pageTitle = session.pageTitle;
-            }
+            context.title = session.title || '';
             if (session.pageDescription) {
                 context.pageDescription = session.pageDescription;
             }
@@ -550,11 +560,11 @@
     
                 // 构建生成标题的 prompt
                 let systemPrompt = '你是一个专业的助手，擅长根据会话内容生成简洁、准确的标题。';
-                let userPrompt = '请根据以下会话内容，生成一个简洁、准确的标题（不超过20个字）：\n\n';
+                let userPrompt = '请根据以下会话内容，生成一个简洁、准确的标题（不超过20个字，不要包含“.md”后缀）：\n\n';
     
                 // 添加页面信息
-                if (context.pageTitle) {
-                    userPrompt += `页面标题：${context.pageTitle}\n`;
+                if (context.title) {
+                    userPrompt += `页面标题：${stripMdSuffix(context.title)}\n`;
                 }
                 if (context.url) {
                     userPrompt += `页面URL：${context.url}\n`;
@@ -709,6 +719,8 @@
     
                 // 清理标题（移除可能的引号、换行等）
                 generatedTitle = generatedTitle.replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim();
+                generatedTitle = stripMdSuffix(generatedTitle);
+                generatedTitle = ensureMdSuffix(generatedTitle);
     
                 // 限制长度
                 if (generatedTitle.length > 50) {
@@ -766,8 +778,8 @@
                 let userPrompt = '请根据以下会话内容，生成一个简洁、准确的网页描述：\n\n';
     
                 // 添加页面信息
-                if (context.pageTitle) {
-                    userPrompt += `页面标题：${context.pageTitle}\n`;
+                if (context.title) {
+                    userPrompt += `页面标题：${stripMdSuffix(context.title)}\n`;
                 }
                 if (context.url) {
                     userPrompt += `页面URL：${context.url}\n`;
@@ -981,8 +993,8 @@
                 userPrompt += `当前描述：${currentDescription}\n\n`;
     
                 // 添加页面信息以提供上下文
-                if (context.pageTitle) {
-                    userPrompt += `页面标题：${context.pageTitle}\n`;
+                if (context.title) {
+                    userPrompt += `页面标题：${stripMdSuffix(context.title)}\n`;
                 }
                 if (context.url) {
                     userPrompt += `页面URL：${context.url}\n`;

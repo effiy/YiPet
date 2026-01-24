@@ -1966,8 +1966,7 @@
             // 获取当前会话名称
             if (manager.currentSessionId && manager.sessions && manager.sessions[manager.currentSessionId]) {
                 const session = manager.sessions[manager.currentSessionId];
-                // 优先使用 pageTitle，如果没有则使用 title（兼容后端可能返回 title 字段的情况）
-                const sessionTitle = session.pageTitle || session.title || '未命名会话';
+                const sessionTitle = session.title || '未命名会话';
                 // 如果标题太长，截断并添加省略号
                 const displayTitle = sessionTitle.length > 20
                     ? sessionTitle.substring(0, 20) + '...'

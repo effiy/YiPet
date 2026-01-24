@@ -286,8 +286,8 @@
       if (aTime !== bTime) {
         return bTime - aTime;
       }
-      const aTitle = String(a.pageTitle || a.id || '').trim();
-      const bTitle = String(b.pageTitle || b.id || '').trim();
+      const aTitle = String(a.title || a.id || '').trim();
+      const bTitle = String(b.title || b.id || '').trim();
       return aTitle.localeCompare(bTitle);
     });
     const listItems = document.createElement('div');

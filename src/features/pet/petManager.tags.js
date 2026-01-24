@@ -665,7 +665,8 @@
 
                 try {
                     // 收集页面上下文信息
-                    const pageTitle = session.pageTitle || '当前页面';
+                    const title = (session.title || '当前页面');
+                    const displayTitle = String(title).replace(/\.md$/i, '');
                     const pageUrl = session.url || window.location.href;
                     const pageDescription = session.pageDescription || '';
 
@@ -696,7 +697,7 @@
 
                     // 构建用户提示词
                     let userPrompt = `页面信息：
-- 标题：${pageTitle}
+- 标题：${displayTitle}
 - 网址：${pageUrl}`;
 
                     if (pageDescription) {

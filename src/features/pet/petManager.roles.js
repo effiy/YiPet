@@ -112,13 +112,13 @@
             throw new Error(`角色 ${actionKey} 未配置 prompt，请在角色设置中配置提示词`);
         }
 
-        const pageTitle = pageInfo.title || document.title || '当前页面';
+        const title = pageInfo.title || document.title || '当前页面';
         const pageUrl = pageInfo.url || window.location.href;
         const pageDescription = pageInfo.description || '';
         const pageContent = pageInfo.content || '';
 
         // 构建 userPrompt
-        const userPrompt = `页面标题：${pageTitle}
+        const userPrompt = `页面标题：${title}
 页面URL：${pageUrl}
 ${pageDescription ? `页面描述：${pageDescription}` : ''}
 
@@ -310,7 +310,7 @@ ${pageContent || '无内容'}
                 if (this.currentSessionId && this.sessions && this.sessions[this.currentSessionId]) {
                     const session = this.sessions[this.currentSessionId];
                     pageInfo = {
-                        title: session.pageTitle || document.title || '当前页面',
+                        title: session.title || document.title || '当前页面',
                         url: session.url || window.location.href,
                         description: session.pageDescription || '',
                         content: session.pageContent || ''
@@ -327,11 +327,11 @@ ${pageContent || '无内容'}
                 }
 
                 // 准备上下文信息
-                const pageTitle = pageInfo.title || document.title || '当前页面';
+                const title = pageInfo.title || document.title || '当前页面';
                 const pageUrl = pageInfo.url || window.location.href;
                 const pageDescription = pageInfo.description || '';
                 const pageContent = pageInfo.content || '';
-                let baseUserPrompt = `页面标题：${pageTitle}
+                let baseUserPrompt = `页面标题：${title}
 页面URL：${pageUrl}
 ${pageDescription ? `页面描述：${pageDescription}` : ''}
 
@@ -503,7 +503,7 @@ ${pageContent || '无内容'}
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
                 pageInfo = {
-                    title: session.pageTitle || document.title || '当前页面',
+                    title: session.title || document.title || '当前页面',
                     url: session.url || window.location.href,
                     description: session.pageDescription || '',
                     content: session.pageContent || '' // 使用会话保存的页面内容

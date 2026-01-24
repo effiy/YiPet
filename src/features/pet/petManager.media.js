@@ -63,9 +63,8 @@
                     if (refreshedSession && this.sessions[this.currentSessionId]) {
                         // 更新本地会话数据，保留本地的最新消息（可能包含未同步的数据）
                         const localSession = this.sessions[this.currentSessionId];
-                        // 统一处理 pageTitle：优先使用 pageTitle，如果没有则使用 title
-                        const refreshedPageTitle = refreshedSession.pageTitle || refreshedSession.title || '';
-                        this.sessions[this.currentSessionId] = {
+                        const refreshedTitle = refreshedSession.title || '';
+                        const merged = {
                             ...refreshedSession,
                             id: this.currentSessionId,
                             // 如果本地消息更新，保留本地消息
@@ -76,12 +75,11 @@
                             pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
                                 ? localSession.pageContent
                                 : (refreshedSession.pageContent || localSession.pageContent || ''),
-                            // 优先保留本地的 pageTitle（如果本地有内容），否则使用后端的
-                            pageTitle: (localSession.pageTitle && localSession.pageTitle.trim() !== '')
-                                ? localSession.pageTitle
-                                : refreshedPageTitle,
-
+                            title: (localSession.title && localSession.title.trim() !== '')
+                                ? localSession.title
+                                : (refreshedTitle || localSession.title || ''),
                         };
+                        this.sessions[this.currentSessionId] = merged;
                         console.log('会话内容已从后端刷新:', this.currentSessionId);
                     }
                 } catch (refreshError) {

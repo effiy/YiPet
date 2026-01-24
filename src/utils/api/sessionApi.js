@@ -148,8 +148,7 @@ class SessionApiManager extends BaseApiManager {
             const normalized = {
                 key: String(sessionKey), // data 中必须包含 key
                 url: String(sessionData.url || ''),
-                title: String(sessionData.title || sessionData.pageTitle || ''),
-                pageTitle: String(sessionData.pageTitle || sessionData.title || ''),
+                title: String(sessionData.title || ''),
                 pageDescription: String(sessionData.pageDescription || ''),
                 pageContent: String(sessionData.pageContent || ''),
                 messages: Array.isArray(sessionData.messages) ? sessionData.messages : [],

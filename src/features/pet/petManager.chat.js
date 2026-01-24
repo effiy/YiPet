@@ -319,8 +319,7 @@
         // 获取当前会话名称
         if (this.currentSessionId && this.sessions[this.currentSessionId]) {
             const session = this.sessions[this.currentSessionId];
-            // 优先使用 pageTitle，如果没有则使用 title（兼容后端可能返回 title 字段的情况）
-            const sessionTitle = session.pageTitle || session.title || '未命名会话';
+            const sessionTitle = session.title || '未命名会话';
             // 如果标题太长，截断并添加省略号
             const displayTitle = sessionTitle.length > 20
                 ? sessionTitle.substring(0, 20) + '...'
@@ -843,7 +842,7 @@
                 // 如果会话没有 url 对象或者 url 对象为空，就不设置 url
                 const sessionUrl = session.url && session.url.trim() ? session.url : null;
                 pageInfo = {
-                    title: session.pageTitle || document.title || '当前页面',
+                    title: session.title || document.title || '当前页面',
                     url: sessionUrl || window.location.href,
                     description: session.pageDescription || ''
                 };
@@ -921,7 +920,7 @@
         }
 
         const pageInfo = {
-            title: session.pageTitle || document.title || '当前页面',
+            title: session.title || document.title || '当前页面',
             url: session.url || window.location.href,
             description: session.pageDescription || ''
         };
@@ -1089,11 +1088,18 @@
 
                     // 构建要发送到后端的会话数据（不包含 key）
                     // 优先使用当前页面 URL，如果没有则使用会话数据中的 URL
+                    const addMdSuffix = (str) => {
+                        if (!str || !String(str).trim()) return str;
+                        const s = String(str).trim();
+                        return s.endsWith('.md') ? s : `${s}.md`;
+                    };
+
+                    const title = addMdSuffix(sessionData.title || '新会话');
+
                     const sessionDataToSave = {
                         // 不包含 key 字段，让后端生成
                         url: currentUrl || sessionData.url || '',
-                        title: sessionData.title || sessionData.pageTitle || '新会话.md',
-                        pageTitle: sessionData.pageTitle || sessionData.title || '',
+                        title: title,
                         pageDescription: sessionData.pageDescription || '',
                         pageContent: sessionData.pageContent || '',
                         messages: sessionData.messages || [],

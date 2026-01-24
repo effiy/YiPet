@@ -130,7 +130,7 @@
 
             // 比较标签和标题
             if (sessionNormalizedTags === normalizedTags &&
-                session.pageTitle === title) {
+                session.title === title) {
                 return session;
             }
         }
@@ -282,7 +282,7 @@
                                 tags = tags.filter(tag => tag !== '未分类');
 
                                 // 使用导入的标题（如果markdown中没有标题，使用文件名）
-                                const title = parsed.pageTitle || item.title;
+                                const title = parsed.title || item.title;
 
                                 // 查找是否存在相同的会话（根据标签和标题）
                                 const existingSession = this._findSessionByTagsAndTitle(tags, title);
@@ -294,7 +294,7 @@
 
                                     if (session) {
                                         // 更新会话信息
-                                        session.pageTitle = title;
+                                        session.title = title;
                                         session.pageDescription = parsed.pageDescription || session.pageDescription || '';
                                         // 用新文件里面的内容覆盖原来会话的页面上下文内容
                                         session.pageContent = parsed.pageContent || item.pageContent || '';
@@ -382,7 +382,6 @@
                                     const pageInfo = {
                                         url: uniqueUrl,
                                         title: title,
-                                        pageTitle: title,
                                         description: parsed.pageDescription || '',
                                         pageDescription: parsed.pageDescription || '',
                                         // 优先使用解析出的页面内容，如果没有则使用原始导入内容
@@ -537,7 +536,7 @@
 
                 // 生成导出数据
                 const timestamp = fullSessionData.updatedAt || fullSessionData.createdAt || Date.now();
-                const title = this._sanitizeFileName(fullSessionData.pageTitle || '未命名会话');
+                const title = this._sanitizeFileName(fullSessionData.title || '未命名会话');
                 const tags = fullSessionData.tags || [];
 
                 // 生成页面上下文内容（合并 context 和 chat）

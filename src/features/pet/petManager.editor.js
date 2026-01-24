@@ -435,10 +435,24 @@
 
             // 如果当前有会话，也更新会话中的页面内容
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                const pageTitle = document.title || '当前页面';
                 const session = this.sessions[this.currentSessionId];
                 session.pageContent = pageContent;
-                session.pageTitle = pageTitle;
+                const documentTitle = document.title || '当前页面';
+                const currentTitle = session.title || '';
+                const ensureMdSuffix = (str) => {
+                    if (!str || !String(str).trim()) return '';
+                    const s = String(str).trim();
+                    return s.endsWith('.md') ? s : `${s}.md`;
+                };
+                const isDefaultTitle = !currentTitle ||
+                    currentTitle.trim() === '' ||
+                    currentTitle === '未命名会话' ||
+                    currentTitle === '新会话' ||
+                    currentTitle === '未命名页面' ||
+                    currentTitle === '当前页面';
+                if (isDefaultTitle) {
+                    session.title = ensureMdSuffix(documentTitle);
+                }
                 // 更新会话时间戳，确保保存逻辑识别到变化
                 session.updatedAt = Date.now();
                 session.lastAccessTime = Date.now();
@@ -615,19 +629,18 @@
             session.pageContent = pageContent || '';
 
             // 更新页面信息（确保信息是最新的）
-            // 优先保留会话的 pageTitle（如果已有有效标题），避免覆盖从后端加载的标题
             const pageInfo = this.getPageInfo();
-            const currentPageTitle = pageInfo.title || pageInfo.pageTitle || document.title || '当前页面';
-            const sessionPageTitle = session.pageTitle || session.title || '';
-            const isDefaultTitle = !sessionPageTitle ||
-                                  sessionPageTitle.trim() === '' ||
-                                  sessionPageTitle === '未命名会话' ||
-                                  sessionPageTitle === '新会话' ||
-                                  sessionPageTitle === '未命名页面' ||
-                                  sessionPageTitle === '当前页面';
+            const currentPageTitle = pageInfo.title || document.title || '当前页面';
+            const sessionTitle = session.title || '';
+            const isDefaultTitle = !sessionTitle ||
+                                  sessionTitle.trim() === '' ||
+                                  sessionTitle === '未命名会话' ||
+                                  sessionTitle === '新会话' ||
+                                  sessionTitle === '未命名页面' ||
+                                  sessionTitle === '当前页面';
 
             // 只有当标题是默认值时才更新，否则保留原有标题
-            session.pageTitle = isDefaultTitle ? currentPageTitle : sessionPageTitle;
+            session.title = isDefaultTitle ? currentPageTitle : sessionTitle;
             session.pageDescription = pageInfo.description || session.pageDescription || '';
             session.url = pageInfo.url || session.url || window.location.href;
 
@@ -730,8 +743,14 @@
             session.lastAccessTime = Date.now();
 
             // 如果页面标题还没有设置，同时更新页面标题
-            if (!session.pageTitle || session.pageTitle === '当前页面') {
-                session.pageTitle = document.title || '当前页面';
+            if (!session.title || session.title === '当前页面') {
+                const documentTitle = document.title || '当前页面';
+                const ensureMdSuffix = (str) => {
+                    if (!str || !String(str).trim()) return '';
+                    const s = String(str).trim();
+                    return s.endsWith('.md') ? s : `${s}.md`;
+                };
+                session.title = ensureMdSuffix(documentTitle);
             }
 
             // 异步保存到存储（同步到后端）

@@ -344,7 +344,7 @@
 
                 // 获取会话标题用于提示
                 const session = this.sessions[sessionId];
-                const sessionTitle = session?.pageTitle || sessionId || '未命名会话';
+                const sessionTitle = session?.title || sessionId || '未命名会话';
 
                 // 确认删除（如果未跳过确认）
                 if (!skipConfirm) {

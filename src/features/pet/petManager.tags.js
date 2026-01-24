@@ -1110,13 +1110,44 @@
                 // 更新UI显示
                 await this.updateSessionSidebar(true);
 
-                // 调用 update_document 接口同步到服务端
-                if (typeof this.callUpdateDocument === 'function') {
-                    try {
-                        await this.callUpdateDocument(sessionId);
-                        console.log('[saveTags] update_document 接口调用成功');
-                    } catch (updateError) {
-                        console.error('[saveTags] 调用 update_document 接口失败:', updateError);
+                if (this.sessionApi && typeof this.sessionApi.isEnabled === 'function' && this.sessionApi.isEnabled()) {
+                    const apiUrl = this.sessionApi.baseUrl || (typeof PET_CONFIG !== 'undefined' ? PET_CONFIG.api.yiaiBaseUrl : '');
+                    const base = String(apiUrl || '').replace(/\/+$/, '');
+                    if (base) {
+                        try {
+                            const payload = {
+                                module_name: 'services.database.data_service',
+                                method_name: 'update_document',
+                                parameters: {
+                                    cname: 'sessions',
+                                    key: sessionId,
+                                    data: {
+                                        key: sessionId,
+                                        tags: uniqueTags,
+                                        pageDescription: session.pageDescription || '',
+                                        updatedAt: session.updatedAt || Date.now()
+                                    }
+                                }
+                            };
+                            const response = await fetch(`${base}/`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+                                },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                throw new Error(`HTTP ${response.status}: ${errorText}`);
+                            }
+
+                            await response.json();
+                            console.log('[saveTags] update_document 接口调用成功');
+                        } catch (updateError) {
+                            console.error('[saveTags] 调用 update_document 接口失败:', updateError);
+                        }
                     }
                 }
 

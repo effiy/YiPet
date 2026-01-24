@@ -1394,36 +1394,81 @@
             // 合并新消息到现有消息列表
             const updatedMessages = [...existingMessages, ...newMessages];
 
-            // 构建完整的会话数据
-            const sessionData = {
+            const normalizeMessagesForBackend = (messages) => {
+                const list = Array.isArray(messages) ? messages : [];
+                return list.map((m) => {
+                    const type = (m && m.type === 'pet') ? 'pet' : 'user';
+                    const message = String(m?.message ?? m?.content ?? '').trim();
+                    const timestamp = Number(m?.timestamp) || Date.now();
+                    const imageDataUrls = Array.isArray(m?.imageDataUrls) ? m.imageDataUrls.filter(Boolean) : [];
+                    const imageDataUrl = String(m?.imageDataUrl || '').trim();
+                    const payload = {
+                        type,
+                        message,
+                        timestamp
+                    };
+                    if (imageDataUrls.length > 0) {
+                        payload.imageDataUrls = imageDataUrls;
+                        payload.imageDataUrl = imageDataUrls[0];
+                    } else if (imageDataUrl) {
+                        payload.imageDataUrl = imageDataUrl;
+                        payload.imageDataUrls = [imageDataUrl];
+                    }
+                    if (m?.error) payload.error = true;
+                    if (m?.aborted) payload.aborted = true;
+                    return payload;
+                });
+            };
+
+            const sessionUrl = session.url || '';
+            const pageDescription = session.pageDescription || '';
+            const now = Date.now();
+
+            const localSessionData = {
                 key: sessionId,
-                url: session.url || '',
+                url: sessionUrl,
                 title: session.title || '',
-                pageDescription: session.pageDescription || '',
-                pageContent: session.pageContent || '',
+                pageDescription: pageDescription,
                 messages: updatedMessages,
                 tags: Array.isArray(session.tags) ? session.tags : [],
                 isFavorite: session.isFavorite !== undefined ? Boolean(session.isFavorite) : false,
-                createdAt: session.createdAt || Date.now(),
-                updatedAt: Date.now(),
-                lastAccessTime: Date.now()
+                createdAt: session.createdAt || now,
+                updatedAt: now,
+                lastAccessTime: now
             };
 
             // 更新本地会话数据
             if (!this.sessions[sessionId]) {
                 this.sessions[sessionId] = {};
             }
-            Object.assign(this.sessions[sessionId], sessionData);
+            Object.assign(this.sessions[sessionId], localSessionData);
 
             // 调用 update_document 接口
             if (this.sessionApi && this.sessionApi.isEnabled()) {
+                const isAicrSession = String(sessionUrl || '').startsWith('aicr-session://') || String(pageDescription || '').includes('文件：');
+                const backendSessionData = {
+                    key: sessionId,
+                    url: sessionUrl,
+                    title: localSessionData.title,
+                    pageDescription: pageDescription,
+                    messages: normalizeMessagesForBackend(updatedMessages),
+                    tags: localSessionData.tags,
+                    isFavorite: localSessionData.isFavorite,
+                    createdAt: localSessionData.createdAt,
+                    updatedAt: localSessionData.updatedAt,
+                    lastAccessTime: localSessionData.lastAccessTime
+                };
+                if (!isAicrSession && session._isApiRequestSession && session.pageContent && String(session.pageContent).trim() !== '') {
+                    backendSessionData.pageContent = String(session.pageContent || '');
+                }
+
                 const payload = {
                     module_name: 'services.database.data_service',
                     method_name: 'update_document',
                     parameters: {
                         cname: 'sessions',
                         key: sessionId,
-                        data: sessionData
+                        data: backendSessionData
                     }
                 };
 

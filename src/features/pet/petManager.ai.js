@@ -12,28 +12,18 @@
 
     proto.showSettingsModal = function() {
         if (!this.chatWindow) return;
-        const cleanup = () => {
-            if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-                this.setHeaderToggleButtonsHidden(false, 'ai-settings');
-                return;
-            }
-            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.hidden = false;
-            if (inputToggleBtn) inputToggleBtn.hidden = false;
-        };
         const existing = this.chatWindow.querySelector('#pet-ai-settings');
-        if (existing) {
-            cleanup();
-            existing.remove();
-        }
+        if (existing) existing.remove();
         const overlay = document.createElement('div');
         overlay.id = 'pet-ai-settings';
         overlay.style.setProperty('z-index', `${PET_CONFIG.ui.zIndex.modal}`, 'important');
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
-                cleanup();
                 overlay.remove();
+                const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+                const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+                if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+                if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
             }
         });
         const panel = document.createElement('div');
@@ -71,16 +61,22 @@
         saveBtn.addEventListener('click', () => {
             this.currentModel = select.value;
             this.saveState && this.saveState();
-            cleanup();
             overlay.remove();
+            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+            if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
             this.showNotification && this.showNotification('模型已更新', 'success');
         });
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'pet-ai-settings-cancel-btn';
         cancelBtn.textContent = '取消';
         cancelBtn.addEventListener('click', () => {
-            cleanup();
             overlay.remove();
+            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+            if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         });
         buttons.appendChild(tokenBtn);
         buttons.appendChild(cancelBtn);
@@ -90,14 +86,10 @@
         panel.appendChild(buttons);
         overlay.appendChild(panel);
         this.chatWindow.appendChild(overlay);
-        if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-            this.setHeaderToggleButtonsHidden(true, 'ai-settings');
-        } else {
-            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.hidden = true;
-            if (inputToggleBtn) inputToggleBtn.hidden = true;
-        }
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
     };
 
     // 去除 think 内容（思考过程）

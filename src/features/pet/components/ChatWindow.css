@@ -3109,10 +3109,6 @@
     font-weight: 500;
 }
 
-.batch-selected-count[data-count="0"] {
-    display: none !important;
-}
-
 .batch-toolbar-right {
     display: flex;
     align-items: center;
@@ -4506,20 +4502,20 @@
     transform: scale(1.1) !important;
 }
 
-/* Textarea Auto-resize (CSS preferred over JS) */
+/* Textarea Auto-resize (动态高度通过 JS 控制，这里只定义基础样式) */
 #pet-chat-window .yi-pet-chat-textarea {
     min-height: 60px !important;
-    field-sizing: content !important; /* Modern CSS for auto-resize */
 }
 
 /* Batch Toolbar */
-.session-sidebar.batch-mode-active #batch-toolbar {
+#pet-chat-window #batch-toolbar.js-visible,
+#batch-toolbar.js-visible {
     display: flex !important;
 }
 
-#pet-chat-window #batch-toolbar,
-#batch-toolbar {
-    display: none;
+#pet-chat-window #batch-toolbar:not(.js-visible),
+#batch-toolbar:not(.js-visible) {
+    display: none !important;
 }
 
 /* Message Delete Animation */
@@ -4530,37 +4526,31 @@
 }
 
 /* Session List */
-#pet-chat-window .session-list,
-.session-list {
+#pet-chat-window .session-list.js-visible,
+.session-list.js-visible {
     display: block !important;
 }
 
-/* API Request List Hidden by default */
-#pet-chat-window .api-request-list,
-.api-request-list {
+/* API Request List Hidden */
+#pet-chat-window .api-request-list.js-hidden,
+.api-request-list.js-hidden {
     display: none !important;
 }
 
-#pet-chat-window .api-request-tag-filter-container,
-.api-request-tag-filter-container {
-    display: none !important;
-}
-
-/* Draft Images Container - Hide when empty */
-#pet-chat-window .yi-pet-chat-draft-images:empty,
-.yi-pet-chat-draft-images:empty {
+#pet-chat-window .api-request-tag-filter-container.js-hidden,
+.api-request-tag-filter-container.js-hidden {
     display: none !important;
 }
 
 /* Tag Filter Container */
-#pet-chat-window .tag-filter-container,
-.tag-filter-container {
+#pet-chat-window .tag-filter-container.js-visible,
+.tag-filter-container.js-visible {
     display: block !important;
 }
 
 /* Scrollable Content */
-#pet-chat-window .session-sidebar-scrollable-content,
-.session-sidebar-scrollable-content {
+#pet-chat-window .session-sidebar-scrollable-content.js-visible,
+.session-sidebar-scrollable-content.js-visible {
     display: flex !important;
 }
 
@@ -4571,29 +4561,12 @@
     opacity: 0 !important;
 }
 
-#pet-chat-window[hidden] {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
+#pet-chat-window:not(.js-hidden) {
+    display: block !important;
+    visibility: visible !important;
 }
 
 /* Copy Button Success State */
 #pet-chat-window .pet-chat-meta-btn.js-copy-success {
     color: rgba(34, 197, 94, 0.9) !important;
-}
-
-/* Image Preview Loading (Refactored from JS) */
-.image-preview-container {
-    position: relative !important;
-}
-
-/* Hide loading indicator when image is loaded or has error */
-img.js-loaded + .image-preview-loading,
-img.js-error + .image-preview-loading {
-    display: none !important;
-}
-
-/* Request Body Editor Visibility (Refactored from JS) */
-.pet-request-form-input[data-body-type="none"] {
-    display: none !important;
 }

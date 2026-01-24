@@ -49,6 +49,7 @@
             if (this.chatWindowComponent && typeof this.chatWindowComponent.setSidebarCollapsed === 'function') {
                 this.chatWindowComponent.setSidebarCollapsed(false);
             } else if (this.sessionSidebar) {
+                this.sessionSidebar.classList.remove('js-hidden');
                 this.sessionSidebar.classList.remove('collapsed');
             }
         }

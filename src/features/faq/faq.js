@@ -259,7 +259,7 @@
     // 标签管理面板
     const tagManager = document.createElement('div');
     tagManager.className = 'pet-faq-tag-manager';
-    tagManager.hidden = true;
+    tagManager.classList.add('tw-hidden');
     tagManager.setAttribute('aria-label', '标签管理面板');
 
     const tagManagerHeader = document.createElement('div');
@@ -325,12 +325,12 @@
     // 状态信息
     const statusDiv = document.createElement('div');
     statusDiv.className = 'pet-faq-status';
-    statusDiv.hidden = true;
+    statusDiv.classList.add('tw-hidden');
     statusDiv.setAttribute('role', 'status');
 
     const errorDiv = document.createElement('div');
     errorDiv.className = 'pet-faq-error';
-    errorDiv.hidden = true;
+    errorDiv.classList.add('tw-hidden');
     errorDiv.setAttribute('role', 'status');
 
     // FAQ列表
@@ -370,7 +370,7 @@
                               this.faqTagFilterNoTags || this.faqTagFilterReverse;
       clearFilterBtn.disabled = !hasActiveFilter;
       tagManagerBtn.classList.toggle('active', !!this.faqTagManagerVisible);
-      tagManager.hidden = !this.faqTagManagerVisible;
+      tagManager.classList.toggle('tw-hidden', !this.faqTagManagerVisible);
       // 更新刷新按钮的禁用状态（当加载中时禁用）
       const isLoading = overlay._isLoading || false;
       refreshBtn.disabled = isLoading;
@@ -478,14 +478,10 @@
       overlay.classList.add('pet-is-visible');
       
       // 隐藏侧边栏和输入框的折叠按钮
-      if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-        this.setHeaderToggleButtonsHidden(true, 'faq-manager');
-      } else {
-        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.hidden = true;
-        if (inputToggleBtn) inputToggleBtn.hidden = true;
-      }
+      const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+      const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+      if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+      if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
       
       // 清空搜索关键词
       if (this.faqSearchFilter) {
@@ -504,14 +500,9 @@
           this.showNotification('常见问题功能未启用：FAQ API 未初始化', 'error');
         }
         overlay.classList.remove('pet-is-visible');
-        if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-          this.setHeaderToggleButtonsHidden(false, 'faq-manager');
-        } else {
-          const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-          const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-          if (sidebarToggleBtn) sidebarToggleBtn.hidden = false;
-          if (inputToggleBtn) inputToggleBtn.hidden = false;
-        }
+        // 恢复按钮显示
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         return;
       }
       
@@ -523,14 +514,9 @@
           this.showNotification('常见问题功能未启用：FAQ API 未启用', 'error');
         }
         overlay.classList.remove('pet-is-visible');
-        if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-          this.setHeaderToggleButtonsHidden(false, 'faq-manager');
-        } else {
-          const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-          const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-          if (sidebarToggleBtn) sidebarToggleBtn.hidden = false;
-          if (inputToggleBtn) inputToggleBtn.hidden = false;
-        }
+        // 恢复按钮显示
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         return;
       }
       
@@ -585,28 +571,20 @@
       if (overlay) {
         overlay.classList.remove('pet-is-visible');
       }
-      if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-        this.setHeaderToggleButtonsHidden(false, 'faq-manager');
-      } else {
-        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.hidden = false;
-        if (inputToggleBtn) inputToggleBtn.hidden = false;
-      }
+      const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+      const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+      if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+      if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     }
   };
 
   proto.closeFaqManagerOnly = function() {
     const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
     if (!overlay) return;
-    if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-      this.setHeaderToggleButtonsHidden(false, 'faq-manager');
-    } else {
-      const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-      const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-      if (sidebarToggleBtn) sidebarToggleBtn.hidden = false;
-      if (inputToggleBtn) inputToggleBtn.hidden = false;
-    }
+    const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+    const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+    if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+    if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     overlay.classList.remove('pet-is-visible');
     const faqInput = overlay.querySelector('.pet-faq-input');
     if (faqInput) {
@@ -893,9 +871,9 @@
       if (overlay._updateTagFilterButtons) {
         overlay._updateTagFilterButtons();
       }
-      statusDiv.hidden = false;
+      statusDiv.classList.remove('tw-hidden');
       statusDiv.textContent = '正在加载常见问题...';
-      errorDiv.hidden = true;
+      errorDiv.classList.add('tw-hidden');
 
       if (!this.faqApi) {
         throw new Error('FAQ API 未初始化');
@@ -936,7 +914,7 @@
         summary.textContent = `共 ${normalized.length} 条，匹配 ${filteredFaqs.length} 条`;
       }
 
-      statusDiv.hidden = true;
+      statusDiv.classList.add('tw-hidden');
       faqsContainer.innerHTML = '';
 
       if (filteredFaqs.length === 0) {
@@ -969,8 +947,8 @@
 
     } catch (err) {
       console.error('加载常见问题失败:', err);
-      statusDiv.hidden = true;
-      errorDiv.hidden = false;
+      statusDiv.classList.add('tw-hidden');
+      errorDiv.classList.remove('tw-hidden');
       const errorMessage = err.message || '加载常见问题失败';
       errorDiv.textContent = errorMessage;
       faqsContainer.innerHTML = '';

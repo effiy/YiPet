@@ -19,17 +19,14 @@
             return;
         }
 
+        tagModal.classList.remove('tw-hidden');
+        tagModal.classList.add('tw-flex');
         tagModal.dataset.faqIndex = faqIndex;
 
-        tagModal.hidden = false;
-        if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-            this.setHeaderToggleButtonsHidden(true, 'faq-tag-manager');
-        } else {
-            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.hidden = true;
-            if (inputToggleBtn) inputToggleBtn.hidden = true;
-        }
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
 
         this.loadFaqTagsIntoManager(faqIndex, currentTags);
 
@@ -91,15 +88,13 @@
         const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
         if (!tagModal) return;
 
-        tagModal.hidden = true;
-        if (typeof this.setHeaderToggleButtonsHidden === 'function') {
-            this.setHeaderToggleButtonsHidden(false, 'faq-tag-manager');
-        } else {
-            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.hidden = false;
-            if (inputToggleBtn) inputToggleBtn.hidden = false;
-        }
+        tagModal.classList.add('tw-hidden');
+        tagModal.classList.remove('tw-flex');
+
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
 
         const escHandler = tagModal._escHandler;
         if (escHandler) {
@@ -114,8 +109,7 @@
 
         const modal = document.createElement('div');
         modal.id = 'pet-faq-tag-manager';
-        modal.className = 'tw-fixed tw-inset-0 tw-bg-black-25 tw-flex tw-items-center tw-justify-center tw-z-modal';
-        modal.hidden = true;
+        modal.className = 'tw-fixed tw-inset-0 tw-bg-black-25 tw-hidden tw-items-center tw-justify-center tw-z-modal';
 
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {

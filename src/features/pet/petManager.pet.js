@@ -98,7 +98,11 @@
         this.pet.style.height = `${this.size}px`;
         this.pet.style.backgroundImage = `url(${iconUrl})`;
         this.pet.style.zIndex = `${PET_CONFIG.ui.zIndex.pet}`;
-        this.pet.hidden = !this.isVisible;
+        if (this.isVisible) {
+            this.pet.classList.remove('tw-hidden');
+        } else {
+            this.pet.classList.add('tw-hidden');
+        }
     };
 
     // 显示加载动画（使用角色run目录下的连续图片，优化版：避免重复请求）

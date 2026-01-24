@@ -160,7 +160,7 @@
             chatHeader.appendChild(headerButtons);
             
             // Sidebar Toggle Button - 添加到 header（绝对定位）
-            // chatHeader.style.position = 'relative'; // Removed: Handled in CSS
+            chatHeader.style.position = 'relative';
             const sidebarToggleBtn = document.createElement('button');
             sidebarToggleBtn.id = 'sidebar-toggle-btn';
             sidebarToggleBtn.className = 'yi-pet-chat-header-btn sidebar-toggle-btn';
@@ -244,22 +244,22 @@
             clearBtn.type = 'button';
             clearBtn.className = 'session-search-clear-btn';
 
-            // JS-based visibility toggle removed in favor of CSS :placeholder-shown
-            // const updateClearButton = () => { ... };
+            const updateClearButton = () => {
+                const visible = !!searchInput.value;
+                clearBtn.classList.toggle('visible', visible);
+            };
 
             clearBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 searchInput.value = '';
                 manager.sessionTitleFilter = '';
-                // updateClearButton(); // Removed
-                // Manually trigger input event to update placeholder-shown state if needed, 
-                // but value='' handles it.
+                updateClearButton();
                 if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
             });
 
             searchInput.addEventListener('input', (e) => {
                 manager.sessionTitleFilter = e.target.value.trim();
-                // updateClearButton(); // Removed
+                updateClearButton();
                 if (this._searchTimer) clearTimeout(this._searchTimer);
                 this._searchTimer = setTimeout(() => {
                     if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
@@ -270,13 +270,13 @@
                 if (e.key === 'Escape') {
                     searchInput.value = '';
                     manager.sessionTitleFilter = '';
-                    // updateClearButton(); // Removed
+                    updateClearButton();
                     if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
                 }
             });
 
             searchInput.addEventListener('click', (e) => e.stopPropagation());
-            // updateClearButton(); // Removed
+            updateClearButton();
 
             searchContainer.appendChild(searchIcon);
             searchContainer.appendChild(searchInput);
@@ -323,7 +323,7 @@
                 const fileInput = document.createElement('input');
                 fileInput.type = 'file';
                 fileInput.accept = '.zip';
-                fileInput.hidden = true;
+                fileInput.className = 'js-hidden';
                 fileInput.addEventListener('change', async (e) => {
                     const file = e.target.files[0];
                     if (file && typeof manager.importSessionsFromZip === 'function') {
@@ -953,7 +953,7 @@
             this.imageInput.type = 'file';
             this.imageInput.accept = 'image/*';
             this.imageInput.multiple = true;
-            this.imageInput.hidden = true;
+            this.imageInput.className = 'js-hidden';
             this.imageInput.id = 'yi-pet-chat-image-input';
             this.imageInput.addEventListener('change', (e) => {
                 this.handleImageInputChange(e);
@@ -995,8 +995,7 @@
 
             // Draft Images Container
             this.draftImagesContainer = document.createElement('div');
-            // Visibility handled by CSS :empty selector
-            this.draftImagesContainer.className = 'yi-pet-chat-draft-images';
+            this.draftImagesContainer.className = 'yi-pet-chat-draft-images js-hidden';
             this.draftImagesContainer.setAttribute('aria-label', '待发送图片');
             inputWrapper.appendChild(this.draftImagesContainer);
 
@@ -1013,21 +1012,35 @@
             textarea.setAttribute('aria-label', '会话输入框');
 
 
-            // Input State Management - Removed as it was unused and replaced by CSS if needed
-            // const updateInputState = () => { ... };
+            // Input State Management
+            const updateInputState = () => {
+                const hasContent = textarea.value.trim().length > 0;
+                if (hasContent) {
+                    textarea.classList.add('chat-message-input--has-content');
+                } else {
+                    textarea.classList.remove('chat-message-input--has-content');
+                }
+            };
 
             // Auto-resize
             textarea.addEventListener('input', () => {
-                // Height adjustment handled by CSS field-sizing: content
-                // textarea.style.height = 'auto';
-                // const newHeight = Math.max(60, textarea.scrollHeight);
-                // textarea.style.height = newHeight + 'px';
-                
+                textarea.style.height = 'auto';
+                const newHeight = Math.max(60, textarea.scrollHeight);
+                textarea.style.height = newHeight + 'px';
+                updateInputState();
+
                 // Scroll messages to bottom if needed (智能滚动)
                 this.scrollToBottom();
             });
 
-            // Focus effects listeners removed (handled by CSS)
+            // Focus effects
+            textarea.addEventListener('focus', () => {
+                // Background and box shadow handled by CSS
+            });
+
+            textarea.addEventListener('blur', () => {
+                // Background and box shadow handled by CSS
+            });
 
             // Paste Image Support
             textarea.addEventListener('paste', async (e) => {
@@ -1098,6 +1111,7 @@
                         e.preventDefault();
                         textarea.value = '';
                         textarea.style.height = '60px';
+                        updateInputState();
                         textarea.blur();
                     }
                     return;
@@ -1198,13 +1212,12 @@
             if (!this.draftImagesContainer) return;
 
             if (this.draftImages.length === 0) {
-                // Handled by CSS :empty selector
-                // this.draftImagesContainer.classList.add('js-hidden');
+                this.draftImagesContainer.classList.add('js-hidden');
                 this.draftImagesContainer.innerHTML = '';
                 return;
             }
 
-            // this.draftImagesContainer.classList.remove('js-hidden');
+            this.draftImagesContainer.classList.remove('js-hidden');
 
             // 使用 DocumentFragment 提高性能
             const fragment = document.createDocumentFragment();
@@ -1229,13 +1242,13 @@
                 // 图片加载错误处理
                 img.addEventListener('error', () => {
                     imageWrapper.classList.add('yi-pet-chat-draft-image-error');
-                    // img.classList.add('tw-hidden'); // Handled by CSS
+                    img.classList.add('tw-hidden');
                 });
 
                 // 图片加载成功
                 img.addEventListener('load', () => {
                     imageWrapper.classList.remove('yi-pet-chat-draft-image-loading');
-                    // img.classList.remove('tw-hidden'); // Handled by CSS
+                    img.classList.remove('tw-hidden');
                 });
 
                 // 点击预览

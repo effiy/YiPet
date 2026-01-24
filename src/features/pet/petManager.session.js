@@ -112,7 +112,8 @@
             this.sessions[sessionId] = newSession;
 
             // 调用 write-file 接口写入页面上下文（参考 YiWeb 的 handleSessionCreate）
-            if (newSession.pageContent && newSession.pageContent.trim()) {
+            // 即使页面内容为空，也需要创建文件
+            if (typeof this.writeSessionPageContent === 'function') {
                 await this.writeSessionPageContent(sessionId);
             }
 
@@ -2143,6 +2144,84 @@
         }
     };
 
+    // 调用 delete-file 接口删除会话对应的文件
+    proto.deleteSessionFile = async function (sessionId) {
+        const session = this.sessions[sessionId];
+        if (!session) {
+            console.warn('[deleteSessionFile] 会话不存在:', sessionId);
+            return;
+        }
+
+        // 获取 API 基础 URL（参考 YiWeb 的实现）
+        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
+            ? String(window.API_URL).replace(/\/+$/, '')
+            : ((typeof PET_CONFIG !== 'undefined' ? PET_CONFIG?.api?.yiaiBaseUrl : '') || '');
+
+        if (!apiBase) {
+            console.warn('[deleteSessionFile] API_URL 未配置，跳过 delete-file 接口调用');
+            return;
+        }
+
+        // 构建文件路径（参考 writeSessionPageContent 的逻辑）
+        let cleanPath = '';
+
+        // 优先从会话的 tags 构建路径
+        const tags = Array.isArray(session.tags) ? session.tags : [];
+        let currentPath = '';
+        tags.forEach((folderName) => {
+            if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
+            currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+        });
+
+        // 使用 title 作为文件名
+        let fileName = session.title || 'Untitled';
+        fileName = String(fileName).replace(/\//g, '-'); // 清理文件名中的斜杠
+        cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
+        cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+
+        // 移除 static/ 前缀（如果有）
+        if (cleanPath.startsWith('static/')) {
+            cleanPath = cleanPath.substring(7);
+        }
+        cleanPath = cleanPath.replace(/^\/+/, '');
+
+        // 如果 cleanPath 仍然为空，使用会话的 key 作为文件名（作为最后的备选方案）
+        if (!cleanPath && session.key) {
+            cleanPath = `session_${session.key}.txt`;
+        }
+
+        // 确保有路径后才调用接口
+        if (!cleanPath) {
+            console.warn('[deleteSessionFile] 无法确定文件路径，跳过 delete-file 接口调用');
+            return;
+        }
+
+        try {
+            console.log('[deleteSessionFile] 调用 delete-file 接口，路径:', cleanPath);
+            const res = await fetch(`${apiBase}/delete-file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_file: cleanPath
+                })
+            });
+
+            if (res.ok) {
+                const json = await res.json();
+                if (json.code === 0 || json.code === 200) {
+                    console.log('[deleteSessionFile] delete-file 接口调用成功，文件路径:', cleanPath);
+                } else {
+                    console.warn('[deleteSessionFile] delete-file 接口返回异常:', json);
+                }
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                console.warn('[deleteSessionFile] delete-file 接口调用失败，状态码:', res.status, errorData.message || '');
+            }
+        } catch (error) {
+            console.warn('[deleteSessionFile] delete-file 接口调用异常（已忽略）:', error?.message);
+        }
+    };
+
     // 删除会话
     proto.deleteSession = async function (sessionId, skipConfirm = false) {
         if (!sessionId || !this.sessions[sessionId]) return;
@@ -2155,6 +2234,11 @@
         if (!skipConfirm) {
             const confirmDelete = confirm(`确定要删除会话"${sessionTitle}"吗？`);
             if (!confirmDelete) return;
+        }
+
+        // 调用 delete-file 接口删除对应的文件
+        if (typeof this.deleteSessionFile === 'function') {
+            await this.deleteSessionFile(sessionId);
         }
 
         // 记录是否删除的是当前会话

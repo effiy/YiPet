@@ -1179,10 +1179,9 @@
                                 this.sessions[sessionId] = newSession;
 
                                 // 调用 write-file 接口写入页面上下文（参考 YiWeb 的 handleSessionCreate）
-                                if (newSession.pageContent && newSession.pageContent.trim()) {
-                                    if (typeof this.writeSessionPageContent === 'function') {
-                                        await this.writeSessionPageContent(sessionId);
-                                    }
+                                // 即使页面内容为空，也需要创建文件
+                                if (typeof this.writeSessionPageContent === 'function') {
+                                    await this.writeSessionPageContent(sessionId);
                                 }
 
                                 // 保存到本地存储

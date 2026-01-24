@@ -1001,15 +1001,124 @@
                     .filter(tag => tag.length > 0);
                 const uniqueTags = [...new Set(normalizedTags)];
 
+                // 构建文件路径的辅助函数
+                const buildFilePath = (s, title) => {
+                    // 优先从会话的 tags 构建路径
+                    const tags = Array.isArray(s.tags) ? s.tags : [];
+                    let currentPath = '';
+                    tags.forEach((folderName) => {
+                        if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
+                        currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+                    });
+                    
+                    // 清理文件名（移除特殊字符，避免路径问题）
+                    const sanitizeFileName = (name) => String(name || '').replace(/[\/\\:*?"<>|]/g, '-').trim();
+                    let fileName = sanitizeFileName(title) || 'Untitled';
+                    fileName = String(fileName).replace(/\//g, '-');
+                    
+                    let cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
+                    cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+                    if (cleanPath.startsWith('static/')) {
+                        cleanPath = cleanPath.substring(7);
+                    }
+                    cleanPath = cleanPath.replace(/^\/+/, '');
+                    
+                    // 如果 cleanPath 仍然为空，尝试从 pageDescription 获取
+                    if (!cleanPath) {
+                        const pageDesc = s.pageDescription || '';
+                        if (pageDesc && pageDesc.includes('文件：')) {
+                            const filePath = pageDesc.replace('文件：', '').trim();
+                            const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+                            cleanPath = dirPath + fileName;
+                            cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
+                            if (cleanPath.startsWith('static/')) {
+                                cleanPath = cleanPath.substring(7);
+                            }
+                            cleanPath = cleanPath.replace(/^\/+/, '');
+                        }
+                    }
+                    
+                    return cleanPath;
+                };
+
+                // 记录旧路径
+                const originalTitle = session.title || '未命名会话';
+                const titleWithSuffix = (originalTitle.toLowerCase().endsWith('.md')) ? originalTitle : `${originalTitle}.md`;
+                const oldPath = buildFilePath(session, titleWithSuffix);
+
                 // 更新会话标签
                 session.tags = uniqueTags;
                 session.updatedAt = Date.now();
+
+                // 记录新路径
+                const newPath = buildFilePath(session, titleWithSuffix);
+
+                // 如果路径不同，调用 rename-file 接口
+                if (oldPath && newPath && oldPath !== newPath) {
+                    console.log('[saveTags] 准备重命名文件:', oldPath, '->', newPath);
+                    
+                    // 获取 API 基础 URL
+                    const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL)) 
+                        ? String(window.API_URL).replace(/\/+$/, '') 
+                        : (typeof PET_CONFIG !== 'undefined' ? PET_CONFIG?.api?.yiaiBaseUrl : '');
+                    
+                    if (apiBase) {
+                        try {
+                            const response = await fetch(`${apiBase}/rename-file`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
+                                },
+                                body: JSON.stringify({
+                                    old_path: oldPath,
+                                    new_path: newPath
+                                })
+                            });
+                            
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                throw new Error(`HTTP ${response.status}: ${errorText}`);
+                            }
+                            
+                            const result = await response.json();
+                            
+                            if (result.status === 200 || result.success !== false) {
+                                console.log('[saveTags] 文件重命名成功:', result);
+                                
+                                // 更新会话的 pageDescription 中的文件路径
+                                if (session.pageDescription && session.pageDescription.includes('文件：')) {
+                                    session.pageDescription = session.pageDescription.replace(
+                                        /文件：.*/,
+                                        `文件：${newPath}`
+                                    );
+                                }
+                            } else {
+                                console.warn('[saveTags] 文件重命名失败:', result);
+                            }
+                        } catch (renameError) {
+                            console.error('[saveTags] 调用 rename-file 接口失败:', renameError);
+                        }
+                    } else {
+                        console.warn('[saveTags] API_URL 未配置，跳过 rename-file 接口调用');
+                    }
+                }
 
                 // 保存会话到本地
                 await this.saveAllSessions(false, true);
 
                 // 更新UI显示
                 await this.updateSessionSidebar(true);
+
+                // 调用 update_document 接口同步到服务端
+                if (typeof this.callUpdateDocument === 'function') {
+                    try {
+                        await this.callUpdateDocument(sessionId);
+                        console.log('[saveTags] update_document 接口调用成功');
+                    } catch (updateError) {
+                        console.error('[saveTags] 调用 update_document 接口失败:', updateError);
+                    }
+                }
 
                 // 显示成功提示
                 if (this.showNotification) {

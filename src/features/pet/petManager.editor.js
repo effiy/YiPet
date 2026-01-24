@@ -640,7 +640,12 @@
                                   sessionTitle === '当前页面';
 
             // 只有当标题是默认值时才更新，否则保留原有标题
-            session.title = isDefaultTitle ? currentPageTitle : sessionTitle;
+            const ensureMdSuffix = (str) => {
+                if (!str || !String(str).trim()) return '';
+                const s = String(str).trim();
+                return s.endsWith('.md') ? s : `${s}.md`;
+            };
+            session.title = isDefaultTitle ? ensureMdSuffix(currentPageTitle) : sessionTitle;
             session.pageDescription = pageInfo.description || session.pageDescription || '';
             session.url = pageInfo.url || session.url || window.location.href;
 

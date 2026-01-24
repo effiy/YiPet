@@ -265,6 +265,16 @@ class SessionManager {
     }
     
     /**
+     * 确保标题有 .md 后缀
+     * @private
+     */
+    _ensureMdSuffix(title) {
+        if (!title || !title.trim()) return title;
+        const trimmed = title.trim();
+        return trimmed.endsWith('.md') ? trimmed : trimmed + '.md';
+    }
+
+    /**
      * 创建会话对象
      * 使用 UUID 格式的 key 作为主要标识符
      */
@@ -275,18 +285,7 @@ class SessionManager {
         const rawTitle = pageInfo.title || document.title || '';
         let title = rawTitle || '新会话';
         
-        // 辅助函数：如果字符串不为空且没有 .md 后缀，则添加后缀
-        const addMdSuffix = (str) => {
-            if (!str || !str.trim()) return str;
-            return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md';
-        };
-        
-        if (title) {
-            title = addMdSuffix(title);
-        } else {
-            // 如果 title 为空，设置为 "新会话.md"
-            title = '新会话.md';
-        }
+        title = this._ensureMdSuffix(title);
         
         return {
             key: this._generateUUID(), // 生成 UUID 格式的 key
@@ -716,7 +715,7 @@ class SessionManager {
         
         // 只有当新标题有效且（当前标题是默认值或新标题与当前标题不同）时才更新
         if (newTitle && newTitle.trim() !== '' && (isDefaultTitle || newTitle !== currentTitle)) {
-            session.title = newTitle;
+            session.title = this._ensureMdSuffix(newTitle);
         }
         // 兼容 pageInfo 中可能只有 description 字段而没有 pageDescription 字段的情况
         session.pageDescription = info.pageDescription || info.description || session.pageDescription;
@@ -736,7 +735,7 @@ class SessionManager {
             return false;
         }
         
-        session.title = title;
+        session.title = this._ensureMdSuffix(title);
         session.updatedAt = Date.now();
         return true;
     }

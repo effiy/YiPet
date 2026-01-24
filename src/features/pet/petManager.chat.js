@@ -731,7 +731,7 @@
                 <div class="welcome-card-row">
                     <div class="welcome-card-label">网址</div>
                     <div class="welcome-card-value">
-                        <a href="${this.escapeHtml(pageInfo.url)}" target="_blank" class="welcome-card-url" id="${urlId}">${this.escapeHtml(pageInfo.url)}</a>
+                        <a href="${this.escapeHtml(pageInfo.url)}" target="_blank" rel="noopener noreferrer" class="welcome-card-url" id="${urlId}">${this.escapeHtml(pageInfo.url)}</a>
                     </div>
                     <button type="button" class="welcome-card-action-btn" data-copy-target="${urlId}" title="复制网址" aria-label="复制网址">
                         <i class="fas fa-copy"></i>

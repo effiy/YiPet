@@ -296,10 +296,8 @@
             // Action Buttons（批量模式下隐藏，参考 YiWeb 实现）
             const footerButtonContainer = document.createElement('div');
             footerButtonContainer.className = 'session-action-buttons';
-            if (manager.batchMode) {
-                footerButtonContainer.classList.add('js-hidden');
-            }
-
+            // js-hidden logic removed, handled by CSS .batch-mode-active .session-action-buttons
+            
             const createBtn = (icon, title, className, onClick) => {
                 const btn = document.createElement('button');
                 btn.innerHTML = icon;

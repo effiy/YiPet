@@ -71,7 +71,7 @@
             // 通过 data 属性传递 URL（避免内联脚本）
             const urlContainer = document.createElement('div');
             urlContainer.id = '__jszip_url_container__';
-            urlContainer.classList.add('tw-hidden');
+            urlContainer.hidden = true;
             urlContainer.setAttribute('data-jszip-url', scriptUrl);
             (document.head || document.documentElement).appendChild(urlContainer);
 
@@ -217,7 +217,7 @@
                 // 创建数据容器
                 const dataContainer = document.createElement('div');
                 dataContainer.id = '__jszip_import_data__';
-                dataContainer.classList.add('tw-hidden');
+                dataContainer.hidden = true;
                 dataContainer.setAttribute('data-import', base64Data);
                 (document.head || document.documentElement).appendChild(dataContainer);
 
@@ -602,7 +602,7 @@
                 // 创建数据容器（通过data属性传递数据，避免内联脚本）
                 const dataContainer = document.createElement('div');
                 dataContainer.id = '__jszip_export_data__';
-                dataContainer.classList.add('tw-hidden');
+                dataContainer.hidden = true;
                 dataContainer.setAttribute('data-export', JSON.stringify(exportData));
                 dataContainer.setAttribute('data-export-type', 'session');
                 (document.head || document.documentElement).appendChild(dataContainer);

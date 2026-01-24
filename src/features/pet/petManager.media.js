@@ -124,21 +124,20 @@
         const loadingIndicator = document.createElement('div');
         loadingIndicator.className = 'image-preview-loading';
 
-        imageContainer.appendChild(loadingIndicator);
-
         const img = document.createElement('img');
         // 样式已通过 CSS 类定义
         img.alt = fileName || '图片预览';
 
         // 图片加载成功
         img.onload = () => {
-            loadingIndicator.classList.add('js-hidden');
+            // loadingIndicator visibility handled by CSS (img.js-loaded + .image-preview-loading)
             img.classList.add('js-loaded');
         };
 
         // 图片加载失败
         img.onerror = () => {
-            loadingIndicator.classList.add('js-hidden');
+            // loadingIndicator visibility handled by CSS
+            img.classList.add('js-error');
             const errorMsg = document.createElement('div');
             errorMsg.className = 'image-preview-error';
             // 样式已通过 CSS 类定义
@@ -148,7 +147,10 @@
 
         // 直接使用图片地址进行预览
         img.src = imageUrl;
+        
+        // Append img first, then loadingIndicator to allow CSS sibling selector
         imageContainer.appendChild(img);
+        imageContainer.appendChild(loadingIndicator);
 
         // 创建标题栏（显示文件名）
         let titleBar = null;

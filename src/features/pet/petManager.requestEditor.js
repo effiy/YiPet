@@ -168,13 +168,13 @@
         // 更新Body编辑器
         proto.updateBodyEditor = function(typeSelect, textarea, body) {
             const type = typeSelect.value;
+            
+            // Use data attribute for CSS visibility control instead of js-hidden
+            textarea.setAttribute('data-body-type', type);
 
             if (type === 'none') {
-                textarea.classList.add('js-hidden');
                 textarea.value = '';
             } else {
-                textarea.classList.remove('js-hidden');
-
                 if (body !== null && body !== undefined) {
                     if (type === 'json') {
                         if (typeof body === 'object') {

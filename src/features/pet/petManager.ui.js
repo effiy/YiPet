@@ -139,9 +139,10 @@
 
     const clearBtn = document.createElement('button');
     clearBtn.className = 'tag-filter-search-clear';
-    if (input.value) {
-      clearBtn.classList.add('visible');
-    }
+    // Visibility handled by CSS :placeholder-shown
+    // if (input.value) {
+    //   clearBtn.classList.add('visible');
+    // }
     clearBtn.textContent = '✕';
     clearBtn.title = '清除';
 
@@ -149,7 +150,7 @@
       e.preventDefault();
       e.stopPropagation();
       input.value = '';
-      clearBtn.classList.remove('visible');
+      // clearBtn.classList.remove('visible'); // Handled by CSS
       if (typeof options.onClear === 'function') options.onClear();
     });
 
@@ -157,11 +158,12 @@
     const debounceMs = typeof options.debounce === 'number' ? options.debounce : 300;
     input.addEventListener('input', (e) => {
       const v = e.target.value || '';
-      if (v) {
-        clearBtn.classList.add('visible');
-      } else {
-        clearBtn.classList.remove('visible');
-      }
+      // Visibility handled by CSS
+      // if (v) {
+      //   clearBtn.classList.add('visible');
+      // } else {
+      //   clearBtn.classList.remove('visible');
+      // }
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         if (typeof options.onChange === 'function') options.onChange(v);
@@ -197,6 +199,22 @@
     return btn;
   };
 
+  proto.setHeaderToggleButtonsHidden = function (hidden, reason = 'default') {
+    if (!this._headerToggleHideReasons) {
+      this._headerToggleHideReasons = new Set();
+    }
+    if (hidden) {
+      this._headerToggleHideReasons.add(String(reason));
+    } else {
+      this._headerToggleHideReasons.delete(String(reason));
+    }
+    const shouldHide = this._headerToggleHideReasons.size > 0;
+    const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+    const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+    if (sidebarToggleBtn) sidebarToggleBtn.hidden = shouldHide;
+    if (inputToggleBtn) inputToggleBtn.hidden = shouldHide;
+  };
+
   proto.applyViewMode = function () {
     if (!this.sessionSidebar) return;
     const btnSession = this.sessionSidebar.querySelector('#view-toggle-session');
@@ -209,32 +227,33 @@
       console.log('会话侧边栏未创建，跳过更新');
       return;
     }
-    const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
-    if (apiRequestList) {
-      apiRequestList.classList.add('js-hidden');
-    }
-    const apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
-    if (apiRequestTagFilterContainer) {
-      apiRequestTagFilterContainer.classList.add('js-hidden');
-    }
+    // CSS handles visibility for api-request-list and api-request-tag-filter-container
+    // const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');
+    // if (apiRequestList) {
+    //   apiRequestList.classList.add('js-hidden');
+    // }
+    // const apiRequestTagFilterContainer = this.sessionSidebar.querySelector('.api-request-tag-filter-container');
+    // if (apiRequestTagFilterContainer) {
+    //   apiRequestTagFilterContainer.classList.add('js-hidden');
+    // }
     const tagFilterContainer = this.sessionSidebar.querySelector('.tag-filter-container');
     const batchToolbar = this.sessionSidebar.querySelector('#batch-toolbar');
     const scrollableContent = this.sessionSidebar.querySelector('.session-sidebar-scrollable-content');
-    if (tagFilterContainer) {
-      tagFilterContainer.classList.add('js-visible');
-    }
+    // if (tagFilterContainer) {
+    //   tagFilterContainer.classList.add('js-visible');
+    // }
     if (batchToolbar) {
       if (this.batchMode) {
-        batchToolbar.classList.add('visible', 'js-visible');
+        // batchToolbar.classList.add('visible', 'js-visible'); // Handled by CSS .batch-mode-active #batch-toolbar
         if (this.sessionSidebar) this.sessionSidebar.classList.add('batch-mode-active');
       } else {
-        batchToolbar.classList.remove('visible', 'js-visible');
+        // batchToolbar.classList.remove('visible', 'js-visible');
         if (this.sessionSidebar) this.sessionSidebar.classList.remove('batch-mode-active');
       }
     }
-    if (scrollableContent) {
-      scrollableContent.classList.add('js-visible');
-    }
+    // if (scrollableContent) {
+    //   scrollableContent.classList.add('js-visible');
+    // }
     const searchInput = this.sessionSidebar.querySelector('#session-search-input');
     if (searchInput) {
       searchInput.placeholder = '搜索会话...';
@@ -251,7 +270,7 @@
       console.log('会话列表容器未找到，跳过更新');
       return;
     }
-    sessionList.classList.add('js-visible');
+    // sessionList.classList.add('js-visible'); // Handled by CSS (default block)
     const prevScrollTop = sessionList.scrollTop;
     let allSessions = this._getFilteredSessions();
     sessionList.innerHTML = '';
@@ -459,12 +478,13 @@
 
     // 更新已选数量显示（参考 YiWeb 格式：已选 X 项）
     if (selectedCount) {
+      selectedCount.dataset.count = count;
       if (count > 0) {
         selectedCount.textContent = `已选 ${count} 项`;
-        selectedCount.classList.remove('js-hidden');
+        // selectedCount.classList.remove('js-hidden'); // Removed: handled by CSS [data-count="0"]
       } else {
         selectedCount.textContent = '';
-        selectedCount.classList.add('js-hidden');
+        // selectedCount.classList.add('js-hidden'); // Removed: handled by CSS [data-count="0"]
       }
     }
 
@@ -560,7 +580,7 @@
     const selectedCount = document.createElement('span');
     selectedCount.id = 'selected-count';
     selectedCount.className = 'batch-selected-count';
-    selectedCount.classList.add('js-hidden');
+    selectedCount.dataset.count = '0';
     selectedCount.textContent = '';
     leftSection.appendChild(selectedCount);
 

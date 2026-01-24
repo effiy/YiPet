@@ -53,7 +53,7 @@
             // 注：我们仍然需要通过页面上下文传递 URL，使用隐藏的 data 属性
             const urlContainer = document.createElement('div');
             urlContainer.id = '__mermaid_url_container__';
-            urlContainer.classList.add('tw-hidden');
+            urlContainer.hidden = true;
             urlContainer.setAttribute('data-mermaid-url', scriptUrl);
             (document.head || document.documentElement).appendChild(urlContainer);
 
@@ -242,7 +242,7 @@
                 // 为每个 mermaid 块使用唯一的容器 ID，避免冲突
                 const renderIdContainer = document.createElement('div');
                 renderIdContainer.id = `__mermaid_render_id_container__${mermaidId}`;
-                renderIdContainer.classList.add('tw-hidden');
+                renderIdContainer.hidden = true;
                 renderIdContainer.setAttribute('data-mermaid-id', mermaidId);
                 // 确保容器在页面上下文中（不是在 content script 的隔离 DOM）
                 (document.head || document.documentElement).appendChild(renderIdContainer);
@@ -598,7 +598,7 @@
                     const link = document.createElement('a');
                     link.href = url;
                     link.download = `mermaid-diagram-${Date.now()}.svg`;
-                    link.classList.add('tw-hidden');
+                    link.hidden = true;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -928,7 +928,7 @@
                     const link = document.createElement('a');
                     link.href = url;
                     link.download = `mermaid-diagram-${Date.now()}.png`;
-                    link.classList.add('tw-hidden');
+                    link.hidden = true;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -1252,7 +1252,7 @@
                 const renderIdContainer = document.createElement('div');
                 renderIdContainer.id = `__mermaid_render_id_container__${clonedMermaidId}`;
                 renderIdContainer.setAttribute('data-mermaid-id', clonedMermaidId);
-                renderIdContainer.classList.add('tw-hidden');
+                renderIdContainer.hidden = true;
                 document.body.appendChild(renderIdContainer);
 
                 const handleRender = (event) => {

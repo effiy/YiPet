@@ -41,22 +41,9 @@
                 return;
             }
 
-            // 隐藏聊天窗口以获取更清晰的截图
-            const originalChatHidden = this.chatWindow
-                ? (this.chatWindow.classList.contains('tw-hidden') || getComputedStyle(this.chatWindow).display === 'none')
-                : false;
-            if (this.chatWindow) {
-                this.chatWindow.classList.add('tw-hidden');
-            }
-
-            // 隐藏宠物（如果显示的话）
-            const originalPetHidden = this.pet
-                ? (this.pet.classList.contains('tw-hidden') || getComputedStyle(this.pet).display === 'none')
-                : false;
-            if (this.pet) {
-                this.pet.classList.add('tw-hidden');
-            }
-
+            // 隐藏聊天窗口和宠物以获取更清晰的截图
+            document.body.classList.add('yi-pet-screenshot-mode');
+            
             // 等待一小段时间确保窗口完全隐藏
             await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -71,11 +58,11 @@
             }
 
             if (dataUrl) {
-                // 保持聊天窗口和宠物隐藏，直到区域选择完成
-                this.showAreaSelector(dataUrl, originalChatHidden, originalPetHidden);
+                // 保持隐藏状态，直到区域选择完成
+                this.showAreaSelector(dataUrl);
             } else {
                 // 如果截图失败，恢复显示
-                this.restoreElements(originalChatHidden, originalPetHidden);
+                this.restoreElements();
                 this.showScreenshotNotification('截图失败，请检查权限设置或尝试刷新页面', 'error');
                 this.showPermissionHelp();
             }
@@ -84,13 +71,13 @@
             console.error('截图失败:', error);
             this.showScreenshotNotification('截图失败，请重试', 'error');
 
-            // 确保聊天窗口和宠物恢复显示
-            this.restoreElements(false, false);
+            // 确保恢复显示
+            this.restoreElements();
         }
     };
 
     // 显示区域选择器
-    proto.showAreaSelector = function (dataUrl, originalChatHidden = false, originalPetHidden = false) {
+    proto.showAreaSelector = function (dataUrl) {
         // 创建区域选择器覆盖层
         const overlay = document.createElement('div');
         overlay.id = 'area-selector-overlay';
@@ -153,10 +140,12 @@
                 selectionBox.style.top = startY + 'px';
                 selectionBox.style.width = '0px';
                 selectionBox.style.height = '0px';
-                selectionBox.classList.add('js-visible');
+                selectionBox.style.display = 'block';
+                // selectionBox.classList.add('js-visible');
 
                 // 隐藏提示
-                tipText.classList.add('js-hidden');
+                tipText.style.display = 'none';
+                // tipText.classList.add('js-hidden');
 
                 e.preventDefault();
             });
@@ -193,7 +182,7 @@
                         overlay.parentNode.removeChild(overlay);
                     }
                     // 恢复聊天窗口和宠物显示
-                    this.restoreElements(originalChatHidden, originalPetHidden);
+                    this.restoreElements();
                     return;
                 }
 
@@ -229,7 +218,7 @@
                 }
 
                 // 恢复聊天窗口和宠物显示
-                this.restoreElements(originalChatHidden, originalPetHidden);
+                this.restoreElements();
 
                 // 裁剪图片
                 this.cropAndDisplayScreenshot(dataUrl, actualX, actualY, actualWidth, actualHeight);
@@ -245,7 +234,7 @@
                         overlay.parentNode.removeChild(overlay);
                     }
                     // 恢复聊天窗口和宠物显示
-                    this.restoreElements(originalChatHidden, originalPetHidden);
+                    this.restoreElements();
                     window.removeEventListener('keydown', cancelHandler);
                 }
             };
@@ -254,21 +243,8 @@
     };
 
     // 恢复元素显示
-    proto.restoreElements = function (chatHidden, petHidden) {
-        if (this.chatWindow) {
-            if (chatHidden) {
-                this.chatWindow.classList.add('tw-hidden');
-            } else {
-                this.chatWindow.classList.remove('tw-hidden');
-            }
-        }
-        if (this.pet) {
-            if (petHidden) {
-                this.pet.classList.add('tw-hidden');
-            } else {
-                this.pet.classList.remove('tw-hidden');
-            }
-        }
+    proto.restoreElements = function () {
+        document.body.classList.remove('yi-pet-screenshot-mode');
     };
 
     // 裁剪并显示截图

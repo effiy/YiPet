@@ -2598,6 +2598,24 @@
                 metaActions.appendChild(copyBtn);
             }
 
+            if (messageBubble) {
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'pet-chat-meta-btn';
+                editBtn.setAttribute('data-standard-button', 'true');
+                editBtn.setAttribute('aria-label', '编辑消息');
+                editBtn.setAttribute('title', '编辑');
+                editBtn.textContent = '✏️';
+                editBtn.disabled = this.isProcessing || false;
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (this.manager && typeof this.manager.openMessageEditor === 'function') {
+                        this.manager.openMessageEditor(messageDiv);
+                    }
+                });
+                metaActions.appendChild(editBtn);
+            }
+
             if (!isUserMessage && hasContent && this.manager && typeof this.manager.getWeWorkRobotConfigs === 'function') {
                 try {
                     const configsRaw = await this.manager.getWeWorkRobotConfigs();

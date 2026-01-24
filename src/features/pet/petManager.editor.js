@@ -897,4 +897,334 @@
         }, 200);
     };
 
+    proto.ensureMessageEditorUi = function() {
+        if (!this.chatWindow) return;
+        if (document.getElementById('pet-message-editor')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'pet-message-editor';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', '编辑消息');
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.closeMessageEditor();
+            }
+        });
+
+        const modal = document.createElement('div');
+        modal.className = 'context-editor-modal';
+
+        const header = document.createElement('div');
+        header.className = 'context-editor-header';
+
+        const title = document.createElement('div');
+        title.className = 'context-editor-title';
+        title.textContent = '✏️ 编辑消息（Markdown）';
+
+        const headerBtns = document.createElement('div');
+        headerBtns.className = 'editor-header-btns';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.id = 'pet-message-copy-btn';
+        copyBtn.className = 'chat-toolbar-btn';
+        copyBtn.setAttribute('title', '复制内容');
+        copyBtn.textContent = '复制';
+        copyBtn.addEventListener('click', () => this.copyMessageEditor());
+
+        const saveBtn = document.createElement('button');
+        saveBtn.id = 'pet-message-save-btn';
+        saveBtn.className = 'chat-toolbar-btn';
+        saveBtn.setAttribute('title', '保存修改 (Ctrl+S / Cmd+S)');
+        saveBtn.textContent = '保存';
+        saveBtn.addEventListener('click', async () => {
+            if (saveBtn.hasAttribute('data-saving')) return;
+            saveBtn.setAttribute('data-saving', 'true');
+            saveBtn.removeAttribute('data-status');
+            const ok = await this.saveMessageEditor();
+            saveBtn.removeAttribute('data-saving');
+            if (typeof this._showSaveStatus === 'function') {
+                this._showSaveStatus(saveBtn, !!ok, '保存');
+            }
+        });
+
+        const closeBtn = document.createElement('div');
+        closeBtn.id = 'pet-message-close-btn';
+        closeBtn.setAttribute('aria-label', '关闭编辑器 (Esc)');
+        closeBtn.setAttribute('title', '关闭 (Esc)');
+        closeBtn.innerHTML = '✕';
+        closeBtn.onclick = () => this.closeMessageEditor();
+
+        headerBtns.appendChild(copyBtn);
+        headerBtns.appendChild(saveBtn);
+        headerBtns.appendChild(closeBtn);
+        header.appendChild(title);
+        header.appendChild(headerBtns);
+
+        const content = document.createElement('div');
+        content.className = 'context-editor-content';
+
+        const body = document.createElement('div');
+        body.className = 'context-editor-body';
+
+        const textarea = document.createElement('textarea');
+        textarea.id = 'pet-message-editor-textarea';
+
+        const preview = document.createElement('div');
+        preview.id = 'pet-message-preview';
+        preview.className = 'context-editor-preview markdown-content';
+        preview.addEventListener('wheel', (e) => { e.stopPropagation(); }, { passive: true });
+        preview.addEventListener('touchmove', (e) => { e.stopPropagation(); }, { passive: true });
+
+        textarea.addEventListener('input', () => {
+            if (this._messagePreviewTimer) clearTimeout(this._messagePreviewTimer);
+            this._messagePreviewTimer = setTimeout(() => {
+                this.updateMessagePreview();
+            }, 150);
+        });
+
+        textarea.addEventListener('scroll', () => {
+            const previewEl = this.chatWindow ? this.chatWindow.querySelector('#pet-message-preview') : null;
+            if (!previewEl) return;
+            const tMax = textarea.scrollHeight - textarea.clientHeight;
+            const pMax = previewEl.scrollHeight - previewEl.clientHeight;
+            if (tMax > 0 && pMax >= 0) {
+                const ratio = textarea.scrollTop / tMax;
+                previewEl.scrollTop = ratio * pMax;
+            }
+        }, { passive: true });
+
+        body.appendChild(textarea);
+        body.appendChild(preview);
+        content.appendChild(body);
+        modal.appendChild(header);
+        modal.appendChild(content);
+        overlay.appendChild(modal);
+
+        const currentPosition = window.getComputedStyle(this.chatWindow).position;
+        if (currentPosition === 'static') {
+            this.chatWindow.style.position = 'relative';
+        }
+
+        this.chatWindow.appendChild(overlay);
+    };
+
+    proto.updateMessageEditorPosition = function() {
+        if (!this.chatWindow) return;
+        const overlay = this.chatWindow.querySelector('#pet-message-editor');
+        if (!overlay) return;
+        const chatHeaderEl = this.chatWindow.querySelector('.chat-header');
+        const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60;
+        overlay.style.setProperty('--pet-message-editor-top', headerH + 'px');
+    };
+
+    proto.openMessageEditor = function(messageDiv) {
+        if (!messageDiv) return;
+        this.ensureMessageEditorUi();
+        const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor') : null;
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor-textarea') : null;
+        if (!overlay || !textarea) return;
+
+        const found = (typeof this.findMessageObjectByDiv === 'function') ? this.findMessageObjectByDiv(messageDiv) : null;
+        if (!found || !found.message) {
+            if (typeof this.showNotification === 'function') this.showNotification('未找到要编辑的消息', 'error');
+            return;
+        }
+
+        const originalText = String(found.message.content ?? found.message.message ?? '');
+        textarea.value = originalText;
+        textarea.setAttribute('data-original-text', originalText);
+
+        overlay.dataset.messageIndex = String(found.index);
+        overlay.dataset.messageType = String(found.message.type || '');
+
+        overlay.classList.add('js-visible');
+        this.updateMessageEditorPosition();
+        this.updateMessagePreview();
+
+        this._messageEditorTargetDiv = messageDiv;
+
+        setTimeout(() => {
+            try {
+                textarea.focus();
+                textarea.select();
+            } catch (_) { }
+        }, 0);
+
+        this._messageKeydownHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeMessageEditor();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                const saveBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-message-save-btn') : null;
+                if (saveBtn && !saveBtn.hasAttribute('data-saving')) {
+                    saveBtn.click();
+                }
+            }
+        };
+        document.addEventListener('keydown', this._messageKeydownHandler, { capture: true });
+
+        this._messageResizeHandler = () => this.updateMessageEditorPosition();
+        window.addEventListener('resize', this._messageResizeHandler, { passive: true });
+    };
+
+    proto.closeMessageEditor = function() {
+        const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor') : null;
+        if (overlay) overlay.classList.remove('js-visible');
+
+        if (this._messageKeydownHandler) {
+            document.removeEventListener('keydown', this._messageKeydownHandler, { capture: true });
+            this._messageKeydownHandler = null;
+        }
+        if (this._messageResizeHandler) {
+            window.removeEventListener('resize', this._messageResizeHandler);
+            this._messageResizeHandler = null;
+        }
+        this._messageEditorTargetDiv = null;
+    };
+
+    proto.updateMessagePreview = function() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor-textarea') : null;
+        const preview = this.chatWindow ? this.chatWindow.querySelector('#pet-message-preview') : null;
+        if (!textarea || !preview) return;
+
+        const markdown = textarea.value || '';
+        preview.innerHTML = this.renderMarkdown(markdown);
+
+        if (preview._mermaidTimer) {
+            clearTimeout(preview._mermaidTimer);
+            preview._mermaidTimer = null;
+        }
+        preview._mermaidTimer = setTimeout(async () => {
+            await this.processMermaidBlocks(preview);
+            preview._mermaidTimer = null;
+        }, 200);
+    };
+
+    proto.copyMessageEditor = function() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor-textarea') : null;
+        if (!textarea) return;
+
+        const content = textarea.value || '';
+        if (!content.trim()) return;
+
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        textArea.className = 'pet-clipboard-temp';
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        try {
+            document.execCommand('copy');
+            const copyBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-message-copy-btn') : null;
+            if (copyBtn) {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = '已复制';
+                copyBtn.setAttribute('data-status', 'success');
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.removeAttribute('data-status');
+                }, 1500);
+            }
+        } catch (err) {
+            console.error('复制失败:', err);
+        }
+
+        document.body.removeChild(textArea);
+    };
+
+    proto.saveMessageEditor = async function() {
+        if (!this.chatWindow || !this.currentSessionId || !this.sessions[this.currentSessionId]) {
+            return false;
+        }
+
+        const overlay = this.chatWindow.querySelector('#pet-message-editor');
+        const textarea = this.chatWindow.querySelector('#pet-message-editor-textarea');
+        if (!overlay || !textarea) return false;
+
+        const editedText = String(textarea.value ?? '');
+        const session = this.sessions[this.currentSessionId];
+
+        let messageIndex = -1;
+        if (this._messageEditorTargetDiv && typeof this.findMessageObjectByDiv === 'function') {
+            const found = this.findMessageObjectByDiv(this._messageEditorTargetDiv);
+            if (found && typeof found.index === 'number') {
+                messageIndex = found.index;
+            }
+        }
+        if (messageIndex < 0) {
+            const idx = Number(overlay.dataset.messageIndex);
+            if (Number.isFinite(idx)) messageIndex = idx;
+        }
+        if (messageIndex < 0 || messageIndex >= (session.messages ? session.messages.length : 0)) {
+            if (typeof this.showNotification === 'function') this.showNotification('消息定位失败，无法保存', 'error');
+            return false;
+        }
+
+        const msg = session.messages[messageIndex];
+        if (!msg) return false;
+
+        msg.content = editedText;
+        msg.message = editedText;
+        session.updatedAt = Date.now();
+        session.lastAccessTime = Date.now();
+
+        const targetDiv = this._messageEditorTargetDiv;
+        if (targetDiv) {
+            const isUserMessage = !!targetDiv.querySelector('[data-message-type="user-bubble"]');
+            const bubble = targetDiv.querySelector(isUserMessage ? '[data-message-type="user-bubble"]' : '[data-message-type="pet-bubble"]');
+            if (bubble) {
+                bubble.setAttribute('data-original-text', editedText);
+
+                let contentDiv = bubble.querySelector('.pet-chat-content');
+                const typingDiv = bubble.querySelector('.pet-chat-typing');
+                if (typingDiv) typingDiv.remove();
+
+                if (editedText.trim()) {
+                    if (!contentDiv) {
+                        contentDiv = document.createElement('div');
+                        contentDiv.className = 'pet-chat-content md-preview-body';
+                        const meta = bubble.querySelector('.pet-chat-meta');
+                        if (meta) {
+                            bubble.insertBefore(contentDiv, meta);
+                        } else {
+                            bubble.appendChild(contentDiv);
+                        }
+                    }
+                    contentDiv.innerHTML = this.renderMarkdown(editedText);
+                    setTimeout(async () => {
+                        try {
+                            await this.processMermaidBlocks(contentDiv);
+                        } catch (_) { }
+                    }, 80);
+                } else {
+                    if (contentDiv) contentDiv.remove();
+                }
+            }
+
+            if (this.chatWindowComponent && typeof this.chatWindowComponent.addActionButtonsToMessage === 'function') {
+                this.chatWindowComponent.addActionButtonsToMessage(targetDiv, true);
+            }
+        }
+
+        try {
+            if (typeof this.saveCurrentSession === 'function') {
+                await this.saveCurrentSession(false, true);
+            } else if (typeof this.saveAllSessions === 'function') {
+                await this.saveAllSessions(false, true);
+            }
+            if (this.sessionApi && typeof this.syncSessionToBackend === 'function' && PET_CONFIG.api.syncSessionsToBackend) {
+                await this.syncSessionToBackend(this.currentSessionId, true, false);
+            }
+        } catch (e) {
+            if (typeof this.showNotification === 'function') this.showNotification('保存失败', 'error');
+            return false;
+        }
+
+        if (typeof this.showNotification === 'function') this.showNotification('已保存', 'success');
+        this.closeMessageEditor();
+        return true;
+    };
+
 })(typeof window !== 'undefined' ? window : this);

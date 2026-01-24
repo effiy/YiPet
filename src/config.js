@@ -61,9 +61,9 @@ const DEFAULT_CONFIG = {
     ]
   },
   env: {
-    mode: "development",
+    mode: "production",
     flags: {
-      debug: true,
+      debug: false,
       mockApi: false,
       telemetry: false
     },

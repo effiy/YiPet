@@ -707,6 +707,19 @@
         // 构建欢迎卡片 HTML（只显示有值的字段）
         let pageInfoHtml = '<div class="welcome-card">';
 
+        const titleText = pageInfo && pageInfo.title && pageInfo.title.trim() ? pageInfo.title.trim() : '当前页面';
+        const safeTitle = this.escapeHtml(titleText);
+        const iconUrl = pageInfo && pageInfo.iconUrl && pageInfo.iconUrl.trim() ? pageInfo.iconUrl.trim() : '';
+
+        pageInfoHtml += `
+            <div class="welcome-card-header">
+                <div class="welcome-card-header-left">
+                    ${iconUrl ? `<img class="welcome-card-favicon" src="${this.escapeHtml(iconUrl)}" alt="" />` : ''}
+                    <div class="welcome-card-title" title="${safeTitle}">${safeTitle}</div>
+                </div>
+            </div>
+        `;
+
         // 检查是否有任何内容可显示
         const hasUrl = shouldShowUrl && pageInfo.url && pageInfo.url.trim();
 
@@ -715,14 +728,14 @@
         if (hasUrl) {
             const urlId = `welcome-url-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             pageInfoHtml += `
-                <div class="welcome-card-section">
-                    <div class="welcome-card-section-header">
-                        <div class="welcome-card-section-title">🔗 网址</div>
-                        <button type="button" class="welcome-card-action-btn" data-copy-target="${urlId}" title="复制网址" aria-label="复制网址">
-                            <i class="fas fa-copy"></i>
-                        </button>
+                <div class="welcome-card-row">
+                    <div class="welcome-card-label">网址</div>
+                    <div class="welcome-card-value">
+                        <a href="${this.escapeHtml(pageInfo.url)}" target="_blank" class="welcome-card-url" id="${urlId}">${this.escapeHtml(pageInfo.url)}</a>
                     </div>
-                    <a href="${this.escapeHtml(pageInfo.url)}" target="_blank" class="welcome-card-url" id="${urlId}">${this.escapeHtml(pageInfo.url)}</a>
+                    <button type="button" class="welcome-card-action-btn" data-copy-target="${urlId}" title="复制网址" aria-label="复制网址">
+                        <i class="fas fa-copy"></i>
+                    </button>
                 </div>
             `;
         }
@@ -731,14 +744,14 @@
         if (pageInfo.description && pageInfo.description.trim()) {
             const descId = `welcome-desc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             pageInfoHtml += `
-                <div class="welcome-card-section welcome-card-description">
-                    <div class="welcome-card-section-header">
-                        <div class="welcome-card-section-title">📝 页面描述</div>
-                        <button type="button" class="welcome-card-action-btn" data-copy-text="${this.escapeHtml(pageInfo.description)}" title="复制描述" aria-label="复制描述">
-                            <i class="fas fa-copy"></i>
-                        </button>
+                <div class="welcome-card-row welcome-card-row--multiline">
+                    <div class="welcome-card-label">描述</div>
+                    <div class="welcome-card-value welcome-card-value--stack welcome-card-description">
+                        <div class="markdown-content" id="${descId}">${this.renderMarkdown(pageInfo.description)}</div>
                     </div>
-                    <div class="markdown-content" id="${descId}">${this.renderMarkdown(pageInfo.description)}</div>
+                    <button type="button" class="welcome-card-action-btn" data-copy-text="${this.escapeHtml(pageInfo.description)}" title="复制描述" aria-label="复制描述">
+                        <i class="fas fa-copy"></i>
+                    </button>
                 </div>
             `;
         }
@@ -750,16 +763,15 @@
                 return `<span class="welcome-card-tag">${escapedTag}</span>`;
             }).join('');
             pageInfoHtml += `
-                <div class="welcome-card-section">
-                    <div class="welcome-card-section-title">🏷️ 标签</div>
-                    <div class="welcome-card-tags">${tagsHtml}</div>
+                <div class="welcome-card-row welcome-card-row--multiline">
+                    <div class="welcome-card-label">标签</div>
+                    <div class="welcome-card-value welcome-card-tags">${tagsHtml}</div>
                 </div>
             `;
         }
 
-        // 消息数量（如果有消息）
+        const footerMetaItems = [];
         if (sessionMessages.length > 0) {
-            // 兼容 role 和 type 字段
             const userMessages = sessionMessages.filter(m => {
                 if (!m || typeof m !== 'object') return false;
                 const role = m.role || (m.type === 'user' ? 'user' : null);
@@ -771,38 +783,37 @@
                 return role === 'assistant' || role === 'pet';
             }).length;
 
-            pageInfoHtml += `
-                <div class="welcome-card-section">
-                    <div class="welcome-card-section-title">💬 对话记录</div>
-                    <div class="welcome-card-meta">
-                        <span>共 ${sessionMessages.length} 条消息</span>
-                        ${userMessages > 0 ? `<span>（用户: ${userMessages} 条）</span>` : ''}
-                        ${assistantMessages > 0 ? `<span>（助手: ${assistantMessages} 条）</span>` : ''}
-                    </div>
-                </div>
-            `;
+            const detailParts = [];
+            if (userMessages > 0) detailParts.push(`用户 ${userMessages}`);
+            if (assistantMessages > 0) detailParts.push(`助手 ${assistantMessages}`);
+            const detailText = detailParts.length > 0 ? `（${detailParts.join(' / ')}）` : '';
+            footerMetaItems.push(`<span>消息 ${sessionMessages.length}${detailText}</span>`);
         }
 
-        // 时间信息（合并显示创建时间和更新时间）
         if (sessionCreatedAt || sessionUpdatedAt) {
             const createdDate = sessionCreatedAt ? new Date(sessionCreatedAt) : null;
             const updatedDate = sessionUpdatedAt ? new Date(sessionUpdatedAt) : null;
             const hasValidCreated = createdDate && !isNaN(createdDate.getTime());
             const hasValidUpdated = updatedDate && !isNaN(updatedDate.getTime());
             const isSameTime = hasValidCreated && hasValidUpdated &&
-                Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000; // 1分钟内视为相同
+                Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000;
 
-            if (hasValidCreated || hasValidUpdated) {
-                pageInfoHtml += `
-                    <div class="welcome-card-section">
-                        <div class="welcome-card-section-title">⏰ 时间信息</div>
-                        <div class="welcome-card-meta">
-                            ${hasValidCreated ? `<span>创建: ${this.escapeHtml(this.formatDate(createdDate))}</span>` : ''}
-                            ${hasValidUpdated && !isSameTime ? `<span>更新: ${this.escapeHtml(this.formatDate(updatedDate))}</span>` : ''}
-                        </div>
-                    </div>
-                `;
+            if (hasValidCreated) {
+                footerMetaItems.push(`<span>创建 ${this.escapeHtml(this.formatDate(createdDate))}</span>`);
             }
+            if (hasValidUpdated && !isSameTime) {
+                footerMetaItems.push(`<span>更新 ${this.escapeHtml(this.formatDate(updatedDate))}</span>`);
+            }
+        }
+
+        if (footerMetaItems.length > 0) {
+            pageInfoHtml += `
+                <div class="welcome-card-footer">
+                    <div class="welcome-card-meta">
+                        ${footerMetaItems.join('')}
+                    </div>
+                </div>
+            `;
         }
 
         pageInfoHtml += '</div>';
@@ -863,6 +874,7 @@
 
         // 获取页面图标
         const pageIconUrl = this.getPageIconUrl();
+        pageInfo.iconUrl = pageIconUrl;
 
         // 使用统一的构建方法生成欢迎卡片 HTML
         const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);
@@ -927,6 +939,7 @@
 
         // 获取页面图标
         const pageIconUrl = this.getPageIconUrl();
+        pageInfo.iconUrl = pageIconUrl;
 
         // 使用统一的构建方法生成欢迎卡片 HTML
         const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);

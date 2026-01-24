@@ -2035,6 +2035,16 @@
                 const json = await res.json();
                 if (json.code === 0 || json.code === 200) {
                     console.log('[writeSessionPageContent] write-file 接口调用成功，文件路径:', cleanPath);
+
+                    // 刷新会话列表（调用 query_document 接口）
+                    if (typeof this.loadSessionsFromBackend === 'function') {
+                        try {
+                            await this.loadSessionsFromBackend(true);
+                            console.log('[writeSessionPageContent] write-file 后刷新会话列表成功');
+                        } catch (refreshError) {
+                            console.warn('[writeSessionPageContent] write-file 后刷新会话列表失败:', refreshError);
+                        }
+                    }
                 } else {
                     console.warn('[writeSessionPageContent] write-file 接口返回异常:', json);
                 }

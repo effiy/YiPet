@@ -123,6 +123,52 @@ class SessionApiManager extends BaseApiManager {
             return null;
         }
     }
+
+    async createSession(sessionData) {
+        if (!sessionData || typeof sessionData !== 'object') {
+            throw new Error('会话数据无效');
+        }
+
+        const normalized = {
+            url: String(sessionData.url || ''),
+            title: String(sessionData.title || ''),
+            pageDescription: String(sessionData.pageDescription || ''),
+            messages: Array.isArray(sessionData.messages) ? sessionData.messages : [],
+            tags: Array.isArray(sessionData.tags) ? sessionData.tags : [],
+            isFavorite: sessionData.isFavorite !== undefined ? Boolean(sessionData.isFavorite) : false,
+            createdAt: this._normalizeTimestamp(sessionData.createdAt),
+            updatedAt: this._normalizeTimestamp(sessionData.updatedAt),
+            lastAccessTime: this._normalizeTimestamp(sessionData.lastAccessTime)
+        };
+        const isAicrSession = normalized.url.startsWith('aicr-session://') || normalized.pageDescription.includes('文件：');
+        if (!isAicrSession) {
+            normalized.pageContent = String(sessionData.pageContent || '');
+        }
+
+        const payload = {
+            module_name: 'services.database.data_service',
+            method_name: 'create_document',
+            parameters: {
+                cname: 'sessions',
+                data: normalized
+            }
+        };
+
+        const url = `${this.baseUrl}/`;
+        const result = await this._request(url, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (result && result.success !== false) {
+            return {
+                success: true,
+                data: result.data || result
+            };
+        }
+
+        throw new Error(result?.message || '创建会话失败');
+    }
     
     /**
      * 保存单个会话（立即保存）

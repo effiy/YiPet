@@ -1627,9 +1627,6 @@
         // 确保已加载所有会话
         await this.loadAllSessions();
 
-        // 生成 UUID 格式的会话 key（与 YiWeb 保持一致）
-        const sessionKey = this._generateUUID();
-
         // 生成唯一的随机 URL（使用 aicr-session:// 协议，与 YiWeb 保持一致）
         const timestamp = Date.now();
         const randomStr = Math.random().toString(36).substring(2, 11);
@@ -1638,9 +1635,8 @@
         // 获取当前时间戳
         const now = Date.now();
 
-        // 构建会话数据（与 YiWeb 保持一致）
-        const sessionData = {
-            key: sessionKey,
+        // 构建会话数据（与 YiWeb 保持一致；创建时不传 key，让后端生成）
+        const sessionDataForCreate = {
             url: uniqueUrl,
             title: sessionTitle,
             pageDescription: '',
@@ -1653,45 +1649,52 @@
             isFavorite: false
         };
 
-        // 生成一个唯一的会话ID（用于本地存储的key，基于URL）
-        const sessionId = await this.generateSessionId(uniqueUrl);
-
-        // 检查会话ID是否已存在，如果存在则重新生成
-        let finalSessionId = sessionId;
-        let attempts = 0;
-        while (this.sessions[finalSessionId] && attempts < 10) {
-            const newTimestamp = Date.now();
-            const newRandomStr = Math.random().toString(36).substring(2, 11);
-            const newUrl = `aicr-session://${newTimestamp}-${newRandomStr}`;
-            finalSessionId = await this.generateSessionId(newUrl);
-            sessionData.url = newUrl; // 更新会话数据中的URL
-            attempts++;
-        }
-
         try {
-            // 调用 create_document 接口创建会话（与 YiWeb 保持一致）
+            let createdSessionKey = null;
             if (this.sessionApi && this.sessionApi.isEnabled()) {
                 try {
-                    const result = await this.sessionApi.saveSession(sessionData);
-                    console.log('[createBlankSession] 会话已通过 create_document 创建:', sessionKey);
+                    const result = typeof this.sessionApi.createSession === 'function'
+                        ? await this.sessionApi.createSession(sessionDataForCreate)
+                        : null;
+                    createdSessionKey =
+                        result?.data?.key ||
+                        result?.data?._id ||
+                        result?.data?.id ||
+                        result?.data?.session?.key ||
+                        result?.data?.session?._id ||
+                        result?.data?.session?.id ||
+                        result?.data?.document?.key ||
+                        result?.data?.document?._id ||
+                        result?.data?.document?.id ||
+                        result?.key ||
+                        result?._id ||
+                        result?.id ||
+                        null;
+                    if (!createdSessionKey) {
+                        throw new Error('后端未返回会话 key');
+                    }
+                    console.log('[createBlankSession] 会话已通过 create_document 创建:', createdSessionKey);
                 } catch (error) {
                     console.error('[createBlankSession] 创建会话失败:', error);
                     this.showNotification('创建会话失败：' + (error.message || '未知错误'), 'error');
                     return;
                 }
-            } else {
-                // 如果没有启用后端同步，只保存到本地
-                console.log('[createBlankSession] 后端同步未启用，仅保存到本地');
             }
 
+            const finalSessionKey = createdSessionKey || this._generateUUID();
+            const sessionData = {
+                ...sessionDataForCreate,
+                key: finalSessionKey
+            };
+
             // 保存到本地存储
-            this.sessions[finalSessionId] = sessionData;
+            this.sessions[finalSessionKey] = sessionData;
             await this.saveAllSessions(false, true);
 
             // 调用 write-file 接口创建实际文件（与 YiWeb 保持一致，即使 pageContent 为空也创建文件）
             if (typeof this.writeSessionPageContent === 'function') {
                 try {
-                    await this.writeSessionPageContent(finalSessionId);
+                    await this.writeSessionPageContent(finalSessionKey);
                     console.log('[createBlankSession] 文件已通过 write-file 创建');
                 } catch (writeError) {
                     // write-file 调用失败不影响保存流程，只记录警告
@@ -1699,7 +1702,6 @@
                 }
             }
 
-            // 刷新会话列表（从后端获取最新数据，与 YiWeb 保持一致）
             if (this.sessionApi && this.sessionApi.isEnabled()) {
                 try {
                     await this.loadSessionsFromBackend(true);
@@ -1708,41 +1710,28 @@
                 }
             }
 
-            // 确保新会话存在于本地 sessions 中
-            // 如果 loadSessionsFromBackend 覆盖了 this.sessions 且没有包含新会话（可能是后端延迟），我们需要手动添加回去
-            // 使用 UUID 作为键，与后端返回的数据格式保持一致
-            if (!this.sessions[sessionKey]) {
-                console.log('[createBlankSession] 新会话未在后端列表中返回，手动添加到本地列表:', sessionKey);
-                this.sessions[sessionKey] = sessionData;
+            if (!this.sessions[finalSessionKey]) {
+                this.sessions[finalSessionKey] = sessionData;
             }
 
-            // 更新会话侧边栏
-            await this.updateSessionSidebar(true);
-
-            // 自动选中新创建的会话（与 YiWeb 保持一致）
-            // 等待会话列表刷新完成
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // 激活新会话
-            // 此时 this.sessions[sessionKey] 肯定存在（要么是后端返回的，要么是手动添加的）
-            await this.activateSession(sessionKey, {
+            await this.activateSession(finalSessionKey, {
                 saveCurrent: false,
                 updateConsistency: false,
                 updateUI: true,
                 syncToBackend: false,
-                skipBackendFetch: false // 从后端获取最新数据
+                skipBackendFetch: true
             });
 
             // 滚动到会话项位置（等待侧边栏更新完成）
             if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
                 await new Promise(resolve => setTimeout(resolve, 100));
-                await this.scrollToSessionItem(sessionKey);
+                await this.scrollToSessionItem(finalSessionKey);
             }
 
             // 显示成功通知
             this.showNotification('会话创建成功', 'success');
 
-            return finalSessionId;
+            return finalSessionKey;
         } catch (error) {
             console.error('[createBlankSession] 创建会话失败:', error);
             this.showNotification('创建会话失败：' + (error.message || '未知错误'), 'error');

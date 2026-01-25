@@ -450,6 +450,7 @@
                 session.url = newUrl;
                 session.pageDescription = newDescription;
                 session.updatedAt = Date.now();
+                session.lastAccessTime = Date.now();
     
                 // 保存会话到本地
                 await this.saveAllSessions(false, true);
@@ -465,6 +466,49 @@
                     // 刷新第一条欢迎消息
                     if (typeof this.refreshWelcomeMessage === 'function') {
                         await this.refreshWelcomeMessage();
+                    }
+                }
+
+                if (this.sessionApi && typeof this.sessionApi.isEnabled === 'function' && this.sessionApi.isEnabled()) {
+                    const apiUrl = this.sessionApi.baseUrl || (typeof PET_CONFIG !== 'undefined' ? PET_CONFIG.api.yiaiBaseUrl : '');
+                    const base = String(apiUrl || '').replace(/\/+$/, '');
+                    if (base) {
+                        try {
+                            const payload = {
+                                module_name: 'services.database.data_service',
+                                method_name: 'update_document',
+                                parameters: {
+                                    cname: 'sessions',
+                                    key: sessionId,
+                                    data: {
+                                        key: sessionId,
+                                        title: session.title || '',
+                                        url: session.url || '',
+                                        pageDescription: session.pageDescription || '',
+                                        updatedAt: session.updatedAt || Date.now(),
+                                        lastAccessTime: session.lastAccessTime || Date.now()
+                                    }
+                                }
+                            };
+                            const response = await fetch(`${base}/`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+                                },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                throw new Error(`HTTP ${response.status}: ${errorText}`);
+                            }
+
+                            await response.json();
+                            console.log('[saveSessionInfo] update_document 接口调用成功');
+                        } catch (updateError) {
+                            console.error('[saveSessionInfo] 调用 update_document 接口失败:', updateError);
+                        }
                     }
                 }
     

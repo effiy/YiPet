@@ -25,10 +25,29 @@
                         startOnLoad: false,
                         theme: 'default',
                         securityLevel: 'loose',
+                        // 优化自适应配置
                         flowchart: {
-                            useMaxWidth: true,
-                            htmlLabels: true
-                        }
+                            useMaxWidth: false, // 不使用最大宽度限制，让图表根据内容自适应
+                            htmlLabels: true,
+                            wrap: false, // 不自动换行，保持原始布局
+                        },
+                        // 其他图表类型也优化自适应
+                        sequence: {
+                            useMaxWidth: false,
+                            wrap: false,
+                        },
+                        gantt: {
+                            useMaxWidth: false,
+                        },
+                        class: {
+                            useMaxWidth: false,
+                        },
+                        state: {
+                            useMaxWidth: false,
+                        },
+                        pie: {
+                            useMaxWidth: false,
+                        },
                     });
                     this.mermaidLoaded = true;
                     this.mermaidLoading = false;
@@ -191,7 +210,15 @@
                 }
                 
                 // 确保样式正确（使用 CSS 类，样式已在 content.css 中定义）
-                // mermaid div 的样式已通过 CSS 类定义，无需内联样式
+                // 添加自适应容器样式
+                if (!mermaidDiv.classList.contains('mermaid-container')) {
+                    mermaidDiv.classList.add('mermaid-container');
+                }
+                mermaidDiv.style.display = "inline-block";
+                mermaidDiv.style.width = "auto";
+                mermaidDiv.style.height = "auto";
+                mermaidDiv.style.minWidth = "0";
+                mermaidDiv.style.minHeight = "0";
             } else if (element.tagName === 'CODE') {
                 // 如果是 code 元素，需要替换为 div
                 const preElement = element.parentElement;
@@ -204,11 +231,17 @@
 
                     // 创建 mermaid 容器（样式已通过 CSS 类定义）
                     mermaidDiv = document.createElement('div');
-                    mermaidDiv.className = 'mermaid';
+                    mermaidDiv.className = 'mermaid mermaid-container';
                     mermaidDiv.id = mermaidId;
                     mermaidDiv.textContent = mermaidContent;
                     // 保存源代码以便后续复制功能使用
                     mermaidDiv.setAttribute('data-mermaid-source', mermaidContent);
+                    // 添加自适应容器样式
+                    mermaidDiv.style.display = "inline-block";
+                    mermaidDiv.style.width = "auto";
+                    mermaidDiv.style.height = "auto";
+                    mermaidDiv.style.minWidth = "0";
+                    mermaidDiv.style.minHeight = "0";
 
                     // 标记为已处理
                     element.classList.add('mermaid-processed');

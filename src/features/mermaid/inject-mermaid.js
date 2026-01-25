@@ -22,10 +22,29 @@
                     startOnLoad: false,
                     theme: 'default',
                     securityLevel: 'loose',
+                    // 优化自适应配置
                     flowchart: {
-                        useMaxWidth: true,
-                        htmlLabels: true
-                    }
+                        useMaxWidth: false, // 不使用最大宽度限制，让图表根据内容自适应
+                        htmlLabels: true,
+                        wrap: false, // 不自动换行，保持原始布局
+                    },
+                    // 其他图表类型也优化自适应
+                    sequence: {
+                        useMaxWidth: false,
+                        wrap: false,
+                    },
+                    gantt: {
+                        useMaxWidth: false,
+                    },
+                    class: {
+                        useMaxWidth: false,
+                    },
+                    state: {
+                        useMaxWidth: false,
+                    },
+                    pie: {
+                        useMaxWidth: false,
+                    },
                 });
                 window.__MERMAID_LOADED__ = true;
                 window.__MERMAID_READY__ = true;

@@ -128,6 +128,125 @@
                 suppressErrors: true
             }).then(() => {
                 console.log('[RenderMermaid] Mermaid 图表渲染成功:', mermaidId);
+                
+                // 调整图表尺寸（根据内容自适应）
+                const adjustMermaidSize = (mermaidDiv) => {
+                    if (!mermaidDiv) return;
+                    
+                    // 查找渲染后的 SVG 元素
+                    const svg = mermaidDiv.querySelector("svg");
+                    if (!svg) return;
+                    
+                    try {
+                        // 获取父容器的最大宽度（考虑 padding）
+                        const parent = mermaidDiv.parentElement;
+                        const maxContainerWidth = parent 
+                            ? parent.clientWidth - 32 // 减去 padding 和边距
+                            : window.innerWidth - 100;
+                        
+                        let svgWidth, svgHeight;
+                        
+                        // 优先使用 getBBox 获取精确尺寸
+                        try {
+                            const bbox = svg.getBBox();
+                            if (bbox && bbox.width > 0 && bbox.height > 0) {
+                                svgWidth = bbox.width;
+                                svgHeight = bbox.height;
+                            }
+                        } catch (e) {
+                            // getBBox 可能失败（如 SVG 未渲染完成），继续尝试其他方法
+                        }
+                        
+                        // 如果 getBBox 失败，尝试从属性获取
+                        if (!svgWidth || !svgHeight) {
+                            const widthAttr = svg.getAttribute("width");
+                            const heightAttr = svg.getAttribute("height");
+                            const viewBox = svg.getAttribute("viewBox");
+                            
+                            if (widthAttr && heightAttr) {
+                                svgWidth = parseFloat(widthAttr);
+                                svgHeight = parseFloat(heightAttr);
+                            } else if (viewBox) {
+                                const parts = viewBox.split(/\s+/);
+                                if (parts.length >= 4) {
+                                    svgWidth = parseFloat(parts[2]);
+                                    svgHeight = parseFloat(parts[3]);
+                                }
+                            }
+                        }
+                        
+                        // 如果还是无法获取，使用计算尺寸
+                        if (!svgWidth || !svgHeight) {
+                            svgWidth = svg.clientWidth || svg.offsetWidth || svg.scrollWidth;
+                            svgHeight = svg.clientHeight || svg.offsetHeight || svg.scrollHeight;
+                        }
+                        
+                        if (svgWidth > 0 && svgHeight > 0) {
+                            // 确保 SVG 有 viewBox（用于响应式缩放）
+                            if (!svg.getAttribute("viewBox")) {
+                                svg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+                            }
+                            
+                            // 如果 SVG 宽度超过容器，进行缩放
+                            if (svgWidth > maxContainerWidth) {
+                                const scale = maxContainerWidth / svgWidth;
+                                svgWidth = maxContainerWidth;
+                                svgHeight = svgHeight * scale;
+                                svg.setAttribute("width", svgWidth);
+                                svg.setAttribute("height", svgHeight);
+                            } else {
+                                // 保持原始尺寸
+                                svg.setAttribute("width", svgWidth);
+                                svg.setAttribute("height", svgHeight);
+                            }
+                            
+                            // 设置容器尺寸，但不超过父容器
+                            mermaidDiv.style.width = "auto";
+                            mermaidDiv.style.height = "auto";
+                            mermaidDiv.style.maxWidth = "100%";
+                            mermaidDiv.style.minWidth = "0";
+                        }
+                    } catch (e) {
+                        console.warn("[RenderMermaid] Mermaid size adjustment failed", e);
+                        // 失败时至少确保容器不会溢出
+                        mermaidDiv.style.maxWidth = "100%";
+                        mermaidDiv.style.overflowX = "auto";
+                    }
+                };
+                
+                // 使用 requestAnimationFrame 和多次尝试确保 SVG 渲染完成
+                const adjustSize = () => {
+                    const svg = mermaidDiv.querySelector("svg");
+                    if (svg) {
+                        // 检查 SVG 是否已经渲染完成（有内容）
+                        const hasContent = svg.children.length > 0 || svg.innerHTML.trim().length > 0;
+                        if (hasContent) {
+                            adjustMermaidSize(mermaidDiv);
+                        } else {
+                            // 如果还没渲染完成，稍后再试
+                            setTimeout(adjustSize, 100);
+                        }
+                    } else {
+                        // 如果 SVG 还没创建，稍后再试
+                        setTimeout(adjustSize, 100);
+                    }
+                };
+                
+                // 立即尝试一次
+                requestAnimationFrame(() => {
+                    adjustSize();
+                });
+                
+                // 延迟再次尝试（防止首次渲染未完成）
+                setTimeout(() => {
+                    adjustSize();
+                }, 100);
+                
+                // 最终尝试（确保渲染完成）
+                setTimeout(() => {
+                    adjustSize();
+                }, 500);
+                
                 // 获取渲染后的 SVG 内容
                 const svgElement = mermaidDiv.querySelector('svg');
                 let svgContent = '';

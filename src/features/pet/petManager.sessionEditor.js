@@ -27,13 +27,18 @@
         const fromData = (data) => {
             if (data === null || data === undefined) return '';
             if (typeof data === 'string') return data.trim();
+            // 优先检查 data.message（services.ai.chat_service 接口 stream: false 时返回的内容）
+            if (typeof data?.message === 'string') return data.message.trim();
             if (typeof data?.content === 'string') return data.content.trim();
             if (typeof data?.message?.content === 'string') return data.message.content.trim();
-            if (typeof data?.message === 'string') return data.message.trim();
             return '';
         };
 
-        if (result.status === 200 && result.data !== undefined) {
+        // 优先检查 result.data.message（services.ai.chat_service 接口 stream: false 时返回的内容）
+        if (result.data !== undefined) {
+            if (typeof result.data.message === 'string' && result.data.message.trim()) {
+                return result.data.message.trim();
+            }
             const t = fromData(result.data);
             if (t) return t;
         }
@@ -41,9 +46,6 @@
         if (typeof result.content === 'string' && result.content.trim()) return result.content.trim();
         if (typeof result.message?.content === 'string' && result.message.content.trim()) return result.message.content.trim();
         if (typeof result.message === 'string' && result.message.trim()) return result.message.trim();
-
-        const t2 = fromData(result.data);
-        if (t2) return t2;
 
         return '';
     };

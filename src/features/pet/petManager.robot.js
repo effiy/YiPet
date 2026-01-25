@@ -482,9 +482,11 @@ ${messageContent}`;
                 }
             }
 
-            // 适配响应格式
+            // 适配响应格式（优先检查 result.data.message，services.ai.chat_service 接口 stream: false 时返回的内容）
             let content = '';
-            if (result.data) {
+            if (result.data && typeof result.data.message === 'string') {
+                content = result.data.message;
+            } else if (result.data && typeof result.data === 'string') {
                 content = result.data;
             } else if (result.content) {
                 content = result.content;
@@ -586,11 +588,13 @@ ${messageContent}`;
 
                 result = accumulatedData || content;
             } else {
-                // 处理非流式响应
+                // 处理非流式响应（优先检查 jsonResult.data.message，services.ai.chat_service 接口 stream: false 时返回的内容）
                 try {
                     const jsonResult = JSON.parse(responseText);
-                    if (jsonResult.status === 200 && jsonResult.data) {
-                        result = jsonResult.data;
+                    if (jsonResult.data && typeof jsonResult.data.message === 'string') {
+                        result = jsonResult.data.message;
+                    } else if (jsonResult.status === 200 && jsonResult.data) {
+                        result = typeof jsonResult.data === 'string' ? jsonResult.data : jsonResult.data;
                     } else if (jsonResult.content) {
                         result = jsonResult.content;
                     } else if (jsonResult.message) {

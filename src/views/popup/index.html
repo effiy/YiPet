@@ -11,12 +11,10 @@
 <body>
     <div class="popup-container">
         <header class="header">
-            <div class="logo">
-                <span class="pet-emoji" aria-hidden="true">💕</span>
+            <div class="logo" data-icon="💕">
                 <h1>温柔陪伴</h1>
             </div>
             <div class="status-indicator" id="statusIndicator" role="status" aria-live="polite" aria-atomic="true">
-                <span class="status-dot" aria-hidden="true"></span>
                 <span class="status-text">已激活</span>
             </div>
         </header>
@@ -25,8 +23,7 @@
             <section class="control-section" aria-labelledby="basicControlsTitle">
                 <h2 id="basicControlsTitle">基本控制</h2>
                 <div class="control-group">
-                    <button id="openChatBtn" type="button" class="control-btn primary tw-btn tw-w-full tw-font-medium">
-                        <span class="btn-icon" aria-hidden="true">💬</span>
+                    <button id="openChatBtn" type="button" class="control-btn primary tw-btn tw-w-full tw-font-medium" data-icon="💬">
                         <span class="btn-text">打开聊天窗口</span>
                     </button>
                 </div>
@@ -35,8 +32,7 @@
             <section class="control-section" aria-labelledby="appearanceTitle">
                 <h2 id="appearanceTitle">外观设置</h2>
                 <div class="setting-group">
-                    <label for="colorSelect" class="setting-label">
-                        <span class="label-icon" aria-hidden="true">🌈</span>
+                    <label for="colorSelect" class="setting-label" data-icon="🌈">
                         颜色主题
                     </label>
                     <select id="colorSelect" class="select">
@@ -52,7 +48,7 @@
         
         <footer class="footer">
             <div class="info-text">
-                <p><span aria-hidden="true">💡</span> 点击按钮打开聊天窗口</p>
+                <p>点击按钮打开聊天窗口</p>
             </div>
             <div class="version">
                 <span>v1.1.0</span>

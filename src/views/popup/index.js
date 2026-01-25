@@ -382,15 +382,14 @@ class PopupController {
         if (!statusIndicator) return;
         
         const statusText = DomHelper.querySelector(statusIndicator, '.status-text');
-        const statusDot = DomHelper.querySelector(statusIndicator, '.status-dot');
-        
-        if (statusText && statusDot) {
+
+        if (statusText) {
             if (this.currentPetStatus.visible) {
                 DomHelper.setText(statusText, '已激活');
-                statusDot.style.background = (PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.STATUS_DOT_ACTIVE : '#4CAF50';
+                statusIndicator.style.setProperty('--status-dot-color', (PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.STATUS_DOT_ACTIVE : '#4CAF50');
             } else {
                 DomHelper.setText(statusText, '已隐藏');
-                statusDot.style.background = (PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.STATUS_DOT_INACTIVE : '#FF9800';
+                statusIndicator.style.setProperty('--status-dot-color', (PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.STATUS_DOT_INACTIVE : '#FF9800');
             }
         }
     }

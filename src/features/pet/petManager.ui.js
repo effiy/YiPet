@@ -119,10 +119,6 @@
     const container = document.createElement('div');
     container.className = 'tag-filter-search-container';
 
-    const icon = document.createElement('span');
-    icon.className = 'tag-filter-search-icon';
-    icon.textContent = '🔍';
-
     const input = document.createElement('input');
     if (options.className) input.className = options.className;
     input.classList.add('tag-filter-search-input');
@@ -168,7 +164,6 @@
       }, debounceMs);
     });
 
-    container.appendChild(icon);
     container.appendChild(input);
     container.appendChild(clearBtn);
     return { container, input, clearBtn };

@@ -227,10 +227,6 @@
             const searchContainer = document.createElement('div');
             searchContainer.className = 'session-search-container';
 
-            const searchIcon = document.createElement('span');
-            searchIcon.textContent = '🔍';
-            searchIcon.className = 'session-search-icon';
-
             const searchInput = document.createElement('input');
             searchInput.type = 'text';
             searchInput.placeholder = '搜索会话...';
@@ -278,7 +274,6 @@
             searchInput.addEventListener('click', (e) => e.stopPropagation());
             updateClearButton();
 
-            searchContainer.appendChild(searchIcon);
             searchContainer.appendChild(searchInput);
             searchContainer.appendChild(clearBtn);
             firstRow.appendChild(searchContainer);

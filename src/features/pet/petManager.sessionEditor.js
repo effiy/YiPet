@@ -8,6 +8,45 @@
     }
 
     const proto = window.PetManager.prototype;
+
+    const ensureMdSuffix = (str) => {
+        if (!str || !String(str).trim()) return '';
+        const s = String(str).trim();
+        return s.endsWith('.md') ? s : `${s}.md`;
+    };
+
+    const stripMdSuffix = (str) => {
+        const s = String(str || '').trim();
+        return s.toLowerCase().endsWith('.md') ? s.slice(0, -3) : s;
+    };
+
+    const extractChatReplyText = (result) => {
+        if (result === null || result === undefined) return '';
+        if (typeof result === 'string') return result.trim();
+
+        const fromData = (data) => {
+            if (data === null || data === undefined) return '';
+            if (typeof data === 'string') return data.trim();
+            if (typeof data?.content === 'string') return data.content.trim();
+            if (typeof data?.message?.content === 'string') return data.message.content.trim();
+            if (typeof data?.message === 'string') return data.message.trim();
+            return '';
+        };
+
+        if (result.status === 200 && result.data !== undefined) {
+            const t = fromData(result.data);
+            if (t) return t;
+        }
+
+        if (typeof result.content === 'string' && result.content.trim()) return result.content.trim();
+        if (typeof result.message?.content === 'string' && result.message.content.trim()) return result.message.content.trim();
+        if (typeof result.message === 'string' && result.message.trim()) return result.message.trim();
+
+        const t2 = fromData(result.data);
+        if (t2) return t2;
+
+        return '';
+    };
     
     // 调试：确认方法已添加
     console.log('[SessionEditor] 开始扩展 PetManager 原型，添加 openSessionInfoEditor 方法');
@@ -300,17 +339,6 @@
                 return;
             }
     
-            const ensureMdSuffix = (str) => {
-                if (!str || !String(str).trim()) return '';
-                const s = String(str).trim();
-                return s.endsWith('.md') ? s : `${s}.md`;
-            };
-
-            const stripMdSuffix = (str) => {
-                const s = String(str || '').trim();
-                return s.toLowerCase().endsWith('.md') ? s.slice(0, -3) : s;
-            };
-
             const rawNewTitle = titleInput.value.trim();
             const newUrl = urlInput ? urlInput.value.trim() : '';
             const newDescription = descriptionInput ? descriptionInput.value.trim() : '';
@@ -741,20 +769,7 @@
                     throw new Error('解析响应失败: ' + parseError.message);
                 }
     
-                // 提取生成的标题（适配不同的响应格式）
-                let generatedTitle = '';
-                if (result.status === 200 && result.data) {
-                    // 成功响应，提取 data 字段
-                    generatedTitle = typeof result.data === 'string' ? result.data.trim() : (result.data.content || '').trim();
-                } else if (result && result.content) {
-                    generatedTitle = result.content.trim();
-                } else if (result && result.data && result.data.content) {
-                    generatedTitle = result.data.content.trim();
-                } else if (result && result.message) {
-                    generatedTitle = result.message.trim();
-                } else if (typeof result === 'string') {
-                    generatedTitle = result.trim();
-                }
+                let generatedTitle = extractChatReplyText(result);
     
                 // 去除 think 内容
                 if (this.stripThinkContent) {
@@ -956,20 +971,7 @@
                     throw new Error('解析响应失败: ' + parseError.message);
                 }
     
-                // 提取生成的描述（适配不同的响应格式）
-                let generatedDescription = '';
-                if (result.status === 200 && result.data) {
-                    // 成功响应，提取 data 字段
-                    generatedDescription = typeof result.data === 'string' ? result.data.trim() : (result.data.content || '').trim();
-                } else if (result && result.content) {
-                    generatedDescription = result.content.trim();
-                } else if (result && result.data && result.data.content) {
-                    generatedDescription = result.data.content.trim();
-                } else if (result && result.message) {
-                    generatedDescription = result.message.trim();
-                } else if (typeof result === 'string') {
-                    generatedDescription = result.trim();
-                }
+                let generatedDescription = extractChatReplyText(result);
     
                 // 去除 think 内容
                 if (this.stripThinkContent) {
@@ -1175,20 +1177,7 @@
                     throw new Error('解析响应失败: ' + parseError.message);
                 }
     
-                // 提取优化后的描述（适配不同的响应格式）
-                let optimizedDescription = '';
-                if (result.status === 200 && result.data) {
-                    // 成功响应，提取 data 字段
-                    optimizedDescription = typeof result.data === 'string' ? result.data.trim() : (result.data.content || '').trim();
-                } else if (result && result.content) {
-                    optimizedDescription = result.content.trim();
-                } else if (result && result.data && result.data.content) {
-                    optimizedDescription = result.data.content.trim();
-                } else if (result && result.message) {
-                    optimizedDescription = result.message.trim();
-                } else if (typeof result === 'string') {
-                    optimizedDescription = result.trim();
-                }
+                let optimizedDescription = extractChatReplyText(result);
     
                 // 去除 think 内容
                 if (this.stripThinkContent) {

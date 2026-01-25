@@ -2545,4 +2545,44 @@
         }
     };
 
+    proto.setSessionFavorite = async function (sessionKey, isFavorite) {
+        if (!sessionKey) {
+            console.warn('会话 key 为空，无法更新收藏状态');
+            return;
+        }
+
+        let sessionId = null;
+        if (this.sessions && this.sessions[sessionKey]) {
+            sessionId = sessionKey;
+        } else if (this.sessions) {
+            for (const [id, s] of Object.entries(this.sessions)) {
+                if (s && s.key === sessionKey) {
+                    sessionId = id;
+                    break;
+                }
+            }
+        }
+
+        if (!sessionId || !this.sessions || !this.sessions[sessionId]) {
+            console.warn('未找到对应会话，无法更新收藏状态:', sessionKey);
+            return;
+        }
+
+        const session = this.sessions[sessionId];
+        session.isFavorite = !!isFavorite;
+        session.updatedAt = Date.now();
+
+        if (this.isChatOpen && this.sessionApi && PET_CONFIG.api.syncSessionsToBackend) {
+            try {
+                await this.syncSessionToBackend(sessionId, true);
+            } catch (error) {
+                console.warn('同步收藏状态到后端失败:', error);
+            }
+        }
+
+        if (typeof this.updateSessionSidebar === 'function') {
+            await this.updateSessionSidebar(false, false);
+        }
+    };
+
 })();

@@ -372,8 +372,9 @@ ${messageContent}`;
             if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                 payload.parameters.images = oldPayload.images;
             }
-            if (oldPayload.model) {
-                payload.parameters.model = oldPayload.model;
+            // 使用 chatModels 的 default 字段
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
             }
             if (oldPayload.conversation_id) {
                 payload.parameters.conversation_id = oldPayload.conversation_id;

@@ -188,6 +188,30 @@
                 this.closeChatWindow();
                 return false;
             }
+
+            // 检查是否按下了 Cmd/Ctrl + K (打开划词评论弹框)
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                // 如果评论弹框已打开，则聚焦输入框
+                if (this.commentState && this.commentState.showQuickComment) {
+                    const textarea = document.getElementById('pet-quick-comment-textarea');
+                    if (textarea) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        textarea.focus();
+                        return false;
+                    }
+                }
+                
+                // 打开评论弹框
+                if (typeof this.openQuickCommentFromShortcut === 'function') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    this.openQuickCommentFromShortcut();
+                    return false;
+                }
+            }
         };
 
         // 同时监听 window 和 document，确保能够捕获所有键盘事件
@@ -201,6 +225,7 @@
         console.log('  - Ctrl+Shift+S：截图');
         console.log('  - Ctrl+Shift+X：切换聊天窗口');
         console.log('  - Ctrl+Shift+P：切换宠物显示/隐藏');
+        console.log('  - Ctrl/Cmd+K：打开划词评论弹框');
         console.log('  - Esc：关闭聊天窗口');
     };
 

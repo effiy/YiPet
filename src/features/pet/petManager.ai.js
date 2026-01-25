@@ -465,8 +465,9 @@
             if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                 payload.parameters.images = oldPayload.images;
             }
-            if (oldPayload.model) {
-                payload.parameters.model = oldPayload.model;
+            // 使用 chatModels 的 default 字段
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
             }
             if (oldPayload.conversation_id) {
                 payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -729,8 +730,9 @@
             if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                 payload.parameters.images = oldPayload.images;
             }
-            if (oldPayload.model) {
-                payload.parameters.model = oldPayload.model;
+            // 使用 chatModels 的 default 字段
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
             }
             if (oldPayload.conversation_id) {
                 payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -766,23 +768,7 @@
             }
 
             // 适配新的响应格式: {status, msg, data, pagination}
-            let responseContent;
-            if (result.status === 200 && result.data) {
-                // 成功响应，提取 data 字段
-                responseContent = result.data;
-            } else if (result.status !== 200) {
-                // API 返回错误，使用 msg 字段
-                responseContent = result.msg || '抱歉，服务器返回了错误。';
-            } else if (result.content) {
-                responseContent = result.content;
-            } else if (result.message) {
-                responseContent = result.message;
-            } else if (typeof result === 'string') {
-                responseContent = result;
-            } else {
-                // 未知格式，尝试提取可能的文本内容
-                responseContent = JSON.stringify(result);
-            }
+            let responseContent = result.data.message;
 
             // 去除 think 内容
             responseContent = this.stripThinkContent(responseContent);
@@ -841,8 +827,9 @@
             if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                 payload.parameters.images = oldPayload.images;
             }
-            if (oldPayload.model) {
-                payload.parameters.model = oldPayload.model;
+            // 使用 chatModels 的 default 字段
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
             }
             if (oldPayload.conversation_id) {
                 payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -1006,8 +993,9 @@ ${originalText}
             if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                 payload.parameters.images = oldPayload.images;
             }
-            if (oldPayload.model) {
-                payload.parameters.model = oldPayload.model;
+            // 使用 chatModels 的 default 字段
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
             }
             if (oldPayload.conversation_id) {
                 payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -1102,34 +1090,7 @@ ${originalText}
 
             this._hideLoadingAnimation();
 
-            let optimizedText;
-            if (result.status !== undefined && result.status !== 200) {
-                throw new Error(result.msg || result.message || '优化失败');
-            }
-
-            if (result.data) {
-                optimizedText = result.data;
-            } else if (result.content) {
-                optimizedText = result.content;
-            } else if (result.message) {
-                optimizedText = result.message;
-            } else if (typeof result === 'string') {
-                optimizedText = result;
-            } else if (result.text) {
-                optimizedText = result.text;
-            } else {
-                const possibleFields = ['output', 'response', 'result', 'answer'];
-                for (const field of possibleFields) {
-                    if (result[field] && typeof result[field] === 'string') {
-                        optimizedText = result[field];
-                        break;
-                    }
-                }
-                if (!optimizedText) {
-                    console.error('无法解析响应内容，响应对象:', result);
-                    throw new Error('无法解析响应内容，请检查服务器响应格式');
-                }
-            }
+            let optimizedText = result.data.message;
 
             optimizedText = this.stripThinkContent(optimizedText);
             optimizedText = optimizedText.trim();
@@ -1282,8 +1243,9 @@ ${originalText}
             if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                 payload.parameters.images = oldPayload.images;
             }
-            if (oldPayload.model) {
-                payload.parameters.model = oldPayload.model;
+            // 使用 chatModels 的 default 字段
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
             }
             if (oldPayload.conversation_id) {
                 payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -1378,34 +1340,7 @@ ${originalText}
 
             this._hideLoadingAnimation();
 
-            let translatedText;
-            if (result.status !== undefined && result.status !== 200) {
-                throw new Error(result.msg || result.message || '翻译失败');
-            }
-
-            if (result.data) {
-                translatedText = result.data;
-            } else if (result.content) {
-                translatedText = result.content;
-            } else if (result.message) {
-                translatedText = result.message;
-            } else if (typeof result === 'string') {
-                translatedText = result;
-            } else if (result.text) {
-                translatedText = result.text;
-            } else {
-                const possibleFields = ['output', 'response', 'result', 'answer'];
-                for (const field of possibleFields) {
-                    if (result[field] && typeof result[field] === 'string') {
-                        translatedText = result[field];
-                        break;
-                    }
-                }
-                if (!translatedText) {
-                    console.error('无法解析响应内容，响应对象:', result);
-                    throw new Error('无法解析响应内容，请检查服务器响应格式');
-                }
-            }
+            let translatedText = result.data.message;
 
             translatedText = this.stripThinkContent(translatedText);
             translatedText = translatedText.trim();

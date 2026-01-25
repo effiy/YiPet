@@ -57,6 +57,7 @@
         "src/features/pet/petManager.chat.js",
         "src/features/pet/petManager.chatUi.js",
         "src/features/pet/petManager.events.js",
+        "src/features/pet/petManager.comment.js",
         "src/features/pet/petManager.media.js",
         "src/features/pet/petManager.message.js",
         "src/features/pet/petManager.screenshot.js",
@@ -66,6 +67,7 @@
       "css": [
         "src/styles/tailwind.css",
         "src/styles/content.css",
+        "src/styles/quick-comment.css",
         "src/features/pet/components/ChatWindow.css"
       ],
       "run_at": "document_end"

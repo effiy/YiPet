@@ -679,8 +679,9 @@
                 if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                     payload.parameters.images = oldPayload.images;
                 }
-                if (oldPayload.model) {
-                    payload.parameters.model = oldPayload.model;
+                // 使用 chatModels 的 default 字段
+                if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                    payload.parameters.model = PET_CONFIG.chatModels.default;
                 }
                 if (oldPayload.conversation_id) {
                     payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -881,8 +882,9 @@
                 if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                     payload.parameters.images = oldPayload.images;
                 }
-                if (oldPayload.model) {
-                    payload.parameters.model = oldPayload.model;
+                // 使用 chatModels 的 default 字段
+                if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                    payload.parameters.model = PET_CONFIG.chatModels.default;
                 }
                 if (oldPayload.conversation_id) {
                     payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -1087,8 +1089,9 @@
                 if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                     payload.parameters.images = oldPayload.images;
                 }
-                if (oldPayload.model) {
-                    payload.parameters.model = oldPayload.model;
+                // 使用 chatModels 的 default 字段
+                if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                    payload.parameters.model = PET_CONFIG.chatModels.default;
                 }
                 if (oldPayload.conversation_id) {
                     payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -1357,39 +1360,7 @@
                 this._hideLoadingAnimation();
     
                 // 解析响应内容
-                let translatedText;
-                // 优先检查 status 字段，如果存在且不等于 200，则抛出错误
-                if (result.status !== undefined && result.status !== 200) {
-                    throw new Error(result.msg || result.message || '翻译失败');
-                }
-    
-                // 按优先级提取翻译后的文本
-                if (result.data) {
-                    translatedText = result.data;
-                } else if (result.content) {
-                    translatedText = result.content;
-                } else if (result.message) {
-                    translatedText = result.message;
-                } else if (typeof result === 'string') {
-                    translatedText = result;
-                } else if (result.text) {
-                    translatedText = result.text;
-                } else {
-                    // 如果所有字段都不存在，尝试从对象中查找可能的文本字段
-                    const possibleFields = ['output', 'response', 'result', 'answer'];
-                    for (const field of possibleFields) {
-                        if (result[field] && typeof result[field] === 'string') {
-                            translatedText = result[field];
-                            break;
-                        }
-                    }
-    
-                    // 如果仍然找不到，抛出错误
-                    if (!translatedText) {
-                        console.error('无法解析响应内容，响应对象:', result);
-                        throw new Error('无法解析响应内容，请检查服务器响应格式');
-                    }
-                }
+                let translatedText = result.data.message;
     
                 // 去除 think 内容
                 if (this.stripThinkContent) {

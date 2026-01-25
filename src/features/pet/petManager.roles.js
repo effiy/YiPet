@@ -602,8 +602,9 @@ ${pageContent || '无内容'}
                 if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                     payload.parameters.images = oldPayload.images;
                 }
-                if (oldPayload.model) {
-                    payload.parameters.model = oldPayload.model;
+                // 使用 chatModels 的 default 字段
+                if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                    payload.parameters.model = PET_CONFIG.chatModels.default;
                 }
                 if (oldPayload.conversation_id) {
                     payload.parameters.conversation_id = oldPayload.conversation_id;
@@ -650,24 +651,7 @@ ${pageContent || '无内容'}
                 }
 
                 // 适配响应格式: {status, msg, data, pagination}
-                let content = '';
-                if (result.status === 200 && result.data) {
-                    // 成功响应，提取 data 字段
-                    content = result.data;
-                } else if (result.status !== 200) {
-                    // API 返回错误，使用 msg 字段
-                    content = result.msg || '抱歉，服务器返回了错误。';
-                    throw new Error(content);
-                } else if (result.content) {
-                    content = result.content;
-                } else if (result.message) {
-                    content = result.message;
-                } else if (typeof result === 'string') {
-                    content = result;
-                } else {
-                    // 未知格式，尝试提取可能的文本内容
-                    content = JSON.stringify(result);
-                }
+                let content = result.data.message;
 
                 // 停止加载动画
                 if (messageAvatar) {

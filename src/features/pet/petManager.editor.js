@@ -254,14 +254,15 @@
         this.chatWindow.appendChild(overlay);
     };
 
-    proto.openContextEditor = function() {
+    proto.openContextEditor = async function() {
         this.ensureContextEditorUi();
         const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
         if (!overlay) return;
         overlay.classList.add('js-visible');
         // 打开时根据当前 header 高度校正位置
         this.updateContextEditorPosition();
-        this.loadContextIntoEditor();
+        // 先调用 read-file 接口读取内容，再加载到编辑器
+        await this.loadContextIntoEditor();
         this.updateContextPreview();
         // 隐藏撤销按钮（打开编辑器时重置状态）
         const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
@@ -364,12 +365,22 @@
                     this.currentSessionId = sessionId;
                 }
 
-                // 等待会话切换完成，确保页面上下文已加载
+                // 等待会话切换完成
                 await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // 切换会话后，调用 read-file 接口获取页面上下文
+                if (typeof this.fetchSessionPageContent === 'function') {
+                    await this.fetchSessionPageContent(sessionId);
+                }
+            } else {
+                // 即使不切换会话，也要调用 read-file 接口读取最新内容
+                if (typeof this.fetchSessionPageContent === 'function') {
+                    await this.fetchSessionPageContent(sessionId);
+                }
             }
 
-            // 打开上下文编辑器（会自动加载当前会话的上下文）
-            this.openContextEditor();
+            // 打开上下文编辑器（会自动加载当前会话的上下文，已通过 read-file 接口获取）
+            await this.openContextEditor();
 
             console.log('已打开会话的页面上下文:', sessionId);
         } catch (error) {
@@ -865,21 +876,29 @@
         }
     };
 
-    proto.loadContextIntoEditor = function() {
+    proto.loadContextIntoEditor = async function() {
         const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
         if (!textarea) return;
         try {
-            // 优先使用会话保存的页面内容
-            let md = '';
+            // 如果有当前会话，先调用 read-file 接口读取页面上下文
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
+                // 调用 read-file 接口获取页面上下文
+                if (typeof this.fetchSessionPageContent === 'function') {
+                    await this.fetchSessionPageContent(this.currentSessionId);
+                }
+                
+                // 读取接口返回后，使用会话保存的页面内容
                 const session = this.sessions[this.currentSessionId];
                 // 如果会话的pageContent字段为空，则弹框内容也为空
-                md = (session.pageContent && session.pageContent.trim() !== '') ? session.pageContent : '';
+                const md = (session.pageContent && session.pageContent.trim() !== '') ? session.pageContent : '';
+                textarea.value = md || '';
             } else {
-                md = this.getPageContentAsMarkdown();
+                // 没有会话时，从当前页面获取
+                const md = this.getPageContentAsMarkdown();
+                textarea.value = md || '';
             }
-            textarea.value = md || '';
         } catch (e) {
+            console.error('加载页面上下文到编辑器失败:', e);
             textarea.value = '获取页面上下文失败。';
         }
     };

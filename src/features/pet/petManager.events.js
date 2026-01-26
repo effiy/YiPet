@@ -136,6 +136,47 @@
 
     // 设置键盘快捷键
     proto.setupKeyboardShortcuts = function() {
+        if (typeof this.quickCommentShortcutEnabled !== 'boolean') {
+            this.quickCommentShortcutEnabled = true;
+        }
+
+        const notifyShortcutToggle = (enabled) => {
+            const message = enabled ? 'Command+K 已启用' : 'Command+K 已禁用';
+            if (typeof this.showNotification === 'function') {
+                this.showNotification(message, 'info');
+            } else {
+                console.log(message);
+            }
+        };
+
+        const loadQuickCommentShortcutEnabled = () => {
+            try {
+                chrome.storage.sync.get(['petSettings'], (result) => {
+                    const settings = result && result.petSettings ? result.petSettings : null;
+                    const enabled = settings ? settings.quickCommentShortcutEnabled : undefined;
+                    if (typeof enabled === 'boolean') {
+                        this.quickCommentShortcutEnabled = enabled;
+                    }
+                });
+            } catch (e) {}
+        };
+
+        const persistQuickCommentShortcutEnabled = (enabled) => {
+            try {
+                chrome.storage.sync.get(['petSettings'], (result) => {
+                    const settings = (result && result.petSettings) ? result.petSettings : {};
+                    chrome.storage.sync.set({
+                        petSettings: {
+                            ...settings,
+                            quickCommentShortcutEnabled: enabled
+                        }
+                    });
+                });
+            } catch (e) {}
+        };
+
+        loadQuickCommentShortcutEnabled();
+
         // 使用箭头函数确保 this 绑定正确
         const handleKeyDown = (e) => {
             // 检查是否按下了 Ctrl+Shift+S (截图快捷键)
@@ -189,8 +230,25 @@
                 return false;
             }
 
+            // 检查是否按下了 Cmd/Ctrl + Shift + K (切换 Cmd/Ctrl + K 快捷键启用状态)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
+                const nextEnabled = !this.quickCommentShortcutEnabled;
+                this.quickCommentShortcutEnabled = nextEnabled;
+                persistQuickCommentShortcutEnabled(nextEnabled);
+                notifyShortcutToggle(nextEnabled);
+
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return false;
+            }
+
             // 检查是否按下了 Cmd/Ctrl + K (打开划词评论弹框)
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                if (this.quickCommentShortcutEnabled === false) {
+                    return;
+                }
+
                 // 如果评论弹框已打开，则聚焦输入框
                 if (this.commentState && this.commentState.showQuickComment) {
                     const textarea = document.getElementById('pet-quick-comment-textarea');

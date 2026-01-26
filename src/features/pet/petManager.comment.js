@@ -336,16 +336,18 @@
 
     // 从快捷键打开评论弹框
     proto.openQuickCommentFromShortcut = function() {
-        if (!String(this.commentState.lastSelectionText || '').trim()) {
-            // 如果没有选中的文本，尝试获取当前选择
-            this.onSelectionChange();
-            
-            if (!String(this.commentState.lastSelectionText || '').trim()) {
-                this.showCommentError('请先选中需要评论的内容');
+        if (!this.commentState) {
+            if (typeof this.initCommentFeature === 'function') {
+                this.initCommentFeature();
+            }
+            if (!this.commentState) {
                 return;
             }
         }
 
+        if (typeof this.onSelectionChange === 'function') {
+            this.onSelectionChange();
+        }
         this.openQuickComment();
     };
 
@@ -1715,3 +1717,4 @@
     };
 
 })();
+

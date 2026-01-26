@@ -205,6 +205,101 @@ class RequestUtils {
     }
 }
 
+class RequestClient {
+    constructor(options = {}) {
+        this.defaultOptions = {
+            timeout: Number.isFinite(options.timeout) ? options.timeout : 5 * 60 * 1000,
+            mode: options.mode || 'cors',
+            credentials: options.credentials || 'omit',
+            context: options.context || null,
+            headers: options.headers || {}
+        };
+        this.abortControllers = new Map();
+    }
+
+    abort(abortKey) {
+        if (!abortKey) return;
+        const controller = this.abortControllers.get(abortKey);
+        if (controller) {
+            try { controller.abort(); } catch (_) {}
+            this.abortControllers.delete(abortKey);
+        }
+    }
+
+    async requestRaw(url, options = {}) {
+        const config = { ...this.defaultOptions, ...(options || {}) };
+        const { timeout, abortKey, signal: externalSignal, context, ...fetchOptions } = config;
+
+        let signal = externalSignal;
+        if (abortKey) {
+            this.abort(abortKey);
+            const c = new AbortController();
+            this.abortControllers.set(abortKey, c);
+            signal = c.signal;
+        }
+
+        const controller = new AbortController();
+        if (signal) {
+            try {
+                if (signal.aborted) {
+                    controller.abort();
+                } else if (typeof signal.addEventListener === 'function') {
+                    signal.addEventListener('abort', () => {
+                        try { controller.abort(); } catch (_) {}
+                    }, { once: true });
+                }
+            } catch (_) {}
+        }
+
+        const fetchPromise = RequestUtils.fetchWithLoading(url, { ...fetchOptions, signal: controller.signal }, context);
+        const timeoutPromise = new Promise((_, reject) => {
+            const timer = setTimeout(() => {
+                try { controller.abort(); } catch (_) {}
+                reject(new Error(`请求超时：${timeout}ms`));
+            }, timeout);
+            controller.signal._timer = timer;
+        });
+
+        try {
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            return response;
+        } finally {
+            try { clearTimeout(controller.signal._timer); } catch (_) {}
+            if (abortKey) this.abortControllers.delete(abortKey);
+        }
+    }
+
+    async requestJson(url, options = {}) {
+        const response = await this.requestRaw(url, options);
+        if (!response || !response.ok) {
+            const status = response ? response.status : 0;
+            throw new Error(`HTTP error! status: ${status}`);
+        }
+        return await response.json();
+    }
+
+    getJson(url, options = {}) {
+        return this.requestJson(url, { ...options, method: 'GET' });
+    }
+
+    postJson(url, data, options = {}) {
+        return this.requestJson(url, {
+            ...options,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+            body: JSON.stringify(data)
+        });
+    }
+}
+
+function createRequestClient(options = {}) {
+    return new RequestClient(options);
+}
+
+RequestUtils.RequestClient = RequestClient;
+RequestUtils.createRequestClient = createRequestClient;
+RequestUtils.requestClient = RequestUtils.requestClient || createRequestClient();
+
 // 静态属性：避免使用 class fields 语法，提升兼容性（尤其是某些扩展运行环境/打包配置）
 RequestUtils.EXTENSION_URL_PATTERNS = [
     /^chrome-extension:\/\//i,
@@ -233,4 +328,3 @@ if (typeof module !== "undefined" && module.exports) {
         this.RequestUtils = RequestUtils;
     }
 }
-

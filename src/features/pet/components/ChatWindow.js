@@ -2602,7 +2602,7 @@
                 editBtn.setAttribute('aria-label', '编辑消息');
                 editBtn.setAttribute('title', '编辑');
                 editBtn.textContent = '✏️';
-                editBtn.disabled = this.isProcessing || false;
+                editBtn.disabled = false;
                 editBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (this.manager && typeof this.manager.openMessageEditor === 'function') {
@@ -2983,3 +2983,4 @@
     window.PetManager.Components.ChatWindow = ChatWindow;
 
 })();
+

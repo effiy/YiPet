@@ -56,6 +56,7 @@
         "src/features/pet/components/ChatWindow/hooks/store.js",
         "src/features/pet/components/ChatWindow/hooks/useComputed.js",
         "src/features/pet/components/ChatWindow/hooks/useMethods.js",
+        "src/features/pet/components/SessionSidebar/index.js",
         "src/features/pet/components/ChatWindow/index.js",
         "src/features/pet/petManager.ui.js",
         "src/features/pet/petManager.drag.js",
@@ -134,7 +135,8 @@
         "src/features/session/load-jszip.js",
         "src/features/session/export-sessions.js",
         "src/features/session/import-sessions.js",
-        "src/features/pet/components/ChatWindow/index.html"
+        "src/features/pet/components/ChatWindow/index.html",
+        "src/features/pet/components/SessionSidebar/index.html"
       ],
       "matches": ["<all_urls>"]
     }

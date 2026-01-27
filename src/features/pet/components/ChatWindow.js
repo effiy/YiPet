@@ -153,287 +153,639 @@
             }
 
             const instance = this;
-            const { createApp, defineComponent, ref, computed, onMounted, h, Fragment } = window.Vue;
-
-            const SessionSidebar = defineComponent({
-                name: 'YiPetSessionSidebar',
-                setup() {
-                    const searchValue = ref(manager.sessionTitleFilter || '');
-                    const clearVisible = computed(() => !!(searchValue.value || '').trim());
-                    let timer = null;
-
-                    const clearSearch = () => {
-                        searchValue.value = '';
-                        manager.sessionTitleFilter = '';
-                        if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                    };
-
-                    const onSearchInput = (e) => {
-                        searchValue.value = e?.target?.value ?? '';
-                        manager.sessionTitleFilter = (searchValue.value || '').trim();
-                        if (timer) clearTimeout(timer);
-                        timer = setTimeout(() => {
-                            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                        }, 300);
-                    };
-
-                    const onSearchKeydown = (e) => {
-                        if (e?.key === 'Escape') {
-                            clearSearch();
-                        }
-                    };
-
-                    const onBatchToggleClick = () => {
-                        if (manager.batchMode) {
-                            if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-                        } else {
-                            if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-                        }
-                    };
-
-                    const onExportClick = () => {
-                        if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-                    };
-
-                    const onImportClick = () => {
-                        const fileInput = document.createElement('input');
-                        fileInput.type = 'file';
-                        fileInput.accept = '.zip';
-                        fileInput.className = 'js-hidden';
-                        fileInput.addEventListener('change', async (e) => {
-                            const file = e?.target?.files?.[0];
-                            if (file && typeof manager.importSessionsFromZip === 'function') {
-                                await manager.importSessionsFromZip(file);
-                            }
-                        });
-                        document.body.appendChild(fileInput);
-                        fileInput.click();
-                        document.body.removeChild(fileInput);
-                    };
-
-                    const onAddClick = () => {
-                        if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-                    };
-
-                    return () => h(Fragment, null, [
-                        h('div', { class: 'session-sidebar-header' }, [
-                            h('div', { class: 'session-sidebar-search-row' }, [
-                                h('div', { class: 'session-search-container' }, [
-                                    h('input', {
-                                        id: 'session-search-input',
-                                        class: 'session-search-input',
-                                        type: 'text',
-                                        placeholder: '搜索会话...',
-                                        value: searchValue.value,
-                                        onInput: onSearchInput,
-                                        onKeydown: onSearchKeydown,
-                                        onClick: (e) => e?.stopPropagation?.()
-                                    }),
-                                    h('button', {
-                                        class: ['session-search-clear-btn', { visible: clearVisible.value }],
-                                        type: 'button',
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            clearSearch();
-                                        }
-                                    }, '✕')
-                                ])
-                            ])
-                        ]),
-                        h('div', { class: 'session-sidebar-scrollable-content' }, [
-                            h('div', { id: 'yi-pet-tag-filter-mount' }),
-                            h('div', { class: 'session-sidebar-actions-row' }, [
-                                h('div', { class: 'session-actions-left-group' }, [
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--batch'],
-                                        title: '批量选择',
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onBatchToggleClick();
-                                        }
-                                    }, '☑️ 批量'),
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--export'],
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onExportClick();
-                                        }
-                                    }, '⬇️ 导出'),
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--import'],
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onImportClick();
-                                        }
-                                    }, '⬆️ 导入')
-                                ]),
-                                h('div', { class: 'session-actions-right-group' }, [
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--add'],
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onAddClick();
-                                        }
-                                    }, '➕ 新建')
-                                ])
-                            ]),
-                            h('div', { id: 'yi-pet-batch-toolbar-mount' }),
-                            h('div', { class: 'session-list', id: 'session-list' })
-                        ])
-                    ]);
+            const { createApp, defineComponent, ref, computed, onMounted } = window.Vue;
+            const evalAllowed = (() => {
+                try {
+                    Function('return 1')();
+                    return true;
+                } catch (_) {
+                    return false;
                 }
-            });
+            })();
+            const canUseTemplate = typeof window.Vue.compile === 'function' && evalAllowed;
 
-            const Root = defineComponent({
-                name: 'YiPetChatWindow',
-                components: { SessionSidebar },
-                setup() {
-                    const headerEl = ref(null);
-                    const sidebarEl = ref(null);
-                    const mainEl = ref(null);
-                    const messagesEl = ref(null);
-                    const inputMountEl = ref(null);
+            const SessionSidebar = canUseTemplate
+                ? defineComponent({
+                      name: 'YiPetSessionSidebar',
+                      setup() {
+                          const searchValue = ref(manager.sessionTitleFilter || '');
+                          const clearVisible = computed(() => !!(searchValue.value || '').trim());
+                          let timer = null;
 
-                    const onAuthClick = (e) => {
-                        e?.stopPropagation?.();
-                        e?.preventDefault?.();
-                        manager.openAuth();
-                    };
+                          const clearSearch = () => {
+                              searchValue.value = '';
+                              manager.sessionTitleFilter = '';
+                              if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                          };
 
-                    const onRefreshClick = (e) => {
-                        e?.stopPropagation?.();
-                        e?.preventDefault?.();
-                        manager.manualRefresh(e.currentTarget);
-                    };
+                          const onSearchInput = (e) => {
+                              searchValue.value = e?.target?.value ?? '';
+                              manager.sessionTitleFilter = (searchValue.value || '').trim();
+                              if (timer) clearTimeout(timer);
+                              timer = setTimeout(() => {
+                                  if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                              }, 300);
+                          };
 
-                    const onSidebarToggleClick = (e) => {
-                        e?.stopPropagation?.();
-                        e?.preventDefault?.();
-                        if (instance.toggleSidebar) instance.toggleSidebar();
-                    };
+                          const onSearchKeydown = (e) => {
+                              if (e?.key === 'Escape') {
+                                  clearSearch();
+                              }
+                          };
 
-                    onMounted(() => {
-                        instance.header = headerEl.value;
-                        instance.sidebar = sidebarEl.value;
-                        instance.mainContent = mainEl.value;
-                        instance.messagesContainer = messagesEl.value;
+                          const onBatchToggleClick = () => {
+                              if (manager.batchMode) {
+                                  if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+                              } else {
+                                  if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                              }
+                          };
 
-                        if (instance.sidebar) {
-                            const sidebarWidth = manager.sidebarWidth || 320;
-                            manager.sidebarWidth = sidebarWidth;
-                            instance.sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
-                            manager.sessionSidebar = instance.sidebar;
+                          const onExportClick = () => {
+                              if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
+                          };
 
-                            const tagMount = instance.sidebar.querySelector('#yi-pet-tag-filter-mount');
-                            if (tagMount) {
-                                const tagFilterContainer = instance.createTagFilter();
-                                tagMount.replaceWith(tagFilterContainer);
-                            }
+                          const onImportClick = () => {
+                              const fileInput = document.createElement('input');
+                              fileInput.type = 'file';
+                              fileInput.accept = '.zip';
+                              fileInput.className = 'js-hidden';
+                              fileInput.addEventListener('change', async (e) => {
+                                  const file = e?.target?.files?.[0];
+                                  if (file && typeof manager.importSessionsFromZip === 'function') {
+                                      await manager.importSessionsFromZip(file);
+                                  }
+                              });
+                              document.body.appendChild(fileInput);
+                              fileInput.click();
+                              document.body.removeChild(fileInput);
+                          };
 
-                            const batchMount = instance.sidebar.querySelector('#yi-pet-batch-toolbar-mount');
-                            if (batchMount) {
-                                const batchToolbar = typeof manager.buildBatchToolbar === 'function'
-                                    ? manager.buildBatchToolbar()
-                                    : instance.buildBatchToolbar();
-                                batchMount.replaceWith(batchToolbar);
-                            }
+                          const onAddClick = () => {
+                              if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
+                          };
 
-                            instance.sessionListContainer = instance.sidebar.querySelector('#session-list');
-                            instance.createSidebarResizer(instance.sidebar);
+                          return {
+                              searchValue,
+                              clearVisible,
+                              clearSearch,
+                              onSearchInput,
+                              onSearchKeydown,
+                              onBatchToggleClick,
+                              onExportClick,
+                              onImportClick,
+                              onAddClick
+                          };
+                      },
+                      template: `
+                          <div>
+                              <div class="session-sidebar-header">
+                                  <div class="session-sidebar-search-row">
+                                      <div class="session-search-container">
+                                          <input
+                                              id="session-search-input"
+                                              class="session-search-input"
+                                              type="text"
+                                              placeholder="搜索会话..."
+                                              :value="searchValue"
+                                              @input="onSearchInput"
+                                              @keydown="onSearchKeydown"
+                                              @click.stop
+                                          />
+                                          <button
+                                              type="button"
+                                              :class="['session-search-clear-btn', { visible: clearVisible }]"
+                                              @click.stop="clearSearch"
+                                          >✕</button>
+                                      </div>
+                                  </div>
+                              </div>
+                              <div class="session-sidebar-scrollable-content">
+                                  <div id="yi-pet-tag-filter-mount"></div>
+                                  <div class="session-sidebar-actions-row">
+                                      <div class="session-actions-left-group">
+                                          <button
+                                              type="button"
+                                              class="session-action-btn session-action-btn--batch"
+                                              title="批量选择"
+                                              @click.stop="onBatchToggleClick"
+                                          >☑️ 批量</button>
+                                          <button
+                                              type="button"
+                                              class="session-action-btn session-action-btn--export"
+                                              @click.stop="onExportClick"
+                                          >⬇️ 导出</button>
+                                          <button
+                                              type="button"
+                                              class="session-action-btn session-action-btn--import"
+                                              @click.stop="onImportClick"
+                                          >⬆️ 导入</button>
+                                      </div>
+                                      <div class="session-actions-right-group">
+                                          <button
+                                              type="button"
+                                              class="session-action-btn session-action-btn--add"
+                                              @click.stop="onAddClick"
+                                          >➕ 新建</button>
+                                      </div>
+                                  </div>
+                                  <div id="yi-pet-batch-toolbar-mount"></div>
+                                  <div class="session-list" id="session-list"></div>
+                              </div>
+                          </div>
+                      `
+                  })
+                : (() => {
+                      const { h, Fragment } = window.Vue;
+                      return defineComponent({
+                          name: 'YiPetSessionSidebar',
+                          setup() {
+                              const searchValue = ref(manager.sessionTitleFilter || '');
+                              const clearVisible = computed(() => !!(searchValue.value || '').trim());
+                              let timer = null;
 
-                            setTimeout(() => {
-                                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                            }, 0);
-                        }
+                              const clearSearch = () => {
+                                  searchValue.value = '';
+                                  manager.sessionTitleFilter = '';
+                                  if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                              };
 
-                        instance.inputContainer = instance.createInputContainer(currentColor);
-                        if (inputMountEl.value && instance.inputContainer) inputMountEl.value.replaceWith(instance.inputContainer);
+                              const onSearchInput = (e) => {
+                                  searchValue.value = e?.target?.value ?? '';
+                                  manager.sessionTitleFilter = (searchValue.value || '').trim();
+                                  if (timer) clearTimeout(timer);
+                                  timer = setTimeout(() => {
+                                      if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                                  }, 300);
+                              };
 
-                        instance.createResizeHandles();
-                        instance.bindEvents();
+                              const onSearchKeydown = (e) => {
+                                  if (e?.key === 'Escape') {
+                                      clearSearch();
+                                  }
+                              };
 
-                        if (manager.sidebarCollapsed === undefined) {
-                            manager.sidebarCollapsed = false;
-                        }
-                        instance.setSidebarCollapsed(manager.sidebarCollapsed);
+                              const onBatchToggleClick = () => {
+                                  if (manager.batchMode) {
+                                      if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+                                  } else {
+                                      if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                                  }
+                              };
 
-                        requestAnimationFrame(() => {
-                            instance.updateSidebarToggleButton(manager.sidebarCollapsed || false);
-                        });
-                    });
+                              const onExportClick = () => {
+                                  if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
+                              };
 
-                    return () => h(Fragment, null, [
-                        h('div', {
-                            class: 'yi-pet-chat-header',
-                            ref: headerEl,
-                            title: '拖拽移动窗口 | 双击全屏',
-                            style: { position: 'relative' }
-                        }, [
-                            h('div', { class: 'yi-pet-chat-header-title', id: 'yi-pet-chat-header-title' }, [
-                                h('span', { style: { fontSize: '20px' } }, '💕'),
-                                h('span', {
-                                    id: 'yi-pet-chat-header-title-text',
-                                    style: { fontWeight: '600', fontSize: '16px' }
-                                }, '与我聊天')
-                            ]),
-                            h('div', { class: 'yi-pet-chat-header-buttons' }, [
-                                h('button', {
-                                    id: 'yi-pet-chat-auth-btn',
-                                    class: 'yi-pet-chat-header-btn',
-                                    'aria-label': 'API 鉴权',
-                                    title: 'API 鉴权',
-                                    onClick: onAuthClick
-                                }, [
-                                    h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-                                        h('path', { d: 'M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z' })
-                                    ])
-                                ]),
-                                h('button', {
-                                    id: 'yi-pet-chat-refresh-btn',
-                                    class: ['yi-pet-chat-header-btn', 'pet-chat-refresh-btn'],
-                                    'aria-label': '刷新',
-                                    title: '刷新',
-                                    onClick: onRefreshClick
-                                }, [
-                                    h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-                                        h('path', { d: 'M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z' })
-                                    ])
-                                ])
-                            ]),
-                            h('button', {
-                                id: 'sidebar-toggle-btn',
-                                class: ['yi-pet-chat-header-btn', 'sidebar-toggle-btn'],
-                                'aria-label': '折叠/展开会话列表',
-                                title: '折叠会话列表',
-                                onClick: onSidebarToggleClick
-                            }, [
-                                h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-                                    h('path', { d: 'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z' })
-                                ])
-                            ])
-                        ]),
-                        h('div', { class: 'yi-pet-chat-content-container' }, [
-                            h('div', { class: 'session-sidebar', ref: sidebarEl }, [
-                                h(SessionSidebar)
-                            ]),
-                            h('div', { class: 'yi-pet-chat-right-panel', ref: mainEl, 'aria-label': '会话聊天面板' }, [
-                                h('div', {
-                                    id: 'yi-pet-chat-messages',
-                                    ref: messagesEl,
-                                    class: 'yi-pet-chat-messages',
-                                    role: 'log',
-                                    'aria-live': 'polite'
-                                }),
-                                h('div', { id: 'yi-pet-input-mount', ref: inputMountEl })
-                            ])
-                        ])
-                    ]);
-                }
-            });
+                              const onImportClick = () => {
+                                  const fileInput = document.createElement('input');
+                                  fileInput.type = 'file';
+                                  fileInput.accept = '.zip';
+                                  fileInput.className = 'js-hidden';
+                                  fileInput.addEventListener('change', async (e) => {
+                                      const file = e?.target?.files?.[0];
+                                      if (file && typeof manager.importSessionsFromZip === 'function') {
+                                          await manager.importSessionsFromZip(file);
+                                      }
+                                  });
+                                  document.body.appendChild(fileInput);
+                                  fileInput.click();
+                                  document.body.removeChild(fileInput);
+                              };
+
+                              const onAddClick = () => {
+                                  if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
+                              };
+
+                              return () =>
+                                  h(Fragment, null, [
+                                      h('div', { class: 'session-sidebar-header' }, [
+                                          h('div', { class: 'session-sidebar-search-row' }, [
+                                              h('div', { class: 'session-search-container' }, [
+                                                  h('input', {
+                                                      id: 'session-search-input',
+                                                      class: 'session-search-input',
+                                                      type: 'text',
+                                                      placeholder: '搜索会话...',
+                                                      value: searchValue.value,
+                                                      onInput: onSearchInput,
+                                                      onKeydown: onSearchKeydown,
+                                                      onClick: (e) => e?.stopPropagation?.()
+                                                  }),
+                                                  h(
+                                                      'button',
+                                                      {
+                                                          class: ['session-search-clear-btn', { visible: clearVisible.value }],
+                                                          type: 'button',
+                                                          onClick: (e) => {
+                                                              e?.stopPropagation?.();
+                                                              clearSearch();
+                                                          }
+                                                      },
+                                                      '✕'
+                                                  )
+                                              ])
+                                          ])
+                                      ]),
+                                      h('div', { class: 'session-sidebar-scrollable-content' }, [
+                                          h('div', { id: 'yi-pet-tag-filter-mount' }),
+                                          h('div', { class: 'session-sidebar-actions-row' }, [
+                                              h('div', { class: 'session-actions-left-group' }, [
+                                                  h(
+                                                      'button',
+                                                      {
+                                                          type: 'button',
+                                                          class: ['session-action-btn', 'session-action-btn--batch'],
+                                                          title: '批量选择',
+                                                          onClick: (e) => {
+                                                              e?.stopPropagation?.();
+                                                              onBatchToggleClick();
+                                                          }
+                                                      },
+                                                      '☑️ 批量'
+                                                  ),
+                                                  h(
+                                                      'button',
+                                                      {
+                                                          type: 'button',
+                                                          class: ['session-action-btn', 'session-action-btn--export'],
+                                                          onClick: (e) => {
+                                                              e?.stopPropagation?.();
+                                                              onExportClick();
+                                                          }
+                                                      },
+                                                      '⬇️ 导出'
+                                                  ),
+                                                  h(
+                                                      'button',
+                                                      {
+                                                          type: 'button',
+                                                          class: ['session-action-btn', 'session-action-btn--import'],
+                                                          onClick: (e) => {
+                                                              e?.stopPropagation?.();
+                                                              onImportClick();
+                                                          }
+                                                      },
+                                                      '⬆️ 导入'
+                                                  )
+                                              ]),
+                                              h('div', { class: 'session-actions-right-group' }, [
+                                                  h(
+                                                      'button',
+                                                      {
+                                                          type: 'button',
+                                                          class: ['session-action-btn', 'session-action-btn--add'],
+                                                          onClick: (e) => {
+                                                              e?.stopPropagation?.();
+                                                              onAddClick();
+                                                          }
+                                                      },
+                                                      '➕ 新建'
+                                                  )
+                                              ])
+                                          ]),
+                                          h('div', { id: 'yi-pet-batch-toolbar-mount' }),
+                                          h('div', { class: 'session-list', id: 'session-list' })
+                                      ])
+                                  ]);
+                          }
+                      });
+                  })();
+
+            const Root = canUseTemplate
+                ? defineComponent({
+                      name: 'YiPetChatWindow',
+                      components: { SessionSidebar },
+                      setup() {
+                          const headerEl = ref(null);
+                          const sidebarEl = ref(null);
+                          const mainEl = ref(null);
+                          const messagesEl = ref(null);
+                          const inputMountEl = ref(null);
+
+                          const onAuthClick = (e) => {
+                              e?.stopPropagation?.();
+                              e?.preventDefault?.();
+                              manager.openAuth();
+                          };
+
+                          const onRefreshClick = (e) => {
+                              e?.stopPropagation?.();
+                              e?.preventDefault?.();
+                              manager.manualRefresh(e.currentTarget);
+                          };
+
+                          const onSidebarToggleClick = (e) => {
+                              e?.stopPropagation?.();
+                              e?.preventDefault?.();
+                              if (instance.toggleSidebar) instance.toggleSidebar();
+                          };
+
+                          onMounted(() => {
+                              instance.header = headerEl.value;
+                              instance.sidebar = sidebarEl.value;
+                              instance.mainContent = mainEl.value;
+                              instance.messagesContainer = messagesEl.value;
+
+                              if (instance.sidebar) {
+                                  const sidebarWidth = manager.sidebarWidth || 320;
+                                  manager.sidebarWidth = sidebarWidth;
+                                  instance.sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
+                                  manager.sessionSidebar = instance.sidebar;
+
+                                  const tagMount = instance.sidebar.querySelector('#yi-pet-tag-filter-mount');
+                                  if (tagMount) {
+                                      const tagFilterContainer = instance.createTagFilter();
+                                      tagMount.replaceWith(tagFilterContainer);
+                                  }
+
+                                  const batchMount = instance.sidebar.querySelector('#yi-pet-batch-toolbar-mount');
+                                  if (batchMount) {
+                                      const batchToolbar =
+                                          typeof manager.buildBatchToolbar === 'function'
+                                              ? manager.buildBatchToolbar()
+                                              : instance.buildBatchToolbar();
+                                      batchMount.replaceWith(batchToolbar);
+                                  }
+
+                                  instance.sessionListContainer = instance.sidebar.querySelector('#session-list');
+                                  instance.createSidebarResizer(instance.sidebar);
+
+                                  setTimeout(() => {
+                                      if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                                  }, 0);
+                              }
+
+                              instance.inputContainer = instance.createInputContainer(currentColor);
+                              if (inputMountEl.value && instance.inputContainer) inputMountEl.value.replaceWith(instance.inputContainer);
+
+                              instance.createResizeHandles();
+                              instance.bindEvents();
+
+                              if (manager.sidebarCollapsed === undefined) {
+                                  manager.sidebarCollapsed = false;
+                              }
+                              instance.setSidebarCollapsed(manager.sidebarCollapsed);
+
+                              requestAnimationFrame(() => {
+                                  instance.updateSidebarToggleButton(manager.sidebarCollapsed || false);
+                              });
+                          });
+
+                          return {
+                              headerEl,
+                              sidebarEl,
+                              mainEl,
+                              messagesEl,
+                              inputMountEl,
+                              onAuthClick,
+                              onRefreshClick,
+                              onSidebarToggleClick
+                          };
+                      },
+                      template: `
+                          <div>
+                              <div
+                                  class="yi-pet-chat-header"
+                                  ref="headerEl"
+                                  title="拖拽移动窗口 | 双击全屏"
+                                  style="position: relative"
+                              >
+                                  <div class="yi-pet-chat-header-title" id="yi-pet-chat-header-title">
+                                      <span style="font-size: 20px;">💕</span>
+                                      <span
+                                          id="yi-pet-chat-header-title-text"
+                                          style="font-weight: 600; font-size: 16px;"
+                                      >与我聊天</span>
+                                  </div>
+                                  <div class="yi-pet-chat-header-buttons">
+                                      <button
+                                          id="yi-pet-chat-auth-btn"
+                                          class="yi-pet-chat-header-btn"
+                                          aria-label="API 鉴权"
+                                          title="API 鉴权"
+                                          @click="onAuthClick"
+                                      >
+                                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                                              <path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z" />
+                                          </svg>
+                                      </button>
+                                      <button
+                                          id="yi-pet-chat-refresh-btn"
+                                          class="yi-pet-chat-header-btn pet-chat-refresh-btn"
+                                          aria-label="刷新"
+                                          title="刷新"
+                                          @click="onRefreshClick"
+                                      >
+                                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                                              <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z" />
+                                          </svg>
+                                      </button>
+                                  </div>
+                                  <button
+                                      id="sidebar-toggle-btn"
+                                      class="yi-pet-chat-header-btn sidebar-toggle-btn"
+                                      aria-label="折叠/展开会话列表"
+                                      title="折叠会话列表"
+                                      @click="onSidebarToggleClick"
+                                  >
+                                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                                          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
+                                      </svg>
+                                  </button>
+                              </div>
+
+                              <div class="yi-pet-chat-content-container">
+                                  <div class="session-sidebar" ref="sidebarEl">
+                                      <SessionSidebar />
+                                  </div>
+                                  <div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板">
+                                      <div
+                                          id="yi-pet-chat-messages"
+                                          ref="messagesEl"
+                                          class="yi-pet-chat-messages"
+                                          role="log"
+                                          aria-live="polite"
+                                      ></div>
+                                      <div id="yi-pet-input-mount" ref="inputMountEl"></div>
+                                  </div>
+                              </div>
+                          </div>
+                      `
+                  })
+                : (() => {
+                      const { h, Fragment } = window.Vue;
+                      return defineComponent({
+                          name: 'YiPetChatWindow',
+                          components: { SessionSidebar },
+                          setup() {
+                              const headerEl = ref(null);
+                              const sidebarEl = ref(null);
+                              const mainEl = ref(null);
+                              const messagesEl = ref(null);
+                              const inputMountEl = ref(null);
+
+                              const onAuthClick = (e) => {
+                                  e?.stopPropagation?.();
+                                  e?.preventDefault?.();
+                                  manager.openAuth();
+                              };
+
+                              const onRefreshClick = (e) => {
+                                  e?.stopPropagation?.();
+                                  e?.preventDefault?.();
+                                  manager.manualRefresh(e.currentTarget);
+                              };
+
+                              const onSidebarToggleClick = (e) => {
+                                  e?.stopPropagation?.();
+                                  e?.preventDefault?.();
+                                  if (instance.toggleSidebar) instance.toggleSidebar();
+                              };
+
+                              onMounted(() => {
+                                  instance.header = headerEl.value;
+                                  instance.sidebar = sidebarEl.value;
+                                  instance.mainContent = mainEl.value;
+                                  instance.messagesContainer = messagesEl.value;
+
+                                  if (instance.sidebar) {
+                                      const sidebarWidth = manager.sidebarWidth || 320;
+                                      manager.sidebarWidth = sidebarWidth;
+                                      instance.sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
+                                      manager.sessionSidebar = instance.sidebar;
+
+                                      const tagMount = instance.sidebar.querySelector('#yi-pet-tag-filter-mount');
+                                      if (tagMount) {
+                                          const tagFilterContainer = instance.createTagFilter();
+                                          tagMount.replaceWith(tagFilterContainer);
+                                      }
+
+                                      const batchMount = instance.sidebar.querySelector('#yi-pet-batch-toolbar-mount');
+                                      if (batchMount) {
+                                          const batchToolbar =
+                                              typeof manager.buildBatchToolbar === 'function'
+                                                  ? manager.buildBatchToolbar()
+                                                  : instance.buildBatchToolbar();
+                                          batchMount.replaceWith(batchToolbar);
+                                      }
+
+                                      instance.sessionListContainer = instance.sidebar.querySelector('#session-list');
+                                      instance.createSidebarResizer(instance.sidebar);
+
+                                      setTimeout(() => {
+                                          if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                                      }, 0);
+                                  }
+
+                                  instance.inputContainer = instance.createInputContainer(currentColor);
+                                  if (inputMountEl.value && instance.inputContainer) inputMountEl.value.replaceWith(instance.inputContainer);
+
+                                  instance.createResizeHandles();
+                                  instance.bindEvents();
+
+                                  if (manager.sidebarCollapsed === undefined) {
+                                      manager.sidebarCollapsed = false;
+                                  }
+                                  instance.setSidebarCollapsed(manager.sidebarCollapsed);
+
+                                  requestAnimationFrame(() => {
+                                      instance.updateSidebarToggleButton(manager.sidebarCollapsed || false);
+                                  });
+                              });
+
+                              return () =>
+                                  h(Fragment, null, [
+                                      h(
+                                          'div',
+                                          {
+                                              class: 'yi-pet-chat-header',
+                                              ref: headerEl,
+                                              title: '拖拽移动窗口 | 双击全屏',
+                                              style: { position: 'relative' }
+                                          },
+                                          [
+                                              h('div', { class: 'yi-pet-chat-header-title', id: 'yi-pet-chat-header-title' }, [
+                                                  h('span', { style: { fontSize: '20px' } }, '💕'),
+                                                  h(
+                                                      'span',
+                                                      {
+                                                          id: 'yi-pet-chat-header-title-text',
+                                                          style: { fontWeight: '600', fontSize: '16px' }
+                                                      },
+                                                      '与我聊天'
+                                                  )
+                                              ]),
+                                              h('div', { class: 'yi-pet-chat-header-buttons' }, [
+                                                  h(
+                                                      'button',
+                                                      {
+                                                          id: 'yi-pet-chat-auth-btn',
+                                                          class: 'yi-pet-chat-header-btn',
+                                                          'aria-label': 'API 鉴权',
+                                                          title: 'API 鉴权',
+                                                          onClick: onAuthClick
+                                                      },
+                                                      [
+                                                          h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+                                                              h('path', {
+                                                                  d: 'M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z'
+                                                              })
+                                                          ])
+                                                      ]
+                                                  ),
+                                                  h(
+                                                      'button',
+                                                      {
+                                                          id: 'yi-pet-chat-refresh-btn',
+                                                          class: ['yi-pet-chat-header-btn', 'pet-chat-refresh-btn'],
+                                                          'aria-label': '刷新',
+                                                          title: '刷新',
+                                                          onClick: onRefreshClick
+                                                      },
+                                                      [
+                                                          h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+                                                              h('path', {
+                                                                  d: 'M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z'
+                                                              })
+                                                          ])
+                                                      ]
+                                                  )
+                                              ]),
+                                              h(
+                                                  'button',
+                                                  {
+                                                      id: 'sidebar-toggle-btn',
+                                                      class: ['yi-pet-chat-header-btn', 'sidebar-toggle-btn'],
+                                                      'aria-label': '折叠/展开会话列表',
+                                                      title: '折叠会话列表',
+                                                      onClick: onSidebarToggleClick
+                                                  },
+                                                  [
+                                                      h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+                                                          h('path', { d: 'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z' })
+                                                      ])
+                                                  ]
+                                              )
+                                          ]
+                                      ),
+                                      h('div', { class: 'yi-pet-chat-content-container' }, [
+                                          h('div', { class: 'session-sidebar', ref: sidebarEl }, [h(SessionSidebar)]),
+                                          h('div', { class: 'yi-pet-chat-right-panel', ref: mainEl, 'aria-label': '会话聊天面板' }, [
+                                              h('div', {
+                                                  id: 'yi-pet-chat-messages',
+                                                  ref: messagesEl,
+                                                  class: 'yi-pet-chat-messages',
+                                                  role: 'log',
+                                                  'aria-live': 'polite'
+                                              }),
+                                              h('div', { id: 'yi-pet-input-mount', ref: inputMountEl })
+                                          ])
+                                      ])
+                                  ]);
+                          }
+                      });
+                  })();
 
             this._vueApp = createApp(Root);
             if (this._vueApp && this._vueApp.config) {
@@ -553,7 +905,17 @@
                 this._sidebarVueInstance = null;
             }
 
-            const { ref, computed, h, Fragment } = window.Vue;
+            const { ref, computed } = window.Vue;
+            const evalAllowed = (() => {
+                try {
+                    Function('return 1')();
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            })();
+            const canUseTemplate = typeof window.Vue.compile === 'function' && evalAllowed;
+
             const searchValue = ref(manager.sessionTitleFilter || '');
             const clearVisible = computed(() => !!(searchValue.value || '').trim());
             let timer = null;
@@ -564,128 +926,275 @@
                 if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
             };
 
-            const app = window.Vue.createApp({
-                name: 'YiPetSessionSidebar',
-                setup() {
-                    const onSearchInput = (e) => {
-                        searchValue.value = e?.target?.value ?? '';
-                        manager.sessionTitleFilter = (searchValue.value || '').trim();
-                        if (timer) clearTimeout(timer);
-                        timer = setTimeout(() => {
-                            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                        }, 300);
-                    };
+            const app = window.Vue.createApp(
+                canUseTemplate
+                    ? {
+                          name: 'YiPetSessionSidebar',
+                          setup() {
+                              const onSearchInput = (e) => {
+                                  searchValue.value = e?.target?.value ?? '';
+                                  manager.sessionTitleFilter = (searchValue.value || '').trim();
+                                  if (timer) clearTimeout(timer);
+                                  timer = setTimeout(() => {
+                                      if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                                  }, 300);
+                              };
 
-                    const onSearchKeydown = (e) => {
-                        if (e?.key === 'Escape') {
-                            clearSearch();
-                        }
-                    };
+                              const onSearchKeydown = (e) => {
+                                  if (e?.key === 'Escape') {
+                                      clearSearch();
+                                  }
+                              };
 
-                    const onBatchToggleClick = () => {
-                        if (manager.batchMode) {
-                            if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-                        } else {
-                            if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-                        }
-                    };
+                              const onBatchToggleClick = () => {
+                                  if (manager.batchMode) {
+                                      if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+                                  } else {
+                                      if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                                  }
+                              };
 
-                    const onExportClick = () => {
-                        if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-                    };
+                              const onExportClick = () => {
+                                  if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
+                              };
 
-                    const onImportClick = () => {
-                        const fileInput = document.createElement('input');
-                        fileInput.type = 'file';
-                        fileInput.accept = '.zip';
-                        fileInput.className = 'js-hidden';
-                        fileInput.addEventListener('change', async (e) => {
-                            const file = e?.target?.files?.[0];
-                            if (file && typeof manager.importSessionsFromZip === 'function') {
-                                await manager.importSessionsFromZip(file);
-                            }
-                        });
-                        document.body.appendChild(fileInput);
-                        fileInput.click();
-                        document.body.removeChild(fileInput);
-                    };
+                              const onImportClick = () => {
+                                  const fileInput = document.createElement('input');
+                                  fileInput.type = 'file';
+                                  fileInput.accept = '.zip';
+                                  fileInput.className = 'js-hidden';
+                                  fileInput.addEventListener('change', async (e) => {
+                                      const file = e?.target?.files?.[0];
+                                      if (file && typeof manager.importSessionsFromZip === 'function') {
+                                          await manager.importSessionsFromZip(file);
+                                      }
+                                  });
+                                  document.body.appendChild(fileInput);
+                                  fileInput.click();
+                                  document.body.removeChild(fileInput);
+                              };
 
-                    const onAddClick = () => {
-                        if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-                    };
+                              const onAddClick = () => {
+                                  if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
+                              };
 
-                    return () => h(Fragment, null, [
-                        h('div', { class: 'session-sidebar-header' }, [
-                            h('div', { class: 'session-sidebar-search-row' }, [
-                                h('div', { class: 'session-search-container' }, [
-                                    h('input', {
-                                        id: 'session-search-input',
-                                        class: 'session-search-input',
-                                        type: 'text',
-                                        placeholder: '搜索会话...',
-                                        value: searchValue.value,
-                                        onInput: onSearchInput,
-                                        onKeydown: onSearchKeydown,
-                                        onClick: (e) => e?.stopPropagation?.()
-                                    }),
-                                    h('button', {
-                                        class: ['session-search-clear-btn', { visible: clearVisible.value }],
-                                        type: 'button',
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            clearSearch();
-                                        }
-                                    }, '✕')
-                                ])
-                            ])
-                        ]),
-                        h('div', { class: 'session-sidebar-scrollable-content' }, [
-                            h('div', { id: 'yi-pet-tag-filter-mount' }),
-                            h('div', { class: 'session-sidebar-actions-row' }, [
-                                h('div', { class: 'session-actions-left-group' }, [
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--batch'],
-                                        title: '批量选择',
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onBatchToggleClick();
-                                        }
-                                    }, '☑️ 批量'),
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--export'],
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onExportClick();
-                                        }
-                                    }, '⬇️ 导出'),
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--import'],
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onImportClick();
-                                        }
-                                    }, '⬆️ 导入')
-                                ]),
-                                h('div', { class: 'session-actions-right-group' }, [
-                                    h('button', {
-                                        type: 'button',
-                                        class: ['session-action-btn', 'session-action-btn--add'],
-                                        onClick: (e) => {
-                                            e?.stopPropagation?.();
-                                            onAddClick();
-                                        }
-                                    }, '➕ 新建')
-                                ])
-                            ]),
-                            h('div', { id: 'yi-pet-batch-toolbar-mount' }),
-                            h('div', { class: 'session-list', id: 'session-list' })
-                        ])
-                    ]);
-                }
-            });
+                              return {
+                                  searchValue,
+                                  clearVisible,
+                                  clearSearch,
+                                  onSearchInput,
+                                  onSearchKeydown,
+                                  onBatchToggleClick,
+                                  onExportClick,
+                                  onImportClick,
+                                  onAddClick
+                              };
+                          },
+                          template: `
+                              <div>
+                                  <div class="session-sidebar-header">
+                                      <div class="session-sidebar-search-row">
+                                          <div class="session-search-container">
+                                              <input
+                                                  id="session-search-input"
+                                                  class="session-search-input"
+                                                  type="text"
+                                                  placeholder="搜索会话..."
+                                                  :value="searchValue"
+                                                  @input="onSearchInput"
+                                                  @keydown="onSearchKeydown"
+                                                  @click.stop
+                                              />
+                                              <button
+                                                  type="button"
+                                                  :class="['session-search-clear-btn', { visible: clearVisible }]"
+                                                  @click.stop="clearSearch"
+                                              >✕</button>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div class="session-sidebar-scrollable-content">
+                                      <div id="yi-pet-tag-filter-mount"></div>
+                                      <div class="session-sidebar-actions-row">
+                                          <div class="session-actions-left-group">
+                                              <button
+                                                  type="button"
+                                                  class="session-action-btn session-action-btn--batch"
+                                                  title="批量选择"
+                                                  @click.stop="onBatchToggleClick"
+                                              >☑️ 批量</button>
+                                              <button
+                                                  type="button"
+                                                  class="session-action-btn session-action-btn--export"
+                                                  @click.stop="onExportClick"
+                                              >⬇️ 导出</button>
+                                              <button
+                                                  type="button"
+                                                  class="session-action-btn session-action-btn--import"
+                                                  @click.stop="onImportClick"
+                                              >⬆️ 导入</button>
+                                          </div>
+                                          <div class="session-actions-right-group">
+                                              <button
+                                                  type="button"
+                                                  class="session-action-btn session-action-btn--add"
+                                                  @click.stop="onAddClick"
+                                              >➕ 新建</button>
+                                          </div>
+                                      </div>
+                                      <div id="yi-pet-batch-toolbar-mount"></div>
+                                      <div class="session-list" id="session-list"></div>
+                                  </div>
+                              </div>
+                          `
+                      }
+                    : (() => {
+                          const { h, Fragment } = window.Vue;
+                          return {
+                              name: 'YiPetSessionSidebar',
+                              setup() {
+                                  const onSearchInput = (e) => {
+                                      searchValue.value = e?.target?.value ?? '';
+                                      manager.sessionTitleFilter = (searchValue.value || '').trim();
+                                      if (timer) clearTimeout(timer);
+                                      timer = setTimeout(() => {
+                                          if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                                      }, 300);
+                                  };
+
+                                  const onSearchKeydown = (e) => {
+                                      if (e?.key === 'Escape') {
+                                          clearSearch();
+                                      }
+                                  };
+
+                                  const onBatchToggleClick = () => {
+                                      if (manager.batchMode) {
+                                          if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+                                      } else {
+                                          if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                                      }
+                                  };
+
+                                  const onExportClick = () => {
+                                      if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
+                                  };
+
+                                  const onImportClick = () => {
+                                      const fileInput = document.createElement('input');
+                                      fileInput.type = 'file';
+                                      fileInput.accept = '.zip';
+                                      fileInput.className = 'js-hidden';
+                                      fileInput.addEventListener('change', async (e) => {
+                                          const file = e?.target?.files?.[0];
+                                          if (file && typeof manager.importSessionsFromZip === 'function') {
+                                              await manager.importSessionsFromZip(file);
+                                          }
+                                      });
+                                      document.body.appendChild(fileInput);
+                                      fileInput.click();
+                                      document.body.removeChild(fileInput);
+                                  };
+
+                                  const onAddClick = () => {
+                                      if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
+                                  };
+
+                                  return () =>
+                                      h(Fragment, null, [
+                                          h('div', { class: 'session-sidebar-header' }, [
+                                              h('div', { class: 'session-sidebar-search-row' }, [
+                                                  h('div', { class: 'session-search-container' }, [
+                                                      h('input', {
+                                                          id: 'session-search-input',
+                                                          class: 'session-search-input',
+                                                          type: 'text',
+                                                          placeholder: '搜索会话...',
+                                                          value: searchValue.value,
+                                                          onInput: onSearchInput,
+                                                          onKeydown: onSearchKeydown,
+                                                          onClick: (e) => e?.stopPropagation?.()
+                                                      }),
+                                                      h(
+                                                          'button',
+                                                          {
+                                                              class: ['session-search-clear-btn', { visible: clearVisible.value }],
+                                                              type: 'button',
+                                                              onClick: (e) => {
+                                                                  e?.stopPropagation?.();
+                                                                  clearSearch();
+                                                              }
+                                                          },
+                                                          '✕'
+                                                      )
+                                                  ])
+                                              ])
+                                          ]),
+                                          h('div', { class: 'session-sidebar-scrollable-content' }, [
+                                              h('div', { id: 'yi-pet-tag-filter-mount' }),
+                                              h('div', { class: 'session-sidebar-actions-row' }, [
+                                                  h('div', { class: 'session-actions-left-group' }, [
+                                                      h(
+                                                          'button',
+                                                          {
+                                                              type: 'button',
+                                                              class: ['session-action-btn', 'session-action-btn--batch'],
+                                                              title: '批量选择',
+                                                              onClick: (e) => {
+                                                                  e?.stopPropagation?.();
+                                                                  onBatchToggleClick();
+                                                              }
+                                                          },
+                                                          '☑️ 批量'
+                                                      ),
+                                                      h(
+                                                          'button',
+                                                          {
+                                                              type: 'button',
+                                                              class: ['session-action-btn', 'session-action-btn--export'],
+                                                              onClick: (e) => {
+                                                                  e?.stopPropagation?.();
+                                                                  onExportClick();
+                                                              }
+                                                          },
+                                                          '⬇️ 导出'
+                                                      ),
+                                                      h(
+                                                          'button',
+                                                          {
+                                                              type: 'button',
+                                                              class: ['session-action-btn', 'session-action-btn--import'],
+                                                              onClick: (e) => {
+                                                                  e?.stopPropagation?.();
+                                                                  onImportClick();
+                                                              }
+                                                          },
+                                                          '⬆️ 导入'
+                                                      )
+                                                  ]),
+                                                  h('div', { class: 'session-actions-right-group' }, [
+                                                      h(
+                                                          'button',
+                                                          {
+                                                              type: 'button',
+                                                              class: ['session-action-btn', 'session-action-btn--add'],
+                                                              onClick: (e) => {
+                                                                  e?.stopPropagation?.();
+                                                                  onAddClick();
+                                                              }
+                                                          },
+                                                          '➕ 新建'
+                                                      )
+                                                  ])
+                                              ]),
+                                              h('div', { id: 'yi-pet-batch-toolbar-mount' }),
+                                              h('div', { class: 'session-list', id: 'session-list' })
+                                          ])
+                                      ]);
+                              }
+                          };
+                      })()
+            );
             if (app && app.config) {
                 app.config.compilerOptions = app.config.compilerOptions || {};
                 app.config.compilerOptions.isCustomElement = () => false;

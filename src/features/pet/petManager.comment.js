@@ -300,10 +300,21 @@
     // 处理选择变化
     proto.onSelectionChange = function() {
         try {
+            if (typeof this.getActiveElementSelectedText === 'function') {
+                const activeSel = this.getActiveElementSelectedText();
+                if (activeSel && activeSel.text) {
+                    this.commentState.lastSelectionText = activeSel.text;
+                    this.commentState.lastSelectionRange = null;
+                    this.commentState._quickCommentReferenceRect = activeSel.rect || null;
+                    return;
+                }
+            }
+
             const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
                 this.commentState.lastSelectionText = '';
                 this.commentState.lastSelectionRange = null;
+                this.commentState._quickCommentReferenceRect = null;
                 return;
             }
 
@@ -313,6 +324,7 @@
             if (!text) {
                 this.commentState.lastSelectionText = '';
                 this.commentState.lastSelectionRange = null;
+                this.commentState._quickCommentReferenceRect = null;
                 return;
             }
 
@@ -324,6 +336,7 @@
                 startOffset: range.startOffset,
                 endOffset: range.endOffset
             };
+            this.commentState._quickCommentReferenceRect = range.getBoundingClientRect ? range.getBoundingClientRect() : null;
 
             console.log('[PetManager] 检测到文本选择:', {
                 text: text.substring(0, 50) + (text.length > 50 ? '...' : ''),
@@ -331,6 +344,33 @@
             });
         } catch (error) {
             console.error('[PetManager] 处理选择变化时出错:', error);
+        }
+    };
+
+    proto.getActiveElementSelectedText = function() {
+        try {
+            const el = document.activeElement;
+            if (!el) return null;
+
+            const tag = (el.tagName || '').toUpperCase();
+            if (tag !== 'TEXTAREA' && tag !== 'INPUT') return null;
+
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            if (typeof start !== 'number' || typeof end !== 'number') return null;
+            if (start === end) return null;
+
+            const value = typeof el.value === 'string' ? el.value : '';
+            const s = Math.min(start, end);
+            const e = Math.max(start, end);
+            const selected = value.slice(s, e);
+            const text = String(selected || '').trim();
+            if (!text) return null;
+
+            const rect = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null;
+            return { text, rect };
+        } catch (e) {
+            return null;
         }
     };
 
@@ -359,12 +399,18 @@
             return this.openQuickComment();
         }
 
+        document.body.appendChild(container);
+        container.style.zIndex = '2147483652';
+
         // 获取选择位置
         let referenceRect = null;
         const selection = window.getSelection();
         if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             referenceRect = range.getBoundingClientRect();
+        }
+        if ((!referenceRect || referenceRect.width <= 0) && this.commentState && this.commentState._quickCommentReferenceRect) {
+            referenceRect = this.commentState._quickCommentReferenceRect;
         }
 
         // 计算位置
@@ -450,6 +496,7 @@
         this.commentState.quickCommentQuote = '';
         this.commentState.quickCommentError = '';
         this.commentState.quickCommentSubmitting = false;
+        this.commentState._quickCommentReferenceRect = null;
 
         container.style.display = 'none';
         container.classList.remove('visible', 'animate-in', 'ai-generating');

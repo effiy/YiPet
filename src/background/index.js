@@ -329,7 +329,8 @@ function sendMessageToActiveTab(message) {
 const KEYBOARD_COMMANDS = {
     'toggle-pet': { action: 'toggleVisibility' },
     'change-color': { action: 'changeColor' },
-    'reset-position': { action: 'resetPosition' }
+    'reset-position': { action: 'resetPosition' },
+    'open-quick-comment': { action: 'openQuickCommentFromShortcut' }
 };
 
 /**
@@ -345,6 +346,21 @@ try {
             try {
                 const commandConfig = KEYBOARD_COMMANDS[command];
                 if (commandConfig) {
+                    if (command === 'open-quick-comment') {
+                        try {
+                            chrome.storage.local.get(['petSettings'], (result) => {
+                                const settings = result && result.petSettings ? result.petSettings : null;
+                                const enabled = settings ? settings.quickCommentShortcutEnabled : undefined;
+                                if (enabled === false || enabled === 'false') {
+                                    return;
+                                }
+                                sendMessageToActiveTab(commandConfig);
+                            });
+                        } catch (e) {
+                            sendMessageToActiveTab(commandConfig);
+                        }
+                        return;
+                    }
                     sendMessageToActiveTab(commandConfig);
                 } else {
                     console.warn(`未知的键盘命令: ${command}`);

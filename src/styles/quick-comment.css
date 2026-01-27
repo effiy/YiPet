@@ -1,7 +1,7 @@
 /* ========== Quick Comment 内联输入框（Cursor Quick Edit 风格） ========== */
 .pet-quick-comment-container {
     position: fixed;
-    z-index: 2147483649; /* 使用PET_CONFIG中的modal层级 */
+    z-index: 2147483652;
     display: none;
     flex-direction: column;
     min-width: 400px;
@@ -63,6 +63,7 @@
         transparent 100%);
     border-bottom: 1px solid rgba(82, 82, 91, 0.3);
     cursor: grab;
+    -webkit-user-select: none;
     user-select: none;
     transition: background 0.2s ease;
 }
@@ -1132,6 +1133,7 @@
 
 /* 缩放时的样式 */
 .pet-quick-comment-container.resizing {
+    -webkit-user-select: none;
     user-select: none;
 }
 

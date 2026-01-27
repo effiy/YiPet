@@ -80,6 +80,36 @@
     "default_popup": "src/views/popup/index.html",
     "default_title": "伴侣控制面板"
   },
+  "commands": {
+    "toggle-pet": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "切换宠物显示/隐藏"
+    },
+    "change-color": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C",
+        "mac": "Command+Shift+C"
+      },
+      "description": "切换宠物颜色"
+    },
+    "reset-position": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R",
+        "mac": "Command+Shift+R"
+      },
+      "description": "重置宠物位置"
+    },
+    "open-quick-comment": {
+      "suggested_key": {
+        "default": "Ctrl+K",
+        "mac": "Command+K"
+      },
+      "description": "打开添加评论弹框"
+    }
+  },
   "icons": {
     "16": "src/assets/icons/icon16.png",
     "32": "src/assets/icons/icon32.png",

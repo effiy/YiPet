@@ -156,6 +156,10 @@
                     const enabled = settings ? settings.quickCommentShortcutEnabled : undefined;
                     if (typeof enabled === 'boolean') {
                         this.quickCommentShortcutEnabled = enabled;
+                    } else if (enabled === 'false') {
+                        this.quickCommentShortcutEnabled = false;
+                    } else if (enabled === 'true') {
+                        this.quickCommentShortcutEnabled = true;
                     }
                 });
             } catch (e) {}

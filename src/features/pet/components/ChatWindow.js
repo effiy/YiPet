@@ -1099,6 +1099,28 @@
             textarea.addEventListener('keydown', (e) => {
                 // 检查是否按下回车键
                 if (e.key !== 'Enter') {
+                    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
+                        if (this.manager && this.manager.quickCommentShortcutEnabled !== false) {
+                            if (this.manager.commentState && this.manager.commentState.showQuickComment) {
+                                const commentTextarea = document.getElementById('pet-quick-comment-textarea');
+                                if (commentTextarea) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    e.stopImmediatePropagation();
+                                    commentTextarea.focus();
+                                    return;
+                                }
+                            }
+
+                            if (typeof this.manager.openQuickCommentFromShortcut === 'function') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                this.manager.openQuickCommentFromShortcut();
+                                return;
+                            }
+                        }
+                    }
                     // 处理 Escape 键
                     if (e.key === 'Escape') {
                         e.preventDefault();

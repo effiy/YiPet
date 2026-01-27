@@ -51,10 +51,12 @@
             // Click handler (activate session)
             sessionItem.addEventListener('click', async (e) => {
                 // Ignore if clicking checkbox, favorite button, or action buttons
-                if (e.target.closest('.session-batch-checkbox') ||
+                if (
+                    e.target.closest('.session-batch-checkbox') ||
                     e.target.closest('.session-favorite-btn') ||
                     e.target.closest('button') ||
-                    e.target.closest('.session-tag-item')) {
+                    e.target.closest('.session-tag-item')
+                ) {
                     return;
                 }
 
@@ -120,11 +122,11 @@
                 console.warn('会话缺少 key 字段，无法设置复选框:', session);
                 return null;
             }
-            
+
             // 初始化选中状态
             const isSelected = manager.selectedSessionIds && manager.selectedSessionIds.has(sessionKey);
             checkbox.checked = isSelected;
-            
+
             // 更新会话项的选中状态类
             if (isSelected) {
                 sessionItem.classList.add('batch-selected');
@@ -195,7 +197,7 @@
 
             const titleText = document.createElement('span');
             titleText.className = 'session-title-text';
-            const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.title || '未命名会话');
+            const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : session.title || '未命名会话';
             titleText.textContent = sessionTitle;
             titleText.title = sessionTitle;
             if (session.isFavorite) {
@@ -252,12 +254,10 @@
 
             const tagsContainer = document.createElement('div');
             tagsContainer.className = 'session-item-tags';
-            const normalizedTags = Array.isArray(session.tags)
-                ? session.tags.map(tag => tag ? tag.trim() : '').filter(tag => tag.length > 0)
-                : [];
+            const normalizedTags = Array.isArray(session.tags) ? session.tags.map((tag) => (tag ? tag.trim() : '')).filter((tag) => tag.length > 0) : [];
 
             if (normalizedTags.length > 0) {
-                normalizedTags.forEach(tag => {
+                normalizedTags.forEach((tag) => {
                     const tagElement = document.createElement('span');
                     tagElement.className = 'session-tag-item';
                     tagElement.textContent = tag;
@@ -446,7 +446,7 @@
                             manager.showNotification('无法删除：会话缺少标识符', 'error');
                             return;
                         }
-                        const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : (session.title || '未命名会话');
+                        const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : session.title || '未命名会话';
                         if (confirm(`确定要删除会话 "${sessionTitle}" 吗？`)) {
                             await manager.deleteSession(sessionKey);
                         }

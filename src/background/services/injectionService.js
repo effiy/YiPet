@@ -47,7 +47,7 @@ class InjectionService {
         'src/features/pet/petManager.messaging.js',
         'src/features/pet/petManager.pageInfo.js',
         'src/features/pet/petManager.session.js',
-        'src/features/pet/components/SessionItem.js',
+        'src/features/pet/components/SessionItem/index.js',
         'src/features/pet/components/ChatWindow/hooks/store.js',
         'src/features/pet/components/ChatWindow/hooks/useComputed.js',
         'src/features/pet/components/ChatWindow/hooks/useMethods.js',

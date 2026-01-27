@@ -9,6 +9,145 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
+    const hooks = window.PetManager.Components.ChatWindowHooks || {};
+
+    const createStore = hooks.createStore || function createStore(manager) {
+        const { ref } = window.Vue;
+        return {
+            searchValue: ref(manager.sessionTitleFilter || '')
+        };
+    };
+
+    const useComputed = hooks.useComputed || function useComputed(store) {
+        const { computed } = window.Vue;
+        return {
+            clearVisible: computed(() => !!(store.searchValue.value || '').trim())
+        };
+    };
+
+    const useMethods = hooks.useMethods || function useMethods(params) {
+        const { manager, instance, store } = params;
+        let timer = null;
+
+        const clearSearch = () => {
+            store.searchValue.value = '';
+            manager.sessionTitleFilter = '';
+            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+        };
+
+        const onSearchInput = (e) => {
+            store.searchValue.value = e?.target?.value ?? '';
+            manager.sessionTitleFilter = (store.searchValue.value || '').trim();
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+            }, 300);
+        };
+
+        const onSearchKeydown = (e) => {
+            if (e?.key === 'Escape') {
+                clearSearch();
+            }
+        };
+
+        const onBatchToggleClick = () => {
+            if (manager.batchMode) {
+                if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+            } else {
+                if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+            }
+        };
+
+        const onExportClick = () => {
+            if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
+        };
+
+        const onImportClick = () => {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.zip';
+            fileInput.className = 'js-hidden';
+            fileInput.addEventListener('change', async (e) => {
+                const file = e?.target?.files?.[0];
+                if (file && typeof manager.importSessionsFromZip === 'function') {
+                    await manager.importSessionsFromZip(file);
+                }
+            });
+            document.body.appendChild(fileInput);
+            fileInput.click();
+            document.body.removeChild(fileInput);
+        };
+
+        const onAddClick = () => {
+            if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
+        };
+
+        const onAuthClick = (e) => {
+            e?.stopPropagation?.();
+            e?.preventDefault?.();
+            manager.openAuth();
+        };
+
+        const onRefreshClick = (e) => {
+            e?.stopPropagation?.();
+            e?.preventDefault?.();
+            manager.manualRefresh(e.currentTarget);
+        };
+
+        const onSidebarToggleClick = (e) => {
+            e?.stopPropagation?.();
+            e?.preventDefault?.();
+            if (instance.toggleSidebar) instance.toggleSidebar();
+        };
+
+        return {
+            clearSearch,
+            onSearchInput,
+            onSearchKeydown,
+            onBatchToggleClick,
+            onExportClick,
+            onImportClick,
+            onAddClick,
+            onAuthClick,
+            onRefreshClick,
+            onSidebarToggleClick
+        };
+    };
+
+    const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/ChatWindow/index.html';
+    let chatWindowTemplatesPromise = null;
+    let chatWindowTemplatesCache = null;
+
+    function resolveExtensionResourceUrl(relativePath) {
+        try {
+            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
+        } catch (_) {}
+        return relativePath;
+    }
+
+    async function loadChatWindowTemplates() {
+        if (chatWindowTemplatesCache) return chatWindowTemplatesCache;
+        if (!chatWindowTemplatesPromise) {
+            chatWindowTemplatesPromise = (async () => {
+                const url = resolveExtensionResourceUrl(CHAT_WINDOW_TEMPLATES_RESOURCE_PATH);
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Failed to load templates: ${res.status}`);
+
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const sessionSidebarEl = doc.querySelector('#yi-pet-session-sidebar-template');
+                const chatWindowEl = doc.querySelector('#yi-pet-chat-window-template');
+
+                chatWindowTemplatesCache = {
+                    sessionSidebar: sessionSidebarEl ? sessionSidebarEl.innerHTML : '',
+                    chatWindow: chatWindowEl ? chatWindowEl.innerHTML : ''
+                };
+                return chatWindowTemplatesCache;
+            })();
+        }
+        return chatWindowTemplatesPromise;
+    }
+
     class ChatWindow {
         constructor(manager) {
             this.manager = manager;
@@ -163,200 +302,44 @@
                 }
             })();
             const canUseTemplate = typeof window.Vue.compile === 'function' && evalAllowed;
+            const store = createStore(manager);
+            const computedProps = useComputed(store);
+            const methods = useMethods({ manager, instance, store });
 
-            const SessionSidebar = canUseTemplate
+            let templates = null;
+            if (canUseTemplate) {
+                try {
+                    templates = await loadChatWindowTemplates();
+                } catch (_) {
+                    templates = null;
+                }
+            }
+            const sessionSidebarTemplate = templates?.sessionSidebar || '';
+            const chatWindowTemplate = templates?.chatWindow || '';
+
+            const SessionSidebar = canUseTemplate && sessionSidebarTemplate
                 ? defineComponent({
                       name: 'YiPetSessionSidebar',
                       setup() {
-                          const searchValue = ref(manager.sessionTitleFilter || '');
-                          const clearVisible = computed(() => !!(searchValue.value || '').trim());
-                          let timer = null;
-
-                          const clearSearch = () => {
-                              searchValue.value = '';
-                              manager.sessionTitleFilter = '';
-                              if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                          };
-
-                          const onSearchInput = (e) => {
-                              searchValue.value = e?.target?.value ?? '';
-                              manager.sessionTitleFilter = (searchValue.value || '').trim();
-                              if (timer) clearTimeout(timer);
-                              timer = setTimeout(() => {
-                                  if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                              }, 300);
-                          };
-
-                          const onSearchKeydown = (e) => {
-                              if (e?.key === 'Escape') {
-                                  clearSearch();
-                              }
-                          };
-
-                          const onBatchToggleClick = () => {
-                              if (manager.batchMode) {
-                                  if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-                              } else {
-                                  if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-                              }
-                          };
-
-                          const onExportClick = () => {
-                              if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-                          };
-
-                          const onImportClick = () => {
-                              const fileInput = document.createElement('input');
-                              fileInput.type = 'file';
-                              fileInput.accept = '.zip';
-                              fileInput.className = 'js-hidden';
-                              fileInput.addEventListener('change', async (e) => {
-                                  const file = e?.target?.files?.[0];
-                                  if (file && typeof manager.importSessionsFromZip === 'function') {
-                                      await manager.importSessionsFromZip(file);
-                                  }
-                              });
-                              document.body.appendChild(fileInput);
-                              fileInput.click();
-                              document.body.removeChild(fileInput);
-                          };
-
-                          const onAddClick = () => {
-                              if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-                          };
-
                           return {
-                              searchValue,
-                              clearVisible,
-                              clearSearch,
-                              onSearchInput,
-                              onSearchKeydown,
-                              onBatchToggleClick,
-                              onExportClick,
-                              onImportClick,
-                              onAddClick
+                              searchValue: store.searchValue,
+                              clearVisible: computedProps.clearVisible,
+                              clearSearch: methods.clearSearch,
+                              onSearchInput: methods.onSearchInput,
+                              onSearchKeydown: methods.onSearchKeydown,
+                              onBatchToggleClick: methods.onBatchToggleClick,
+                              onExportClick: methods.onExportClick,
+                              onImportClick: methods.onImportClick,
+                              onAddClick: methods.onAddClick
                           };
                       },
-                      template: `
-                          <div>
-                              <div class="session-sidebar-header">
-                                  <div class="session-sidebar-search-row">
-                                      <div class="session-search-container">
-                                          <input
-                                              id="session-search-input"
-                                              class="session-search-input"
-                                              type="text"
-                                              placeholder="搜索会话..."
-                                              :value="searchValue"
-                                              @input="onSearchInput"
-                                              @keydown="onSearchKeydown"
-                                              @click.stop
-                                          />
-                                          <button
-                                              type="button"
-                                              :class="['session-search-clear-btn', { visible: clearVisible }]"
-                                              @click.stop="clearSearch"
-                                          >✕</button>
-                                      </div>
-                                  </div>
-                              </div>
-                              <div class="session-sidebar-scrollable-content">
-                                  <div id="yi-pet-tag-filter-mount"></div>
-                                  <div class="session-sidebar-actions-row">
-                                      <div class="session-actions-left-group">
-                                          <button
-                                              type="button"
-                                              class="session-action-btn session-action-btn--batch"
-                                              title="批量选择"
-                                              @click.stop="onBatchToggleClick"
-                                          >☑️ 批量</button>
-                                          <button
-                                              type="button"
-                                              class="session-action-btn session-action-btn--export"
-                                              @click.stop="onExportClick"
-                                          >⬇️ 导出</button>
-                                          <button
-                                              type="button"
-                                              class="session-action-btn session-action-btn--import"
-                                              @click.stop="onImportClick"
-                                          >⬆️ 导入</button>
-                                      </div>
-                                      <div class="session-actions-right-group">
-                                          <button
-                                              type="button"
-                                              class="session-action-btn session-action-btn--add"
-                                              @click.stop="onAddClick"
-                                          >➕ 新建</button>
-                                      </div>
-                                  </div>
-                                  <div id="yi-pet-batch-toolbar-mount"></div>
-                                  <div class="session-list" id="session-list"></div>
-                              </div>
-                          </div>
-                      `
+                      template: sessionSidebarTemplate
                   })
                 : (() => {
                       const { h, Fragment } = window.Vue;
                       return defineComponent({
                           name: 'YiPetSessionSidebar',
                           setup() {
-                              const searchValue = ref(manager.sessionTitleFilter || '');
-                              const clearVisible = computed(() => !!(searchValue.value || '').trim());
-                              let timer = null;
-
-                              const clearSearch = () => {
-                                  searchValue.value = '';
-                                  manager.sessionTitleFilter = '';
-                                  if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                              };
-
-                              const onSearchInput = (e) => {
-                                  searchValue.value = e?.target?.value ?? '';
-                                  manager.sessionTitleFilter = (searchValue.value || '').trim();
-                                  if (timer) clearTimeout(timer);
-                                  timer = setTimeout(() => {
-                                      if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                                  }, 300);
-                              };
-
-                              const onSearchKeydown = (e) => {
-                                  if (e?.key === 'Escape') {
-                                      clearSearch();
-                                  }
-                              };
-
-                              const onBatchToggleClick = () => {
-                                  if (manager.batchMode) {
-                                      if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-                                  } else {
-                                      if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-                                  }
-                              };
-
-                              const onExportClick = () => {
-                                  if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-                              };
-
-                              const onImportClick = () => {
-                                  const fileInput = document.createElement('input');
-                                  fileInput.type = 'file';
-                                  fileInput.accept = '.zip';
-                                  fileInput.className = 'js-hidden';
-                                  fileInput.addEventListener('change', async (e) => {
-                                      const file = e?.target?.files?.[0];
-                                      if (file && typeof manager.importSessionsFromZip === 'function') {
-                                          await manager.importSessionsFromZip(file);
-                                      }
-                                  });
-                                  document.body.appendChild(fileInput);
-                                  fileInput.click();
-                                  document.body.removeChild(fileInput);
-                              };
-
-                              const onAddClick = () => {
-                                  if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-                              };
-
                               return () =>
                                   h(Fragment, null, [
                                       h('div', { class: 'session-sidebar-header' }, [
@@ -367,19 +350,19 @@
                                                       class: 'session-search-input',
                                                       type: 'text',
                                                       placeholder: '搜索会话...',
-                                                      value: searchValue.value,
-                                                      onInput: onSearchInput,
-                                                      onKeydown: onSearchKeydown,
+                                                      value: store.searchValue.value,
+                                                      onInput: methods.onSearchInput,
+                                                      onKeydown: methods.onSearchKeydown,
                                                       onClick: (e) => e?.stopPropagation?.()
                                                   }),
                                                   h(
                                                       'button',
                                                       {
-                                                          class: ['session-search-clear-btn', { visible: clearVisible.value }],
+                                                          class: ['session-search-clear-btn', { visible: computedProps.clearVisible.value }],
                                                           type: 'button',
                                                           onClick: (e) => {
                                                               e?.stopPropagation?.();
-                                                              clearSearch();
+                                                              methods.clearSearch();
                                                           }
                                                       },
                                                       '✕'
@@ -399,7 +382,7 @@
                                                           title: '批量选择',
                                                           onClick: (e) => {
                                                               e?.stopPropagation?.();
-                                                              onBatchToggleClick();
+                                                              methods.onBatchToggleClick();
                                                           }
                                                       },
                                                       '☑️ 批量'
@@ -411,7 +394,7 @@
                                                           class: ['session-action-btn', 'session-action-btn--export'],
                                                           onClick: (e) => {
                                                               e?.stopPropagation?.();
-                                                              onExportClick();
+                                                              methods.onExportClick();
                                                           }
                                                       },
                                                       '⬇️ 导出'
@@ -423,7 +406,7 @@
                                                           class: ['session-action-btn', 'session-action-btn--import'],
                                                           onClick: (e) => {
                                                               e?.stopPropagation?.();
-                                                              onImportClick();
+                                                              methods.onImportClick();
                                                           }
                                                       },
                                                       '⬆️ 导入'
@@ -437,7 +420,7 @@
                                                           class: ['session-action-btn', 'session-action-btn--add'],
                                                           onClick: (e) => {
                                                               e?.stopPropagation?.();
-                                                              onAddClick();
+                                                              methods.onAddClick();
                                                           }
                                                       },
                                                       '➕ 新建'
@@ -452,7 +435,7 @@
                       });
                   })();
 
-            const Root = canUseTemplate
+            const Root = canUseTemplate && chatWindowTemplate
                 ? defineComponent({
                       name: 'YiPetChatWindow',
                       components: { SessionSidebar },
@@ -462,24 +445,6 @@
                           const mainEl = ref(null);
                           const messagesEl = ref(null);
                           const inputMountEl = ref(null);
-
-                          const onAuthClick = (e) => {
-                              e?.stopPropagation?.();
-                              e?.preventDefault?.();
-                              manager.openAuth();
-                          };
-
-                          const onRefreshClick = (e) => {
-                              e?.stopPropagation?.();
-                              e?.preventDefault?.();
-                              manager.manualRefresh(e.currentTarget);
-                          };
-
-                          const onSidebarToggleClick = (e) => {
-                              e?.stopPropagation?.();
-                              e?.preventDefault?.();
-                              if (instance.toggleSidebar) instance.toggleSidebar();
-                          };
 
                           onMounted(() => {
                               instance.header = headerEl.value;
@@ -538,80 +503,12 @@
                               mainEl,
                               messagesEl,
                               inputMountEl,
-                              onAuthClick,
-                              onRefreshClick,
-                              onSidebarToggleClick
+                              onAuthClick: methods.onAuthClick,
+                              onRefreshClick: methods.onRefreshClick,
+                              onSidebarToggleClick: methods.onSidebarToggleClick
                           };
                       },
-                      template: `
-                          <div>
-                              <div
-                                  class="yi-pet-chat-header"
-                                  ref="headerEl"
-                                  title="拖拽移动窗口 | 双击全屏"
-                                  style="position: relative"
-                              >
-                                  <div class="yi-pet-chat-header-title" id="yi-pet-chat-header-title">
-                                      <span style="font-size: 20px;">💕</span>
-                                      <span
-                                          id="yi-pet-chat-header-title-text"
-                                          style="font-weight: 600; font-size: 16px;"
-                                      >与我聊天</span>
-                                  </div>
-                                  <div class="yi-pet-chat-header-buttons">
-                                      <button
-                                          id="yi-pet-chat-auth-btn"
-                                          class="yi-pet-chat-header-btn"
-                                          aria-label="API 鉴权"
-                                          title="API 鉴权"
-                                          @click="onAuthClick"
-                                      >
-                                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                                              <path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z" />
-                                          </svg>
-                                      </button>
-                                      <button
-                                          id="yi-pet-chat-refresh-btn"
-                                          class="yi-pet-chat-header-btn pet-chat-refresh-btn"
-                                          aria-label="刷新"
-                                          title="刷新"
-                                          @click="onRefreshClick"
-                                      >
-                                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                                              <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z" />
-                                          </svg>
-                                      </button>
-                                  </div>
-                                  <button
-                                      id="sidebar-toggle-btn"
-                                      class="yi-pet-chat-header-btn sidebar-toggle-btn"
-                                      aria-label="折叠/展开会话列表"
-                                      title="折叠会话列表"
-                                      @click="onSidebarToggleClick"
-                                  >
-                                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                                          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
-                                      </svg>
-                                  </button>
-                              </div>
-
-                              <div class="yi-pet-chat-content-container">
-                                  <div class="session-sidebar" ref="sidebarEl">
-                                      <SessionSidebar />
-                                  </div>
-                                  <div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板">
-                                      <div
-                                          id="yi-pet-chat-messages"
-                                          ref="messagesEl"
-                                          class="yi-pet-chat-messages"
-                                          role="log"
-                                          aria-live="polite"
-                                      ></div>
-                                      <div id="yi-pet-input-mount" ref="inputMountEl"></div>
-                                  </div>
-                              </div>
-                          </div>
-                      `
+                      template: chatWindowTemplate
                   })
                 : (() => {
                       const { h, Fragment } = window.Vue;
@@ -624,24 +521,6 @@
                               const mainEl = ref(null);
                               const messagesEl = ref(null);
                               const inputMountEl = ref(null);
-
-                              const onAuthClick = (e) => {
-                                  e?.stopPropagation?.();
-                                  e?.preventDefault?.();
-                                  manager.openAuth();
-                              };
-
-                              const onRefreshClick = (e) => {
-                                  e?.stopPropagation?.();
-                                  e?.preventDefault?.();
-                                  manager.manualRefresh(e.currentTarget);
-                              };
-
-                              const onSidebarToggleClick = (e) => {
-                                  e?.stopPropagation?.();
-                                  e?.preventDefault?.();
-                                  if (instance.toggleSidebar) instance.toggleSidebar();
-                              };
 
                               onMounted(() => {
                                   instance.header = headerEl.value;
@@ -724,7 +603,7 @@
                                                           class: 'yi-pet-chat-header-btn',
                                                           'aria-label': 'API 鉴权',
                                                           title: 'API 鉴权',
-                                                          onClick: onAuthClick
+                                                          onClick: methods.onAuthClick
                                                       },
                                                       [
                                                           h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
@@ -741,7 +620,7 @@
                                                           class: ['yi-pet-chat-header-btn', 'pet-chat-refresh-btn'],
                                                           'aria-label': '刷新',
                                                           title: '刷新',
-                                                          onClick: onRefreshClick
+                                                          onClick: methods.onRefreshClick
                                                       },
                                                       [
                                                           h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
@@ -759,7 +638,7 @@
                                                       class: ['yi-pet-chat-header-btn', 'sidebar-toggle-btn'],
                                                       'aria-label': '折叠/展开会话列表',
                                                       title: '折叠会话列表',
-                                                      onClick: onSidebarToggleClick
+                                                      onClick: methods.onSidebarToggleClick
                                                   },
                                                   [
                                                       h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
@@ -915,6 +794,8 @@
                 }
             })();
             const canUseTemplate = typeof window.Vue.compile === 'function' && evalAllowed;
+            const sessionSidebarTemplate = chatWindowTemplatesCache?.sessionSidebar || '';
+            const canUseSidebarTemplate = canUseTemplate && !!sessionSidebarTemplate;
 
             const searchValue = ref(manager.sessionTitleFilter || '');
             const clearVisible = computed(() => !!(searchValue.value || '').trim());
@@ -927,7 +808,7 @@
             };
 
             const app = window.Vue.createApp(
-                canUseTemplate
+                canUseSidebarTemplate
                     ? {
                           name: 'YiPetSessionSidebar',
                           setup() {
@@ -990,63 +871,7 @@
                                   onAddClick
                               };
                           },
-                          template: `
-                              <div>
-                                  <div class="session-sidebar-header">
-                                      <div class="session-sidebar-search-row">
-                                          <div class="session-search-container">
-                                              <input
-                                                  id="session-search-input"
-                                                  class="session-search-input"
-                                                  type="text"
-                                                  placeholder="搜索会话..."
-                                                  :value="searchValue"
-                                                  @input="onSearchInput"
-                                                  @keydown="onSearchKeydown"
-                                                  @click.stop
-                                              />
-                                              <button
-                                                  type="button"
-                                                  :class="['session-search-clear-btn', { visible: clearVisible }]"
-                                                  @click.stop="clearSearch"
-                                              >✕</button>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  <div class="session-sidebar-scrollable-content">
-                                      <div id="yi-pet-tag-filter-mount"></div>
-                                      <div class="session-sidebar-actions-row">
-                                          <div class="session-actions-left-group">
-                                              <button
-                                                  type="button"
-                                                  class="session-action-btn session-action-btn--batch"
-                                                  title="批量选择"
-                                                  @click.stop="onBatchToggleClick"
-                                              >☑️ 批量</button>
-                                              <button
-                                                  type="button"
-                                                  class="session-action-btn session-action-btn--export"
-                                                  @click.stop="onExportClick"
-                                              >⬇️ 导出</button>
-                                              <button
-                                                  type="button"
-                                                  class="session-action-btn session-action-btn--import"
-                                                  @click.stop="onImportClick"
-                                              >⬆️ 导入</button>
-                                          </div>
-                                          <div class="session-actions-right-group">
-                                              <button
-                                                  type="button"
-                                                  class="session-action-btn session-action-btn--add"
-                                                  @click.stop="onAddClick"
-                                              >➕ 新建</button>
-                                          </div>
-                                      </div>
-                                      <div id="yi-pet-batch-toolbar-mount"></div>
-                                      <div class="session-list" id="session-list"></div>
-                                  </div>
-                              </div>
-                          `
+                          template: sessionSidebarTemplate
                       }
                     : (() => {
                           const { h, Fragment } = window.Vue;

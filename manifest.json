@@ -53,7 +53,10 @@
         "src/features/pet/petManager.pageInfo.js",
         "src/features/pet/petManager.session.js",
         "src/features/pet/components/SessionItem.js",
-        "src/features/pet/components/ChatWindow.js",
+        "src/features/pet/components/ChatWindow/hooks/store.js",
+        "src/features/pet/components/ChatWindow/hooks/useComputed.js",
+        "src/features/pet/components/ChatWindow/hooks/useMethods.js",
+        "src/features/pet/components/ChatWindow/index.js",
         "src/features/pet/petManager.ui.js",
         "src/features/pet/petManager.drag.js",
         "src/features/pet/petManager.pet.js",
@@ -72,7 +75,7 @@
         "src/styles/tailwind.css",
         "src/styles/content.css",
         "src/styles/quick-comment.css",
-        "src/features/pet/components/ChatWindow.css"
+        "src/features/pet/components/ChatWindow/index.css"
       ],
       "run_at": "document_end"
     }
@@ -130,7 +133,8 @@
         "src/libs/jszip.min.js",
         "src/features/session/load-jszip.js",
         "src/features/session/export-sessions.js",
-        "src/features/session/import-sessions.js"
+        "src/features/session/import-sessions.js",
+        "src/features/pet/components/ChatWindow/index.html"
       ],
       "matches": ["<all_urls>"]
     }

@@ -23,6 +23,7 @@ class InjectionService {
         'src/api/faqApi.js',
         'src/libs/turndown.js',
         'src/libs/marked.min.js',
+        'src/libs/vue/vue.global.js',
         'src/libs/html2canvas.min.js',
         'src/features/chat/export-chat-to-png.js',
         'src/utils/helpers/loggerUtils.js',

@@ -609,13 +609,16 @@
                 const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages');
                 if (!messagesContainer) return;
 
+                const allMessages = Array.from(messagesContainer.children).filter(div => {
+                    return !div.hasAttribute('data-welcome-message') &&
+                        (div.querySelector('[data-message-type="user-bubble"]') ||
+                            div.querySelector('[data-message-type="pet-bubble"]'));
+                });
+
                 let index = typeof this.findMessageIndexByDiv === 'function'
                     ? this.findMessageIndexByDiv(messageDiv)
                     : -1;
                 if (index < 0) {
-                    const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                        !msg.hasAttribute('data-welcome-message')
-                    );
                     index = allMessages.indexOf(messageDiv);
                 }
 

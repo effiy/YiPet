@@ -1099,7 +1099,7 @@
             textarea.addEventListener('keydown', (e) => {
                 // 检查是否按下回车键
                 if (e.key !== 'Enter') {
-                    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
+                    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
                         if (this.manager && this.manager.quickCommentShortcutEnabled !== false) {
                             if (this.manager.commentState && this.manager.commentState.showQuickComment) {
                                 const commentTextarea = document.getElementById('pet-quick-comment-textarea');
@@ -3005,3 +3005,4 @@
     window.PetManager.Components.ChatWindow = ChatWindow;
 
 })();
+

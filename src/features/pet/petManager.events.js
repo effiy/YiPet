@@ -141,7 +141,7 @@
         }
 
         const notifyShortcutToggle = (enabled) => {
-            const message = enabled ? 'Command+K 已启用' : 'Command+K 已禁用';
+            const message = enabled ? 'Command+Shift+K 已启用' : 'Command+Shift+K 已禁用';
             if (typeof this.showNotification === 'function') {
                 this.showNotification(message, 'info');
             } else {
@@ -229,8 +229,8 @@
                 return false;
             }
 
-            // 检查是否按下了 Cmd/Ctrl + Shift + K (切换 Cmd/Ctrl + K 快捷键启用状态)
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
+            // 检查是否按下了 Cmd/Ctrl + Alt/Option + Shift + K (切换 Cmd/Ctrl + Shift + K 快捷键启用状态)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.altKey && e.key.toLowerCase() === 'k') {
                 const nextEnabled = !this.quickCommentShortcutEnabled;
                 this.quickCommentShortcutEnabled = nextEnabled;
                 persistQuickCommentShortcutEnabled(nextEnabled);
@@ -242,8 +242,8 @@
                 return false;
             }
 
-            // 检查是否按下了 Cmd/Ctrl + K (打开划词评论弹框)
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            // 检查是否按下了 Cmd/Ctrl + Shift + K (打开划词评论弹框)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
                 if (this.quickCommentShortcutEnabled === false) {
                     return;
                 }
@@ -282,8 +282,10 @@
         console.log('  - Ctrl+Shift+S：截图');
         console.log('  - Ctrl+Shift+X：切换聊天窗口');
         console.log('  - Ctrl+Shift+P：切换宠物显示/隐藏');
-        console.log('  - Ctrl/Cmd+K：打开划词评论弹框');
+        console.log('  - Ctrl/Cmd+Shift+K：打开划词评论弹框');
+        console.log('  - Ctrl/Cmd+Alt+Shift+K：启用/禁用打开评论快捷键');
         console.log('  - Esc：关闭聊天窗口');
     };
 
 })();
+

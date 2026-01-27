@@ -190,7 +190,7 @@
                     <kbd>Esc</kbd>
                     <span>关闭</span>
                     <span class="separator">·</span>
-                    <kbd>⌘</kbd><span>+</span><kbd>K</kbd>
+                    <kbd>⌘</kbd><span>+</span><kbd>⇧</kbd><span>+</span><kbd>K</kbd>
                     <span>打开</span>
                 </div>
                 <button type="button" class="quick-comment-submit-btn" id="pet-quick-comment-submit">
@@ -1719,3 +1719,4 @@
     };
 
 })();
+

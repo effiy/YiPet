@@ -277,7 +277,7 @@
         this._contextKeydownHandler = (e) => {
             if (e.key === 'Escape') {
                 this.closeContextEditor();
-            } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
+            } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
                 if (this.quickCommentShortcutEnabled !== false) {
                     if (this.commentState && this.commentState.showQuickComment) {
                         const textarea = document.getElementById('pet-quick-comment-textarea');
@@ -1100,7 +1100,7 @@
         this._messageKeydownHandler = (e) => {
             if (e.key === 'Escape') {
                 this.closeMessageEditor();
-            } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
+            } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
                 if (this.quickCommentShortcutEnabled !== false) {
                     if (this.commentState && this.commentState.showQuickComment) {
                         const textarea = document.getElementById('pet-quick-comment-textarea');
@@ -1294,3 +1294,4 @@
     };
 
 })(typeof window !== 'undefined' ? window : this);
+

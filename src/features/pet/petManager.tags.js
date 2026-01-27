@@ -471,20 +471,6 @@
 
                 const allTagsArray = Array.from(tagSet);
                 allTagsArray.sort();
-
-                // 应用保存的标签顺序（从 localStorage）
-                try {
-                    const saved = localStorage.getItem('pet_tag_order');
-                    const savedOrder = saved ? JSON.parse(saved) : null;
-                    if (savedOrder && Array.isArray(savedOrder) && savedOrder.length > 0) {
-                        const orderedTags = savedOrder.filter(tag => tagSet.has(tag));
-                        const newTags = allTagsArray.filter(tag => !savedOrder.includes(tag));
-                        return [...orderedTags, ...newTags];
-                    }
-                } catch (e) {
-                    console.warn('[标签管理] 加载标签顺序失败:', e);
-                }
-
                 return allTagsArray;
             };
 
@@ -723,20 +709,22 @@
                                 throw new Error(`HTTP ${response.status}: ${errorText}`);
                             }
                             
-                            const result = await response.json();
-                            
-                            if (result.status === 200 || result.success !== false) {
-                                console.log('[saveTags] 文件重命名成功:', result);
+                            const envelope = await response.json();
+                            if (!envelope || typeof envelope !== 'object') {
+                                throw new Error('响应格式错误');
+                            }
+                            if (envelope.code !== 0) {
+                                throw new Error(envelope.message || `请求失败 (code=${envelope.code})`);
+                            }
+
+                            console.log('[saveTags] 文件重命名成功:', envelope.data);
                                 
-                                // 更新会话的 pageDescription 中的文件路径
-                                if (session.pageDescription && session.pageDescription.includes('文件：')) {
-                                    session.pageDescription = session.pageDescription.replace(
-                                        /文件：.*/,
-                                        `文件：${newPath}`
-                                    );
-                                }
-                            } else {
-                                console.warn('[saveTags] 文件重命名失败:', result);
+                            // 更新会话的 pageDescription 中的文件路径
+                            if (session.pageDescription && session.pageDescription.includes('文件：')) {
+                                session.pageDescription = session.pageDescription.replace(
+                                    /文件：.*/,
+                                    `文件：${newPath}`
+                                );
                             }
                         } catch (renameError) {
                             console.error('[saveTags] 调用 rename-file 接口失败:', renameError);
@@ -785,7 +773,13 @@
                                 throw new Error(`HTTP ${response.status}: ${errorText}`);
                             }
 
-                            await response.json();
+                            const envelope = await response.json();
+                            if (!envelope || typeof envelope !== 'object') {
+                                throw new Error('响应格式错误');
+                            }
+                            if (envelope.code !== 0) {
+                                throw new Error(envelope.message || `请求失败 (code=${envelope.code})`);
+                            }
                             console.log('[saveTags] update_document 接口调用成功');
                         } catch (updateError) {
                             console.error('[saveTags] 调用 update_document 接口失败:', updateError);

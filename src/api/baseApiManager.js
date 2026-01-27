@@ -193,8 +193,7 @@ class BaseApiManager {
             if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiToken) {
                 return await TokenUtils.getApiToken();
             }
-            const token = localStorage.getItem('YiPet.apiToken.v1');
-            return token ? String(token).trim() : '';
+            return '';
         } catch (error) {
             return '';
         }
@@ -278,13 +277,33 @@ class BaseApiManager {
                     const errorText = await response.text();
                     throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
+
+                const responseText = await response.text();
+                let result;
+                try {
+                    result = responseText ? JSON.parse(responseText) : null;
+                } catch (e) {
+                    throw new Error(`响应不是有效的 JSON: ${responseText}`);
+                }
+
+                if (!result || typeof result !== 'object' || Array.isArray(result)) {
+                    throw new Error('响应格式错误：期望为对象');
+                }
+
+                if (!Object.prototype.hasOwnProperty.call(result, 'code')) {
+                    throw new Error('响应格式错误：缺少 code');
+                }
+
+                if (result.code !== 0) {
+                    throw new Error(result.message || `请求失败 (code=${result.code})`);
+                }
                 
-                const result = await response.json();
+                const data = Object.prototype.hasOwnProperty.call(result, 'data') ? result.data : undefined;
                 
                 // 从pending中移除
                 this._removePendingRequest(requestKey);
-                
-                return result;
+
+                return data;
             } catch (error) {
                 this.stats.errorCount++;
                 // 从pending中移除
@@ -342,4 +361,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.BaseApiManager = BaseApiManager;
 }
-

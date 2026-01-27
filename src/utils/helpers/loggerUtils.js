@@ -65,7 +65,7 @@ class LoggerUtils {
             };
             
             // 读取初始状态
-            chrome.storage.sync.get([effectiveKeyName], (res) => {
+            chrome.storage.local.get([effectiveKeyName], (res) => {
                 if (chrome.runtime.lastError) {
                     // 忽略错误，使用默认值
                     muteIfNeeded(defaultEnabled);
@@ -78,7 +78,7 @@ class LoggerUtils {
             // 监听存储变化
             chrome.storage.onChanged.addListener((changes, namespace) => {
                 try {
-                    if (namespace !== 'sync') return;
+                    if (namespace !== 'local') return;
                     if (changes[effectiveKeyName]) {
                         const enabled = changes[effectiveKeyName].newValue;
                         muteIfNeeded(enabled);
@@ -223,4 +223,3 @@ if (typeof module !== "undefined" && module.exports) {
         this.LoggerUtils = LoggerUtils;
     }
 }
-

@@ -5,11 +5,10 @@
     // 从 data 属性或 window 变量中获取 mermaid ID
     let mermaidId = window.__MERMAID_RENDER_ID__;
     
-    // 如果没有设置，尝试从隐藏的容器元素中获取
+        // 如果没有设置，尝试从隐藏的容器元素中获取
     if (!mermaidId) {
         // 查找所有可能的 ID 容器（支持多个同时处理）
         // 支持新的唯一 ID 格式：__mermaid_render_id_container__${mermaidId}
-        // 也支持旧的单一 ID 格式（向后兼容）
         const idContainers = document.querySelectorAll('[id^="__mermaid_render_id_container__"]');
         if (idContainers.length > 0) {
             // 使用第一个找到的容器
@@ -18,7 +17,7 @@
             
             // 验证 ID 是否有效（确保容器 ID 和 data 属性匹配）
             const containerId = idContainer.id;
-            if (containerId.includes(mermaidId) || containerId === '__mermaid_render_id_container__') {
+                if (containerId.includes(mermaidId)) {
                 // 清理已使用的容器
                 if (idContainer.parentNode) {
                     idContainer.parentNode.removeChild(idContainer);
@@ -26,17 +25,6 @@
             } else {
                 // ID 不匹配，尝试下一个
                 mermaidId = null;
-            }
-        }
-        
-        // 如果还是没找到，尝试旧的单一 ID 容器（向后兼容）
-        if (!mermaidId) {
-            const idContainer = document.getElementById('__mermaid_render_id_container__');
-            if (idContainer) {
-                mermaidId = idContainer.getAttribute('data-mermaid-id');
-                if (mermaidId && idContainer.parentNode) {
-                    idContainer.parentNode.removeChild(idContainer);
-                }
             }
         }
     }
@@ -310,4 +298,3 @@
     // 延迟第一次尝试，确保 DOM 已更新
     setTimeout(tryRender, 150);
 })();
-

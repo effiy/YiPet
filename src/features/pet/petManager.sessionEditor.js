@@ -21,32 +21,11 @@
     };
 
     const extractChatReplyText = (result) => {
-        if (result === null || result === undefined) return '';
-        if (typeof result === 'string') return result.trim();
-
-        const fromData = (data) => {
-            if (data === null || data === undefined) return '';
-            if (typeof data === 'string') return data.trim();
-            // 优先检查 data.message（services.ai.chat_service 接口 stream: false 时返回的内容）
-            if (typeof data?.message === 'string') return data.message.trim();
-            if (typeof data?.content === 'string') return data.content.trim();
-            if (typeof data?.message?.content === 'string') return data.message.content.trim();
-            return '';
-        };
-
-        // 优先检查 result.data.message（services.ai.chat_service 接口 stream: false 时返回的内容）
-        if (result.data !== undefined) {
-            if (typeof result.data.message === 'string' && result.data.message.trim()) {
-                return result.data.message.trim();
-            }
-            const t = fromData(result.data);
-            if (t) return t;
-        }
-
-        if (typeof result.content === 'string' && result.content.trim()) return result.content.trim();
-        if (typeof result.message?.content === 'string' && result.message.content.trim()) return result.message.content.trim();
-        if (typeof result.message === 'string' && result.message.trim()) return result.message.trim();
-
+        if (!result || typeof result !== 'object') return '';
+        if (result.code !== 0) return '';
+        const data = result.data || {};
+        if (typeof data.message === 'string' && data.message.trim()) return data.message.trim();
+        if (typeof data.content === 'string' && data.content.trim()) return data.content.trim();
         return '';
     };
     
@@ -449,21 +428,22 @@
                                     throw new Error(`HTTP ${response.status}: ${errorText}`);
                                 }
                                 
-                                const result = await response.json();
-                                
-                                if (result.status === 200 || result.success !== false) {
-                                    console.log('[saveSessionInfo] 文件重命名成功:', result);
+                                const envelope = await response.json();
+                                if (!envelope || typeof envelope !== 'object') {
+                                    throw new Error('响应格式错误');
+                                }
+                                if (envelope.code !== 0) {
+                                    throw new Error(envelope.message || `请求失败 (code=${envelope.code})`);
+                                }
+
+                                console.log('[saveSessionInfo] 文件重命名成功:', envelope.data);
                                     
-                                    // 更新会话的 pageDescription 中的文件路径
-                                    if (session.pageDescription && session.pageDescription.includes('文件：')) {
-                                        session.pageDescription = session.pageDescription.replace(
-                                            /文件：.*/,
-                                            `文件：${newPath}`
-                                        );
-                                    }
-                                } else {
-                                    console.warn('[saveSessionInfo] 文件重命名失败:', result);
-                                    // 不阻止保存，只记录警告
+                                // 更新会话的 pageDescription 中的文件路径
+                                if (session.pageDescription && session.pageDescription.includes('文件：')) {
+                                    session.pageDescription = session.pageDescription.replace(
+                                        /文件：.*/,
+                                        `文件：${newPath}`
+                                    );
                                 }
                             } catch (renameError) {
                                 console.error('[saveSessionInfo] 调用 rename-file 接口失败:', renameError);
@@ -534,7 +514,13 @@
                                 throw new Error(`HTTP ${response.status}: ${errorText}`);
                             }
 
-                            await response.json();
+                            const envelope = await response.json();
+                            if (!envelope || typeof envelope !== 'object') {
+                                throw new Error('响应格式错误');
+                            }
+                            if (envelope.code !== 0) {
+                                throw new Error(envelope.message || `请求失败 (code=${envelope.code})`);
+                            }
                             console.log('[saveSessionInfo] update_document 接口调用成功');
                         } catch (updateError) {
                             console.error('[saveSessionInfo] 调用 update_document 接口失败:', updateError);
@@ -703,75 +689,14 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
     
-                // 先获取响应文本，检查是否是 SSE 格式
-                const responseText = await response.text();
-                let result;
-    
-                try {
-                    // 检查是否包含 SSE 格式（包含 "data: "）
-                    if (responseText.includes('data: ')) {
-                        // 处理 SSE 格式响应
-                        const lines = responseText.split('\n');
-                        let accumulatedData = '';
-                        let lastValidData = null;
-    
-                        for (const line of lines) {
-                            const trimmedLine = line.trim();
-                            if (trimmedLine.startsWith('data: ')) {
-                                try {
-                                    const dataStr = trimmedLine.substring(6).trim();
-                                    if (dataStr === '[DONE]' || dataStr === '') {
-                                        continue;
-                                    }
-    
-                                    // 尝试解析 JSON
-                                    const chunk = JSON.parse(dataStr);
-    
-                                    // 检查是否完成
-                                    if (chunk.done === true) {
-                                        break;
-                                    }
-    
-                                    // 累积内容
-                                    if (chunk.content) {
-                                        accumulatedData += chunk.content;
-                                        lastValidData = chunk;
-                                    } else if (chunk.data) {
-                                        accumulatedData += (typeof chunk.data === 'string' ? chunk.data : chunk.data.content || '');
-                                        lastValidData = chunk;
-                                    } else if (chunk.message && chunk.message.content) {
-                                        accumulatedData += chunk.message.content;
-                                        lastValidData = chunk;
-                                    }
-                                } catch (e) {
-                                    console.warn('解析 SSE 数据块失败:', trimmedLine, e);
-                                }
-                            }
-                        }
-    
-                        // 如果有累积的内容，使用它
-                        if (accumulatedData) {
-                            result = { content: accumulatedData, data: accumulatedData };
-                        } else if (lastValidData) {
-                            result = lastValidData;
-                        } else {
-                            // 尝试从最后一行提取 JSON
-                            const sseMatch = responseText.match(/data:\s*({.+?})/s);
-                            if (sseMatch) {
-                                result = JSON.parse(sseMatch[1]);
-                            } else {
-                                throw new Error('无法解析 SSE 响应');
-                            }
-                        }
-                    } else {
-                        // 普通 JSON 响应
-                        result = JSON.parse(responseText);
-                    }
-                } catch (parseError) {
-                    console.error('解析响应失败:', parseError, '响应内容:', responseText.substring(0, 200));
-                    throw new Error('解析响应失败: ' + parseError.message);
+                const result = await response.json();
+                if (!result || typeof result !== 'object') {
+                    throw new Error('响应格式错误');
                 }
-    
+                if (result.code !== 0) {
+                    throw new Error(result.message || `请求失败 (code=${result.code})`);
+                }
+
                 let generatedTitle = extractChatReplyText(result);
     
                 // 去除 think 内容
@@ -906,75 +831,14 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
     
-                // 先获取响应文本，检查是否是 SSE 格式
-                const responseText = await response.text();
-                let result;
-    
-                try {
-                    // 检查是否包含 SSE 格式（包含 "data: "）
-                    if (responseText.includes('data: ')) {
-                        // 处理 SSE 格式响应
-                        const lines = responseText.split('\n');
-                        let accumulatedData = '';
-                        let lastValidData = null;
-    
-                        for (const line of lines) {
-                            const trimmedLine = line.trim();
-                            if (trimmedLine.startsWith('data: ')) {
-                                try {
-                                    const dataStr = trimmedLine.substring(6).trim();
-                                    if (dataStr === '[DONE]' || dataStr === '') {
-                                        continue;
-                                    }
-    
-                                    // 尝试解析 JSON
-                                    const chunk = JSON.parse(dataStr);
-    
-                                    // 检查是否完成
-                                    if (chunk.done === true) {
-                                        break;
-                                    }
-    
-                                    // 累积内容
-                                    if (chunk.content) {
-                                        accumulatedData += chunk.content;
-                                        lastValidData = chunk;
-                                    } else if (chunk.data) {
-                                        accumulatedData += (typeof chunk.data === 'string' ? chunk.data : chunk.data.content || '');
-                                        lastValidData = chunk;
-                                    } else if (chunk.message && chunk.message.content) {
-                                        accumulatedData += chunk.message.content;
-                                        lastValidData = chunk;
-                                    }
-                                } catch (e) {
-                                    console.warn('解析 SSE 数据块失败:', trimmedLine, e);
-                                }
-                            }
-                        }
-    
-                        // 如果有累积的内容，使用它
-                        if (accumulatedData) {
-                            result = { content: accumulatedData, data: accumulatedData };
-                        } else if (lastValidData) {
-                            result = lastValidData;
-                        } else {
-                            // 尝试从最后一行提取 JSON
-                            const sseMatch = responseText.match(/data:\s*({.+?})/s);
-                            if (sseMatch) {
-                                result = JSON.parse(sseMatch[1]);
-                            } else {
-                                throw new Error('无法解析 SSE 响应');
-                            }
-                        }
-                    } else {
-                        // 普通 JSON 响应
-                        result = JSON.parse(responseText);
-                    }
-                } catch (parseError) {
-                    console.error('解析响应失败:', parseError, '响应内容:', responseText.substring(0, 200));
-                    throw new Error('解析响应失败: ' + parseError.message);
+                const result = await response.json();
+                if (!result || typeof result !== 'object') {
+                    throw new Error('响应格式错误');
                 }
-    
+                if (result.code !== 0) {
+                    throw new Error(result.message || `请求失败 (code=${result.code})`);
+                }
+
                 let generatedDescription = extractChatReplyText(result);
     
                 // 去除 think 内容
@@ -1113,75 +977,14 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
     
-                // 先获取响应文本，检查是否是 SSE 格式
-                const responseText = await response.text();
-                let result;
-    
-                try {
-                    // 检查是否包含 SSE 格式（包含 "data: "）
-                    if (responseText.includes('data: ')) {
-                        // 处理 SSE 格式响应
-                        const lines = responseText.split('\n');
-                        let accumulatedData = '';
-                        let lastValidData = null;
-    
-                        for (const line of lines) {
-                            const trimmedLine = line.trim();
-                            if (trimmedLine.startsWith('data: ')) {
-                                try {
-                                    const dataStr = trimmedLine.substring(6).trim();
-                                    if (dataStr === '[DONE]' || dataStr === '') {
-                                        continue;
-                                    }
-    
-                                    // 尝试解析 JSON
-                                    const chunk = JSON.parse(dataStr);
-    
-                                    // 检查是否完成
-                                    if (chunk.done === true) {
-                                        break;
-                                    }
-    
-                                    // 累积内容
-                                    if (chunk.content) {
-                                        accumulatedData += chunk.content;
-                                        lastValidData = chunk;
-                                    } else if (chunk.data) {
-                                        accumulatedData += (typeof chunk.data === 'string' ? chunk.data : chunk.data.content || '');
-                                        lastValidData = chunk;
-                                    } else if (chunk.message && chunk.message.content) {
-                                        accumulatedData += chunk.message.content;
-                                        lastValidData = chunk;
-                                    }
-                                } catch (e) {
-                                    console.warn('解析 SSE 数据块失败:', trimmedLine, e);
-                                }
-                            }
-                        }
-    
-                        // 如果有累积的内容，使用它
-                        if (accumulatedData) {
-                            result = { content: accumulatedData, data: accumulatedData };
-                        } else if (lastValidData) {
-                            result = lastValidData;
-                        } else {
-                            // 尝试从最后一行提取 JSON
-                            const sseMatch = responseText.match(/data:\s*({.+?})/s);
-                            if (sseMatch) {
-                                result = JSON.parse(sseMatch[1]);
-                            } else {
-                                throw new Error('无法解析 SSE 响应');
-                            }
-                        }
-                    } else {
-                        // 普通 JSON 响应
-                        result = JSON.parse(responseText);
-                    }
-                } catch (parseError) {
-                    console.error('解析响应失败:', parseError, '响应内容:', responseText.substring(0, 200));
-                    throw new Error('解析响应失败: ' + parseError.message);
+                const result = await response.json();
+                if (!result || typeof result !== 'object') {
+                    throw new Error('响应格式错误');
                 }
-    
+                if (result.code !== 0) {
+                    throw new Error(result.message || `请求失败 (code=${result.code})`);
+                }
+
                 let optimizedDescription = extractChatReplyText(result);
     
                 // 去除 think 内容
@@ -1251,10 +1054,30 @@
     请直接返回翻译后的文本，不要包含任何说明文字、引号或其他格式标记。`;
     
                 // 构建请求 payload
-                const payload = this.buildPromptPayload(
+                const oldPayload = this.buildPromptPayload(
                     systemPrompt,
                     userPrompt
                 );
+    
+                // 转换为 services.ai.chat_service 格式
+                const payload = {
+                    module_name: 'services.ai.chat_service',
+                    method_name: 'chat',
+                    parameters: {
+                        system: oldPayload.fromSystem,
+                        user: oldPayload.fromUser,
+                        stream: false
+                    }
+                };
+                if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                    payload.parameters.images = oldPayload.images;
+                }
+                if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                    payload.parameters.model = PET_CONFIG.chatModels.default;
+                }
+                if (oldPayload.conversation_id) {
+                    payload.parameters.conversation_id = oldPayload.conversation_id;
+                }
     
                 // 显示加载动画
                 this._showLoadingAnimation();
@@ -1273,96 +1096,15 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
     
-                // 先获取文本响应，检查是否是SSE格式
-                const responseText = await response.text();
-                let result;
-    
-                // 检查是否包含SSE格式（包含 "data: "）
-                if (responseText.includes('data: ')) {
-                    // 处理SSE流式响应
-                    const lines = responseText.split('\n');
-                    let accumulatedData = '';
-                    let lastValidData = null;
-    
-                    for (const line of lines) {
-                        const trimmedLine = line.trim();
-                        if (trimmedLine.startsWith('data: ')) {
-                            try {
-                                const dataStr = trimmedLine.substring(6).trim();
-                                if (dataStr === '[DONE]' || dataStr === '') {
-                                    continue;
-                                }
-    
-                                // 尝试解析JSON
-                                const chunk = JSON.parse(dataStr);
-    
-                                // 检查是否完成
-                                if (chunk.done === true) {
-                                    break;
-                                }
-    
-                                // 累积内容（处理流式内容块）
-                                if (chunk.data) {
-                                    accumulatedData += chunk.data;
-                                } else if (chunk.content) {
-                                    accumulatedData += chunk.content;
-                                } else if (chunk.message && chunk.message.content) {
-                                    // Ollama格式
-                                    accumulatedData += chunk.message.content;
-                                } else if (typeof chunk === 'string') {
-                                    accumulatedData += chunk;
-                                }
-    
-                                // 保存最后一个有效的数据块（用于提取其他字段如status等）
-                                lastValidData = chunk;
-                            } catch (e) {
-                                // 如果不是JSON，可能是纯文本内容
-                                const dataStr = trimmedLine.substring(6).trim();
-                                if (dataStr && dataStr !== '[DONE]') {
-                                    accumulatedData += dataStr;
-                                }
-                            }
-                        }
-                    }
-    
-                    // 如果累积了内容，创建结果对象
-                    if (accumulatedData || lastValidData) {
-                        if (lastValidData && lastValidData.status) {
-                            // 如果有status字段，保留原有结构，但替换data/content
-                            result = {
-                                ...lastValidData,
-                                data: accumulatedData || lastValidData.data || '',
-                                content: accumulatedData || lastValidData.content || ''
-                            };
-                        } else {
-                            // 否则创建新的结果对象
-                            result = {
-                                data: accumulatedData,
-                                content: accumulatedData
-                            };
-                        }
-                    } else {
-                        // 如果无法解析SSE格式，尝试直接解析整个响应
-                        try {
-                            result = JSON.parse(responseText);
-                        } catch (e) {
-                            throw new Error('无法解析响应格式');
-                        }
-                    }
-                } else {
-                    // 非SSE格式，直接解析JSON
-                    try {
-                        result = JSON.parse(responseText);
-                    } catch (e) {
-                        throw new Error(`无法解析响应: ${e.message}`);
-                    }
+                const result = await response.json();
+                if (!result || typeof result !== 'object') {
+                    throw new Error('响应格式错误');
+                }
+                if (result.code !== 0) {
+                    throw new Error(result.message || `请求失败 (code=${result.code})`);
                 }
     
-                // 隐藏加载动画
-                this._hideLoadingAnimation();
-    
-                // 解析响应内容
-                let translatedText = result.data.message;
+                let translatedText = extractChatReplyText(result);
     
                 // 去除 think 内容
                 if (this.stripThinkContent) {

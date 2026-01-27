@@ -725,7 +725,6 @@
                 sessionData.pageContent = pageContent;
             }
 
-            // 使用API管理器
             if (this.sessionApi) {
                 if (immediate) {
                     // 立即保存（包括空白会话，创建新会话时需要立即发送请求）
@@ -764,100 +763,19 @@
 
                         console.log(`会话 ${sessionId} 已立即同步到后端`);
                     } catch (error) {
-                        // 如果立即保存失败，降级为队列保存
-                        const is404 = error.message && (
-                            error.message.includes('404') ||
-                            error.message.includes('Not Found') ||
-                            error.status === 404 ||
-                            error.response?.status === 404
-                        );
-
-                        if (is404) {
-                            console.log('立即保存失败（404），降级为队列保存:', sessionId);
-                            this.sessionApi.queueSave(sessionId, sessionData);
-                        } else {
-                            throw error; // 重新抛出非404错误
-                        }
+                        throw error;
                     }
                 } else {
                     // 加入队列批量保存
-                    this.sessionApi.queueSave(sessionId, sessionData);
+                    this.sessionApi.queueSave(sessionData);
                     console.log(`会话 ${sessionId} 已加入保存队列`);
                 }
             } else {
-                // 向后兼容：使用旧方式
-                // session/save 调用已删除，跳过同步
-                console.log(`会话 ${sessionId} 同步已跳过（sessionApi 未初始化）`);
+                return;
             }
         } catch (error) {
             // 优雅处理错误，不阻塞主流程
-            const is404 = error.message && (
-                error.message.includes('404') ||
-                error.message.includes('Not Found') ||
-                error.status === 404 ||
-                error.response?.status === 404
-            );
-
-            if (is404) {
-                // 404错误是正常的（会话可能还未同步到后端），尝试使用队列保存
-                if (this.sessionApi && session) {
-                    try {
-                        // 构建会话数据
-                        // 检查是否为空白会话（支持 blank-session:// 和 aicr-session:// 协议）
-                        const isBlankSession = session._isBlankSession ||
-                            !session.url ||
-                            session.url.startsWith('blank-session://') ||
-                            session.url.startsWith('aicr-session://');
-
-                        // 如果是接口会话，url应该使用接口的pageUrl或url，而不是session.url（可能被更新为当前页面URL）
-                        // 如果是空白会话，应该保持使用原始的协议URL，而不是当前页面URL
-                        let fallbackSessionUrl = '';
-                        if (isBlankSession) {
-                            // 对于空白会话，优先使用保存的原始URL，防止被意外更新为当前页面URL
-                            if (session._originalUrl && (session._originalUrl.startsWith('blank-session://') || session._originalUrl.startsWith('aicr-session://'))) {
-                                fallbackSessionUrl = session._originalUrl;
-                            } else if (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://'))) {
-                                fallbackSessionUrl = session.url;
-                            } else {
-                                // 如果URL已经被更新，使用创建时的URL或重新生成一个 aicr-session:// URL（与新建会话保持一致）
-                                fallbackSessionUrl = session._originalUrl || `aicr-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-                            }
-                        } else {
-                            fallbackSessionUrl = session.url || '';
-                        }
-
-                        let fallbackTitle = session.title || '';
-                        let fallbackPageDescription = session.pageDescription || '';
-                        let fallbackPageContent = session.pageContent || '';
-
-                        const sessionData = {
-                            key: session.key || this._generateUUID(),
-                            url: fallbackSessionUrl,
-                            title: fallbackTitle,
-                            pageDescription: fallbackPageDescription,
-                            messages: session.messages || [],
-                            tags: session.tags || [],
-                            createdAt: session.createdAt || Date.now(),
-                            updatedAt: session.updatedAt || Date.now(),
-                            lastAccessTime: session.lastAccessTime || Date.now()
-                        };
-
-                        // 包含 pageContent 字段的情况：
-                        // 1. 手动保存页面上下文时（includePageContent = true）
-                        const isAicrSession = String(fallbackSessionUrl || '').startsWith('aicr-session://') || String(fallbackPageDescription || '').includes('文件：');
-                        if (!isAicrSession && includePageContent) {
-                            sessionData.pageContent = fallbackPageContent;
-                        }
-
-                        this.sessionApi.queueSave(sessionId, sessionData);
-                        console.log('同步失败（404），已加入队列稍后重试:', sessionId);
-                    } catch (queueError) {
-                        console.warn('加入队列也失败:', queueError.message);
-                    }
-                }
-            } else {
-                console.warn('同步会话到后端时出错:', error.message);
-            }
+            console.warn('同步会话到后端时出错:', error.message);
         }
     };
 
@@ -969,52 +887,15 @@
 
     // ==================== 辅助方法 ====================
 
-    proto.getCurrentSessionId = function () {
-        const currentUrl = window.location.href;
-        // 使用URL作为会话ID的基础，如果URL过长则使用hash
-        // 为了保持向后兼容和唯一性，我们使用generateSessionId，但在initSession中通过URL查找
-        return currentUrl;
-    };
-
     proto.findSessionByUrl = function (url) {
         return Object.values(this.sessions).find(session => session.url === url) || null;
     };
 
     proto.generateSessionId = async function (url) {
-        // 确保md5函数可用
-        const md5Func = typeof md5 !== 'undefined' ? md5 :
-            (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
-
-        if (!md5Func) {
-            console.error('MD5函数未找到，请确保已加载md5.js');
-            // 降级方案：生成32位十六进制字符串
-            if (!url) {
-                const input = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-                let hash = 0;
-                for (let i = 0; i < input.length; i++) {
-                    const char = input.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash;
-                }
-                const hex = Math.abs(hash).toString(16).padStart(32, '0');
-                return hex.substring(0, 32);
-            }
-            const hash = await this.hashString(url);
-            return hash;
+        if (typeof md5 !== 'function') {
+            throw new Error('MD5函数未找到，请确保已加载 md5.js');
         }
-
-        // 始终使用MD5，不管URL长度如何，确保所有会话ID都是统一的32位MD5格式
-        return md5Func(url);
-    };
-
-    proto.hashString = async function (str) {
-        // 使用 SHA-256 生成哈希
-        const msgBuffer = new TextEncoder().encode(str);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        // 截取前32位以匹配MD5长度
-        return hashHex.substring(0, 32);
+        return md5(String(url || ''));
     };
 
     proto._getSessionsFromLocal = function () {
@@ -1027,7 +908,6 @@
         // 获取所有会话并去重（按 key 去重，保留 updatedAt 最新的）
         const sessionMap = new Map();
         for (const session of Object.values(this.sessions)) {
-            // 兼容 key 和 id，优先使用 key
             // 确保会话有 key，如果没有则生成一个
             if (!session.key) {
                 session.key = this._generateUUID();
@@ -1201,14 +1081,22 @@
     };
 
     // Tag related methods
-    proto.loadTagOrder = function () {
+    proto.loadTagOrder = async function () {
         try {
-            const savedOrder = localStorage.getItem('pet_session_tag_order');
-            if (savedOrder) {
-                this.tagOrder = JSON.parse(savedOrder);
-            } else {
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
                 this.tagOrder = null;
+                return;
             }
+            const value = await new Promise((resolve) => {
+                chrome.storage.local.get(['pet_session_tag_order'], (result) => {
+                    if (chrome.runtime && chrome.runtime.lastError) {
+                        resolve(null);
+                        return;
+                    }
+                    resolve(result ? result['pet_session_tag_order'] : null);
+                });
+            });
+            this.tagOrder = Array.isArray(value) ? value : null;
         } catch (error) {
             console.warn('加载标签顺序失败:', error);
             this.tagOrder = null;
@@ -1217,8 +1105,11 @@
 
     proto.saveTagOrder = function (tagOrder) {
         try {
-            localStorage.setItem('pet_session_tag_order', JSON.stringify(tagOrder));
             this.tagOrder = tagOrder;
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+                return;
+            }
+            chrome.storage.local.set({ pet_session_tag_order: tagOrder }, () => {});
         } catch (error) {
             console.warn('保存标签顺序失败:', error);
         }
@@ -1487,9 +1378,15 @@
                     throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
 
-                const result = await response.json();
+                const envelope = await response.json();
+                if (!envelope || typeof envelope !== 'object') {
+                    throw new Error('响应格式错误');
+                }
+                if (envelope.code !== 0) {
+                    throw new Error(envelope.message || `请求失败 (code=${envelope.code})`);
+                }
                 console.log('[callUpdateDocument] update_document 接口调用成功:', sessionId);
-                return result;
+                return envelope.data;
             } else {
                 console.warn('[callUpdateDocument] 会话 API 未启用，跳过 update_document 调用');
             }
@@ -2067,7 +1964,7 @@
 
             if (res.ok) {
                 const json = await res.json();
-                if (json.code === 0 || json.code === 200) {
+                if (json.code === 0) {
                     console.log('[writeSessionPageContent] write-file 接口调用成功，文件路径:', cleanPath);
 
                     // 刷新会话列表（调用 query_document 接口）
@@ -2164,7 +2061,7 @@
 
             if (res.ok) {
                 const json = await res.json();
-                if ((json.code === 200 || json.code === 0) && json.data && json.data.content) {
+                if (json.code === 0 && json.data && json.data.content) {
                     if (json.data.type !== 'base64') {
                         const staticContent = json.data.content;
                         console.log('[fetchSessionPageContent] read-file 接口调用成功，内容长度:', staticContent.length);
@@ -2252,7 +2149,7 @@
 
             if (res.ok) {
                 const json = await res.json();
-                if (json.code === 0 || json.code === 200) {
+                if (json.code === 0) {
                     console.log('[deleteSessionFile] delete-file 接口调用成功，文件路径:', cleanPath);
                 } else {
                     console.warn('[deleteSessionFile] delete-file 接口返回异常:', json);
@@ -2477,22 +2374,7 @@
 
     // 格式化会话时间（使用 TimeUtils.formatRelativeTime）
     proto.formatSessionTime = function (timestamp) {
-        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.formatRelativeTime === 'function') {
-            return TimeUtils.formatRelativeTime(timestamp);
-        }
-        // 降级实现
-        if (!timestamp) return '';
-        const now = Date.now();
-        const diff = now - timestamp;
-        const minutes = Math.floor(diff / 60000);
-        const hours = Math.floor(diff / 3600000);
-        const days = Math.floor(diff / 86400000);
-
-        if (minutes < 1) return '刚刚';
-        if (minutes < 60) return `${minutes}分钟前`;
-        if (hours < 24) return `${hours}小时前`;
-        if (days < 7) return `${days}天前`;
-        return new Date(timestamp).toLocaleDateString('zh-CN');
+        return TimeUtils.formatRelativeTime(timestamp);
     };
 
     // 编辑会话标题和描述

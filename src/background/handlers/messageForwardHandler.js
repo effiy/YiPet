@@ -21,15 +21,7 @@ function handleForwardToContentScript(request, sendResponse) {
         });
         return;
     }
-
-    // 降级：没有 InjectionService 时，直接发送一次
-    chrome.tabs.sendMessage(request.tabId, request.message, (response) => {
-        if (chrome.runtime.lastError) {
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
-            return;
-        }
-        sendResponse(response);
-    });
+    sendResponse({ success: false, error: 'InjectionService 不可用，无法转发消息' });
 }
 
 // 导出处理器
@@ -44,4 +36,3 @@ if (typeof module !== "undefined" && module.exports) {
         };
     }
 }
-

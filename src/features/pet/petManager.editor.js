@@ -324,7 +324,7 @@
             sessionId = sessionIdOrEvent;
         } else if (sessionIdOrEvent && session) {
             // 方式2: showSessionContext(event, session)
-            sessionId = session.key || session.id || session.sessionId;
+            sessionId = session.key;
         } else {
             console.warn('无效的参数，无法显示上下文');
             this.showNotification('无法显示上下文：参数无效', 'error');
@@ -1252,4 +1252,3 @@
     };
 
 })(typeof window !== 'undefined' ? window : this);
-

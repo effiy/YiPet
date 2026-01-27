@@ -75,20 +75,7 @@ class SessionManager {
                        (typeof window !== 'undefined' && window.md5) ? window.md5 : null;
         
         if (!md5Func) {
-            console.error('MD5函数未找到，请确保已加载md5.js');
-            // 降级方案：如果MD5不可用，使用简单的哈希生成32位十六进制字符串
-            // 如果URL为空，生成一个唯一字符串作为哈希输入
-            const input = url || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            // 使用简单的哈希作为备用（但这不是真正的MD5）
-            let hash = 0;
-            for (let i = 0; i < input.length; i++) {
-                const char = input.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            // 生成32位十六进制字符串（填充到32位）
-            const hex = Math.abs(hash).toString(16).padStart(32, '0');
-            return hex.substring(0, 32);
+            throw new Error('MD5函数未找到，请确保已加载md5.js');
         }
         
         if (!url) {

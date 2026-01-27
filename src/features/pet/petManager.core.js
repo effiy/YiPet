@@ -62,7 +62,7 @@
                 this.tagFilterExpanded = false; // 标签列表是否展开（会话）
                 this.tagFilterVisibleCount = 8; // 折叠时显示的标签数量（会话）
                 this.tagFilterSearchKeyword = ''; // 标签搜索关键词
-                this.tagOrder = null; // 标签顺序（从localStorage加载）
+                this.tagOrder = null; // 标签顺序
 
                 this.sessionTitleFilter = ''; // 会话标题搜索过滤关键词
                 this.dateRangeFilter = null; // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
@@ -86,11 +86,9 @@
 
                 // 状态保存节流相关
                 this.lastStateSaveTime = 0; // 上次保存状态的时间
-                this.STATE_SAVE_THROTTLE = 2000; // 状态保存节流时间（毫秒），避免超过chrome.storage.sync的写入限制
+                this.STATE_SAVE_THROTTLE = 2000; // 状态保存节流时间（毫秒），避免写入过于频繁
                 this.stateSaveTimer = null; // 状态保存防抖定时器
                 this.pendingStateUpdate = null; // 待保存的状态数据
-                this.useLocalStorage = false; // 是否使用localStorage作为降级方案（当遇到配额错误时）
-
                 // 加载动画计数器
                 this.activeRequestCount = 0;
 
@@ -102,7 +100,7 @@
 
             async init() {
                 // 加载标签顺序
-                this.loadTagOrder();
+                await this.loadTagOrder();
                 console.log('初始化宠物管理器');
 
                 // 初始化会话API管理器
@@ -669,29 +667,11 @@
             // 重新发送消息（仅用户消息）
             // 滚动到指定索引的消息（与 YiWeb 保持一致，使用 ChatWindow 的方法）
             _scrollToMessageIndex(idx) {
-                try {
-                    const i = Number(idx);
-                    if (!Number.isFinite(i) || i < 0) return;
-                    
-                    // 优先使用 ChatWindow 的 scrollToIndex 方法
-                    if (this.chatWindowComponent && typeof this.chatWindowComponent.scrollToIndex === 'function') {
-                        this.chatWindowComponent.scrollToIndex(i);
-                        return;
-                    }
-                    
-                    // 降级实现
-                    setTimeout(() => {
-                        try {
-                            const el = document.querySelector(`[data-chat-idx="${i}"]`);
-                            if (el && typeof el.scrollIntoView === 'function') {
-                                el.scrollIntoView({ block: 'nearest' });
-                                return;
-                            }
-                            const container = this.chatWindow?.querySelector('#yi-pet-chat-messages');
-                            if (container) container.scrollTop = container.scrollHeight;
-                        } catch (_) { }
-                    }, 0);
-                } catch (_) { }
+                const i = Number(idx);
+                if (!Number.isFinite(i) || i < 0) return;
+                if (this.chatWindowComponent && typeof this.chatWindowComponent.scrollToIndex === 'function') {
+                    this.chatWindowComponent.scrollToIndex(i);
+                }
             }
 
             // 重新发送消息（与 YiWeb 保持一致，使用索引）
@@ -777,15 +757,6 @@
                 }
             }
 
-            // 重新发送消息（兼容旧版本，使用 messageDiv）
-            async resendMessage(messageDiv) {
-                if (!messageDiv) return;
-                const idx = this.findMessageIndexByDiv(messageDiv);
-                if (idx >= 0) {
-                    await this.resendMessageAt(idx);
-                }
-            }
-
             // 重新生成消息（仅宠物消息）
             async regenerateMessage(messageDiv) {
                 if (!messageDiv || !this.currentSessionId) return;
@@ -843,7 +814,6 @@
 
                 // 创建导出按钮
                 const exportBtn = document.createElement('button');
-                exportBtn.className = 'export-message-button';
                 // 使用 SVG 图标替代 emoji，更专业美观
                 exportBtn.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
@@ -853,7 +823,6 @@
             </svg>
         `;
                 exportBtn.title = '导出消息为图片';
-                // 与 YiWeb 保持一致，同时保持向后兼容
                 exportBtn.className = 'pet-chat-meta-btn chat-message-action-btn';
 
                 // 点击事件
@@ -1066,33 +1035,9 @@
                 await this._moveMessageBlock(idx, 'up');
             }
 
-            // 上移消息（兼容旧版本，使用 messageDiv）
-            async moveMessageUp(messageDiv, currentIndex) {
-                if (messageDiv && typeof currentIndex === 'number' && currentIndex >= 0) {
-                    await this.moveMessageUpAt(currentIndex);
-                } else if (messageDiv) {
-                    const idx = this.findMessageIndexByDiv(messageDiv);
-                    if (idx >= 0) {
-                        await this.moveMessageUpAt(idx);
-                    }
-                }
-            }
-
             // 下移消息（与 YiWeb 保持一致，使用索引）
             async moveMessageDownAt(idx) {
                 await this._moveMessageBlock(idx, 'down');
-            }
-
-            // 下移消息（兼容旧版本，使用 messageDiv）
-            async moveMessageDown(messageDiv, currentIndex) {
-                if (messageDiv && typeof currentIndex === 'number' && currentIndex >= 0) {
-                    await this.moveMessageDownAt(currentIndex);
-                } else if (messageDiv) {
-                    const idx = this.findMessageIndexByDiv(messageDiv);
-                    if (idx >= 0) {
-                        await this.moveMessageDownAt(idx);
-                    }
-                }
             }
 
             // 更新所有消息的排序按钮状态
@@ -1465,39 +1410,5 @@
     } catch (error) {
         console.error('[PetManager.core] 初始化失败:', error);
         console.error('[PetManager.core] 错误堆栈:', error.stack);
-
-        // 即使出错也尝试创建一个降级的 PetManager 类，避免后续代码完全失败
-        if (typeof window !== 'undefined' && typeof window.PetManager === 'undefined') {
-            window.PetManager = class PetManagerFallback {
-                constructor() {
-                    console.warn('[PetManager] 使用降级版本，某些功能可能不可用');
-                    this.isFallback = true;
-                }
-
-                // 提供基本的降级方法
-                showNotification(message, type = 'info') {
-                    console.log(`[PetManager降级] ${type}: ${message}`);
-                }
-
-                // 提供空方法避免调用错误
-                openChatWindow() {
-                    console.warn('[PetManager降级] openChatWindow 不可用');
-                    return Promise.resolve({ success: false, error: 'PetManager未完全初始化' });
-                }
-            };
-
-            // 尝试在后台重试初始化（不阻塞用户）
-            if (typeof setTimeout !== 'undefined') {
-                setTimeout(() => {
-                    console.log('[PetManager] 尝试后台重试初始化...');
-                    try {
-                        // 重新执行初始化逻辑（简化版）
-                        // 这里可以添加重试逻辑
-                    } catch (retryError) {
-                        console.warn('[PetManager] 后台重试失败:', retryError);
-                    }
-                }, 2000);
-            }
-        }
     }
 })(); // 结束立即执行函数

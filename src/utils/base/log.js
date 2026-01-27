@@ -4,7 +4,7 @@
  * 适配 Chrome 扩展环境
  */
 
-// 获取调试开关：优先 chrome.storage -> localStorage -> 默认关闭
+// 获取调试开关：优先 chrome.storage -> 默认关闭
 function detectDebug() {
   try {
     // 优先从 chrome.storage 读取
@@ -12,13 +12,6 @@ function detectDebug() {
       // 异步读取，这里先返回默认值，实际使用时通过回调更新
       return false; // 默认关闭
     }
-    
-    // 降级到 localStorage
-    if (typeof localStorage !== 'undefined') {
-      const stored = localStorage.getItem('petDebug');
-      if (stored !== null) return stored === 'true';
-    }
-    
     return false; // 默认关闭
   } catch (_) {
     return false;

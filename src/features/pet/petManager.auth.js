@@ -17,50 +17,26 @@
 
     // 获取存储的 API Token（同步方式，快速获取）
     proto.getApiToken = function() {
-        // 优先使用 TokenUtils（如果可用），否则降级到 localStorage
         if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiTokenSync) {
             return TokenUtils.getApiTokenSync();
         }
-        // 降级方案：从 localStorage 获取
-        try {
-            const token = localStorage.getItem(this.getApiTokenKey());
-            return token ? String(token).trim() : '';
-        } catch (error) {
-            console.warn('获取 API Token 失败:', error);
-            return '';
-        }
+        return '';
     };
 
     // 获取存储的 API Token（异步方式，从 chrome.storage 获取最新值）
     proto.getApiTokenAsync = async function() {
-        // 优先使用 TokenUtils（如果可用）
         if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiToken) {
             return await TokenUtils.getApiToken();
         }
-        // 降级方案：从 localStorage 获取
-        try {
-            const token = localStorage.getItem(this.getApiTokenKey());
-            return token ? String(token).trim() : '';
-        } catch (error) {
-            console.warn('获取 API Token 失败:', error);
-            return '';
-        }
+        return '';
     };
 
     // 保存 API Token（同时保存到 chrome.storage 和 localStorage，支持跨 tab 和跨域共享）
     proto.saveApiToken = async function(token) {
-        // 优先使用 TokenUtils（如果可用）
         if (typeof TokenUtils !== 'undefined' && TokenUtils.saveApiToken) {
             await TokenUtils.saveApiToken(token);
             console.log('API Token 已保存（支持跨 tab 和跨域共享）');
             return;
-        }
-        // 降级方案：保存到 localStorage
-        try {
-            localStorage.setItem(this.getApiTokenKey(), String(token || '').trim());
-            console.log('API Token 已保存（仅本地）');
-        } catch (error) {
-            console.warn('保存 API Token 失败:', error);
         }
     };
 

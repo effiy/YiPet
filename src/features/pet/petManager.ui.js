@@ -55,10 +55,6 @@
     const hasMoreTags = !this.tagFilterExpanded && filtered.length > visibleCount;
     const tagsToShow = this.tagFilterExpanded ? filtered : filtered.slice(0, visibleCount);
 
-    if (typeof this.attachTagDragStyles === 'function') {
-      this.attachTagDragStyles();
-    }
-
     // 添加"无标签"按钮（如果有无标签的会话）
     if (noTagsCount > 0) {
       const noTagsBtn = document.createElement('button');
@@ -347,14 +343,14 @@
           this.sidebarCollapsed = false;
         }
         // 应用状态
-        if (this.sessionSidebar || this.chatWindowComponent) {
+        if (this.chatWindowComponent) {
           this.applySidebarCollapsedState();
         }
       });
     } catch (error) {
       // 出错时默认显示侧边栏
       this.sidebarCollapsed = false;
-      if (this.sessionSidebar || this.chatWindowComponent) {
+      if (this.chatWindowComponent) {
         this.applySidebarCollapsedState();
       }
     }
@@ -369,19 +365,6 @@
       this.chatWindowComponent.setSidebarCollapsed(this.sidebarCollapsed);
       return;
     }
-    // Fallback for legacy or if component not ready
-    if (!this.sessionSidebar) return;
-    this.sessionSidebar.classList.toggle('collapsed', !!this.sidebarCollapsed);
-    // 更新折叠按钮位置（仅更新位置，不更新图标，避免循环调用）
-    // 按钮位置由 CSS 控制，始终在 title 左边，不再需要根据侧边栏宽度设置
-    // const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-    // if (toggleBtn) {
-    //   if (this.sidebarCollapsed) {
-    //     toggleBtn.style.left = '0px';
-    //   } else {
-    //     toggleBtn.style.left = `${this.sidebarWidth || 320}px`;
-    //   }
-    // }
   };
   
   // 强制显示侧边栏（用于恢复显示）
@@ -395,16 +378,13 @@
       this.chatWindowComponent.toggleSidebar();
       return;
     }
-    this.sidebarCollapsed = !this.sidebarCollapsed;
-    this.applySidebarCollapsedState();
-    this.saveSidebarCollapsed();
   };
   proto.loadInputContainerCollapsed = function () {
     try {
       chrome.storage.local.get(['chatInputContainerCollapsed'], (result) => {
         if (result.chatInputContainerCollapsed !== undefined) {
           this.inputContainerCollapsed = result.chatInputContainerCollapsed;
-          if (this.chatWindow) {
+          if (this.chatWindowComponent) {
             this.applyInputContainerCollapsedState();
           }
         }
@@ -421,29 +401,12 @@
       this.chatWindowComponent.setInputContainerCollapsed(this.inputContainerCollapsed);
       return;
     }
-    // Fallback - 支持新的嵌套结构
-    if (!this.chatWindow) return;
-    // 优先查找外层容器（与 YiWeb 保持一致）
-    let inputContainer = this.chatWindow.querySelector('.yi-pet-chat-input-container');
-    // 如果没有找到外层容器，回退到内层容器（向后兼容）
-    if (!inputContainer) {
-      inputContainer = this.chatWindow.querySelector('.chat-input-container');
-    }
-    if (!inputContainer) return;
-    inputContainer.classList.toggle('collapsed', !!this.inputContainerCollapsed);
-    const innerContainer = inputContainer.querySelector('.chat-input-container');
-    if (innerContainer) {
-      innerContainer.classList.toggle('collapsed', !!this.inputContainerCollapsed);
-    }
   };
   proto.toggleInputContainer = function () {
     if (this.chatWindowComponent && typeof this.chatWindowComponent.toggleInputContainer === 'function') {
       this.chatWindowComponent.toggleInputContainer();
       return;
     }
-    this.inputContainerCollapsed = !this.inputContainerCollapsed;
-    this.applyInputContainerCollapsedState();
-    this.saveInputContainerCollapsed();
   };
   proto.updateBatchToolbar = function () {
     const selectedCount = document.getElementById('selected-count');

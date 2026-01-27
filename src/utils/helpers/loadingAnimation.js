@@ -18,42 +18,6 @@ class LoadingAnimation {
         this.imageCache = new Map();
         this.preloadPromises = [];
         this.isPreloading = false;
-        
-        // 扩展上下文状态
-        this.extensionContextValid = true;
-        
-        // 获取扩展资源URL（带错误处理）
-        this.getExtensionUrl = (path) => {
-            try {
-                // 检查扩展上下文是否有效
-                if (typeof chrome === 'undefined' || !chrome.runtime) {
-                    this.extensionContextValid = false;
-                    return null;
-                }
-                
-                try {
-                    // 尝试获取 runtime.id，如果失败说明上下文已失效
-                    const runtimeId = chrome.runtime.id;
-                    if (!runtimeId) {
-                        this.extensionContextValid = false;
-                        return null;
-                    }
-                    
-                    const url = chrome.runtime.getURL(path);
-                    this.extensionContextValid = true;
-                    return url;
-                } catch (error) {
-                    // 扩展上下文已失效
-                    this.extensionContextValid = false;
-                    console.warn('扩展上下文已失效，无法获取资源URL:', error);
-                    return null;
-                }
-            } catch (error) {
-                console.warn('获取扩展URL失败:', error);
-                this.extensionContextValid = false;
-                return null;
-            }
-        };
     }
     
     /**
@@ -96,24 +60,14 @@ class LoadingAnimation {
         this.createAnimationElement();
         this.isVisible = true;
         this.currentFrame = 1;
-        
-        // 检查扩展上下文
-        if (!this.extensionContextValid) {
-            // 尝试重新检查
-            const testUrl = this.getExtensionUrl('src/assets/images/教师/run/1.png');
-            if (!testUrl) {
-                console.warn('[LoadingAnimation] 扩展上下文无效，无法显示动画');
-                return;
-            }
+        if (!window.imageResourceManager) {
+            console.warn('[LoadingAnimation] 缺少 imageResourceManager，无法显示动画');
+            return;
         }
         
         // 预加载图片（如果还没预加载）
         if (this.imageCache.size === 0) {
-            try {
-                await this.preloadImages();
-            } catch (error) {
-                console.warn('[LoadingAnimation] 预加载失败，将使用实时加载:', error);
-            }
+            await this.preloadImages();
         }
         
         // 显示容器
@@ -164,12 +118,6 @@ class LoadingAnimation {
         
         // 设置循环（使用更稳定的方式）
         this.animationInterval = setInterval(async () => {
-            // 检查扩展上下文
-            if (!this.extensionContextValid) {
-                this.stopAnimation();
-                return;
-            }
-            
             this.currentFrame = (this.currentFrame % this.totalFrames) + 1;
             await this.updateFrame();
         }, this.frameDelay);
@@ -195,37 +143,24 @@ class LoadingAnimation {
         
         this.isPreloading = true;
         this.preloadPromises = [];
-        
-        // 优先使用统一的图片资源管理器
-        if (window.imageResourceManager) {
-            try {
-                const role = '教师';
-                const images = await window.imageResourceManager.preloadRunFrames(role, this.totalFrames);
-                // 同步到本地缓存
-                images.forEach((img, index) => {
-                    if (img) {
-                        this.imageCache.set(index + 1, img);
-                    }
-                });
-                console.log('[LoadingAnimation] 图片预加载完成（使用图片资源管理器）');
-                this.isPreloading = false;
-                return;
-            } catch (error) {
-                console.warn('[LoadingAnimation] 使用图片资源管理器预加载失败，降级到原始方法:', error);
-            }
+        if (!window.imageResourceManager) {
+            this.isPreloading = false;
+            throw new Error('缺少 imageResourceManager');
         }
-        
-        // 降级：使用原始预加载方法
-        for (let frame = 1; frame <= this.totalFrames; frame++) {
-            const promise = this.loadImage(frame);
-            this.preloadPromises.push(promise);
-        }
-        
+
         try {
-            await Promise.all(this.preloadPromises);
+            const role = '教师';
+            const promises = [];
+            for (let frame = 1; frame <= this.totalFrames; frame++) {
+                const imagePath = `src/assets/images/${role}/run/${frame}.png`;
+                promises.push(
+                    window.imageResourceManager.loadImage(imagePath).then((img) => {
+                        this.imageCache.set(frame, img);
+                    })
+                );
+            }
+            await Promise.all(promises);
             console.log('[LoadingAnimation] 图片预加载完成');
-        } catch (error) {
-            console.warn('[LoadingAnimation] 部分图片预加载失败:', error);
         } finally {
             this.isPreloading = false;
         }
@@ -236,94 +171,13 @@ class LoadingAnimation {
      */
     async loadImage(frame, retries = 3) {
         const imagePath = `src/assets/images/教师/run/${frame}.png`;
-        
-        // 优先使用统一的图片资源管理器
-        if (window.imageResourceManager) {
-            try {
-                const img = await window.imageResourceManager.loadImage(imagePath, retries);
-                // 同步到本地缓存
-                this.imageCache.set(frame, img);
-                return img;
-            } catch (error) {
-                console.warn(`[LoadingAnimation] 使用图片资源管理器加载失败: ${imagePath}`, error);
-                // 降级到原始方法
-            }
+        if (!window.imageResourceManager) {
+            throw new Error('缺少 imageResourceManager');
         }
-        
-        // 降级：使用原始加载方法
-        return new Promise((resolve, reject) => {
-            // 检查缓存
-            if (this.imageCache.has(frame)) {
-                const cached = this.imageCache.get(frame);
-                if (cached && cached.complete && cached.naturalWidth > 0) {
-                    resolve(cached);
-                    return;
-                }
-            }
-            
-            const imageUrl = this.getExtensionUrl(imagePath);
-            
-            if (!imageUrl) {
-                reject(new Error('无法获取扩展资源URL'));
-                return;
-            }
-            
-            const img = new Image();
-            let attemptCount = 0;
-            
-            const attemptLoad = () => {
-                attemptCount++;
-                
-                // 设置超时
-                const timeout = setTimeout(() => {
-                    img.onload = null;
-                    img.onerror = null;
-                    
-                    if (attemptCount < retries) {
-                        // 重试
-                        setTimeout(attemptLoad, 100 * attemptCount);
-                    } else {
-                        reject(new Error(`图片加载超时: ${imagePath}`));
-                    }
-                }, 3000);
-                
-                img.onload = () => {
-                    clearTimeout(timeout);
-                    img.onload = null;
-                    img.onerror = null;
-                    
-                    // 缓存图片
-                    this.imageCache.set(frame, img);
-                    resolve(img);
-                };
-                
-                img.onerror = (error) => {
-                    clearTimeout(timeout);
-                    img.onload = null;
-                    img.onerror = null;
-                    
-                    // 如果扩展上下文失效，不再重试
-                    if (!this.extensionContextValid) {
-                        reject(new Error('扩展上下文已失效'));
-                        return;
-                    }
-                    
-                    if (attemptCount < retries) {
-                        // 重试前等待一段时间
-                        setTimeout(attemptLoad, 100 * attemptCount);
-                    } else {
-                        console.warn(`[LoadingAnimation] 图片加载失败 (${attemptCount}次重试): ${imagePath}`);
-                        reject(error);
-                    }
-                };
-                
-                // 设置 src（触发加载）
-                // 直接使用 URL，允许浏览器缓存
-                img.src = imageUrl;
-            };
-            
-            attemptLoad();
-        });
+
+        const img = await window.imageResourceManager.loadImage(imagePath, retries);
+        this.imageCache.set(frame, img);
+        return img;
     }
     
     /**
@@ -333,54 +187,20 @@ class LoadingAnimation {
         if (!this.animationImg) {
             return;
         }
-        
-        // 如果扩展上下文已失效，不更新
-        if (!this.extensionContextValid) {
+
+        if (!window.imageResourceManager) {
+            this.stopAnimation();
             return;
         }
-        
-        // 优先使用统一的图片资源管理器获取 data URL
-        if (window.imageResourceManager) {
-            try {
-                const role = '教师';
-                const frameUrl = await window.imageResourceManager.getRunFrameUrl(role, this.currentFrame);
-                if (frameUrl && this.animationImg.src !== frameUrl) {
-                    this.animationImg.src = frameUrl;
-                }
-                return;
-            } catch (error) {
-                console.debug(`[LoadingAnimation] 使用图片资源管理器获取帧失败，降级:`, error);
+
+        try {
+            const role = '教师';
+            const frameUrl = await window.imageResourceManager.getRunFrameUrl(role, this.currentFrame);
+            if (frameUrl && this.animationImg.src !== frameUrl) {
+                this.animationImg.src = frameUrl;
             }
-        }
-        
-        // 降级：尝试从缓存获取
-        const cachedImg = this.imageCache.get(this.currentFrame);
-        
-        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
-            // 使用缓存的图片
-            // 避免重复设置相同的 src（防止 canceled）
-            if (this.animationImg.src !== cachedImg.src) {
-                this.animationImg.src = cachedImg.src;
-            }
-        } else {
-            // 如果缓存中没有或图片未加载完成，使用原始URL（降级方案）
-            // 同时尝试异步加载到缓存
-            const imagePath = `src/assets/images/教师/run/${this.currentFrame}.png`;
-            const imageUrl = this.getExtensionUrl(imagePath);
-            if (imageUrl) {
-                // 避免重复设置相同的 src（防止 canceled）
-                if (this.animationImg.src !== imageUrl) {
-                    this.animationImg.src = imageUrl;
-                }
-                
-                // 异步加载到缓存（不阻塞当前帧显示）
-                if (!cachedImg) {
-                    this.loadImage(this.currentFrame, 2).catch(error => {
-                        // 静默处理加载失败
-                        console.debug(`[LoadingAnimation] 后台加载第${this.currentFrame}帧失败:`, error);
-                    });
-                }
-            }
+        } catch (error) {
+            this.stopAnimation();
         }
     }
     
@@ -406,7 +226,6 @@ class LoadingAnimation {
      * 重置扩展上下文状态（当扩展重新加载时调用）
      */
     resetExtensionContext() {
-        this.extensionContextValid = true;
         // 清理缓存，强制重新加载
         this.imageCache.clear();
         this.preloadPromises = [];
@@ -425,4 +244,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.LoadingAnimation = LoadingAnimation;
 }
-

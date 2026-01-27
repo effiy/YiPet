@@ -489,12 +489,7 @@
 
             // 总是导出普通会话列表
             let sessions = [];
-            // Check if _getFilteredSessions exists, otherwise fallback to local sessions
-            if (typeof this._getFilteredSessions === 'function') {
-                sessions = this._getFilteredSessions();
-            } else {
-                sessions = this._getSessionsFromLocal();
-            }
+            sessions = this._getFilteredSessions();
 
             if (sessions.length === 0) {
                 this.showNotification('没有可导出的会话', 'error');
@@ -508,8 +503,7 @@
             const exportData = [];
             for (let i = 0; i < sessions.length; i++) {
                 const session = sessions[i];
-                // 优先使用 key，如果没有则使用 session_id（向后兼容）
-                const sessionId = session.key || session.session_id;
+                const sessionId = session.key;
 
                 let fullSessionData = session; // 默认使用本地数据
 
@@ -524,7 +518,6 @@
                             fullSessionData = {
                                 ...session, // 先使用本地数据
                                 ...backendSession, // 后端数据覆盖（包含完整的 pageContent 和 messages）
-                                id: sessionId, // 确保 ID 一致
                             };
                             console.log(`已从后端获取会话 ${sessionId} 的完整数据`);
                         }

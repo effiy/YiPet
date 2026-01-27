@@ -180,15 +180,9 @@ class ImageResourceManager {
         const promises = [];
         for (let frame = 1; frame <= frameCount; frame++) {
             const imagePath = `src/assets/images/${role}/run/${frame}.png`;
-            promises.push(
-                this.loadImage(imagePath).catch(error => {
-                    console.warn(`[ImageResourceManager] 预加载失败: ${imagePath}`, error);
-                    return null; // 返回 null 而不是抛出错误，允许部分成功
-                })
-            );
+            promises.push(this.loadImage(imagePath));
         }
-        const results = await Promise.all(promises);
-        return results.filter(img => img !== null);
+        return await Promise.all(promises);
     }
 
     /**
@@ -215,18 +209,12 @@ class ImageResourceManager {
      * 将 Image 对象转换为 data URL
      */
     _imageToDataUrl(img) {
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            return canvas.toDataURL('image/png');
-        } catch (error) {
-            console.warn('[ImageResourceManager] 转换为 data URL 失败:', error);
-            // 降级：返回原始 URL
-            return img.src;
-        }
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        return canvas.toDataURL('image/png');
     }
 
     /**
@@ -238,28 +226,15 @@ class ImageResourceManager {
     async getRunFrameUrl(role = '教师', frame = 1) {
         const imagePath = `src/assets/images/${role}/run/${frame}.png`;
         
-        // 如果缓存中有，尝试使用 data URL
         if (this.imageCache.has(imagePath)) {
             const cached = this.imageCache.get(imagePath);
             if (cached && cached.complete && cached.naturalWidth > 0) {
-                try {
-                    return this._imageToDataUrl(cached);
-                } catch (error) {
-                    // 降级：返回原始 URL
-                    return cached.src;
-                }
+                return this._imageToDataUrl(cached);
             }
         }
         
-        // 否则加载图片并返回 data URL
-        try {
-            const img = await this.loadImage(imagePath);
-            return this._imageToDataUrl(img);
-        } catch (error) {
-            // 如果加载失败，返回原始 URL（让浏览器处理）
-            const url = this.getExtensionUrl(imagePath);
-            return url || '';
-        }
+        const img = await this.loadImage(imagePath);
+        return this._imageToDataUrl(img);
     }
 
     /**
@@ -291,4 +266,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.ImageResourceManager = ImageResourceManager;
 }
-

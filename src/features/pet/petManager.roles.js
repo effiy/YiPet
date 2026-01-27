@@ -625,11 +625,19 @@ ${pageContent || '无内容'}
                     throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
                 }
 
-                const result = await response.json();
+                const envelope = await response.json();
+                if (!envelope || typeof envelope !== 'object') {
+                    throw new Error('响应格式错误');
+                }
+                if (envelope.code !== 0) {
+                    throw new Error(envelope.message || `请求失败 (code=${envelope.code})`);
+                }
+
+                const data = envelope.data || {};
 
                 // 处理后端返回的会话 ID（如果返回了）
-                if (result.conversation_id) {
-                    const conversationId = result.conversation_id;
+                if (data.conversation_id) {
+                    const conversationId = data.conversation_id;
                     if (conversationId && !this.currentSessionId) {
                         // 如果当前没有会话 ID，使用后端返回的会话 ID
                         this.currentSessionId = conversationId;
@@ -650,8 +658,7 @@ ${pageContent || '无内容'}
                     }
                 }
 
-                // 适配响应格式: {status, msg, data, pagination}
-                let content = result.data.message;
+                let content = typeof data.message === 'string' ? data.message : '';
 
                 // 停止加载动画
                 if (messageAvatar) {
@@ -1280,13 +1287,6 @@ ${pageContent || '无内容'}
                 updated = true;
             }
         });
-        // 回填缺失图标（老数据兼容）
-        for (const c of existing) {
-            if ((!c.icon || !String(c.icon).trim()) && c.actionKey) {
-                c.icon = this.getRoleIcon(c, existing);
-                updated = true;
-            }
-        }
         if (updated) {
             await this.setRoleConfigs(existing);
         }

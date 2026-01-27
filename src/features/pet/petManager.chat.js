@@ -56,21 +56,8 @@
         }
     };
 
-    // 预加载 html2canvas 库（用于导出聊天记录功能）
-    // 注意：html2canvas 现在通过 manifest.json 的 content_scripts 自动加载
-    proto.preloadHtml2Canvas = function () {
-        // html2canvas 已经通过 content_scripts 加载，这个方法保留用于向后兼容
-        if (typeof html2canvas !== 'undefined') {
-            console.log('html2canvas 已加载');
-        } else {
-            console.warn('html2canvas 未加载，请检查扩展配置');
-        }
-    };
-
     // 打开聊天窗口
     proto.openChatWindow = async function () {
-        // 预加载 html2canvas 库（用于导出功能）
-        this.preloadHtml2Canvas();
         this.isChatOpen = true;
 
         // 如果是第一次打开聊天窗口，加载会话列表
@@ -103,10 +90,9 @@
             // 先处理 URL 匹配和会话创建/选中（确保会话列表已加载）
             // 这个方法会检查当前 URL 是否在会话列表中，如果不在则创建新会话
             const matchedSessionId = await this.handleUrlBasedSession();
-
-            // 如果 handleUrlBasedSession 没有创建/选中会话，则调用 initSession 作为后备
             if (!this.currentSessionId) {
-                await this.initSession();
+                console.warn('未能选中会话，跳过打开聊天窗口');
+                return;
             }
 
             // 重新初始化滚动功能
@@ -188,10 +174,9 @@
             // 先处理 URL 匹配和会话创建/选中（确保会话列表已加载）
             // 这个方法会检查当前 URL 是否在会话列表中，如果不在则创建新会话
             const matchedSessionId = await this.handleUrlBasedSession();
-
-            // 如果 handleUrlBasedSession 没有创建/选中会话，则调用 initSession 作为后备
             if (!this.currentSessionId) {
-                await this.initSession();
+                console.warn('未能选中会话，跳过创建聊天窗口');
+                return;
             }
 
             await this.createChatWindow();
@@ -383,10 +368,6 @@
                     console.log('聊天窗口状态已保存到local存储:', state);
                 }
             });
-
-            // 同时保存到localStorage作为备用
-            localStorage.setItem('petChatWindowState', JSON.stringify(state));
-            console.log('聊天窗口状态已保存:', state);
         } catch (error) {
             console.log('保存聊天窗口状态失败:', error);
         }
@@ -395,8 +376,7 @@
     // 加载聊天窗口状态
     proto.loadChatWindowState = function (callback) {
         try {
-            // 首先尝试从Chrome存储API加载全局状态
-            chrome.storage.sync.get([PET_CONFIG.storage.keys.chatWindowState], (result) => {
+            chrome.storage.local.get([PET_CONFIG.storage.keys.chatWindowState], (result) => {
                 if (result[PET_CONFIG.storage.keys.chatWindowState]) {
                     const state = result[PET_CONFIG.storage.keys.chatWindowState];
                     this.restoreChatWindowState(state);
@@ -408,9 +388,7 @@
 
                     if (callback) callback(true);
                 } else {
-                    // 如果全局状态不存在，尝试从localStorage加载
-                    const success = this.loadChatWindowStateFromLocalStorage();
-                    if (callback) callback(success);
+                    if (callback) callback(false);
                 }
             });
 
@@ -429,42 +407,14 @@
                         }
                     }
                 }
-                // 兼容旧版本的 sync 存储
-                if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.chatWindowState]) {
-                    const newState = changes[PET_CONFIG.storage.keys.chatWindowState].newValue;
-                    if (newState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
-                        this.restoreChatWindowState(newState);
-                        if (this.chatWindow) {
-                            this.updateChatWindowStyle();
-                            console.log('聊天窗口状态已从sync存储更新（兼容旧版本）:', newState);
-                        }
-                    }
-                }
             });
 
             return true;
         } catch (error) {
             console.log('恢复聊天窗口状态失败:', error);
-            const success = this.loadChatWindowStateFromLocalStorage();
-            if (callback) callback(success);
-            return success;
+            if (callback) callback(false);
+            return false;
         }
-    };
-
-    // 从localStorage加载聊天窗口状态（备用方法）
-    proto.loadChatWindowStateFromLocalStorage = function () {
-        try {
-            const savedState = localStorage.getItem('petChatWindowState');
-            if (savedState) {
-                const state = JSON.parse(savedState);
-                this.restoreChatWindowState(state);
-                console.log('聊天窗口状态已从本地存储恢复:', this.chatWindowState);
-                return true;
-            }
-        } catch (error) {
-            console.log('恢复本地聊天窗口状态失败:', error);
-        }
-        return false;
     };
 
     // 加载当前会话的消息
@@ -689,7 +639,7 @@
             console.log('[buildWelcomeCardHtml] 会话信息:', {
                 hasSession: !!session,
                 currentSessionId: this.currentSessionId,
-                sessionId: session ? (session.key || session.id) : null,
+                sessionId: session ? session.key : null,
                 messagesCount: sessionMessages.length,
                 messages: sessionMessages.slice(0, 3).map(m => ({
                     type: m.type,
@@ -987,9 +937,7 @@
 
             // 如果当前会话不匹配，调用 initSession 重新初始化
             // initSession 会自动查找或创建匹配的会话，并选中和滚动
-            if (typeof this.initSession === 'function') {
-                await this.initSession();
-            }
+            await this.handleUrlBasedSession();
         } catch (error) {
             console.error('自动处理会话失败:', error);
         }
@@ -1140,29 +1088,8 @@
                             body: JSON.stringify(payload)
                         });
 
-                        if (response && response.success !== false) {
-                            // 从响应中提取后端生成的 key
-                            let sessionKey = null;
-
-                            // 尝试从不同位置提取 key
-                            if (response.data && response.data.key) {
-                                sessionKey = response.data.key;
-                            } else if (response.data && response.data.data && response.data.data.key) {
-                                sessionKey = response.data.data.key;
-                            } else if (response.key) {
-                                sessionKey = response.key;
-                            } else if (response.data && typeof response.data === 'object' && response.data._id) {
-                                // 如果后端返回的是 _id，使用 _id 作为 key
-                                sessionKey = response.data._id;
-                            }
-
-                            if (!sessionKey) {
-                                console.warn('[handleUrlBasedSession] 后端响应中未找到 key，尝试从返回的数据中提取');
-                                // 如果响应中直接是会话对象，尝试提取 key
-                                if (response.data && typeof response.data === 'object') {
-                                    sessionKey = response.data.key || response.data._id || response.data.id;
-                                }
-                            }
+                        if (response) {
+                            const sessionKey = response.key;
 
                             if (sessionKey) {
                                 // 使用后端生成的 key 更新会话数据
@@ -1214,7 +1141,7 @@
                                 throw new Error('后端创建会话成功，但未返回 key');
                             }
                         } else {
-                            throw new Error(response?.message || '后端创建会话失败');
+                            throw new Error('后端创建会话失败');
                         }
                     } else {
                         // 如果未启用后端同步，使用本地方式创建（生成临时 key）
@@ -1356,34 +1283,19 @@
         }, 2000);
     };
 
-    // HTML转义辅助方法（使用 DomHelper，保留兼容性）
     proto.escapeHtml = function (text) {
-        if (typeof DomHelper !== 'undefined' && typeof DomHelper.escapeHtml === 'function') {
-            return DomHelper.escapeHtml(text);
-        }
-        // 降级实现
         if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     };
 
-    // 时间格式化方法已迁移到 TimeUtils 工具类，这里保留兼容性方法
     proto.getCurrentTime = function () {
-        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.getCurrentTime === 'function') {
-            return TimeUtils.getCurrentTime();
-        }
-        // 降级实现
         const now = new Date();
         return this.formatTimestamp(now.getTime());
     };
 
-    // 格式化时间戳为年月日时分格式（使用 TimeUtils）
     proto.formatTimestamp = function (timestamp) {
-        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.formatTimestamp === 'function') {
-            return TimeUtils.formatTimestamp(timestamp);
-        }
-        // 降级实现
         const date = new Date(timestamp);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -1393,12 +1305,7 @@
         return `${year}年${month}月${day}日 ${hour}:${minute}`;
     };
 
-    // 格式化日期为 YYYY/MM/DD 格式（使用 TimeUtils）
     proto.formatDate = function (date) {
-        if (typeof TimeUtils !== 'undefined' && typeof TimeUtils.formatDate === 'function') {
-            return TimeUtils.formatDate(date);
-        }
-        // 降级实现
         if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
             return '';
         }

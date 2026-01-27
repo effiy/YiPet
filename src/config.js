@@ -144,8 +144,7 @@ const DEFAULT_CONFIG = {
       QUOTA_EXCEEDED: "存储配额超出",
       RETRYING: "正在重试...",
       RETRY_SUCCESS: "重试成功",
-      RETRY_FAILED: "多次尝试后仍失败",
-      FALLBACK_INIT: "使用备用方案初始化"
+      RETRY_FAILED: "多次尝试后仍失败"
     },
     SUCCESS_MESSAGES: {
       SHOWN: "已显示",
@@ -208,14 +207,11 @@ config.envInfo = {
 // Expose configuration globally
 if (typeof self !== "undefined") {
   self.PET_CONFIG = config;
-  self.config = config; // Keep 'config' for backward compatibility if needed
 } else if (typeof window !== "undefined") {
   window.PET_CONFIG = config;
-  window.config = config;
   window.PET_ENV = config.envInfo;
 } else if (typeof global !== "undefined") {
   global.PET_CONFIG = config;
-  global.config = config;
 }
 
 // Support CommonJS export

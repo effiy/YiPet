@@ -395,110 +395,19 @@ ${messageContent}`;
                 throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
             }
 
-            // 读取响应文本
-            const responseText = await response.text();
-            let result;
-
-            // 检查是否包含SSE格式（包含 "data: "）
-            if (responseText.includes('data: ')) {
-                // 处理SSE流式响应
-                const lines = responseText.split('\n');
-                let accumulatedData = '';
-                let lastValidData = null;
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.startsWith('data: ')) {
-                        try {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr === '[DONE]' || dataStr === '') {
-                                continue;
-                            }
-
-                            // 尝试解析JSON
-                            const chunk = JSON.parse(dataStr);
-
-                            // 检查是否完成
-                            if (chunk.done === true) {
-                                break;
-                            }
-
-                            // 累积内容（处理流式内容块）
-                            if (chunk.data) {
-                                accumulatedData += chunk.data;
-                            } else if (chunk.content) {
-                                accumulatedData += chunk.content;
-                            } else if (chunk.message && chunk.message.content) {
-                                // Ollama格式
-                                accumulatedData += chunk.message.content;
-                            } else if (typeof chunk === 'string') {
-                                accumulatedData += chunk;
-                            }
-
-                            // 保存最后一个有效的数据块
-                            lastValidData = chunk;
-                        } catch (e) {
-                            // 如果不是JSON，可能是纯文本内容
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr && dataStr !== '[DONE]') {
-                                accumulatedData += dataStr;
-                            }
-                        }
-                    }
-                }
-
-                // 如果累积了内容，创建结果对象
-                if (accumulatedData || lastValidData) {
-                    if (lastValidData && lastValidData.status) {
-                        result = {
-                            ...lastValidData,
-                            data: accumulatedData || lastValidData.data || '',
-                            content: accumulatedData || lastValidData.content || ''
-                        };
-                    } else {
-                        result = {
-                            data: accumulatedData,
-                            content: accumulatedData
-                        };
-                    }
-                } else {
-                    try {
-                        result = JSON.parse(responseText);
-                    } catch (e) {
-                        throw new Error('无法解析响应格式');
-                    }
-                }
-            } else {
-                // 非SSE格式，直接解析JSON
-                try {
-                    result = JSON.parse(responseText);
-                } catch (e) {
-                    const sseMatch = responseText.match(/data:\s*({.+?})/s);
-                    if (sseMatch) {
-                        result = JSON.parse(sseMatch[1]);
-                    } else {
-                        throw new Error(`无法解析响应: ${responseText.substring(0, 100)}`);
-                    }
-                }
+            const result = await response.json();
+            if (!result || typeof result !== 'object') {
+                throw new Error('响应格式错误');
+            }
+            if (result.code !== 0) {
+                throw new Error(result.message || `请求失败 (code=${result.code})`);
             }
 
-            // 适配响应格式（优先检查 result.data.message，services.ai.chat_service 接口 stream: false 时返回的内容）
-            let content = '';
-            if (result.data && typeof result.data.message === 'string') {
-                content = result.data.message;
-            } else if (result.data && typeof result.data === 'string') {
-                content = result.data;
-            } else if (result.content) {
-                content = result.content;
-            } else if (result.message && result.message.content) {
-                content = result.message.content;
-            } else if (result.message && typeof result.message === 'string') {
-                content = result.message;
-            } else if (typeof result === 'string') {
-                content = result;
-            } else {
-                content = JSON.stringify(result);
-            }
+            const data = result.data || {};
+            let content =
+                (typeof data.message === 'string' ? data.message : '') ||
+                (typeof data.content === 'string' ? data.content : '') ||
+                (typeof result.content === 'string' ? result.content : '');
 
             // 如果提取到了有效内容，去除 markdown 代码块标记
             if (content && content.trim()) {
@@ -511,11 +420,6 @@ ${messageContent}`;
                 cleanedContent = cleanedContent.replace(/\s*```\s*$/, '');
 
                 return cleanedContent.trim();
-            } else if (result.status !== undefined && result.status !== 200) {
-                const errorMsg = result.msg || '抱歉，服务器返回了错误。';
-                throw new Error(errorMsg);
-            } else if (result.msg && !content) {
-                throw new Error(result.msg);
             } else {
                 throw new Error('无法获取有效内容');
             }
@@ -532,10 +436,29 @@ ${messageContent}`;
 
             const userPrompt = `请将以下内容转换为 markdown 格式：\n\n${content}`;
 
-            const payload = this.buildPromptPayload(
+            const oldPayload = this.buildPromptPayload(
                 systemPrompt,
                 userPrompt
             );
+    
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: false
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
 
             // 使用全局配置 PET_CONFIG
             const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
@@ -551,64 +474,21 @@ ${messageContent}`;
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const responseText = await response.text();
-            let result;
-
-            // 处理流式响应
-            if (responseText.includes('data: ')) {
-                const lines = responseText.split('\n');
-                let accumulatedData = '';
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.startsWith('data: ')) {
-                        try {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr === '[DONE]' || dataStr === '') {
-                                continue;
-                            }
-
-                            const chunk = JSON.parse(dataStr);
-                            if (chunk.done === true) {
-                                break;
-                            }
-
-                            if (chunk.data) {
-                                accumulatedData += chunk.data;
-                            } else if (chunk.content) {
-                                accumulatedData += chunk.content;
-                            } else if (chunk.message && chunk.message.content) {
-                                accumulatedData += chunk.message.content;
-                            }
-                        } catch (e) {
-                            // 忽略解析错误
-                        }
-                    }
-                }
-
-                result = accumulatedData || content;
-            } else {
-                // 处理非流式响应（优先检查 jsonResult.data.message，services.ai.chat_service 接口 stream: false 时返回的内容）
-                try {
-                    const jsonResult = JSON.parse(responseText);
-                    if (jsonResult.data && typeof jsonResult.data.message === 'string') {
-                        result = jsonResult.data.message;
-                    } else if (jsonResult.status === 200 && jsonResult.data) {
-                        result = typeof jsonResult.data === 'string' ? jsonResult.data : jsonResult.data;
-                    } else if (jsonResult.content) {
-                        result = jsonResult.content;
-                    } else if (jsonResult.message) {
-                        result = jsonResult.message;
-                    } else {
-                        result = content; // 如果无法解析，使用原内容
-                    }
-                } catch (e) {
-                    result = content; // 如果解析失败，使用原内容
-                }
+            const result = await response.json();
+            if (!result || typeof result !== 'object') {
+                throw new Error('响应格式错误');
+            }
+            if (result.code !== 0) {
+                throw new Error(result.message || `请求失败 (code=${result.code})`);
             }
 
-            // 如果转换结果为空，使用原内容
-            return (result && result.trim()) ? result.trim() : content;
+            const data = result.data || {};
+            const markdown =
+                (typeof data.message === 'string' ? data.message : '') ||
+                (typeof data.content === 'string' ? data.content : '') ||
+                (typeof result.content === 'string' ? result.content : '');
+
+            return (markdown && markdown.trim()) ? markdown.trim() : content;
         } catch (error) {
             console.error('转换为 markdown 失败:', error);
             // 转换失败时返回原内容

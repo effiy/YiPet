@@ -122,7 +122,7 @@
             }
         };
 
-        // 定期检查URL变化（作为备用方案，防止某些边缘情况）
+        // 定期检查URL变化（防止某些边缘情况）
         // 降低检查频率，减少性能开销
         setInterval(() => {
             const currentUrl = window.location.href;
@@ -151,7 +151,7 @@
 
         const loadQuickCommentShortcutEnabled = () => {
             try {
-                chrome.storage.sync.get(['petSettings'], (result) => {
+                chrome.storage.local.get(['petSettings'], (result) => {
                     const settings = result && result.petSettings ? result.petSettings : null;
                     const enabled = settings ? settings.quickCommentShortcutEnabled : undefined;
                     if (typeof enabled === 'boolean') {
@@ -163,9 +163,9 @@
 
         const persistQuickCommentShortcutEnabled = (enabled) => {
             try {
-                chrome.storage.sync.get(['petSettings'], (result) => {
+                chrome.storage.local.get(['petSettings'], (result) => {
                     const settings = (result && result.petSettings) ? result.petSettings : {};
-                    chrome.storage.sync.set({
+                    chrome.storage.local.set({
                         petSettings: {
                             ...settings,
                             quickCommentShortcutEnabled: enabled
@@ -202,11 +202,6 @@
                 // 仅切换显示/隐藏，不影响其他功能
                 if (typeof this.toggleChatWindowVisibility === 'function') {
                     this.toggleChatWindowVisibility();
-                } else {
-                    console.warn('toggleChatWindowVisibility 函数未定义，使用 toggleChatWindow 作为后备');
-                    if (typeof this.toggleChatWindow === 'function') {
-                        this.toggleChatWindow();
-                    }
                 }
                 return false;
             }
@@ -288,4 +283,3 @@
     };
 
 })();
-

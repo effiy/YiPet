@@ -27,7 +27,7 @@ try {
  */
 try {
     // 加载通用工具（供 service/handler 复用）
-    importScripts('../utils/helpers/requestUtils.js');
+    importScripts('../api/requestUtils.js');
     importScripts('../utils/helpers/loggerUtils.js');
     importScripts('../utils/helpers/errorHandler.js');
     importScripts('../utils/helpers/moduleUtils.js');
@@ -53,7 +53,7 @@ try {
 }
 
 // ==================== 日志控制（可选） ====================
-// 通过 sync storage 的 petDevMode 开关控制 console.log/info/debug/warn
+// 通过 storage 的 petDevMode 开关控制 console.log/info/debug/warn
 try {
     if (typeof self !== 'undefined' && self.LoggerUtils && typeof self.LoggerUtils.initMuteLogger === 'function') {
         const keyName = (typeof self !== 'undefined' && self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.storageKeys) ? self.PET_CONFIG.constants.storageKeys.devMode : 'petDevMode';
@@ -76,13 +76,16 @@ chrome.runtime.onInstalled.addListener((details) => {
     console.log('可拖拽小宠物扩展已安装');
 
     // 设置默认配置
-    chrome.storage.sync.set({
+    chrome.storage.local.set({
         petSettings: {
-            size: 60,           // 默认大小（像素）
-            color: 0,           // 默认颜色索引
-            visible: false,      // 默认不可见
-            autoStart: true     // 默认自动启动
-        },
+            size: 60,
+            color: 0,
+            visible: false,
+            autoStart: true
+        }
+    });
+
+    chrome.storage.local.set({
         petGlobalState: {
             visible: false,
             color: 0,
@@ -185,7 +188,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         console.log('页面加载完成，检查是否需要注入宠物');
 
         // 检查是否需要自动注入宠物
-        chrome.storage.sync.get(['petSettings'], (result) => {
+        chrome.storage.local.get(['petSettings'], (result) => {
             const settings = result.petSettings || { autoStart: true, visible: false };
             console.log('宠物设置:', settings);
 
@@ -193,12 +196,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                 // 延迟注入，确保页面完全加载
                 setTimeout(() => {
                     console.log('自动注入宠物到标签页:', tabId);
-                    // 使用注入服务
-                    if (typeof self !== 'undefined' && self.InjectionService) {
-                        self.InjectionService.injectPetToTab(tabId);
-                    } else {
-                        injectPetToTab(tabId); // 降级方案
+                    const injectionService = getInjectionService();
+                    if (!injectionService) {
+                        console.error('自动注入失败：InjectionService 不可用');
+                        return;
                     }
+                    injectionService.injectPetToTab(tabId);
                 }, (self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.TIMING) ? self.PET_CONFIG.constants.TIMING.INJECT_PET_DELAY : 1000);
             } else {
                 console.log('自动注入已禁用或宠物不可见');
@@ -266,46 +269,33 @@ function notifyAllTabs(action, data) {
  * @param {string} namespace - 存储命名空间
  */
 function handleStorageChange(changes, namespace) {
-    const isLocal = namespace === 'local';
-    const isSync = namespace === 'sync';
-
-    if (!isLocal && !isSync) {
-        return;
-    }
+    if (namespace !== 'local') return;
 
     // 处理宠物设置变化
     if (changes.petSettings) {
-        const logPrefix = isLocal ? '宠物设置已更新' : '宠物设置已更新（sync）';
-        console.log(logPrefix);
+        console.log('宠物设置已更新');
         notifyAllTabs('settingsUpdated', changes.petSettings.newValue);
     }
 
     // 处理宠物全局状态变化
     if (changes.petGlobalState) {
-        const logPrefix = isLocal
-            ? '宠物全局状态已更新'
-            : '宠物全局状态已更新（sync，兼容旧版本）';
-        console.log(logPrefix);
+        console.log('宠物全局状态已更新');
         notifyAllTabs('globalStateUpdated', changes.petGlobalState.newValue);
 
-        // local 存储时，立即同步到所有活动标签页（确保实时性）
-        if (isLocal) {
-            chrome.tabs.query({}, (tabs) => {
-                tabs.forEach(tab => {
-                    // 跳过系统页面
-                    if (tab.url && !(self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.URLS && self.PET_CONFIG.constants.URLS.isSystemPage(tab.url))) {
-                        chrome.tabs.sendMessage(tab.id, {
-                            action: 'globalStateUpdated',
-                            data: changes.petGlobalState.newValue
-                        }, (response) => {
-                            if (chrome.runtime.lastError) {
-                                console.log('同步状态到标签页失败:', tab.id, chrome.runtime.lastError.message);
-                            }
-                        });
-                    }
-                });
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+                if (tab.url && !(self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.URLS && self.PET_CONFIG.constants.URLS.isSystemPage(tab.url))) {
+                    chrome.tabs.sendMessage(tab.id, {
+                        action: 'globalStateUpdated',
+                        data: changes.petGlobalState.newValue
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.log('同步状态到标签页失败:', tab.id, chrome.runtime.lastError.message);
+                        }
+                    });
+                }
             });
-        }
+        });
     }
 }
 

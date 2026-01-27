@@ -14,26 +14,18 @@ function handleSendToWeWorkRobot(request, sendResponse) {
         ? self.WeWorkService 
         : null;
     
-    if (weworkService) {
-        weworkService.sendMessage(request.webhookUrl, request.content)
-            .then((result) => {
-                sendResponse({ success: true, result: result });
-            })
-            .catch((error) => {
-                console.error('发送到企微机器人失败:', error);
-                sendResponse({ success: false, error: error.message || '发送失败' });
-            });
-    } else {
-        // 降级方案：直接调用
-        sendMessageToWeWorkRobot(request.webhookUrl, request.content)
-            .then((result) => {
-                sendResponse({ success: true, result: result });
-            })
-            .catch((error) => {
-                console.error('发送到企微机器人失败:', error);
-                sendResponse({ success: false, error: error.message || '发送失败' });
-            });
+    if (!weworkService || typeof weworkService.sendMessage !== 'function') {
+        sendResponse({ success: false, error: 'WeWorkService 不可用' });
+        return;
     }
+    weworkService.sendMessage(request.webhookUrl, request.content)
+        .then((result) => {
+            sendResponse({ success: true, result: result });
+        })
+        .catch((error) => {
+            console.error('发送到企微机器人失败:', error);
+            sendResponse({ success: false, error: error.message || '发送失败' });
+        });
 }
 
 // 导出处理器
@@ -48,4 +40,3 @@ if (typeof module !== "undefined" && module.exports) {
         };
     }
 }
-

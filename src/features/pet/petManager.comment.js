@@ -1555,67 +1555,22 @@
                 throw new Error(errorMessage);
             }
 
-            // 解析响应
-            const responseText = await response.text();
-            let result;
-
-            // 处理SSE格式响应
-            if (responseText.includes('data: ')) {
-                const lines = responseText.split('\n');
-                let accumulatedData = '';
-                let lastValidData = null;
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.startsWith('data: ')) {
-                        try {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr === '[DONE]' || dataStr === '') {
-                                continue;
-                            }
-                            const chunk = JSON.parse(dataStr);
-                            if (chunk.done === true) {
-                                break;
-                            }
-                            if (chunk.data) {
-                                if (typeof chunk.data === 'object' && chunk.data.message) {
-                                    accumulatedData += chunk.data.message;
-                                } else if (typeof chunk.data === 'string') {
-                                    accumulatedData += chunk.data;
-                                }
-                            } else if (chunk.content) {
-                                accumulatedData += chunk.content;
-                            } else if (chunk.message && chunk.message.content) {
-                                accumulatedData += chunk.message.content;
-                            } else if (typeof chunk === 'string') {
-                                accumulatedData += chunk;
-                            }
-                            lastValidData = chunk;
-                        } catch (e) {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr && dataStr !== '[DONE]') {
-                                accumulatedData += dataStr;
-                            }
-                        }
-                    }
-                }
-
-                if (accumulatedData || lastValidData) {
-                    result = {
-                        data: accumulatedData || lastValidData.data || '',
-                        content: accumulatedData || lastValidData.content || ''
-                    };
-                } else {
-                    result = JSON.parse(responseText);
-                }
-            } else {
-                result = JSON.parse(responseText);
+            const result = await response.json();
+            if (!result || typeof result !== 'object') {
+                throw new Error('响应格式错误');
+            }
+            if (result.code !== 0) {
+                throw new Error(result.message || `请求失败 (code=${result.code})`);
             }
 
             console.log('[PetManager] 评论提交成功:', result);
 
             // 提取返回的 message
-            let messageContent = result?.data?.message;
+            const data = result.data || {};
+            let messageContent =
+                (typeof data.message === 'string' ? data.message : '') ||
+                (typeof data.content === 'string' ? data.content : '') ||
+                (typeof result.content === 'string' ? result.content : '');
 
             // 如果有返回的 message，渲染到 AI 结果区域
             if (messageContent && messageContent.trim()) {
@@ -1717,4 +1672,3 @@
     };
 
 })();
-

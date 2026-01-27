@@ -46,38 +46,9 @@ class SessionApiManager extends BaseApiManager {
                 sort: { updatedAt: -1 }
             };
             const url = this._buildGenericApiUrl('query_documents', params);
-            const result = await this._request(url, { method: 'GET' });
-            
-            // 兼容不同的返回格式
-            if (Array.isArray(result)) {
-                return result;
-            }
-            if (result && Array.isArray(result.data)) {
-                return result.data;
-            }
-            if (result && result.data && Array.isArray(result.data.sessions)) {
-                return result.data.sessions;
-            }
-            if (result && result.data && Array.isArray(result.data.documents)) {
-                return result.data.documents;
-            }
-            if (result && result.data && result.data.list && Array.isArray(result.data.list)) {
-                return result.data.list;
-            }
-            if (result && Array.isArray(result.documents)) {
-                return result.documents;
-            }
-            if (result && result.documents && result.documents.list && Array.isArray(result.documents.list)) {
-                return result.documents.list;
-            }
-            if (result && result.result && Array.isArray(result.result)) {
-                return result.result;
-            }
-            if (result && result.data && result.data.result && Array.isArray(result.data.result)) {
-                return result.data.result;
-            }
-            console.warn('获取会话列表：返回数据格式异常', result);
-            return [];
+            const pageData = await this._request(url, { method: 'GET' });
+            const list = pageData && Array.isArray(pageData.list) ? pageData.list : [];
+            return list;
         } catch (error) {
             console.warn('获取会话列表失败:', error.message);
             // 返回空数组而不是抛出错误，避免影响主流程
@@ -103,21 +74,9 @@ class SessionApiManager extends BaseApiManager {
                 limit: 1
             };
             const keyUrl = this._buildGenericApiUrl('query_documents', keyParams);
-            const keyResult = await this._request(keyUrl, { method: 'GET' });
-            
-            // 解析查询结果
-            let session = null;
-            if (Array.isArray(keyResult) && keyResult.length > 0) {
-                session = keyResult[0];
-            } else if (keyResult && Array.isArray(keyResult.data) && keyResult.data.length > 0) {
-                session = keyResult.data[0];
-            } else if (keyResult && keyResult.data && Array.isArray(keyResult.data.list) && keyResult.data.list.length > 0) {
-                session = keyResult.data.list[0];
-            } else if (keyResult && keyResult.data && Array.isArray(keyResult.data.documents) && keyResult.data.documents.length > 0) {
-                session = keyResult.data.documents[0];
-            }
-            
-            return session;
+            const pageData = await this._request(keyUrl, { method: 'GET' });
+            const list = pageData && Array.isArray(pageData.list) ? pageData.list : [];
+            return list.length > 0 ? list[0] : null;
         } catch (error) {
             console.warn(`获取会话 ${sessionKey} 失败:`, error.message);
             return null;
@@ -160,14 +119,10 @@ class SessionApiManager extends BaseApiManager {
             body: JSON.stringify(payload)
         });
 
-        if (result && result.success !== false) {
-            return {
-                success: true,
-                data: result.data || result
-            };
-        }
-
-        throw new Error(result?.message || '创建会话失败');
+        return {
+            success: true,
+            data: result
+        };
     }
     
     /**
@@ -217,18 +172,9 @@ class SessionApiManager extends BaseApiManager {
                     limit: 1
                 };
                 const checkUrl = this._buildGenericApiUrl('query_documents', checkParams);
-                const checkResponse = await this._request(checkUrl, { method: 'GET' });
-                
-                // 解析查询结果
-                if (Array.isArray(checkResponse) && checkResponse.length > 0) {
-                    existingSession = checkResponse[0];
-                } else if (checkResponse && Array.isArray(checkResponse.data) && checkResponse.data.length > 0) {
-                    existingSession = checkResponse.data[0];
-                } else if (checkResponse && checkResponse.data && Array.isArray(checkResponse.data.list) && checkResponse.data.list.length > 0) {
-                    existingSession = checkResponse.data.list[0];
-                } else if (checkResponse && checkResponse.data && Array.isArray(checkResponse.data.documents) && checkResponse.data.documents.length > 0) {
-                    existingSession = checkResponse.data.documents[0];
-                }
+                const pageData = await this._request(checkUrl, { method: 'GET' });
+                const list = pageData && Array.isArray(pageData.list) ? pageData.list : [];
+                existingSession = list.length > 0 ? list[0] : null;
             } catch (error) {
                 console.warn('查询会话失败:', error);
             }
@@ -278,15 +224,10 @@ class SessionApiManager extends BaseApiManager {
             
             this.stats.saveCount++;
             
-            // 返回结果
-            if (result && result.success !== false) {
-                return {
-                    success: true,
-                    data: result.data || result
-                };
-            } else {
-                throw new Error(result?.message || '保存会话失败');
-            }
+            return {
+                success: true,
+                data: result
+            };
         } catch (error) {
             console.warn('保存会话到后端失败:', error.message);
             throw error;
@@ -494,17 +435,8 @@ class SessionApiManager extends BaseApiManager {
             };
             
             const url = this._buildGenericApiUrl('query_documents', params);
-            const result = await this._request(url, { method: 'GET' });
-            
-            if (Array.isArray(result)) {
-                return result;
-            } else if (result && Array.isArray(result.data)) {
-                return result.data;
-            } else if (result && result.sessions) { // 兼容旧格式返回
-                 return result.sessions;
-            } else {
-                return [];
-            }
+            const pageData = await this._request(url, { method: 'GET' });
+            return pageData && Array.isArray(pageData.list) ? pageData.list : [];
         } catch (error) {
             console.warn('搜索会话失败:', error.message);
             return [];

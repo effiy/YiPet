@@ -2050,6 +2050,7 @@
     font-weight: 500 !important;
     flex: 0 0 44px !important;
     padding-top: 2px !important;
+    -webkit-user-select: none !important;
     user-select: none !important;
 }
 
@@ -2413,27 +2414,6 @@
     flex: 1;
 }
 
-/* 旧的 session-checkbox 样式保留以兼容旧代码 */
-.session-checkbox {
-    padding-top: 3px;
-    display: none;
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    flex-shrink: 0;
-    accent-color: var(--primary, #6366f1);
-    border-radius: 4px;
-}
-
-.session-checkbox:hover {
-    transform: scale(1.1);
-    transition: transform 0.2s ease;
-}
-
-.batch-mode-active .session-checkbox {
-    display: block;
-}
-
 /* 批量选择复选框样式（参考 YiWeb 设计） */
 .session-batch-checkbox {
     width: 18px;
@@ -2549,31 +2529,6 @@
 }
 
 .session-favorite-btn.active {
-    opacity: 1;
-    text-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
-}
-
-/* 兼容旧的 favorite-icon 类名（向后兼容） */
-.favorite-icon {
-    background: transparent !important;
-    border: none !important;
-    cursor: pointer !important;
-    padding: 6px;
-    font-size: 16px;
-    line-height: 1;
-    opacity: 0.3;
-    transition: all 0.2s;
-    border-radius: 50%;
-    margin-left: 0;
-}
-
-.favorite-icon:hover {
-    opacity: 1;
-    background: rgba(239, 68, 68, 0.15) !important;
-    transform: scale(1.1);
-}
-
-.favorite-icon--active {
     opacity: 1;
     text-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
 }
@@ -4118,24 +4073,6 @@
     100% { transform: translateY(0); opacity: 1; }
 }
 
-/* Pet Chat Bubble - 宠物气泡提示（与消息气泡不同，用于宠物元素上的提示） */
-/* 注意：这个样式不在 #pet-chat-window 内，因为气泡是附加在宠物元素上的 */
-#chrome-pet-container .yi-pet-chat-bubble,
-.yi-pet-chat-bubble:not(#pet-chat-window .yi-pet-chat-bubble) {
-    position: absolute !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    background: rgba(0, 0, 0, 0.8) !important;
-    color: white !important;
-    padding: 8px 12px !important;
-    border-radius: 12px !important;
-    font-size: 12px !important;
-    white-space: nowrap !important;
-    z-index: 2147483648 !important;
-    pointer-events: none !important;
-    animation: bubbleAppear 0.5s ease-out !important;
-}
-
 @keyframes petThinking {
     0%, 100% { transform: scale(1) rotate(0deg); }
     25% { transform: scale(1.1) rotate(-5deg); }
@@ -4364,18 +4301,15 @@
 }
 
 /* 消息状态类 - 与 YiWeb 保持一致，但限定在 YiPet 作用域内 */
-#pet-chat-window .pet-chat-message.is-streaming,
-#pet-chat-window .yi-pet-chat-message.is-streaming {
+#pet-chat-window .pet-chat-message.is-streaming {
     /* 流式消息状态 */
 }
 
-#pet-chat-window .pet-chat-message.is-error,
-#pet-chat-window .yi-pet-chat-message.is-error {
+#pet-chat-window .pet-chat-message.is-error {
     /* 错误消息状态 */
 }
 
-#pet-chat-window .pet-chat-message.is-aborted,
-#pet-chat-window .yi-pet-chat-message.is-aborted {
+#pet-chat-window .pet-chat-message.is-aborted {
     /* 中断消息状态 */
 }
 
@@ -4386,42 +4320,36 @@
 
 /* 响应式优化 - 与 YiWeb 保持一致，但限定在 YiPet 作用域内 */
 @media (max-width: 1200px) {
-    #pet-chat-window .pet-chat-bubble,
-    #pet-chat-window .yi-pet-chat-bubble {
+    #pet-chat-window .pet-chat-bubble {
         max-width: min(900px, calc(100% - 24px));
     }
 }
 
 @media (max-width: 768px) {
-    #pet-chat-window .pet-chat-bubble,
-    #pet-chat-window .yi-pet-chat-bubble {
+    #pet-chat-window .pet-chat-bubble {
         max-width: calc(100% - 24px);
         padding: 10px 14px;
     }
     
-    #pet-chat-window .pet-chat-meta,
-    #pet-chat-window .yi-pet-chat-meta {
+    #pet-chat-window .pet-chat-meta {
         flex-direction: column;
         align-items: flex-start;
         gap: 6px;
     }
     
-    #pet-chat-window .pet-chat-meta-actions,
-    #pet-chat-window .yi-pet-chat-meta-actions {
+    #pet-chat-window .pet-chat-meta-actions {
         width: 100%;
         justify-content: flex-start;
     }
     
-    #pet-chat-window .pet-chat-meta-btn,
-    #pet-chat-window .yi-pet-chat-meta-btn {
+    #pet-chat-window .pet-chat-meta-btn {
         font-size: 11px;
         padding: 5px 8px;
     }
 }
 
 @media (max-width: 480px) {
-    #pet-chat-window .pet-chat-bubble,
-    #pet-chat-window .yi-pet-chat-bubble {
+    #pet-chat-window .pet-chat-bubble {
         max-width: calc(100% - 16px);
         padding: 10px 12px;
         border-radius: 12px;
@@ -4510,49 +4438,41 @@
 }
 
 /* Batch Toolbar */
-#pet-chat-window #batch-toolbar.js-visible,
-#batch-toolbar.js-visible {
+#pet-chat-window #batch-toolbar.js-visible {
     display: flex !important;
 }
 
-#pet-chat-window #batch-toolbar:not(.js-visible),
-#batch-toolbar:not(.js-visible) {
+#pet-chat-window #batch-toolbar:not(.js-visible) {
     display: none !important;
 }
 
 /* Message Delete Animation */
-#pet-chat-window .pet-chat-message.js-deleting,
-.pet-chat-message.js-deleting {
+#pet-chat-window .pet-chat-message.js-deleting {
     transition: opacity 0.3s ease !important;
     opacity: 0 !important;
 }
 
 /* Session List */
-#pet-chat-window .session-list.js-visible,
-.session-list.js-visible {
+#pet-chat-window .session-list.js-visible {
     display: block !important;
 }
 
 /* API Request List Hidden */
-#pet-chat-window .api-request-list.js-hidden,
-.api-request-list.js-hidden {
+#pet-chat-window .api-request-list.js-hidden {
     display: none !important;
 }
 
-#pet-chat-window .api-request-tag-filter-container.js-hidden,
-.api-request-tag-filter-container.js-hidden {
+#pet-chat-window .api-request-tag-filter-container.js-hidden {
     display: none !important;
 }
 
 /* Tag Filter Container */
-#pet-chat-window .tag-filter-container.js-visible,
-.tag-filter-container.js-visible {
+#pet-chat-window .tag-filter-container.js-visible {
     display: block !important;
 }
 
 /* Scrollable Content */
-#pet-chat-window .session-sidebar-scrollable-content.js-visible,
-.session-sidebar-scrollable-content.js-visible {
+#pet-chat-window .session-sidebar-scrollable-content.js-visible {
     display: flex !important;
 }
 

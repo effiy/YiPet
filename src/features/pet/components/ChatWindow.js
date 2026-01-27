@@ -212,8 +212,6 @@
             const sidebarWidth = manager.sidebarWidth || 320;
             manager.sidebarWidth = sidebarWidth;
             sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
-
-            // Expose sidebar to manager for legacy compatibility
             manager.sessionSidebar = sidebar;
 
             // Sidebar Header
@@ -1412,6 +1410,7 @@
                     {}
                 );
                 userMessageElement.setAttribute('data-chat-timestamp', userTimestamp.toString());
+                userMessageElement.setAttribute('data-chat-type', 'user');
                 const allMessages = Array.from(messagesContainer.children).filter(msg => !msg.hasAttribute('data-welcome-message'));
                 userMessageElement.setAttribute('data-chat-idx', allMessages.length.toString());
                 messagesContainer.appendChild(userMessageElement);
@@ -1432,16 +1431,17 @@
 
                 // 3. 创建宠物回复消息元素（占位）
                 const waitingIcon = this._getWaitingIcon();
+                const petTimestamp = Date.now();
                 const petMessageElement = manager.createMessageElement(
                     `${waitingIcon} 正在思考...`,
                     'pet',
                     null,
-                    Date.now(),
+                    petTimestamp,
                     { streaming: true }
                 );
                 petMessageElement.classList.add('is-streaming');
-                const petTimestamp = Date.now();
                 petMessageElement.setAttribute('data-chat-timestamp', petTimestamp.toString());
+                petMessageElement.setAttribute('data-chat-type', 'pet');
                 messagesContainer.appendChild(petMessageElement);
 
                 // 添加操作按钮
@@ -2983,4 +2983,3 @@
     window.PetManager.Components.ChatWindow = ChatWindow;
 
 })();
-

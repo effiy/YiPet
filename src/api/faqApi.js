@@ -36,30 +36,8 @@ class FaqApiManager extends BaseApiManager {
                 sort: { order: 1 }
             };
             const url = this._buildGenericApiUrl('query_documents', params);
-            const result = await this._request(url, { method: 'GET' });
-            
-            let faqs = [];
-            // 兼容不同的返回格式 (参考 SessionApiManager)
-            if (Array.isArray(result)) {
-                faqs = result;
-            } else if (result && Array.isArray(result.data)) {
-                faqs = result.data;
-            } else if (result && result.data && Array.isArray(result.data.documents)) {
-                faqs = result.data.documents;
-            } else if (result && result.data && result.data.list && Array.isArray(result.data.list)) {
-                faqs = result.data.list;
-            } else if (result && Array.isArray(result.documents)) {
-                faqs = result.documents;
-            } else if (result && result.documents && result.documents.list && Array.isArray(result.documents.list)) {
-                faqs = result.documents.list;
-            } else if (result && result.result && Array.isArray(result.result)) {
-                faqs = result.result;
-            } else if (result && result.data && result.data.result && Array.isArray(result.data.result)) {
-                faqs = result.data.result;
-            } else {
-                console.warn('FAQ API返回格式异常:', result);
-                return [];
-            }
+            const pageData = await this._request(url, { method: 'GET' });
+            let faqs = pageData && Array.isArray(pageData.list) ? pageData.list : [];
             
             // 统一处理ID字段：将 id 转换为 _id（如果存在）
             faqs = faqs.map(faq => {
@@ -83,8 +61,7 @@ class FaqApiManager extends BaseApiManager {
     /**
      * 创建常见问题
      * @param {Object} faqData - FAQ数据 
-     *   支持格式1: { text: string, tags: Array<string>, order: number } - 兼容旧格式
-     *   支持格式2: { key: string, title: string, prompt: string, tags: Array<string> } - 新格式（参考 YiWeb）
+     *   { key?: string, title: string, prompt: string, tags?: Array<string>, order?: number }
      * @returns {Promise<Object>} 创建的FAQ对象
      */
     async createFaq(faqData) {
@@ -93,31 +70,18 @@ class FaqApiManager extends BaseApiManager {
         }
         
         try {
-            let data = {};
-            
-            // 如果提供了text字段（兼容旧格式），解析为title和prompt
-            if (faqData.text) {
-                const lines = String(faqData.text).split('\n');
-                const title = String(lines[0] || '').trim();
-                const prompt = String(lines.slice(1).join('\n') || '').trim();
-                
-                data = {
-                    key: faqData.key || `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-                    title: faqData.title || title || (prompt ? prompt.slice(0, 40) : '常见问题'),
-                    prompt: faqData.prompt || prompt,
-                    tags: faqData.tags || []
-                };
-            } else if (faqData.title || faqData.prompt) {
-                // 新格式：直接使用title和prompt
-                data = {
-                    key: faqData.key || `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-                    title: faqData.title || (faqData.prompt ? faqData.prompt.slice(0, 40) : '常见问题'),
-                    prompt: faqData.prompt || '',
-                    tags: faqData.tags || []
-                };
-            } else {
-                throw new Error('FAQ数据无效：缺少text、title或prompt字段');
+            const title = String(faqData.title || '').trim();
+            const prompt = String(faqData.prompt || '').trim();
+            if (!title && !prompt) {
+                throw new Error('FAQ数据无效：缺少 title 或 prompt 字段');
             }
+            
+            const data = {
+                key: faqData.key || `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                title: title || (prompt ? prompt.slice(0, 40) : '常见问题'),
+                prompt: prompt,
+                tags: Array.isArray(faqData.tags) ? faqData.tags : []
+            };
             
             // 如果提供了order字段，添加到data中
             if (faqData.order !== undefined && faqData.order !== null) {
@@ -139,16 +103,8 @@ class FaqApiManager extends BaseApiManager {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
-            
-            let faq = null;
-            if (result.success && result.data) {
-                faq = result.data;
-            } else if (result.data) {
-                faq = result.data;
-            } else {
-                faq = result;
-            }
-            
+
+            let faq = result;
             if (faq && faq.id && !faq._id) {
                 faq._id = faq.id;
             }
@@ -285,7 +241,7 @@ class FaqApiManager extends BaseApiManager {
             const promises = orders.map(item => {
                 const params = {
                     cname: this.cname,
-                    filter: { text: item.key },
+                    filter: { key: item.key },
                     update: { '$set': { order: item.order } }
                 };
                 const url = this._buildGenericApiUrl('update_documents', params);
@@ -319,4 +275,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.FaqApiManager = FaqApiManager;
 }
-

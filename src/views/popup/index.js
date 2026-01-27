@@ -94,8 +94,7 @@ class PopupController {
             );
             
             if (!isContentScriptReady) {
-                console.log('Content Script 未就绪，使用降级方案');
-                this.showNotification('使用基础模式初始化', 'info');
+                throw new Error('Content Script 未就绪');
             }
             
             // 步骤4: 加载宠物状态并更新UI（带重试和降级）
@@ -112,7 +111,6 @@ class PopupController {
                         }
                     },
                     onFailure: async (error) => {
-                        // 降级方案：使用默认状态
                         console.log('加载状态失败，使用默认状态');
                         this.showNotification('使用默认配置', 'warn');
                         this.updateUI();
@@ -140,64 +138,35 @@ class PopupController {
      * @returns {Promise<any>} 执行结果
      */
     async initWithRetry(fn, context, options = {}) {
-        // 如果retryAsync可用，使用它；否则使用简单的重试逻辑
-        if (typeof retryAsync !== 'undefined') {
-            const RetryPresets = typeof RetryPresets !== 'undefined' ? RetryPresets : {};
-            const preset = RetryPresets.initialization || {
-                maxRetries: 3,
-                initialDelay: 500,
-                maxDelay: 3000,
-                backoffMultiplier: 2
-            };
-            
-            return await retryAsync(
-                async (attempt) => {
-                    const result = await fn();
-                    // 如果shouldRetry是函数且返回false，则抛出错误以触发重试
-                    if (options.shouldRetry && typeof options.shouldRetry === 'function' && !options.shouldRetry(result)) {
-                        throw new Error(`${context}未就绪`);
-                    }
-                    return result;
-                },
-                { ...preset, ...options },
-                `[Popup] ${context}`
-            );
-        } else {
-            // 降级：简单的重试逻辑
-            const maxRetries = options.maxRetries || 3;
-            const delay = options.initialDelay || 500;
-            let lastError = null;
-            
-            for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                try {
-                    const result = await fn();
-                    if (options.shouldRetry && typeof options.shouldRetry === 'function' && !options.shouldRetry(result)) {
-                        if (attempt < maxRetries) {
-                            if (options.onRetry) {
-                                options.onRetry(null, attempt + 1);
-                            }
-                            await new Promise(resolve => setTimeout(resolve, delay * (attempt + 1)));
-                            continue;
-                        }
-                    }
-                    return result;
-                } catch (error) {
-                    lastError = error;
-                    if (attempt < maxRetries) {
-                        if (options.onRetry) {
-                            options.onRetry(error, attempt + 1);
-                        }
-                        await new Promise(resolve => setTimeout(resolve, delay * (attempt + 1)));
-                    }
+        const maxRetries = options.maxRetries || 3;
+        const delay = options.initialDelay || 500;
+        let lastError = null;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const result = await fn();
+                if (options.shouldRetry && typeof options.shouldRetry === 'function' && options.shouldRetry(result)) {
+                    throw new Error(`${context}未就绪`);
                 }
+                return result;
+            } catch (error) {
+                lastError = error;
+                if (attempt < maxRetries) {
+                    if (options.onRetry) {
+                        options.onRetry(error, attempt + 1);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delay * (attempt + 1)));
+                    continue;
+                }
+
+                if (options.onFailure) {
+                    await options.onFailure(lastError);
+                }
+                throw lastError;
             }
-            
-            if (options.onFailure) {
-                options.onFailure(lastError);
-            }
-            
-            throw lastError || new Error(`${context}失败`);
         }
+
+        throw lastError || new Error(`${context}失败`);
     }
     
     /**
@@ -272,57 +241,15 @@ class PopupController {
     
     /**
      * 初始化宠物
-     * 尝试通过content script初始化宠物，如果失败则使用备用方案
      */
     async initializePet() {
-        try {
-            console.log('尝试初始化宠物...');
-            const response = await this.sendMessageToContentScript({ action: 'initPet' });
-            if (response && response.success) {
-                console.log('宠物初始化成功');
-            } else {
-                console.log('宠物初始化失败，尝试备用方案...');
-                await this.fallbackInitializePet();
-            }
-        } catch (error) {
-            console.log('初始化宠物时出错:', error);
-            await this.fallbackInitializePet();
+        console.log('尝试初始化宠物...');
+        const response = await this.sendMessageToContentScript({ action: 'initPet' });
+        if (response && response.success) {
+            console.log('宠物初始化成功');
+            return true;
         }
-    }
-    
-    /**
-     * 备用初始化方案
-     * 当content script无法响应时，通过background script直接注入宠物
-     */
-    async fallbackInitializePet() {
-        const fallbackMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-            ? PET_CONFIG.constants.ERROR_MESSAGES.FALLBACK_INIT 
-            : '使用备用方案初始化';
-        
-        try {
-            console.log('使用备用方案初始化宠物...');
-            this.showNotification(fallbackMsg, 'info');
-            
-            const response = await chrome.runtime.sendMessage({
-                action: 'injectPet',
-                tabId: this.currentTab.id
-            });
-            
-            if (response && response.success) {
-                console.log('备用方案初始化成功');
-                this.showNotification('初始化成功', 'success');
-                return true;
-            } else {
-                throw new Error('备用方案返回失败');
-            }
-        } catch (error) {
-            console.log('备用方案初始化失败:', error);
-            const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-                ? PET_CONFIG.constants.ERROR_MESSAGES.INIT_FAILED 
-                : '初始化失败';
-            this.showNotification(`${errorMsg}，请稍后重试`, 'error');
-            return false;
-        }
+        throw new Error('初始化宠物失败');
     }
     
     /**
@@ -455,8 +382,7 @@ class PopupController {
             if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
                 chrome.storage.onChanged.addListener((changes, namespace) => {
                     try {
-                        // 监听 local 和 sync 存储的变化（兼容新旧版本）
-                        if ((namespace === 'local' || namespace === 'sync') && changes.petGlobalState) {
+                        if (namespace === 'local' && changes.petGlobalState) {
                             const newState = changes.petGlobalState.newValue;
                             if (newState) {
                                 // 更新本地状态（所有属性都同步）

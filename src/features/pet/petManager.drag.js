@@ -4,11 +4,6 @@
   }
   const proto = window.PetManager.prototype;
 
-  proto.attachTagDragStyles = function () {
-    // 样式已迁移到 content.css，此方法保留以保持兼容性
-    // 不再需要动态创建 style 元素
-  };
-
   proto.attachDragHandlersToTag = function (tagBtn, tag) {
     if (!tagBtn || !tag) return;
     

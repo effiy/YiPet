@@ -118,46 +118,21 @@
         
         // 保存原始背景图片
         if (!this.originalBackgroundImage) {
-            try {
-                const iconImg = await window.imageResourceManager?.loadRoleIcon(role);
-                if (iconImg && iconImg.src) {
-                    this.originalBackgroundImage = iconImg.src;
-                } else {
-                    this.originalBackgroundImage = chrome.runtime.getURL(`src/assets/images/${role}/icon.png`);
-                }
-            } catch (error) {
-                logger.warn('加载角色图标失败，使用默认URL', { error: String(error && error.message || error) });
-                this.originalBackgroundImage = chrome.runtime.getURL(`src/assets/images/${role}/icon.png`);
-            }
+            this.originalBackgroundImage = chrome.runtime.getURL(`src/assets/images/${role}/icon.png`);
         }
         
-        // 预加载所有动画帧（使用图片资源管理器，避免重复请求）
+        if (!window.imageResourceManager) {
+            logger.warn('缺少 imageResourceManager，取消显示动画');
+            return;
+        }
+
         let runFrameUrls = [];
         try {
-            if (window.imageResourceManager) {
-                // 预加载所有帧
-                await window.imageResourceManager.preloadRunFrames(role, 3);
-                
-                // 获取所有帧的 URL（优先使用 data URL）
-                const framePromises = [1, 2, 3].map(frame => 
-                    window.imageResourceManager.getRunFrameUrl(role, frame)
-                );
-                runFrameUrls = await Promise.all(framePromises);
-            } else {
-                // 降级：使用原始 URL
-                runFrameUrls = [
-                    chrome.runtime.getURL(`src/assets/images/${role}/run/1.png`),
-                    chrome.runtime.getURL(`src/assets/images/${role}/run/2.png`),
-                    chrome.runtime.getURL(`src/assets/images/${role}/run/3.png`)
-                ];
-            }
+            await window.imageResourceManager.preloadRunFrames(role, 3);
+            runFrameUrls = await Promise.all([1, 2, 3].map((frame) => window.imageResourceManager.getRunFrameUrl(role, frame)));
         } catch (error) {
-            logger.warn('预加载动画帧失败，使用原始URL', { error: String(error && error.message || error) });
-            runFrameUrls = [
-                chrome.runtime.getURL(`src/assets/images/${role}/run/1.png`),
-                chrome.runtime.getURL(`src/assets/images/${role}/run/2.png`),
-                chrome.runtime.getURL(`src/assets/images/${role}/run/3.png`)
-            ];
+            logger.warn('预加载动画帧失败，取消显示动画', { error: String(error && error.message || error) });
+            return;
         }
         
         if (runFrameUrls.length === 0 || !runFrameUrls[0]) {

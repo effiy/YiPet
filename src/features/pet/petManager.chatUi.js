@@ -9,9 +9,6 @@
 
     // 动态更新上下文覆盖层的位置与尺寸，避免遮挡 chat-header
 
-    // 初始化聊天滚动功能 - 已移除，由 petManager.chat.js 或组件处理
-
-
     // 更新聊天窗口中的模型选择器显示
 
     // 创建聊天窗口
@@ -106,10 +103,6 @@
             this.chatUiComponent.updateTheme();
         }
     }
-
-    // 添加聊天窗口交互功能 - 已移除，由组件内部处理
-
-
     // 保存聊天窗口状态
     proto.saveChatWindowState = function() {
         if (!this.chatWindowState) return;
@@ -131,10 +124,6 @@
                     console.log('聊天窗口状态已保存到local存储:', state);
                 }
             });
-
-            // 同时保存到localStorage作为备用
-            localStorage.setItem('petChatWindowState', JSON.stringify(state));
-            console.log('聊天窗口状态已保存:', state);
         } catch (error) {
             console.log('保存聊天窗口状态失败:', error);
         }
@@ -143,8 +132,7 @@
     // 加载聊天窗口状态
     proto.loadChatWindowState = function(callback) {
         try {
-            // 首先尝试从Chrome存储API加载全局状态
-            chrome.storage.sync.get([PET_CONFIG.storage.keys.chatWindowState], (result) => {
+            chrome.storage.local.get([PET_CONFIG.storage.keys.chatWindowState], (result) => {
                 if (result[PET_CONFIG.storage.keys.chatWindowState]) {
                     const state = result[PET_CONFIG.storage.keys.chatWindowState];
                     this.restoreChatWindowState(state);
@@ -156,9 +144,7 @@
 
                     if (callback) callback(true);
                 } else {
-                    // 如果全局状态不存在，尝试从localStorage加载
-                    const success = this.loadChatWindowStateFromLocalStorage();
-                    if (callback) callback(success);
+                    if (callback) callback(false);
                 }
             });
 
@@ -177,42 +163,14 @@
                         }
                     }
                 }
-                // 兼容旧版本的 sync 存储
-                if (namespace === 'sync' && changes[PET_CONFIG.storage.keys.chatWindowState]) {
-                    const newState = changes[PET_CONFIG.storage.keys.chatWindowState].newValue;
-                    if (newState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
-                        this.restoreChatWindowState(newState);
-                        if (this.chatWindow) {
-                            this.updateChatWindowStyle();
-                            console.log('聊天窗口状态已从sync存储更新（兼容旧版本）:', newState);
-                        }
-                    }
-                }
             });
 
             return true;
         } catch (error) {
             console.log('恢复聊天窗口状态失败:', error);
-            const success = this.loadChatWindowStateFromLocalStorage();
-            if (callback) callback(success);
-            return success;
+            if (callback) callback(false);
+            return false;
         }
-    }
-
-    // 从localStorage加载聊天窗口状态（备用方法）
-    proto.loadChatWindowStateFromLocalStorage = function() {
-        try {
-            const savedState = localStorage.getItem('petChatWindowState');
-            if (savedState) {
-                const state = JSON.parse(savedState);
-                this.restoreChatWindowState(state);
-                console.log('聊天窗口状态已从本地存储恢复:', this.chatWindowState);
-                return true;
-            }
-        } catch (error) {
-            console.log('恢复本地聊天窗口状态失败:', error);
-        }
-        return false;
     }
 
     // 恢复聊天窗口状态（应用位置和大小）

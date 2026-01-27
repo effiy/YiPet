@@ -12,19 +12,22 @@ class InjectionService {
     static CONTENT_SCRIPT_FILES = [
         'src/config.js',
         'src/libs/md5.js',
-        'src/utils/helpers/tokenUtils.js',
+        'src/api/tokenUtils.js',
         'src/utils/helpers/imageResourceManager.js',
         'src/utils/helpers/loadingAnimationMixin.js',
-        'src/utils/helpers/baseApiManager.js',
+        'src/api/baseApiManager.js',
         'src/utils/helpers/loadingAnimation.js',
-        'src/utils/api/sessionApi.js',
+        'src/api/sessionApi.js',
         'src/utils/helpers/sessionManager.js',
 
-        'src/utils/api/faqApi.js',
+        'src/api/faqApi.js',
         'src/libs/turndown.js',
         'src/libs/marked.min.js',
         'src/libs/html2canvas.min.js',
         'src/features/chat/export-chat-to-png.js',
+        'src/utils/helpers/loggerUtils.js',
+        'src/utils/helpers/errorHandler.js',
+        'src/utils/helpers/domHelper.js',
         'src/content/bootstrap.js',
         'src/features/pet/petManager.core.js',
         'src/features/pet/petManager.auth.js',
@@ -47,11 +50,12 @@ class InjectionService {
         'src/features/pet/components/ChatWindow.js',
         'src/features/pet/petManager.ui.js',
         'src/features/pet/petManager.drag.js',
-        'src/features/pet/petManager.events.js',
         'src/features/pet/petManager.pet.js',
         'src/features/pet/petManager.state.js',
         'src/features/pet/petManager.chat.js',
         'src/features/pet/petManager.chatUi.js',
+        'src/features/pet/petManager.events.js',
+        'src/features/pet/petManager.comment.js',
         'src/features/pet/petManager.media.js',
         'src/features/pet/petManager.message.js',
         'src/features/pet/petManager.screenshot.js',
@@ -88,20 +92,7 @@ class InjectionService {
     async sendMessageToTabWithAutoInject(tabId, message) {
         const helper = typeof self !== 'undefined' ? self.TabMessaging : null;
         if (!helper || typeof helper.sendMessageToTabWithAutoInject !== 'function') {
-            // 降级：直接发送一次
-            return new Promise((resolve) => {
-                try {
-                    chrome.tabs.sendMessage(tabId, message, (response) => {
-                        if (chrome.runtime.lastError) {
-                            resolve({ ok: false, error: chrome.runtime.lastError.message });
-                        } else {
-                            resolve({ ok: true, response });
-                        }
-                    });
-                } catch (e) {
-                    resolve({ ok: false, error: e?.message || String(e) });
-                }
-            });
+            return { ok: false, error: 'TabMessaging 不可用' };
         }
 
         return await helper.sendMessageToTabWithAutoInject(tabId, message, {
@@ -132,18 +123,13 @@ class InjectionService {
      */
     removePetFromTab(tabId) {
         const helper = typeof self !== 'undefined' ? self.TabMessaging : null;
-        if (helper && typeof helper.sendMessageToTab === 'function') {
-            helper.sendMessageToTab(tabId, { action: 'removePet' }).then((result) => {
-                if (!result.ok) {
-                    console.log('无法从标签页移除宠物:', result.error);
-                }
-            });
+        if (!helper || typeof helper.sendMessageToTab !== 'function') {
+            console.error('无法从标签页移除宠物：TabMessaging 不可用');
             return;
         }
-
-        chrome.tabs.sendMessage(tabId, { action: 'removePet' }, () => {
-            if (chrome.runtime.lastError) {
-                console.log('无法从标签页移除宠物:', chrome.runtime.lastError.message);
+        helper.sendMessageToTab(tabId, { action: 'removePet' }).then((result) => {
+            if (!result.ok) {
+                console.log('无法从标签页移除宠物:', result.error);
             }
         });
     }
@@ -171,14 +157,12 @@ class InjectionService {
         const promises = tabs.map(tab => {
             return new Promise((resolve) => {
                 const helper = typeof self !== 'undefined' ? self.TabMessaging : null;
-                if (helper && typeof helper.sendMessageToTab === 'function') {
-                    helper.sendMessageToTab(tab.id, { action, ...data }).then((result) => {
-                        resolve({ tabId: tab.id, success: !!result.ok });
-                    });
+                if (!helper || typeof helper.sendMessageToTab !== 'function') {
+                    resolve({ tabId: tab.id, success: false });
                     return;
                 }
-                chrome.tabs.sendMessage(tab.id, { action, ...data }, () => {
-                    resolve({ tabId: tab.id, success: !chrome.runtime.lastError });
+                helper.sendMessageToTab(tab.id, { action, ...data }).then((result) => {
+                    resolve({ tabId: tab.id, success: !!result.ok });
                 });
             });
         });

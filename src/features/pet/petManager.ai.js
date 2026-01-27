@@ -156,25 +156,6 @@
                     }
                 }
             }
-            // 如果仍然没有获取到，且没有指定 messageDiv，则从当前会话消息中获取（向后兼容）
-            if (imageDataUrls.length === 0 && !options.messageDiv && this.currentSessionId && this.sessions[this.currentSessionId]) {
-                const session = this.sessions[this.currentSessionId];
-                if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
-                    // 从后往前查找最后一条用户消息的 imageDataUrl
-                    for (let i = session.messages.length - 1; i >= 0; i--) {
-                        const msg = session.messages[i];
-                        if (msg.type === 'user' && msg.imageDataUrl) {
-                            const imgUrl = msg.imageDataUrl;
-                            if (typeof imgUrl === 'string') {
-                                imageDataUrls.push(imgUrl);
-                            } else if (Array.isArray(imgUrl)) {
-                                imageDataUrls = imgUrl;
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
 
             // 将从消息中获取到的图片追加到图片列表中
             imageDataUrls.forEach(imgUrl => {
@@ -758,6 +739,12 @@
                 }
 
                 result = await response.json();
+                if (!result || typeof result !== 'object') {
+                    throw new Error('响应格式错误');
+                }
+                if (result.code !== 0) {
+                    throw new Error(result.message || `请求失败 (code=${result.code})`);
+                }
 
                 // 隐藏加载动画
                 this._hideLoadingAnimation();
@@ -767,8 +754,12 @@
                 throw error;
             }
 
-            // 适配新的响应格式: {status, msg, data, pagination}
-            let responseContent = result.data.message;
+            const data = result.data || {};
+            if (data.conversation_id && !this.currentSessionId) {
+                this.currentSessionId = data.conversation_id;
+            }
+
+            let responseContent = typeof data.message === 'string' ? data.message : '';
 
             // 去除 think 内容
             responseContent = this.stripThinkContent(responseContent);
@@ -1016,81 +1007,21 @@ ${originalText}
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const responseText = await response.text();
-            let result;
-
-            if (responseText.includes('data: ')) {
-                const lines = responseText.split('\n');
-                let accumulatedData = '';
-                let lastValidData = null;
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.startsWith('data: ')) {
-                        try {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr === '[DONE]' || dataStr === '') {
-                                continue;
-                            }
-                            const chunk = JSON.parse(dataStr);
-                            if (chunk.done === true) {
-                                break;
-                            }
-                            if (chunk.data) {
-                                // 支持嵌套格式: chunk.data.message
-                                if (typeof chunk.data === 'object' && chunk.data.message) {
-                                    accumulatedData += chunk.data.message;
-                                } else if (typeof chunk.data === 'string') {
-                                    accumulatedData += chunk.data;
-                                }
-                            } else if (chunk.content) {
-                                accumulatedData += chunk.content;
-                            } else if (chunk.message && chunk.message.content) {
-                                accumulatedData += chunk.message.content;
-                            } else if (typeof chunk === 'string') {
-                                accumulatedData += chunk;
-                            }
-                            lastValidData = chunk;
-                        } catch (e) {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr && dataStr !== '[DONE]') {
-                                accumulatedData += dataStr;
-                            }
-                        }
-                    }
-                }
-
-                if (accumulatedData || lastValidData) {
-                    if (lastValidData && lastValidData.status) {
-                        result = {
-                            ...lastValidData,
-                            data: accumulatedData || lastValidData.data || '',
-                            content: accumulatedData || lastValidData.content || ''
-                        };
-                    } else {
-                        result = {
-                            data: accumulatedData,
-                            content: accumulatedData
-                        };
-                    }
-                } else {
-                    try {
-                        result = JSON.parse(responseText);
-                    } catch (e) {
-                        throw new Error('无法解析响应格式');
-                    }
-                }
-            } else {
-                try {
-                    result = JSON.parse(responseText);
-                } catch (e) {
-                    throw new Error(`无法解析响应: ${e.message}`);
-                }
+            const result = await response.json();
+            if (!result || typeof result !== 'object') {
+                throw new Error('响应格式错误');
+            }
+            if (result.code !== 0) {
+                throw new Error(result.message || `请求失败 (code=${result.code})`);
             }
 
             this._hideLoadingAnimation();
 
-            let optimizedText = result.data.message;
+            const data = result.data || {};
+            let optimizedText =
+                (typeof data.message === 'string' ? data.message : '') ||
+                (typeof data.content === 'string' ? data.content : '') ||
+                (typeof result.content === 'string' ? result.content : '');
 
             optimizedText = this.stripThinkContent(optimizedText);
             optimizedText = optimizedText.trim();
@@ -1266,81 +1197,21 @@ ${originalText}
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const responseText = await response.text();
-            let result;
-
-            if (responseText.includes('data: ')) {
-                const lines = responseText.split('\n');
-                let accumulatedData = '';
-                let lastValidData = null;
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.startsWith('data: ')) {
-                        try {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr === '[DONE]' || dataStr === '') {
-                                continue;
-                            }
-                            const chunk = JSON.parse(dataStr);
-                            if (chunk.done === true) {
-                                break;
-                            }
-                            if (chunk.data) {
-                                // 支持嵌套格式: chunk.data.message
-                                if (typeof chunk.data === 'object' && chunk.data.message) {
-                                    accumulatedData += chunk.data.message;
-                                } else if (typeof chunk.data === 'string') {
-                                    accumulatedData += chunk.data;
-                                }
-                            } else if (chunk.content) {
-                                accumulatedData += chunk.content;
-                            } else if (chunk.message && chunk.message.content) {
-                                accumulatedData += chunk.message.content;
-                            } else if (typeof chunk === 'string') {
-                                accumulatedData += chunk;
-                            }
-                            lastValidData = chunk;
-                        } catch (e) {
-                            const dataStr = trimmedLine.substring(6).trim();
-                            if (dataStr && dataStr !== '[DONE]') {
-                                accumulatedData += dataStr;
-                            }
-                        }
-                    }
-                }
-
-                if (accumulatedData || lastValidData) {
-                    if (lastValidData && lastValidData.status) {
-                        result = {
-                            ...lastValidData,
-                            data: accumulatedData || lastValidData.data || '',
-                            content: accumulatedData || lastValidData.content || ''
-                        };
-                    } else {
-                        result = {
-                            data: accumulatedData,
-                            content: accumulatedData
-                        };
-                    }
-                } else {
-                    try {
-                        result = JSON.parse(responseText);
-                    } catch (e) {
-                        throw new Error('无法解析响应格式');
-                    }
-                }
-            } else {
-                try {
-                    result = JSON.parse(responseText);
-                } catch (e) {
-                    throw new Error(`无法解析响应: ${e.message}`);
-                }
+            const result = await response.json();
+            if (!result || typeof result !== 'object') {
+                throw new Error('响应格式错误');
+            }
+            if (result.code !== 0) {
+                throw new Error(result.message || `请求失败 (code=${result.code})`);
             }
 
             this._hideLoadingAnimation();
 
-            let translatedText = result.data.message;
+            const data = result.data || {};
+            let translatedText =
+                (typeof data.message === 'string' ? data.message : '') ||
+                (typeof data.content === 'string' ? data.content : '') ||
+                (typeof result.content === 'string' ? result.content : '');
 
             translatedText = this.stripThinkContent(translatedText);
             translatedText = translatedText.trim();
@@ -1398,7 +1269,7 @@ ${originalText}
                 : `（${charCount}字）`;
             this.showNotification(`翻译完成 ${changeInfo}`, 'success');
         } catch (error) {
-            this._showLoadingAnimation();
+            this._hideLoadingAnimation();
             console.error('翻译上下文失败:', error);
 
             let errorMessage = '翻译失败，请稍后重试';

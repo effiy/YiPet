@@ -2,8 +2,7 @@
  * 存储工具类
  * 
  * 功能说明：
- * - 统一处理 Chrome Storage 和 localStorage 的操作
- * - 提供降级机制：Chrome Storage -> localStorage
+ * - 统一处理 Chrome Storage 的操作
  * - 自动处理配额错误和上下文失效错误
  * - 规范化状态数据，确保数据一致性
  * 
@@ -53,30 +52,20 @@ class StorageUtils {
      * 检查是否是扩展上下文失效错误（使用 ErrorHandler）
      */
     isContextInvalidatedError(error) {
-        if (typeof ErrorHandler !== 'undefined' && typeof ErrorHandler.isContextInvalidated === 'function') {
-            return ErrorHandler.isContextInvalidated(error);
+        if (typeof ErrorHandler === 'undefined' || typeof ErrorHandler.isContextInvalidated !== 'function') {
+            return false;
         }
-        // 降级实现
-        if (!error) return false;
-        const errorMsg = (error.message || error.toString() || '').toLowerCase();
-        return errorMsg.includes('extension context invalidated') ||
-               errorMsg.includes('context invalidated');
+        return ErrorHandler.isContextInvalidated(error);
     }
     
     /**
      * 检查是否是配额错误（使用 ErrorHandler）
      */
     isQuotaError(error) {
-        if (typeof ErrorHandler !== 'undefined' && typeof ErrorHandler.isQuotaError === 'function') {
-            return ErrorHandler.isQuotaError(error);
+        if (typeof ErrorHandler === 'undefined' || typeof ErrorHandler.isQuotaError !== 'function') {
+            return false;
         }
-        // 降级实现
-        if (!error) return false;
-        const errorMsg = (error.message || error.toString() || '').toLowerCase();
-        return errorMsg.includes('quota_bytes') || 
-               errorMsg.includes('quota exceeded') ||
-               errorMsg.includes('max_write_operations') ||
-               errorMsg.includes('quota_bytes_per_hour');
+        return ErrorHandler.isQuotaError(error);
     }
     
     /**
@@ -95,48 +84,17 @@ class StorageUtils {
     }
     
     /**
-     * 从 localStorage 加载状态
-     */
-    loadFromLocalStorage(key) {
-        try {
-            const localValue = localStorage.getItem(key);
-            if (localValue) {
-                return JSON.parse(localValue);
-            }
-        } catch (error) {
-            console.warn(`从localStorage加载失败 (${key}):`, error);
-        }
-        return null;
-    }
-    
-    /**
-     * 保存到 localStorage
-     */
-    saveToLocalStorage(key, value) {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-            return true;
-        } catch (error) {
-            console.error(`保存到localStorage失败 (${key}):`, error);
-            return false;
-        }
-    }
-    
-    /**
      * 从 Chrome Storage 加载数据
      */
-    async loadFromChromeStorage(key, useSync = false) {
+    async loadFromChromeStorage(key) {
         if (!this.isChromeStorageAvailable()) {
-            return this.loadFromLocalStorage(key);
+            return null;
         }
         
         return new Promise((resolve) => {
-            const storage = useSync ? chrome.storage.sync : chrome.storage.local;
-            
-            storage.get([key], (result) => {
+            chrome.storage.local.get([key], (result) => {
                 if (chrome.runtime.lastError) {
-                    // 降级到 localStorage
-                    resolve(this.loadFromLocalStorage(key));
+                    resolve(null);
                     return;
                 }
                 
@@ -148,22 +106,18 @@ class StorageUtils {
     /**
      * 保存到 Chrome Storage
      */
-    async saveToChromeStorage(key, value, useSync = false) {
+    async saveToChromeStorage(key, value) {
         if (!this.isChromeStorageAvailable()) {
-            return this.saveToLocalStorage(key, value);
+            return false;
         }
         
         return new Promise((resolve) => {
-            const storage = useSync ? chrome.storage.sync : chrome.storage.local;
-            
-            storage.set({ [key]: value }, () => {
+            chrome.storage.local.set({ [key]: value }, () => {
                 if (chrome.runtime.lastError) {
                     const error = chrome.runtime.lastError;
                     
-                    // 如果是上下文失效错误，降级到 localStorage
                     if (this.isContextInvalidatedError(error)) {
-                        this.saveToLocalStorage(key, value);
-                        resolve();
+                        resolve(false);
                         return;
                     }
                     
@@ -173,15 +127,11 @@ class StorageUtils {
                         return;
                     }
                     
-                    // 其他错误，降级到 localStorage
-                    this.saveToLocalStorage(key, value);
-                    resolve();
+                    resolve(false);
                     return;
                 }
                 
-                // 成功保存，同时备份到 localStorage
-                this.saveToLocalStorage(key, value);
-                resolve();
+                resolve(true);
             });
         });
     }
@@ -196,19 +146,14 @@ class StorageUtils {
                 // 重试保存
                 chrome.storage.local.set({ [key]: value }, (retryError) => {
                     if (chrome.runtime.lastError) {
-                        const retryErr = chrome.runtime.lastError;
-                        if (this.isContextInvalidatedError(retryErr) || this.isQuotaError(retryErr)) {
-                            // 降级到 localStorage
-                            this.saveToLocalStorage(key, value);
-                        }
+                        resolve(false);
+                        return;
                     }
-                    resolve();
+                    resolve(true);
                 });
             });
         } catch (error) {
-            // 清理失败，降级到 localStorage
-            this.saveToLocalStorage(key, value);
-            resolve();
+            resolve(false);
         }
     }
     
@@ -217,13 +162,7 @@ class StorageUtils {
      */
     async loadGlobalState() {
         // 优先从 local 存储加载
-        let state = await this.loadFromChromeStorage(this.STORAGE_KEYS.GLOBAL_STATE, false);
-        
-        // 如果 local 中没有，尝试从 sync 加载（兼容旧版本）
-        if (!state) {
-            state = await this.loadFromChromeStorage(this.STORAGE_KEYS.GLOBAL_STATE, true);
-        }
-        
+        let state = await this.loadFromChromeStorage(this.STORAGE_KEYS.GLOBAL_STATE);
         return this.normalizeState(state);
     }
     
@@ -236,7 +175,7 @@ class StorageUtils {
             timestamp: Date.now()
         };
         
-        await this.saveToChromeStorage(this.STORAGE_KEYS.GLOBAL_STATE, normalizedState, false);
+        await this.saveToChromeStorage(this.STORAGE_KEYS.GLOBAL_STATE, normalizedState);
     }
 }
 
@@ -246,4 +185,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.StorageUtils = StorageUtils;
 }
-

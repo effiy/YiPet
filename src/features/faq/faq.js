@@ -790,13 +790,12 @@
       
       for (const faq of affected) {
         const tags = _normalizeFaqTags(faq?.tags || []).map(t => (t === oldTag ? newTag : t));
-        const key = faq.text || faq.key;
+        const key = faq.key;
         if (!key) {
           console.warn('跳过缺少标识符的常见问题:', faq);
           continue;
         }
         await this.faqApi.updateFaq(key, {
-          text: faq.text,
           tags: tags
         });
       }
@@ -832,13 +831,12 @@
       
       for (const faq of affected) {
         const tags = _normalizeFaqTags(faq?.tags || []).filter(t => t !== target);
-        const key = faq.text || faq.key;
+        const key = faq.key;
         if (!key) {
           console.warn('跳过缺少标识符的常见问题:', faq);
           continue;
         }
         await this.faqApi.updateFaq(key, {
-          text: faq.text,
           tags: tags
         });
       }
@@ -1091,13 +1089,6 @@
     let title = String(faq?.title || '').trim();
     let prompt = String(faq?.prompt || '').trim();
     
-    // 如果没有title和prompt，尝试从text字段解析（兼容旧格式）
-    if (!title && !prompt && faq?.text) {
-      const lines = String(faq.text).split('\n');
-      title = String(lines[0] || '').trim();
-      prompt = String(lines.slice(1).join('\n') || '').trim();
-    }
-    
     // 组合文本：如果有标题和正文，用两个换行符分隔；否则使用正文或标题
     const text = title && prompt ? `${title}\n\n${prompt}` : (prompt || title);
     if (!text) return;
@@ -1181,9 +1172,9 @@
     
     try {
       if (this.faqApi && this.faqApi.isEnabled()) {
-        // 使用完整的 text 字段保存，API 会处理
         const data = {
-          text: raw,  // 保存完整文本，包含标题和正文
+          title,
+          prompt,
           tags: []
         };
         await this.faqApi.createFaq(data);
@@ -1209,7 +1200,7 @@
   };
 
   proto.deleteFaq = async function(faq) {
-    const key = String(faq?.key || faq?.text || '').trim();
+    const key = String(faq?.key || '').trim();
     if (!key) {
       if (typeof this.showNotification === 'function') {
         this.showNotification('无法删除：常见问题标识符无效', 'error');

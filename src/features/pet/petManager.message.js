@@ -149,66 +149,14 @@
             }
         }
 
-        // 如果索引匹配失败，回退到内容匹配（兼容旧逻辑）
-        const isUserMessage = messageDiv.querySelector('[data-message-type="user-bubble"]');
-        const messageBubble = isUserMessage 
-            ? messageDiv.querySelector('[data-message-type="user-bubble"]')
-            : messageDiv.querySelector('[data-message-type="pet-bubble"]');
-        
-        if (!messageBubble) {
-            return null;
-        }
-
-        // 获取消息文本内容
-        const messageContent = messageBubble.getAttribute('data-original-text') || 
-                              messageBubble.innerText || 
-                              messageBubble.textContent || '';
-        
-        // 获取消息类型
-        const messageType = isUserMessage ? 'user' : 'pet';
-
-        // 在会话消息列表中查找匹配的消息对象
-        // 优先匹配内容和类型，如果有多条匹配，选择最近的一条
-        for (let i = session.messages.length - 1; i >= 0; i--) {
-            const msg = session.messages[i];
-            if (msg.type === messageType) {
-                // 比较消息内容（去除首尾空白）
-                const msgContent = (msg.content || '').trim();
-                const divContent = messageContent.trim();
-                
-                // 如果内容匹配，返回该消息对象
-                if (msgContent === divContent || 
-                    (msgContent && divContent && msgContent.includes(divContent)) ||
-                    (divContent && msgContent && divContent.includes(msgContent))) {
-                    return { message: msg, index: i };
-                }
-            }
-        }
-
-        // 如果找不到完全匹配的，返回最后一条同类型的消息
-        for (let i = session.messages.length - 1; i >= 0; i--) {
-            const msg = session.messages[i];
-            if (msg.type === messageType) {
-                return { message: msg, index: i };
-            }
-        }
-
         return null;
     };
 
-    // HTML 转义辅助函数（使用 DomHelper，保留兼容性）
     proto.escapeHtml = function(text) {
-        if (typeof DomHelper !== 'undefined' && typeof DomHelper.escapeHtml === 'function') {
-            return DomHelper.escapeHtml(text);
+        if (typeof DomHelper === 'undefined' || typeof DomHelper.escapeHtml !== 'function') {
+            throw new Error('DomHelper.escapeHtml is not available');
         }
-        // 降级实现（使用 replace 方法）
-        if (!text) return '';
-        return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+        return DomHelper.escapeHtml(text);
     };
 
     // URL 净化辅助函数
@@ -815,4 +763,3 @@
     };
 
 })();
-

@@ -77,13 +77,6 @@
     padding: 0 !important;
     border: none !important;
     outline: none !important;
-    background: transparent !important;
-    color: inherit !important;
-    font: inherit !important;
-    text-decoration: none !important;
-    list-style: none !important;
-    quotes: none !important;
-    content: none !important;
 }
 
 /* 宠物主体样式 */
@@ -3221,6 +3214,10 @@
     font-weight: 600 !important;
 }
 
+.markdown-content u {
+    text-decoration: underline !important;
+}
+
 .markdown-content em {
     font-style: italic !important;
 }
@@ -4256,3 +4253,4 @@ body.pet-is-resizing {
     transform: none !important;
     box-shadow: none !important;
 }
+

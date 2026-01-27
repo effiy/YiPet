@@ -396,9 +396,11 @@
                     return `<img src="${this.escapeHtml(safeHref)}" alt="${alt}" loading="lazy"${safeTitle} />`;
                 };
 
-                // 覆盖 html 渲染（转义 HTML）
-                renderer.html = (html) => {
-                    return this.escapeHtml(html);
+                // 覆盖 html 渲染（安全渲染 HTML）
+                renderer.html = (token) => {
+                    return (typeof token === 'string')
+                        ? token
+                        : (token && (token.raw || token.text)) || '';
                 };
 
                 // 覆盖 code 渲染（处理 mermaid）- 关键：将 mermaid 转换为 div.mermaid
@@ -417,7 +419,11 @@
                     gfm: true, // GitHub Flavored Markdown
                     sanitize: false // 允许 HTML，但我们会通过手动处理确保安全
                 });
-                return marked.parse(markdown);
+                const rendered = marked.parse(markdown);
+                if (typeof this._sanitizeMarkdownHtml === 'function') {
+                    return this._sanitizeMarkdownHtml(rendered);
+                }
+                return rendered;
             } else {
                 // 如果 marked 不可用，返回转义的纯文本
                 return this.escapeHtml(markdown);
@@ -471,6 +477,532 @@
         div.textContent = text;
         return div.innerHTML;
     };
+
+    if (typeof proto._isSafeCssColor !== 'function') {
+        proto._isSafeCssColor = function(color) {
+            if (!color || typeof color !== 'string') return false;
+            const value = color.trim();
+            if (!value || value.length > 48) return false;
+            if (/^#[0-9a-fA-F]{3}$/.test(value) || /^#[0-9a-fA-F]{6}$/.test(value)) return true;
+            if (/^[a-zA-Z]+$/.test(value)) return true;
+            const rgbMatch = value.match(/^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);
+            if (rgbMatch) {
+                const r = Number(rgbMatch[1]);
+                const g = Number(rgbMatch[2]);
+                const b = Number(rgbMatch[3]);
+                return r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255;
+            }
+            const rgbaMatch = value.match(/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(0|1|0?\.\d+)\s*\)$/i);
+            if (rgbaMatch) {
+                const r = Number(rgbaMatch[1]);
+                const g = Number(rgbaMatch[2]);
+                const b = Number(rgbaMatch[3]);
+                const a = Number(rgbaMatch[4]);
+                return r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255 && a >= 0 && a <= 1;
+            }
+            return false;
+        };
+    }
+
+    if (typeof proto._isSafeCssLength !== 'function') {
+        proto._isSafeCssLength = function(value) {
+            if (!value || typeof value !== 'string') return false;
+            const v = value.trim();
+            if (/^-?0+(?:\.0+)?$/.test(v)) return true;
+            const m = v.match(/^(-?\d+(?:\.\d+)?)(px|em|rem|%|vh|vw)$/i);
+            if (!m) return false;
+            const num = Number(m[1]);
+            if (!Number.isFinite(num)) return false;
+            return num >= -2000 && num <= 2000;
+        };
+    }
+
+    if (typeof proto._sanitizeClassName !== 'function') {
+        proto._sanitizeClassName = function(className) {
+            if (!className || typeof className !== 'string') return '';
+            const cleaned = className.replace(/[^a-zA-Z0-9 _-]/g, ' ').replace(/\s+/g, ' ').trim();
+            return cleaned.length > 128 ? cleaned.slice(0, 128).trim() : cleaned;
+        };
+    }
+
+    if (typeof proto._sanitizeStyleText !== 'function') {
+        proto._sanitizeStyleText = function(styleText) {
+            if (!styleText || typeof styleText !== 'string') return '';
+            const text = styleText.trim();
+            if (!text) return '';
+            const lowered = text.toLowerCase();
+            if (lowered.includes('expression(') || lowered.includes('javascript:') || lowered.includes('vbscript:') || lowered.includes('url(')) {
+                return '';
+            }
+
+            const allowedProps = new Set([
+                'color',
+                'background-color',
+                'font-weight',
+                'font-style',
+                'text-decoration',
+                'font-size',
+                'line-height',
+                'font-family',
+                'text-align',
+                'white-space',
+                'word-break',
+                'overflow',
+                'overflow-x',
+                'overflow-y',
+                'max-width',
+                'min-width',
+                'width',
+                'height',
+                'max-height',
+                'padding',
+                'padding-left',
+                'padding-right',
+                'padding-top',
+                'padding-bottom',
+                'margin',
+                'margin-left',
+                'margin-right',
+                'margin-top',
+                'margin-bottom',
+                'border',
+                'border-radius',
+                'border-color',
+                'border-width',
+                'border-style',
+                'display',
+                'content',
+                'position',
+                'top',
+                'right',
+                'bottom',
+                'left',
+                'inset',
+                'z-index',
+                'opacity',
+                'transform',
+                'pointer-events'
+            ]);
+
+            const safeDecls = [];
+            const parts = text.split(';');
+            for (const part of parts) {
+                const p = part.trim();
+                if (!p) continue;
+                const idx = p.indexOf(':');
+                if (idx <= 0) continue;
+                const prop = p.slice(0, idx).trim().toLowerCase();
+                let value = p.slice(idx + 1).trim();
+                if (!allowedProps.has(prop)) continue;
+                const hasImportant = /\s*!important\s*$/i.test(value);
+                if (hasImportant) {
+                    value = value.replace(/\s*!important\s*$/i, '').trim();
+                    if (!value) continue;
+                }
+                if (/\!important/i.test(value)) continue;
+
+                if (prop === 'color' || prop === 'background-color' || prop === 'border-color') {
+                    if (!this._isSafeCssColor(value)) continue;
+                    safeDecls.push(`${prop}:${value}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'font-weight') {
+                    const v = value.toLowerCase();
+                    if (v === 'normal' || v === 'bold' || v === 'bolder' || v === 'lighter' || /^\d{3}$/.test(v)) {
+                        safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    }
+                    continue;
+                }
+
+                if (prop === 'font-style') {
+                    const v = value.toLowerCase();
+                    if (v === 'normal' || v === 'italic' || v === 'oblique') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'text-decoration') {
+                    const v = value.toLowerCase();
+                    if (v === 'none' || v === 'underline' || v === 'line-through') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'text-align') {
+                    const v = value.toLowerCase();
+                    if (v === 'left' || v === 'right' || v === 'center' || v === 'justify') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'white-space') {
+                    const v = value.toLowerCase();
+                    if (v === 'normal' || v === 'nowrap' || v === 'pre' || v === 'pre-wrap' || v === 'pre-line') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'word-break') {
+                    const v = value.toLowerCase();
+                    if (v === 'normal' || v === 'break-all' || v === 'keep-all' || v === 'break-word') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'overflow' || prop === 'overflow-x' || prop === 'overflow-y') {
+                    const v = value.toLowerCase();
+                    if (v === 'visible' || v === 'hidden' || v === 'scroll' || v === 'auto') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'display') {
+                    const v = value.toLowerCase();
+                    if (v === 'inline' || v === 'block' || v === 'inline-block' || v === 'flex' || v === 'inline-flex' || v === 'none') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'content') {
+                    const v = value.trim();
+                    const lowerV = v.toLowerCase();
+                    if (lowerV === 'none' || lowerV === 'normal' || lowerV === 'open-quote' || lowerV === 'close-quote' || lowerV === 'no-open-quote' || lowerV === 'no-close-quote') {
+                        safeDecls.push(`${prop}:${lowerV}${hasImportant ? ' !important' : ''}`);
+                        continue;
+                    }
+                    if (/^(['"])(?:\\.|(?!\1)[^\\\n\r])*?\1$/.test(v) && v.length <= 120) {
+                        safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                        continue;
+                    }
+                    continue;
+                }
+
+                if (prop === 'position') {
+                    const v = value.toLowerCase();
+                    if (!(v === 'static' || v === 'relative' || v === 'absolute' || v === 'sticky')) continue;
+                    safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'top' || prop === 'right' || prop === 'bottom' || prop === 'left') {
+                    const v = value.toLowerCase();
+                    if (!(v === 'auto' || this._isSafeCssLength(v))) continue;
+                    safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'inset') {
+                    const tokens = value.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+                    if (tokens.length < 1 || tokens.length > 4) continue;
+                    if (!tokens.every(t => t === 'auto' || this._isSafeCssLength(t))) continue;
+                    safeDecls.push(`${prop}:${tokens.join(' ')}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'z-index') {
+                    const v = value.trim();
+                    if (!/^-?\d{1,5}$/.test(v)) continue;
+                    const n = Number(v);
+                    if (!Number.isFinite(n) || n < -9999 || n > 9999) continue;
+                    safeDecls.push(`${prop}:${n}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'opacity') {
+                    const v = value.trim();
+                    if (!/^(0|1|0?\.\d+)$/.test(v)) continue;
+                    const n = Number(v);
+                    if (!Number.isFinite(n) || n < 0 || n > 1) continue;
+                    safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'pointer-events') {
+                    const v = value.toLowerCase();
+                    if (!(v === 'auto' || v === 'none')) continue;
+                    safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'transform') {
+                    const v = value.trim();
+                    const lowerV = v.toLowerCase();
+                    if (lowerV === 'none') {
+                        safeDecls.push(`${prop}:none${hasImportant ? ' !important' : ''}`);
+                        continue;
+                    }
+                    if (v.length > 120) continue;
+                    if (!/^[0-9a-zA-Z().,%+\- \t]+$/.test(v)) continue;
+                    if (lowerV.includes('url(') || lowerV.includes('expression(') || lowerV.includes('javascript:') || lowerV.includes('vbscript:')) continue;
+                    const allowedFns = new Set(['translate', 'translatex', 'translatey', 'scale', 'scalex', 'scaley', 'rotate', 'skew', 'skewx', 'skewy', 'perspective']);
+                    const fnMatches = lowerV.match(/[a-z-]+\(/g) || [];
+                    let ok = true;
+                    for (const m of fnMatches) {
+                        const name = m.slice(0, -1);
+                        if (!allowedFns.has(name)) { ok = false; break; }
+                    }
+                    if (!ok) continue;
+                    safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'border-style') {
+                    const v = value.toLowerCase();
+                    if (v === 'none' || v === 'solid' || v === 'dashed' || v === 'dotted' || v === 'double') safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'border-width') {
+                    const v = value.toLowerCase();
+                    if (this._isSafeCssLength(v) || /^\d{1,3}$/.test(v)) safeDecls.push(`${prop}:${value}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'border-radius') {
+                    const v = value.toLowerCase();
+                    if (this._isSafeCssLength(v)) safeDecls.push(`${prop}:${value}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'font-size' || prop === 'line-height' || prop === 'max-width' || prop === 'min-width' || prop === 'width' || prop === 'height' || prop === 'max-height') {
+                    const v = value.toLowerCase();
+                    if (this._isSafeCssLength(v) || /^\d{1,4}$/.test(v)) safeDecls.push(`${prop}:${value}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'padding' || prop === 'padding-left' || prop === 'padding-right' || prop === 'padding-top' || prop === 'padding-bottom' ||
+                    prop === 'margin' || prop === 'margin-left' || prop === 'margin-right' || prop === 'margin-top' || prop === 'margin-bottom') {
+                    const v = value.toLowerCase();
+                    if (this._isSafeCssLength(v) || /^0$/.test(v)) safeDecls.push(`${prop}:${value}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+
+                if (prop === 'border') {
+                    const v = value.toLowerCase();
+                    if (v.includes('url(') || v.includes('expression(') || v.includes('javascript:') || v.includes('vbscript:')) continue;
+                    safeDecls.push(`${prop}:${value}`.slice(0, 120) + (hasImportant ? ' !important' : ''));
+                    continue;
+                }
+
+                if (prop === 'font-family') {
+                    const cleaned = value.replace(/[^a-zA-Z0-9 ,'"-]/g, '').trim();
+                    if (cleaned) safeDecls.push(`${prop}:${cleaned}`.slice(0, 120) + (hasImportant ? ' !important' : ''));
+                    continue;
+                }
+            }
+
+            return safeDecls.join(';');
+        };
+    }
+
+    if (typeof proto._sanitizeImageSrc !== 'function') {
+        proto._sanitizeImageSrc = function(src) {
+            if (!src || typeof src !== 'string') return '';
+            const s = src.trim();
+            if (/^data:image\/(png|jpeg|jpg|gif|webp|bmp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(s)) {
+                return s;
+            }
+            return this._sanitizeUrl(s);
+        };
+    }
+
+    if (typeof proto._sanitizeStyleSheetText !== 'function') {
+        proto._sanitizeStyleSheetText = function(cssText) {
+            if (!cssText || typeof cssText !== 'string') return '';
+            const text = cssText.trim();
+            if (!text) return '';
+            const lowered = text.toLowerCase();
+            if (lowered.includes('@') || lowered.includes('url(') || lowered.includes('expression(') || lowered.includes('javascript:') || lowered.includes('vbscript:')) {
+                return '';
+            }
+
+            const scopeSelector = (sel) => {
+                if (!sel) return '';
+                let s = String(sel).trim();
+                if (!s) return '';
+                if (s.startsWith('.markdown-content')) return s;
+                s = s.replace(/#pet-context-preview\b/g, '.markdown-content');
+                s = s.replace(/#pet-message-preview\b/g, '.markdown-content');
+                s = s.replace(/\.context-editor-preview\b/g, '.markdown-content');
+                s = s.replace(/^(:root|html|body)\b/g, '.markdown-content');
+                s = s.trim();
+                if (!s) return '';
+                if (s.startsWith('.markdown-content')) return s;
+                return `.markdown-content ${s}`;
+            };
+
+            const rules = [];
+            const blocks = text.split('}');
+            for (const block of blocks) {
+                const b = block.trim();
+                if (!b) continue;
+                const idx = b.indexOf('{');
+                if (idx <= 0) continue;
+                const selectorPart = b.slice(0, idx).trim();
+                const declPart = b.slice(idx + 1).trim();
+                if (!selectorPart || !declPart) continue;
+
+                const safeDecls = this._sanitizeStyleText(declPart);
+                if (!safeDecls) continue;
+
+                const selectors = selectorPart.split(',').map(s => s.trim()).filter(Boolean);
+                if (selectors.length === 0) continue;
+
+                const needsDefaultContent = selectors.some(sel => /(^|[^-])::?(before|after)\b/i.test(sel)) && !/content\s*:/i.test(safeDecls);
+                const finalDecls = needsDefaultContent ? `${safeDecls};content:""` : safeDecls;
+
+                const scopedSelectors = selectors.map(scopeSelector).filter(Boolean).join(', ');
+                if (!scopedSelectors) continue;
+
+                rules.push(`${scopedSelectors}{${finalDecls}}`);
+            }
+
+            return rules.join('\n');
+        };
+    }
+
+    if (typeof proto._sanitizeMarkdownHtml !== 'function') {
+        proto._sanitizeMarkdownHtml = function(html) {
+            if (!html) return '';
+            if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+                return this.escapeHtml(String(html));
+            }
+
+            const raw = String(html);
+            const template = document.createElement('template');
+            try {
+                template.innerHTML = raw;
+            } catch (e) {
+                return this.escapeHtml(raw);
+            }
+
+            const allowedTags = new Set([
+                'a', 'b', 'blockquote', 'br', 'code', 'del', 'details', 'div', 'em',
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'kbd', 'li',
+                'mark', 'ol', 'p', 'pre', 'small', 'span', 'strong', 'sub', 'summary',
+                'sup', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'u', 'ul', 'style'
+            ]);
+
+            const removeTags = new Set(['script', 'iframe', 'object', 'embed', 'link', 'meta']);
+
+            const sanitizeElement = (el) => {
+                const tag = String(el.tagName || '').toLowerCase();
+
+                for (const child of Array.from(el.childNodes)) {
+                    if (child.nodeType === Node.ELEMENT_NODE) {
+                        sanitizeElement(child);
+                    } else if (child.nodeType === Node.COMMENT_NODE) {
+                        child.parentNode && child.parentNode.removeChild(child);
+                    }
+                }
+
+                if (removeTags.has(tag)) {
+                    el.parentNode && el.parentNode.removeChild(el);
+                    return;
+                }
+
+                if (!allowedTags.has(tag)) {
+                    const parent = el.parentNode;
+                    if (parent) {
+                        while (el.firstChild) {
+                            parent.insertBefore(el.firstChild, el);
+                        }
+                        parent.removeChild(el);
+                    }
+                    return;
+                }
+
+                if (tag === 'style') {
+                    for (const attr of Array.from(el.attributes)) {
+                        el.removeAttribute(attr.name);
+                    }
+                    const safeCss = this._sanitizeStyleSheetText(el.textContent || '');
+                    el.textContent = safeCss || '';
+                    if (!safeCss) {
+                        el.parentNode && el.parentNode.removeChild(el);
+                    }
+                    return;
+                }
+
+                for (const attr of Array.from(el.attributes)) {
+                    const name = attr.name.toLowerCase();
+                    if (name.startsWith('on')) {
+                        el.removeAttribute(attr.name);
+                        continue;
+                    }
+                    if (name === 'style') {
+                        const safeStyle = this._sanitizeStyleText(attr.value || '');
+                        if (safeStyle) el.setAttribute('style', safeStyle);
+                        else el.removeAttribute('style');
+                        continue;
+                    }
+                    if (name === 'class') {
+                        const safeClass = this._sanitizeClassName(attr.value || '');
+                        if (safeClass) el.setAttribute('class', safeClass);
+                        else el.removeAttribute('class');
+                        continue;
+                    }
+
+                    if (tag === 'a' && (name === 'href' || name === 'title' || name === 'target' || name === 'rel')) {
+                        if (name === 'href') {
+                            const safeHref = this._sanitizeUrl(attr.value || '');
+                            if (safeHref) el.setAttribute('href', safeHref);
+                            else el.removeAttribute('href');
+                        } else if (name === 'target') {
+                            const v = String(attr.value || '').toLowerCase();
+                            if (v === '_blank' || v === '_self') el.setAttribute('target', v);
+                            else el.removeAttribute('target');
+                        } else if (name === 'rel') {
+                            el.setAttribute('rel', 'noopener noreferrer');
+                        } else {
+                            el.setAttribute(name, String(attr.value || '').slice(0, 120));
+                        }
+                        continue;
+                    }
+
+                    if (tag === 'img' && (name === 'src' || name === 'alt' || name === 'title' || name === 'width' || name === 'height' || name === 'loading')) {
+                        if (name === 'src') {
+                            const safeSrc = this._sanitizeImageSrc(attr.value || '');
+                            if (safeSrc) el.setAttribute('src', safeSrc);
+                            else el.removeAttribute('src');
+                        } else if (name === 'width' || name === 'height') {
+                            const v = String(attr.value || '').trim();
+                            if (/^\d{1,4}$/.test(v)) el.setAttribute(name, v);
+                            else el.removeAttribute(name);
+                        } else if (name === 'loading') {
+                            const v = String(attr.value || '').toLowerCase();
+                            if (v === 'lazy' || v === 'eager') el.setAttribute('loading', v);
+                            else el.setAttribute('loading', 'lazy');
+                        } else {
+                            el.setAttribute(name, this.escapeHtml(String(attr.value || '')).slice(0, 200));
+                        }
+                        continue;
+                    }
+
+                    if ((name === 'title' || name === 'aria-label') && attr.value) {
+                        el.setAttribute(name, String(attr.value).slice(0, 200));
+                        continue;
+                    }
+
+                    el.removeAttribute(attr.name);
+                }
+
+                if (tag === 'a' && el.getAttribute('target') === '_blank') {
+                    el.setAttribute('rel', 'noopener noreferrer');
+                }
+
+                if (tag === 'img') {
+                    if (!el.getAttribute('loading')) el.setAttribute('loading', 'lazy');
+                }
+            };
+
+            for (const node of Array.from(template.content.childNodes)) {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    sanitizeElement(node);
+                } else if (node.nodeType === Node.COMMENT_NODE) {
+                    node.parentNode && node.parentNode.removeChild(node);
+                }
+            }
+
+            const container = document.createElement('div');
+            container.appendChild(template.content.cloneNode(true));
+            return container.innerHTML;
+        };
+    }
 
     // 为 Mermaid 图表添加复制和下载按钮
     proto.addMermaidActions = function (mermaidDiv, svgContent, mermaidSourceCode) {
@@ -1334,3 +1866,4 @@
     };
 
 })(typeof window !== 'undefined' ? window : this);
+

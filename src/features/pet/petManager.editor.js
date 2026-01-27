@@ -776,7 +776,7 @@
             await this.syncSessionToBackend(this.currentSessionId, true, true);
 
             // 调用 write-file 接口写入页面上下文（参考 YiWeb 的 handleSessionCreate）
-            if (editedContent && editedContent.trim() && typeof this.writeSessionPageContent === 'function') {
+            if (typeof this.writeSessionPageContent === 'function') {
                 try {
                     await this.writeSessionPageContent(this.currentSessionId);
                 } catch (writeError) {
@@ -1252,3 +1252,4 @@
     };
 
 })(typeof window !== 'undefined' ? window : this);
+

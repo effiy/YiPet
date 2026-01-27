@@ -254,6 +254,7 @@
     proto._isSafeCssLength = function(value) {
         if (!value || typeof value !== 'string') return false;
         const v = value.trim();
+        if (/^-?0+(?:\.0+)?$/.test(v)) return true;
         const m = v.match(/^(-?\d+(?:\.\d+)?)(px|em|rem|%|vh|vw)$/i);
         if (!m) return false;
         const num = Number(m[1]);
@@ -310,7 +311,18 @@
             'border-width',
             'border-style',
             'border-color',
-            'display'
+            'display',
+            'content',
+            'position',
+            'top',
+            'right',
+            'bottom',
+            'left',
+            'inset',
+            'z-index',
+            'opacity',
+            'transform',
+            'pointer-events'
         ]);
 
         const parts = text.split(';');
@@ -328,65 +340,155 @@
             if (val.length > 160) continue;
             if (/[\u0000-\u001f\u007f]/.test(val)) continue;
 
+            const hasImportant = /\s*!important\s*$/i.test(val);
+            if (hasImportant) {
+                val = val.replace(/\s*!important\s*$/i, '').trim();
+                if (!val) continue;
+            }
+            if (/\!important/i.test(val)) continue;
+
             if (prop === 'color' || prop === 'background-color' || prop.endsWith('border-color')) {
                 if (!this._isSafeCssColor(val)) continue;
-                safeDecls.push(`${prop}:${val}`);
+                safeDecls.push(`${prop}:${val}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'font-weight') {
                 const v = val.toLowerCase();
                 if (!(v === 'normal' || v === 'bold' || v === 'bolder' || v === 'lighter' || /^[1-9]00$/.test(v))) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'font-style') {
                 const v = val.toLowerCase();
                 if (!(v === 'normal' || v === 'italic' || v === 'oblique')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'text-decoration') {
                 const v = val.toLowerCase();
                 if (!(v === 'none' || v === 'underline' || v === 'line-through' || v === 'overline')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'text-align') {
                 const v = val.toLowerCase();
                 if (!(v === 'left' || v === 'right' || v === 'center' || v === 'justify' || v === 'start' || v === 'end')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'white-space') {
                 const v = val.toLowerCase();
                 if (!(v === 'normal' || v === 'nowrap' || v === 'pre' || v === 'pre-wrap' || v === 'pre-line')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'word-break') {
                 const v = val.toLowerCase();
                 if (!(v === 'normal' || v === 'break-all' || v === 'keep-all' || v === 'break-word')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'overflow' || prop === 'overflow-x' || prop === 'overflow-y') {
                 const v = val.toLowerCase();
                 if (!(v === 'visible' || v === 'hidden' || v === 'scroll' || v === 'auto' || v === 'clip')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'display') {
                 const v = val.toLowerCase();
                 if (!(v === 'inline' || v === 'block' || v === 'inline-block' || v === 'none' || v === 'flex')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                continue;
+            }
+
+            if (prop === 'content') {
+                const v = val.trim();
+                const lowerV = v.toLowerCase();
+                if (lowerV === 'none' || lowerV === 'normal' || lowerV === 'open-quote' || lowerV === 'close-quote' || lowerV === 'no-open-quote' || lowerV === 'no-close-quote') {
+                    safeDecls.push(`${prop}:${lowerV}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+                if (/^(['"])(?:\\.|(?!\1)[^\\\n\r])*?\1$/.test(v) && v.length <= 120) {
+                    safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+                continue;
+            }
+
+            if (prop === 'position') {
+                const v = val.toLowerCase();
+                if (!(v === 'static' || v === 'relative' || v === 'absolute' || v === 'sticky')) continue;
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                continue;
+            }
+
+            if (prop === 'top' || prop === 'right' || prop === 'bottom' || prop === 'left') {
+                const v = val.toLowerCase();
+                if (!(v === 'auto' || this._isSafeCssLength(v))) continue;
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                continue;
+            }
+
+            if (prop === 'inset') {
+                const tokens = val.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+                if (tokens.length < 1 || tokens.length > 4) continue;
+                if (!tokens.every(t => t === 'auto' || this._isSafeCssLength(t))) continue;
+                safeDecls.push(`${prop}:${tokens.join(' ')}${hasImportant ? ' !important' : ''}`);
+                continue;
+            }
+
+            if (prop === 'z-index') {
+                const v = val.trim();
+                if (!/^-?\d{1,5}$/.test(v)) continue;
+                const n = Number(v);
+                if (!Number.isFinite(n) || n < -9999 || n > 9999) continue;
+                safeDecls.push(`${prop}:${n}${hasImportant ? ' !important' : ''}`);
+                continue;
+            }
+
+            if (prop === 'opacity') {
+                const v = val.trim();
+                if (!/^(0|1|0?\.\d+)$/.test(v)) continue;
+                const n = Number(v);
+                if (!Number.isFinite(n) || n < 0 || n > 1) continue;
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                continue;
+            }
+
+            if (prop === 'pointer-events') {
+                const v = val.toLowerCase();
+                if (!(v === 'auto' || v === 'none')) continue;
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
+                continue;
+            }
+
+            if (prop === 'transform') {
+                const v = val.trim();
+                const lowerV = v.toLowerCase();
+                if (lowerV === 'none') {
+                    safeDecls.push(`${prop}:none${hasImportant ? ' !important' : ''}`);
+                    continue;
+                }
+                if (v.length > 120) continue;
+                if (!/^[0-9a-zA-Z().,%+\- \t]+$/.test(v)) continue;
+                if (lowerV.includes('url(') || lowerV.includes('expression(') || lowerV.includes('javascript:') || lowerV.includes('vbscript:')) continue;
+                const allowedFns = new Set(['translate', 'translatex', 'translatey', 'scale', 'scalex', 'scaley', 'rotate', 'skew', 'skewx', 'skewy', 'perspective']);
+                const fnMatches = lowerV.match(/[a-z-]+\(/g) || [];
+                let ok = true;
+                for (const m of fnMatches) {
+                    const name = m.slice(0, -1);
+                    if (!allowedFns.has(name)) { ok = false; break; }
+                }
+                if (!ok) continue;
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
@@ -394,7 +496,7 @@
                 const v = val.replace(/["<>]/g, '').trim();
                 if (!v || v.length > 80) continue;
                 if (!/^[a-zA-Z0-9 ,_-]+$/.test(v)) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
@@ -402,14 +504,14 @@
                 const tokens = val.split(/\s+/).filter(Boolean);
                 if (tokens.length < 1 || tokens.length > 4) continue;
                 if (!tokens.every(t => this._isSafeCssLength(t))) continue;
-                safeDecls.push(`${prop}:${tokens.join(' ')}`);
+                safeDecls.push(`${prop}:${tokens.join(' ')}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
             if (prop === 'border-style') {
                 const v = val.toLowerCase();
                 if (!(v === 'none' || v === 'solid' || v === 'dashed' || v === 'dotted' || v === 'double')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
 
@@ -417,7 +519,7 @@
                 const v = val.toLowerCase().replace(/["<>]/g, '').trim();
                 if (!v || v.length > 80) continue;
                 if (v.includes('url(') || v.includes('expression(')) continue;
-                safeDecls.push(`${prop}:${v}`);
+                safeDecls.push(`${prop}:${v}${hasImportant ? ' !important' : ''}`);
                 continue;
             }
         }
@@ -443,6 +545,21 @@
             return '';
         }
 
+        const scopeSelector = (sel) => {
+            if (!sel) return '';
+            let s = String(sel).trim();
+            if (!s) return '';
+            if (s.startsWith('.markdown-content')) return s;
+            s = s.replace(/#pet-context-preview\b/g, '.markdown-content');
+            s = s.replace(/#pet-message-preview\b/g, '.markdown-content');
+            s = s.replace(/\.context-editor-preview\b/g, '.markdown-content');
+            s = s.replace(/^(:root|html|body)\b/g, '.markdown-content');
+            s = s.trim();
+            if (!s) return '';
+            if (s.startsWith('.markdown-content')) return s;
+            return `.markdown-content ${s}`;
+        };
+
         const rules = [];
         const blocks = text.split('}');
         for (const block of blocks) {
@@ -460,12 +577,13 @@
             const selectors = selectorPart.split(',').map(s => s.trim()).filter(Boolean);
             if (selectors.length === 0) continue;
 
-            const scopedSelectors = selectors.map(sel => {
-                if (sel.startsWith('.markdown-content')) return sel;
-                return `.markdown-content ${sel}`;
-            }).join(', ');
+            const needsDefaultContent = selectors.some(sel => /(^|[^-])::?(before|after)\b/i.test(sel)) && !/content\s*:/i.test(safeDecls);
+            const finalDecls = needsDefaultContent ? `${safeDecls};content:""` : safeDecls;
 
-            rules.push(`${scopedSelectors}{${safeDecls}}`);
+            const scopedSelectors = selectors.map(scopeSelector).filter(Boolean).join(', ');
+            if (!scopedSelectors) continue;
+
+            rules.push(`${scopedSelectors}{${finalDecls}}`);
         }
 
         return rules.join('\n');
@@ -645,9 +763,10 @@
                     return `<img src="${this.escapeHtml(safeHref)}" alt="${alt}" loading="lazy"${safeTitle} />`;
                 };
 
-                // 覆盖 html 渲染 (转义 HTML)
-                renderer.html = (html) => {
-                    return this._sanitizeMarkdownHtml(html);
+                renderer.html = (token) => {
+                    return (typeof token === 'string')
+                        ? token
+                        : (token && (token.raw || token.text)) || '';
                 };
 
                 // 覆盖 code 渲染 (处理 mermaid)
@@ -667,7 +786,8 @@
                     sanitize: false // 我们手动处理了 html
                 });
 
-                return marked.parse(markdown);
+                const rendered = marked.parse(markdown);
+                return this._sanitizeMarkdownHtml(rendered);
             } else {
                 // 如果 marked 不可用，返回转义的纯文本
                 return this.escapeHtml(markdown);

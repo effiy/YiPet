@@ -5,6 +5,96 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
     if (!window.PetManager.Components.SessionSidebar) window.PetManager.Components.SessionSidebar = {};
 
+    const hooks = window.PetManager.Components.SessionSidebarHooks || {};
+
+    const createStore =
+        hooks.createStore ||
+        function createStore(manager) {
+            const { ref } = window.Vue;
+            return {
+                searchValue: ref((manager && manager.sessionTitleFilter) || '')
+            };
+        };
+
+    const useComputed =
+        hooks.useComputed ||
+        function useComputed(store) {
+            const { computed } = window.Vue;
+            return {
+                clearVisible: computed(() => !!(store?.searchValue?.value || '').trim())
+            };
+        };
+
+    const useMethods =
+        hooks.useMethods ||
+        function useMethods(params) {
+            const { manager, store } = params || {};
+            let timer = null;
+
+            const clearSearch = () => {
+                if (store?.searchValue) store.searchValue.value = '';
+                if (manager) manager.sessionTitleFilter = '';
+                if (typeof manager?.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+            };
+
+            const onSearchInput = (e) => {
+                if (store?.searchValue) store.searchValue.value = e?.target?.value ?? '';
+                if (manager) manager.sessionTitleFilter = (store?.searchValue?.value || '').trim();
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(() => {
+                    if (typeof manager?.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                }, 300);
+            };
+
+            const onSearchKeydown = (e) => {
+                if (e?.key === 'Escape') {
+                    clearSearch();
+                }
+            };
+
+            const onBatchToggleClick = () => {
+                if (manager?.batchMode) {
+                    if (typeof manager?.exitBatchMode === 'function') manager.exitBatchMode();
+                } else {
+                    if (typeof manager?.enterBatchMode === 'function') manager.enterBatchMode();
+                }
+            };
+
+            const onExportClick = () => {
+                if (typeof manager?.exportSessionsToZip === 'function') manager.exportSessionsToZip();
+            };
+
+            const onImportClick = () => {
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.zip';
+                fileInput.className = 'js-hidden';
+                fileInput.addEventListener('change', async (e) => {
+                    const file = e?.target?.files?.[0];
+                    if (file && typeof manager?.importSessionsFromZip === 'function') {
+                        await manager.importSessionsFromZip(file);
+                    }
+                });
+                document.body.appendChild(fileInput);
+                fileInput.click();
+                document.body.removeChild(fileInput);
+            };
+
+            const onAddClick = () => {
+                if (typeof manager?.createBlankSession === 'function') manager.createBlankSession();
+            };
+
+            return {
+                clearSearch,
+                onSearchInput,
+                onSearchKeydown,
+                onBatchToggleClick,
+                onExportClick,
+                onImportClick,
+                onAddClick
+            };
+        };
+
     const SESSION_SIDEBAR_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionSidebar/index.html';
     let sessionSidebarTemplatePromise = null;
     let sessionSidebarTemplateCache = null;
@@ -35,23 +125,26 @@
     }
 
     function createComponent(params) {
-        const { canUseTemplate, template, store, computedProps, methods } = params || {};
+        const { canUseTemplate, template, store, computedProps, methods, manager } = params || {};
         const { defineComponent } = window.Vue;
+        const resolvedStore = store || createStore(manager || {});
+        const resolvedComputedProps = computedProps || useComputed(resolvedStore);
+        const resolvedMethods = methods || useMethods({ manager: manager || {}, store: resolvedStore });
 
         if (canUseTemplate && template) {
             return defineComponent({
                 name: 'YiPetSessionSidebar',
                 setup() {
                     return {
-                        searchValue: store.searchValue,
-                        clearVisible: computedProps.clearVisible,
-                        clearSearch: methods.clearSearch,
-                        onSearchInput: methods.onSearchInput,
-                        onSearchKeydown: methods.onSearchKeydown,
-                        onBatchToggleClick: methods.onBatchToggleClick,
-                        onExportClick: methods.onExportClick,
-                        onImportClick: methods.onImportClick,
-                        onAddClick: methods.onAddClick
+                        searchValue: resolvedStore.searchValue,
+                        clearVisible: resolvedComputedProps.clearVisible,
+                        clearSearch: resolvedMethods.clearSearch,
+                        onSearchInput: resolvedMethods.onSearchInput,
+                        onSearchKeydown: resolvedMethods.onSearchKeydown,
+                        onBatchToggleClick: resolvedMethods.onBatchToggleClick,
+                        onExportClick: resolvedMethods.onExportClick,
+                        onImportClick: resolvedMethods.onImportClick,
+                        onAddClick: resolvedMethods.onAddClick
                     };
                 },
                 template
@@ -72,19 +165,19 @@
                                         class: 'session-search-input',
                                         type: 'text',
                                         placeholder: '搜索会话...',
-                                        value: store.searchValue.value,
-                                        onInput: methods.onSearchInput,
-                                        onKeydown: methods.onSearchKeydown,
+                                        value: resolvedStore.searchValue.value,
+                                        onInput: resolvedMethods.onSearchInput,
+                                        onKeydown: resolvedMethods.onSearchKeydown,
                                         onClick: (e) => e?.stopPropagation?.()
                                     }),
                                     h(
                                         'button',
                                         {
-                                            class: ['session-search-clear-btn', { visible: computedProps.clearVisible.value }],
+                                            class: ['session-search-clear-btn', { visible: resolvedComputedProps.clearVisible.value }],
                                             type: 'button',
                                             onClick: (e) => {
                                                 e?.stopPropagation?.();
-                                                methods.clearSearch();
+                                                resolvedMethods.clearSearch();
                                             }
                                         },
                                         '✕'
@@ -104,7 +197,7 @@
                                             title: '批量选择',
                                             onClick: (e) => {
                                                 e?.stopPropagation?.();
-                                                methods.onBatchToggleClick();
+                                                resolvedMethods.onBatchToggleClick();
                                             }
                                         },
                                         '☑️ 批量'
@@ -116,7 +209,7 @@
                                             class: ['session-action-btn', 'session-action-btn--export'],
                                             onClick: (e) => {
                                                 e?.stopPropagation?.();
-                                                methods.onExportClick();
+                                                resolvedMethods.onExportClick();
                                             }
                                         },
                                         '⬇️ 导出'
@@ -128,7 +221,7 @@
                                             class: ['session-action-btn', 'session-action-btn--import'],
                                             onClick: (e) => {
                                                 e?.stopPropagation?.();
-                                                methods.onImportClick();
+                                                resolvedMethods.onImportClick();
                                             }
                                         },
                                         '⬆️ 导入'
@@ -142,7 +235,7 @@
                                             class: ['session-action-btn', 'session-action-btn--add'],
                                             onClick: (e) => {
                                                 e?.stopPropagation?.();
-                                                methods.onAddClick();
+                                                resolvedMethods.onAddClick();
                                             }
                                         },
                                         '➕ 新建'

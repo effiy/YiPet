@@ -2621,7 +2621,7 @@
         _createStreamContentCallback(messageBubble, messagesContainer, messageDiv = null) {
             let fullContent = '';
 
-            // 添加流式消息状态类（与 YiWeb 保持一致）
+            // 添加流式消息状态类
             if (messageDiv) {
                 messageDiv.classList.add('is-streaming');
             }
@@ -2629,7 +2629,7 @@
             const callback = (chunk, accumulatedContent) => {
                 fullContent = accumulatedContent;
 
-                // 确保内容容器存在且具有正确的类名（与 YiWeb 保持一致）
+                // 确保内容容器存在且具有正确的类名
                 let contentDiv = messageBubble.querySelector('.pet-chat-content');
                 if (!contentDiv) {
                     // 如果不存在，创建内容容器
@@ -2720,7 +2720,7 @@
                     : '';
                 const finalContent = String(streamedReply || reply || '').trim() || '请继续。';
 
-                // 移除流式消息状态类（与 YiWeb 保持一致）
+                // 移除流式消息状态类
                 messageDiv.classList.remove('is-streaming');
                 const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
                 if (finalContentDiv) {

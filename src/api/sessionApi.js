@@ -144,7 +144,7 @@ class SessionApiManager extends BaseApiManager {
         }
         
         try {
-            // 规范化会话数据（与 YiWeb 保持一致）
+            // 规范化会话数据
             // 注意：data 中必须包含 key 字段
             const normalized = {
                 key: String(sessionKey), // data 中必须包含 key

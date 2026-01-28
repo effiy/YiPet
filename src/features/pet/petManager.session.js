@@ -383,11 +383,11 @@
 
         return {
             url: pageInfo.url, // 页面URL（用于查找会话，作为会话的唯一标识）
-            title: title, // 会话标题（与 YiWeb 保持一致）
+            title: title, // 会话标题
             pageDescription: pageInfo.description || '', // 页面描述（meta description）
             pageContent: pageInfo.content || '', // 页面内容（Markdown格式，用于AI理解上下文）
             messages: messages, // 聊天记录（该会话的所有对话）
-            tags: tags, // 标签数组（与 YiWeb 保持一致）
+            tags: tags, // 标签数组
             createdAt: createdAt, // 创建时间
             updatedAt: now, // 更新时间
             lastAccessTime: lastAccessTime // 最后访问时间
@@ -549,7 +549,7 @@
         // 更新所有页面相关信息，保留消息和其他会话数据
         Object.assign(session, {
             url: sessionData.url,
-            title: sessionData.title, // 更新 title 字段（与 YiWeb 保持一致）
+            title: sessionData.title, // 更新 title 字段
             pageDescription: sessionData.pageDescription || '',
             pageContent: sessionData.pageContent || session.pageContent || '', // 保留已有内容，但如果缺失则补充
             updatedAt: sessionData.updatedAt,
@@ -704,9 +704,9 @@
             };
 
             const sessionData = {
-                key: sessionKey, // 使用 key 作为唯一标识符（与 YiWeb 保持一致）
+                key: sessionKey, // 使用 key 作为唯一标识符
                 url: sessionUrl,
-                title: title, // 会话标题（与 YiWeb 保持一致）
+                title: title, // 会话标题
                 pageDescription: pageDescription,
                 messages: normalizeMessagesForBackend(session.messages),
                 tags: session.tags || [],
@@ -1485,7 +1485,7 @@
 
     // 创建空白新会话（手动添加）
     /**
-     * 生成 UUID v4 格式的 key（与 YiWeb 保持一致）
+     * 生成 UUID v4 格式的 key
      */
     proto._generateUUID = function () {
         // 优先使用 crypto.randomUUID（如果可用）
@@ -1504,7 +1504,7 @@
      * 创建空白会话（与 YiWeb 的 handleSessionCreate 保持一致）
      */
     proto.createBlankSession = async function () {
-        // 使用 prompt 获取会话名称（与 YiWeb 保持一致）
+        // 使用 prompt 获取会话名称
         const title = window.prompt('新建会话名称：');
         if (!title || !title.trim()) {
             return; // 用户取消或输入为空

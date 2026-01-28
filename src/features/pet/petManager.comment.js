@@ -596,7 +596,7 @@
 
     // 使用 AI 预设
     proto.useAiPreset = function(presetId) {
-        // 预设配置（与 YiWeb 保持一致）
+        // 预设配置
         const presets = {
             'review': {
                 prompt: '请审查这段代码，指出潜在的问题和改进建议',

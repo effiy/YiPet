@@ -277,7 +277,7 @@ class SessionManager {
         return {
             key: this._generateUUID(), // 生成 UUID 格式的 key
             url: pageInfo.url || window.location.href,
-            title: title, // 会话标题（与 YiWeb 保持一致）
+            title: title, // 会话标题
             // 兼容 pageInfo 中可能只有 description 字段而没有 pageDescription 字段的情况
             pageDescription: pageInfo.pageDescription || pageInfo.description || '',
             // 兼容 pageInfo 中可能只有 content 字段而没有 pageContent 字段的情况

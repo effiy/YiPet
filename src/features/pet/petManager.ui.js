@@ -298,8 +298,12 @@
     const SessionItemFactory = SessionItemCtor && typeof SessionItemCtor.createComponent === 'function'
       ? SessionItemCtor.createComponent
       : null;
+    const SessionListCtor = window.PetManager && window.PetManager.Components ? window.PetManager.Components.SessionList : null;
+    const SessionListFactory = SessionListCtor && typeof SessionListCtor.createComponent === 'function'
+      ? SessionListCtor.createComponent
+      : null;
 
-    if (canRenderWithVue && canUseTemplate && SessionItemFactory) {
+    if (canRenderWithVue && canUseTemplate && SessionItemFactory && SessionListFactory) {
       if (!this._sessionListVueState || this._sessionListVueMount !== sessionList) {
         if (this._sessionListVueApp) {
           try {
@@ -330,21 +334,24 @@
         }
         const SessionItem = SessionItemFactory({ manager: this, bumpUiTick, template: sessionItemTemplate });
 
+        let sessionListTemplate = '';
+        try {
+          if (SessionListCtor && typeof SessionListCtor.loadTemplate === 'function') {
+            sessionListTemplate = await SessionListCtor.loadTemplate();
+          }
+        } catch (_) {
+          sessionListTemplate = '';
+        }
+        const SessionList = SessionListFactory({ SessionItem, template: sessionListTemplate });
+
         const SessionListRoot = defineComponent({
-          name: 'YiPetSessionList',
+          name: 'YiPetSessionListRoot',
           setup() {
             return { sessionsRef, uiTick };
           },
           render() {
             const sessions = Array.isArray(sessionsRef.value) ? sessionsRef.value : [];
-            if (!sessions.length) {
-              return h('div', { class: 'session-list-empty' }, '暂无会话');
-            }
-            return h('div', { class: 'session-list-items' },
-              sessions.map((session) =>
-                h(SessionItem, { session, uiTick: uiTick.value, key: session?.key || session?.id || session?.title })
-              )
-            );
+            return h(SessionList, { sessions, uiTick: uiTick.value });
           }
         });
 

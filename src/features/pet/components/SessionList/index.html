@@ -1,0 +1,8 @@
+<template id="yi-pet-session-list-template">
+    <div>
+        <div v-if="!sessions || sessions.length === 0" class="session-list-empty">暂无会话</div>
+        <div v-else class="session-list-items">
+            <SessionItem v-for="session in sessions" :key="sessionKey(session)" :session="session" :uiTick="uiTick" />
+        </div>
+    </div>
+</template>

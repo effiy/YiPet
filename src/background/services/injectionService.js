@@ -51,6 +51,7 @@ class InjectionService {
         'src/features/pet/components/SessionItem/hooks/useComputed.js',
         'src/features/pet/components/SessionItem/hooks/useMethods.js',
         'src/features/pet/components/SessionItem/index.js',
+        'src/features/pet/components/SessionList/index.js',
         'src/features/pet/components/ChatWindow/hooks/store.js',
         'src/features/pet/components/ChatWindow/hooks/useComputed.js',
         'src/features/pet/components/ChatWindow/hooks/useMethods.js',

@@ -56,6 +56,7 @@
         "src/features/pet/components/SessionItem/hooks/useComputed.js",
         "src/features/pet/components/SessionItem/hooks/useMethods.js",
         "src/features/pet/components/SessionItem/index.js",
+        "src/features/pet/components/SessionList/index.js",
         "src/features/pet/components/ChatWindow/hooks/store.js",
         "src/features/pet/components/ChatWindow/hooks/useComputed.js",
         "src/features/pet/components/ChatWindow/hooks/useMethods.js",
@@ -153,6 +154,7 @@
         "src/features/pet/components/SessionSidebar/index.html",
         "src/features/pet/components/SessionItem/index.html",
         "src/features/pet/components/SessionSearch/index.html",
+        "src/features/pet/components/SessionList/index.html",
         "src/features/pet/components/TagFilter/index.html",
         "src/features/pet/components/BatchToolbar/index.html",
         "src/features/pet/components/ChatInput/index.html"

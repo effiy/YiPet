@@ -351,6 +351,42 @@
                       };
             manager._bumpSidebarUiTick = bumpUiTick;
 
+            let ChatHeader = null;
+            try {
+                const chatHeaderModule = window.PetManager?.Components?.ChatHeader;
+                if (chatHeaderModule && typeof chatHeaderModule.createComponent === 'function') {
+                    let chatHeaderTemplate = '';
+                    try {
+                        if (typeof chatHeaderModule.loadTemplate === 'function') {
+                            chatHeaderTemplate = await chatHeaderModule.loadTemplate();
+                        }
+                    } catch (_) {
+                        chatHeaderTemplate = '';
+                    }
+                    ChatHeader = chatHeaderModule.createComponent({ manager, template: chatHeaderTemplate });
+                }
+            } catch (_) {
+                ChatHeader = null;
+            }
+
+            let ChatInput = null;
+            try {
+                const chatInputModule = window.PetManager?.Components?.ChatInput;
+                if (chatInputModule && typeof chatInputModule.createComponent === 'function') {
+                    let chatInputTemplate = '';
+                    try {
+                        if (typeof chatInputModule.loadTemplate === 'function') {
+                            chatInputTemplate = await chatInputModule.loadTemplate();
+                        }
+                    } catch (_) {
+                        chatInputTemplate = '';
+                    }
+                    ChatInput = chatInputModule.createComponent({ manager, instance, template: chatInputTemplate });
+                }
+            } catch (_) {
+                ChatInput = null;
+            }
+
             let TagFilter = null;
             try {
                 const tagFilterModule = window.PetManager?.Components?.TagFilter;
@@ -377,6 +413,21 @@
                 BatchToolbar = null;
             }
 
+            let SessionSearch = null;
+            try {
+                const sessionSearchModule = window.PetManager?.Components?.SessionSearch;
+                if (
+                    sessionSearchModule &&
+                    typeof sessionSearchModule.loadTemplate === 'function' &&
+                    typeof sessionSearchModule.createComponent === 'function'
+                ) {
+                    const sessionSearchTemplate = await sessionSearchModule.loadTemplate();
+                    SessionSearch = sessionSearchModule.createComponent({ manager, store, computedProps, methods, template: sessionSearchTemplate });
+                }
+            } catch (_) {
+                SessionSearch = null;
+            }
+
             let SessionSidebar = null;
             try {
                 const sessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
@@ -392,6 +443,7 @@
                         computedProps,
                         methods,
                         manager,
+                        SessionSearch,
                         TagFilter,
                         BatchToolbar
                     });
@@ -400,7 +452,7 @@
                 SessionSidebar = null;
             }
 
-            if (!SessionSidebar) {
+            if (!SessionSidebar || !ChatHeader || !ChatInput) {
                 return this.createFallbackDom();
             }
 
@@ -426,17 +478,16 @@
             })();
             const resolvedTemplate =
                 String(templates?.chatWindow || '').trim() ||
-                '<div><div class="yi-pet-chat-header" ref="headerEl" title="拖拽移动窗口 | 双击全屏" style="position: relative"><div class="yi-pet-chat-header-title" id="yi-pet-chat-header-title"><span style="font-size: 20px;">💕</span><span id="yi-pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span></div><div class="yi-pet-chat-header-buttons"><button id="yi-pet-chat-auth-btn" class="yi-pet-chat-header-btn" aria-label="API 鉴权" title="API 鉴权" @click="onAuthClick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z" /></svg></button><button id="yi-pet-chat-refresh-btn" class="yi-pet-chat-header-btn pet-chat-refresh-btn" aria-label="刷新" title="刷新" @click="onRefreshClick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z" /></svg></button></div><button id="sidebar-toggle-btn" class="yi-pet-chat-header-btn sidebar-toggle-btn" aria-label="折叠/展开会话列表" title="折叠会话列表" @click="onSidebarToggleClick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" /></svg></button></div><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"></div><div id="yi-pet-input-mount" ref="inputMountEl"></div></div></div></div>';
+                '<div><div class="yi-pet-chat-header" ref="headerEl" title="拖拽移动窗口 | 双击全屏" style="position: relative"><ChatHeader :uiTick="uiTick" /></div><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"></div><ChatInput :uiTick="uiTick" /></div></div></div>';
 
             const Root = defineComponent({
                 name: 'YiPetChatWindow',
-                components: { SessionSidebar },
+                components: { ChatHeader, ChatInput, SessionSidebar },
                 setup() {
                     const headerEl = ref(null);
                     const sidebarEl = ref(null);
                     const mainEl = ref(null);
                     const messagesEl = ref(null);
-                    const inputMountEl = ref(null);
 
                     onMounted(() => {
                         instance.header = headerEl.value;
@@ -452,9 +503,6 @@
                                 bindSidebarDomEvents: false
                             });
                         }
-
-                        instance.inputContainer = instance.createInputContainer(currentColor);
-                        if (inputMountEl.value && instance.inputContainer) inputMountEl.value.replaceWith(instance.inputContainer);
 
                         instance.createResizeHandles();
                         instance.bindEvents();
@@ -479,7 +527,6 @@
                         sidebarEl,
                         mainEl,
                         messagesEl,
-                        inputMountEl,
                         onAuthClick,
                         onRefreshClick,
                         onSidebarToggleClick

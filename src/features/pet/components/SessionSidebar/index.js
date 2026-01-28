@@ -125,7 +125,7 @@
     }
 
     function createComponent(params) {
-        const { store, computedProps, methods, manager, template, TagFilter, BatchToolbar } = params || {};
+        const { store, computedProps, methods, manager, template, SessionSearch, TagFilter, BatchToolbar } = params || {};
         const Vue = window.Vue || {};
         const { defineComponent, computed, ref, watch, onMounted, onBeforeUnmount, h } = Vue;
         if (typeof defineComponent !== 'function') return null;
@@ -136,6 +136,15 @@
         const resolvedTemplate =
             String(template || sessionSidebarTemplateCache || '').trim() ||
             '<div><div class="session-sidebar-header"></div><div class="session-sidebar-scrollable-content"><div id="yi-pet-tag-filter-mount"></div><div id="yi-pet-batch-toolbar-mount"></div><div class="session-list" id="session-list"></div></div></div>';
+
+        const resolvedDomSearchTemplate = `
+            <div class="session-sidebar-search-row">
+                <div class="session-search-container">
+                    <input id="session-search-input" class="session-search-input" type="text" placeholder="搜索会话..." />
+                    <button type="button" class="session-search-clear-btn">✕</button>
+                </div>
+            </div>
+        `;
 
         const evalAllowed = (() => {
             try {
@@ -177,6 +186,11 @@
                         const el = rootEl.value;
                         if (!el) return;
                         el.innerHTML = resolvedTemplate;
+
+                        const sessionSearchEl = el.querySelector('sessionsearch');
+                        if (sessionSearchEl) {
+                            sessionSearchEl.outerHTML = resolvedDomSearchTemplate;
+                        }
 
                         const searchInput = el.querySelector('#session-search-input');
                         const clearBtn = el.querySelector('.session-search-clear-btn');
@@ -250,6 +264,14 @@
             });
         }
 
+        const SessionSearchComponent =
+            SessionSearch ||
+            defineComponent({
+                name: 'YiPetSessionSearchStub',
+                props: { uiTick: { type: Number, required: true } },
+                template: '<div class="session-sidebar-search-row"></div>'
+            });
+
         const TagFilterComponent =
             TagFilter ||
             defineComponent({
@@ -267,7 +289,7 @@
 
         return defineComponent({
             name: 'YiPetSessionSidebar',
-            components: { TagFilter: TagFilterComponent, BatchToolbar: BatchToolbarComponent },
+            components: { SessionSearch: SessionSearchComponent, TagFilter: TagFilterComponent, BatchToolbar: BatchToolbarComponent },
             props: {
                 uiTick: { type: Number, required: true }
             },

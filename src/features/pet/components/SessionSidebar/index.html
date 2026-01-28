@@ -1,26 +1,7 @@
 <template id="yi-pet-session-sidebar-template">
     <div>
         <div class="session-sidebar-header">
-            <div class="session-sidebar-search-row">
-                <div class="session-search-container">
-                    <input
-                        id="session-search-input"
-                        class="session-search-input"
-                        type="text"
-                        placeholder="搜索会话..."
-                        :value="searchValue"
-                        @input="onSearchInput"
-                        @keydown="onSearchKeydown"
-                        @click.stop
-                    />
-                    <button
-                        type="button"
-                        class="session-search-clear-btn"
-                        :class="{ visible: clearVisible }"
-                        @click.stop="clearSearch"
-                    >✕</button>
-                </div>
-            </div>
+            <SessionSearch :uiTick="uiTick" />
         </div>
         <div class="session-sidebar-scrollable-content">
             <div id="yi-pet-tag-filter-mount">

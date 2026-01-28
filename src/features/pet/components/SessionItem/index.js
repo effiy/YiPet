@@ -9,10 +9,123 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
+    const SESSION_ITEM_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionItem/index.html';
+    let sessionItemTemplatePromise = null;
+    let sessionItemTemplateCache = null;
+
+    function resolveExtensionResourceUrl(relativePath) {
+        try {
+            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
+        } catch (_) {}
+        return relativePath;
+    }
+
+    async function loadTemplate() {
+        if (sessionItemTemplateCache) return sessionItemTemplateCache;
+        if (!sessionItemTemplatePromise) {
+            sessionItemTemplatePromise = (async () => {
+                const url = resolveExtensionResourceUrl(SESSION_ITEM_TEMPLATES_RESOURCE_PATH);
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Failed to load SessionItem template: ${res.status}`);
+
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const sessionItemEl = doc.querySelector('#yi-pet-session-item-template');
+                sessionItemTemplateCache = sessionItemEl ? sessionItemEl.innerHTML : '';
+                return sessionItemTemplateCache;
+            })();
+        }
+        return sessionItemTemplatePromise;
+    }
+
+    function expandHtmlTemplates(root) {
+        if (!root || typeof root.querySelector !== 'function') return;
+        let tpl = root.querySelector('template');
+        while (tpl) {
+            const fragment = tpl.content ? tpl.content.cloneNode(true) : document.createDocumentFragment();
+            tpl.replaceWith(fragment);
+            tpl = root.querySelector('template');
+        }
+    }
+
+    const hooks = window.PetManager.Components.SessionItemHooks || {};
+
+    const createStore =
+        hooks.createStore ||
+        function createStore(params) {
+            const { manager, session } = params || {};
+            const sessionKey = session?.key;
+            const sessionTitle = manager?.getSessionTitle ? manager.getSessionTitle(session) : session?.title || '未命名会话';
+            const normalizedTags = Array.isArray(session?.tags)
+                ? session.tags.map((tag) => (tag ? String(tag).trim() : '')).filter((tag) => tag.length > 0)
+                : [];
+            const sessionTime = session?.lastAccessTime || session?.lastActiveAt || session?.updatedAt || session?.createdAt || 0;
+
+            return {
+                sessionKey,
+                sessionTitle,
+                normalizedTags,
+                sessionTime
+            };
+        };
+
+    const useComputed =
+        hooks.useComputed ||
+        function useComputed(params) {
+            const { manager, store } = params || {};
+            const sessionKey = store?.sessionKey;
+            const isSelected = !!sessionKey && manager?.currentSessionId === sessionKey;
+            const isBatchSelected = !!sessionKey && !!manager?.selectedSessionIds?.has?.(sessionKey);
+            const showCheckbox = !!manager?.batchMode;
+            const showFavorite = !manager?.batchMode;
+            const showActions = !manager?.batchMode;
+
+            return {
+                isSelected,
+                isBatchSelected,
+                showCheckbox,
+                showFavorite,
+                showActions
+            };
+        };
+
+    const useMethods =
+        hooks.useMethods ||
+        function useMethods(params) {
+            const { session, store } = params || {};
+            const resolvedStore = store || {};
+
+            const getSessionKey = () => resolvedStore?.sessionKey || session?.key;
+
+            const createFooterButton = (params) => {
+                const { icon, title, className, onClick } = params || {};
+                const btn = document.createElement('button');
+                btn.innerHTML = icon;
+                btn.title = title;
+                btn.className = `session-footer-btn ${className}`;
+                btn.setAttribute('aria-label', title);
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof onClick === 'function') onClick(e);
+                });
+                return btn;
+            };
+
+            return {
+                getSessionKey,
+                createFooterButton
+            };
+        };
+
     class SessionItem {
-        constructor(manager, session) {
+        constructor(manager, session, options) {
             this.manager = manager;
             this.session = session;
+            this.options = options || {};
+            this.store = createStore({ manager, session });
+            this.computedProps = useComputed({ manager, session, store: this.store });
+            this.methods = useMethods({ manager, session, store: this.store, computedProps: this.computedProps });
             this.element = this.create();
         }
 
@@ -23,7 +136,7 @@
             const sessionItem = document.createElement('div');
             sessionItem.className = 'session-item';
             // 只使用 key 作为会话标识符（与后端保持一致）
-            const sessionKey = session.key;
+            const sessionKey = this.store?.sessionKey || this.methods.getSessionKey();
             if (!sessionKey) {
                 console.warn('会话缺少 key 字段:', session);
                 return sessionItem; // 返回空元素，避免错误
@@ -31,9 +144,8 @@
             sessionItem.dataset.sessionId = sessionKey;
 
             // Selected state - 检查 currentSessionId 是否匹配 key
-            const currentSessionId = manager.currentSessionId;
-            if (currentSessionId === sessionKey) {
-                sessionItem.classList.add('selected');
+            if (this.computedProps?.isSelected) {
+                sessionItem.classList.add('active');
             }
 
             const itemInner = document.createElement('div');
@@ -46,62 +158,23 @@
             sessionItem.appendChild(itemInner);
 
             // Long press logic
-            this.setupLongPress(sessionItem);
+            if (typeof this.methods.setupLongPress === 'function') {
+                this.methods.setupLongPress(sessionItem);
+            }
 
             // Click handler (activate session)
             sessionItem.addEventListener('click', async (e) => {
-                // Ignore if clicking checkbox, favorite button, or action buttons
-                if (
-                    e.target.closest('.session-batch-checkbox') ||
-                    e.target.closest('.session-favorite-btn') ||
-                    e.target.closest('button') ||
-                    e.target.closest('.session-tag-item')
-                ) {
-                    return;
-                }
-
-                if (manager.isSwitchingSession) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
-
-                // Batch mode handling - 直接切换选中状态，参考 YiWeb 实现
-                if (manager.batchMode) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.toggleBatchSelection(sessionItem);
-                    return;
-                }
-
-                // Switch session
-                sessionItem.classList.add('clicked');
-                sessionItem.style.pointerEvents = 'none';
-                try {
-                    // 只使用 key 作为会话标识符
-                    const sessionKey = session.key;
-                    if (!sessionKey) {
-                        console.warn('会话缺少 key 字段，无法切换:', session);
-                        return;
-                    }
-                    if (typeof manager.switchSession === 'function') {
-                        await manager.switchSession(sessionKey);
-                    } else if (typeof manager.activateSession === 'function') {
-                        await manager.activateSession(sessionKey);
-                    }
-                } catch (error) {
-                    console.error('切换会话失败:', error);
-                    sessionItem.classList.remove('clicked');
-                } finally {
-                    setTimeout(() => {
-                        sessionItem.style.pointerEvents = '';
-                        sessionItem.classList.remove('clicked');
-                    }, 300);
+                if (typeof this.methods.handleClick === 'function') {
+                    await this.methods.handleClick(sessionItem, e);
                 }
             });
 
             // Context menu
             sessionItem.addEventListener('contextmenu', (e) => {
+                if (typeof this.methods.handleContextMenu === 'function') {
+                    this.methods.handleContextMenu(e);
+                    return;
+                }
                 e.preventDefault();
                 manager.showSessionContext(e, session);
             });
@@ -109,405 +182,428 @@
             return sessionItem;
         }
 
-        // 创建复选框（仅在批量模式下显示，位置在标题组内）
-        createCheckbox(sessionItem) {
-            const manager = this.manager;
-            const session = this.session;
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'session-batch-checkbox';
-            const sessionKey = session.key;
-            if (!sessionKey) {
-                console.warn('会话缺少 key 字段，无法设置复选框:', session);
-                return null;
-            }
-
-            // 初始化选中状态
-            const isSelected = manager.selectedSessionIds && manager.selectedSessionIds.has(sessionKey);
-            checkbox.checked = isSelected;
-
-            // 更新会话项的选中状态类
-            if (isSelected) {
-                sessionItem.classList.add('batch-selected');
-            }
-
-            // 点击复选框时切换选中状态（阻止事件冒泡）
-            checkbox.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleBatchSelection(sessionItem);
-            });
-
-            return checkbox;
-        }
-
-        // 切换批量选中状态（参考 YiWeb 的 handleBatchSelect）
-        toggleBatchSelection(sessionItem) {
-            const manager = this.manager;
-            const session = this.session;
-            const sessionKey = session.key;
-
-            if (!sessionKey) {
-                console.warn('会话缺少 key 字段，无法切换选中状态:', session);
-                return;
-            }
-
-            if (!manager.selectedSessionIds) {
-                manager.selectedSessionIds = new Set();
-            }
-
-            const checkbox = sessionItem.querySelector('.session-batch-checkbox');
-            const isCurrentlySelected = manager.selectedSessionIds.has(sessionKey);
-
-            if (isCurrentlySelected) {
-                manager.selectedSessionIds.delete(sessionKey);
-                sessionItem.classList.remove('batch-selected');
-                if (checkbox) checkbox.checked = false;
-            } else {
-                manager.selectedSessionIds.add(sessionKey);
-                sessionItem.classList.add('batch-selected');
-                if (checkbox) checkbox.checked = true;
-            }
-
-            // 更新批量工具栏
-            if (typeof manager.updateBatchToolbar === 'function') {
-                manager.updateBatchToolbar();
-            }
-        }
-
         createContent(sessionItem) {
+            const template = String((this.options && this.options.template) || sessionItemTemplateCache || '').trim();
+            const contentWrapper = template ? this.createContentFromTemplate(sessionItem, template) : null;
+            if (contentWrapper) return contentWrapper;
+
+            const fallback = document.createElement('div');
+            fallback.className = 'session-item-content';
+            return fallback;
+        }
+
+        createContentFromTemplate(sessionItem, template) {
             const session = this.session;
             const manager = this.manager;
 
-            const contentWrapper = document.createElement('div');
-            contentWrapper.className = 'session-item-content';
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = String(template || '').trim();
+            expandHtmlTemplates(wrapper);
+            const contentWrapper = wrapper.firstElementChild;
+            if (!contentWrapper) return null;
 
-            const header = document.createElement('div');
-            header.className = 'session-item-header';
+            const titleGroup =
+                contentWrapper.querySelector('.js-title-group') || contentWrapper.querySelector('.session-item-title-group');
+            const titleText = contentWrapper.querySelector('.js-title-text') || contentWrapper.querySelector('.session-title-text');
+            const favoriteSlot = contentWrapper.querySelector('.js-favorite-slot');
+            const tagsContainer = contentWrapper.querySelector('.js-tags') || contentWrapper.querySelector('.session-item-tags');
+            const timeSpan = contentWrapper.querySelector('.js-time') || contentWrapper.querySelector('.session-item-time');
+            const footerButtonContainer =
+                contentWrapper.querySelector('.js-action-buttons') || contentWrapper.querySelector('.session-action-buttons');
 
-            const titleGroup = document.createElement('div');
-            titleGroup.className = 'session-item-title-group';
+            if (titleGroup) {
+                const existingCheckbox = titleGroup.querySelector('.session-batch-checkbox');
+                if (existingCheckbox) existingCheckbox.remove();
+            }
 
-            if (manager.batchMode) {
-                const checkbox = this.createCheckbox(sessionItem);
+            if (titleGroup && this.computedProps?.showCheckbox) {
+                const checkbox =
+                    typeof this.methods.createCheckbox === 'function' ? this.methods.createCheckbox(sessionItem) : null;
                 if (checkbox) {
-                    titleGroup.appendChild(checkbox);
+                    titleGroup.insertBefore(checkbox, titleGroup.firstChild);
                 }
             }
 
-            const titleText = document.createElement('span');
-            titleText.className = 'session-title-text';
-            const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : session.title || '未命名会话';
-            titleText.textContent = sessionTitle;
-            titleText.title = sessionTitle;
-            if (session.isFavorite) {
-                titleText.classList.add('session-title-text--favorite');
-            }
-            titleGroup.appendChild(titleText);
-            header.appendChild(titleGroup);
-
-            let favIcon = null;
-            if (!manager.batchMode) {
-                favIcon = document.createElement('button');
-                favIcon.type = 'button';
-                favIcon.className = 'session-favorite-btn';
-                favIcon.textContent = session.isFavorite ? '❤️' : '🤍';
+            const sessionTitle = this.store?.sessionTitle || (manager.getSessionTitle ? manager.getSessionTitle(session) : session.title || '未命名会话');
+            if (titleText) {
+                titleText.textContent = sessionTitle;
+                titleText.title = sessionTitle;
                 if (session.isFavorite) {
-                    favIcon.classList.add('active');
-                }
-                favIcon.title = session.isFavorite ? '取消收藏' : '收藏';
-                favIcon.setAttribute('aria-label', session.isFavorite ? '取消收藏' : '收藏');
-                favIcon.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const newVal = !session.isFavorite;
-                    try {
-                        const sessionKey = session.key;
-                        if (!sessionKey) {
-                            console.warn('会话缺少 key 字段，无法更新收藏状态:', session);
-                            return;
-                        }
-                        await manager.setSessionFavorite(sessionKey, newVal);
-                        favIcon.textContent = newVal ? '❤️' : '🤍';
-                        if (newVal) {
-                            favIcon.classList.add('active');
-                            titleText.classList.add('session-title-text--favorite');
-                        } else {
-                            favIcon.classList.remove('active');
-                            titleText.classList.remove('session-title-text--favorite');
-                        }
-                        favIcon.title = newVal ? '取消收藏' : '收藏';
-                        favIcon.setAttribute('aria-label', newVal ? '取消收藏' : '收藏');
-                        await manager.updateSessionSidebar(false, false);
-                        manager.showNotification(newVal ? '已收藏会话' : '已取消收藏', 'success');
-                    } catch (err) {
-                        console.error('更新收藏状态失败:', err);
-                        manager.showNotification('更新收藏状态失败', 'error');
-                    }
-                });
-                header.appendChild(favIcon);
-            }
-            contentWrapper.appendChild(header);
-
-            const sessionInfo = document.createElement('div');
-            sessionInfo.className = 'session-item-info';
-
-            const tagsContainer = document.createElement('div');
-            tagsContainer.className = 'session-item-tags';
-            const normalizedTags = Array.isArray(session.tags) ? session.tags.map((tag) => (tag ? tag.trim() : '')).filter((tag) => tag.length > 0) : [];
-
-            if (normalizedTags.length > 0) {
-                normalizedTags.forEach((tag) => {
-                    const tagElement = document.createElement('span');
-                    tagElement.className = 'session-tag-item';
-                    tagElement.textContent = tag;
-                    if (typeof manager.getTagColor === 'function') {
-                        const tagColor = manager.getTagColor(tag);
-                        if (tagColor) {
-                            if (tagColor.background) tagElement.style.setProperty('--tag-bg', tagColor.background);
-                            if (tagColor.text) tagElement.style.setProperty('--tag-text', tagColor.text);
-                            if (tagColor.border) tagElement.style.setProperty('--tag-border', tagColor.border);
-                        }
-                    }
-                    tagsContainer.appendChild(tagElement);
-                });
-            } else {
-                const tagElement = document.createElement('span');
-                tagElement.className = 'session-tag-item session-tag-no-tags';
-                tagElement.textContent = '没有标签';
-                tagsContainer.appendChild(tagElement);
-            }
-            sessionInfo.appendChild(tagsContainer);
-
-            const footer = document.createElement('div');
-            footer.className = 'session-item-footer';
-
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'session-item-time';
-            const sessionTime = session.lastAccessTime || session.lastActiveAt || session.updatedAt || session.createdAt || 0;
-            if (sessionTime) {
-                const date = new Date(sessionTime);
-                if (!isNaN(date.getTime())) {
-                    timeSpan.textContent = manager.formatDate(date);
+                    titleText.classList.add('session-title-text--favorite');
                 }
             }
-            footer.appendChild(timeSpan);
 
-            // Action Buttons（批量模式下隐藏，参考 YiWeb 实现）
-            const footerButtonContainer = document.createElement('div');
-            footerButtonContainer.className = 'session-action-buttons';
-            if (manager.batchMode) {
-                footerButtonContainer.classList.add('js-hidden');
+            if (favoriteSlot) {
+                favoriteSlot.innerHTML = '';
+                if (this.computedProps?.showFavorite) {
+                    const favIcon =
+                        typeof this.methods.createFavoriteButton === 'function'
+                            ? this.methods.createFavoriteButton({ titleText, sessionItem })
+                            : null;
+                    if (favIcon) favoriteSlot.appendChild(favIcon);
+                }
             }
 
-            const createBtn = (icon, title, className, onClick) => {
-                const btn = document.createElement('button');
-                btn.innerHTML = icon;
-                btn.title = title;
-                btn.className = `session-footer-btn ${className}`;
-                btn.setAttribute('aria-label', title);
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onClick(e);
-                });
-                return btn;
-            };
+            if (tagsContainer) {
+                tagsContainer.innerHTML = '';
+                const normalizedTags = Array.isArray(this.store?.normalizedTags) ? this.store.normalizedTags : [];
 
-            const editBtn = createBtn('✏️', '编辑会话', 'session-edit-btn', async () => {
-                const sessionKey = session.key;
-                if (!sessionKey) {
-                    console.warn('会话缺少 key 字段，无法编辑:', session);
-                    manager.showNotification('无法编辑：会话缺少标识符', 'error');
-                    return;
-                }
-                if (typeof manager.editSessionTitle === 'function') {
-                    await manager.editSessionTitle(sessionKey);
+                if (normalizedTags.length > 0) {
+                    normalizedTags.forEach((tag) => {
+                        const tagElement = document.createElement('span');
+                        tagElement.className = 'session-tag-item';
+                        tagElement.textContent = tag;
+                        if (typeof manager.getTagColor === 'function') {
+                            const tagColor = manager.getTagColor(tag);
+                            if (tagColor) {
+                                if (tagColor.background) tagElement.style.setProperty('--tag-bg', tagColor.background);
+                                if (tagColor.text) tagElement.style.setProperty('--tag-text', tagColor.text);
+                                if (tagColor.border) tagElement.style.setProperty('--tag-border', tagColor.border);
+                            }
+                        }
+                        tagsContainer.appendChild(tagElement);
+                    });
                 } else {
-                    console.warn('editSessionTitle 方法不存在');
-                    manager.showNotification('编辑功能不可用', 'error');
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'session-tag-item session-tag-no-tags';
+                    tagElement.textContent = '没有标签';
+                    tagsContainer.appendChild(tagElement);
                 }
-            });
+            }
 
-            const tagBtn = createBtn('🏷️', '管理标签', 'session-tag-btn', async () => {
-                const sessionKey = session.key;
-                if (!sessionKey) {
-                    console.warn('会话缺少 key 字段，无法管理标签:', session);
-                    manager.showNotification('无法管理标签：会话缺少标识符', 'error');
-                    return;
+            if (timeSpan) {
+                timeSpan.textContent = '';
+                const sessionTime = this.store?.sessionTime || 0;
+                if (sessionTime) {
+                    const date = new Date(sessionTime);
+                    if (!isNaN(date.getTime()) && typeof manager.formatDate === 'function') {
+                        timeSpan.textContent = manager.formatDate(date);
+                    }
                 }
-                if (typeof manager.openTagManager === 'function') {
-                    await manager.openTagManager(sessionKey);
-                }
-            });
+            }
 
-            const duplicateBtn = createBtn('📋', '创建副本', 'session-duplicate-btn', async () => {
-                const sessionKey = session.key;
-                if (!sessionKey) {
-                    console.warn('会话缺少 key 字段，无法创建副本:', session);
-                    manager.showNotification('无法创建副本：会话缺少标识符', 'error');
-                    return;
+            if (footerButtonContainer) {
+                footerButtonContainer.classList.add('session-action-buttons');
+                if (!this.computedProps?.showActions) {
+                    footerButtonContainer.classList.add('js-hidden');
+                } else {
+                    footerButtonContainer.classList.remove('js-hidden');
                 }
-                try {
-                    await manager.duplicateSession(sessionKey);
-                    await manager.updateSessionSidebar(false, false);
-                    manager.showNotification('副本已创建', 'success');
-                } catch (err) {
-                    console.error('创建副本失败:', err);
-                    manager.showNotification('创建副本失败', 'error');
-                }
-            });
 
-            const contextBtn = createBtn('📝', '页面上下文', 'session-context-btn', () => {
-                const sessionKey = session.key;
-                if (!sessionKey) {
-                    console.warn('会话缺少 key 字段，无法显示上下文:', session);
-                    manager.showNotification('无法显示上下文：会话缺少标识符', 'error');
-                    return;
-                }
-                if (typeof manager.showSessionContext === 'function') {
-                    manager.showSessionContext(sessionKey);
-                }
-            });
+                const bindAction = (selector, handler) => {
+                    const btn = footerButtonContainer.querySelector(selector);
+                    if (!btn) return;
+                    btn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        await handler(e);
+                    });
+                };
 
-            footerButtonContainer.appendChild(editBtn);
-            footerButtonContainer.appendChild(tagBtn);
-            footerButtonContainer.appendChild(duplicateBtn);
-            footerButtonContainer.appendChild(contextBtn);
+                bindAction('.session-edit-btn', async () => {
+                    const sessionKey = this.methods.getSessionKey();
+                    if (!sessionKey) {
+                        console.warn('会话缺少 key 字段，无法编辑:', session);
+                        manager.showNotification('无法编辑：会话缺少标识符', 'error');
+                        return;
+                    }
+                    if (typeof manager.editSessionTitle === 'function') {
+                        await manager.editSessionTitle(sessionKey);
+                    } else {
+                        console.warn('editSessionTitle 方法不存在');
+                        manager.showNotification('编辑功能不可用', 'error');
+                    }
+                });
 
-            footer.appendChild(footerButtonContainer);
-            sessionInfo.appendChild(footer);
-            contentWrapper.appendChild(sessionInfo);
+                bindAction('.session-tag-btn', async () => {
+                    const sessionKey = this.methods.getSessionKey();
+                    if (!sessionKey) {
+                        console.warn('会话缺少 key 字段，无法管理标签:', session);
+                        manager.showNotification('无法管理标签：会话缺少标识符', 'error');
+                        return;
+                    }
+                    if (typeof manager.openTagManager === 'function') {
+                        await manager.openTagManager(sessionKey);
+                    }
+                });
+
+                bindAction('.session-duplicate-btn', async () => {
+                    const sessionKey = this.methods.getSessionKey();
+                    if (!sessionKey) {
+                        console.warn('会话缺少 key 字段，无法创建副本:', session);
+                        manager.showNotification('无法创建副本：会话缺少标识符', 'error');
+                        return;
+                    }
+                    try {
+                        await manager.duplicateSession(sessionKey);
+                        await manager.updateSessionSidebar(false, false);
+                        manager.showNotification('副本已创建', 'success');
+                    } catch (err) {
+                        console.error('创建副本失败:', err);
+                        manager.showNotification('创建副本失败', 'error');
+                    }
+                });
+
+                bindAction('.session-context-btn', async () => {
+                    const sessionKey = this.methods.getSessionKey();
+                    if (!sessionKey) {
+                        console.warn('会话缺少 key 字段，无法显示上下文:', session);
+                        manager.showNotification('无法显示上下文：会话缺少标识符', 'error');
+                        return;
+                    }
+                    if (typeof manager.showSessionContext === 'function') {
+                        manager.showSessionContext(sessionKey);
+                    }
+                });
+            }
 
             return contentWrapper;
         }
+    }
 
-        setupLongPress(element) {
-            const manager = this.manager;
-            const session = this.session;
+    SessionItem.createComponent = function createComponent(params) {
+        const manager = params?.manager;
+        const bumpUiTick = typeof params?.bumpUiTick === 'function' ? params.bumpUiTick : null;
+        const template = params?.template;
+        const { defineComponent, computed } = window.Vue || {};
+        if (typeof defineComponent !== 'function' || typeof computed !== 'function') return null;
 
-            let longPressTimer = null;
-            let longPressProgressTimer = null;
-            const longPressThreshold = 800;
-            let isLongPressing = false;
-            let hasMoved = false;
-            let startX = 0;
-            let startY = 0;
-            let longPressStartTime = 0;
-            const moveThreshold = 10;
+        const contentTemplate = String(template || sessionItemTemplateCache || '').trim() || '<div class="session-item-content"></div>';
+        const resolvedTemplate = `<div class="session-item" :class="{ active: isSelected, 'batch-selected': isBatchSelected }" :data-session-id="sessionKey || ''" @click="onRootClick" @contextmenu="onContextMenu"><div class="session-item-inner">${contentTemplate}</div></div>`;
 
-            const progressBar = document.createElement('div');
-            progressBar.className = 'long-press-progress';
-            element.appendChild(progressBar);
+        return defineComponent({
+            name: 'YiPetSessionItem',
+            props: {
+                session: { type: Object, required: true },
+                uiTick: { type: Number, required: true }
+            },
+            setup(props) {
+                const getSessionKey = () => props.session?.key;
 
-            const hintText = document.createElement('div');
-            hintText.className = 'long-press-hint';
-            hintText.textContent = '继续按住以删除';
-            element.appendChild(hintText);
+                const sessionKey = computed(() => {
+                    props.uiTick;
+                    return getSessionKey();
+                });
 
-            const clearLongPress = () => {
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-                if (longPressProgressTimer) {
-                    clearInterval(longPressProgressTimer);
-                    longPressProgressTimer = null;
-                }
-                if (isLongPressing) {
-                    element.classList.remove('long-pressing', 'long-press-start', 'long-press-active');
-                    progressBar.style.width = '0%';
-                    isLongPressing = false;
-                }
-            };
+                const sessionTitle = computed(() => {
+                    props.uiTick;
+                    return manager?.getSessionTitle ? manager.getSessionTitle(props.session) : props.session?.title || '未命名会话';
+                });
 
-            const startLongPress = (e) => {
-                // Ignore right click
-                if (e.button === 2) return;
+                const tags = computed(() => {
+                    props.uiTick;
+                    const rawTags = Array.isArray(props.session?.tags) ? props.session.tags : [];
+                    return rawTags.map((t) => (t ? String(t).trim() : '')).filter((t) => t.length > 0);
+                });
 
-                hasMoved = false;
-                startX = e.clientX;
-                startY = e.clientY;
-                longPressStartTime = Date.now();
+                const sessionTime = computed(() => {
+                    props.uiTick;
+                    return props.session?.lastAccessTime || props.session?.lastActiveAt || props.session?.updatedAt || props.session?.createdAt || 0;
+                });
 
-                clearLongPress();
+                const timeText = computed(() => {
+                    const ts = sessionTime.value || 0;
+                    if (!ts) return '';
+                    const date = new Date(ts);
+                    if (isNaN(date.getTime())) return '';
+                    if (typeof manager?.formatDate === 'function') return manager.formatDate(date);
+                    return date.toLocaleString();
+                });
 
-                longPressTimer = setTimeout(async () => {
-                    if (hasMoved) return;
+                const sessionIsFavorite = computed(() => {
+                    props.uiTick;
+                    return !!props.session?.isFavorite;
+                });
 
-                    isLongPressing = true;
-                    element.classList.add('long-press-active');
+                const isSelected = computed(() => {
+                    props.uiTick;
+                    const key = getSessionKey();
+                    return !!key && manager?.currentSessionId === key;
+                });
 
-                    // Trigger delete
-                    try {
-                        const sessionKey = session.key;
-                        if (!sessionKey) {
-                            console.warn('会话缺少 key 字段，无法删除:', session);
-                            manager.showNotification('无法删除：会话缺少标识符', 'error');
-                            return;
-                        }
-                        const sessionTitle = manager.getSessionTitle ? manager.getSessionTitle(session) : session.title || '未命名会话';
-                        if (confirm(`确定要删除会话 "${sessionTitle}" 吗？`)) {
-                            await manager.deleteSession(sessionKey);
-                        }
-                    } catch (err) {
-                        console.error('删除会话失败:', err);
-                        manager.showNotification('删除会话失败', 'error');
+                const isBatchSelected = computed(() => {
+                    props.uiTick;
+                    const key = getSessionKey();
+                    return !!key && !!manager?.selectedSessionIds?.has?.(key);
+                });
+
+                const showCheckbox = computed(() => {
+                    props.uiTick;
+                    return !!manager?.batchMode;
+                });
+
+                const showFavorite = computed(() => {
+                    props.uiTick;
+                    return !manager?.batchMode;
+                });
+
+                const showActions = computed(() => {
+                    props.uiTick;
+                    return !manager?.batchMode;
+                });
+
+                const shouldIgnoreClickTarget = (target) => {
+                    return (
+                        !!target?.closest?.('.session-batch-checkbox') ||
+                        !!target?.closest?.('.session-favorite-btn') ||
+                        !!target?.closest?.('button') ||
+                        !!target?.closest?.('.session-tag-item')
+                    );
+                };
+
+                const toggleBatchSelection = () => {
+                    const sessionKey = getSessionKey();
+                    if (!sessionKey) return;
+                    if (!manager.selectedSessionIds) manager.selectedSessionIds = new Set();
+                    if (manager.selectedSessionIds.has(sessionKey)) {
+                        manager.selectedSessionIds.delete(sessionKey);
+                    } else {
+                        manager.selectedSessionIds.add(sessionKey);
                     }
+                    if (typeof manager.updateBatchToolbar === 'function') manager.updateBatchToolbar();
+                    if (bumpUiTick) bumpUiTick();
+                };
 
-                    clearLongPress();
-                }, longPressThreshold);
+                const onRootClick = async (e) => {
+                    if (shouldIgnoreClickTarget(e?.target)) return;
 
-                // Start progress animation
-                let progress = 0;
-                const interval = 50; // update every 50ms
-                longPressProgressTimer = setInterval(() => {
-                    if (hasMoved) {
-                        clearLongPress();
+                    if (manager?.isSwitchingSession) {
+                        e?.preventDefault?.();
+                        e?.stopPropagation?.();
                         return;
                     }
 
-                    const elapsed = Date.now() - longPressStartTime;
-                    progress = Math.min(100, (elapsed / longPressThreshold) * 100);
-
-                    if (progress > 10) { // Show visual feedback after a bit
-                        element.classList.add('long-press-start');
-                        progressBar.style.width = `${progress}%`;
+                    if (manager?.batchMode) {
+                        e?.preventDefault?.();
+                        e?.stopPropagation?.();
+                        toggleBatchSelection();
+                        return;
                     }
-                }, interval);
-            };
 
-            element.addEventListener('mousedown', startLongPress);
-            element.addEventListener('touchstart', (e) => {
-                startLongPress(e.touches[0]);
-            });
+                    const sessionKey = getSessionKey();
+                    if (!sessionKey) return;
 
-            const onMove = (e) => {
-                if (!longPressTimer) return;
+                    try {
+                        if (typeof manager?.switchSession === 'function') {
+                            await manager.switchSession(sessionKey);
+                        } else if (typeof manager?.activateSession === 'function') {
+                            await manager.activateSession(sessionKey);
+                        }
+                    } finally {
+                        if (bumpUiTick) bumpUiTick();
+                    }
+                };
 
-                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                const onContextMenu = (e) => {
+                    e?.preventDefault?.();
+                    if (typeof manager?.showSessionContext === 'function') manager.showSessionContext(e, props.session);
+                };
 
-                if (Math.abs(clientX - startX) > moveThreshold || Math.abs(clientY - startY) > moveThreshold) {
-                    hasMoved = true;
-                    clearLongPress();
-                }
-            };
+                const onFavoriteClick = async (e) => {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                    const sessionKey = getSessionKey();
+                    if (!sessionKey) return;
+                    const newVal = !props.session?.isFavorite;
+                    try {
+                        await manager?.setSessionFavorite?.(sessionKey, newVal);
+                        props.session.isFavorite = newVal;
+                        if (typeof manager?.updateSessionSidebar === 'function') {
+                            await manager.updateSessionSidebar(false, false);
+                        }
+                        manager?.showNotification?.(newVal ? '已收藏会话' : '已取消收藏', 'success');
+                    } catch (err) {
+                        manager?.showNotification?.('更新收藏状态失败', 'error');
+                    } finally {
+                        if (bumpUiTick) bumpUiTick();
+                    }
+                };
 
-            element.addEventListener('mousemove', onMove);
-            element.addEventListener('touchmove', onMove);
+                const onEditClick = async (e) => {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                    const sessionKey = getSessionKey();
+                    if (!sessionKey) return;
+                    if (typeof manager?.editSessionTitle === 'function') await manager.editSessionTitle(sessionKey);
+                    if (bumpUiTick) bumpUiTick();
+                };
 
-            const onEnd = () => {
-                clearLongPress();
-            };
+                const onTagClick = async (e) => {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                    const sessionKey = getSessionKey();
+                    if (!sessionKey) return;
+                    if (typeof manager?.openTagManager === 'function') await manager.openTagManager(sessionKey);
+                    if (bumpUiTick) bumpUiTick();
+                };
 
-            element.addEventListener('mouseup', onEnd);
-            element.addEventListener('mouseleave', onEnd);
-            element.addEventListener('touchend', onEnd);
-            element.addEventListener('touchcancel', onEnd);
-        }
-    }
+                const onDuplicateClick = async (e) => {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                    const sessionKey = getSessionKey();
+                    if (!sessionKey) return;
+                    try {
+                        await manager?.duplicateSession?.(sessionKey);
+                        if (typeof manager?.updateSessionSidebar === 'function') {
+                            await manager.updateSessionSidebar(false, false);
+                        }
+                        manager?.showNotification?.('副本已创建', 'success');
+                    } catch (err) {
+                        manager?.showNotification?.('创建副本失败', 'error');
+                    } finally {
+                        if (bumpUiTick) bumpUiTick();
+                    }
+                };
+
+                const onPageContextClick = (e) => {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                    const sessionKey = getSessionKey();
+                    if (!sessionKey) return;
+                    if (typeof manager?.showSessionContext === 'function') manager.showSessionContext(sessionKey);
+                    if (bumpUiTick) bumpUiTick();
+                };
+
+                const getTagStyle = (tag) => {
+                    const style = {};
+                    if (typeof manager?.getTagColor === 'function') {
+                        const tagColor = manager.getTagColor(tag);
+                        if (tagColor) {
+                            if (tagColor.background) style['--tag-bg'] = tagColor.background;
+                            if (tagColor.text) style['--tag-text'] = tagColor.text;
+                            if (tagColor.border) style['--tag-border'] = tagColor.border;
+                        }
+                    }
+                    return style;
+                };
+
+                return {
+                    sessionKey,
+                    sessionTitle,
+                    tags,
+                    timeText,
+                    sessionIsFavorite,
+                    isSelected,
+                    isBatchSelected,
+                    showCheckbox,
+                    showFavorite,
+                    showActions,
+                    onRootClick,
+                    onContextMenu,
+                    toggleBatchSelection,
+                    onFavoriteClick,
+                    onEditClick,
+                    onTagClick,
+                    onDuplicateClick,
+                    onPageContextClick,
+                    getTagStyle
+                };
+            },
+            template: resolvedTemplate
+        });
+    };
 
     // Expose to window
+    SessionItem.loadTemplate = loadTemplate;
     window.PetManager.Components.SessionItem = SessionItem;
 })();

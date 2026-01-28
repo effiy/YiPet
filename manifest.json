@@ -52,6 +52,9 @@
         "src/features/pet/petManager.messaging.js",
         "src/features/pet/petManager.pageInfo.js",
         "src/features/pet/petManager.session.js",
+        "src/features/pet/components/SessionItem/hooks/store.js",
+        "src/features/pet/components/SessionItem/hooks/useComputed.js",
+        "src/features/pet/components/SessionItem/hooks/useMethods.js",
         "src/features/pet/components/SessionItem/index.js",
         "src/features/pet/components/ChatWindow/hooks/store.js",
         "src/features/pet/components/ChatWindow/hooks/useComputed.js",
@@ -79,7 +82,9 @@
         "src/styles/tailwind.css",
         "src/styles/content.css",
         "src/styles/quick-comment.css",
-        "src/features/pet/components/ChatWindow/index.css"
+        "src/features/pet/components/ChatWindow/index.css",
+        "src/features/pet/components/SessionSidebar/index.css",
+        "src/features/pet/components/SessionItem/index.css"
       ],
       "run_at": "document_end"
     }
@@ -139,7 +144,8 @@
         "src/features/session/export-sessions.js",
         "src/features/session/import-sessions.js",
         "src/features/pet/components/ChatWindow/index.html",
-        "src/features/pet/components/SessionSidebar/index.html"
+        "src/features/pet/components/SessionSidebar/index.html",
+        "src/features/pet/components/SessionItem/index.html"
       ],
       "matches": ["<all_urls>"]
     }

@@ -11,108 +11,112 @@
 
     const hooks = window.PetManager.Components.ChatWindowHooks || {};
 
-    const createStore = hooks.createStore || function createStore(manager) {
-        const { ref } = window.Vue;
-        return {
-            searchValue: ref(manager.sessionTitleFilter || '')
-        };
-    };
+    const createStore =
+        typeof hooks.createStore === 'function'
+            ? hooks.createStore
+            : (manager) => ({ searchValue: { value: manager?.sessionTitleFilter || '' } });
 
-    const useComputed = hooks.useComputed || function useComputed(store) {
-        const { computed } = window.Vue;
-        return {
-            clearVisible: computed(() => !!(store.searchValue.value || '').trim())
-        };
-    };
+    const useComputed =
+        typeof hooks.useComputed === 'function'
+            ? hooks.useComputed
+            : (store) => ({
+                  clearVisible: {
+                      get value() {
+                          return !!String(store?.searchValue?.value || '').trim();
+                      }
+                  }
+              });
 
-    const useMethods = hooks.useMethods || function useMethods(params) {
-        const { manager, instance, store } = params;
-        let timer = null;
+    const useMethods =
+        typeof hooks.useMethods === 'function'
+            ? hooks.useMethods
+            : function useMethods(params) {
+                  const { manager, instance, store } = params;
+                  let timer = null;
 
-        const clearSearch = () => {
-            store.searchValue.value = '';
-            manager.sessionTitleFilter = '';
-            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-        };
+                  const clearSearch = () => {
+                      if (store?.searchValue) store.searchValue.value = '';
+                      manager.sessionTitleFilter = '';
+                      if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                  };
 
-        const onSearchInput = (e) => {
-            store.searchValue.value = e?.target?.value ?? '';
-            manager.sessionTitleFilter = (store.searchValue.value || '').trim();
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(() => {
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            }, 300);
-        };
+                  const onSearchInput = (e) => {
+                      const value = e?.target?.value ?? '';
+                      if (store?.searchValue) store.searchValue.value = value;
+                      manager.sessionTitleFilter = String(value || '').trim();
+                      if (timer) clearTimeout(timer);
+                      timer = setTimeout(() => {
+                          if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                      }, 300);
+                  };
 
-        const onSearchKeydown = (e) => {
-            if (e?.key === 'Escape') {
-                clearSearch();
-            }
-        };
+                  const onSearchKeydown = (e) => {
+                      if (e?.key === 'Escape') clearSearch();
+                  };
 
-        const onBatchToggleClick = () => {
-            if (manager.batchMode) {
-                if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-            } else {
-                if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-            }
-        };
+                  const onBatchToggleClick = () => {
+                      if (manager.batchMode) {
+                          if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+                      } else {
+                          if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                      }
+                  };
 
-        const onExportClick = () => {
-            if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-        };
+                  const onExportClick = () => {
+                      if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
+                  };
 
-        const onImportClick = () => {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = '.zip';
-            fileInput.className = 'js-hidden';
-            fileInput.addEventListener('change', async (e) => {
-                const file = e?.target?.files?.[0];
-                if (file && typeof manager.importSessionsFromZip === 'function') {
-                    await manager.importSessionsFromZip(file);
-                }
-            });
-            document.body.appendChild(fileInput);
-            fileInput.click();
-            document.body.removeChild(fileInput);
-        };
+                  const onImportClick = () => {
+                      const fileInput = document.createElement('input');
+                      fileInput.type = 'file';
+                      fileInput.accept = '.zip';
+                      fileInput.className = 'js-hidden';
+                      fileInput.addEventListener('change', async (e) => {
+                          const file = e?.target?.files?.[0];
+                          if (file && typeof manager.importSessionsFromZip === 'function') {
+                              await manager.importSessionsFromZip(file);
+                          }
+                      });
+                      document.body.appendChild(fileInput);
+                      fileInput.click();
+                      document.body.removeChild(fileInput);
+                  };
 
-        const onAddClick = () => {
-            if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-        };
+                  const onAddClick = () => {
+                      if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
+                  };
 
-        const onAuthClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
-            manager.openAuth();
-        };
+                  const onAuthClick = (e) => {
+                      e?.stopPropagation?.();
+                      e?.preventDefault?.();
+                      manager.openAuth();
+                  };
 
-        const onRefreshClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
-            manager.manualRefresh(e.currentTarget);
-        };
+                  const onRefreshClick = (e) => {
+                      e?.stopPropagation?.();
+                      e?.preventDefault?.();
+                      manager.manualRefresh(e.currentTarget);
+                  };
 
-        const onSidebarToggleClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
-            if (instance.toggleSidebar) instance.toggleSidebar();
-        };
+                  const onSidebarToggleClick = (e) => {
+                      e?.stopPropagation?.();
+                      e?.preventDefault?.();
+                      if (instance.toggleSidebar) instance.toggleSidebar();
+                  };
 
-        return {
-            clearSearch,
-            onSearchInput,
-            onSearchKeydown,
-            onBatchToggleClick,
-            onExportClick,
-            onImportClick,
-            onAddClick,
-            onAuthClick,
-            onRefreshClick,
-            onSidebarToggleClick
-        };
-    };
+                  return {
+                      clearSearch,
+                      onSearchInput,
+                      onSearchKeydown,
+                      onBatchToggleClick,
+                      onExportClick,
+                      onImportClick,
+                      onAddClick,
+                      onAuthClick,
+                      onRefreshClick,
+                      onSidebarToggleClick
+                  };
+              };
 
     const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/ChatWindow/index.html';
     let chatWindowTemplatesPromise = null;
@@ -194,7 +198,7 @@
             return match ? match[0] : '#3b82f6';
         }
 
-        createLegacy() {
+        createFallbackDom() {
             const manager = this.manager;
 
             // Create chat window container
@@ -259,10 +263,6 @@
         }
 
         async create() {
-            if (!window.Vue || typeof window.Vue.createApp !== 'function') {
-                return this.createLegacy();
-            }
-
             const manager = this.manager;
 
             this.element = document.createElement('div');
@@ -290,7 +290,79 @@
             }
 
             const instance = this;
-            const { createApp, defineComponent, ref, computed, onMounted } = window.Vue;
+            const Vue = window.Vue;
+            const canRenderWithVue =
+                Vue &&
+                typeof Vue.createApp === 'function' &&
+                typeof Vue.defineComponent === 'function' &&
+                typeof Vue.ref === 'function' &&
+                typeof Vue.onMounted === 'function';
+
+            if (!canRenderWithVue) {
+                return this.createFallbackDom();
+            }
+
+            const { createApp, defineComponent, ref, onMounted } = Vue;
+
+            const store = (() => {
+                let resolved = null;
+                try {
+                    resolved = createStore(manager);
+                } catch (_) {
+                    resolved = null;
+                }
+                const current = resolved && typeof resolved === 'object' ? resolved : {};
+                if (!current.searchValue || typeof current.searchValue !== 'object' || !('value' in current.searchValue)) {
+                    current.searchValue = ref(manager?.sessionTitleFilter || '');
+                }
+                return current;
+            })();
+
+            const computedProps = (() => {
+                let resolved = null;
+                try {
+                    resolved = useComputed(store);
+                } catch (_) {
+                    resolved = null;
+                }
+                const current = resolved && typeof resolved === 'object' ? resolved : {};
+                if (!current.clearVisible || typeof current.clearVisible !== 'object' || !('value' in current.clearVisible)) {
+                    current.clearVisible = {
+                        get value() {
+                            return !!String(store?.searchValue?.value || '').trim();
+                        }
+                    };
+                }
+                return current;
+            })();
+
+            const methods = useMethods({ manager, instance, store });
+
+            let SessionSidebar = null;
+            try {
+                const sessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
+                if (
+                    sessionSidebarModule &&
+                    typeof sessionSidebarModule.loadTemplate === 'function' &&
+                    typeof sessionSidebarModule.createComponent === 'function'
+                ) {
+                    const template = await sessionSidebarModule.loadTemplate();
+                    SessionSidebar = sessionSidebarModule.createComponent({
+                        template,
+                        store,
+                        computedProps,
+                        methods,
+                        manager
+                    });
+                }
+            } catch (_) {
+                SessionSidebar = null;
+            }
+
+            if (!SessionSidebar) {
+                return this.createFallbackDom();
+            }
+
             const evalAllowed = (() => {
                 try {
                     Function('return 1')();
@@ -299,394 +371,80 @@
                     return false;
                 }
             })();
-            const canUseTemplate = typeof window.Vue.compile === 'function' && evalAllowed;
-            const store = createStore(manager);
-            const computedProps = useComputed(store);
-            const methods = useMethods({ manager, instance, store });
-
-            let templates = null;
-            if (canUseTemplate) {
-                try {
-                    templates = await loadChatWindowTemplates();
-                } catch (_) {
-                    templates = null;
-                }
-            }
-            const chatWindowTemplate = templates?.chatWindow || '';
-
-            let sessionSidebarTemplate = '';
-            if (canUseTemplate) {
-                try {
-                    const loader = window.PetManager?.Components?.SessionSidebar;
-                    if (loader && typeof loader.loadTemplate === 'function') {
-                        sessionSidebarTemplate = await loader.loadTemplate();
-                    }
-                } catch (_) {
-                    sessionSidebarTemplate = '';
-                }
+            const canUseTemplate = typeof Vue?.compile === 'function' && evalAllowed;
+            if (!canUseTemplate) {
+                return this.createFallbackDom();
             }
 
-            const SessionSidebarFactory = window.PetManager?.Components?.SessionSidebar;
-            const SessionSidebar =
-                SessionSidebarFactory && typeof SessionSidebarFactory.createComponent === 'function'
-                    ? SessionSidebarFactory.createComponent({
-                          canUseTemplate,
-                          template: sessionSidebarTemplate,
-                          store,
-                          computedProps,
-                          methods
-                      })
-                    : canUseTemplate && sessionSidebarTemplate
-                      ? defineComponent({
-                            name: 'YiPetSessionSidebar',
-                            setup() {
-                                return {
-                                    searchValue: store.searchValue,
-                                    clearVisible: computedProps.clearVisible,
-                                    clearSearch: methods.clearSearch,
-                                    onSearchInput: methods.onSearchInput,
-                                    onSearchKeydown: methods.onSearchKeydown,
-                                    onBatchToggleClick: methods.onBatchToggleClick,
-                                    onExportClick: methods.onExportClick,
-                                    onImportClick: methods.onImportClick,
-                                    onAddClick: methods.onAddClick
-                                };
-                            },
-                            template: sessionSidebarTemplate
-                        })
-                      : (() => {
-                            const { h, Fragment } = window.Vue;
-                            return defineComponent({
-                                name: 'YiPetSessionSidebar',
-                                setup() {
-                                    return () =>
-                                        h(Fragment, null, [
-                                            h('div', { class: 'session-sidebar-header' }, [
-                                                h('div', { class: 'session-sidebar-search-row' }, [
-                                                    h('div', { class: 'session-search-container' }, [
-                                                        h('input', {
-                                                            id: 'session-search-input',
-                                                            class: 'session-search-input',
-                                                            type: 'text',
-                                                            placeholder: '搜索会话...',
-                                                            value: store.searchValue.value,
-                                                            onInput: methods.onSearchInput,
-                                                            onKeydown: methods.onSearchKeydown,
-                                                            onClick: (e) => e?.stopPropagation?.()
-                                                        }),
-                                                        h(
-                                                            'button',
-                                                            {
-                                                                class: [
-                                                                    'session-search-clear-btn',
-                                                                    { visible: computedProps.clearVisible.value }
-                                                                ],
-                                                                type: 'button',
-                                                                onClick: (e) => {
-                                                                    e?.stopPropagation?.();
-                                                                    methods.clearSearch();
-                                                                }
-                                                            },
-                                                            '✕'
-                                                        )
-                                                    ])
-                                                ])
-                                            ]),
-                                            h('div', { class: 'session-sidebar-scrollable-content' }, [
-                                                h('div', { id: 'yi-pet-tag-filter-mount' }),
-                                                h('div', { class: 'session-sidebar-actions-row' }, [
-                                                    h('div', { class: 'session-actions-left-group' }, [
-                                                        h(
-                                                            'button',
-                                                            {
-                                                                type: 'button',
-                                                                class: ['session-action-btn', 'session-action-btn--batch'],
-                                                                title: '批量选择',
-                                                                onClick: (e) => {
-                                                                    e?.stopPropagation?.();
-                                                                    methods.onBatchToggleClick();
-                                                                }
-                                                            },
-                                                            '☑️ 批量'
-                                                        ),
-                                                        h(
-                                                            'button',
-                                                            {
-                                                                type: 'button',
-                                                                class: ['session-action-btn', 'session-action-btn--export'],
-                                                                onClick: (e) => {
-                                                                    e?.stopPropagation?.();
-                                                                    methods.onExportClick();
-                                                                }
-                                                            },
-                                                            '⬇️ 导出'
-                                                        ),
-                                                        h(
-                                                            'button',
-                                                            {
-                                                                type: 'button',
-                                                                class: ['session-action-btn', 'session-action-btn--import'],
-                                                                onClick: (e) => {
-                                                                    e?.stopPropagation?.();
-                                                                    methods.onImportClick();
-                                                                }
-                                                            },
-                                                            '⬆️ 导入'
-                                                        )
-                                                    ]),
-                                                    h('div', { class: 'session-actions-right-group' }, [
-                                                        h(
-                                                            'button',
-                                                            {
-                                                                type: 'button',
-                                                                class: ['session-action-btn', 'session-action-btn--add'],
-                                                                onClick: (e) => {
-                                                                    e?.stopPropagation?.();
-                                                                    methods.onAddClick();
-                                                                }
-                                                            },
-                                                            '➕ 新建'
-                                                        )
-                                                    ])
-                                                ]),
-                                                h('div', { id: 'yi-pet-batch-toolbar-mount' }),
-                                                h('div', { class: 'session-list', id: 'session-list' })
-                                            ])
-                                        ]);
-                                }
+            const templates = await (async () => {
+                try {
+                    return await loadChatWindowTemplates();
+                } catch (_) {
+                    return null;
+                }
+            })();
+            const resolvedTemplate =
+                String(templates?.chatWindow || '').trim() ||
+                '<div><div class="yi-pet-chat-header" ref="headerEl" title="拖拽移动窗口 | 双击全屏" style="position: relative"><div class="yi-pet-chat-header-title" id="yi-pet-chat-header-title"><span style="font-size: 20px;">💕</span><span id="yi-pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span></div><div class="yi-pet-chat-header-buttons"><button id="yi-pet-chat-auth-btn" class="yi-pet-chat-header-btn" aria-label="API 鉴权" title="API 鉴权" @click="onAuthClick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z" /></svg></button><button id="yi-pet-chat-refresh-btn" class="yi-pet-chat-header-btn pet-chat-refresh-btn" aria-label="刷新" title="刷新" @click="onRefreshClick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z" /></svg></button></div><button id="sidebar-toggle-btn" class="yi-pet-chat-header-btn sidebar-toggle-btn" aria-label="折叠/展开会话列表" title="折叠会话列表" @click="onSidebarToggleClick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" /></svg></button></div><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"></div><div id="yi-pet-input-mount" ref="inputMountEl"></div></div></div></div>';
+
+            const Root = defineComponent({
+                name: 'YiPetChatWindow',
+                components: { SessionSidebar },
+                setup() {
+                    const headerEl = ref(null);
+                    const sidebarEl = ref(null);
+                    const mainEl = ref(null);
+                    const messagesEl = ref(null);
+                    const inputMountEl = ref(null);
+
+                    onMounted(() => {
+                        instance.header = headerEl.value;
+                        instance.sidebar = sidebarEl.value;
+                        instance.mainContent = mainEl.value;
+                        instance.messagesContainer = messagesEl.value;
+
+                        if (instance.sidebar) {
+                            instance._setupSidebarAfterRender(instance.sidebar, {
+                                store,
+                                computedProps,
+                                methods,
+                                bindSidebarDomEvents: false
                             });
-                        })();
+                        }
 
-            const Root = canUseTemplate && chatWindowTemplate
-                ? defineComponent({
-                      name: 'YiPetChatWindow',
-                      components: { SessionSidebar },
-                      setup() {
-                          const headerEl = ref(null);
-                          const sidebarEl = ref(null);
-                          const mainEl = ref(null);
-                          const messagesEl = ref(null);
-                          const inputMountEl = ref(null);
+                        instance.inputContainer = instance.createInputContainer(currentColor);
+                        if (inputMountEl.value && instance.inputContainer) inputMountEl.value.replaceWith(instance.inputContainer);
 
-                          onMounted(() => {
-                              instance.header = headerEl.value;
-                              instance.sidebar = sidebarEl.value;
-                              instance.mainContent = mainEl.value;
-                              instance.messagesContainer = messagesEl.value;
+                        instance.createResizeHandles();
+                        instance.bindEvents();
 
-                              if (instance.sidebar) {
-                                  const sidebarWidth = manager.sidebarWidth || 320;
-                                  manager.sidebarWidth = sidebarWidth;
-                                  instance.sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
-                                  manager.sessionSidebar = instance.sidebar;
+                        if (manager.sidebarCollapsed === undefined) {
+                            manager.sidebarCollapsed = false;
+                        }
+                        instance.setSidebarCollapsed(manager.sidebarCollapsed);
 
-                                  const tagMount = instance.sidebar.querySelector('#yi-pet-tag-filter-mount');
-                                  if (tagMount) {
-                                      const tagFilterContainer = instance.createTagFilter();
-                                      tagMount.replaceWith(tagFilterContainer);
-                                  }
+                        requestAnimationFrame(() => {
+                            instance.updateSidebarToggleButton(manager.sidebarCollapsed || false);
+                        });
+                    });
 
-                                  const batchMount = instance.sidebar.querySelector('#yi-pet-batch-toolbar-mount');
-                                  if (batchMount) {
-                                      const batchToolbar =
-                                          typeof manager.buildBatchToolbar === 'function'
-                                              ? manager.buildBatchToolbar()
-                                              : instance.buildBatchToolbar();
-                                      batchMount.replaceWith(batchToolbar);
-                                  }
+                    const onAuthClick = (e) => methods?.onAuthClick?.(e);
+                    const onRefreshClick = (e) => methods?.onRefreshClick?.(e);
+                    const onSidebarToggleClick = (e) => methods?.onSidebarToggleClick?.(e);
 
-                                  instance.sessionListContainer = instance.sidebar.querySelector('#session-list');
-                                  instance.createSidebarResizer(instance.sidebar);
-
-                                  setTimeout(() => {
-                                      if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                                  }, 0);
-                              }
-
-                              instance.inputContainer = instance.createInputContainer(currentColor);
-                              if (inputMountEl.value && instance.inputContainer) inputMountEl.value.replaceWith(instance.inputContainer);
-
-                              instance.createResizeHandles();
-                              instance.bindEvents();
-
-                              if (manager.sidebarCollapsed === undefined) {
-                                  manager.sidebarCollapsed = false;
-                              }
-                              instance.setSidebarCollapsed(manager.sidebarCollapsed);
-
-                              requestAnimationFrame(() => {
-                                  instance.updateSidebarToggleButton(manager.sidebarCollapsed || false);
-                              });
-                          });
-
-                          return {
-                              headerEl,
-                              sidebarEl,
-                              mainEl,
-                              messagesEl,
-                              inputMountEl,
-                              onAuthClick: methods.onAuthClick,
-                              onRefreshClick: methods.onRefreshClick,
-                              onSidebarToggleClick: methods.onSidebarToggleClick
-                          };
-                      },
-                      template: chatWindowTemplate
-                  })
-                : (() => {
-                      const { h, Fragment } = window.Vue;
-                      return defineComponent({
-                          name: 'YiPetChatWindow',
-                          components: { SessionSidebar },
-                          setup() {
-                              const headerEl = ref(null);
-                              const sidebarEl = ref(null);
-                              const mainEl = ref(null);
-                              const messagesEl = ref(null);
-                              const inputMountEl = ref(null);
-
-                              onMounted(() => {
-                                  instance.header = headerEl.value;
-                                  instance.sidebar = sidebarEl.value;
-                                  instance.mainContent = mainEl.value;
-                                  instance.messagesContainer = messagesEl.value;
-
-                                  if (instance.sidebar) {
-                                      const sidebarWidth = manager.sidebarWidth || 320;
-                                      manager.sidebarWidth = sidebarWidth;
-                                      instance.sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
-                                      manager.sessionSidebar = instance.sidebar;
-
-                                      const tagMount = instance.sidebar.querySelector('#yi-pet-tag-filter-mount');
-                                      if (tagMount) {
-                                          const tagFilterContainer = instance.createTagFilter();
-                                          tagMount.replaceWith(tagFilterContainer);
-                                      }
-
-                                      const batchMount = instance.sidebar.querySelector('#yi-pet-batch-toolbar-mount');
-                                      if (batchMount) {
-                                          const batchToolbar =
-                                              typeof manager.buildBatchToolbar === 'function'
-                                                  ? manager.buildBatchToolbar()
-                                                  : instance.buildBatchToolbar();
-                                          batchMount.replaceWith(batchToolbar);
-                                      }
-
-                                      instance.sessionListContainer = instance.sidebar.querySelector('#session-list');
-                                      instance.createSidebarResizer(instance.sidebar);
-
-                                      setTimeout(() => {
-                                          if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                                      }, 0);
-                                  }
-
-                                  instance.inputContainer = instance.createInputContainer(currentColor);
-                                  if (inputMountEl.value && instance.inputContainer) inputMountEl.value.replaceWith(instance.inputContainer);
-
-                                  instance.createResizeHandles();
-                                  instance.bindEvents();
-
-                                  if (manager.sidebarCollapsed === undefined) {
-                                      manager.sidebarCollapsed = false;
-                                  }
-                                  instance.setSidebarCollapsed(manager.sidebarCollapsed);
-
-                                  requestAnimationFrame(() => {
-                                      instance.updateSidebarToggleButton(manager.sidebarCollapsed || false);
-                                  });
-                              });
-
-                              return () =>
-                                  h(Fragment, null, [
-                                      h(
-                                          'div',
-                                          {
-                                              class: 'yi-pet-chat-header',
-                                              ref: headerEl,
-                                              title: '拖拽移动窗口 | 双击全屏',
-                                              style: { position: 'relative' }
-                                          },
-                                          [
-                                              h('div', { class: 'yi-pet-chat-header-title', id: 'yi-pet-chat-header-title' }, [
-                                                  h('span', { style: { fontSize: '20px' } }, '💕'),
-                                                  h(
-                                                      'span',
-                                                      {
-                                                          id: 'yi-pet-chat-header-title-text',
-                                                          style: { fontWeight: '600', fontSize: '16px' }
-                                                      },
-                                                      '与我聊天'
-                                                  )
-                                              ]),
-                                              h('div', { class: 'yi-pet-chat-header-buttons' }, [
-                                                  h(
-                                                      'button',
-                                                      {
-                                                          id: 'yi-pet-chat-auth-btn',
-                                                          class: 'yi-pet-chat-header-btn',
-                                                          'aria-label': 'API 鉴权',
-                                                          title: 'API 鉴权',
-                                                          onClick: methods.onAuthClick
-                                                      },
-                                                      [
-                                                          h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-                                                              h('path', {
-                                                                  d: 'M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z'
-                                                              })
-                                                          ])
-                                                      ]
-                                                  ),
-                                                  h(
-                                                      'button',
-                                                      {
-                                                          id: 'yi-pet-chat-refresh-btn',
-                                                          class: ['yi-pet-chat-header-btn', 'pet-chat-refresh-btn'],
-                                                          'aria-label': '刷新',
-                                                          title: '刷新',
-                                                          onClick: methods.onRefreshClick
-                                                      },
-                                                      [
-                                                          h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-                                                              h('path', {
-                                                                  d: 'M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z'
-                                                              })
-                                                          ])
-                                                      ]
-                                                  )
-                                              ]),
-                                              h(
-                                                  'button',
-                                                  {
-                                                      id: 'sidebar-toggle-btn',
-                                                      class: ['yi-pet-chat-header-btn', 'sidebar-toggle-btn'],
-                                                      'aria-label': '折叠/展开会话列表',
-                                                      title: '折叠会话列表',
-                                                      onClick: methods.onSidebarToggleClick
-                                                  },
-                                                  [
-                                                      h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-                                                          h('path', { d: 'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z' })
-                                                      ])
-                                                  ]
-                                              )
-                                          ]
-                                      ),
-                                      h('div', { class: 'yi-pet-chat-content-container' }, [
-                                          h('div', { class: 'session-sidebar', ref: sidebarEl }, [h(SessionSidebar)]),
-                                          h('div', { class: 'yi-pet-chat-right-panel', ref: mainEl, 'aria-label': '会话聊天面板' }, [
-                                              h('div', {
-                                                  id: 'yi-pet-chat-messages',
-                                                  ref: messagesEl,
-                                                  class: 'yi-pet-chat-messages',
-                                                  role: 'log',
-                                                  'aria-live': 'polite'
-                                              }),
-                                              h('div', { id: 'yi-pet-input-mount', ref: inputMountEl })
-                                          ])
-                                      ])
-                                  ]);
-                          }
-                      });
-                  })();
+                    return {
+                        headerEl,
+                        sidebarEl,
+                        mainEl,
+                        messagesEl,
+                        inputMountEl,
+                        onAuthClick,
+                        onRefreshClick,
+                        onSidebarToggleClick
+                    };
+                },
+                template: resolvedTemplate
+            });
 
             this._vueApp = createApp(Root);
             if (this._vueApp && this._vueApp.config) {
@@ -786,293 +544,7 @@
         }
 
         createSidebarVue() {
-            const manager = this.manager;
-
-            const sidebar = document.createElement('div');
-            sidebar.className = 'session-sidebar';
-            const sidebarWidth = manager.sidebarWidth || 320;
-            manager.sidebarWidth = sidebarWidth;
-            sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
-            manager.sessionSidebar = sidebar;
-
-            const mount = document.createElement('div');
-            sidebar.appendChild(mount);
-
-            if (this._sidebarVueApp) {
-                try {
-                    this._sidebarVueApp.unmount();
-                } catch (_) {}
-                this._sidebarVueApp = null;
-                this._sidebarVueInstance = null;
-            }
-
-            const { ref, computed } = window.Vue;
-            const evalAllowed = (() => {
-                try {
-                    Function('return 1')();
-                    return true;
-                } catch (_) {
-                    return false;
-                }
-            })();
-            const canUseTemplate = typeof window.Vue.compile === 'function' && evalAllowed;
-            const sessionSidebarTemplate = '';
-            const canUseSidebarTemplate = canUseTemplate && !!sessionSidebarTemplate;
-
-            const searchValue = ref(manager.sessionTitleFilter || '');
-            const clearVisible = computed(() => !!(searchValue.value || '').trim());
-            let timer = null;
-
-            const clearSearch = () => {
-                searchValue.value = '';
-                manager.sessionTitleFilter = '';
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            };
-
-            const app = window.Vue.createApp(
-                canUseSidebarTemplate
-                    ? {
-                          name: 'YiPetSessionSidebar',
-                          setup() {
-                              const onSearchInput = (e) => {
-                                  searchValue.value = e?.target?.value ?? '';
-                                  manager.sessionTitleFilter = (searchValue.value || '').trim();
-                                  if (timer) clearTimeout(timer);
-                                  timer = setTimeout(() => {
-                                      if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                                  }, 300);
-                              };
-
-                              const onSearchKeydown = (e) => {
-                                  if (e?.key === 'Escape') {
-                                      clearSearch();
-                                  }
-                              };
-
-                              const onBatchToggleClick = () => {
-                                  if (manager.batchMode) {
-                                      if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-                                  } else {
-                                      if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-                                  }
-                              };
-
-                              const onExportClick = () => {
-                                  if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-                              };
-
-                              const onImportClick = () => {
-                                  const fileInput = document.createElement('input');
-                                  fileInput.type = 'file';
-                                  fileInput.accept = '.zip';
-                                  fileInput.className = 'js-hidden';
-                                  fileInput.addEventListener('change', async (e) => {
-                                      const file = e?.target?.files?.[0];
-                                      if (file && typeof manager.importSessionsFromZip === 'function') {
-                                          await manager.importSessionsFromZip(file);
-                                      }
-                                  });
-                                  document.body.appendChild(fileInput);
-                                  fileInput.click();
-                                  document.body.removeChild(fileInput);
-                              };
-
-                              const onAddClick = () => {
-                                  if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-                              };
-
-                              return {
-                                  searchValue,
-                                  clearVisible,
-                                  clearSearch,
-                                  onSearchInput,
-                                  onSearchKeydown,
-                                  onBatchToggleClick,
-                                  onExportClick,
-                                  onImportClick,
-                                  onAddClick
-                              };
-                          },
-                          template: sessionSidebarTemplate
-                      }
-                    : (() => {
-                          const { h, Fragment } = window.Vue;
-                          return {
-                              name: 'YiPetSessionSidebar',
-                              setup() {
-                                  const onSearchInput = (e) => {
-                                      searchValue.value = e?.target?.value ?? '';
-                                      manager.sessionTitleFilter = (searchValue.value || '').trim();
-                                      if (timer) clearTimeout(timer);
-                                      timer = setTimeout(() => {
-                                          if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                                      }, 300);
-                                  };
-
-                                  const onSearchKeydown = (e) => {
-                                      if (e?.key === 'Escape') {
-                                          clearSearch();
-                                      }
-                                  };
-
-                                  const onBatchToggleClick = () => {
-                                      if (manager.batchMode) {
-                                          if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-                                      } else {
-                                          if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-                                      }
-                                  };
-
-                                  const onExportClick = () => {
-                                      if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-                                  };
-
-                                  const onImportClick = () => {
-                                      const fileInput = document.createElement('input');
-                                      fileInput.type = 'file';
-                                      fileInput.accept = '.zip';
-                                      fileInput.className = 'js-hidden';
-                                      fileInput.addEventListener('change', async (e) => {
-                                          const file = e?.target?.files?.[0];
-                                          if (file && typeof manager.importSessionsFromZip === 'function') {
-                                              await manager.importSessionsFromZip(file);
-                                          }
-                                      });
-                                      document.body.appendChild(fileInput);
-                                      fileInput.click();
-                                      document.body.removeChild(fileInput);
-                                  };
-
-                                  const onAddClick = () => {
-                                      if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-                                  };
-
-                                  return () =>
-                                      h(Fragment, null, [
-                                          h('div', { class: 'session-sidebar-header' }, [
-                                              h('div', { class: 'session-sidebar-search-row' }, [
-                                                  h('div', { class: 'session-search-container' }, [
-                                                      h('input', {
-                                                          id: 'session-search-input',
-                                                          class: 'session-search-input',
-                                                          type: 'text',
-                                                          placeholder: '搜索会话...',
-                                                          value: searchValue.value,
-                                                          onInput: onSearchInput,
-                                                          onKeydown: onSearchKeydown,
-                                                          onClick: (e) => e?.stopPropagation?.()
-                                                      }),
-                                                      h(
-                                                          'button',
-                                                          {
-                                                              class: ['session-search-clear-btn', { visible: clearVisible.value }],
-                                                              type: 'button',
-                                                              onClick: (e) => {
-                                                                  e?.stopPropagation?.();
-                                                                  clearSearch();
-                                                              }
-                                                          },
-                                                          '✕'
-                                                      )
-                                                  ])
-                                              ])
-                                          ]),
-                                          h('div', { class: 'session-sidebar-scrollable-content' }, [
-                                              h('div', { id: 'yi-pet-tag-filter-mount' }),
-                                              h('div', { class: 'session-sidebar-actions-row' }, [
-                                                  h('div', { class: 'session-actions-left-group' }, [
-                                                      h(
-                                                          'button',
-                                                          {
-                                                              type: 'button',
-                                                              class: ['session-action-btn', 'session-action-btn--batch'],
-                                                              title: '批量选择',
-                                                              onClick: (e) => {
-                                                                  e?.stopPropagation?.();
-                                                                  onBatchToggleClick();
-                                                              }
-                                                          },
-                                                          '☑️ 批量'
-                                                      ),
-                                                      h(
-                                                          'button',
-                                                          {
-                                                              type: 'button',
-                                                              class: ['session-action-btn', 'session-action-btn--export'],
-                                                              onClick: (e) => {
-                                                                  e?.stopPropagation?.();
-                                                                  onExportClick();
-                                                              }
-                                                          },
-                                                          '⬇️ 导出'
-                                                      ),
-                                                      h(
-                                                          'button',
-                                                          {
-                                                              type: 'button',
-                                                              class: ['session-action-btn', 'session-action-btn--import'],
-                                                              onClick: (e) => {
-                                                                  e?.stopPropagation?.();
-                                                                  onImportClick();
-                                                              }
-                                                          },
-                                                          '⬆️ 导入'
-                                                      )
-                                                  ]),
-                                                  h('div', { class: 'session-actions-right-group' }, [
-                                                      h(
-                                                          'button',
-                                                          {
-                                                              type: 'button',
-                                                              class: ['session-action-btn', 'session-action-btn--add'],
-                                                              onClick: (e) => {
-                                                                  e?.stopPropagation?.();
-                                                                  onAddClick();
-                                                              }
-                                                          },
-                                                          '➕ 新建'
-                                                      )
-                                                  ])
-                                              ]),
-                                              h('div', { id: 'yi-pet-batch-toolbar-mount' }),
-                                              h('div', { class: 'session-list', id: 'session-list' })
-                                          ])
-                                      ]);
-                              }
-                          };
-                      })()
-            );
-            if (app && app.config) {
-                app.config.compilerOptions = app.config.compilerOptions || {};
-                app.config.compilerOptions.isCustomElement = () => false;
-            }
-
-            this._sidebarVueApp = app;
-            this._sidebarVueInstance = app.mount(mount);
-
-            const tagMount = sidebar.querySelector('#yi-pet-tag-filter-mount');
-            if (tagMount) {
-                const tagFilterContainer = this.createTagFilter();
-                tagMount.replaceWith(tagFilterContainer);
-            }
-
-            const batchMount = sidebar.querySelector('#yi-pet-batch-toolbar-mount');
-            if (batchMount) {
-                const batchToolbar = typeof manager.buildBatchToolbar === 'function'
-                    ? manager.buildBatchToolbar()
-                    : this.buildBatchToolbar();
-                batchMount.replaceWith(batchToolbar);
-            }
-
-            this.sessionListContainer = sidebar.querySelector('#session-list');
-
-            this.createSidebarResizer(sidebar);
-
-            setTimeout(() => {
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            }, 0);
-
-            return sidebar;
+            return this.createSidebar();
         }
 
         createSidebar() {
@@ -1109,40 +581,6 @@
             clearBtn.type = 'button';
             clearBtn.className = 'session-search-clear-btn';
 
-            const updateClearButton = () => {
-                const visible = !!searchInput.value;
-                clearBtn.classList.toggle('visible', visible);
-            };
-
-            clearBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                searchInput.value = '';
-                manager.sessionTitleFilter = '';
-                updateClearButton();
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            });
-
-            searchInput.addEventListener('input', (e) => {
-                manager.sessionTitleFilter = e.target.value.trim();
-                updateClearButton();
-                if (this._searchTimer) clearTimeout(this._searchTimer);
-                this._searchTimer = setTimeout(() => {
-                    if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                }, 300);
-            });
-
-            searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    searchInput.value = '';
-                    manager.sessionTitleFilter = '';
-                    updateClearButton();
-                    if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                }
-            });
-
-            searchInput.addEventListener('click', (e) => e.stopPropagation());
-            updateClearButton();
-
             searchContainer.appendChild(searchInput);
             searchContainer.appendChild(clearBtn);
             firstRow.appendChild(searchContainer);
@@ -1158,46 +596,20 @@
             const leftButtonGroup = document.createElement('div');
             leftButtonGroup.className = 'session-actions-left-group';
 
-            const createSessionActionButton = (text, className, onClick) => {
+            const createSessionActionButton = (text, className) => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.innerHTML = text;
                 btn.className = `session-action-btn ${className}`;
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (onClick) onClick(e);
-                });
                 return btn;
             };
 
-            const batchModeBtn = createSessionActionButton('☑️ 批量', 'session-action-btn--batch', () => {
-                if (manager.batchMode) {
-                    if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
-                } else {
-                    if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
-                }
-            });
+            const batchModeBtn = createSessionActionButton('☑️ 批量', 'session-action-btn--batch');
             batchModeBtn.title = '批量选择';
 
-            const exportBtn = createSessionActionButton('⬇️ 导出', 'session-action-btn--export', () => {
-                if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip();
-            });
+            const exportBtn = createSessionActionButton('⬇️ 导出', 'session-action-btn--export');
 
-            const importBtn = createSessionActionButton('⬆️ 导入', 'session-action-btn--import', () => {
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.accept = '.zip';
-                fileInput.className = 'js-hidden';
-                fileInput.addEventListener('change', async (e) => {
-                    const file = e.target.files[0];
-                    if (file && typeof manager.importSessionsFromZip === 'function') {
-                        await manager.importSessionsFromZip(file);
-                    }
-                });
-                document.body.appendChild(fileInput);
-                fileInput.click();
-                document.body.removeChild(fileInput);
-            });
+            const importBtn = createSessionActionButton('⬆️ 导入', 'session-action-btn--import');
 
             leftButtonGroup.appendChild(batchModeBtn);
             leftButtonGroup.appendChild(exportBtn);
@@ -1211,10 +623,6 @@
             addSessionBtn.type = 'button';
             addSessionBtn.innerHTML = '➕ 新建';
             addSessionBtn.className = 'session-action-btn session-action-btn--add';
-            addSessionBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (typeof manager.createBlankSession === 'function') manager.createBlankSession();
-            });
 
             rightButtonGroup.appendChild(addSessionBtn);
 
@@ -1250,6 +658,8 @@
 
             // Resizer
             this.createSidebarResizer(sidebar);
+
+            this._bindSidebarDomEvents(sidebar);
 
             // Initial load
             setTimeout(() => {
@@ -1466,7 +876,7 @@
                     }
 
                     // 保存宽度偏好
-                    if (chrome && chrome.storage) {
+                    if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
                         chrome.storage.local.set({ sidebarWidth: defaultWidth });
                     }
                     e.preventDefault();
@@ -1550,7 +960,7 @@
                 document.body.classList.remove('pet-is-resizing');
 
                 // 立即保存宽度偏好
-                if (chrome && chrome.storage) {
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
                     chrome.storage.local.set({ sidebarWidth: manager.sidebarWidth });
                 }
 
@@ -1619,7 +1029,7 @@
             contextSwitchContainer.addEventListener('click', toggleSwitch);
 
             // Load from storage
-            if (chrome && chrome.storage) {
+            if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.get === 'function') {
                 chrome.storage.local.get(['contextSwitchEnabled'], (result) => {
                     if (result.contextSwitchEnabled !== undefined) {
                         contextSwitch.checked = result.contextSwitchEnabled;
@@ -1631,7 +1041,7 @@
             // Save to storage
             contextSwitch.addEventListener('change', () => {
                 updateSwitchState(contextSwitch.checked);
-                if (chrome && chrome.storage) {
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
                     chrome.storage.local.set({ contextSwitchEnabled: contextSwitch.checked });
                 }
             });
@@ -1648,7 +1058,7 @@
         createInputContainer(currentColor) {
             const manager = this.manager;
 
-            // Outer container - 与 YiWeb 保持一致
+            // Outer container
             const inputContainer = document.createElement('div');
             inputContainer.className = 'yi-pet-chat-input-container chat-input-container';
 
@@ -1656,7 +1066,7 @@
             const topToolbar = document.createElement('div');
             topToolbar.className = 'yi-pet-chat-toolbar chat-input-toolbar';
 
-            // Left Button Group - 与 YiWeb 保持一致
+            // Left Button Group
             const inputLeftButtonGroup = document.createElement('div');
             inputLeftButtonGroup.className = 'yi-pet-chat-toolbar-left chat-input-btn-group';
 
@@ -1826,7 +1236,7 @@
 
             topToolbar.appendChild(inputLeftButtonGroup);
 
-            // Right Button Group - 与 YiWeb 保持一致
+            // Right Button Group
             const inputRightButtonGroup = document.createElement('div');
             inputRightButtonGroup.className = 'yi-pet-chat-toolbar-right chat-input-btn-group';
 
@@ -1834,7 +1244,7 @@
             const contextSwitch = this.createContextSwitch();
             inputRightButtonGroup.appendChild(contextSwitch);
 
-            // Request Status Button - 与 YiWeb 保持一致
+            // Request Status Button
             this.requestStatusButton = document.createElement('button');
             this.requestStatusButton.type = 'button';
             this.requestStatusButton.id = 'request-status-btn';
@@ -1941,7 +1351,7 @@
                 this.updateDraftImagesDisplay();
             });
 
-            // Composition State (IME) - 与 YiWeb 保持一致
+            // Composition State (IME)
             let isComposing = false;
             let compositionEndTime = 0;
             const COMPOSITION_END_DELAY = 100;
@@ -2990,7 +2400,7 @@
         }
 
         /**
-         * 显示加载状态 - 与 YiWeb 保持一致
+         * 显示加载状态
          */
         showLoadingState(message = '正在加载会话...') {
             if (!this.messagesContainer) return;
@@ -3007,7 +2417,7 @@
         }
 
         /**
-         * 显示错误状态 - 与 YiWeb 保持一致
+         * 显示错误状态
          */
         showErrorState(errorMessage) {
             if (!this.messagesContainer) return;
@@ -3384,6 +2794,264 @@
             return isAbortError;
         }
 
+        _setupSidebarAfterRender(sidebarEl, options = {}) {
+            const manager = this.manager;
+            const { store, computedProps, methods, bindSidebarDomEvents } = options;
+
+            const sidebarWidth = manager.sidebarWidth || 320;
+            manager.sidebarWidth = sidebarWidth;
+            sidebarEl.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
+            manager.sessionSidebar = sidebarEl;
+
+            const tagMount = sidebarEl.querySelector('#yi-pet-tag-filter-mount');
+            if (tagMount) {
+                const tagFilterContainer = this.createTagFilter();
+                tagMount.replaceWith(tagFilterContainer);
+            }
+
+            const batchMount = sidebarEl.querySelector('#yi-pet-batch-toolbar-mount');
+            if (batchMount) {
+                const batchToolbar =
+                    typeof manager.buildBatchToolbar === 'function' ? manager.buildBatchToolbar() : this.buildBatchToolbar();
+                batchMount.replaceWith(batchToolbar);
+            }
+
+            if (bindSidebarDomEvents) {
+                this._bindSidebarDomEvents(sidebarEl, { store, computedProps, methods });
+            }
+
+            this.sessionListContainer = sidebarEl.querySelector('#session-list');
+            this.createSidebarResizer(sidebarEl);
+
+            setTimeout(() => {
+                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+            }, 0);
+        }
+
+        _bindHeaderDomEvents(rootEl, methods) {
+            if (!rootEl || rootEl.hasAttribute('data-header-events-bound')) return;
+            rootEl.setAttribute('data-header-events-bound', 'true');
+
+            const authBtn = rootEl.querySelector('#yi-pet-chat-auth-btn');
+            if (authBtn && typeof methods?.onAuthClick === 'function') {
+                authBtn.addEventListener('click', (e) => methods.onAuthClick(e));
+            }
+
+            const refreshBtn = rootEl.querySelector('#yi-pet-chat-refresh-btn');
+            if (refreshBtn && typeof methods?.onRefreshClick === 'function') {
+                refreshBtn.addEventListener('click', (e) => methods.onRefreshClick(e));
+            }
+
+            const sidebarToggleBtn = rootEl.querySelector('#sidebar-toggle-btn');
+            if (sidebarToggleBtn && typeof methods?.onSidebarToggleClick === 'function') {
+                sidebarToggleBtn.addEventListener('click', (e) => methods.onSidebarToggleClick(e));
+            }
+        }
+
+        _bindSidebarDomEvents(sidebarEl, options = {}) {
+            if (!sidebarEl || sidebarEl.hasAttribute('data-sidebar-events-bound')) return;
+            sidebarEl.setAttribute('data-sidebar-events-bound', 'true');
+
+            const manager = this.manager;
+            const { store, computedProps, methods } = options;
+
+            const searchInput = sidebarEl.querySelector('#session-search-input');
+            const searchContainer = sidebarEl.querySelector('.session-search-container');
+            const clearBtn = searchContainer ? searchContainer.querySelector('button') : null;
+
+            if (clearBtn && !clearBtn.classList.contains('session-search-clear-btn')) {
+                clearBtn.className = 'session-search-clear-btn';
+            }
+
+            const isClearVisible = () => {
+                const computedVisible = computedProps?.clearVisible;
+                if (computedVisible && typeof computedVisible === 'object' && 'value' in computedVisible) {
+                    return !!computedVisible.value;
+                }
+                const value = searchInput ? searchInput.value : String(store?.searchValue?.value || '');
+                return !!String(value || '').trim();
+            };
+
+            const updateClearBtn = () => {
+                if (!clearBtn) return;
+                const visible = isClearVisible();
+                if (visible) clearBtn.classList.add('visible');
+                else clearBtn.classList.remove('visible');
+            };
+
+            if (searchInput) {
+                if (store?.searchValue && typeof store.searchValue === 'object' && 'value' in store.searchValue) {
+                    searchInput.value = store.searchValue.value || '';
+                } else {
+                    searchInput.value = manager.sessionTitleFilter || '';
+                }
+
+                searchInput.addEventListener('input', (e) => {
+                    if (typeof methods?.onSearchInput === 'function') {
+                        methods.onSearchInput(e);
+                    } else {
+                        manager.sessionTitleFilter = String(e?.target?.value || '').trim();
+                        if (this._searchTimer) clearTimeout(this._searchTimer);
+                        this._searchTimer = setTimeout(() => {
+                            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                        }, 300);
+                    }
+                    updateClearBtn();
+                });
+
+                searchInput.addEventListener('keydown', (e) => {
+                    if (typeof methods?.onSearchKeydown === 'function') {
+                        methods.onSearchKeydown(e);
+                    } else if (e?.key === 'Escape') {
+                        if (clearBtn) clearBtn.click();
+                    }
+                    updateClearBtn();
+                });
+
+                searchInput.addEventListener('click', (e) => e?.stopPropagation?.());
+            }
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    if (typeof methods?.clearSearch === 'function') {
+                        methods.clearSearch();
+                        if (searchInput && store?.searchValue) searchInput.value = store.searchValue.value || '';
+                    } else {
+                        if (searchInput) searchInput.value = '';
+                        manager.sessionTitleFilter = '';
+                        if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                    }
+                    updateClearBtn();
+                });
+            }
+
+            updateClearBtn();
+
+            const batchBtn = sidebarEl.querySelector('.session-action-btn--batch');
+            if (batchBtn) {
+                batchBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    if (typeof methods?.onBatchToggleClick === 'function') {
+                        methods.onBatchToggleClick();
+                    } else if (manager.batchMode) {
+                        if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode();
+                    } else {
+                        if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode();
+                    }
+                });
+            }
+
+            const exportBtn = sidebarEl.querySelector('.session-action-btn--export');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    if (typeof methods?.onExportClick === 'function') {
+                        methods.onExportClick();
+                    } else if (typeof manager.exportSessionsToZip === 'function') {
+                        manager.exportSessionsToZip();
+                    }
+                });
+            }
+
+            const importBtn = sidebarEl.querySelector('.session-action-btn--import');
+            if (importBtn) {
+                importBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    if (typeof methods?.onImportClick === 'function') {
+                        methods.onImportClick();
+                        return;
+                    }
+
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.zip';
+                    fileInput.className = 'js-hidden';
+                    fileInput.addEventListener('change', async (e2) => {
+                        const file = e2?.target?.files?.[0];
+                        if (file && typeof manager.importSessionsFromZip === 'function') {
+                            await manager.importSessionsFromZip(file);
+                        }
+                    });
+                    document.body.appendChild(fileInput);
+                    fileInput.click();
+                    document.body.removeChild(fileInput);
+                });
+            }
+
+            const addBtn = sidebarEl.querySelector('.session-action-btn--add');
+            if (addBtn) {
+                addBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    if (typeof methods?.onAddClick === 'function') {
+                        methods.onAddClick();
+                    } else if (typeof manager.createBlankSession === 'function') {
+                        manager.createBlankSession();
+                    }
+                });
+            }
+        }
+
+        _getMessageText(messageBubble) {
+            return String(
+                messageBubble?.getAttribute?.('data-original-text') ||
+                    messageBubble?.textContent ||
+                    messageBubble?.innerText ||
+                    ''
+            ).trim();
+        }
+
+        _getMessageIndex(messageDiv, messagesContainer) {
+            const container = messagesContainer || (this.element ? this.element.querySelector('#yi-pet-chat-messages') : null);
+            if (!container) return -1;
+            const allMessages = Array.from(container.children).filter((msg) => !msg.hasAttribute('data-welcome-message'));
+            return allMessages.indexOf(messageDiv);
+        }
+
+        _createMetaButton(metaActions, options) {
+            const { text, title, ariaLabel, disabled, attrs, onClick } = options || {};
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pet-chat-meta-btn';
+            btn.setAttribute('data-standard-button', 'true');
+            if (ariaLabel) btn.setAttribute('aria-label', ariaLabel);
+            if (title) btn.setAttribute('title', title);
+            if (attrs && typeof attrs === 'object') {
+                for (const [k, v] of Object.entries(attrs)) {
+                    if (v === undefined || v === null) continue;
+                    btn.setAttribute(k, String(v));
+                }
+            }
+            btn.textContent = text || '';
+            btn.disabled = !!disabled;
+            if (typeof onClick === 'function') {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    onClick(e, btn);
+                });
+            }
+            metaActions.appendChild(btn);
+            return btn;
+        }
+
+        _canRegenerateAt(idx) {
+            if (!this.manager || !this.manager.currentSessionId || !this.manager.sessions?.[this.manager.currentSessionId]) return false;
+            const session = this.manager.sessions[this.manager.currentSessionId];
+            if (!session?.messages || !Array.isArray(session.messages) || idx <= 0 || idx >= session.messages.length) return false;
+
+            for (let i = idx - 1; i >= 0; i--) {
+                const prevMsg = session.messages[i];
+                if (!prevMsg || prevMsg.type === 'pet') continue;
+                const text = String(prevMsg.content ?? prevMsg.message ?? '').trim();
+                const hasImages =
+                    (Array.isArray(prevMsg.imageDataUrls) && prevMsg.imageDataUrls.some(Boolean)) ||
+                    !!String(prevMsg.imageDataUrl || '').trim();
+                if (text || hasImages) return true;
+            }
+
+            return false;
+        }
+
         // 为消息添加动作按钮（复制欢迎消息的按钮，设置按钮已移动到 chat-request-status-button 后面）
         async addActionButtonsToMessage(messageDiv, forceRefresh = false) {
             // 检查是否是欢迎消息，如果是则不添加（因为它已经有按钮了）
@@ -3443,10 +3111,7 @@
             if (!messagesContainer) return;
 
             // 获取消息索引
-            const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                !msg.hasAttribute('data-welcome-message')
-            );
-            const idx = allMessages.indexOf(messageDiv);
+            const idx = this._getMessageIndex(messageDiv, messagesContainer);
             if (idx < 0) return;
 
             // 获取消息内容
@@ -3460,49 +3125,38 @@
 
             // 1. 复制按钮（如果有内容）
             if (hasContent) {
-                const copyBtn = document.createElement('button');
-                copyBtn.type = 'button';
-                copyBtn.className = 'pet-chat-meta-btn';
-                copyBtn.setAttribute('data-standard-button', 'true');
-                copyBtn.setAttribute('aria-label', '复制消息');
-                copyBtn.setAttribute('title', '复制');
-                copyBtn.textContent = '📋';
-                copyBtn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const content = messageBubble.getAttribute('data-original-text') ||
-                        messageBubble.textContent ||
-                        messageBubble.innerText || '';
-                    if (content && navigator.clipboard) {
-                        try {
-                            await navigator.clipboard.writeText(content.trim());
-                            copyBtn.textContent = '✓';
-                            setTimeout(() => {
-                                copyBtn.textContent = '📋';
-                            }, 1000);
-                        } catch (err) {
-                            console.error('复制失败:', err);
+                this._createMetaButton(metaActions, {
+                    text: '📋',
+                    title: '复制',
+                    ariaLabel: '复制消息',
+                    onClick: async (_e, btn) => {
+                        const content = this._getMessageText(messageBubble);
+                        if (content && navigator.clipboard) {
+                            try {
+                                await navigator.clipboard.writeText(content);
+                                btn.textContent = '✓';
+                                setTimeout(() => {
+                                    btn.textContent = '📋';
+                                }, 1000);
+                            } catch (err) {
+                                console.error('复制失败:', err);
+                            }
                         }
                     }
                 });
-                metaActions.appendChild(copyBtn);
             }
 
             if (messageBubble) {
-                const editBtn = document.createElement('button');
-                editBtn.type = 'button';
-                editBtn.className = 'pet-chat-meta-btn';
-                editBtn.setAttribute('data-standard-button', 'true');
-                editBtn.setAttribute('aria-label', '编辑消息');
-                editBtn.setAttribute('title', '编辑');
-                editBtn.textContent = '✏️';
-                editBtn.disabled = false;
-                editBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (this.manager && typeof this.manager.openMessageEditor === 'function') {
-                        this.manager.openMessageEditor(messageDiv);
+                this._createMetaButton(metaActions, {
+                    text: '✏️',
+                    title: '编辑',
+                    ariaLabel: '编辑消息',
+                    onClick: () => {
+                        if (this.manager && typeof this.manager.openMessageEditor === 'function') {
+                            this.manager.openMessageEditor(messageDiv);
+                        }
                     }
                 });
-                metaActions.appendChild(editBtn);
             }
 
             if (!isUserMessage && hasContent && this.manager && typeof this.manager.getWeWorkRobotConfigs === 'function') {
@@ -3514,183 +3168,133 @@
                         const enabled = (typeof robotConfig.enabled === 'boolean') ? robotConfig.enabled : true;
                         if (!enabled) continue;
 
-                        const robotBtn = document.createElement('button');
-                        robotBtn.type = 'button';
-                        robotBtn.className = 'pet-chat-meta-btn';
-                        robotBtn.setAttribute('data-standard-button', 'true');
-                        robotBtn.setAttribute('data-robot-id', String(robotConfig.id || ''));
                         const robotName = String(robotConfig.name || '').trim() || '机器人';
-                        robotBtn.setAttribute('title', `发送到：${robotName}`);
-                        robotBtn.setAttribute('aria-label', `发送到机器人：${robotName}`);
-                        robotBtn.textContent = robotName;
-
-                        robotBtn.addEventListener('click', async (e) => {
-                            e.stopPropagation();
-
-                            const rawContent = String(
-                                messageBubble?.getAttribute('data-original-text') ||
-                                messageBubble?.textContent ||
-                                messageBubble?.innerText || ''
-                            ).trim();
-                            if (!rawContent) {
-                                if (this.manager && typeof this.manager.showNotification === 'function') {
-                                    this.manager.showNotification('消息内容为空，无法发送', 'error');
-                                }
-                                return;
-                            }
-
-                            const original = robotBtn.textContent;
-                            robotBtn.disabled = true;
-                            robotBtn.textContent = '⏳';
-
-                            try {
-                                let finalContent = rawContent;
-                                if (this.manager && typeof this.manager.isMarkdownFormat === 'function' && typeof this.manager.convertToMarkdown === 'function') {
-                                    if (!this.manager.isMarkdownFormat(finalContent)) {
-                                        finalContent = await this.manager.convertToMarkdown(finalContent);
-                                    }
-                                }
-
-                                if (this.manager && typeof this.manager.sendToWeWorkRobot === 'function') {
-                                    await this.manager.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
-                                    robotBtn.textContent = '✓';
+                        this._createMetaButton(metaActions, {
+                            text: robotName,
+                            title: `发送到：${robotName}`,
+                            ariaLabel: `发送到机器人：${robotName}`,
+                            attrs: { 'data-robot-id': String(robotConfig.id || '') },
+                            onClick: async (_e, btn) => {
+                                const rawContent = this._getMessageText(messageBubble);
+                                if (!rawContent) {
                                     if (this.manager && typeof this.manager.showNotification === 'function') {
-                                        this.manager.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
+                                        this.manager.showNotification('消息内容为空，无法发送', 'error');
                                     }
-                                } else {
-                                    throw new Error('机器人发送能力不可用');
+                                    return;
                                 }
-                            } catch (error) {
-                                robotBtn.textContent = '✕';
-                                if (this.manager && typeof this.manager.showNotification === 'function') {
-                                    this.manager.showNotification(`发送失败：${error?.message || '未知错误'}`, 'error');
+
+                                const original = btn.textContent;
+                                btn.disabled = true;
+                                btn.textContent = '⏳';
+
+                                try {
+                                    let finalContent = rawContent;
+                                    if (
+                                        this.manager &&
+                                        typeof this.manager.isMarkdownFormat === 'function' &&
+                                        typeof this.manager.convertToMarkdown === 'function'
+                                    ) {
+                                        if (!this.manager.isMarkdownFormat(finalContent)) {
+                                            finalContent = await this.manager.convertToMarkdown(finalContent);
+                                        }
+                                    }
+
+                                    if (this.manager && typeof this.manager.sendToWeWorkRobot === 'function') {
+                                        await this.manager.sendToWeWorkRobot(robotConfig.webhookUrl, finalContent);
+                                        btn.textContent = '✓';
+                                        if (this.manager && typeof this.manager.showNotification === 'function') {
+                                            this.manager.showNotification(`已发送到 ${robotConfig.name || '企微机器人'}`, 'success');
+                                        }
+                                    } else {
+                                        throw new Error('机器人发送能力不可用');
+                                    }
+                                } catch (error) {
+                                    btn.textContent = '✕';
+                                    if (this.manager && typeof this.manager.showNotification === 'function') {
+                                        this.manager.showNotification(`发送失败：${error?.message || '未知错误'}`, 'error');
+                                    }
+                                } finally {
+                                    setTimeout(() => {
+                                        btn.textContent = original;
+                                        btn.disabled = false;
+                                    }, 1200);
                                 }
-                            } finally {
-                                setTimeout(() => {
-                                    robotBtn.textContent = original;
-                                    robotBtn.disabled = false;
-                                }, 1200);
                             }
                         });
-
-                        metaActions.appendChild(robotBtn);
                     }
                 } catch (_) { }
             }
 
             // 3. 重新发送按钮（仅用户消息）
             if (isUserMessage) {
-                const resendBtn = document.createElement('button');
-                resendBtn.type = 'button';
-                resendBtn.className = 'pet-chat-meta-btn';
-                resendBtn.setAttribute('data-standard-button', 'true');
-                resendBtn.setAttribute('aria-label', '重新发送');
-                resendBtn.setAttribute('title', '重新发送');
-                resendBtn.textContent = '📨';
-                resendBtn.disabled = this.isProcessing || false;
-                resendBtn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    if (this.manager && typeof this.manager.resendMessageAt === 'function') {
-                        await this.manager.resendMessageAt(idx);
+                this._createMetaButton(metaActions, {
+                    text: '📨',
+                    title: '重新发送',
+                    ariaLabel: '重新发送',
+                    disabled: this.isProcessing || false,
+                    onClick: async () => {
+                        if (this.manager && typeof this.manager.resendMessageAt === 'function') {
+                            await this.manager.resendMessageAt(idx);
+                        }
                     }
                 });
-                metaActions.appendChild(resendBtn);
             }
 
             // 4. 上移按钮
-            const moveUpBtn = document.createElement('button');
-            moveUpBtn.type = 'button';
-            moveUpBtn.className = 'pet-chat-meta-btn';
-            moveUpBtn.setAttribute('data-standard-button', 'true');
-            moveUpBtn.setAttribute('aria-label', '上移消息');
-            moveUpBtn.setAttribute('title', '上移');
-            moveUpBtn.textContent = '⬆️';
-            moveUpBtn.disabled = false;
-            moveUpBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (this.manager && typeof this.manager.moveMessageUpAt === 'function') {
-                    await this.manager.moveMessageUpAt(idx);
+            this._createMetaButton(metaActions, {
+                text: '⬆️',
+                title: '上移',
+                ariaLabel: '上移消息',
+                onClick: async () => {
+                    if (this.manager && typeof this.manager.moveMessageUpAt === 'function') {
+                        await this.manager.moveMessageUpAt(idx);
+                    }
                 }
             });
-            metaActions.appendChild(moveUpBtn);
 
             // 5. 下移按钮
-            const moveDownBtn = document.createElement('button');
-            moveDownBtn.type = 'button';
-            moveDownBtn.className = 'pet-chat-meta-btn';
-            moveDownBtn.setAttribute('data-standard-button', 'true');
-            moveDownBtn.setAttribute('aria-label', '下移消息');
-            moveDownBtn.setAttribute('title', '下移');
-            moveDownBtn.textContent = '⬇️';
-            moveDownBtn.disabled = false;
-            moveDownBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (this.manager && typeof this.manager.moveMessageDownAt === 'function') {
-                    await this.manager.moveMessageDownAt(idx);
+            this._createMetaButton(metaActions, {
+                text: '⬇️',
+                title: '下移',
+                ariaLabel: '下移消息',
+                onClick: async () => {
+                    if (this.manager && typeof this.manager.moveMessageDownAt === 'function') {
+                        await this.manager.moveMessageDownAt(idx);
+                    }
                 }
             });
-            metaActions.appendChild(moveDownBtn);
 
             // 6. 重新生成按钮（仅宠物消息，且可以重新生成）
             if (!isUserMessage) {
-                // 检查前面是否有用户消息（可以重新生成的条件）
-                let canRegenerate = false;
-                if (this.manager && this.manager.currentSessionId && this.manager.sessions[this.manager.currentSessionId]) {
-                    const session = this.manager.sessions[this.manager.currentSessionId];
-                    if (session.messages && Array.isArray(session.messages) && idx > 0 && idx < session.messages.length) {
-                        // 向前查找用户消息
-                        for (let i = idx - 1; i >= 0; i--) {
-                            const prevMsg = session.messages[i];
-                            if (prevMsg && prevMsg.type !== 'pet') {
-                                const text = String(prevMsg.content ?? prevMsg.message ?? '').trim();
-                                const hasImages = (Array.isArray(prevMsg.imageDataUrls) && prevMsg.imageDataUrls.some(Boolean)) ||
-                                    !!String(prevMsg.imageDataUrl || '').trim();
-                                if (text || hasImages) {
-                                    canRegenerate = true;
-                                    break;
-                                }
+                if (this._canRegenerateAt(idx)) {
+                    this._createMetaButton(metaActions, {
+                        text: '🔄',
+                        title: '重新生成',
+                        ariaLabel: '重新生成回复',
+                        disabled: this.isProcessing || false,
+                        onClick: async () => {
+                            if (this.manager && typeof this.manager.regenerateMessage === 'function') {
+                                await this.manager.regenerateMessage(messageDiv);
                             }
                         }
-                    }
-                }
-
-                if (canRegenerate) {
-                    const regenerateBtn = document.createElement('button');
-                    regenerateBtn.type = 'button';
-                    regenerateBtn.className = 'pet-chat-meta-btn';
-                    regenerateBtn.setAttribute('data-standard-button', 'true');
-                    regenerateBtn.setAttribute('aria-label', '重新生成回复');
-                    regenerateBtn.setAttribute('title', '重新生成');
-                    regenerateBtn.textContent = '🔄';
-                    regenerateBtn.disabled = this.isProcessing || false;
-                    regenerateBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        if (this.manager && typeof this.manager.regenerateMessage === 'function') {
-                            await this.manager.regenerateMessage(messageDiv);
-                        }
                     });
-                    metaActions.appendChild(regenerateBtn);
                 }
             }
 
             // 7. 删除按钮
-            const deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'pet-chat-meta-btn';
-            deleteBtn.setAttribute('data-standard-button', 'true');
-            deleteBtn.setAttribute('aria-label', '删除消息');
-            deleteBtn.setAttribute('title', '删除');
-            deleteBtn.textContent = '🗑️';
-            deleteBtn.disabled = this.isProcessing || false;
-            deleteBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (confirm('确定要删除这条消息吗？')) {
-                    if (this.manager && typeof this.manager.deleteMessage === 'function') {
-                        await this.manager.deleteMessage(messageDiv);
+            this._createMetaButton(metaActions, {
+                text: '🗑️',
+                title: '删除',
+                ariaLabel: '删除消息',
+                disabled: this.isProcessing || false,
+                onClick: async () => {
+                    if (confirm('确定要删除这条消息吗？')) {
+                        if (this.manager && typeof this.manager.deleteMessage === 'function') {
+                            await this.manager.deleteMessage(messageDiv);
+                        }
                     }
                 }
             });
-            metaActions.appendChild(deleteBtn);
         }
 
         /**
@@ -3847,7 +3451,7 @@
             // 注意：updateSidebarToggleButton 已经在 setSidebarCollapsed 中调用，不需要再次调用
         }
 
-        // 设置输入容器折叠状态 - 与 YiWeb 保持一致
+        // 设置输入容器折叠状态
         setInputContainerCollapsed(collapsed) {
             if (!this.inputContainer) return;
             if (collapsed) {

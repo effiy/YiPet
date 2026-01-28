@@ -15,7 +15,8 @@
                     />
                     <button
                         type="button"
-                        :class="['session-search-clear-btn', { visible: clearVisible }]"
+                        class="session-search-clear-btn"
+                        :class="{ visible: clearVisible }"
                         @click.stop="clearSearch"
                     >✕</button>
                 </div>

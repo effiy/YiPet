@@ -245,15 +245,7 @@
     sessionList.classList.add('js-visible');
     const prevScrollTop = sessionList.scrollTop;
     let allSessions = this._getFilteredSessions();
-    sessionList.innerHTML = '';
     console.log('当前会话数量:', allSessions.length);
-    if (allSessions.length === 0) {
-      const emptyMsg = document.createElement('div');
-      emptyMsg.className = 'session-list-empty';
-      emptyMsg.textContent = '暂无会话';
-      sessionList.appendChild(emptyMsg);
-      return;
-    }
     const q = (this.sessionTitleFilter || '').trim();
     const hasFilter = q ||
       (this.selectedFilterTags && this.selectedFilterTags.length > 0) ||
@@ -281,11 +273,104 @@
       const bTitle = String(b.title || b.id || '').trim();
       return aTitle.localeCompare(bTitle);
     });
+
+    const Vue = window.Vue;
+    const canRenderWithVue =
+      Vue &&
+      typeof Vue.createApp === 'function' &&
+      typeof Vue.defineComponent === 'function' &&
+      typeof Vue.h === 'function' &&
+      typeof Vue.ref === 'function' &&
+      typeof Vue.nextTick === 'function';
+
+    const evalAllowed = (() => {
+      try {
+        Function('return 1')();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+    const canUseTemplate = typeof Vue?.compile === 'function' && evalAllowed;
+
+    const SessionItemCtor = window.PetManager && window.PetManager.Components ? window.PetManager.Components.SessionItem : null;
+    const SessionItemFactory = SessionItemCtor && typeof SessionItemCtor.createComponent === 'function'
+      ? SessionItemCtor.createComponent
+      : null;
+
+    if (canRenderWithVue && canUseTemplate && SessionItemFactory) {
+      if (!this._sessionListVueState || this._sessionListVueMount !== sessionList) {
+        if (this._sessionListVueApp) {
+          try {
+            this._sessionListVueApp.unmount();
+          } catch (_) { }
+        }
+        this._sessionListVueApp = null;
+        this._sessionListVueMount = sessionList;
+
+        const { createApp, defineComponent, h, ref } = Vue;
+        const sessionsRef = ref([]);
+        const uiTick = ref(0);
+        const bumpUiTick = () => {
+          uiTick.value += 1;
+        };
+        let sessionItemTemplate = '';
+        try {
+          if (SessionItemCtor && typeof SessionItemCtor.loadTemplate === 'function') {
+            sessionItemTemplate = await SessionItemCtor.loadTemplate();
+          }
+        } catch (_) {
+          sessionItemTemplate = '';
+        }
+        const SessionItem = SessionItemFactory({ manager: this, bumpUiTick, template: sessionItemTemplate });
+
+        const SessionListRoot = defineComponent({
+          name: 'YiPetSessionList',
+          setup() {
+            return { sessionsRef, uiTick };
+          },
+          render() {
+            const sessions = Array.isArray(sessionsRef.value) ? sessionsRef.value : [];
+            if (!sessions.length) {
+              return h('div', { class: 'session-list-empty' }, '暂无会话');
+            }
+            return h('div', { class: 'session-list-items' },
+              sessions.map((session) =>
+                h(SessionItem, { session, uiTick: uiTick.value, key: session?.key || session?.id || session?.title })
+              )
+            );
+          }
+        });
+
+        sessionList.innerHTML = '';
+        this._sessionListVueState = { sessionsRef, uiTick, bumpUiTick };
+        this._sessionListVueApp = createApp(SessionListRoot);
+        this._sessionListVueApp.mount(sessionList);
+      }
+
+      this._sessionListVueState.sessionsRef.value = sortedSessions;
+      this._sessionListVueState.uiTick.value += 1;
+      Vue.nextTick(() => {
+        sessionList.scrollTop = prevScrollTop;
+      });
+      console.log('会话侧边栏已更新，显示', sortedSessions.length, '个会话');
+      return;
+    }
+
+    sessionList.innerHTML = '';
     const listItems = document.createElement('div');
     listItems.className = 'session-list-items';
+    let sessionItemTemplate = '';
+    try {
+      if (SessionItemCtor && typeof SessionItemCtor.loadTemplate === 'function') {
+        sessionItemTemplate = await SessionItemCtor.loadTemplate();
+      }
+    } catch (_) {
+      sessionItemTemplate = '';
+    }
     for (const session of sortedSessions) {
       if (window.PetManager && window.PetManager.Components && window.PetManager.Components.SessionItem) {
-        const sessionItem = new window.PetManager.Components.SessionItem(this, session);
+        const sessionItem = new window.PetManager.Components.SessionItem(this, session, { template: sessionItemTemplate });
         listItems.appendChild(sessionItem.element || sessionItem.create());
       }
     }
@@ -317,6 +402,7 @@
 
   proto.loadSidebarWidth = function () {
     try {
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') return;
       chrome.storage.local.get(['sessionSidebarWidth'], (result) => {
         if (result.sessionSidebarWidth && typeof result.sessionSidebarWidth === 'number') {
           const width = Math.max(320, Math.min(800, result.sessionSidebarWidth));
@@ -330,11 +416,19 @@
   };
   proto.saveSidebarWidth = function () {
     try {
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') return;
       chrome.storage.local.set({ sessionSidebarWidth: this.sidebarWidth }, () => { });
     } catch (error) { }
   };
   proto.loadSidebarCollapsed = function () {
     try {
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') {
+        this.sidebarCollapsed = false;
+        if (this.chatWindowComponent) {
+          this.applySidebarCollapsedState();
+        }
+        return;
+      }
       chrome.storage.local.get(['sessionSidebarCollapsed'], (result) => {
         if (result.sessionSidebarCollapsed !== undefined) {
           this.sidebarCollapsed = result.sessionSidebarCollapsed;
@@ -357,6 +451,7 @@
   };
   proto.saveSidebarCollapsed = function () {
     try {
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') return;
       chrome.storage.local.set({ sessionSidebarCollapsed: this.sidebarCollapsed }, () => { });
     } catch (error) { }
   };
@@ -381,6 +476,7 @@
   };
   proto.loadInputContainerCollapsed = function () {
     try {
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') return;
       chrome.storage.local.get(['chatInputContainerCollapsed'], (result) => {
         if (result.chatInputContainerCollapsed !== undefined) {
           this.inputContainerCollapsed = result.chatInputContainerCollapsed;
@@ -393,6 +489,7 @@
   };
   proto.saveInputContainerCollapsed = function () {
     try {
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') return;
       chrome.storage.local.set({ chatInputContainerCollapsed: this.inputContainerCollapsed }, () => { });
     } catch (error) { }
   };

@@ -1,0 +1,89 @@
+<template id="yi-pet-session-item-template">
+    <div class="session-item-content">
+        <div class="session-item-header">
+            <div class="session-item-title-group js-title-group">
+                <template v-if="showCheckbox">
+                    <input
+                        type="checkbox"
+                        class="session-batch-checkbox"
+                        :checked="isBatchSelected"
+                        @click.stop="toggleBatchSelection"
+                    />
+                </template>
+                <span
+                    :class="[
+                        'session-title-text',
+                        'js-title-text',
+                        sessionIsFavorite ? 'session-title-text--favorite' : ''
+                    ]"
+                    :title="sessionTitle"
+                    v-text="sessionTitle"
+                ></span>
+            </div>
+            <div class="js-favorite-slot">
+                <template v-if="showFavorite">
+                    <button
+                        type="button"
+                        :class="['session-favorite-btn', sessionIsFavorite ? 'active' : '']"
+                        :title="sessionIsFavorite ? '取消收藏' : '收藏'"
+                        :aria-label="sessionIsFavorite ? '取消收藏' : '收藏'"
+                        @click.stop="onFavoriteClick"
+                        v-text="sessionIsFavorite ? '❤️' : '🤍'"
+                    ></button>
+                </template>
+            </div>
+        </div>
+        <div class="session-item-info">
+            <div class="session-item-tags js-tags">
+                <template v-if="tags.length">
+                    <span
+                        v-for="tag in tags"
+                        :key="tag"
+                        class="session-tag-item"
+                        :style="getTagStyle(tag)"
+                        @click.stop
+                        v-text="tag"
+                    ></span>
+                </template>
+                <template v-else>
+                    <span class="session-tag-item session-tag-no-tags" @click.stop>没有标签</span>
+                </template>
+            </div>
+            <div class="session-item-footer">
+                <span class="session-item-time js-time" v-text="timeText"></span>
+                <div class="session-action-buttons js-action-buttons" :class="{ 'js-hidden': !showActions }">
+                    <template v-if="showActions">
+                        <button
+                            type="button"
+                            class="session-footer-btn session-edit-btn"
+                            title="编辑会话"
+                            aria-label="编辑会话"
+                            @click.stop="onEditClick"
+                        >✏️</button>
+                        <button
+                            type="button"
+                            class="session-footer-btn session-tag-btn"
+                            title="管理标签"
+                            aria-label="管理标签"
+                            @click.stop="onTagClick"
+                        >🏷️</button>
+                        <button
+                            type="button"
+                            class="session-footer-btn session-duplicate-btn"
+                            title="创建副本"
+                            aria-label="创建副本"
+                            @click.stop="onDuplicateClick"
+                        >📋</button>
+                        <button
+                            type="button"
+                            class="session-footer-btn session-context-btn"
+                            title="页面上下文"
+                            aria-label="页面上下文"
+                            @click.stop="onPageContextClick"
+                        >📝</button>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

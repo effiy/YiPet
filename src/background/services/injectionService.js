@@ -57,6 +57,8 @@ class InjectionService {
         'src/features/pet/components/SessionSidebar/hooks/store.js',
         'src/features/pet/components/SessionSidebar/hooks/useComputed.js',
         'src/features/pet/components/SessionSidebar/hooks/useMethods.js',
+        'src/features/pet/components/TagFilter/index.js',
+        'src/features/pet/components/BatchToolbar/index.js',
         'src/features/pet/components/SessionSidebar/index.js',
         'src/features/pet/components/ChatWindow/index.js',
         'src/features/pet/petManager.ui.js',

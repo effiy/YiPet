@@ -4,7 +4,7 @@
   }
   const proto = window.PetManager.prototype;
 
-  proto.attachDragHandlersToTag = function (tagBtn, tag) {
+  proto.attachDragHandlersToTag = function (tagBtn, tag, options = {}) {
     if (!tagBtn || !tag) return;
     
     // 跳过无标签按钮和展开按钮的拖拽处理
@@ -104,12 +104,19 @@
       this.saveTagOrder(newOrder);
       this.showNotification('标签顺序已更新', 'success');
       setTimeout(() => {
-        this.updateTagFilterUI();
+        if (options && typeof options.onAfterReorder === 'function') {
+          options.onAfterReorder();
+          return;
+        }
+        if (!options || !options.skipDomUpdate) {
+          this.updateTagFilterUI();
+        }
       }, 100);
     });
     // 移除内联样式，使用 CSS 类控制 hover 效果
     // hover 效果现在由 CSS 统一管理
-    tagBtn.addEventListener('click', (e) => {
+    if (!options || !options.skipClick) {
+      tagBtn.addEventListener('click', (e) => {
       // 如果刚刚完成拖拽，不触发点击事件
       if (isDragging || Date.now() - dragStartTime < 200) {
         e.preventDefault();
@@ -133,7 +140,8 @@
       }
       this.updateTagFilterUI();
       this.updateSessionSidebar();
-    });
+      });
+    }
   };
 
   proto.addInteractions = function() {

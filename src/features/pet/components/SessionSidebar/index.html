@@ -23,7 +23,9 @@
             </div>
         </div>
         <div class="session-sidebar-scrollable-content">
-            <div id="yi-pet-tag-filter-mount"></div>
+            <div id="yi-pet-tag-filter-mount">
+                <TagFilter :uiTick="uiTick" />
+            </div>
             <div class="session-sidebar-actions-row">
                 <div class="session-actions-left-group">
                     <button
@@ -51,7 +53,9 @@
                     >➕ 新建</button>
                 </div>
             </div>
-            <div id="yi-pet-batch-toolbar-mount"></div>
+            <div id="yi-pet-batch-toolbar-mount">
+                <BatchToolbar :uiTick="uiTick" />
+            </div>
             <div class="session-list" id="session-list"></div>
         </div>
     </div>

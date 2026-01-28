@@ -125,7 +125,7 @@
     }
 
     function createComponent(params) {
-        const { store, computedProps, methods, manager, template } = params || {};
+        const { store, computedProps, methods, manager, template, TagFilter, BatchToolbar } = params || {};
         const Vue = window.Vue || {};
         const { defineComponent, computed, ref, watch, onMounted, onBeforeUnmount, h } = Vue;
         if (typeof defineComponent !== 'function') return null;
@@ -150,6 +150,9 @@
         if (!canUseTemplate || typeof h !== 'function' || typeof ref !== 'function') {
             return defineComponent({
                 name: 'YiPetSessionSidebar',
+                props: {
+                    uiTick: { type: Number, required: true }
+                },
                 setup() {
                     const rootEl = ref(null);
                     const cleanups = [];
@@ -247,8 +250,27 @@
             });
         }
 
+        const TagFilterComponent =
+            TagFilter ||
+            defineComponent({
+                name: 'YiPetTagFilterStub',
+                props: { uiTick: { type: Number, required: true } },
+                template: '<div class="tag-filter-container"></div>'
+            });
+        const BatchToolbarComponent =
+            BatchToolbar ||
+            defineComponent({
+                name: 'YiPetBatchToolbarStub',
+                props: { uiTick: { type: Number, required: true } },
+                template: '<div id="batch-toolbar" class="session-batch-toolbar"></div>'
+            });
+
         return defineComponent({
             name: 'YiPetSessionSidebar',
+            components: { TagFilter: TagFilterComponent, BatchToolbar: BatchToolbarComponent },
+            props: {
+                uiTick: { type: Number, required: true }
+            },
             setup() {
                 const clearVisible = typeof computed === 'function'
                     ? computed(() => {

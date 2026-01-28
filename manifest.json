@@ -62,6 +62,8 @@
         "src/features/pet/components/SessionSidebar/hooks/store.js",
         "src/features/pet/components/SessionSidebar/hooks/useComputed.js",
         "src/features/pet/components/SessionSidebar/hooks/useMethods.js",
+        "src/features/pet/components/TagFilter/index.js",
+        "src/features/pet/components/BatchToolbar/index.js",
         "src/features/pet/components/SessionSidebar/index.js",
         "src/features/pet/components/ChatWindow/index.js",
         "src/features/pet/petManager.ui.js",
@@ -145,7 +147,9 @@
         "src/features/session/import-sessions.js",
         "src/features/pet/components/ChatWindow/index.html",
         "src/features/pet/components/SessionSidebar/index.html",
-        "src/features/pet/components/SessionItem/index.html"
+        "src/features/pet/components/SessionItem/index.html",
+        "src/features/pet/components/TagFilter/index.html",
+        "src/features/pet/components/BatchToolbar/index.html"
       ],
       "matches": ["<all_urls>"]
     }

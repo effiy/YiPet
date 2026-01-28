@@ -6,6 +6,7 @@
 
   proto.updateTagFilterUI = function () {
     if (!this.sessionSidebar) return;
+    if (this.sessionSidebar.querySelector('[data-pet-tag-filter="vue"]')) return;
     const tagList = this.sessionSidebar.querySelector('.tag-filter-list');
     if (!tagList) return;
     const reverseBtn = this.sessionSidebar.querySelector('.tag-filter-reverse');
@@ -310,10 +311,15 @@
 
         const { createApp, defineComponent, h, ref } = Vue;
         const sessionsRef = ref([]);
-        const uiTick = ref(0);
+        const uiTick =
+          this._sidebarUiTickRef && typeof this._sidebarUiTickRef === 'object' && this._sidebarUiTickRef && 'value' in this._sidebarUiTickRef
+            ? this._sidebarUiTickRef
+            : ref(0);
+        this._sidebarUiTickRef = uiTick;
         const bumpUiTick = () => {
           uiTick.value += 1;
         };
+        this._bumpSidebarUiTick = bumpUiTick;
         let sessionItemTemplate = '';
         try {
           if (SessionItemCtor && typeof SessionItemCtor.loadTemplate === 'function') {
@@ -506,6 +512,9 @@
     }
   };
   proto.updateBatchToolbar = function () {
+    if (this.sessionSidebar && this.sessionSidebar.querySelector('[data-pet-batch-toolbar="vue"]')) {
+      return;
+    }
     const selectedCount = document.getElementById('selected-count');
     const batchDeleteBtn = document.getElementById('batch-delete-btn');
     const selectAllCheckbox = this._selectAllCheckbox || document.getElementById('select-all-checkbox');
@@ -558,6 +567,17 @@
           this.selectedSessionIds.add(session.key);
         }
       });
+    }
+
+    const hasVueSessionList = !!this._sessionListVueApp && this._sessionListVueMount === this.sessionSidebar?.querySelector?.('.session-list');
+    const hasVueBatchToolbar = !!this.sessionSidebar?.querySelector?.('[data-pet-batch-toolbar="vue"]');
+    if (hasVueSessionList || hasVueBatchToolbar) {
+      if (typeof this._bumpSidebarUiTick === 'function') {
+        this._bumpSidebarUiTick();
+      } else if (typeof this.updateSessionSidebar === 'function') {
+        this.updateSessionSidebar();
+      }
+      return;
     }
 
     // 更新所有复选框状态和选中类（使用 batch-selected 类，参考 YiWeb）

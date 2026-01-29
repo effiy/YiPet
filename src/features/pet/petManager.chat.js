@@ -423,6 +423,9 @@
             return;
         }
 
+        const chatWindowComponent = this.chatWindowComponent;
+        const useVueMessages = chatWindowComponent && typeof chatWindowComponent._messagesSet === 'function';
+
         const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
         if (!messagesContainer) {
             return;
@@ -432,6 +435,55 @@
         const session = this.sessions[this.currentSessionId];
         if (!session) {
             console.warn('未找到当前会话:', this.currentSessionId);
+            return;
+        }
+
+        const isApiRequestSession = session._isApiRequestSession && session._apiRequestInfo;
+
+        if (useVueMessages && !isApiRequestSession) {
+            let pageInfo = null;
+            if (session) {
+                const sessionUrl = session.url && session.url.trim() ? session.url : null;
+                pageInfo = {
+                    title: session.title || document.title || '当前页面',
+                    url: sessionUrl || window.location.href,
+                    description: session.pageDescription || ''
+                };
+                if (!sessionUrl) pageInfo.url = '';
+            } else {
+                const currentPageInfo = this.getPageInfo();
+                pageInfo = { title: currentPageInfo.title, url: currentPageInfo.url, description: currentPageInfo.description || '' };
+            }
+            pageInfo.iconUrl = this.getPageIconUrl();
+            const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);
+            const welcomeItem = { type: 'pet', isWelcome: true, welcomeHtml: pageInfoHtml, timestamp: Date.now() };
+
+            const list = [welcomeItem];
+            if (session.messages && Array.isArray(session.messages)) {
+                for (let idx = 0; idx < session.messages.length; idx++) {
+                    const msg = session.messages[idx];
+                    const messageType = msg.type === 'pet' ? 'pet' : 'user';
+                    const messageContent = msg.content || msg.message || '';
+                    const messageTimestamp = msg.timestamp || Date.now();
+                    const messageImage = msg.imageDataUrl || (Array.isArray(msg.imageDataUrls) && msg.imageDataUrls.length > 0 ? msg.imageDataUrls[0] : null);
+                    if (!messageContent.trim() && !messageImage) continue;
+                    list.push({
+                        type: messageType,
+                        content: messageContent,
+                        timestamp: messageTimestamp,
+                        imageDataUrl: messageImage || null,
+                        error: !!msg.error,
+                        aborted: !!msg.aborted,
+                        streaming: false
+                    });
+                }
+            }
+            chatWindowComponent._messagesSet(list);
+            chatWindowComponent._setMessagesViewState('messages', null);
+            setTimeout(() => {
+                if (chatWindowComponent.scrollToBottom) chatWindowComponent.scrollToBottom();
+            }, 100);
+            await this.autoHandleSessionForUrl(pageInfo ? pageInfo.url : '');
             return;
         }
 
@@ -860,6 +912,22 @@
     // 刷新第一条欢迎消息（当会话信息更新时调用）
     proto.refreshWelcomeMessage = async function () {
         if (!this.chatWindow || !this.currentSessionId) {
+            return;
+        }
+
+        const chatWindowComponent = this.chatWindowComponent;
+        if (chatWindowComponent && typeof chatWindowComponent._messagesUpdateWelcome === 'function') {
+            const session = this.sessions[this.currentSessionId];
+            if (!session) return;
+            const pageInfo = {
+                title: session.title || document.title || '当前页面',
+                url: session.url || window.location.href,
+                description: session.pageDescription || ''
+            };
+            pageInfo.iconUrl = this.getPageIconUrl();
+            const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);
+            chatWindowComponent._messagesUpdateWelcome(pageInfoHtml);
+            await this.autoHandleSessionForUrl(pageInfo.url);
             return;
         }
 

@@ -20,7 +20,9 @@
                     class="yi-pet-chat-messages"
                     role="log"
                     aria-live="polite"
-                ></div>
+                >
+                    <ChatMessages :instance="instance" :manager="manager" />
+                </div>
                 <ChatInput :uiTick="uiTick" />
             </div>
         </div>

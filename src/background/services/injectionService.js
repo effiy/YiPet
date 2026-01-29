@@ -64,6 +64,7 @@ class InjectionService {
         'src/features/pet/components/BatchToolbar/index.js',
         'src/features/pet/components/ChatInput/index.js',
         'src/features/pet/components/SessionSidebar/index.js',
+        'src/features/pet/components/ChatMessages/index.js',
         'src/features/pet/components/ChatWindow/index.js',
         'src/features/pet/petManager.ui.js',
         'src/features/pet/petManager.drag.js',

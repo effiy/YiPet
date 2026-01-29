@@ -659,9 +659,13 @@
             const scrollableContent = document.createElement('div');
             scrollableContent.className = 'session-sidebar-scrollable-content';
 
-            // Tag Filter Container
-            const tagFilterContainer = this.createTagFilter();
-            scrollableContent.appendChild(tagFilterContainer);
+            // Tag Filter Container（由 TagFilter 组件提供 createTagFilterElement）
+            const TagFilterModule = window.PetManager?.Components?.TagFilter;
+            const tagFilterContainer =
+                TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function'
+                    ? TagFilterModule.createTagFilterElement(manager)
+                    : this.createTagFilter();
+            if (tagFilterContainer) scrollableContent.appendChild(tagFilterContainer);
 
             // Actions Row (移到 tag-filter-list 下面)
             scrollableContent.appendChild(secondRow);
@@ -696,136 +700,17 @@
         }
 
         createTagFilter() {
-            const manager = this.manager;
-
-            // Tag Filter Container
-            const tagFilterContainer = document.createElement('div');
-            tagFilterContainer.className = 'tag-filter-container';
-
-            // Filter Header
-            const filterHeader = document.createElement('div');
-            filterHeader.className = 'tag-filter-header';
-
-            // Filter Actions
-            const filterActions = document.createElement('div');
-            filterActions.className = 'tag-filter-actions';
-
-
-
-            // Expand Toggle Button
-            const expandToggleBtn = document.createElement('button');
-            expandToggleBtn.className = 'tag-filter-action-btn tag-filter-expand';
-            if (manager.tagFilterExpanded) expandToggleBtn.classList.add('active');
-            expandToggleBtn.title = '展开/收起更多标签';
-            expandToggleBtn.innerHTML = '⋮'; // Vertical ellipsis
-
-            expandToggleBtn.addEventListener('click', () => {
-                manager.tagFilterExpanded = !manager.tagFilterExpanded;
-                expandToggleBtn.classList.toggle('active', manager.tagFilterExpanded);
-                if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            });
-
-            // Reverse Filter Button
-            const reverseFilterBtn = document.createElement('button');
-            reverseFilterBtn.className = 'tag-filter-action-btn tag-filter-reverse';
-            if (manager.tagFilterReverse) reverseFilterBtn.classList.add('active');
-            reverseFilterBtn.title = '反向过滤';
-            reverseFilterBtn.innerHTML = '⇄';
-
-            reverseFilterBtn.addEventListener('click', () => {
-                manager.tagFilterReverse = !manager.tagFilterReverse;
-                reverseFilterBtn.classList.toggle('active', manager.tagFilterReverse);
-                if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            });
-
-            // No Tags Filter Button
-            const noTagsFilterBtn = document.createElement('button');
-            noTagsFilterBtn.className = 'tag-filter-action-btn tag-filter-no-tags';
-            if (manager.tagFilterNoTags) noTagsFilterBtn.classList.add('active');
-            noTagsFilterBtn.title = '筛选无标签';
-            noTagsFilterBtn.innerHTML = '∅';
-
-            noTagsFilterBtn.addEventListener('click', () => {
-                manager.tagFilterNoTags = !manager.tagFilterNoTags;
-                noTagsFilterBtn.classList.toggle('active', manager.tagFilterNoTags);
-                if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            });
-
-            // Clear Filter Button
-            const clearFilterBtn = document.createElement('button');
-            clearFilterBtn.className = 'tag-filter-clear-btn';
-            clearFilterBtn.textContent = '×';
-            clearFilterBtn.title = '清除筛选';
-
-            const updateClearFilterBtnStyle = () => {
-                const hasSelectedTags = manager.selectedFilterTags && manager.selectedFilterTags.length > 0;
-                const hasSearchKeyword = manager.tagFilterSearchKeyword && manager.tagFilterSearchKeyword.trim() !== '';
-                const hasActiveFilter = hasSelectedTags || manager.tagFilterNoTags || hasSearchKeyword;
-
-                clearFilterBtn.classList.toggle('active', hasActiveFilter);
-            };
-
-            // Initial check
-            updateClearFilterBtnStyle();
-
-            clearFilterBtn.addEventListener('click', () => {
-                const hasSelectedTags = manager.selectedFilterTags && manager.selectedFilterTags.length > 0;
-                const hasSearchKeyword = manager.tagFilterSearchKeyword && manager.tagFilterSearchKeyword.trim() !== '';
-                const hasActiveFilter = hasSelectedTags || manager.tagFilterNoTags || hasSearchKeyword;
-
-                if (hasActiveFilter) {
-                    manager.selectedFilterTags = [];
-                    manager.tagFilterNoTags = false;
-                    manager.tagFilterSearchKeyword = '';
-
-                    // Reset search input
-                    const tagSearchInput = tagFilterContainer.querySelector('.tag-filter-search');
-                    const tagSearchClearBtn = tagFilterContainer.querySelector('.tag-filter-search-clear');
-                    if (tagSearchInput) tagSearchInput.value = '';
-                    if (tagSearchClearBtn) tagSearchClearBtn.classList.remove('visible');
-
-                    if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
-                    if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-                }
-            });
-
-            filterActions.appendChild(reverseFilterBtn);
-            filterActions.appendChild(noTagsFilterBtn);
-            filterActions.appendChild(expandToggleBtn);
-            filterActions.appendChild(clearFilterBtn);
-
-            // Search Input
-            if (typeof manager.createSearchInput === 'function') {
-                const searchComp = manager.createSearchInput({
-                    className: 'tag-filter-search',
-                    placeholder: '搜索标签...',
-                    value: manager.tagFilterSearchKeyword || '',
-                    onChange: (v) => {
-                        manager.tagFilterSearchKeyword = v;
-                        if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
-                    },
-                    onClear: () => {
-                        manager.tagFilterSearchKeyword = '';
-                        if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
-                    },
-                    debounce: 300
-                });
-                filterHeader.appendChild(searchComp.container);
+            const TagFilterModule = window.PetManager?.Components?.TagFilter;
+            if (TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function') {
+                return TagFilterModule.createTagFilterElement(this.manager);
             }
-
-            filterHeader.appendChild(filterActions);
-
-            // Tag List Container
-            const tagFilterList = document.createElement('div');
-            tagFilterList.className = 'tag-filter-list';
-
-            tagFilterContainer.appendChild(filterHeader);
-            tagFilterContainer.appendChild(tagFilterList);
-
-            return tagFilterContainer;
+            // 无 TagFilter 模块时的最小占位，供 updateTagFilterUI 挂载
+            const container = document.createElement('div');
+            container.className = 'tag-filter-container';
+            const list = document.createElement('div');
+            list.className = 'tag-filter-list';
+            container.appendChild(list);
+            return container;
         }
 
         buildBatchToolbar() {
@@ -2930,7 +2815,7 @@
                     !!tagMount.querySelector('[data-pet-tag-filter="vue"]') || !!sidebarEl.querySelector('[data-pet-tag-filter="vue"]');
                 if (!hasVueTagFilter) {
                     const tagFilterContainer = this.createTagFilter();
-                    tagMount.replaceWith(tagFilterContainer);
+                    if (tagFilterContainer) tagMount.replaceWith(tagFilterContainer);
                 }
             }
 

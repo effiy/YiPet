@@ -362,8 +362,131 @@
         });
     }
 
+    /**
+     * 创建 fallback 模式下的 tag-filter DOM（无 Vue 时使用，如 ChatWindow.createSidebar）
+     * @param {Object} manager - PetManager 实例
+     * @returns {HTMLElement} tag-filter-container 根元素
+     */
+    function createTagFilterElement(manager) {
+        const tagFilterContainer = document.createElement('div');
+        tagFilterContainer.className = 'tag-filter-container';
+
+        const filterHeader = document.createElement('div');
+        filterHeader.className = 'tag-filter-header';
+
+        const filterActions = document.createElement('div');
+        filterActions.className = 'tag-filter-actions';
+
+        const expandToggleBtn = document.createElement('button');
+        expandToggleBtn.className = 'tag-filter-action-btn tag-filter-expand';
+        if (manager.tagFilterExpanded) expandToggleBtn.classList.add('active');
+        expandToggleBtn.title = '展开/收起更多标签';
+        expandToggleBtn.innerHTML = '⋮';
+
+        expandToggleBtn.addEventListener('click', () => {
+            manager.tagFilterExpanded = !manager.tagFilterExpanded;
+            expandToggleBtn.classList.toggle('active', manager.tagFilterExpanded);
+            if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
+            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+        });
+
+        const reverseFilterBtn = document.createElement('button');
+        reverseFilterBtn.className = 'tag-filter-action-btn tag-filter-reverse';
+        if (manager.tagFilterReverse) reverseFilterBtn.classList.add('active');
+        reverseFilterBtn.title = '反向过滤';
+        reverseFilterBtn.innerHTML = '⇄';
+
+        reverseFilterBtn.addEventListener('click', () => {
+            manager.tagFilterReverse = !manager.tagFilterReverse;
+            reverseFilterBtn.classList.toggle('active', manager.tagFilterReverse);
+            if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
+            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+        });
+
+        const noTagsFilterBtn = document.createElement('button');
+        noTagsFilterBtn.className = 'tag-filter-action-btn tag-filter-no-tags';
+        if (manager.tagFilterNoTags) noTagsFilterBtn.classList.add('active');
+        noTagsFilterBtn.title = '筛选无标签';
+        noTagsFilterBtn.innerHTML = '∅';
+
+        noTagsFilterBtn.addEventListener('click', () => {
+            manager.tagFilterNoTags = !manager.tagFilterNoTags;
+            noTagsFilterBtn.classList.toggle('active', manager.tagFilterNoTags);
+            if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
+            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+        });
+
+        const clearFilterBtn = document.createElement('button');
+        clearFilterBtn.className = 'tag-filter-clear-btn';
+        clearFilterBtn.textContent = '×';
+        clearFilterBtn.title = '清除筛选';
+
+        const updateClearFilterBtnStyle = () => {
+            const hasSelectedTags = manager.selectedFilterTags && manager.selectedFilterTags.length > 0;
+            const hasSearchKeyword = manager.tagFilterSearchKeyword && manager.tagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || manager.tagFilterNoTags || hasSearchKeyword;
+            clearFilterBtn.classList.toggle('active', hasActiveFilter);
+        };
+
+        updateClearFilterBtnStyle();
+
+        clearFilterBtn.addEventListener('click', () => {
+            const hasSelectedTags = manager.selectedFilterTags && manager.selectedFilterTags.length > 0;
+            const hasSearchKeyword = manager.tagFilterSearchKeyword && manager.tagFilterSearchKeyword.trim() !== '';
+            const hasActiveFilter = hasSelectedTags || manager.tagFilterNoTags || hasSearchKeyword;
+
+            if (hasActiveFilter) {
+                manager.selectedFilterTags = [];
+                manager.tagFilterNoTags = false;
+                manager.tagFilterSearchKeyword = '';
+
+                const tagSearchInput = tagFilterContainer.querySelector('.tag-filter-search');
+                const tagSearchClearBtn = tagFilterContainer.querySelector('.tag-filter-search-clear');
+                if (tagSearchInput) tagSearchInput.value = '';
+                if (tagSearchClearBtn) tagSearchClearBtn.classList.remove('visible');
+
+                if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
+                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+            }
+        });
+
+        filterActions.appendChild(reverseFilterBtn);
+        filterActions.appendChild(noTagsFilterBtn);
+        filterActions.appendChild(expandToggleBtn);
+        filterActions.appendChild(clearFilterBtn);
+
+        if (typeof manager.createSearchInput === 'function') {
+            const searchComp = manager.createSearchInput({
+                className: 'tag-filter-search',
+                placeholder: '搜索标签...',
+                value: manager.tagFilterSearchKeyword || '',
+                onChange: (v) => {
+                    manager.tagFilterSearchKeyword = v;
+                    if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
+                },
+                onClear: () => {
+                    manager.tagFilterSearchKeyword = '';
+                    if (typeof manager.updateTagFilterUI === 'function') manager.updateTagFilterUI();
+                },
+                debounce: 300
+            });
+            filterHeader.appendChild(searchComp.container);
+        }
+
+        filterHeader.appendChild(filterActions);
+
+        const tagFilterList = document.createElement('div');
+        tagFilterList.className = 'tag-filter-list';
+
+        tagFilterContainer.appendChild(filterHeader);
+        tagFilterContainer.appendChild(tagFilterList);
+
+        return tagFilterContainer;
+    }
+
     window.PetManager.Components.TagFilter = {
         loadTemplate,
-        createComponent
+        createComponent,
+        createTagFilterElement
     };
 })();

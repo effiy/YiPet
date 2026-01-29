@@ -5,31 +5,15 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const TAG_FILTER_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/TagFilter/index.html';
-    let tagFilterTemplatePromise = null;
-    let tagFilterTemplateCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadTemplate() {
-        if (tagFilterTemplateCache) return tagFilterTemplateCache;
-        if (!tagFilterTemplatePromise) {
-            tagFilterTemplatePromise = (async () => {
-                const url = resolveExtensionResourceUrl(TAG_FILTER_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load TagFilter template: ${res.status}`);
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const el = doc.querySelector('#yi-pet-tag-filter-template');
-                tagFilterTemplateCache = el ? el.innerHTML : '';
-                return tagFilterTemplateCache;
-            })();
-        }
-        return tagFilterTemplatePromise;
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
+        return await DomHelper.loadHtmlTemplate(
+            TAG_FILTER_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-tag-filter-template',
+            'Failed to load TagFilter template'
+        );
     }
 
     function createComponent(params) {
@@ -131,7 +115,7 @@
             </div>
         `;
 
-        const resolvedTemplate = String(template || tagFilterTemplateCache || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
 
         return defineComponent({
             name: 'YiPetTagFilter',

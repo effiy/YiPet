@@ -10,32 +10,19 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const SESSION_ITEM_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionItem/index.html';
-    let sessionItemTemplatePromise = null;
     let sessionItemTemplateCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadTemplate() {
         if (sessionItemTemplateCache) return sessionItemTemplateCache;
-        if (!sessionItemTemplatePromise) {
-            sessionItemTemplatePromise = (async () => {
-                const url = resolveExtensionResourceUrl(SESSION_ITEM_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load SessionItem template: ${res.status}`);
-
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const sessionItemEl = doc.querySelector('#yi-pet-session-item-template');
-                sessionItemTemplateCache = sessionItemEl ? sessionItemEl.innerHTML : '';
-                return sessionItemTemplateCache;
-            })();
-        }
-        return sessionItemTemplatePromise;
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
+        const tpl = await DomHelper.loadHtmlTemplate(
+            SESSION_ITEM_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-session-item-template',
+            'Failed to load SessionItem template'
+        );
+        sessionItemTemplateCache = tpl;
+        return sessionItemTemplateCache;
     }
 
     function expandHtmlTemplates(root) {

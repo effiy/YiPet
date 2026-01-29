@@ -46,6 +46,93 @@ class DomHelper {
         }
     }
 
+    static resolveExtensionResourceUrl(relativePath) {
+        if (!relativePath) return '';
+        try {
+            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
+        } catch (_) {}
+        return relativePath;
+    }
+
+    static async loadHtmlTemplate(resourcePath, selector, errorMessage) {
+        const resolvedPath = String(resourcePath || '').trim();
+        const resolvedSelector = String(selector || '').trim();
+        const key = `${resolvedPath}::${resolvedSelector}`;
+
+        const cache = this._templateCache || (this._templateCache = Object.create(null));
+        if (Object.prototype.hasOwnProperty.call(cache, key)) return cache[key];
+
+        const pending = this._templatePromises || (this._templatePromises = Object.create(null));
+        if (pending[key]) return pending[key];
+
+        pending[key] = (async () => {
+            const url = this.resolveExtensionResourceUrl(resolvedPath);
+            const res = await fetch(url);
+            if (!res.ok) {
+                const prefix = String(errorMessage || '').trim() || 'Failed to load template';
+                throw new Error(`${prefix}: ${res.status}`);
+            }
+            const html = await res.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const el = doc.querySelector(resolvedSelector);
+            const template = el ? el.innerHTML : '';
+            cache[key] = template;
+            return template;
+        })();
+
+        try {
+            return await pending[key];
+        } finally {
+            try {
+                delete pending[key];
+            } catch (_) {
+                pending[key] = null;
+            }
+        }
+    }
+
+    static pickFile(options = {}) {
+        const accept = options?.accept;
+        const multiple = !!options?.multiple;
+
+        return new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            if (accept) input.accept = accept;
+            if (multiple) input.multiple = true;
+            input.className = 'js-hidden';
+
+            const cleanup = () => {
+                try {
+                    input.removeEventListener('change', onChange);
+                } catch (_) {}
+                try {
+                    if (input.parentNode) input.parentNode.removeChild(input);
+                } catch (_) {}
+            };
+
+            const onChange = () => {
+                const files = input.files;
+                cleanup();
+                if (multiple) {
+                    resolve(files ? Array.from(files) : []);
+                    return;
+                }
+                resolve(files && files[0] ? files[0] : null);
+            };
+
+            input.addEventListener('change', onChange);
+            document.body.appendChild(input);
+
+            try {
+                input.click();
+            } catch (_) {
+                cleanup();
+                resolve(multiple ? [] : null);
+            }
+        });
+    }
+
     /**
      * 安全设置元素文本内容
      * @param {HTMLElement|null} element - 元素
@@ -142,4 +229,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.DomHelper = DomHelper;
 }
-

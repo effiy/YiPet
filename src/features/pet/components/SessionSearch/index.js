@@ -5,31 +5,15 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const SESSION_SEARCH_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionSearch/index.html';
-    let sessionSearchTemplatePromise = null;
-    let sessionSearchTemplateCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadTemplate() {
-        if (sessionSearchTemplateCache) return sessionSearchTemplateCache;
-        if (!sessionSearchTemplatePromise) {
-            sessionSearchTemplatePromise = (async () => {
-                const url = resolveExtensionResourceUrl(SESSION_SEARCH_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load SessionSearch template: ${res.status}`);
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const el = doc.querySelector('#yi-pet-session-search-template');
-                sessionSearchTemplateCache = el ? el.innerHTML : '';
-                return sessionSearchTemplateCache;
-            })();
-        }
-        return sessionSearchTemplatePromise;
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
+        return await DomHelper.loadHtmlTemplate(
+            SESSION_SEARCH_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-session-search-template',
+            'Failed to load SessionSearch template'
+        );
     }
 
     function createComponent(params) {
@@ -51,7 +35,7 @@
             </div>
         `;
 
-        const resolvedTemplate = String(template || sessionSearchTemplateCache || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
 
         return defineComponent({
             name: 'YiPetSessionSearch',

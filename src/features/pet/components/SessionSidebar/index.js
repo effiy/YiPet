@@ -65,19 +65,15 @@
             };
 
             const onImportClick = () => {
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.accept = '.zip';
-                fileInput.className = 'js-hidden';
-                fileInput.addEventListener('change', async (e) => {
-                    const file = e?.target?.files?.[0];
-                    if (file && typeof manager?.importSessionsFromZip === 'function') {
-                        await manager.importSessionsFromZip(file);
-                    }
-                });
-                document.body.appendChild(fileInput);
-                fileInput.click();
-                document.body.removeChild(fileInput);
+                const DomHelper = window.DomHelper;
+                if (!DomHelper || typeof DomHelper.pickFile !== 'function') return;
+                DomHelper.pickFile({ accept: '.zip' })
+                    .then(async (file) => {
+                        if (file && typeof manager?.importSessionsFromZip === 'function') {
+                            await manager.importSessionsFromZip(file);
+                        }
+                    })
+                    .catch(() => {});
             };
 
             const onAddClick = () => {
@@ -96,32 +92,15 @@
         };
 
     const SESSION_SIDEBAR_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionSidebar/index.html';
-    let sessionSidebarTemplatePromise = null;
-    let sessionSidebarTemplateCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadTemplate() {
-        if (sessionSidebarTemplateCache) return sessionSidebarTemplateCache;
-        if (!sessionSidebarTemplatePromise) {
-            sessionSidebarTemplatePromise = (async () => {
-                const url = resolveExtensionResourceUrl(SESSION_SIDEBAR_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load SessionSidebar template: ${res.status}`);
-
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const sessionSidebarEl = doc.querySelector('#yi-pet-session-sidebar-template');
-                sessionSidebarTemplateCache = sessionSidebarEl ? sessionSidebarEl.innerHTML : '';
-                return sessionSidebarTemplateCache;
-            })();
-        }
-        return sessionSidebarTemplatePromise;
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
+        return await DomHelper.loadHtmlTemplate(
+            SESSION_SIDEBAR_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-session-sidebar-template',
+            'Failed to load SessionSidebar template'
+        );
     }
 
     function createComponent(params) {
@@ -134,7 +113,7 @@
         const resolvedMethods = methods || useMethods({ manager: manager || {}, store: resolvedStore });
 
         const resolvedTemplate =
-            String(template || sessionSidebarTemplateCache || '').trim() ||
+            String(template || '').trim() ||
             '<div><div class="session-sidebar-header"></div><div class="session-sidebar-scrollable-content"><div id="yi-pet-tag-filter-mount"></div><div id="yi-pet-batch-toolbar-mount"></div><div class="session-list" id="session-list"></div></div></div>';
 
         const resolvedDomSearchTemplate = `

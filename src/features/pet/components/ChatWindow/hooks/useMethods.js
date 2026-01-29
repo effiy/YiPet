@@ -49,19 +49,15 @@
             };
 
             const onImportClick = () => {
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.accept = '.zip';
-                fileInput.className = 'js-hidden';
-                fileInput.addEventListener('change', async (e) => {
-                    const file = e?.target?.files?.[0];
-                    if (file && typeof manager.importSessionsFromZip === 'function') {
-                        await manager.importSessionsFromZip(file);
-                    }
-                });
-                document.body.appendChild(fileInput);
-                fileInput.click();
-                document.body.removeChild(fileInput);
+                const DomHelper = window.DomHelper;
+                if (!DomHelper || typeof DomHelper.pickFile !== 'function') return;
+                DomHelper.pickFile({ accept: '.zip' })
+                    .then(async (file) => {
+                        if (file && typeof manager.importSessionsFromZip === 'function') {
+                            await manager.importSessionsFromZip(file);
+                        }
+                    })
+                    .catch(() => {});
             };
 
             const onAddClick = () => {

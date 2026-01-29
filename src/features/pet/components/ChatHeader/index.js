@@ -5,31 +5,15 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const CHAT_HEADER_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/ChatHeader/index.html';
-    let chatHeaderTemplatePromise = null;
-    let chatHeaderTemplateCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadTemplate() {
-        if (chatHeaderTemplateCache) return chatHeaderTemplateCache;
-        if (!chatHeaderTemplatePromise) {
-            chatHeaderTemplatePromise = (async () => {
-                const url = resolveExtensionResourceUrl(CHAT_HEADER_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load ChatHeader template: ${res.status}`);
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const el = doc.querySelector('#yi-pet-chat-header-template');
-                chatHeaderTemplateCache = el ? el.innerHTML : '';
-                return chatHeaderTemplateCache;
-            })();
-        }
-        return chatHeaderTemplatePromise;
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
+        return await DomHelper.loadHtmlTemplate(
+            CHAT_HEADER_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-chat-header-template',
+            'Failed to load ChatHeader template'
+        );
     }
 
     function createComponent(params) {
@@ -67,7 +51,7 @@
             </div>
         `;
 
-        const resolvedTemplate = String(template || chatHeaderTemplateCache || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
 
         return defineComponent({
             name: 'YiPetChatHeader',

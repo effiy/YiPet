@@ -67,19 +67,15 @@
                   };
 
                   const onImportClick = () => {
-                      const fileInput = document.createElement('input');
-                      fileInput.type = 'file';
-                      fileInput.accept = '.zip';
-                      fileInput.className = 'js-hidden';
-                      fileInput.addEventListener('change', async (e) => {
-                          const file = e?.target?.files?.[0];
-                          if (file && typeof manager.importSessionsFromZip === 'function') {
-                              await manager.importSessionsFromZip(file);
-                          }
-                      });
-                      document.body.appendChild(fileInput);
-                      fileInput.click();
-                      document.body.removeChild(fileInput);
+                      const DomHelper = window.DomHelper;
+                      if (!DomHelper || typeof DomHelper.pickFile !== 'function') return;
+                      DomHelper.pickFile({ accept: '.zip' })
+                          .then(async (file) => {
+                              if (file && typeof manager.importSessionsFromZip === 'function') {
+                                  await manager.importSessionsFromZip(file);
+                              }
+                          })
+                          .catch(() => {});
                   };
 
                   const onAddClick = () => {
@@ -119,35 +115,22 @@
               };
 
     const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/ChatWindow/index.html';
-    let chatWindowTemplatesPromise = null;
     let chatWindowTemplatesCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadChatWindowTemplates() {
         if (chatWindowTemplatesCache) return chatWindowTemplatesCache;
-        if (!chatWindowTemplatesPromise) {
-            chatWindowTemplatesPromise = (async () => {
-                const url = resolveExtensionResourceUrl(CHAT_WINDOW_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load templates: ${res.status}`);
-
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const chatWindowEl = doc.querySelector('#yi-pet-chat-window-template');
-
-                chatWindowTemplatesCache = {
-                    chatWindow: chatWindowEl ? chatWindowEl.innerHTML : ''
-                };
-                return chatWindowTemplatesCache;
-            })();
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') {
+            chatWindowTemplatesCache = { chatWindow: '' };
+            return chatWindowTemplatesCache;
         }
-        return chatWindowTemplatesPromise;
+        const tpl = await DomHelper.loadHtmlTemplate(
+            CHAT_WINDOW_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-chat-window-template',
+            'Failed to load templates'
+        );
+        chatWindowTemplatesCache = { chatWindow: tpl };
+        return chatWindowTemplatesCache;
     }
 
     class ChatWindow {

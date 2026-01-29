@@ -5,31 +5,15 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const CHAT_INPUT_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/ChatInput/index.html';
-    let chatInputTemplatePromise = null;
-    let chatInputTemplateCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadTemplate() {
-        if (chatInputTemplateCache) return chatInputTemplateCache;
-        if (!chatInputTemplatePromise) {
-            chatInputTemplatePromise = (async () => {
-                const url = resolveExtensionResourceUrl(CHAT_INPUT_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load ChatInput template: ${res.status}`);
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const el = doc.querySelector('#yi-pet-chat-input-template');
-                chatInputTemplateCache = el ? el.innerHTML : '';
-                return chatInputTemplateCache;
-            })();
-        }
-        return chatInputTemplatePromise;
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
+        return await DomHelper.loadHtmlTemplate(
+            CHAT_INPUT_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-chat-input-template',
+            'Failed to load ChatInput template'
+        );
     }
 
     function createComponent(params) {
@@ -44,7 +28,7 @@
             <div class="yi-pet-chat-input-container chat-input-container"></div>
         `;
 
-        const resolvedTemplate = String(template || chatInputTemplateCache || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
 
         return defineComponent({
             name: 'YiPetChatInput',

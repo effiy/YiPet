@@ -5,31 +5,15 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const BATCH_TOOLBAR_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/BatchToolbar/index.html';
-    let batchToolbarTemplatePromise = null;
-    let batchToolbarTemplateCache = null;
-
-    function resolveExtensionResourceUrl(relativePath) {
-        try {
-            if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath);
-        } catch (_) {}
-        return relativePath;
-    }
 
     async function loadTemplate() {
-        if (batchToolbarTemplateCache) return batchToolbarTemplateCache;
-        if (!batchToolbarTemplatePromise) {
-            batchToolbarTemplatePromise = (async () => {
-                const url = resolveExtensionResourceUrl(BATCH_TOOLBAR_TEMPLATES_RESOURCE_PATH);
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Failed to load BatchToolbar template: ${res.status}`);
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const el = doc.querySelector('#yi-pet-batch-toolbar-template');
-                batchToolbarTemplateCache = el ? el.innerHTML : '';
-                return batchToolbarTemplateCache;
-            })();
-        }
-        return batchToolbarTemplatePromise;
+        const DomHelper = window.DomHelper;
+        if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
+        return await DomHelper.loadHtmlTemplate(
+            BATCH_TOOLBAR_TEMPLATES_RESOURCE_PATH,
+            '#yi-pet-batch-toolbar-template',
+            'Failed to load BatchToolbar template'
+        );
     }
 
     function createComponent(params) {
@@ -72,7 +56,7 @@
             </div>
         `;
 
-        const resolvedTemplate = String(template || batchToolbarTemplateCache || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
 
         return defineComponent({
             name: 'YiPetBatchToolbar',

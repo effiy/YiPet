@@ -586,30 +586,31 @@
             const sidebarHeader = document.createElement('div');
             sidebarHeader.className = 'session-sidebar-header';
 
-            // First Row: Search
-            const firstRow = document.createElement('div');
-            firstRow.className = 'session-sidebar-search-row';
-
-            const searchContainer = document.createElement('div');
-            searchContainer.className = 'session-search-container';
-
-            const searchInput = document.createElement('input');
-            searchInput.type = 'text';
-            searchInput.placeholder = '搜索会话...';
-            searchInput.value = manager.sessionTitleFilter || '';
-            searchInput.id = 'session-search-input';
-            searchInput.className = 'session-search-input';
-
-            // Clear Button
-            const clearBtn = document.createElement('button');
-            clearBtn.innerHTML = '✕';
-            clearBtn.type = 'button';
-            clearBtn.className = 'session-search-clear-btn';
-
-            searchContainer.appendChild(searchInput);
-            searchContainer.appendChild(clearBtn);
-            firstRow.appendChild(searchContainer);
-
+            // First Row: Search（由 SessionSearch 组件提供 createSearchElement）
+            const SessionSearchModule = window.PetManager?.Components?.SessionSearch;
+            const firstRow =
+                SessionSearchModule && typeof SessionSearchModule.createSearchElement === 'function'
+                    ? SessionSearchModule.createSearchElement(manager)
+                    : (() => {
+                          const row = document.createElement('div');
+                          row.className = 'session-sidebar-search-row';
+                          const searchContainer = document.createElement('div');
+                          searchContainer.className = 'session-search-container';
+                          const searchInput = document.createElement('input');
+                          searchInput.type = 'text';
+                          searchInput.placeholder = '搜索会话...';
+                          searchInput.value = manager.sessionTitleFilter || '';
+                          searchInput.id = 'session-search-input';
+                          searchInput.className = 'session-search-input';
+                          const clearBtn = document.createElement('button');
+                          clearBtn.innerHTML = '✕';
+                          clearBtn.type = 'button';
+                          clearBtn.className = 'session-search-clear-btn';
+                          searchContainer.appendChild(searchInput);
+                          searchContainer.appendChild(clearBtn);
+                          row.appendChild(searchContainer);
+                          return row;
+                      })();
             sidebarHeader.appendChild(firstRow);
             sidebar.appendChild(sidebarHeader);
 

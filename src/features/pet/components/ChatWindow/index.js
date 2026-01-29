@@ -212,9 +212,9 @@
             // Initial Theme Setup
             this.updateTheme();
 
-            // Create Header
+            // Create Header（由 ChatHeader 组件提供 createHeaderElement）
             this.header = this.createHeader(currentColor);
-            this.element.appendChild(this.header);
+            if (this.header) this.element.appendChild(this.header);
 
             // Create Content Container - 包裹侧边栏和主内容区域（水平布局）
             const contentContainer = document.createElement('div');
@@ -491,7 +491,7 @@
             })();
             const resolvedTemplate =
                 String(templates?.chatWindow || '').trim() ||
-                '<div><div class="yi-pet-chat-header" ref="headerEl" title="拖拽移动窗口 | 双击全屏" style="position: relative"><ChatHeader :uiTick="uiTick" /></div><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div></div>';
+                '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div></div>';
 
             const Root = defineComponent({
                 name: 'YiPetChatWindow',
@@ -503,7 +503,7 @@
                     const messagesEl = ref(null);
 
                     onMounted(() => {
-                        instance.header = headerEl.value;
+                        instance.header = headerEl.value?.$el ?? headerEl.value;
                         instance.sidebar = sidebarEl.value;
                         instance.mainContent = mainEl.value;
                         instance.messagesContainer = messagesEl.value;
@@ -561,90 +561,11 @@
         }
 
         createHeader(currentColor) {
-            const manager = this.manager;
-            const chatHeader = document.createElement('div');
-            chatHeader.className = 'yi-pet-chat-header';
-            chatHeader.title = '拖拽移动窗口 | 双击全屏';
-
-            // Title
-            const headerTitle = document.createElement('div');
-            headerTitle.className = 'yi-pet-chat-header-title';
-            headerTitle.id = 'yi-pet-chat-header-title';
-            headerTitle.innerHTML = `
-                <span style="font-size: 20px;">💕</span>
-                <span id="yi-pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span>
-            `;
-
-            // Buttons Container
-            const headerButtons = document.createElement('div');
-            headerButtons.className = 'yi-pet-chat-header-buttons';
-
-            // Auth Button
-            const authBtn = this.createHeaderButton(
-                'yi-pet-chat-auth-btn',
-                'API 鉴权',
-                '<path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z"/>',
-                () => manager.openAuth()
-            );
-
-            // Refresh Button
-            const refreshBtn = this.createHeaderButton(
-                'yi-pet-chat-refresh-btn',
-                '刷新',
-                '<path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A7 7 0 1 0 19 12c0-1.93-.78-3.68-2.05-4.95Z"/>',
-                (e, btn) => manager.manualRefresh(btn)
-            );
-            refreshBtn.classList.add('pet-chat-refresh-btn');
-
-            headerButtons.appendChild(authBtn);
-            headerButtons.appendChild(refreshBtn);
-
-            chatHeader.appendChild(headerTitle);
-            chatHeader.appendChild(headerButtons);
-            
-            // Sidebar Toggle Button - 添加到 header（绝对定位）
-            chatHeader.style.position = 'relative';
-            const sidebarToggleBtn = document.createElement('button');
-            sidebarToggleBtn.id = 'sidebar-toggle-btn';
-            sidebarToggleBtn.className = 'yi-pet-chat-header-btn sidebar-toggle-btn';
-            sidebarToggleBtn.setAttribute('aria-label', '折叠/展开会话列表');
-            sidebarToggleBtn.setAttribute('title', '折叠会话列表');
-            // 初始图标（侧边栏展开时显示三条横线）
-            sidebarToggleBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>';
-            sidebarToggleBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (this.toggleSidebar) {
-                    this.toggleSidebar();
-                }
-            });
-            // 位置和样式通过 CSS 类设置，按钮将始终在 title 左边
-            // 不再根据侧边栏宽度设置 left，改为通过 CSS 定位在 title 左边
-            chatHeader.appendChild(sidebarToggleBtn);
-            
-            // 初始化按钮状态
-            requestAnimationFrame(() => {
-                this.updateSidebarToggleButton(manager.sidebarCollapsed || false);
-            });
-
-            return chatHeader;
-        }
-
-        createHeaderButton(id, label, path, onClick) {
-            const btn = document.createElement('button');
-            btn.id = id;
-            btn.className = 'yi-pet-chat-header-btn';
-            btn.setAttribute('aria-label', label);
-            btn.setAttribute('title', label);
-            btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
-
-            btn.addEventListener('click', (e) => {
-                console.log(`[ChatWindow] Header button clicked: ${label}`);
-                e.stopPropagation();
-                e.preventDefault();
-                onClick(e, btn);
-            });
-            return btn;
+            const ChatHeaderModule = window.PetManager?.Components?.ChatHeader;
+            if (ChatHeaderModule && typeof ChatHeaderModule.createHeaderElement === 'function') {
+                return ChatHeaderModule.createHeaderElement(this.manager, this);
+            }
+            return null;
         }
 
         createSidebarVue() {

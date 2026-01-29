@@ -1,13 +1,6 @@
 <template id="yi-pet-chat-window-template">
     <div>
-        <div
-            class="yi-pet-chat-header"
-            ref="headerEl"
-            title="拖拽移动窗口 | 双击全屏"
-            style="position: relative"
-        >
-            <ChatHeader :uiTick="uiTick" />
-        </div>
+        <ChatHeader ref="headerEl" :uiTick="uiTick" />
 
         <div class="yi-pet-chat-content-container">
             <div class="session-sidebar" ref="sidebarEl">

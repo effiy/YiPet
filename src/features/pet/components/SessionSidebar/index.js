@@ -408,4 +408,6 @@
     window.PetManager.Components.SessionSidebar.createSidebarHeaderElement = createSidebarHeaderElement;
     window.PetManager.Components.SessionSidebar.createSidebarScrollableContentElement = createSidebarScrollableContentElement;
     window.PetManager.Components.SessionSidebar.createSessionActionsRowElement = createSessionActionsRowElement;
+    window.PetManager.Components.SessionSidebar.createBatchToolbarElement = createBatchToolbarElement;
+    window.PetManager.Components.SessionSidebar.createTagFilterFallbackElement = createTagFilterFallbackElement;
 })();

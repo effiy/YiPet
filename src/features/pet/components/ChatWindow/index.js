@@ -590,30 +590,6 @@
             return sidebar;
         }
 
-        createTagFilter() {
-            const TagFilterModule = window.PetManager?.Components?.TagFilter;
-            if (TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function') {
-                return TagFilterModule.createTagFilterElement(this.manager);
-            }
-            // 无 TagFilter 模块时的最小占位，供 updateTagFilterUI 挂载
-            const container = document.createElement('div');
-            container.className = 'tag-filter-container';
-            const list = document.createElement('div');
-            list.className = 'tag-filter-list';
-            container.appendChild(list);
-            return container;
-        }
-
-        buildBatchToolbar() {
-            const manager = this.manager;
-            if (manager && typeof manager.buildBatchToolbar === 'function') return manager.buildBatchToolbar();
-
-            const toolbar = document.createElement('div');
-            toolbar.id = 'batch-toolbar';
-            toolbar.className = 'session-batch-toolbar';
-            return toolbar;
-        }
-
         createSidebarResizer(sidebar) {
             const resizer = document.createElement('div');
             resizer.className = 'sidebar-resizer';

@@ -703,7 +703,14 @@
                 const hasVueTagFilter =
                     !!tagMount.querySelector('[data-pet-tag-filter="vue"]') || !!sidebarEl.querySelector('[data-pet-tag-filter="vue"]');
                 if (!hasVueTagFilter) {
-                    const tagFilterContainer = this.createTagFilter();
+                    const TagFilterModule = window.PetManager?.Components?.TagFilter;
+                    const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
+                    const tagFilterContainer =
+                        TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function'
+                            ? TagFilterModule.createTagFilterElement(manager)
+                            : SessionSidebarModule && typeof SessionSidebarModule.createTagFilterFallbackElement === 'function'
+                              ? SessionSidebarModule.createTagFilterFallbackElement()
+                              : null;
                     if (tagFilterContainer) tagMount.replaceWith(tagFilterContainer);
                 }
             }
@@ -714,9 +721,14 @@
                     !!batchMount.querySelector('[data-pet-batch-toolbar="vue"]') ||
                     !!sidebarEl.querySelector('[data-pet-batch-toolbar="vue"]');
                 if (!hasVueBatchToolbar) {
+                    const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
                     const batchToolbar =
-                        typeof manager.buildBatchToolbar === 'function' ? manager.buildBatchToolbar() : this.buildBatchToolbar();
-                    batchMount.replaceWith(batchToolbar);
+                        typeof manager.buildBatchToolbar === 'function'
+                            ? manager.buildBatchToolbar()
+                            : SessionSidebarModule && typeof SessionSidebarModule.createBatchToolbarElement === 'function'
+                              ? SessionSidebarModule.createBatchToolbarElement(manager)
+                              : null;
+                    if (batchToolbar) batchMount.replaceWith(batchToolbar);
                 }
             }
 
@@ -897,4 +909,3 @@
         };
     };
 })();
-

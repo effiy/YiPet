@@ -11,6 +11,64 @@
 
     const hooks = window.PetManager.Components.ChatWindowHooks || {};
 
+    const DEFAULT_SIDEBAR_WIDTH = 320;
+    const MIN_SIDEBAR_WIDTH = 320;
+    const MAX_SIDEBAR_WIDTH = 800;
+    const DEFAULT_CHAT_WINDOW_WIDTH = 850;
+    const DEFAULT_CHAT_WINDOW_HEIGHT = 720;
+    const AUTO_SCROLL_THRESHOLD_PX = 140;
+
+    function safeCall(fn, fallbackValue = null) {
+        try {
+            return fn();
+        } catch (_) {
+            return fallbackValue;
+        }
+    }
+
+    async function safeCallAsync(fn, fallbackValue = null) {
+        try {
+            return await fn();
+        } catch (_) {
+            return fallbackValue;
+        }
+    }
+
+    function getVueApi(Vue) {
+        if (
+            !Vue ||
+            typeof Vue.createApp !== 'function' ||
+            typeof Vue.defineComponent !== 'function' ||
+            typeof Vue.ref !== 'function' ||
+            typeof Vue.onMounted !== 'function'
+        ) {
+            return null;
+        }
+        return {
+            createApp: Vue.createApp,
+            defineComponent: Vue.defineComponent,
+            ref: Vue.ref,
+            onMounted: Vue.onMounted
+        };
+    }
+
+    function canUseVueTemplate(Vue) {
+        if (typeof Vue?.compile !== 'function') return false;
+        return safeCall(() => {
+            Function('return 1')();
+            return true;
+        }, false);
+    }
+
+    function getComponentModule(name) {
+        return window.PetManager?.Components?.[name] || null;
+    }
+
+    async function loadTemplateIfAvailable(mod) {
+        if (!mod || typeof mod.loadTemplate !== 'function') return '';
+        return String((await safeCallAsync(() => mod.loadTemplate(), '')) || '');
+    }
+
     const createStore =
         typeof hooks.createStore === 'function'
             ? hooks.createStore
@@ -156,7 +214,7 @@
             this._fullscreenResizeHandler = null; // 全屏模式下的 resize 事件处理器
 
             // UI State
-            this.sidebarWidth = manager.sidebarWidth || 320;
+            this.sidebarWidth = manager.sidebarWidth || DEFAULT_SIDEBAR_WIDTH;
             this.inputHeight = manager.inputHeight || 150;
             this._currentAbortController = null;
             this._searchTimer = null;
@@ -181,6 +239,61 @@
             this.isProcessing = false;
         }
 
+        _clampSidebarWidth(width) {
+            const n = Number(width);
+            if (!Number.isFinite(n)) return DEFAULT_SIDEBAR_WIDTH;
+            return Math.min(Math.max(MIN_SIDEBAR_WIDTH, n), MAX_SIDEBAR_WIDTH);
+        }
+
+        _persistSidebarWidth(width) {
+            if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
+                chrome.storage.local.set({ sidebarWidth: width });
+            }
+        }
+
+        _syncSidebarToggleButtonLeft(width) {
+            const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
+            if (!toggleBtn) return;
+            if (this.manager?.sidebarCollapsed) return;
+            toggleBtn.style.left = `${width}px`;
+        }
+
+        _applySidebarWidth(sidebar, width, { persist = false } = {}) {
+            if (!sidebar) return;
+            const clamped = this._clampSidebarWidth(width);
+            sidebar.style.setProperty('width', `${clamped}px`, 'important');
+            if (this.manager) this.manager.sidebarWidth = clamped;
+            this._syncSidebarToggleButtonLeft(clamped);
+            if (persist) this._persistSidebarWidth(clamped);
+        }
+
+        _resetComposerAfterSend(textarea, clearTextarea) {
+            if (clearTextarea && textarea) {
+                textarea.value = '';
+                textarea.style.height = '60px';
+            }
+            if (typeof this.clearDraftImages === 'function') {
+                this.clearDraftImages();
+                return;
+            }
+            this.draftImages = [];
+            if (typeof this.updateDraftImagesDisplay === 'function') this.updateDraftImagesDisplay();
+        }
+
+        async _persistChatMessages({ messageText, images, finalContent, userTimestamp, petTimestamp }) {
+            const manager = this.manager;
+            if (!manager?.currentSessionId || typeof manager.callUpdateDocument !== 'function') return;
+
+            try {
+                const userMessage = { type: 'user', content: messageText, timestamp: userTimestamp };
+                if (Array.isArray(images) && images.length > 0) userMessage.imageDataUrl = images[0];
+                const petMessage = { type: 'pet', content: finalContent, timestamp: petTimestamp };
+                await manager.callUpdateDocument(manager.currentSessionId, [userMessage, petMessage]);
+            } catch (error) {
+                console.error('[消息发送] 调用 update_document 接口时出错:', error);
+            }
+        }
+
         getMainColorFromGradient(gradient) {
             if (!gradient) return '#3b82f6';
             const match = gradient.match(/#[0-9a-fA-F]{6}/);
@@ -195,14 +308,11 @@
             this.element.id = 'pet-chat-window';
             this.updateChatWindowStyle();
 
-            // Get current color
-            const currentColor = manager.colors[manager.colorIndex];
-
             // Initial Theme Setup
             this.updateTheme();
 
             // Create Header（由 ChatHeader 组件提供 createHeaderElement）
-            this.header = this.createHeader(currentColor);
+            this.header = this.createHeader();
             if (this.header) this.element.appendChild(this.header);
 
             // Create Content Container - 包裹侧边栏和主内容区域（水平布局）
@@ -228,7 +338,7 @@
             this.mainContent.appendChild(this.messagesContainer);
 
             // Input Container - 输入区域（由 ChatInput 组件提供 createInputContainerElement）
-            this.inputContainer = this.createInputContainer(currentColor);
+            this.inputContainer = this.createInputContainer();
             if (this.inputContainer) this.mainContent.appendChild(this.inputContainer);
 
             contentContainer.appendChild(this.mainContent);
@@ -258,10 +368,11 @@
             this.element.id = 'pet-chat-window';
             this.updateChatWindowStyle();
 
-            const currentColor = manager.colors[manager.colorIndex];
-
             this.updateTheme();
 
+            const instance = this;
+            const Vue = window.Vue;
+            const vueApi = getVueApi(Vue);
             if (this._vueApp) {
                 try {
                     this._vueApp.unmount();
@@ -269,7 +380,6 @@
                 this._vueApp = null;
                 this._vueInstance = null;
             }
-
             if (this._sidebarVueApp) {
                 try {
                     this._sidebarVueApp.unmount();
@@ -277,29 +387,14 @@
                 this._sidebarVueApp = null;
                 this._sidebarVueInstance = null;
             }
-
-            const instance = this;
-            const Vue = window.Vue;
-            const canRenderWithVue =
-                Vue &&
-                typeof Vue.createApp === 'function' &&
-                typeof Vue.defineComponent === 'function' &&
-                typeof Vue.ref === 'function' &&
-                typeof Vue.onMounted === 'function';
-
-            if (!canRenderWithVue) {
+            if (!vueApi) {
                 return this.createFallbackDom();
             }
 
-            const { createApp, defineComponent, ref, onMounted } = Vue;
+            const { createApp, defineComponent, ref, onMounted } = vueApi;
 
             const store = (() => {
-                let resolved = null;
-                try {
-                    resolved = createStore(manager);
-                } catch (_) {
-                    resolved = null;
-                }
+                const resolved = safeCall(() => createStore(manager), null);
                 const current = resolved && typeof resolved === 'object' ? resolved : {};
                 if (!current.searchValue || typeof current.searchValue !== 'object' || !('value' in current.searchValue)) {
                     current.searchValue = ref(manager?.sessionTitleFilter || '');
@@ -308,12 +403,7 @@
             })();
 
             const computedProps = (() => {
-                let resolved = null;
-                try {
-                    resolved = useComputed(store);
-                } catch (_) {
-                    resolved = null;
-                }
+                const resolved = safeCall(() => useComputed(store), null);
                 const current = resolved && typeof resolved === 'object' ? resolved : {};
                 if (!current.clearVisible || typeof current.clearVisible !== 'object' || !('value' in current.clearVisible)) {
                     current.clearVisible = {
@@ -340,144 +430,49 @@
                       };
             manager._bumpSidebarUiTick = bumpUiTick;
 
-            let ChatHeader = null;
-            try {
-                const chatHeaderModule = window.PetManager?.Components?.ChatHeader;
-                if (chatHeaderModule && typeof chatHeaderModule.createComponent === 'function') {
-                    let chatHeaderTemplate = '';
-                    try {
-                        if (typeof chatHeaderModule.loadTemplate === 'function') {
-                            chatHeaderTemplate = await chatHeaderModule.loadTemplate();
-                        }
-                    } catch (_) {
-                        chatHeaderTemplate = '';
-                    }
-                    ChatHeader = chatHeaderModule.createComponent({ manager, template: chatHeaderTemplate });
-                }
-            } catch (_) {
-                ChatHeader = null;
-            }
+            const loadComponent = async (name, args, options) => {
+                const opts = options && typeof options === 'object' ? options : {};
+                const mod = getComponentModule(name);
+                if (!mod || typeof mod.createComponent !== 'function') return null;
+                if (opts.requireTemplateLoader && typeof mod.loadTemplate !== 'function') return null;
+                const template = opts.includeTemplate ? await loadTemplateIfAvailable(mod) : '';
+                const payload = opts.includeTemplate ? { ...(args || {}), template } : (args || {});
+                return safeCall(() => mod.createComponent(payload), null);
+            };
 
-            let ChatInput = null;
-            try {
-                const chatInputModule = window.PetManager?.Components?.ChatInput;
-                if (chatInputModule && typeof chatInputModule.createComponent === 'function') {
-                    let chatInputTemplate = '';
-                    try {
-                        if (typeof chatInputModule.loadTemplate === 'function') {
-                            chatInputTemplate = await chatInputModule.loadTemplate();
-                        }
-                    } catch (_) {
-                        chatInputTemplate = '';
-                    }
-                    ChatInput = chatInputModule.createComponent({ manager, instance, template: chatInputTemplate });
-                }
-            } catch (_) {
-                ChatInput = null;
-            }
-
-            let TagFilter = null;
-            try {
-                const tagFilterModule = window.PetManager?.Components?.TagFilter;
-                if (tagFilterModule && typeof tagFilterModule.loadTemplate === 'function' && typeof tagFilterModule.createComponent === 'function') {
-                    const tagFilterTemplate = await tagFilterModule.loadTemplate();
-                    TagFilter = tagFilterModule.createComponent({ manager, bumpUiTick, template: tagFilterTemplate });
-                }
-            } catch (_) {
-                TagFilter = null;
-            }
-
-            let BatchToolbar = null;
-            try {
-                const batchToolbarModule = window.PetManager?.Components?.BatchToolbar;
-                if (
-                    batchToolbarModule &&
-                    typeof batchToolbarModule.loadTemplate === 'function' &&
-                    typeof batchToolbarModule.createComponent === 'function'
-                ) {
-                    const batchToolbarTemplate = await batchToolbarModule.loadTemplate();
-                    BatchToolbar = batchToolbarModule.createComponent({ manager, bumpUiTick, template: batchToolbarTemplate });
-                }
-            } catch (_) {
-                BatchToolbar = null;
-            }
-
-            let SessionSearch = null;
-            try {
-                const sessionSearchModule = window.PetManager?.Components?.SessionSearch;
-                if (
-                    sessionSearchModule &&
-                    typeof sessionSearchModule.loadTemplate === 'function' &&
-                    typeof sessionSearchModule.createComponent === 'function'
-                ) {
-                    const sessionSearchTemplate = await sessionSearchModule.loadTemplate();
-                    SessionSearch = sessionSearchModule.createComponent({ manager, store, computedProps, methods, template: sessionSearchTemplate });
-                }
-            } catch (_) {
-                SessionSearch = null;
-            }
-
-            let SessionSidebar = null;
-            try {
-                const sessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
-                if (
-                    sessionSidebarModule &&
-                    typeof sessionSidebarModule.loadTemplate === 'function' &&
-                    typeof sessionSidebarModule.createComponent === 'function'
-                ) {
-                    const template = await sessionSidebarModule.loadTemplate();
-                    SessionSidebar = sessionSidebarModule.createComponent({
-                        template,
-                        store,
-                        computedProps,
-                        methods,
-                        manager,
-                        SessionSearch,
-                        TagFilter,
-                        BatchToolbar
-                    });
-                }
-            } catch (_) {
-                SessionSidebar = null;
-            }
+            const ChatHeader = await loadComponent('ChatHeader', { manager }, { includeTemplate: true, requireTemplateLoader: false });
+            const ChatInput = await loadComponent('ChatInput', { manager, instance }, { includeTemplate: true, requireTemplateLoader: false });
+            const TagFilter = await loadComponent('TagFilter', { manager, bumpUiTick }, { includeTemplate: true, requireTemplateLoader: true });
+            const BatchToolbar = await loadComponent('BatchToolbar', { manager, bumpUiTick }, { includeTemplate: true, requireTemplateLoader: true });
+            const SessionSearch = await loadComponent(
+                'SessionSearch',
+                { manager, store, computedProps, methods },
+                { includeTemplate: true, requireTemplateLoader: true }
+            );
+            const SessionSidebar = await loadComponent(
+                'SessionSidebar',
+                { store, computedProps, methods, manager, SessionSearch, TagFilter, BatchToolbar },
+                { includeTemplate: true, requireTemplateLoader: true }
+            );
 
             if (!SessionSidebar || !ChatHeader || !ChatInput) {
                 return this.createFallbackDom();
             }
 
-            let ChatMessages = null;
-            try {
-                const chatMessagesModule = window.PetManager?.Components?.ChatMessages;
-                if (chatMessagesModule && typeof chatMessagesModule.createComponent === 'function') {
-                    ChatMessages = chatMessagesModule.createComponent();
-                }
-            } catch (_) {
-                ChatMessages = null;
-            }
+            const chatMessagesModule = getComponentModule('ChatMessages');
+            const ChatMessages =
+                chatMessagesModule && typeof chatMessagesModule.createComponent === 'function'
+                    ? safeCall(() => chatMessagesModule.createComponent(), null)
+                    : null;
             if (!ChatMessages) {
                 return this.createFallbackDom();
             }
 
-            const evalAllowed = (() => {
-                try {
-                    Function('return 1')();
-                    return true;
-                } catch (_) {
-                    return false;
-                }
-            })();
-            const canUseTemplate = typeof Vue?.compile === 'function' && evalAllowed;
-            if (!canUseTemplate) {
+            if (!canUseVueTemplate(Vue)) {
                 return this.createFallbackDom();
             }
 
-            const templates = await (async () => {
-                try {
-                    return await loadChatWindowTemplates();
-                } catch (_) {
-                    return null;
-                }
-            })();
+            const templates = await safeCallAsync(() => loadChatWindowTemplates(), null);
             const resolvedTemplate =
                 String(templates?.chatWindow || '').trim() ||
                 '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div></div>';
@@ -549,7 +544,7 @@
             return this.element;
         }
 
-        createHeader(currentColor) {
+        createHeader() {
             const ChatHeaderModule = window.PetManager?.Components?.ChatHeader;
             if (ChatHeaderModule && typeof ChatHeaderModule.createHeaderElement === 'function') {
                 return ChatHeaderModule.createHeaderElement(this.manager, this);
@@ -569,7 +564,7 @@
             if (typeof this._setupSidebarAfterRender === 'function') {
                 this._setupSidebarAfterRender(sidebar, { bindSidebarDomEvents: true });
             } else {
-                const sidebarWidth = manager.sidebarWidth || 320;
+                const sidebarWidth = manager.sidebarWidth || DEFAULT_SIDEBAR_WIDTH;
                 manager.sidebarWidth = sidebarWidth;
                 sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
                 manager.sessionSidebar = sidebar;
@@ -607,22 +602,7 @@
             resizer.addEventListener('click', (e) => {
                 const currentTime = Date.now();
                 if (currentTime - lastClickTime < 300) {
-                    // 双击重置为默认宽度
-                    const defaultWidth = 320;
-                    const manager = this.manager;
-                    manager.sidebarWidth = defaultWidth;
-                    sidebar.style.setProperty('width', `${defaultWidth}px`, 'important');
-                    
-                    // 更新折叠按钮位置（如果按钮存在且侧边栏未折叠）
-                    const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
-                    if (toggleBtn && !manager.sidebarCollapsed) {
-                        toggleBtn.style.left = `${defaultWidth}px`;
-                    }
-
-                    // 保存宽度偏好
-                    if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
-                        chrome.storage.local.set({ sidebarWidth: defaultWidth });
-                    }
+                    this._applySidebarWidth(sidebar, DEFAULT_SIDEBAR_WIDTH, { persist: true });
                     e.preventDefault();
                     e.stopPropagation();
                 }
@@ -642,31 +622,22 @@
             resizer.classList.remove('hover');
 
             const startX = e.clientX;
-            const startWidth = parseInt(getComputedStyle(sidebar).width, 10);
-            const manager = this.manager;
+            const startWidth = parseInt(getComputedStyle(sidebar).width, 10) || DEFAULT_SIDEBAR_WIDTH;
 
             // 添加全局样式，禁用文本选择
             document.body.classList.add('pet-is-resizing');
 
             // 使用 requestAnimationFrame 优化性能
             let rafId = null;
-            let pendingWidth = startWidth;
+            let pendingWidth = this._clampSidebarWidth(startWidth);
 
             // 更新宽度的辅助函数
             const updateWidth = (newWidth) => {
-                // 限制宽度范围
-                newWidth = Math.min(Math.max(320, newWidth), 800);
-                pendingWidth = newWidth;
+                pendingWidth = this._clampSidebarWidth(newWidth);
 
                 if (rafId === null) {
                     rafId = requestAnimationFrame(() => {
-                        sidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
-                        manager.sidebarWidth = pendingWidth;
-                        // 更新折叠按钮位置（如果按钮存在且侧边栏未折叠）
-                        const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
-                        if (toggleBtn && !manager.sidebarCollapsed) {
-                            toggleBtn.style.left = `${pendingWidth}px`;
-                        }
+                        this._applySidebarWidth(sidebar, pendingWidth, { persist: false });
                         rafId = null;
                     });
                 }
@@ -687,14 +658,7 @@
                 }
 
                 // 确保最终宽度已应用
-                sidebar.style.setProperty('width', `${pendingWidth}px`, 'important');
-                manager.sidebarWidth = pendingWidth;
-                
-                // 更新折叠按钮位置（如果按钮存在且侧边栏未折叠）
-                const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn');
-                if (toggleBtn && !manager.sidebarCollapsed) {
-                    toggleBtn.style.left = `${pendingWidth}px`;
-                }
+                this._applySidebarWidth(sidebar, pendingWidth, { persist: true });
 
                 this.isResizingSidebar = false;
                 resizer.classList.remove('dragging');
@@ -702,11 +666,6 @@
 
                 // 恢复全局样式
                 document.body.classList.remove('pet-is-resizing');
-
-                // 立即保存宽度偏好
-                if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
-                    chrome.storage.local.set({ sidebarWidth: manager.sidebarWidth });
-                }
 
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
@@ -716,12 +675,170 @@
             document.addEventListener('mouseup', onMouseUp);
         }
 
-        createInputContainer(currentColor) {
+        createInputContainer() {
             const ChatInputModule = window.PetManager?.Components?.ChatInput;
             if (ChatInputModule && typeof ChatInputModule.createInputContainerElement === 'function') {
                 return ChatInputModule.createInputContainerElement(this.manager, this);
             }
             return null;
+        }
+
+        async _ensureCurrentSession() {
+            const manager = this.manager;
+            if (!manager) return;
+            if (manager.currentSessionId) return;
+            if (typeof manager.initSession === 'function') {
+                await manager.initSession();
+            }
+        }
+
+        _beginMessageRequest(abortController) {
+            this.isProcessing = true;
+            this._currentAbortController = abortController;
+            this._updateRequestStatus('loading', abortController);
+        }
+
+        _endMessageRequest() {
+            this.isProcessing = false;
+            this._currentAbortController = null;
+            this._updateRequestStatus('idle');
+        }
+
+        async _sendMessageWithVue({ manager, messageText, images, textarea, clearTextarea, abortController }) {
+            const userTimestamp = Date.now();
+            const userMsg = {
+                type: 'user',
+                content: messageText,
+                timestamp: userTimestamp,
+                imageDataUrl: images.length > 0 ? images[0] : null
+            };
+            this._messagesAppend(userMsg);
+
+            this._resetComposerAfterSend(textarea, clearTextarea);
+
+            const waitingIcon = this._getWaitingIcon();
+            const petTimestamp = Date.now();
+            const petMsg = {
+                type: 'pet',
+                content: `${waitingIcon} 正在思考...`,
+                timestamp: petTimestamp,
+                streaming: true
+            };
+            this._messagesAppend(petMsg);
+            const list = this._getMessagesList && this._getMessagesList();
+            const petIdx = list ? list.length - 1 : 0;
+
+            this.scrollToBottom(true);
+
+            let streamedContent = '';
+            const onStreamContent = (_chunk, accumulatedContent) => {
+                streamedContent = accumulatedContent;
+                if (typeof this._messagesUpdateContent === 'function') {
+                    this._messagesUpdateContent(petIdx, accumulatedContent);
+                }
+                if (this.messagesContainer) this.scrollToBottom();
+                return accumulatedContent;
+            };
+            onStreamContent.getFullContent = () => streamedContent;
+
+            const imagesForApi = images.length > 0 ? images : null;
+            const reply = await manager.generatePetResponseStream(messageText, onStreamContent, abortController, { images: imagesForApi });
+
+            const finalContent = String(streamedContent || reply || '').trim() || '请继续。';
+            if (typeof this._messagesSetStreaming === 'function') this._messagesSetStreaming(petIdx, false);
+            if (typeof this._messagesUpdateContent === 'function') this._messagesUpdateContent(petIdx, finalContent);
+
+            await this._persistChatMessages({ messageText, images, finalContent, userTimestamp, petTimestamp });
+            this.scrollToBottom();
+        }
+
+        async _sendMessageWithDom({ manager, messageText, images, textarea, clearTextarea, abortController, messagesContainer }) {
+            const userTimestamp = Date.now();
+            const userMessageElement = manager.createMessageElement(
+                messageText,
+                'user',
+                images.length > 0 ? images[0] : null,
+                userTimestamp,
+                {}
+            );
+            userMessageElement.setAttribute('data-chat-timestamp', userTimestamp.toString());
+            userMessageElement.setAttribute('data-chat-type', 'user');
+            const allMessages = Array.from(messagesContainer.children).filter((msg) => !msg.hasAttribute('data-welcome-message'));
+            userMessageElement.setAttribute('data-chat-idx', allMessages.length.toString());
+            messagesContainer.appendChild(userMessageElement);
+
+            setTimeout(() => {
+                if (typeof manager.addActionButtonsToMessage === 'function') {
+                    manager.addActionButtonsToMessage(userMessageElement);
+                }
+            }, 0);
+
+            this._resetComposerAfterSend(textarea, clearTextarea);
+
+            const waitingIcon = this._getWaitingIcon();
+            const petTimestamp = Date.now();
+            const petMessageElement = manager.createMessageElement(
+                `${waitingIcon} 正在思考...`,
+                'pet',
+                null,
+                petTimestamp,
+                { streaming: true }
+            );
+            petMessageElement.classList.add('is-streaming');
+            petMessageElement.setAttribute('data-chat-timestamp', petTimestamp.toString());
+            petMessageElement.setAttribute('data-chat-type', 'pet');
+            messagesContainer.appendChild(petMessageElement);
+
+            setTimeout(() => {
+                if (typeof manager.addActionButtonsToMessage === 'function') {
+                    manager.addActionButtonsToMessage(petMessageElement);
+                }
+            }, 0);
+
+            this.scrollToBottom(true);
+
+            const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
+            if (!messageBubble) {
+                throw new Error('未找到宠物消息气泡');
+            }
+
+            const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer, petMessageElement);
+
+            const imagesForApi = images.length > 0 ? images : null;
+            const reply = await manager.generatePetResponseStream(messageText, onStreamContent, abortController, { images: imagesForApi });
+
+            const streamedReply =
+                onStreamContent && typeof onStreamContent.getFullContent === 'function' ? onStreamContent.getFullContent() : '';
+
+            let domContent = '';
+            if (!streamedReply && messageBubble) {
+                const dataOriginalText = messageBubble.getAttribute('data-original-text');
+                if (dataOriginalText) domContent = dataOriginalText.trim();
+            }
+
+            const finalContent = String(streamedReply || reply || domContent || '').trim() || '请继续。';
+
+            petMessageElement.classList.remove('is-streaming');
+            const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
+            if (finalContentDiv) {
+                finalContentDiv.classList.remove('pet-chat-content-streaming');
+            }
+
+            if (finalContent) {
+                const finalDiv = this._getOrCreateMessageContentDiv(messageBubble);
+                if (finalDiv) {
+                    finalDiv.innerHTML = manager.renderMarkdown(finalContent);
+                }
+                messageBubble.setAttribute('data-original-text', finalContent);
+
+                setTimeout(async () => {
+                    const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
+                    await manager.processMermaidBlocks(targetDiv);
+                }, 100);
+            }
+
+            await this._persistChatMessages({ messageText, images, finalContent, userTimestamp, petTimestamp });
+            this.scrollToBottom();
         }
 
         async sendMessage(userContent = null, userImageDataUrl = null) {
@@ -752,14 +869,11 @@
 
             // 检查是否正在处理
             if (this.isProcessing || this._currentAbortController) {
-                console.log('[消息发送] 正在处理中，忽略重复请求');
                 return;
             }
 
             // 确保有当前会话
-            if (!manager.currentSessionId) {
-                await manager.initSession();
-            }
+            await this._ensureCurrentSession();
 
             const messagesContainer = this.messagesContainer;
             if (!messagesContainer) {
@@ -768,247 +882,39 @@
             }
 
             // 设置处理状态
-            this.isProcessing = true;
             const abortController = new AbortController();
-            this._currentAbortController = abortController;
-            this._updateRequestStatus('loading', abortController);
+            this._beginMessageRequest(abortController);
 
             const useVueMessages = this._vueApp && typeof this._messagesAppend === 'function';
 
             try {
                 if (useVueMessages) {
-                    const userTimestamp = Date.now();
-                    const userMsg = {
-                        type: 'user',
-                        content: messageText,
-                        timestamp: userTimestamp,
-                        imageDataUrl: images.length > 0 ? images[0] : null
-                    };
-                    this._messagesAppend(userMsg);
-
-                    if (userContent === null) {
-                        textarea.value = '';
-                        textarea.style.height = '60px';
-                    }
-                    if (typeof this.clearDraftImages === 'function') {
-                        this.clearDraftImages();
-                    } else {
-                        this.draftImages = [];
-                        if (typeof this.updateDraftImagesDisplay === 'function') this.updateDraftImagesDisplay();
-                    }
-
-                    const waitingIcon = this._getWaitingIcon();
-                    const petTimestamp = Date.now();
-                    const petMsg = {
-                        type: 'pet',
-                        content: `${waitingIcon} 正在思考...`,
-                        timestamp: petTimestamp,
-                        streaming: true
-                    };
-                    this._messagesAppend(petMsg);
-                    const petIdx = (this._getMessagesList && this._getMessagesList()) ? this._getMessagesList().length - 1 : 0;
-
-                    this.scrollToBottom(true);
-
-                    let streamedContent = '';
-                    const onStreamContent = (chunk, accumulatedContent) => {
-                        streamedContent = accumulatedContent;
-                        if (typeof this._messagesUpdateContent === 'function') {
-                            this._messagesUpdateContent(petIdx, accumulatedContent);
-                        }
-                        if (this.messagesContainer) this.scrollToBottom();
-                        return accumulatedContent;
-                    };
-                    onStreamContent.getFullContent = () => streamedContent;
-
-                    const imagesForApi = images.length > 0 ? images : null;
-                    const reply = await manager.generatePetResponseStream(
+                    await this._sendMessageWithVue({
+                        manager,
                         messageText,
-                        onStreamContent,
-                        abortController,
-                        { images: imagesForApi }
-                    );
-
-                    const finalContent = String(streamedContent || reply || '').trim() || '请继续。';
-                    if (typeof this._messagesSetStreaming === 'function') this._messagesSetStreaming(petIdx, false);
-                    if (typeof this._messagesUpdateContent === 'function') this._messagesUpdateContent(petIdx, finalContent);
-
-                    if (manager.currentSessionId && typeof manager.callUpdateDocument === 'function') {
-                        try {
-                            const userMessage = { type: 'user', content: messageText, timestamp: userTimestamp };
-                            if (images.length > 0) userMessage.imageDataUrl = images[0];
-                            await manager.callUpdateDocument(manager.currentSessionId, [
-                                userMessage,
-                                { type: 'pet', content: finalContent, timestamp: petTimestamp }
-                            ]);
-                        } catch (err) {
-                            console.error('[消息发送] 调用 update_document 接口时出错:', err);
-                        }
-                    }
-                    this.scrollToBottom();
+                        images,
+                        textarea,
+                        clearTextarea: userContent === null,
+                        abortController
+                    });
                     return;
                 }
 
-                // 1. 创建用户消息元素并添加到 DOM（不保存到会话）
-                const userTimestamp = Date.now();
-                const userMessageElement = manager.createMessageElement(
+                await this._sendMessageWithDom({
+                    manager,
                     messageText,
-                    'user',
-                    images.length > 0 ? images[0] : null,
-                    userTimestamp,
-                    {}
-                );
-                userMessageElement.setAttribute('data-chat-timestamp', userTimestamp.toString());
-                userMessageElement.setAttribute('data-chat-type', 'user');
-                const allMessages = Array.from(messagesContainer.children).filter(msg => !msg.hasAttribute('data-welcome-message'));
-                userMessageElement.setAttribute('data-chat-idx', allMessages.length.toString());
-                messagesContainer.appendChild(userMessageElement);
-
-                // 添加操作按钮
-                setTimeout(() => {
-                    if (typeof manager.addActionButtonsToMessage === 'function') {
-                        manager.addActionButtonsToMessage(userMessageElement);
-                    }
-                }, 0);
-
-                // 2. 清空输入框和图片
-                if (userContent === null) {
-                    textarea.value = '';
-                    textarea.style.height = '60px';
-                }
-                if (typeof this.clearDraftImages === 'function') {
-                    this.clearDraftImages();
-                } else {
-                    this.draftImages = [];
-                    if (typeof this.updateDraftImagesDisplay === 'function') this.updateDraftImagesDisplay();
-                }
-
-                // 3. 创建宠物回复消息元素（占位）
-                const waitingIcon = this._getWaitingIcon();
-                const petTimestamp = Date.now();
-                const petMessageElement = manager.createMessageElement(
-                    `${waitingIcon} 正在思考...`,
-                    'pet',
-                    null,
-                    petTimestamp,
-                    { streaming: true }
-                );
-                petMessageElement.classList.add('is-streaming');
-                petMessageElement.setAttribute('data-chat-timestamp', petTimestamp.toString());
-                petMessageElement.setAttribute('data-chat-type', 'pet');
-                messagesContainer.appendChild(petMessageElement);
-
-                // 添加操作按钮
-                setTimeout(() => {
-                    if (typeof manager.addActionButtonsToMessage === 'function') {
-                        manager.addActionButtonsToMessage(petMessageElement);
-                    }
-                }, 0);
-
-                // 滚动到底部
-                this.scrollToBottom(true);
-
-                // 4. 创建流式内容更新回调
-                const messageBubble = petMessageElement.querySelector('[data-message-type="pet-bubble"]');
-                if (!messageBubble) {
-                    throw new Error('未找到宠物消息气泡');
-                }
-
-                const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer, petMessageElement);
-
-                // 5. 调用流式生成 API（第一个接口）
-                const imagesForApi = images.length > 0 ? images : null;
-                const reply = await manager.generatePetResponseStream(
-                    messageText,
-                    onStreamContent,
+                    images,
+                    textarea,
+                    clearTextarea: userContent === null,
                     abortController,
-                    { images: imagesForApi }
-                );
-
-                // 6. 获取最终内容（优先使用流式回调中保存的内容，确保与显示内容一致）
-                // 如果流式回调中有内容，优先使用；否则使用 API 返回的内容
-                const streamedReply = (onStreamContent && typeof onStreamContent.getFullContent === 'function')
-                    ? onStreamContent.getFullContent()
-                    : '';
-                
-                // 如果流式回调中没有内容，尝试从 DOM 中获取实际显示的内容（备选方案）
-                let domContent = '';
-                if (!streamedReply && messageBubble) {
-                    const dataOriginalText = messageBubble.getAttribute('data-original-text');
-                    if (dataOriginalText) {
-                        domContent = dataOriginalText.trim();
-                    }
-                }
-                
-                // 确保使用实际显示的内容，优先级：streamedReply > reply > domContent
-                const finalContent = String(streamedReply || reply || domContent || '').trim() || '请继续。';
-                
-                // 调试日志：检查内容一致性
-                if (streamedReply && reply && streamedReply !== reply) {
-                    console.warn('[消息发送] 流式回调内容和 API 返回内容不一致，使用流式回调内容');
-                    console.log('流式回调内容长度:', streamedReply.length);
-                    console.log('API 返回内容长度:', reply.length);
-                }
-
-                // 7. 移除流式消息状态类
-                petMessageElement.classList.remove('is-streaming');
-                const finalContentDiv = messageBubble.querySelector('.pet-chat-content');
-                if (finalContentDiv) {
-                    finalContentDiv.classList.remove('pet-chat-content-streaming');
-                }
-
-                // 8. 确保最终内容被显示
-                if (finalContent) {
-                    const finalDiv = this._getOrCreateMessageContentDiv(messageBubble);
-                    if (finalDiv) {
-                        finalDiv.innerHTML = manager.renderMarkdown(finalContent);
-                    }
-                    messageBubble.setAttribute('data-original-text', finalContent);
-
-                    // 处理 Mermaid 图表
-                    setTimeout(async () => {
-                        const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
-                        await manager.processMermaidBlocks(targetDiv);
-                    }, 100);
-                }
-
-                // 9. 流式完成后，调用 update_document 接口（第二个接口）
-                if (manager.currentSessionId && typeof manager.callUpdateDocument === 'function') {
-                    try {
-                        // 构建消息数据
-                        const userMessage = {
-                            type: 'user',
-                            content: messageText,
-                            timestamp: userTimestamp
-                        };
-                        if (images.length > 0) {
-                            userMessage.imageDataUrl = images[0];
-                        }
-
-                        const petMessage = {
-                            type: 'pet',
-                            content: finalContent,
-                            timestamp: petTimestamp
-                        };
-
-                        // 调用 update_document 接口更新会话
-                        await manager.callUpdateDocument(manager.currentSessionId, [userMessage, petMessage]);
-                        console.log('[消息发送] update_document 接口调用成功');
-                    } catch (error) {
-                        console.error('[消息发送] 调用 update_document 接口时出错:', error);
-                        // 不阻止流程，只记录错误
-                    }
-                }
-
-                // 10. 滚动到底部
-                this.scrollToBottom();
+                    messagesContainer
+                });
 
             } catch (error) {
                 console.error('[消息发送] 发送消息时出错:', error);
 
                 // 如果是取消操作，不显示错误
                 if (error.name === 'AbortError' || abortController.signal.aborted) {
-                    console.log('[消息发送] 请求已取消');
                     if (typeof manager.showNotification === 'function') {
                         manager.showNotification('请求已取消', 'info');
                     }
@@ -1043,9 +949,7 @@
                 }
             } finally {
                 // 清理状态
-                this.isProcessing = false;
-                this._currentAbortController = null;
-                this._updateRequestStatus('idle');
+                this._endMessageRequest();
             }
         }
 
@@ -1118,8 +1022,8 @@
                 this.element.classList.remove('fullscreen');
             }
 
-            const width = state.width || 850;
-            const height = state.height || 720;
+            const width = state.width || DEFAULT_CHAT_WINDOW_WIDTH;
+            const height = state.height || DEFAULT_CHAT_WINDOW_HEIGHT;
             const left = state.x;
             const top = state.y;
 
@@ -1152,7 +1056,7 @@
                 const el = this.messagesContainer || document.getElementById('pet-chat-messages');
                 if (!el) return true;
                 const distance = (el.scrollHeight || 0) - (el.scrollTop || 0) - (el.clientHeight || 0);
-                return distance < 140;
+                return distance < AUTO_SCROLL_THRESHOLD_PX;
             } catch (_) {
                 return true;
             }
@@ -1402,7 +1306,6 @@
             if (idx < 0) return;
 
             // 获取消息内容
-            const bubble = messageDiv.querySelector('.pet-chat-bubble');
             const messageBubble = messageDiv.querySelector(isUserMessage ? '[data-message-type="user-bubble"]' : '[data-message-type="pet-bubble"]');
             const hasContent = messageBubble && (
                 (messageBubble.getAttribute('data-original-text') || '').trim() ||

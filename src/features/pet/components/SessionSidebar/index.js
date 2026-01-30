@@ -103,6 +103,110 @@
         );
     }
 
+    function createSidebarHeaderElement(manager) {
+        const header = document.createElement('div');
+        header.className = 'session-sidebar-header';
+
+        const SessionSearchModule = window.PetManager?.Components?.SessionSearch;
+        const searchRow =
+            SessionSearchModule && typeof SessionSearchModule.createSearchElement === 'function'
+                ? SessionSearchModule.createSearchElement(manager || {})
+                : null;
+        if (searchRow) header.appendChild(searchRow);
+
+        return header;
+    }
+
+    function createSessionActionsRowElement() {
+        const row = document.createElement('div');
+        row.className = 'session-sidebar-actions-row';
+
+        const leftGroup = document.createElement('div');
+        leftGroup.className = 'session-actions-left-group';
+
+        const batchBtn = document.createElement('button');
+        batchBtn.type = 'button';
+        batchBtn.className = 'session-action-btn session-action-btn--batch';
+        batchBtn.title = '批量选择';
+        batchBtn.innerHTML = '☑️ 批量';
+
+        const exportBtn = document.createElement('button');
+        exportBtn.type = 'button';
+        exportBtn.className = 'session-action-btn session-action-btn--export';
+        exportBtn.innerHTML = '⬇️ 导出';
+
+        const importBtn = document.createElement('button');
+        importBtn.type = 'button';
+        importBtn.className = 'session-action-btn session-action-btn--import';
+        importBtn.innerHTML = '⬆️ 导入';
+
+        leftGroup.appendChild(batchBtn);
+        leftGroup.appendChild(exportBtn);
+        leftGroup.appendChild(importBtn);
+
+        const rightGroup = document.createElement('div');
+        rightGroup.className = 'session-actions-right-group';
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'session-action-btn session-action-btn--add';
+        addBtn.innerHTML = '➕ 新建';
+
+        rightGroup.appendChild(addBtn);
+
+        row.appendChild(leftGroup);
+        row.appendChild(rightGroup);
+
+        return row;
+    }
+
+    function createTagFilterFallbackElement() {
+        const container = document.createElement('div');
+        container.className = 'tag-filter-container';
+        const list = document.createElement('div');
+        list.className = 'tag-filter-list';
+        container.appendChild(list);
+        return container;
+    }
+
+    function createBatchToolbarElement(manager) {
+        if (manager && typeof manager.buildBatchToolbar === 'function') return manager.buildBatchToolbar();
+        const toolbar = document.createElement('div');
+        toolbar.id = 'batch-toolbar';
+        toolbar.className = 'session-batch-toolbar';
+        return toolbar;
+    }
+
+    function createSidebarScrollableContentElement(manager) {
+        const scrollableContent = document.createElement('div');
+        scrollableContent.className = 'session-sidebar-scrollable-content';
+
+        const TagFilterModule = window.PetManager?.Components?.TagFilter;
+        const tagFilterContainer =
+            TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function'
+                ? TagFilterModule.createTagFilterElement(manager || {})
+                : createTagFilterFallbackElement();
+        if (tagFilterContainer) scrollableContent.appendChild(tagFilterContainer);
+
+        scrollableContent.appendChild(createSessionActionsRowElement());
+        scrollableContent.appendChild(createBatchToolbarElement(manager));
+
+        const sessionList = document.createElement('div');
+        sessionList.className = 'session-list';
+        sessionList.id = 'session-list';
+        scrollableContent.appendChild(sessionList);
+
+        return scrollableContent;
+    }
+
+    function createSidebarElement(manager) {
+        const sidebar = document.createElement('div');
+        sidebar.className = 'session-sidebar';
+        sidebar.appendChild(createSidebarHeaderElement(manager));
+        sidebar.appendChild(createSidebarScrollableContentElement(manager));
+        return sidebar;
+    }
+
     function createComponent(params) {
         const { store, computedProps, methods, manager, template, SessionSearch, TagFilter, BatchToolbar } = params || {};
         const Vue = window.Vue || {};
@@ -300,4 +404,8 @@
 
     window.PetManager.Components.SessionSidebar.loadTemplate = loadTemplate;
     window.PetManager.Components.SessionSidebar.createComponent = createComponent;
+    window.PetManager.Components.SessionSidebar.createSidebarElement = createSidebarElement;
+    window.PetManager.Components.SessionSidebar.createSidebarHeaderElement = createSidebarHeaderElement;
+    window.PetManager.Components.SessionSidebar.createSidebarScrollableContentElement = createSidebarScrollableContentElement;
+    window.PetManager.Components.SessionSidebar.createSessionActionsRowElement = createSessionActionsRowElement;
 })();

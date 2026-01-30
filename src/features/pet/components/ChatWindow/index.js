@@ -563,98 +563,19 @@
 
         createSidebar() {
             const manager = this.manager;
-            const sidebar = document.createElement('div');
-            sidebar.className = 'session-sidebar';
-            // 确保侧边栏宽度使用新的默认值
+            const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
+            const sidebar =
+                SessionSidebarModule && typeof SessionSidebarModule.createSidebarElement === 'function'
+                    ? SessionSidebarModule.createSidebarElement(manager)
+                    : document.createElement('div');
+            if (!sidebar.classList.contains('session-sidebar')) sidebar.className = 'session-sidebar';
+
             const sidebarWidth = manager.sidebarWidth || 320;
             manager.sidebarWidth = sidebarWidth;
             sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
             manager.sessionSidebar = sidebar;
 
-            // Sidebar Header
-            const sidebarHeader = document.createElement('div');
-            sidebarHeader.className = 'session-sidebar-header';
-
-            // First Row: Search（由 SessionSearch 组件提供 createSearchElement）
-            const SessionSearchModule = window.PetManager?.Components?.SessionSearch;
-            const firstRow =
-                SessionSearchModule && typeof SessionSearchModule.createSearchElement === 'function'
-                    ? SessionSearchModule.createSearchElement(manager)
-                    : null;
-            if (firstRow) sidebarHeader.appendChild(firstRow);
-            sidebar.appendChild(sidebarHeader);
-
-            // Second Row: Buttons (Toolbar) - 移到 tag-filter-list 下面
-            const secondRow = document.createElement('div');
-            secondRow.className = 'session-sidebar-actions-row';
-
-            // Left Group: Batch, Export, Import
-            const leftButtonGroup = document.createElement('div');
-            leftButtonGroup.className = 'session-actions-left-group';
-
-            const createSessionActionButton = (text, className) => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.innerHTML = text;
-                btn.className = `session-action-btn ${className}`;
-                return btn;
-            };
-
-            const batchModeBtn = createSessionActionButton('☑️ 批量', 'session-action-btn--batch');
-            batchModeBtn.title = '批量选择';
-
-            const exportBtn = createSessionActionButton('⬇️ 导出', 'session-action-btn--export');
-
-            const importBtn = createSessionActionButton('⬆️ 导入', 'session-action-btn--import');
-
-            leftButtonGroup.appendChild(batchModeBtn);
-            leftButtonGroup.appendChild(exportBtn);
-            leftButtonGroup.appendChild(importBtn);
-
-            // Right Group: Add New
-            const rightButtonGroup = document.createElement('div');
-            rightButtonGroup.className = 'session-actions-right-group';
-
-            const addSessionBtn = document.createElement('button');
-            addSessionBtn.type = 'button';
-            addSessionBtn.innerHTML = '➕ 新建';
-            addSessionBtn.className = 'session-action-btn session-action-btn--add';
-
-            rightButtonGroup.appendChild(addSessionBtn);
-
-            secondRow.appendChild(leftButtonGroup);
-            secondRow.appendChild(rightButtonGroup);
-
-            // Scrollable Content Container
-            const scrollableContent = document.createElement('div');
-            scrollableContent.className = 'session-sidebar-scrollable-content';
-
-            // Tag Filter Container（由 TagFilter 组件提供 createTagFilterElement）
-            const TagFilterModule = window.PetManager?.Components?.TagFilter;
-            const tagFilterContainer =
-                TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function'
-                    ? TagFilterModule.createTagFilterElement(manager)
-                    : this.createTagFilter();
-            if (tagFilterContainer) scrollableContent.appendChild(tagFilterContainer);
-
-            // Actions Row (移到 tag-filter-list 下面)
-            scrollableContent.appendChild(secondRow);
-
-            // Batch Toolbar (参考 YiWeb：在会话列表上方)
-            // 使用 manager 的 buildBatchToolbar 方法（已在 petManager.ui.js 中重构）
-            const batchToolbar = typeof manager.buildBatchToolbar === 'function'
-                ? manager.buildBatchToolbar()
-                : this.buildBatchToolbar();
-            scrollableContent.appendChild(batchToolbar);
-
-            // Session List Container
-            const sessionList = document.createElement('div');
-            this.sessionListContainer = sessionList;
-            sessionList.className = 'session-list';
-            sessionList.id = 'session-list';
-
-            scrollableContent.appendChild(sessionList);
-            sidebar.appendChild(scrollableContent);
+            this.sessionListContainer = sidebar.querySelector('#session-list');
 
             // Resizer
             this.createSidebarResizer(sidebar);

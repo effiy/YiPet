@@ -308,6 +308,11 @@
                             instance.contextSwitchContainer = contextSwitchContainerEl.value;
                             instance.contextSwitchContainer.updateColor = () => {};
                         }
+                        instance.handleImageInputChange = (e) => handleImageInputChange(manager, instance, e);
+                        instance.removeDraftImage = (index) => removeDraftImage(instance, index);
+                        instance.clearDraftImages = () => clearDraftImages(instance);
+                        instance.previewDraftImage = (src, index) => previewDraftImage(src, index);
+                        instance.updateDraftImagesDisplay = () => updateDraftImagesDisplay(instance);
                     }
 
                     await readContextSwitchEnabled();
@@ -482,10 +487,68 @@
         const inputRightButtonGroup = document.createElement('div');
         inputRightButtonGroup.className = 'yi-pet-chat-toolbar-right chat-input-btn-group';
 
-        if (typeof instance.createContextSwitch === 'function') {
-            const contextSwitch = instance.createContextSwitch();
-            if (contextSwitch) inputRightButtonGroup.appendChild(contextSwitch);
+        const contextSwitchContainer = document.createElement('div');
+        contextSwitchContainer.className = 'context-switch-container';
+        contextSwitchContainer.title = '开启/关闭页面上下文，帮助AI理解当前页面内容';
+
+        const contextSwitchLabel = document.createElement('span');
+        contextSwitchLabel.className = 'context-switch-label';
+        contextSwitchLabel.textContent = '页面上下文';
+
+        const switchWrapper = document.createElement('div');
+        switchWrapper.className = 'context-switch-wrapper';
+
+        const switchThumb = document.createElement('div');
+        switchThumb.className = 'context-switch-thumb';
+
+        const contextSwitch = document.createElement('input');
+        contextSwitch.type = 'checkbox';
+        contextSwitch.id = 'context-switch';
+        contextSwitch.className = 'context-switch-input';
+        contextSwitch.checked = true;
+
+        const updateSwitchState = (isChecked) => {
+            if (isChecked) {
+                contextSwitchContainer.classList.add('active');
+            } else {
+                contextSwitchContainer.classList.remove('active');
+            }
+        };
+        updateSwitchState(contextSwitch.checked);
+
+        switchWrapper.appendChild(switchThumb);
+        contextSwitchContainer.appendChild(contextSwitchLabel);
+        contextSwitchContainer.appendChild(switchWrapper);
+        contextSwitchContainer.appendChild(contextSwitch);
+
+        const toggleSwitch = (e) => {
+            e?.stopPropagation?.();
+            contextSwitch.checked = !contextSwitch.checked;
+            updateSwitchState(contextSwitch.checked);
+            contextSwitch.dispatchEvent(new Event('change'));
+        };
+        contextSwitchContainer.addEventListener('click', toggleSwitch);
+        contextSwitch.addEventListener('click', (e) => e.stopPropagation());
+
+        if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.get === 'function') {
+            chrome.storage.local.get(['contextSwitchEnabled'], (result) => {
+                if (result && result.contextSwitchEnabled !== undefined) {
+                    contextSwitch.checked = !!result.contextSwitchEnabled;
+                    updateSwitchState(contextSwitch.checked);
+                }
+            });
         }
+
+        contextSwitch.addEventListener('change', () => {
+            updateSwitchState(contextSwitch.checked);
+            if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
+                chrome.storage.local.set({ contextSwitchEnabled: contextSwitch.checked });
+            }
+        });
+
+        contextSwitchContainer.updateColor = () => {};
+        if (instance) instance.contextSwitchContainer = contextSwitchContainer;
+        inputRightButtonGroup.appendChild(contextSwitchContainer);
 
         const requestStatusButton = document.createElement('button');
         requestStatusButton.type = 'button';
@@ -511,6 +574,11 @@
         draftImagesContainer.setAttribute('aria-label', '待发送图片');
         inputWrapper.appendChild(draftImagesContainer);
         instance.draftImagesContainer = draftImagesContainer;
+        instance.handleImageInputChange = (e) => handleImageInputChange(manager, instance, e);
+        instance.removeDraftImage = (index) => removeDraftImage(instance, index);
+        instance.clearDraftImages = () => clearDraftImages(instance);
+        instance.previewDraftImage = (src, index) => previewDraftImage(src, index);
+        instance.updateDraftImagesDisplay = () => updateDraftImagesDisplay(instance);
 
         const inputRow = document.createElement('div');
         inputRow.className = 'yi-pet-chat-input-row';
@@ -632,10 +700,203 @@
         return inputContainer;
     }
 
+    function updateDraftImagesDisplay(instance) {
+        const container = instance?.draftImagesContainer;
+        if (!container) return;
+        const draftImages = Array.isArray(instance?.draftImages) ? instance.draftImages : [];
+        if (draftImages.length === 0) {
+            container.classList.add('js-hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        container.classList.remove('js-hidden');
+
+        const fragment = document.createDocumentFragment();
+
+        const existingImages = container.querySelectorAll('.yi-pet-chat-draft-image');
+        existingImages.forEach((img) => img.remove());
+        const existingClearBtn = container.querySelector('.yi-pet-chat-draft-images-clear');
+        if (existingClearBtn) existingClearBtn.remove();
+
+        draftImages.forEach((src, index) => {
+            const imageWrapper = document.createElement('div');
+            imageWrapper.className = 'yi-pet-chat-draft-image';
+            imageWrapper.setAttribute('data-image-index', index);
+
+            const img = document.createElement('img');
+            img.className = 'yi-pet-chat-draft-image-preview';
+            img.src = src;
+            img.alt = `待发送图片 ${index + 1}`;
+            img.loading = 'lazy';
+
+            img.addEventListener('error', () => {
+                imageWrapper.classList.add('yi-pet-chat-draft-image-error');
+                img.classList.add('tw-hidden');
+            });
+
+            img.addEventListener('load', () => {
+                imageWrapper.classList.remove('yi-pet-chat-draft-image-loading');
+                img.classList.remove('tw-hidden');
+            });
+
+            imageWrapper.addEventListener('click', (e) => {
+                if (e.target.classList.contains('yi-pet-chat-draft-image-remove')) {
+                    return;
+                }
+                if (typeof instance?.previewDraftImage === 'function') {
+                    instance.previewDraftImage(src, index);
+                }
+            });
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'yi-pet-chat-draft-image-remove';
+            removeBtn.innerHTML = '✕';
+            removeBtn.setAttribute('aria-label', `移除第 ${index + 1} 张图片`);
+            removeBtn.title = '移除';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof instance?.removeDraftImage === 'function') {
+                    instance.removeDraftImage(index);
+                }
+            });
+
+            imageWrapper.classList.add('yi-pet-chat-draft-image-loading');
+
+            imageWrapper.appendChild(img);
+            imageWrapper.appendChild(removeBtn);
+            fragment.appendChild(imageWrapper);
+        });
+
+        container.appendChild(fragment);
+
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'yi-pet-chat-draft-images-clear';
+        clearBtn.textContent = `清空图片 (${draftImages.length})`;
+        clearBtn.setAttribute('aria-label', `清空所有 ${draftImages.length} 张图片`);
+        clearBtn.title = '清空所有图片';
+        clearBtn.addEventListener('click', () => {
+            if (typeof instance?.clearDraftImages === 'function') {
+                instance.clearDraftImages();
+                return;
+            }
+            if (Array.isArray(instance?.draftImages)) {
+                instance.draftImages = [];
+                updateDraftImagesDisplay(instance);
+            }
+        });
+        container.appendChild(clearBtn);
+    }
+
+    function handleImageInputChange(manager, instance, e) {
+        const target = e?.target;
+        const files = Array.from(target?.files || []);
+        if (files.length === 0) return;
+
+        const maxDraftImages = typeof instance?.maxDraftImages === 'number' ? instance.maxDraftImages : 4;
+        const draftImages = Array.isArray(instance?.draftImages) ? instance.draftImages : [];
+
+        const remainingSlots = maxDraftImages - draftImages.length;
+        if (remainingSlots <= 0) {
+            manager?.showNotification?.(`最多只能添加 ${maxDraftImages} 张图片`, 'warn');
+            if (target) target.value = '';
+            return;
+        }
+
+        const imageFiles = files.filter((file) => file && typeof file.type === 'string' && file.type.startsWith('image/'));
+        const filesToProcess = imageFiles.slice(0, remainingSlots);
+
+        if (imageFiles.length > remainingSlots) {
+            manager?.showNotification?.(`只能添加 ${remainingSlots} 张图片（已达上限）`, 'warn');
+        }
+
+        let loadedCount = 0;
+        filesToProcess.forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const src = event?.target?.result;
+                if (src) draftImages.push(src);
+                loadedCount += 1;
+                if (loadedCount === filesToProcess.length) {
+                    if (instance) instance.draftImages = draftImages;
+                    instance?.updateDraftImagesDisplay?.();
+                }
+            };
+            reader.onerror = () => {
+                manager?.showNotification?.(`图片 ${file?.name || ''} 加载失败`, 'error');
+                loadedCount += 1;
+                if (loadedCount === filesToProcess.length) {
+                    if (instance) instance.draftImages = draftImages;
+                    instance?.updateDraftImagesDisplay?.();
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        if (target) target.value = '';
+    }
+
+    function removeDraftImage(instance, index) {
+        const draftImages = Array.isArray(instance?.draftImages) ? instance.draftImages : [];
+        const idx = Number(index);
+        if (!Number.isFinite(idx) || idx < 0 || idx >= draftImages.length) return;
+        draftImages.splice(idx, 1);
+        if (instance) instance.draftImages = draftImages;
+        instance?.updateDraftImagesDisplay?.();
+    }
+
+    function clearDraftImages(instance) {
+        if (instance) instance.draftImages = [];
+        instance?.updateDraftImagesDisplay?.();
+    }
+
+    function previewDraftImage(src, index) {
+        const modal = document.createElement('div');
+        modal.className = 'pet-draft-image-preview-modal';
+
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = `待发送图片 ${Number(index) + 1 || ''}`;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.className = 'modal-close-btn';
+
+        const closeModal = () => {
+            modal.remove();
+            document.body.style.overflow = '';
+        };
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal || e.target === closeBtn) {
+                closeModal();
+            }
+        });
+
+        closeBtn.addEventListener('click', closeModal);
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', handleKeyDown);
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+
+        document.body.style.overflow = 'hidden';
+
+        modal.appendChild(img);
+        modal.appendChild(closeBtn);
+        document.body.appendChild(modal);
+    }
+
     window.PetManager.Components.ChatInput = {
         loadTemplate,
         createComponent,
-        createInputContainerElement
+        createInputContainerElement,
+        updateDraftImagesDisplay
     };
 })();
 

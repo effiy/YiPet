@@ -67,61 +67,37 @@
             const scriptUrl = chrome.runtime.getURL('src/libs/mermaid.min.js');
             const loadScriptUrl = chrome.runtime.getURL('src/features/mermaid/load-mermaid.js');
             console.log('尝试在页面上下文中加载 Mermaid.js，URL:', scriptUrl);
+            const DomHelper = window.DomHelper;
+            if (!DomHelper || typeof DomHelper.runPageScriptWithData !== 'function') {
+                this.mermaidLoading = false;
+                reject(new Error('DomHelper 不可用，无法加载 Mermaid'));
+                return;
+            }
 
-            // 通过 data 属性传递 URL（避免内联脚本）
-            // 注：我们仍然需要通过页面上下文传递 URL，使用隐藏的 data 属性
-            const urlContainer = document.createElement('div');
-            urlContainer.id = '__mermaid_url_container__';
-            urlContainer.classList.add('tw-hidden');
-            urlContainer.setAttribute('data-mermaid-url', scriptUrl);
-            (document.head || document.documentElement).appendChild(urlContainer);
-
-            // 修改 load-mermaid.js 以从 data 属性读取 URL
-            // 但更简单的方法是在 load-mermaid.js 中直接使用 chrome.runtime.getURL
-            // 因为 load-mermaid.js 在页面上下文中执行，无法直接访问 chrome API
-            // 所以我们需要通过 data 属性传递
-
-            // 加载外部脚本文件（避免 CSP 限制）
-            const injectedScript = document.createElement('script');
-            injectedScript.src = loadScriptUrl;
-            injectedScript.charset = 'UTF-8';
-            injectedScript.async = false;
-
-            // 监听页面中的 mermaid 加载事件（在脚本加载前设置）
-            const handleMermaidLoaded = () => {
+            DomHelper.runPageScriptWithData({
+                scriptSrc: loadScriptUrl,
+                dataContainerId: '__mermaid_url_container__',
+                dataAttributes: {
+                    'data-mermaid-url': scriptUrl
+                },
+                successEvent: 'mermaid-loaded',
+                errorEvent: 'mermaid-error',
+                timeoutMs: 30000,
+                cleanupDelayMs: 1000
+            }).then(() => {
                 console.log('[Content] 收到 Mermaid 加载完成事件');
-                // Mermaid 已经在页面上下文中加载（通过 load-mermaid.js）
-                // 由于 content script 的隔离环境，我们无法直接访问页面的 window.mermaid
-                // 但我们知道它已经加载，可以通过外部脚本执行渲染
                 this.mermaidLoaded = true;
                 this.mermaidLoading = false;
                 console.log('[Content] Mermaid.js 在页面上下文中已加载');
-                window.removeEventListener('mermaid-loaded', handleMermaidLoaded);
-                window.removeEventListener('mermaid-error', handleMermaidError);
                 resolve(true);
-            };
-
-            const handleMermaidError = () => {
-                console.error('[Content] 收到 Mermaid 加载失败事件');
+            }).catch((eventOrError) => {
+                console.error('[Content] 收到 Mermaid 加载失败事件', eventOrError);
                 this.mermaidLoading = false;
-                window.removeEventListener('mermaid-loaded', handleMermaidLoaded);
-                window.removeEventListener('mermaid-error', handleMermaidError);
-                reject(new Error('页面上下文中的 Mermaid.js 加载失败'));
-            };
-
-            // 监听页面事件（通过注入的事件监听器）
-            window.addEventListener('mermaid-loaded', handleMermaidLoaded);
-            window.addEventListener('mermaid-error', handleMermaidError);
-
-            // 注入脚本到页面上下文
-            (document.head || document.documentElement).appendChild(injectedScript);
-
-            // 清理注入的脚本
-            setTimeout(() => {
-                if (injectedScript.parentNode) {
-                    injectedScript.parentNode.removeChild(injectedScript);
-                }
-            }, 1000);
+                const errorMsg = (eventOrError && eventOrError.detail && eventOrError.detail.error)
+                    ? eventOrError.detail.error
+                    : (eventOrError && eventOrError.message ? eventOrError.message : '页面上下文中的 Mermaid.js 加载失败');
+                reject(new Error(errorMsg));
+            });
         });
     };
 
@@ -271,45 +247,10 @@
 
                 // 渲染 mermaid 图表 - 使用页面上下文中的 mermaid
                 // 因为 mermaid 在页面上下文中，我们需要通过注入脚本执行渲染
-                // 通过 data 属性传递渲染 ID（避免内联脚本）
-                // 为每个 mermaid 块使用唯一的容器 ID，避免冲突
-                const renderIdContainer = document.createElement('div');
-                renderIdContainer.id = `__mermaid_render_id_container__${mermaidId}`;
-                renderIdContainer.classList.add('tw-hidden');
-                renderIdContainer.setAttribute('data-mermaid-id', mermaidId);
-                // 确保容器在页面上下文中（不是在 content script 的隔离 DOM）
-                (document.head || document.documentElement).appendChild(renderIdContainer);
-
-                // 监听渲染结果（在加载脚本之前设置）
-                const handleRender = (event) => {
-                    if (event.detail.id === mermaidId) {
-                        window.removeEventListener('mermaid-rendered', handleRender);
-                        if (!event.detail.success) {
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'mermaid-error';
-                            // 样式已通过 CSS 类定义
-                            errorDiv.innerHTML = `
-                                <div>❌ Mermaid 图表渲染失败</div>
-                                <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
-                            `;
-                            if (mermaidDiv.parentNode) {
-                                mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
-                            }
-                        } else {
-                            // 渲染成功，标记为已渲染
-                            mermaidDiv.setAttribute('data-mermaid-rendered', 'true');
-                            // 添加复制和下载按钮
-                            setTimeout(() => {
-                                this.addMermaidActions(mermaidDiv, event.detail.svgContent || '', mermaidContent);
-                            }, 100);
-                        }
-                        // 清理 ID 容器
-                        if (renderIdContainer.parentNode) {
-                            renderIdContainer.parentNode.removeChild(renderIdContainer);
-                        }
-                    }
-                };
-                window.addEventListener('mermaid-rendered', handleRender);
+                const DomHelper = window.DomHelper;
+                if (!DomHelper || typeof DomHelper.runPageScriptWithData !== 'function') {
+                    throw new Error('DomHelper 不可用，无法渲染 Mermaid');
+                }
 
                 // 延迟加载渲染脚本，确保 mermaid div 已经添加到 DOM 且事件监听器已设置
                 // 增加延迟时间，确保 DOM 完全更新
@@ -320,36 +261,66 @@
                         console.warn('[ProcessMermaid] mermaid div 尚未准备好，延迟渲染:', mermaidId);
                         // 如果还没准备好，再等一会
                         setTimeout(() => {
-                            const renderScript = document.createElement('script');
-                            renderScript.src = chrome.runtime.getURL('src/features/mermaid/render-mermaid.js');
-                            renderScript.charset = 'UTF-8';
-                            renderScript.async = false;
-                            document.documentElement.appendChild(renderScript);
-
-                            setTimeout(() => {
-                                if (renderScript.parentNode) {
-                                    renderScript.parentNode.removeChild(renderScript);
+                            DomHelper.runPageScriptWithData({
+                                scriptSrc: chrome.runtime.getURL('src/features/mermaid/render-mermaid.js'),
+                                dataContainerId: `__mermaid_render_id_container__${mermaidId}`,
+                                dataAttributes: { 'data-mermaid-id': mermaidId },
+                                successEvent: 'mermaid-rendered',
+                                timeoutMs: 15000,
+                                cleanupDelayMs: 3000,
+                                isSuccess: (e) => e && e.detail && e.detail.id === mermaidId
+                            }).then((event) => {
+                                if (!event.detail.success) {
+                                    const errorDiv = document.createElement('div');
+                                    errorDiv.className = 'mermaid-error';
+                                    errorDiv.innerHTML = `
+                                        <div>❌ Mermaid 图表渲染失败</div>
+                                        <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
+                                    `;
+                                    if (mermaidDiv.parentNode) {
+                                        mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
+                                    }
+                                } else {
+                                    mermaidDiv.setAttribute('data-mermaid-rendered', 'true');
+                                    setTimeout(() => {
+                                        this.addMermaidActions(mermaidDiv, event.detail.svgContent || '', mermaidContent);
+                                    }, 100);
                                 }
-                            }, 3000);
+                            }).catch((error) => {
+                                console.warn('[ProcessMermaid] Mermaid 渲染失败:', error);
+                            });
                         }, 150);
                         return;
                     }
 
-                    // 加载外部渲染脚本（避免 CSP 限制）
-                    const renderScript = document.createElement('script');
-                    renderScript.src = chrome.runtime.getURL('src/features/mermaid/render-mermaid.js');
-                    renderScript.charset = 'UTF-8';
-                    renderScript.async = false;
-
-                    // 注入渲染脚本到页面上下文
-                    document.documentElement.appendChild(renderScript);
-
-                    // 清理脚本（渲染完成后）
-                    setTimeout(() => {
-                        if (renderScript.parentNode) {
-                            renderScript.parentNode.removeChild(renderScript);
+                    DomHelper.runPageScriptWithData({
+                        scriptSrc: chrome.runtime.getURL('src/features/mermaid/render-mermaid.js'),
+                        dataContainerId: `__mermaid_render_id_container__${mermaidId}`,
+                        dataAttributes: { 'data-mermaid-id': mermaidId },
+                        successEvent: 'mermaid-rendered',
+                        timeoutMs: 15000,
+                        cleanupDelayMs: 3000,
+                        isSuccess: (e) => e && e.detail && e.detail.id === mermaidId
+                    }).then((event) => {
+                        if (!event.detail.success) {
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'mermaid-error';
+                            errorDiv.innerHTML = `
+                                <div>❌ Mermaid 图表渲染失败</div>
+                                <pre style="font-size: 10px; margin-top: 5px; overflow-x: auto;">${this.escapeHtml(mermaidContent)}</pre>
+                            `;
+                            if (mermaidDiv.parentNode) {
+                                mermaidDiv.parentNode.replaceChild(errorDiv, mermaidDiv);
+                            }
+                        } else {
+                            mermaidDiv.setAttribute('data-mermaid-rendered', 'true');
+                            setTimeout(() => {
+                                this.addMermaidActions(mermaidDiv, event.detail.svgContent || '', mermaidContent);
+                            }, 100);
                         }
-                    }, 3000);
+                    }).catch((error) => {
+                        console.warn('[ProcessMermaid] Mermaid 渲染失败:', error);
+                    });
                 }, 200);
             } catch (error) {
                 console.error('处理 Mermaid 代码块时出错:', error);
@@ -1866,4 +1837,3 @@
     };
 
 })(typeof window !== 'undefined' ? window : this);
-

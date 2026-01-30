@@ -162,17 +162,29 @@
 
     // 启动定期同步
     proto.startPeriodicSync = function() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
+        }
+        if (this._periodicResizeHandler) {
+            try {
+                window.removeEventListener('resize', this._periodicResizeHandler);
+            } catch (e) {}
+            this._periodicResizeHandler = null;
+        }
+
         // 定期同步状态，确保跨页面一致性
         this.syncInterval = setInterval(() => {
             this.syncToGlobalState();
         }, PET_CONFIG.storage.syncInterval);
 
         // 监听窗口大小变化，重新验证位置
-        window.addEventListener('resize', () => {
+        this._periodicResizeHandler = () => {
             this.position = this.validatePosition(this.position);
             this.updatePetStyle();
             this.syncToGlobalState();
-        });
+        };
+        window.addEventListener('resize', this._periodicResizeHandler);
     };
 
     // 停止定期同步
@@ -180,6 +192,12 @@
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
+        }
+        if (this._periodicResizeHandler) {
+            try {
+                window.removeEventListener('resize', this._periodicResizeHandler);
+            } catch (e) {}
+            this._periodicResizeHandler = null;
         }
     };
 

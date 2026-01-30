@@ -31,13 +31,6 @@ class TokenUtilsClass {
         }
     }
     
-    isContextInvalidatedError(error) {
-        if (!error) return false;
-        const errorMsg = (error.message || error.toString() || '').toLowerCase();
-        return errorMsg.includes('extension context invalidated') ||
-               errorMsg.includes('context invalidated');
-    }
-    
     async getTokenFromChromeStorage() {
         if (!this.isChromeStorageAvailable()) {
             return '';

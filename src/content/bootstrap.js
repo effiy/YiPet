@@ -22,38 +22,13 @@ window.StorageHelper = {
         // 检查chrome.storage是否可用
         isChromeStorageAvailable() {
             try {
-                // 检查基本对象是否存在
-                if (typeof chrome === 'undefined' || 
-                    !chrome.storage || 
-                    !chrome.storage.local ||
-                    !chrome.runtime) {
-                    return false;
-                }
-                
-                // 检查 runtime.id 是否存在（如果不存在，说明上下文已失效）
+                if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.runtime) return false;
                 try {
-                    const runtimeId = chrome.runtime.id;
-                    if (!runtimeId) {
-                        return false;
-                    }
+                    return !!chrome.runtime.id;
                 } catch (error) {
-                    // 如果访问 runtime.id 抛出错误，检查是否是上下文失效错误
-                    const errorMsg = (error.message || error.toString() || '').toLowerCase();
-                    if (errorMsg.includes('extension context invalidated') ||
-                        errorMsg.includes('context invalidated')) {
-                        return false;
-                    }
-                    throw error;
-                }
-                
-                return true;
-            } catch (error) {
-                // 如果捕获到上下文失效错误，返回 false
-                const errorMsg = (error.message || error.toString() || '').toLowerCase();
-                if (errorMsg.includes('extension context invalidated') ||
-                    errorMsg.includes('context invalidated')) {
                     return false;
                 }
+            } catch (error) {
                 return false;
             }
         },

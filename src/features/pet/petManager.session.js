@@ -6,6 +6,14 @@
     }
 
     const proto = window.PetManager.prototype;
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+    const scrollToSessionItemAfterSidebarUpdate = async (ctx, sessionId, delayMs = 100) => {
+        if (!ctx || !sessionId) return;
+        if (ctx.sessionSidebar && typeof ctx.scrollToSessionItem === 'function') {
+            await sleep(delayMs);
+            await ctx.scrollToSessionItem(sessionId);
+        }
+    };
 
     // ==================== 会话初始化与核心流程 ====================
 
@@ -69,11 +77,7 @@
                     updateUI: true
                 });
 
-                // 滚动到会话项位置（等待侧边栏更新完成）
-                if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    await this.scrollToSessionItem(matchedSessionId);
-                }
+                await scrollToSessionItemAfterSidebarUpdate(this, matchedSessionId, 100);
 
                 console.log('找到URL匹配的会话，已自动选中:', matchedSessionId);
                 return matchedSessionId;
@@ -98,11 +102,7 @@
                 updateUI: true
             });
 
-            // 滚动到会话项位置（等待侧边栏更新完成）
-            if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                await this.scrollToSessionItem(sessionId);
-            }
+            await scrollToSessionItemAfterSidebarUpdate(this, sessionId, 100);
 
             console.log('找到基于URL的已有会话，已自动选中:', sessionId);
             return sessionId;
@@ -132,11 +132,7 @@
                 updateUI: true
             });
 
-            // 滚动到会话项位置（等待侧边栏更新完成）
-            if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                await this.scrollToSessionItem(sessionId);
-            }
+            await scrollToSessionItemAfterSidebarUpdate(this, sessionId, 100);
 
             console.log('使用URL作为会话ID，已自动创建并保存新会话:', sessionId, 'URL:', currentUrl);
 
@@ -1619,11 +1615,7 @@
                 skipBackendFetch: true
             });
 
-            // 滚动到会话项位置（等待侧边栏更新完成）
-            if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                await this.scrollToSessionItem(finalSessionKey);
-            }
+            await scrollToSessionItemAfterSidebarUpdate(this, finalSessionKey, 100);
 
             // 显示成功通知
             this.showNotification('会话创建成功', 'success');
@@ -1650,7 +1642,7 @@
         if (isPageLoaded) {
             // 页面已经加载完成，延迟1秒后初始化会话
             console.log('页面已加载完成，等待1秒后初始化会话');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await sleep(1000);
             await this.initSession();
         } else {
             // 页面尚未加载完成，等待加载完成后再延迟1秒
@@ -1660,7 +1652,7 @@
                 window.removeEventListener('load', handleLoad);
 
                 // 延迟1秒后初始化会话
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await sleep(1000);
                 await this.initSession();
             };
 

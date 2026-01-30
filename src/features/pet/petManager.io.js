@@ -5,6 +5,45 @@
     }
 
     const proto = window.PetManager.prototype;
+    const DomHelper = window.DomHelper;
+    const getErrorMessages = () => {
+        try {
+            return (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES : null;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const isContextInvalidatedError = (error) => {
+        try {
+            if (typeof ErrorHandler !== 'undefined' && ErrorHandler && typeof ErrorHandler.isContextInvalidated === 'function') {
+                return ErrorHandler.isContextInvalidated(error);
+            }
+        } catch (e) {}
+        const errorMsg = (error && (error.message || error.toString()) ? (error.message || error.toString()) : '').toLowerCase();
+        return errorMsg.includes('extension context invalidated') ||
+            errorMsg.includes('context invalidated') ||
+            errorMsg.includes('could not establish connection') ||
+            errorMsg.includes('the message port closed');
+    };
+
+    const getExtensionUrlOrThrow = (relativePath) => {
+        try {
+            if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.getURL !== 'function') {
+                throw new Error('扩展上下文无效：chrome.runtime 不可用');
+            }
+            const url = chrome.runtime.getURL(relativePath);
+            if (!url) throw new Error('扩展上下文无效：无法获取脚本 URL');
+            return url;
+        } catch (error) {
+            if (isContextInvalidatedError(error)) {
+                const msgs = getErrorMessages();
+                const contextError = msgs && msgs.CONTEXT_INVALIDATED ? msgs.CONTEXT_INVALIDATED : '扩展上下文已失效';
+                throw new Error(contextError);
+            }
+            throw error;
+        }
+    };
 
     // 加载JSZip库（参考loadMermaid的方式）
     proto._loadJSZip = async function () {
@@ -32,32 +71,8 @@
             // 检查扩展上下文是否有效
             let scriptUrl, loadScriptUrl;
             try {
-                // 检查 chrome 对象和 runtime 是否存在
-                if (typeof chrome === 'undefined' || !chrome.runtime) {
-                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
-                }
-
-                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
-                try {
-                    scriptUrl = chrome.runtime.getURL('src/libs/jszip.min.js');
-                    loadScriptUrl = chrome.runtime.getURL('src/features/session/load-jszip.js');
-
-                    // 验证 URL 是否有效
-                    if (!scriptUrl || !loadScriptUrl) {
-                        throw new Error('扩展上下文无效：无法获取脚本 URL');
-                    }
-                } catch (getUrlError) {
-                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
-                    if (errorMsg.includes('extension context invalidated') ||
-                        errorMsg.includes('context invalidated') ||
-                        errorMsg.includes('could not establish connection')) {
-                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED
-                            : '扩展上下文已失效';
-                        throw new Error(contextError);
-                    }
-                    throw new Error('扩展上下文无效：无法获取脚本 URL');
-                }
+                scriptUrl = getExtensionUrlOrThrow('src/libs/jszip.min.js');
+                loadScriptUrl = getExtensionUrlOrThrow('src/features/session/load-jszip.js');
             } catch (error) {
                 this.jszipLoading = false;
                 const errorMsg = error.message || '扩展上下文无效';
@@ -67,53 +82,35 @@
             }
 
             console.log('尝试在页面上下文中加载 JSZip.js，URL:', scriptUrl);
+            if (!DomHelper || typeof DomHelper.runPageScriptWithData !== 'function') {
+                this.jszipLoading = false;
+                reject(new Error('DomHelper 不可用，无法加载 JSZip'));
+                return;
+            }
 
-            // 通过 data 属性传递 URL（避免内联脚本）
-            const urlContainer = document.createElement('div');
-            urlContainer.id = '__jszip_url_container__';
-            urlContainer.classList.add('tw-hidden');
-            urlContainer.setAttribute('data-jszip-url', scriptUrl);
-            (document.head || document.documentElement).appendChild(urlContainer);
-
-            // 加载外部脚本文件（避免 CSP 限制）
-            const injectedScript = document.createElement('script');
-            injectedScript.src = loadScriptUrl;
-            injectedScript.charset = 'UTF-8';
-            injectedScript.async = false;
-
-            // 监听页面中的 JSZip 加载事件（在脚本加载前设置）
-            const handleJSZipLoaded = () => {
+            DomHelper.runPageScriptWithData({
+                scriptSrc: loadScriptUrl,
+                dataContainerId: '__jszip_url_container__',
+                dataAttributes: {
+                    'data-jszip-url': scriptUrl
+                },
+                successEvent: 'jszip-loaded',
+                errorEvent: 'jszip-error',
+                timeoutMs: 30000,
+                cleanupDelayMs: 1000
+            }).then(() => {
                 console.log('[Content] 收到 JSZip 加载完成事件');
                 this.jszipLoaded = true;
                 this.jszipLoading = false;
                 console.log('[Content] JSZip.js 在页面上下文中已加载');
-                window.removeEventListener('jszip-loaded', handleJSZipLoaded);
-                window.removeEventListener('jszip-error', handleJSZipError);
                 resolve(true);
-            };
-
-            const handleJSZipError = (event) => {
-                console.error('[Content] 收到 JSZip 加载失败事件', event);
+            }).catch((eventOrError) => {
                 this.jszipLoading = false;
-                window.removeEventListener('jszip-loaded', handleJSZipLoaded);
-                window.removeEventListener('jszip-error', handleJSZipError);
-                const errorMsg = event && event.detail && event.detail.error ? event.detail.error : '页面上下文中的 JSZip.js 加载失败';
+                const errorMsg = (eventOrError && eventOrError.detail && eventOrError.detail.error)
+                    ? eventOrError.detail.error
+                    : (eventOrError && eventOrError.message ? eventOrError.message : '页面上下文中的 JSZip.js 加载失败');
                 reject(new Error(errorMsg));
-            };
-
-            // 监听页面事件（通过注入的事件监听器）
-            window.addEventListener('jszip-loaded', handleJSZipLoaded);
-            window.addEventListener('jszip-error', handleJSZipError);
-
-            // 注入脚本到页面上下文
-            (document.head || document.documentElement).appendChild(injectedScript);
-
-            // 清理注入的脚本
-            setTimeout(() => {
-                if (injectedScript.parentNode) {
-                    injectedScript.parentNode.removeChild(injectedScript);
-                }
-            }, 1000);
+            });
         });
     };
 
@@ -178,82 +175,49 @@
             // 检查扩展上下文是否有效
             let importScriptUrl;
             try {
-                // 检查 chrome 对象和 runtime 是否存在
-                if (typeof chrome === 'undefined' || !chrome.runtime) {
-                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
-                }
-
-                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
-                try {
-                    importScriptUrl = chrome.runtime.getURL('src/features/session/import-sessions.js');
-
-                    // 验证 URL 是否有效
-                    if (!importScriptUrl) {
-                        throw new Error('扩展上下文无效：无法获取脚本 URL');
-                    }
-                } catch (getUrlError) {
-                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
-                    if (errorMsg.includes('extension context invalidated') ||
-                        errorMsg.includes('context invalidated') ||
-                        errorMsg.includes('could not establish connection')) {
-                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED
-                            : '扩展上下文已失效';
-                        throw new Error(contextError);
-                    }
-                    throw new Error('扩展上下文无效：无法获取脚本 URL');
-                }
+                importScriptUrl = getExtensionUrlOrThrow('src/features/session/import-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导入脚本URL失败:', error);
-                const importError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
-                    : '导入失败';
+                const msgs = getErrorMessages();
+                const importError = msgs && msgs.OPERATION_FAILED ? msgs.OPERATION_FAILED : '导入失败';
                 this.showNotification(`${importError}: ${errorMsg}`, 'error');
                 throw new Error(errorMsg);
             }
 
-            return new Promise((resolve, reject) => {
-                // 创建数据容器
-                const dataContainer = document.createElement('div');
-                dataContainer.id = '__jszip_import_data__';
-                dataContainer.classList.add('tw-hidden');
-                dataContainer.setAttribute('data-import', base64Data);
-                (document.head || document.documentElement).appendChild(dataContainer);
+            if (!DomHelper || typeof DomHelper.runPageScriptWithData !== 'function') {
+                this.showNotification('导入失败: DomHelper 不可用', 'error');
+                return;
+            }
 
-                // 加载外部导入脚本
-                const importScript = document.createElement('script');
-                importScript.src = importScriptUrl;
-                importScript.charset = 'UTF-8';
-                importScript.async = false;
+            let event = null;
+            try {
+                event = await DomHelper.runPageScriptWithData({
+                    scriptSrc: importScriptUrl,
+                    dataContainerId: '__jszip_import_data__',
+                    dataAttributes: {
+                        'data-import': base64Data
+                    },
+                    successEvent: 'jszip-import-success',
+                    errorEvent: 'jszip-import-error',
+                    timeoutMs: finalTimeout,
+                    cleanupDelayMs: 1000
+                });
+            } catch (eventOrError) {
+                const isTimeout = eventOrError instanceof Error && String(eventOrError.message || '').includes('超时');
+                if (isTimeout) {
+                    this.showNotification('导入超时，请重试', 'error');
+                } else {
+                    const errorMsg = (eventOrError && eventOrError.detail && eventOrError.detail.error)
+                        ? eventOrError.detail.error
+                        : (eventOrError && eventOrError.message ? eventOrError.message : 'ZIP文件解析失败');
+                    this.showNotification('导入失败: ' + errorMsg, 'error');
+                }
+                return;
+            }
 
-                // 超时定时器引用
-                let timeoutTimer = null;
-
-                // 清理函数
-                const cleanup = () => {
-                    if (timeoutTimer) {
-                        clearTimeout(timeoutTimer);
-                        timeoutTimer = null;
-                    }
-                    window.removeEventListener('jszip-import-success', handleSuccess);
-                    window.removeEventListener('jszip-import-error', handleError);
-
-                    // 清理DOM元素
-                    if (importScript.parentNode) {
-                        importScript.parentNode.removeChild(importScript);
-                    }
-                    if (dataContainer.parentNode) {
-                        dataContainer.parentNode.removeChild(dataContainer);
-                    }
-                };
-
-                // 监听导入结果
-                const handleSuccess = async (event) => {
-                    cleanup();
-
-                    try {
-                        const importData = event.detail.importData;
+            try {
+                const importData = event && event.detail ? event.detail.importData : null;
                         if (!importData || importData.length === 0) {
                             throw new Error('没有找到可导入的会话');
                         }
@@ -441,33 +405,10 @@
                             }
                             await this.updateSessionUI({ updateSidebar: true });
                         }, 2000);
-
-                    } catch (error) {
-                        this.showNotification('导入处理失败: ' + error.message, 'error');
-                        console.error('导入处理错误:', error);
-                    }
-                };
-
-                const handleError = (event) => {
-                    cleanup();
-                    const errorMsg = event && event.detail && event.detail.error ? event.detail.error : 'ZIP文件解析失败';
-                    this.showNotification('导入失败: ' + errorMsg, 'error');
-                };
-
-                // 监听页面事件
-                window.addEventListener('jszip-import-success', handleSuccess);
-                window.addEventListener('jszip-import-error', handleError);
-
-                // 设置超时
-                timeoutTimer = setTimeout(() => {
-                    cleanup();
-                    this.showNotification('导入超时，请重试', 'error');
-                }, finalTimeout);
-
-                // 注入脚本到页面上下文
-                (document.head || document.documentElement).appendChild(importScript);
-
-            });
+            } catch (error) {
+                this.showNotification('导入处理失败: ' + error.message, 'error');
+                console.error('导入处理错误:', error);
+            }
 
         } catch (error) {
             console.error('导入ZIP文件失败:', error);
@@ -555,105 +496,45 @@
             // 检查扩展上下文是否有效
             let exportScriptUrl;
             try {
-                // 检查 chrome 对象和 runtime 是否存在
-                if (typeof chrome === 'undefined' || !chrome.runtime) {
-                    throw new Error('扩展上下文无效：chrome.runtime 不可用');
-                }
-
-                // 直接尝试获取脚本 URL（不先检查 runtime.id，因为 getURL 更可靠）
-                try {
-                    exportScriptUrl = chrome.runtime.getURL('src/features/session/export-sessions.js');
-
-                    // 验证 URL 是否有效
-                    if (!exportScriptUrl) {
-                        throw new Error('扩展上下文无效：无法获取脚本 URL');
-                    }
-                } catch (getUrlError) {
-                    const errorMsg = (getUrlError.message || getUrlError.toString() || '').toLowerCase();
-                    if (errorMsg.includes('extension context invalidated') ||
-                        errorMsg.includes('context invalidated') ||
-                        errorMsg.includes('could not establish connection')) {
-                        const contextError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                            ? PET_CONFIG.constants.ERROR_MESSAGES.CONTEXT_INVALIDATED
-                            : '扩展上下文已失效';
-                        throw new Error(contextError);
-                    }
-                    throw new Error('扩展上下文无效：无法获取脚本 URL');
-                }
+                exportScriptUrl = getExtensionUrlOrThrow('src/features/session/export-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导出脚本URL失败:', error);
-                const exportError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
-                    : '导出失败';
+                const msgs = getErrorMessages();
+                const exportError = msgs && msgs.OPERATION_FAILED ? msgs.OPERATION_FAILED : '导出失败';
                 this.showNotification(`${exportError}: ${errorMsg}`, 'error');
                 throw new Error(errorMsg);
             }
 
-            // 使用注入外部脚本的方式（避免CSP限制）
-            return new Promise((resolve, reject) => {
-                // 创建数据容器（通过data属性传递数据，避免内联脚本）
-                const dataContainer = document.createElement('div');
-                dataContainer.id = '__jszip_export_data__';
-                dataContainer.classList.add('tw-hidden');
-                dataContainer.setAttribute('data-export', JSON.stringify(exportData));
-                dataContainer.setAttribute('data-export-type', 'session');
-                (document.head || document.documentElement).appendChild(dataContainer);
+            if (!DomHelper || typeof DomHelper.runPageScriptWithData !== 'function') {
+                throw new Error('DomHelper 不可用，无法导出');
+            }
 
-                // 加载外部导出脚本
-                const exportScript = document.createElement('script');
-                exportScript.src = exportScriptUrl;
-                exportScript.charset = 'UTF-8';
-                exportScript.async = false;
+            let event = null;
+            try {
+                event = await DomHelper.runPageScriptWithData({
+                    scriptSrc: exportScriptUrl,
+                    dataContainerId: '__jszip_export_data__',
+                    dataAttributes: {
+                        'data-export': JSON.stringify(exportData),
+                        'data-export-type': 'session'
+                    },
+                    successEvent: 'jszip-export-success',
+                    errorEvent: 'jszip-export-error',
+                    timeoutMs: 30000,
+                    cleanupDelayMs: 1000
+                });
+            } catch (eventOrError) {
+                const isTimeout = eventOrError instanceof Error && String(eventOrError.message || '').includes('超时');
+                if (isTimeout) throw new Error('导出超时');
+                const errorMsg = (eventOrError && eventOrError.detail && eventOrError.detail.error)
+                    ? eventOrError.detail.error
+                    : (eventOrError && eventOrError.message ? eventOrError.message : '导出失败');
+                throw new Error(errorMsg);
+            }
 
-                // 监听导出结果
-                const handleSuccess = (event) => {
-                    window.removeEventListener('jszip-export-success', handleSuccess);
-                    window.removeEventListener('jszip-export-error', handleError);
-                    // 清理
-                    if (exportScript.parentNode) {
-                        exportScript.parentNode.removeChild(exportScript);
-                    }
-                    if (dataContainer.parentNode) {
-                        dataContainer.parentNode.removeChild(dataContainer);
-                    }
-                    this.showNotification(`成功导出 ${event.detail.count} 个会话`, 'success');
-                    resolve();
-                };
-
-                const handleError = (event) => {
-                    window.removeEventListener('jszip-export-success', handleSuccess);
-                    window.removeEventListener('jszip-export-error', handleError);
-                    // 清理
-                    if (exportScript.parentNode) {
-                        exportScript.parentNode.removeChild(exportScript);
-                    }
-                    if (dataContainer.parentNode) {
-                        dataContainer.parentNode.removeChild(dataContainer);
-                    }
-                    const errorMsg = event.detail && event.detail.error ? event.detail.error : '导出失败';
-                    reject(new Error(errorMsg));
-                };
-
-                window.addEventListener('jszip-export-success', handleSuccess);
-                window.addEventListener('jszip-export-error', handleError);
-
-                // 注入脚本
-                (document.head || document.documentElement).appendChild(exportScript);
-
-                // 设置超时
-                setTimeout(() => {
-                    window.removeEventListener('jszip-export-success', handleSuccess);
-                    window.removeEventListener('jszip-export-error', handleError);
-                    if (exportScript.parentNode) {
-                        exportScript.parentNode.removeChild(exportScript);
-                    }
-                    if (dataContainer.parentNode) {
-                        dataContainer.parentNode.removeChild(dataContainer);
-                    }
-                    reject(new Error('导出超时'));
-                }, 30000);
-            });
+            const count = event && event.detail && typeof event.detail.count === 'number' ? event.detail.count : exportData.length;
+            this.showNotification(`成功导出 ${count} 个会话`, 'success');
         } catch (error) {
             console.error('导出会话失败:', error);
             throw error;

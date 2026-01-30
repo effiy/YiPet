@@ -221,6 +221,175 @@ class DomHelper {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    static isContextInvalidatedError(error) {
+        try {
+            if (typeof ErrorHandler !== 'undefined' && ErrorHandler && typeof ErrorHandler.isContextInvalidated === 'function') {
+                return ErrorHandler.isContextInvalidated(error);
+            }
+        } catch (_) {}
+        const errorMsg = (error && (error.message || error.toString()) ? (error.message || error.toString()) : '').toLowerCase();
+        return errorMsg.includes('extension context invalidated') ||
+            errorMsg.includes('context invalidated') ||
+            errorMsg.includes('could not establish connection') ||
+            errorMsg.includes('the message port closed');
+    }
+
+    static getExtensionUrlOrThrow(relativePath) {
+        try {
+            if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.getURL !== 'function') {
+                throw new Error('扩展上下文无效：chrome.runtime 不可用');
+            }
+            const url = chrome.runtime.getURL(relativePath);
+            if (!url) throw new Error('扩展上下文无效：无法获取脚本 URL');
+            return url;
+        } catch (error) {
+            if (this.isContextInvalidatedError(error)) {
+                let msg = '扩展上下文已失效';
+                try {
+                    const m = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES : null;
+                    if (m && m.CONTEXT_INVALIDATED) msg = m.CONTEXT_INVALIDATED;
+                } catch (_) {}
+                throw new Error(msg);
+            }
+            throw error;
+        }
+    }
+
+    static removeElementById(id) {
+        if (!id) return;
+        try {
+            const el = document.getElementById(id);
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+        } catch (_) {}
+    }
+
+    static createDataContainer({ id, className, attributes, parent }) {
+        if (!id) return null;
+        this.removeElementById(id);
+        try {
+            const el = document.createElement('div');
+            el.id = id;
+            if (className) el.className = className;
+            if (attributes && typeof attributes === 'object') {
+                Object.keys(attributes).forEach((key) => {
+                    try {
+                        el.setAttribute(key, String(attributes[key]));
+                    } catch (_) {}
+                });
+            }
+            const target = parent || document.head || document.documentElement;
+            (target || document.documentElement).appendChild(el);
+            return el;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    static injectScript({ src, parent, async = false, charset = 'UTF-8' }) {
+        if (!src) return null;
+        try {
+            const script = document.createElement('script');
+            script.src = src;
+            script.charset = charset;
+            script.async = !!async;
+            const target = parent || document.head || document.documentElement;
+            (target || document.documentElement).appendChild(script);
+            return script;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    static waitForWindowEvent({ successEvent, errorEvent, timeoutMs = 15000, isSuccess, isError }) {
+        return new Promise((resolve, reject) => {
+            let timeoutId = null;
+            const cleanup = () => {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                if (successEvent) {
+                    try {
+                        window.removeEventListener(successEvent, onSuccess);
+                    } catch (_) {}
+                }
+                if (errorEvent) {
+                    try {
+                        window.removeEventListener(errorEvent, onError);
+                    } catch (_) {}
+                }
+            };
+
+            const onSuccess = (e) => {
+                try {
+                    if (typeof isSuccess === 'function' && !isSuccess(e)) return;
+                } catch (_) {}
+                cleanup();
+                resolve(e);
+            };
+
+            const onError = (e) => {
+                try {
+                    if (typeof isError === 'function' && !isError(e)) return;
+                } catch (_) {}
+                cleanup();
+                reject(e);
+            };
+
+            if (successEvent) window.addEventListener(successEvent, onSuccess);
+            if (errorEvent) window.addEventListener(errorEvent, onError);
+
+            timeoutId = setTimeout(() => {
+                cleanup();
+                reject(new Error('等待页面事件超时'));
+            }, Math.max(0, Number(timeoutMs) || 0));
+        });
+    }
+
+    static async runPageScriptWithData({
+        scriptSrc,
+        dataContainerId,
+        dataAttributes,
+        successEvent,
+        errorEvent,
+        timeoutMs,
+        cleanupDelayMs = 1000,
+        isSuccess,
+        isError
+    }) {
+        const container = dataContainerId ? this.createDataContainer({
+            id: dataContainerId,
+            className: 'tw-hidden',
+            attributes: dataAttributes,
+            parent: document.head || document.documentElement
+        }) : null;
+
+        const script = this.injectScript({
+            src: scriptSrc,
+            parent: document.head || document.documentElement,
+            async: false
+        });
+
+        try {
+            return await this.waitForWindowEvent({ successEvent, errorEvent, timeoutMs, isSuccess, isError });
+        } finally {
+            setTimeout(() => {
+                if (script && script.parentNode) {
+                    try {
+                        script.parentNode.removeChild(script);
+                    } catch (_) {}
+                }
+                if (container && container.parentNode) {
+                    try {
+                        container.parentNode.removeChild(container);
+                    } catch (_) {}
+                } else if (dataContainerId) {
+                    this.removeElementById(dataContainerId);
+                }
+            }, Math.max(0, Number(cleanupDelayMs) || 0));
+        }
+    }
 }
 
 // 导出

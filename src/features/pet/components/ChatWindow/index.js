@@ -580,27 +580,8 @@
             const firstRow =
                 SessionSearchModule && typeof SessionSearchModule.createSearchElement === 'function'
                     ? SessionSearchModule.createSearchElement(manager)
-                    : (() => {
-                          const row = document.createElement('div');
-                          row.className = 'session-sidebar-search-row';
-                          const searchContainer = document.createElement('div');
-                          searchContainer.className = 'session-search-container';
-                          const searchInput = document.createElement('input');
-                          searchInput.type = 'text';
-                          searchInput.placeholder = '搜索会话...';
-                          searchInput.value = manager.sessionTitleFilter || '';
-                          searchInput.id = 'session-search-input';
-                          searchInput.className = 'session-search-input';
-                          const clearBtn = document.createElement('button');
-                          clearBtn.innerHTML = '✕';
-                          clearBtn.type = 'button';
-                          clearBtn.className = 'session-search-clear-btn';
-                          searchContainer.appendChild(searchInput);
-                          searchContainer.appendChild(clearBtn);
-                          row.appendChild(searchContainer);
-                          return row;
-                      })();
-            sidebarHeader.appendChild(firstRow);
+                    : null;
+            if (firstRow) sidebarHeader.appendChild(firstRow);
             sidebar.appendChild(sidebarHeader);
 
             // Second Row: Buttons (Toolbar) - 移到 tag-filter-list 下面
@@ -703,42 +684,12 @@
         }
 
         buildBatchToolbar() {
+            const manager = this.manager;
+            if (manager && typeof manager.buildBatchToolbar === 'function') return manager.buildBatchToolbar();
+
             const toolbar = document.createElement('div');
             toolbar.id = 'batch-toolbar';
-            toolbar.className = 'batch-toolbar';
-
-            const selectedCount = document.createElement('span');
-            selectedCount.id = 'selected-count';
-            selectedCount.textContent = '已选择 0 个';
-            selectedCount.className = 'batch-selected-count';
-
-            const createBtn = (text, className, onClick) => {
-                const btn = document.createElement('button');
-                btn.textContent = text;
-                btn.className = className;
-                btn.addEventListener('click', onClick);
-                return btn;
-            };
-
-            const selectAllBtn = createBtn('全选', 'batch-toolbar-btn batch-toolbar-btn--default', () => {
-                if (typeof this.manager.toggleSelectAll === 'function') this.manager.toggleSelectAll();
-            });
-            selectAllBtn.id = 'select-all-btn';
-
-            const batchDeleteBtn = createBtn('删除', 'batch-toolbar-btn batch-toolbar-btn--danger', async () => {
-                if (typeof this.manager.batchDeleteSessions === 'function') await this.manager.batchDeleteSessions();
-            });
-            batchDeleteBtn.id = 'batch-delete-btn';
-
-            const cancelBtn = createBtn('取消', 'batch-toolbar-btn batch-toolbar-btn--default', () => {
-                if (typeof this.manager.exitBatchMode === 'function') this.manager.exitBatchMode();
-            });
-
-            toolbar.appendChild(selectedCount);
-            toolbar.appendChild(selectAllBtn);
-            toolbar.appendChild(batchDeleteBtn);
-            toolbar.appendChild(cancelBtn);
-
+            toolbar.className = 'session-batch-toolbar';
             return toolbar;
         }
 
@@ -1928,4 +1879,3 @@
     window.PetManager.Components.ChatWindow = ChatWindow;
 
 })();
-

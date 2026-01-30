@@ -116,15 +116,6 @@
             String(template || '').trim() ||
             '<div><div class="session-sidebar-header"></div><div class="session-sidebar-scrollable-content"><div id="yi-pet-tag-filter-mount"></div><div id="yi-pet-batch-toolbar-mount"></div><div class="session-list" id="session-list"></div></div></div>';
 
-        const resolvedDomSearchTemplate = `
-            <div class="session-sidebar-search-row">
-                <div class="session-search-container">
-                    <input id="session-search-input" class="session-search-input" type="text" placeholder="搜索会话..." />
-                    <button type="button" class="session-search-clear-btn">✕</button>
-                </div>
-            </div>
-        `;
-
         const evalAllowed = (() => {
             try {
                 Function('return 1')();
@@ -168,7 +159,12 @@
 
                         const sessionSearchEl = el.querySelector('sessionsearch');
                         if (sessionSearchEl) {
-                            sessionSearchEl.outerHTML = resolvedDomSearchTemplate;
+                            const sessionSearchModule = window.PetManager?.Components?.SessionSearch;
+                            if (sessionSearchModule && typeof sessionSearchModule.createSearchElement === 'function') {
+                                sessionSearchEl.replaceWith(sessionSearchModule.createSearchElement(manager || {}));
+                            } else {
+                                sessionSearchEl.remove();
+                            }
                         }
 
                         const searchInput = el.querySelector('#session-search-input');
@@ -248,7 +244,7 @@
             defineComponent({
                 name: 'YiPetSessionSearchStub',
                 props: { uiTick: { type: Number, required: true } },
-                template: '<div class="session-sidebar-search-row"></div>'
+                template: '<div></div>'
             });
 
         const TagFilterComponent =

@@ -5,15 +5,18 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const CHAT_INPUT_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/ChatInput/index.html';
+    let chatInputTemplateCache = '';
 
     async function loadTemplate() {
+        if (chatInputTemplateCache) return chatInputTemplateCache;
         const DomHelper = window.DomHelper;
         if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
-        return await DomHelper.loadHtmlTemplate(
+        chatInputTemplateCache = await DomHelper.loadHtmlTemplate(
             CHAT_INPUT_TEMPLATES_RESOURCE_PATH,
             '#yi-pet-chat-input-template',
             'Failed to load ChatInput template'
         );
+        return chatInputTemplateCache;
     }
 
     function createComponent(params) {
@@ -24,11 +27,8 @@
         const { defineComponent, ref, onMounted } = Vue;
         if (typeof defineComponent !== 'function' || typeof ref !== 'function' || typeof onMounted !== 'function') return null;
 
-        const fallbackTemplate = `
-            <div class="yi-pet-chat-input-container chat-input-container"></div>
-        `;
-
-        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || chatInputTemplateCache || '').trim();
+        if (!resolvedTemplate) return null;
 
         return defineComponent({
             name: 'YiPetChatInput',
@@ -638,3 +638,4 @@
         createInputContainerElement
     };
 })();
+

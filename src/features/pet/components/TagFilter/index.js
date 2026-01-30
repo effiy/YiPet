@@ -5,15 +5,18 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const TAG_FILTER_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/TagFilter/index.html';
+    let tagFilterTemplateCache = '';
 
     async function loadTemplate() {
+        if (tagFilterTemplateCache) return tagFilterTemplateCache;
         const DomHelper = window.DomHelper;
         if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
-        return await DomHelper.loadHtmlTemplate(
+        tagFilterTemplateCache = await DomHelper.loadHtmlTemplate(
             TAG_FILTER_TEMPLATES_RESOURCE_PATH,
             '#yi-pet-tag-filter-template',
             'Failed to load TagFilter template'
         );
+        return tagFilterTemplateCache;
     }
 
     function createComponent(params) {
@@ -24,98 +27,8 @@
         const { defineComponent, ref, computed, onMounted, onUpdated, nextTick } = Vue;
         if (typeof defineComponent !== 'function' || typeof ref !== 'function' || typeof computed !== 'function') return null;
 
-        const fallbackTemplate = `
-            <div class="tag-filter-container" ref="rootEl" data-pet-tag-filter="vue">
-                <div class="tag-filter-header">
-                    <div class="tag-filter-search-container" :class="{ 'has-keyword': keywordLower }">
-                        <input
-                            class="tag-filter-search tag-filter-search-input"
-                            type="text"
-                            placeholder="搜索标签..."
-                            :value="keyword"
-                            @input="onKeywordInput"
-                            @click.stop
-                        />
-                        <button
-                            type="button"
-                            class="tag-filter-search-clear"
-                            :class="{ visible: keywordLower }"
-                            title="清除"
-                            aria-label="清除"
-                            @click.stop="clearKeyword"
-                        >✕</button>
-                    </div>
-                    <div class="tag-filter-actions">
-                        <button
-                            type="button"
-                            class="tag-filter-action-btn tag-filter-reverse"
-                            :class="{ active: tagFilterReverse }"
-                            title="反向过滤"
-                            aria-label="反向过滤"
-                            @click.stop="toggleReverse"
-                        >⇄</button>
-                        <button
-                            type="button"
-                            class="tag-filter-action-btn tag-filter-no-tags"
-                            :class="{ active: tagFilterNoTags }"
-                            title="筛选无标签"
-                            aria-label="筛选无标签"
-                            @click.stop="toggleNoTags"
-                        >∅</button>
-                        <button
-                            type="button"
-                            class="tag-filter-action-btn tag-filter-expand"
-                            :class="{ active: tagFilterExpanded }"
-                            title="展开/收起更多标签"
-                            aria-label="展开/收起更多标签"
-                            @click.stop="toggleExpanded"
-                        >⋮</button>
-                        <button
-                            type="button"
-                            class="tag-filter-clear-btn"
-                            :class="{ active: hasActiveFilter }"
-                            title="清除筛选"
-                            aria-label="清除筛选"
-                            @click.stop="clearFilters"
-                        >×</button>
-                    </div>
-                </div>
-                <div class="tag-filter-list">
-                    <button
-                        v-if="noTagsCount > 0"
-                        type="button"
-                        class="tag-filter-item tag-no-tags"
-                        :class="{ selected: tagFilterNoTags }"
-                        data-tag-name="__no_tags__"
-                        :title="tagFilterNoTags ? '取消筛选无标签会话' : '筛选没有标签的会话'"
-                        @click.stop="toggleNoTags"
-                        draggable="false"
-                    >没有标签 ({{ noTagsCount }})</button>
-                    <button
-                        v-for="tag in tagsToShow"
-                        :key="tag"
-                        type="button"
-                        class="tag-filter-item"
-                        :class="{ selected: isTagSelected(tag) }"
-                        :data-tag-name="tag"
-                        :title="isTagSelected(tag) ? '取消选择 | 拖拽调整顺序' : '选择标签 | 拖拽调整顺序'"
-                        @click.stop="onTagClick(tag)"
-                        draggable="true"
-                    >{{ tag }} ({{ tagCounts[tag] || 0 }})</button>
-                    <button
-                        v-if="showExpandButton"
-                        type="button"
-                        class="tag-filter-item tag-expand-btn"
-                        data-tag-name="__expand__"
-                        :title="tagFilterExpanded ? '收起标签' : '展开标签'"
-                        @click.stop="toggleExpanded"
-                        draggable="false"
-                    >{{ tagFilterExpanded ? '收起' : \`展开 (\${remainingCount})\` }}</button>
-                </div>
-            </div>
-        `;
-
-        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || tagFilterTemplateCache || '').trim();
+        if (!resolvedTemplate) return null;
 
         return defineComponent({
             name: 'YiPetTagFilter',
@@ -474,3 +387,4 @@
         createTagFilterElement
     };
 })();
+

@@ -5,15 +5,18 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const SESSION_LIST_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionList/index.html';
+    let sessionListTemplateCache = '';
 
     async function loadTemplate() {
+        if (sessionListTemplateCache) return sessionListTemplateCache;
         const DomHelper = window.DomHelper;
         if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
-        return await DomHelper.loadHtmlTemplate(
+        sessionListTemplateCache = await DomHelper.loadHtmlTemplate(
             SESSION_LIST_TEMPLATES_RESOURCE_PATH,
             '#yi-pet-session-list-template',
             'Failed to load SessionList template'
         );
+        return sessionListTemplateCache;
     }
 
     function createComponent(params) {
@@ -23,16 +26,8 @@
         const { defineComponent } = Vue;
         if (typeof defineComponent !== 'function') return null;
 
-        const fallbackTemplate = `
-            <div>
-                <div v-if="!sessions || sessions.length === 0" class="session-list-empty">暂无会话</div>
-                <div v-else class="session-list-items">
-                    <SessionItem v-for="session in sessions" :key="sessionKey(session)" :session="session" :uiTick="uiTick" />
-                </div>
-            </div>
-        `;
-
-        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || sessionListTemplateCache || '').trim();
+        if (!resolvedTemplate) return null;
 
         return defineComponent({
             name: 'YiPetSessionList',
@@ -57,3 +52,4 @@
         createComponent
     };
 })();
+

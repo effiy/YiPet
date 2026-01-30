@@ -5,15 +5,18 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const SESSION_SEARCH_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionSearch/index.html';
+    let sessionSearchTemplateCache = '';
 
     async function loadTemplate() {
+        if (sessionSearchTemplateCache) return sessionSearchTemplateCache;
         const DomHelper = window.DomHelper;
         if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
-        return await DomHelper.loadHtmlTemplate(
+        sessionSearchTemplateCache = await DomHelper.loadHtmlTemplate(
             SESSION_SEARCH_TEMPLATES_RESOURCE_PATH,
             '#yi-pet-session-search-template',
             'Failed to load SessionSearch template'
         );
+        return sessionSearchTemplateCache;
     }
 
     function createComponent(params) {
@@ -26,16 +29,8 @@
         const { defineComponent, computed } = Vue;
         if (typeof defineComponent !== 'function') return null;
 
-        const fallbackTemplate = `
-            <div class="session-sidebar-search-row">
-                <div class="session-search-container">
-                    <input id="session-search-input" class="session-search-input" type="text" placeholder="搜索会话..." :value="searchValue" @input="onSearchInput" @keydown="onSearchKeydown" @click.stop />
-                    <button type="button" class="session-search-clear-btn" :class="{ visible: clearVisible }" @click.stop="clearSearch">✕</button>
-                </div>
-            </div>
-        `;
-
-        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || sessionSearchTemplateCache || '').trim();
+        if (!resolvedTemplate) return null;
 
         return defineComponent({
             name: 'YiPetSessionSearch',
@@ -111,3 +106,4 @@
         createSearchElement
     };
 })();
+

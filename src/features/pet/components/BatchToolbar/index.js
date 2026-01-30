@@ -5,15 +5,18 @@
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
     const BATCH_TOOLBAR_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/BatchToolbar/index.html';
+    let batchToolbarTemplateCache = '';
 
     async function loadTemplate() {
+        if (batchToolbarTemplateCache) return batchToolbarTemplateCache;
         const DomHelper = window.DomHelper;
         if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return '';
-        return await DomHelper.loadHtmlTemplate(
+        batchToolbarTemplateCache = await DomHelper.loadHtmlTemplate(
             BATCH_TOOLBAR_TEMPLATES_RESOURCE_PATH,
             '#yi-pet-batch-toolbar-template',
             'Failed to load BatchToolbar template'
         );
+        return batchToolbarTemplateCache;
     }
 
     function createComponent(params) {
@@ -24,39 +27,8 @@
         const { defineComponent, computed, ref } = Vue;
         if (typeof defineComponent !== 'function' || typeof computed !== 'function' || typeof ref !== 'function') return null;
 
-        const fallbackTemplate = `
-            <div id="batch-toolbar" class="session-batch-toolbar" data-pet-batch-toolbar="vue">
-            <div class="session-batch-toolbar-inner">
-                <div class="batch-toolbar-left">
-                    <label class="batch-select-all">
-                        <input type="checkbox" id="select-all-checkbox" :checked="allSelected" @change.stop="onSelectAllChange" />
-                        <span>全选</span>
-                    </label>
-                    <span id="selected-count" class="batch-selected-count" :class="{ 'js-hidden': selectedCount === 0 }">
-                        {{ selectedCount === 0 ? '' : \`已选 \${selectedCount} 项\` }}
-                    </span>
-                </div>
-                <div class="batch-toolbar-right">
-                    <button
-                        type="button"
-                        id="batch-delete-btn"
-                        class="batch-action-btn batch-delete-btn"
-                        :disabled="selectedCount === 0 || isDeleting"
-                        title="删除选中会话"
-                        @click.stop="onDeleteClick"
-                    ><i :class="isDeleting ? 'fas fa-spinner fa-spin' : 'fas fa-trash-alt'"></i>{{ isDeleting ? ' 删除中...' : ' 删除' }}</button>
-                    <button
-                        type="button"
-                        class="batch-action-btn batch-cancel-btn"
-                        title="退出批量模式"
-                        @click.stop="onCancelClick"
-                    >取消</button>
-                </div>
-            </div>
-            </div>
-        `;
-
-        const resolvedTemplate = String(template || '').trim() || fallbackTemplate;
+        const resolvedTemplate = String(template || batchToolbarTemplateCache || '').trim();
+        if (!resolvedTemplate) return null;
 
         return defineComponent({
             name: 'YiPetBatchToolbar',
@@ -120,3 +92,4 @@
         createComponent
     };
 })();
+

@@ -557,10 +557,6 @@
             return null;
         }
 
-        createSidebarVue() {
-            return this.createSidebar();
-        }
-
         createSidebar() {
             const manager = this.manager;
             const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
@@ -570,22 +566,22 @@
                     : document.createElement('div');
             if (!sidebar.classList.contains('session-sidebar')) sidebar.className = 'session-sidebar';
 
-            const sidebarWidth = manager.sidebarWidth || 320;
-            manager.sidebarWidth = sidebarWidth;
-            sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
-            manager.sessionSidebar = sidebar;
+            if (typeof this._setupSidebarAfterRender === 'function') {
+                this._setupSidebarAfterRender(sidebar, { bindSidebarDomEvents: true });
+            } else {
+                const sidebarWidth = manager.sidebarWidth || 320;
+                manager.sidebarWidth = sidebarWidth;
+                sidebar.style.setProperty('--session-sidebar-width', `${sidebarWidth}px`);
+                manager.sessionSidebar = sidebar;
 
-            this.sessionListContainer = sidebar.querySelector('#session-list');
+                this.sessionListContainer = sidebar.querySelector('#session-list');
+                this.createSidebarResizer(sidebar);
+                this._bindSidebarDomEvents(sidebar);
 
-            // Resizer
-            this.createSidebarResizer(sidebar);
-
-            this._bindSidebarDomEvents(sidebar);
-
-            // Initial load
-            setTimeout(() => {
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
-            }, 0);
+                setTimeout(() => {
+                    if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar();
+                }, 0);
+            }
 
             return sidebar;
         }

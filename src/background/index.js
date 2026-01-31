@@ -27,11 +27,11 @@ try {
  */
 try {
     // 加载通用工具（供 service/handler 复用）
-    importScripts('../shared/api/requestUtils.js');
-    importScripts('../shared/utils/loggerUtils.js');
-    importScripts('../shared/utils/errorHandler.js');
-    importScripts('../shared/utils/moduleUtils.js');
-    importScripts('../shared/utils/globalAccessor.js');
+    importScripts('../api/requestUtils.js');
+    importScripts('../utils/loggerUtils.js');
+    importScripts('../utils/errorHandler.js');
+    importScripts('../utils/moduleUtils.js');
+    importScripts('../utils/globalAccessor.js');
 
     // 加载服务
     importScripts('services/tabMessaging.js');

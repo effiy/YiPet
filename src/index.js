@@ -3,13 +3,13 @@
  * 主应用入口文件
  */
 
-// 模块导出
-export * as PetModule from './modules/pet/index.js';
-export * as ChatModule from './modules/chat/index.js';
-export * as ScreenshotModule from './modules/screenshot/index.js';
-export * as MermaidModule from './modules/mermaid/index.js';
-export * as FAQModule from './modules/faq/index.js';
-export * as SessionModule from './modules/session/index.js';
+// 功能模块已移除 - 将在后续重构中重新实现
+// export * as PetModule from './modules/pet/index.js';
+// export * as ChatModule from './modules/chat/index.js';
+// export * as ScreenshotModule from './modules/screenshot/index.js';
+// export * as MermaidModule from './modules/mermaid/index.js';
+// export * as FAQModule from './modules/faq/index.js';
+// export * as SessionModule from './modules/session/index.js';
 
 // 共享资源导出
 export * as SharedUtils from './shared/utils/index.js';
@@ -27,13 +27,13 @@ export { Router } from './core/Router.js';
 
 // 默认导出
 export default {
-    // 模块
-    PetModule: require('./modules/pet/index.js'),
-    ChatModule: require('./modules/chat/index.js'),
-    ScreenshotModule: require('./modules/screenshot/index.js'),
-    MermaidModule: require('./modules/mermaid/index.js'),
-    FAQModule: require('./modules/faq/index.js'),
-    SessionModule: require('./modules/session/index.js'),
+    // 功能模块已移除 - 将在后续重构中重新实现
+    // PetModule: require('./modules/pet/index.js'),
+    // ChatModule: require('./modules/chat/index.js'),
+    // ScreenshotModule: require('./modules/screenshot/index.js'),
+    // MermaidModule: require('./modules/mermaid/index.js'),
+    // FAQModule: require('./modules/faq/index.js'),
+    // SessionModule: require('./modules/session/index.js'),
     
     // 共享资源
     SharedUtils: require('./shared/utils/index.js'),

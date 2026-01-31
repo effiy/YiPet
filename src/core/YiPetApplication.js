@@ -6,7 +6,7 @@
 import { EventEmitter } from '../shared/utils/events/EventEmitter.js';
 import { Logger } from '../shared/utils/logging/Logger.js';
 import { ModuleManager } from './ModuleManager.js';
-import { AppConfig, getConfig, validateConfig } from '../config/app.js';
+import { AppConfig, getConfig, validateConfig } from './config/app.js';
 
 /**
  * YiPet应用核心类
@@ -200,76 +200,8 @@ export class YiPetApplication extends EventEmitter {
     async loadFeatureModules() {
         this.logger.info('加载功能模块...');
         
-        // 功能模块配置
-        const featureModules = [
-            {
-                name: 'pet',
-                path: '../modules/pet/index.js',
-                required: true,
-                priority: 10,
-                dependencies: [],
-                provides: ['pet-core', 'pet-ui', 'pet-services']
-            },
-            {
-                name: 'chat',
-                path: '../modules/chat/index.js',
-                required: false,
-                priority: 8,
-                dependencies: ['pet'],
-                provides: ['chat-core', 'chat-ui', 'chat-services']
-            },
-            {
-                name: 'screenshot',
-                path: '../modules/screenshot/index.js',
-                required: false,
-                priority: 7,
-                dependencies: [],
-                provides: ['screenshot-core', 'screenshot-ui', 'screenshot-services']
-            },
-            {
-                name: 'mermaid',
-                path: '../modules/mermaid/index.js',
-                required: false,
-                priority: 6,
-                dependencies: [],
-                provides: ['mermaid-core', 'mermaid-ui', 'mermaid-services']
-            },
-            {
-                name: 'faq',
-                path: '../modules/faq/index.js',
-                required: false,
-                priority: 5,
-                dependencies: [],
-                provides: ['faq-core', 'faq-ui', 'faq-services']
-            },
-            {
-                name: 'session',
-                path: '../modules/session/index.js',
-                required: true,
-                priority: 9,
-                dependencies: [],
-                provides: ['session-core', 'session-ui', 'session-services']
-            }
-        ];
-        
-        // 根据配置过滤模块
-        const enabledModules = featureModules.filter(module => {
-            const config = getConfig(`modules.${module.name}.enabled`);
-            return config !== false; // 默认启用
-        });
-        
-        for (const moduleConfig of enabledModules) {
-            try {
-                await this.loadModule(moduleConfig);
-            } catch (error) {
-                if (moduleConfig.required) {
-                    this.logger.error(`必需功能模块加载失败: ${moduleConfig.name}`, error);
-                    throw error;
-                } else {
-                    this.logger.warn(`可选功能模块加载失败: ${moduleConfig.name}`, error);
-                }
-            }
-        }
+        // 功能模块已移除 - 将在后续重构中重新实现
+        this.logger.info('功能模块暂时禁用，等待重构完成');
         
         this.logger.info('功能模块加载完成');
     }

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>伴侣控制面板</title>
+    <style>
+        body {
+            width: 350px;
+            min-height: 400px;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow: hidden;
+        }
+        
+        .popup-container {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            margin: 10px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(45deg, #fff, #f0f0f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .status-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .status-label {
+            font-weight: 500;
+            opacity: 0.9;
+        }
+        
+        .status-value {
+            font-weight: 600;
+        }
+        
+        .status-value.online {
+            color: #4CAF50;
+        }
+        
+        .status-value.offline {
+            color: #f44336;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+        }
+        
+        .control-button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .control-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .control-button:active {
+            transform: translateY(0);
+        }
+        
+        .control-button.primary {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            font-weight: 600;
+        }
+        
+        .control-button.primary:hover {
+            background: linear-gradient(45deg, #45a049, #4CAF50);
+        }
+        
+        .control-button.danger {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+        }
+        
+        .control-button.danger:hover {
+            background: linear-gradient(45deg, #d32f2f, #f44336);
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-button {
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            text-align: center;
+        }
+        
+        .feature-button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+        
+        .feature-icon {
+            font-size: 20px;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 20px;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="popup-container">
+        <div class="header">
+            <h1>🐱 伴侣控制面板</h1>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+        </div>
+        
+        <div id="content" class="hidden">
+            <div class="status-section">
+                <div class="status-item">
+                    <span class="status-label">状态:</span>
+                    <span id="pet-status" class="status-value online">在线</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">心情:</span>
+                    <span id="pet-mood" class="status-value">开心</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">活跃度:</span>
+                    <span id="pet-activity" class="status-value">高</span>
+                </div>
+            </div>
+            
+            <div class="feature-grid">
+                <button class="feature-button" id="screenshot-btn">
+                    <span class="feature-icon">📸</span>
+                    区域截图
+                </button>
+                <button class="feature-button" id="chat-btn">
+                    <span class="feature-icon">💬</span>
+                    开始聊天
+                </button>
+                <button class="feature-button" id="mermaid-btn">
+                    <span class="feature-icon">📊</span>
+                    流程图
+                </button>
+                <button class="feature-button" id="faq-btn">
+                    <span class="feature-icon">❓</span>
+                    使用帮助
+                </button>
+            </div>
+            
+            <div class="control-section">
+                <button class="control-button primary" id="toggle-pet-btn">
+                    🐱 显示/隐藏伴侣
+                </button>
+                <button class="control-button" id="settings-btn">
+                    ⚙️ 设置选项
+                </button>
+                <button class="control-button" id="about-btn">
+                    ℹ️ 关于我们
+                </button>
+                <button class="control-button danger" id="logout-btn">
+                    🚪 退出登录
+                </button>
+            </div>
+        </div>
+        
+        <div id="error" class="error-message hidden"></div>
+        
+        <div class="footer">
+            <p>温柔陪伴助手 v1.1.0</p>
+            <p>让浏览更有趣 🌟</p>
+        </div>
+    </div>
+    
+    <script type="module" src="./popup.js"></script>
+</body>
+</html>

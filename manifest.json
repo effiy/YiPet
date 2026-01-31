@@ -10,7 +10,7 @@
     "https://api.effiy.cn/*"
   ],
   "background": {
-    "service_worker": "src/background/index.js"
+    "service_worker": "src/pages/background/index.js"
   },
   "content_scripts": [
     {
@@ -97,7 +97,7 @@
     }
   ],
   "action": {
-    "default_popup": "src/views/popup/index.html",
+    "default_popup": "src/pages/popup/index.html",
     "default_title": "伴侣控制面板"
   },
   "commands": {

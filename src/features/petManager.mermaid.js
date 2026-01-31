@@ -64,7 +64,7 @@
 
             // 使用注入脚本在页面上下文中加载 mermaid
             // 这样可以确保 mermaid 在页面的 window 对象中可用
-            const scriptUrl = chrome.runtime.getURL('src/shared/lib/mermaid.min.js');
+            const scriptUrl = chrome.runtime.getURL('libs/mermaid.min.js');
             const loadScriptUrl = chrome.runtime.getURL('src/features/mermaid/load-mermaid.js');
             console.log('尝试在页面上下文中加载 Mermaid.js，URL:', scriptUrl);
             const DomHelper = window.DomHelper;

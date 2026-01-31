@@ -71,7 +71,7 @@
             // 检查扩展上下文是否有效
             let scriptUrl, loadScriptUrl;
             try {
-                scriptUrl = getExtensionUrlOrThrow('src/shared/lib/jszip.min.js');
+                scriptUrl = getExtensionUrlOrThrow('libs/jszip.min.js');
                 loadScriptUrl = getExtensionUrlOrThrow('src/features/session/load-jszip.js');
             } catch (error) {
                 this.jszipLoading = false;

@@ -7,7 +7,7 @@
         return;
     }
     
-    const scriptUrl = chrome.runtime.getURL('src/shared/lib/mermaid.min.js');
+    const scriptUrl = chrome.runtime.getURL('libs/mermaid.min.js');
     const script = document.createElement('script');
     script.src = scriptUrl;
     script.charset = 'UTF-8';

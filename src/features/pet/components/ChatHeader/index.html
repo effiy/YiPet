@@ -1,11 +1,23 @@
 <template id="yi-pet-chat-header-template">
     <div class="yi-pet-chat-header" title="拖拽移动窗口 | 双击全屏" style="position: relative">
-        <div class="yi-pet-chat-header-inner">
-            <div class="yi-pet-chat-header-title" id="yi-pet-chat-header-title">
-                <span style="font-size: 20px;">💕</span>
-                <span id="yi-pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span>
-            </div>
-            <div class="yi-pet-chat-header-buttons">
+        <button
+            id="sidebar-toggle-btn"
+            class="yi-pet-chat-header-btn sidebar-toggle-btn"
+            aria-label="折叠/展开会话列表"
+            title="折叠会话列表"
+            @click.stop="onSidebarToggleClick"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
+            </svg>
+        </button>
+
+        <div class="yi-pet-chat-header-title" id="yi-pet-chat-header-title">
+            <span style="font-size: 20px;">💕</span>
+            <span id="yi-pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span>
+        </div>
+
+        <div class="yi-pet-chat-header-buttons">
             <button
                 id="yi-pet-chat-auth-btn"
                 class="yi-pet-chat-header-btn"
@@ -32,18 +44,6 @@
                     />
                 </svg>
             </button>
-        </div>
-        <button
-            id="sidebar-toggle-btn"
-            class="yi-pet-chat-header-btn sidebar-toggle-btn"
-            aria-label="折叠/展开会话列表"
-            title="折叠会话列表"
-            @click.stop="onSidebarToggleClick"
-        >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
-            </svg>
-        </button>
         </div>
     </div>
 </template>

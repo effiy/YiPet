@@ -300,7 +300,7 @@
             return match ? match[0] : '#3b82f6';
         }
 
-        createFallbackDom() {
+        async createFallbackDom() {
             const manager = this.manager;
 
             // Create chat window container
@@ -311,8 +311,8 @@
             // Initial Theme Setup
             this.updateTheme();
 
-            // Create Header（由 ChatHeader 组件提供 createHeaderElement）
-            this.header = this.createHeader();
+            // Create Header（使用 ChatHeader/index.html 模板内容）
+            this.header = await this.createHeader();
             if (this.header) this.element.appendChild(this.header);
 
             // Create Content Container - 包裹侧边栏和主内容区域（水平布局）
@@ -544,12 +544,55 @@
             return this.element;
         }
 
-        createHeader() {
+        async createHeader() {
+            const manager = this.manager;
             const ChatHeaderModule = window.PetManager?.Components?.ChatHeader;
-            if (ChatHeaderModule && typeof ChatHeaderModule.createHeaderElement === 'function') {
-                return ChatHeaderModule.createHeaderElement(this.manager, this);
+            const template =
+                ChatHeaderModule && typeof ChatHeaderModule.loadTemplate === 'function'
+                    ? await ChatHeaderModule.loadTemplate()
+                    : '';
+            const resolvedTemplate = String(template || '').trim();
+            if (!resolvedTemplate) return null;
+
+            const tpl = document.createElement('template');
+            tpl.innerHTML = resolvedTemplate;
+            const root = tpl.content.firstElementChild;
+            if (!root) return null;
+
+            const authBtn = root.querySelector('#yi-pet-chat-auth-btn');
+            if (authBtn) {
+                authBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    e?.preventDefault?.();
+                    if (typeof manager?.openAuth === 'function') manager.openAuth();
+                });
             }
-            return null;
+
+            const refreshBtn = root.querySelector('#yi-pet-chat-refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    e?.preventDefault?.();
+                    if (typeof manager?.manualRefresh === 'function') manager.manualRefresh(e?.currentTarget);
+                });
+            }
+
+            const sidebarToggleBtn = root.querySelector('#sidebar-toggle-btn');
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    e?.preventDefault?.();
+                    if (typeof this.toggleSidebar === 'function') this.toggleSidebar();
+                });
+            }
+
+            if (typeof this.updateSidebarToggleButton === 'function' && manager) {
+                requestAnimationFrame(() => {
+                    this.updateSidebarToggleButton(manager.sidebarCollapsed || false);
+                });
+            }
+
+            return root;
         }
 
         createSidebar() {

@@ -1,155 +1,105 @@
 /**
- * Shared API Index
- * 共享API模块入口文件
+ * API模块主入口文件
+ * 提供统一的API接口和工具函数
  */
 
-// API客户端
-export { APIClient } from './client/APIClient.js';
-export { HTTPClient } from './client/HTTPClient.js';
-export { WebSocketClient } from './client/WebSocketClient.js';
+// 核心类
+export { ApiManager } from './core/ApiManager.js';
+export { RequestClient } from './client/RequestClient.js';
 
-// API服务
+// 服务类
 export { AuthService } from './services/AuthService.js';
 export { ConfigService } from './services/ConfigService.js';
-export { ErrorService } from './services/ErrorService.js';
-export { LoggerService } from './services/LoggerService.js';
+export { SessionService } from './services/SessionService.js';
+export { FaqService } from './services/FaqService.js';
 
-// API工具
-export { 
-    createAPI,
-    createRequest,
-    createResponse,
-    handleError,
-    validateResponse,
-    parseResponse,
-    formatRequest,
-    addHeaders,
-    setAuthToken,
-    removeAuthToken,
-    getAuthToken,
-    refreshAuthToken,
-    handleRateLimit,
-    retryRequest,
-    cancelRequest,
-    createCancelToken
-} from './utils/apiUtils.js';
+// 工具类
+export { TokenManager } from './utils/token.js';
+export { ErrorHandler } from './utils/error.js';
+export { Logger } from './utils/logger.js';
 
-export { 
-    logRequest,
-    logResponse,
-    logError,
-    createLogger,
-    setLogLevel,
-    getLogLevel,
-    enableLogging,
-    disableLogging
-} from './utils/loggerUtils.js';
+// 工具函数
+export { buildUrl, buildQueryParams, buildDatabaseUrl } from './constants/endpoints.js';
 
+// 常量
 export { 
-    createError,
-    handleAPIError,
-    formatError,
-    categorizeError,
-    isNetworkError,
-    isTimeoutError,
-    isAuthError,
-    isValidationError,
-    createErrorHandler,
-    setGlobalErrorHandler
-} from './utils/errorUtils.js';
-
-// API常量
-export { 
-    API_CONSTANTS,
     HTTP_METHODS,
     STATUS_CODES,
     ERROR_TYPES,
-    RATE_LIMIT_CONFIG,
-    RETRY_CONFIG,
-    TIMEOUT_CONFIG
+    API_CONFIG,
+    CONTENT_TYPES,
+    DEFAULT_HEADERS,
+    EXTENSION_URL_PATTERNS
 } from './constants/index.js';
 
-// API类型
 export { 
-    APIRequestType,
-    APIResponseType,
-    APIErrorType,
-    APIClientType,
-    HTTPMethodType,
-    StatusCodeType,
-    ErrorHandlerType,
-    LoggerType,
-    RetryConfigType,
-    RateLimitConfigType
-} from './types/index.js';
+    BASE_ENDPOINTS,
+    AUTH_ENDPOINTS,
+    SESSION_ENDPOINTS,
+    FAQ_ENDPOINTS,
+    CONFIG_ENDPOINTS,
+    DATABASE_ENDPOINTS
+} from './constants/endpoints.js';
+
+// 错误类
+export { 
+    APIError,
+    NetworkError,
+    TimeoutError,
+    AuthError,
+    ValidationError,
+    RateLimitError,
+    ServerError
+} from './utils/error.js';
+
+// 类型定义（用于JSDoc）
+export * from './types/index.js';
 
 // 默认导出
 export default {
-    // 客户端
-    APIClient,
-    HTTPClient,
-    WebSocketClient,
+    // 核心类
+    ApiManager,
+    RequestClient,
     
-    // 服务
+    // 服务类
     AuthService,
     ConfigService,
-    ErrorService,
-    LoggerService,
+    SessionService,
+    FaqService,
     
-    // 工具
-    createAPI,
-    createRequest,
-    createResponse,
-    handleError,
-    validateResponse,
-    parseResponse,
-    formatRequest,
-    addHeaders,
-    setAuthToken,
-    removeAuthToken,
-    getAuthToken,
-    refreshAuthToken,
-    handleRateLimit,
-    retryRequest,
-    cancelRequest,
-    createCancelToken,
-    logRequest,
-    logResponse,
-    logError,
-    createLogger,
-    setLogLevel,
-    getLogLevel,
-    enableLogging,
-    disableLogging,
-    createError,
-    handleAPIError,
-    formatError,
-    categorizeError,
-    isNetworkError,
-    isTimeoutError,
-    isAuthError,
-    isValidationError,
-    createErrorHandler,
-    setGlobalErrorHandler,
+    // 工具类
+    TokenManager,
+    ErrorHandler,
+    Logger,
+    
+    // 工具函数
+    buildUrl,
+    buildQueryParams,
+    buildDatabaseUrl,
     
     // 常量
-    API_CONSTANTS,
     HTTP_METHODS,
     STATUS_CODES,
     ERROR_TYPES,
-    RATE_LIMIT_CONFIG,
-    RETRY_CONFIG,
-    TIMEOUT_CONFIG,
+    API_CONFIG,
+    CONTENT_TYPES,
+    DEFAULT_HEADERS,
+    EXTENSION_URL_PATTERNS,
     
-    // 类型
-    APIRequestType,
-    APIResponseType,
-    APIErrorType,
-    APIClientType,
-    HTTPMethodType,
-    StatusCodeType,
-    ErrorHandlerType,
-    LoggerType,
-    RetryConfigType,
-    RateLimitConfigType
+    // 端点常量
+    BASE_ENDPOINTS,
+    AUTH_ENDPOINTS,
+    SESSION_ENDPOINTS,
+    FAQ_ENDPOINTS,
+    CONFIG_ENDPOINTS,
+    DATABASE_ENDPOINTS,
+    
+    // 错误类
+    APIError,
+    NetworkError,
+    TimeoutError,
+    AuthError,
+    ValidationError,
+    RateLimitError,
+    ServerError
 };

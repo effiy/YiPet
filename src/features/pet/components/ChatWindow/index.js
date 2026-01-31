@@ -459,11 +459,7 @@
                 return this.createFallbackDom();
             }
 
-            const chatMessagesModule = getComponentModule('ChatMessages');
-            const ChatMessages =
-                chatMessagesModule && typeof chatMessagesModule.createComponent === 'function'
-                    ? safeCall(() => chatMessagesModule.createComponent(), null)
-                    : null;
+            const ChatMessages = await loadComponent('ChatMessages', null, { includeTemplate: true, requireTemplateLoader: true });
             if (!ChatMessages) {
                 return this.createFallbackDom();
             }

@@ -158,7 +158,8 @@
         "src/features/pet/components/SessionList/index.html",
         "src/features/pet/components/TagFilter/index.html",
         "src/features/pet/components/BatchToolbar/index.html",
-        "src/features/pet/components/ChatInput/index.html"
+        "src/features/pet/components/ChatInput/index.html",
+        "src/features/pet/components/ChatMessages/index.html"
       ],
       "matches": ["<all_urls>"]
     }

@@ -1,0 +1,63 @@
+<template id="yi-pet-chat-messages-template">
+    <div v-if="viewState === 'loading'" class="yi-pet-chat-loading" role="status" aria-live="polite">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <div class="loading-text" v-text="loadingPayload"></div>
+    </div>
+
+    <div v-else-if="viewState === 'error'" class="yi-pet-chat-error" role="alert" aria-live="polite">
+        <div class="error-text" v-text="errorPayload"></div>
+    </div>
+
+    <div v-else-if="viewState === 'empty'" class="yi-pet-chat-empty">
+        <div class="sr-only" role="status" aria-live="polite" v-text="emptySubtitle"></div>
+        <div class="pet-chat-empty-card">
+            <div class="pet-chat-empty-icon" aria-hidden="true"><i class="fas fa-comments"></i></div>
+            <div class="pet-chat-empty-title" v-text="emptyTitle"></div>
+            <div class="pet-chat-empty-subtitle" v-text="emptySubtitle"></div>
+            <div v-if="emptyHint" class="pet-chat-empty-hint" v-text="emptyHint"></div>
+        </div>
+    </div>
+
+    <div v-else class="yi-pet-chat-messages-inner" ref="listEl">
+        <div
+            v-for="(msg, idx) in messages"
+            :key="messageKey(msg, idx)"
+            class="pet-chat-message"
+            :class="messageClass(msg)"
+            :data-chat-timestamp="String(msg && msg.timestamp ? msg.timestamp : '')"
+            :data-chat-type="(msg && msg.type) || 'pet'"
+            :data-chat-idx="String(idx)"
+            :data-welcome-message="msg && msg.isWelcome ? 'true' : null"
+        >
+            <div
+                class="pet-chat-bubble"
+                :data-message-type="(msg && msg.type) === 'user' ? 'user-bubble' : 'pet-bubble'"
+                :data-original-text="(msg && msg.content) || ''"
+            >
+                <img v-if="msg && msg.imageDataUrl" :src="msg.imageDataUrl" class="pet-chat-image" alt="图片消息" />
+
+                <div
+                    v-if="messageHtml(msg)"
+                    class="pet-chat-content md-preview-body"
+                    v-html="messageHtml(msg)"
+                ></div>
+
+                <div
+                    v-else-if="msg && !msg.isWelcome && !msg.imageDataUrl"
+                    class="pet-chat-typing"
+                    aria-label="生成中"
+                >...</div>
+
+                <div class="pet-chat-meta">
+                    <div class="pet-chat-meta-actions" data-copy-button-container="true"></div>
+                    <time
+                        class="pet-chat-time"
+                        data-message-time="true"
+                        :datetime="messageIsoTime(msg)"
+                        v-text="messageTimeText(msg)"
+                    ></time>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

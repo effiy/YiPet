@@ -9,7 +9,7 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const SESSION_ITEM_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionItem/index.html';
+    const SESSION_ITEM_TEMPLATES_RESOURCE_PATH = 'src/components/pet/SessionItem/index.html';
     let sessionItemTemplateCache = null;
 
     async function loadTemplate() {

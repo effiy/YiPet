@@ -4,7 +4,7 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const CHAT_INPUT_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/ChatInput/index.html';
+    const CHAT_INPUT_TEMPLATES_RESOURCE_PATH = 'src/components/pet/ChatInput/index.html';
     let chatInputTemplateCache = '';
 
     async function loadTemplate() {
@@ -899,4 +899,3 @@
         updateDraftImagesDisplay
     };
 })();
-

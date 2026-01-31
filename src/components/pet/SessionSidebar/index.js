@@ -91,7 +91,7 @@
             };
         };
 
-    const SESSION_SIDEBAR_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionSidebar/index.html';
+    const SESSION_SIDEBAR_TEMPLATES_RESOURCE_PATH = 'src/components/pet/SessionSidebar/index.html';
 
     async function loadTemplate() {
         const DomHelper = window.DomHelper;

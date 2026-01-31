@@ -4,7 +4,7 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const TAG_FILTER_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/TagFilter/index.html';
+    const TAG_FILTER_TEMPLATES_RESOURCE_PATH = 'src/components/pet/TagFilter/index.html';
     let tagFilterTemplateCache = '';
 
     async function loadTemplate() {
@@ -387,4 +387,3 @@
         createTagFilterElement
     };
 })();
-

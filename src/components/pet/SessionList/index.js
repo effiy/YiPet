@@ -4,7 +4,7 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const SESSION_LIST_TEMPLATES_RESOURCE_PATH = 'src/features/pet/components/SessionList/index.html';
+    const SESSION_LIST_TEMPLATES_RESOURCE_PATH = 'src/components/pet/SessionList/index.html';
     let sessionListTemplateCache = '';
 
     async function loadTemplate() {
@@ -52,4 +52,3 @@
         createComponent
     };
 })();
-

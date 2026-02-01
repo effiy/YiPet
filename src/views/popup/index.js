@@ -447,18 +447,26 @@ class PopupController {
      * @param {string} type - 通知类型：'success' | 'error' | 'info'
      */
     showNotification(message, type = 'success') {
-        // 创建通知元素
+        try {
+            if (typeof NotificationUtils !== 'undefined' && typeof NotificationUtils.show === 'function') {
+                const duration = (PET_CONFIG.constants && PET_CONFIG.constants.TIMING) ? PET_CONFIG.constants.TIMING.NOTIFICATION_DURATION : 3000;
+                return NotificationUtils.show(message, type, {
+                    duration,
+                    baseClass: 'notification',
+                    includePositionClass: false
+                });
+            }
+        } catch (_) {}
+
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.textContent = message;
         notification.style.top = `${(PET_CONFIG.constants && PET_CONFIG.constants.UI) ? PET_CONFIG.constants.UI.NOTIFICATION_TOP : 10}px`;
-        
-        // 将通知添加到页面
+
         if (document.body) {
             document.body.appendChild(notification);
         }
-        
-        // 延迟移除通知（自动消失）
+
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);

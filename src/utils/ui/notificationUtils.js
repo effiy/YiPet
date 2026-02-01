@@ -31,14 +31,18 @@ class NotificationUtils {
 
         const position = options.position || 'right'; // 'top' 或 'right'
         const duration = options.duration || 3000;
+        const baseClass = options.baseClass || 'pet-notification';
+        const includePositionClass = options.includePositionClass !== false;
+        const exitingClass = options.exitingClass || 'notification-exiting';
         const zIndex = options.zIndex || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal) 
             ? PET_CONFIG.ui.zIndex.modal + 1 
             : 2147483650;
 
         // 创建通知元素（使用 CSS 类，样式已在 content.css 中定义）
         const notification = document.createElement('div');
-        const isTop = position === 'top';
-        notification.className = `pet-notification ${type} notification-${position}`;
+        const parts = [baseClass, type];
+        if (includePositionClass) parts.push(`notification-${position}`);
+        notification.className = parts.filter(Boolean).join(' ');
         notification.textContent = message;
 
         // 只设置动态的 z-index（如果需要覆盖默认值）
@@ -54,7 +58,7 @@ class NotificationUtils {
         // 延迟移除通知（自动消失）
         setTimeout(() => {
             if (notification.parentNode) {
-                notification.classList.add('notification-exiting');
+                notification.classList.add(exitingClass);
                 setTimeout(() => {
                     if (notification.parentNode) {
                         notification.parentNode.removeChild(notification);

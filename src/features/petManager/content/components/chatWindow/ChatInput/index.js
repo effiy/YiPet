@@ -19,6 +19,78 @@
         return chatInputTemplateCache;
     }
 
+    function closeOverlays(manager) {
+        try {
+            if (typeof manager?.closeWeWorkRobotSettingsModal === 'function') manager.closeWeWorkRobotSettingsModal();
+        } catch (_) {}
+        try {
+            if (typeof manager?.closeContextEditor === 'function') manager.closeContextEditor();
+        } catch (_) {}
+    }
+
+    async function openTagManagerSafe(manager) {
+        try {
+            closeOverlays(manager);
+
+            if (!manager?.currentSessionId) {
+                manager?.showNotification?.('请先选择一个会话', 'warning');
+                return;
+            }
+            if (!manager?.sessions || !manager.sessions[manager.currentSessionId]) {
+                manager?.showNotification?.('会话不存在，无法管理标签', 'error');
+                return;
+            }
+            if (typeof manager?.openTagManager === 'function') {
+                manager.openTagManager(manager.currentSessionId);
+                return;
+            }
+            manager?.showNotification?.('标签管理功能不可用', 'error');
+        } catch (error) {
+            manager?.showNotification?.(`打开标签管理失败：${error?.message || '未知错误'}`, 'error');
+        }
+    }
+
+    async function openFaqManagerSafe(manager) {
+        try {
+            closeOverlays(manager);
+
+            if (typeof manager?.openFaqManager === 'function') {
+                await manager.openFaqManager();
+                return;
+            }
+            manager?.showNotification?.('常见问题功能不可用', 'error');
+        } catch (error) {
+            manager?.showNotification?.(`打开常见问题失败：${error?.message || '未知错误'}`, 'error');
+        }
+    }
+
+    async function readContextSwitchEnabledFromStorage() {
+        try {
+            if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') {
+                return undefined;
+            }
+            return await new Promise((resolve) => {
+                chrome.storage.local.get(['contextSwitchEnabled'], (result) => {
+                    if (result && result.contextSwitchEnabled !== undefined) {
+                        resolve(!!result.contextSwitchEnabled);
+                        return;
+                    }
+                    resolve(undefined);
+                });
+            });
+        } catch (_) {
+            return undefined;
+        }
+    }
+
+    function writeContextSwitchEnabledToStorage(value) {
+        try {
+            if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
+                chrome.storage.local.set({ contextSwitchEnabled: !!value });
+            }
+        } catch (_) {}
+    }
+
     function createComponent(params) {
         const manager = params?.manager;
         const instance = params?.instance;
@@ -80,26 +152,12 @@
                 };
 
                 const readContextSwitchEnabled = async () => {
-                    try {
-                        if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.get === 'function') {
-                            await new Promise((resolve) => {
-                                chrome.storage.local.get(['contextSwitchEnabled'], (result) => {
-                                    if (result && result.contextSwitchEnabled !== undefined) {
-                                        contextSwitchEnabled.value = !!result.contextSwitchEnabled;
-                                    }
-                                    resolve();
-                                });
-                            });
-                        }
-                    } catch (_) {}
+                    const v = await readContextSwitchEnabledFromStorage();
+                    if (v !== undefined) contextSwitchEnabled.value = v;
                 };
 
                 const writeContextSwitchEnabled = (value) => {
-                    try {
-                        if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
-                            chrome.storage.local.set({ contextSwitchEnabled: !!value });
-                        }
-                    } catch (_) {}
+                    writeContextSwitchEnabledToStorage(value);
                 };
 
                 const onContextClick = () => {
@@ -119,42 +177,14 @@
                     manager?.showNotification?.('编辑功能不可用', 'error');
                 };
 
-                const onTagManagerClick = async () => {
-                    try {
-                        if (typeof manager?.closeWeWorkRobotSettingsModal === 'function') manager.closeWeWorkRobotSettingsModal();
-                        if (typeof manager?.closeContextEditor === 'function') manager.closeContextEditor();
-
-                        if (!manager?.currentSessionId) {
-                            manager?.showNotification?.('请先选择一个会话', 'warning');
-                            return;
-                        }
-                        if (!manager?.sessions || !manager.sessions[manager.currentSessionId]) {
-                            manager?.showNotification?.('会话不存在，无法管理标签', 'error');
-                            return;
-                        }
-                        if (typeof manager?.openTagManager === 'function') {
-                            manager.openTagManager(manager.currentSessionId);
-                            return;
-                        }
-                        manager?.showNotification?.('标签管理功能不可用', 'error');
-                    } catch (error) {
-                        manager?.showNotification?.(`打开标签管理失败：${error?.message || '未知错误'}`, 'error');
-                    }
+                const onTagManagerClick = async (e) => {
+                    e?.stopPropagation?.();
+                    await openTagManagerSafe(manager);
                 };
 
-                const onFaqClick = async () => {
-                    try {
-                        if (typeof manager?.closeWeWorkRobotSettingsModal === 'function') manager.closeWeWorkRobotSettingsModal();
-                        if (typeof manager?.closeContextEditor === 'function') manager.closeContextEditor();
-
-                        if (typeof manager?.openFaqManager === 'function') {
-                            await manager.openFaqManager();
-                            return;
-                        }
-                        manager?.showNotification?.('常见问题功能不可用', 'error');
-                    } catch (error) {
-                        manager?.showNotification?.(`打开常见问题失败：${error?.message || '未知错误'}`, 'error');
-                    }
+                const onFaqClick = async (e) => {
+                    e?.stopPropagation?.();
+                    await openFaqManagerSafe(manager);
                 };
 
                 const onWeChatClick = () => {
@@ -171,56 +201,11 @@
                     if (imageInputEl.value) imageInputEl.value.click();
                 };
 
-                const handleImageInputChange = (e) => {
-                    const target = e?.target;
-                    const files = Array.from(target?.files || []);
-                    if (files.length === 0) return;
-
-                    const maxDraftImages = typeof instance?.maxDraftImages === 'number' ? instance.maxDraftImages : 4;
-                    if (!Array.isArray(instance?.draftImages)) instance.draftImages = [];
-                    const current = Array.isArray(instance?.draftImages) ? instance.draftImages : [];
-
-                    const remainingSlots = maxDraftImages - current.length;
-                    if (remainingSlots <= 0) {
-                        manager?.showNotification?.(`最多只能添加 ${maxDraftImages} 张图片`, 'warn');
-                        if (target) target.value = '';
-                        return;
-                    }
-
-                    const imageFiles = files.filter((file) => file && typeof file.type === 'string' && file.type.startsWith('image/'));
-                    const filesToProcess = imageFiles.slice(0, remainingSlots);
-                    if (imageFiles.length > remainingSlots) {
-                        manager?.showNotification?.(`只能添加 ${remainingSlots} 张图片（已达上限）`, 'warn');
-                    }
-
-                    let loadedCount = 0;
-                    filesToProcess.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            const src = event?.target?.result;
-                            if (src) current.push(src);
-                            loadedCount += 1;
-                            if (loadedCount === filesToProcess.length) {
-                                if (instance) instance.draftImages = current;
-                                syncDraftImages();
-                            }
-                        };
-                        reader.onerror = () => {
-                            manager?.showNotification?.(`图片 ${file?.name || ''} 加载失败`, 'error');
-                            loadedCount += 1;
-                            if (loadedCount === filesToProcess.length) {
-                                if (instance) instance.draftImages = current;
-                                syncDraftImages();
-                            }
-                        };
-                        reader.readAsDataURL(file);
-                    });
-
-                    if (target) target.value = '';
-                };
-
                 const onImageInputChange = (e) => {
-                    handleImageInputChange(e);
+                    handleImageInputChange(manager, instance, e);
+                    if (!instance || typeof instance._syncChatInputDraftImages !== 'function') {
+                        syncDraftImages();
+                    }
                 };
 
                 const updateInputState = () => {
@@ -452,7 +437,7 @@
                             instance.contextSwitchContainer.updateColor = () => {};
                         }
                         instance._syncChatInputDraftImages = () => syncDraftImages();
-                        instance.handleImageInputChange = (e) => handleImageInputChange(e);
+                        instance.handleImageInputChange = (e) => handleImageInputChange(manager, instance, e);
                         instance.removeDraftImage = (index) => onRemoveDraftImage(index);
                         instance.clearDraftImages = () => onClearDraftImages();
                         instance.previewDraftImage = (src, index) => openPreview(src, index);
@@ -932,41 +917,11 @@
         });
         bindAction('tag-manager', async (e) => {
             e?.stopPropagation?.();
-            try {
-                if (typeof manager?.closeWeWorkRobotSettingsModal === 'function') manager.closeWeWorkRobotSettingsModal();
-                if (typeof manager?.closeContextEditor === 'function') manager.closeContextEditor();
-
-                if (!manager?.currentSessionId) {
-                    manager?.showNotification?.('请先选择一个会话', 'warning');
-                    return;
-                }
-                if (!manager?.sessions || !manager.sessions[manager.currentSessionId]) {
-                    manager?.showNotification?.('会话不存在，无法管理标签', 'error');
-                    return;
-                }
-                if (typeof manager?.openTagManager === 'function') {
-                    manager.openTagManager(manager.currentSessionId);
-                    return;
-                }
-                manager?.showNotification?.('标签管理功能不可用', 'error');
-            } catch (error) {
-                manager?.showNotification?.(`打开标签管理失败：${error?.message || '未知错误'}`, 'error');
-            }
+            await openTagManagerSafe(manager);
         });
         bindAction('faq', async (e) => {
             e?.stopPropagation?.();
-            try {
-                if (typeof manager?.closeWeWorkRobotSettingsModal === 'function') manager.closeWeWorkRobotSettingsModal();
-                if (typeof manager?.closeContextEditor === 'function') manager.closeContextEditor();
-
-                if (typeof manager?.openFaqManager === 'function') {
-                    await manager.openFaqManager();
-                    return;
-                }
-                manager?.showNotification?.('常见问题功能不可用', 'error');
-            } catch (error) {
-                manager?.showNotification?.(`打开常见问题失败：${error?.message || '未知错误'}`, 'error');
-            }
+            await openFaqManagerSafe(manager);
         });
         bindAction('wechat', (e) => {
             e?.stopPropagation?.();
@@ -990,14 +945,6 @@
         }
 
         if (contextSwitchContainer && contextSwitch) {
-            const writeContextSwitchEnabled = (value) => {
-                try {
-                    if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
-                        chrome.storage.local.set({ contextSwitchEnabled: !!value });
-                    }
-                } catch (_) {}
-            };
-
             const updateSwitchState = (isChecked) => {
                 contextSwitchContainer.classList.toggle('active', !!isChecked);
             };
@@ -1007,7 +954,7 @@
                 e?.stopPropagation?.();
                 contextSwitch.checked = !contextSwitch.checked;
                 updateSwitchState(contextSwitch.checked);
-                writeContextSwitchEnabled(contextSwitch.checked);
+                writeContextSwitchEnabledToStorage(contextSwitch.checked);
                 try {
                     contextSwitch.dispatchEvent(new Event('change'));
                 } catch (_) {}
@@ -1015,18 +962,18 @@
             contextSwitch.addEventListener('click', (e) => e.stopPropagation());
             contextSwitch.addEventListener('change', () => {
                 updateSwitchState(contextSwitch.checked);
-                writeContextSwitchEnabled(contextSwitch.checked);
+                writeContextSwitchEnabledToStorage(contextSwitch.checked);
             });
 
             try {
-                if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.get === 'function') {
-                    chrome.storage.local.get(['contextSwitchEnabled'], (result) => {
-                        if (result && result.contextSwitchEnabled !== undefined) {
-                            contextSwitch.checked = !!result.contextSwitchEnabled;
+                Promise.resolve()
+                    .then(() => readContextSwitchEnabledFromStorage())
+                    .then((v) => {
+                        if (v !== undefined) {
+                            contextSwitch.checked = v;
                             updateSwitchState(contextSwitch.checked);
                         }
                     });
-                }
             } catch (_) {}
 
             contextSwitchContainer.updateColor = () => {};

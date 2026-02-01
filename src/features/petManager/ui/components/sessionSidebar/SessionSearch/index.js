@@ -4,7 +4,8 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const SESSION_SEARCH_TEMPLATES_RESOURCE_PATH = 'src/components/SessionSearch/index.html';
+    const SESSION_SEARCH_TEMPLATES_RESOURCE_PATH =
+        'src/features/petManager/ui/components/sessionSidebar/SessionSearch/index.html';
     let sessionSearchTemplateCache = '';
 
     async function loadTemplate() {

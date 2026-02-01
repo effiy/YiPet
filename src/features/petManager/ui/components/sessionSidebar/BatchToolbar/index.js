@@ -4,7 +4,8 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const BATCH_TOOLBAR_TEMPLATES_RESOURCE_PATH = 'src/components/BatchToolbar/index.html';
+    const BATCH_TOOLBAR_TEMPLATES_RESOURCE_PATH =
+        'src/features/petManager/ui/components/sessionSidebar/BatchToolbar/index.html';
     let batchToolbarTemplateCache = '';
 
     async function loadTemplate() {

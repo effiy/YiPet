@@ -10,7 +10,7 @@
     "https://api.effiy.cn/*"
   ],
   "background": {
-    "service_worker": "src/background/index.js"
+    "service_worker": "src/extension/background/index.js"
   },
   "content_scripts": [
     {
@@ -38,7 +38,7 @@
         "src/utils/logging/loggerUtils.js",
         "src/utils/error/errorHandler.js",
         "src/utils/dom/domHelper.js",
-        "src/core/bootstrap/bootstrap.js",
+        "src/extension/core/bootstrap/bootstrap.js",
         "src/features/petManager.core.js",
         "src/features/petManager.auth.js",
         "src/features/petManager.roles.js",
@@ -87,7 +87,7 @@
         "src/features/petManager.message.js",
         "src/features/petManager.screenshot.js",
         "src/features/petManager.js",
-        "src/core/bootstrap/index.js"
+        "src/extension/core/bootstrap/index.js"
       ],
       "css": [
         "src/assets/styles/tailwind.css",

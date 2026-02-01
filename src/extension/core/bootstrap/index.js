@@ -2,10 +2,10 @@
  * Content Script 入口（已拆分）
  *
  * 说明：
- * - `src/core/bootstrap/bootstrap.js`：日志开关、PET_CONFIG 兜底、StorageHelper、默认位置工具函数
- * - `src/features/pet/petManager.core.js`：PetManager 类定义（IIFE，挂到 window.PetManager）
- * - `src/features/pet/petManager.js`：PetManager 轻量入口/装配文件（校验加载顺序、后续拆分模块的聚合点）
- * - `src/core/bootstrap/index.js`（本文件）：只负责实例化与生命周期清理
+ * - `src/extension/core/bootstrap/bootstrap.js`：日志开关、PET_CONFIG 兜底、StorageHelper、默认位置工具函数
+ * - `src/features/petManager.core.js`：PetManager 类定义（IIFE，挂到 window.PetManager）
+ * - `src/features/petManager.js`：PetManager 轻量入口/装配文件（校验加载顺序、后续拆分模块的聚合点）
+ * - `src/extension/core/bootstrap/index.js`（本文件）：只负责实例化与生命周期清理
  */
 
 (function () {
@@ -40,4 +40,3 @@
 
   console.log('Content Script 完成');
 })();
-

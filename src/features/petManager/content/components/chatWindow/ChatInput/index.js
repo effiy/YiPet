@@ -24,7 +24,7 @@
         const instance = params?.instance;
         const template = params?.template;
         const Vue = window.Vue || {};
-        const { defineComponent, ref, onMounted, onBeforeUnmount } = Vue;
+        const { defineComponent, ref, onMounted, onBeforeUnmount, nextTick } = Vue;
         if (typeof defineComponent !== 'function' || typeof ref !== 'function' || typeof onMounted !== 'function') return null;
 
         const resolvedTemplate = String(template || chatInputTemplateCache || '').trim();
@@ -48,10 +48,19 @@
                 const previewVisible = ref(false);
                 const previewSrc = ref('');
                 const previewAlt = ref('');
+                const textareaHeight = ref('60px');
+                const hasContent = ref(false);
 
                 let isComposing = false;
                 let compositionEndTime = 0;
                 const COMPOSITION_END_DELAY = 100;
+
+                const scheduleNextTick = (cb) => {
+                    try {
+                        if (typeof nextTick === 'function') return nextTick(cb);
+                    } catch (_) {}
+                    return Promise.resolve().then(cb);
+                };
 
                 const syncDraftImages = () => {
                     const list = Array.isArray(instance?.draftImages) ? [...instance.draftImages] : [];
@@ -217,16 +226,23 @@
                 const updateInputState = () => {
                     const textarea = textareaEl.value;
                     if (!textarea) return;
-                    const hasContent = String(textarea.value || '').trim().length > 0;
-                    textarea.classList.toggle('chat-message-input--has-content', hasContent);
+                    hasContent.value = String(textarea.value || '').trim().length > 0;
+                };
+
+                const updateTextareaHeight = () => {
+                    const textarea = textareaEl.value;
+                    if (!textarea) return;
+                    textareaHeight.value = 'auto';
+                    scheduleNextTick(() => {
+                        const el = textareaEl.value;
+                        if (!el) return;
+                        const nextH = Math.max(60, el.scrollHeight || 60);
+                        textareaHeight.value = `${nextH}px`;
+                    });
                 };
 
                 const onTextareaInput = () => {
-                    const textarea = textareaEl.value;
-                    if (!textarea) return;
-                    textarea.style.height = 'auto';
-                    const newHeight = Math.max(60, textarea.scrollHeight);
-                    textarea.style.height = `${newHeight}px`;
+                    updateTextareaHeight();
                     updateInputState();
                     if (instance && typeof instance.scrollToBottom === 'function') instance.scrollToBottom();
                 };
@@ -323,7 +339,7 @@
                         if (e.key === 'Escape') {
                             e.preventDefault();
                             textarea.value = '';
-                            textarea.style.height = '60px';
+                        textareaHeight.value = '60px';
                             updateInputState();
                             textarea.blur();
                         }
@@ -444,6 +460,7 @@
 
                     await readContextSwitchEnabled();
                     updateInputState();
+                    updateTextareaHeight();
                     syncDraftImages();
                 });
 
@@ -478,6 +495,8 @@
                     previewVisible,
                     previewSrc,
                     previewAlt,
+                    textareaHeight,
+                    hasContent,
                     onContextClick,
                     onEditSessionClick,
                     onTagManagerClick,

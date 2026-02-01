@@ -1703,6 +1703,53 @@
                 }
             }
         }
+
+        isVisible() {
+            const el = this.element || this.manager?.chatWindow;
+            if (!el) return false;
+            if (el.hasAttribute('hidden')) return false;
+            if (el.classList && el.classList.contains('js-hidden')) return false;
+            return true;
+        }
+
+        focusInput() {
+            const root = this.element || this.manager?.chatWindow;
+            if (!root) return false;
+            const textarea = root.querySelector('#yi-pet-chat-input');
+            if (textarea && typeof textarea.focus === 'function') {
+                textarea.focus();
+                return true;
+            }
+            return false;
+        }
+
+        setVisible(visible, options) {
+            const opts = options && typeof options === 'object' ? options : {};
+            const focus = opts.focus !== false;
+            const el = this.element || this.manager?.chatWindow;
+            if (!el) return;
+
+            if (visible) {
+                el.classList?.remove('js-hidden');
+                try {
+                    el.removeAttribute('hidden');
+                } catch (_) {}
+                if (this.manager) this.manager.isChatOpen = true;
+                if (focus) this.focusInput();
+                return;
+            }
+
+            el.classList?.add('js-hidden');
+            try {
+                el.setAttribute('hidden', '');
+            } catch (_) {}
+            if (this.manager) this.manager.isChatOpen = false;
+        }
+
+        toggleVisible(options) {
+            const visible = this.isVisible();
+            this.setVisible(!visible, options);
+        }
     }
 
     const applyWindowMethods = hooks.applyWindowMethods;

@@ -23,9 +23,7 @@
         store.selectedModel = this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
 
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
     };
 
     proto.ensureAiSettingsUi = function() {
@@ -94,9 +92,7 @@
         } catch (_) {}
 
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     };
 
     // 去除 think 内容（思考过程）

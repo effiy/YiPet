@@ -96,6 +96,8 @@
                     ref="textareaEl"
                     id="yi-pet-chat-input"
                     class="yi-pet-chat-textarea chat-message-input"
+                    :class="{ 'chat-message-input--has-content': hasContent }"
+                    :style="{ height: textareaHeight }"
                     placeholder="输入消息... (Shift+Enter 换行，Enter 发送)"
                     rows="4"
                     aria-label="会话输入框"

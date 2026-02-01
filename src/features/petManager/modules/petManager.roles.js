@@ -860,9 +860,7 @@ ${pageContent || '无内容'}
 
         // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
 
         // 直接渲染当前配置（不再强制补齐默认项，便于"删除"生效）
         this.renderRoleSettingsList();
@@ -880,9 +878,7 @@ ${pageContent || '无内容'}
 
         // 显示折叠按钮
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     }
 
     proto.renderRoleSettingsList = async function () {

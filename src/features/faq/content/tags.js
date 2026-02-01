@@ -25,9 +25,7 @@
         store.currentTags = currentTags.map((t) => String(t ?? '').trim()).filter((t) => t);
 
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
     };
 
   proto.closeFaqTagManager = function() {
@@ -42,9 +40,7 @@
         }
 
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     };
 
   proto.ensureFaqTagManagerUi = function() {

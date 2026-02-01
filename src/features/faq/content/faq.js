@@ -70,7 +70,7 @@
     if (existing) return;
 
     const Vue = window.Vue || {};
-    const { createApp, reactive } = Vue;
+    const { createApp, reactive, watch } = Vue;
     if (typeof createApp !== 'function' || typeof reactive !== 'function') {
       if (typeof this.showNotification === 'function') {
         this.showNotification('无法打开常见问题：Vue 未初始化', 'error');
@@ -104,6 +104,7 @@
     overlay.appendChild(mountEl);
 
     const store = reactive({
+      visible: false,
       allFaqs: [],
       searchFilter: '',
       selectedTags: [],
@@ -121,6 +122,16 @@
 
     overlay._store = store;
     this._faqManagerStore = store;
+
+    if (typeof watch === 'function') {
+      watch(
+        () => store.visible,
+        (v) => {
+          overlay.classList.toggle('pet-is-visible', !!v);
+        },
+        { immediate: true }
+      );
+    }
 
     overlay._mountPromise = (async () => {
       try {
@@ -182,16 +193,12 @@
         return;
       }
       
-      // 显示弹窗
-      overlay.classList.add('pet-is-visible');
-      
       // 隐藏侧边栏和输入框的折叠按钮
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-      const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
       if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
-      if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
       const store = overlay._store || this._faqManagerStore;
       if (store) {
+        store.visible = true;
         store.searchFilter = '';
         store.tagFilterSearchKeyword = '';
       }
@@ -203,10 +210,9 @@
         if (typeof this.showNotification === 'function') {
           this.showNotification('常见问题功能未启用：FAQ API 未初始化', 'error');
         }
-        overlay.classList.remove('pet-is-visible');
+        if (store) store.visible = false;
         // 恢复按钮显示
         if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         return;
       }
       
@@ -217,10 +223,9 @@
         if (typeof this.showNotification === 'function') {
           this.showNotification('常见问题功能未启用：FAQ API 未启用', 'error');
         }
-        overlay.classList.remove('pet-is-visible');
+        if (store) store.visible = false;
         // 恢复按钮显示
         if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
         return;
       }
 
@@ -236,12 +241,11 @@
       // 确保弹窗关闭，按钮恢复显示
       const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
       if (overlay) {
-        overlay.classList.remove('pet-is-visible');
+        const store = overlay._store || this._faqManagerStore;
+        if (store) store.visible = false;
       }
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-      const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
       if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-      if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     }
   };
 
@@ -249,18 +253,19 @@
     const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
     if (!overlay) return;
     const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-    const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
     if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-    if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
-    overlay.classList.remove('pet-is-visible');
     const store = overlay._store || this._faqManagerStore;
     if (store) {
+      store.visible = false;
       store.newFaqText = '';
     }
     
     // 尝试将焦点返回到聊天输入框
     try {
-      const chatInput = this.chatWindow?.querySelector('#pet-chat-input');
+      const chatInput =
+        this.chatWindowComponent?.messageInput ||
+        this.chatWindow?.querySelector('#yi-pet-chat-input') ||
+        this.chatWindow?.querySelector('#pet-chat-input');
       if (chatInput && typeof chatInput.focus === 'function') {
         chatInput.focus();
         return;
@@ -424,22 +429,16 @@
     const text = title && prompt ? `${title}\n\n${prompt}` : (prompt || title);
     if (!text) return;
     
-    const chatInput = this.chatWindow?.querySelector('#pet-chat-input');
+    const chatInput =
+      this.chatWindowComponent?.messageInput ||
+      this.chatWindow?.querySelector('#yi-pet-chat-input') ||
+      this.chatWindow?.querySelector('#pet-chat-input');
     if (chatInput) {
       const current = String(chatInput.value || '');
       const next = current ? `${current}\n\n${text}` : text;
       chatInput.value = next;
       chatInput.focus();
       chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-      
-      // 调整输入框高度（参考 YiWeb 实现）
-      try {
-        chatInput.style.height = 'auto';
-        const min = 60;
-        const max = 220;
-        const nextH = Math.max(min, Math.min(max, chatInput.scrollHeight || min));
-        chatInput.style.height = `${nextH}px`;
-      } catch (_) {}
       
       // 如果是send模式，自动发送消息
       if (String(mode) === 'send') {

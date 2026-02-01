@@ -30,12 +30,20 @@
 
         if (this.isChatOpen) {
             // 仅隐藏窗口，不保存会话，不影响其他功能
-            this.chatWindow.classList.add('js-hidden');
-            this.isChatOpen = false;
+            if (this.chatWindowComponent && typeof this.chatWindowComponent.setVisible === 'function') {
+                this.chatWindowComponent.setVisible(false, { focus: false });
+            } else {
+                this.chatWindow.classList.add('js-hidden');
+                this.isChatOpen = false;
+            }
         } else {
             // 仅显示窗口，不重新初始化，不影响其他功能
-            this.chatWindow.classList.remove('js-hidden');
-            this.isChatOpen = true;
+            if (this.chatWindowComponent && typeof this.chatWindowComponent.setVisible === 'function') {
+                this.chatWindowComponent.setVisible(true, { focus: true });
+            } else {
+                this.chatWindow.classList.remove('js-hidden');
+                this.isChatOpen = true;
+            }
 
             // 窗口显示后，检查并处理未渲染的 Mermaid 图表
             setTimeout(async () => {
@@ -78,9 +86,13 @@
 
         if (this.chatWindow) {
             // 移除之前设置的隐藏样式
-            this.chatWindow.classList.remove('js-hidden');
-            this.chatWindow.removeAttribute('hidden');
-            this.isChatOpen = true;
+            if (this.chatWindowComponent && typeof this.chatWindowComponent.setVisible === 'function') {
+                this.chatWindowComponent.setVisible(true, { focus: true });
+            } else {
+                this.chatWindow.classList.remove('js-hidden');
+                this.chatWindow.removeAttribute('hidden');
+                this.isChatOpen = true;
+            }
 
             // 更新聊天窗口样式（确保高度等样式正确）
             if (typeof this.updateChatWindowStyle === 'function') {
@@ -208,10 +220,14 @@
                 console.log('[PetManager] 正在隐藏聊天窗口');
 
                 // 使用 CSS 类控制隐藏状态
-                chatWindowElement.classList.add('js-hidden');
-                chatWindowElement.setAttribute('hidden', ''); // 添加 hidden 属性
+                if (this.chatWindowComponent && typeof this.chatWindowComponent.setVisible === 'function') {
+                    this.chatWindowComponent.setVisible(false, { focus: false });
+                } else {
+                    chatWindowElement.classList.add('js-hidden');
+                    chatWindowElement.setAttribute('hidden', ''); // 添加 hidden 属性
+                    this.isChatOpen = false;
+                }
 
-                this.isChatOpen = false;
                 // 注意：不要重置 hasLoadedSessionsForChat，以便下次打开时能快速加载
                 // this.hasLoadedSessionsForChat = false;
 

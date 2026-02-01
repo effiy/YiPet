@@ -14,6 +14,20 @@
     
     let isDragging = false;
     let dragStartTime = 0;
+    const refreshTagFilter = () => {
+      if (options && typeof options.onAfterReorder === 'function') {
+        options.onAfterReorder();
+        return;
+      }
+      if (typeof this._bumpSidebarUiTick === 'function') {
+        this._bumpSidebarUiTick();
+        return;
+      }
+      const container = this.sessionSidebar?.querySelector?.('.tag-filter-container');
+      if (container && typeof container._render === 'function') {
+        container._render();
+      }
+    };
     
     tagBtn.addEventListener('dragstart', (e) => {
       isDragging = true;
@@ -104,13 +118,7 @@
       this.saveTagOrder(newOrder);
       this.showNotification('标签顺序已更新', 'success');
       setTimeout(() => {
-        if (options && typeof options.onAfterReorder === 'function') {
-          options.onAfterReorder();
-          return;
-        }
-        if (!options || !options.skipDomUpdate) {
-          this.updateTagFilterUI();
-        }
+        if (!options || !options.skipDomUpdate) refreshTagFilter();
       }, 100);
     });
     // 移除内联样式，使用 CSS 类控制 hover 效果
@@ -138,7 +146,7 @@
       } else {
         this.selectedFilterTags.push(tag);
       }
-      this.updateTagFilterUI();
+      refreshTagFilter();
       this.updateSessionSidebar();
       });
     }

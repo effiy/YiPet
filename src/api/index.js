@@ -52,9 +52,6 @@ export {
     ServerError
 } from './utils/error.js';
 
-// 类型定义（用于JSDoc）
-export * from './types/index.js';
-
 // 默认导出
 export default {
     // 核心类

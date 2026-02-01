@@ -17,21 +17,6 @@ class SessionApiManager extends BaseApiManager {
         // 扩展统计信息
         this.stats.saveCount = 0;
     }
-
-    /**
-     * 构建通用API URL
-     * @param {string} methodName - 方法名
-     * @param {Object} parameters - 参数
-     * @returns {string} 构建好的URL
-     */
-    _buildGenericApiUrl(methodName, parameters) {
-        const queryParams = new URLSearchParams({
-            module_name: 'services.database.data_service',
-            method_name: methodName,
-            parameters: JSON.stringify(parameters)
-        });
-        return `${this.baseUrl}/?${queryParams.toString()}`;
-    }
     
     /**
      * 获取会话列表

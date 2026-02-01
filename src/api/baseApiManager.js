@@ -39,6 +39,15 @@ class BaseApiManager {
     isEnabled() {
         return this.enabled && !!this.baseUrl;
     }
+
+    _buildGenericApiUrl(methodName, parameters) {
+        const queryParams = new URLSearchParams({
+            module_name: 'services.database.data_service',
+            method_name: methodName,
+            parameters: JSON.stringify(parameters)
+        });
+        return `${this.baseUrl}/?${queryParams.toString()}`;
+    }
     
     /**
      * 规范化对象（排序键，确保相同对象生成相同的字符串）

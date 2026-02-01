@@ -76,29 +76,28 @@
      * @returns {HTMLElement} session-sidebar-search-row 根元素
      */
     function createSearchElement(manager) {
-        const firstRow = document.createElement('div');
-        firstRow.className = 'session-sidebar-search-row';
+        const template = String(sessionSearchTemplateCache || '').trim();
+        const resolved =
+            template ||
+            '<div class="session-sidebar-search-row"><div class="session-search-container"><input id="session-search-input" class="session-search-input" type="text" placeholder="搜索会话..." /><button type="button" class="session-search-clear-btn">✕</button></div></div>';
 
-        const searchContainer = document.createElement('div');
-        searchContainer.className = 'session-search-container';
+        const tpl = document.createElement('template');
+        tpl.innerHTML = resolved;
+        const root = tpl.content.firstElementChild;
+        if (!root) return document.createElement('div');
 
-        const searchInput = document.createElement('input');
-        searchInput.type = 'text';
-        searchInput.placeholder = '搜索会话...';
-        searchInput.value = manager?.sessionTitleFilter || '';
-        searchInput.id = 'session-search-input';
-        searchInput.className = 'session-search-input';
+        const searchInput = root.querySelector('#session-search-input');
+        if (searchInput) {
+            searchInput.value = String(manager?.sessionTitleFilter || '');
+        }
 
-        const clearBtn = document.createElement('button');
-        clearBtn.innerHTML = '✕';
-        clearBtn.type = 'button';
-        clearBtn.className = 'session-search-clear-btn';
+        const clearBtn = root.querySelector('.session-search-clear-btn');
+        if (clearBtn) {
+            const visible = !!String(manager?.sessionTitleFilter || '').trim();
+            clearBtn.classList.toggle('visible', visible);
+        }
 
-        searchContainer.appendChild(searchInput);
-        searchContainer.appendChild(clearBtn);
-        firstRow.appendChild(searchContainer);
-
-        return firstRow;
+        return root;
     }
 
     window.PetManager.Components.SessionSearch = {

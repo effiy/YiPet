@@ -47,7 +47,50 @@
         </div>
 
         <div class="chat-input-wrapper">
-            <div ref="draftImagesEl" class="yi-pet-chat-draft-images js-hidden" aria-label="待发送图片"></div>
+            <div
+                ref="draftImagesEl"
+                class="yi-pet-chat-draft-images"
+                :class="{ 'js-hidden': !draftImages || draftImages.length === 0 }"
+                aria-label="待发送图片"
+            >
+                <div
+                    v-for="(src, index) in draftImages"
+                    :key="`${index}-${String(src).slice(0, 24)}`"
+                    class="yi-pet-chat-draft-image"
+                    :class="{
+                        'yi-pet-chat-draft-image-loading': !!draftImageMeta?.[index]?.loading,
+                        'yi-pet-chat-draft-image-error': !!draftImageMeta?.[index]?.error
+                    }"
+                    :data-image-index="index"
+                    @click="onDraftImageClick(src, index, $event)"
+                >
+                    <img
+                        class="yi-pet-chat-draft-image-preview"
+                        :class="{ 'tw-hidden': !!draftImageMeta?.[index]?.error }"
+                        :src="src"
+                        :alt="`待发送图片 ${index + 1}`"
+                        loading="lazy"
+                        @load="onDraftImageLoad(index)"
+                        @error="onDraftImageError(index)"
+                    />
+                    <button
+                        type="button"
+                        class="yi-pet-chat-draft-image-remove"
+                        :aria-label="`移除第 ${index + 1} 张图片`"
+                        title="移除"
+                        @click.stop="onRemoveDraftImage(index)"
+                    >✕</button>
+                </div>
+
+                <button
+                    v-if="draftImages && draftImages.length > 0"
+                    type="button"
+                    class="yi-pet-chat-draft-images-clear"
+                    :aria-label="`清空所有 ${draftImages.length} 张图片`"
+                    title="清空所有图片"
+                    @click.stop="onClearDraftImages"
+                >清空图片 ({{ draftImages.length }})</button>
+            </div>
             <div class="yi-pet-chat-input-row">
                 <textarea
                     ref="textareaEl"
@@ -65,5 +108,12 @@
                 ></textarea>
             </div>
         </div>
+
+        <teleport to="body">
+            <div v-if="previewVisible" class="pet-draft-image-preview-modal" @click="onPreviewOverlayClick">
+                <img :src="previewSrc" :alt="previewAlt" />
+                <button type="button" class="modal-close-btn" @click.stop="closePreview">✕</button>
+            </div>
+        </teleport>
     </div>
 </template>

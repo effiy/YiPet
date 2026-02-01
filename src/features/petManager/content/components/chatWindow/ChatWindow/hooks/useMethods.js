@@ -706,7 +706,7 @@
                     const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
                     const tagFilterContainer =
                         SessionSidebarModule && typeof SessionSidebarModule.createTagFilterFallbackElement === 'function'
-                            ? SessionSidebarModule.createTagFilterFallbackElement()
+                            ? SessionSidebarModule.createTagFilterFallbackElement(manager)
                             : null;
                     if (tagFilterContainer) tagMount.replaceWith(tagFilterContainer);
                 }

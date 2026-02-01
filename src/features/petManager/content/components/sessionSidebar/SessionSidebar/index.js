@@ -183,12 +183,282 @@
         return row;
     }
 
-    function createTagFilterFallbackElement() {
+    function createTagFilterFallbackElement(manager) {
         const container = document.createElement('div');
         container.className = 'tag-filter-container';
+        container.setAttribute('data-pet-tag-filter', 'dom');
+
+        const header = document.createElement('div');
+        header.className = 'tag-filter-header';
+
+        const searchContainer = document.createElement('div');
+        searchContainer.className = 'tag-filter-search-container';
+
+        const input = document.createElement('input');
+        input.className = 'tag-filter-search tag-filter-search-input';
+        input.type = 'text';
+        input.placeholder = '搜索标签...';
+
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'tag-filter-search-clear';
+        clearBtn.title = '清除';
+        clearBtn.setAttribute('aria-label', '清除');
+        clearBtn.textContent = '✕';
+
+        searchContainer.appendChild(input);
+        searchContainer.appendChild(clearBtn);
+
+        const actions = document.createElement('div');
+        actions.className = 'tag-filter-actions';
+
+        const reverseBtn = document.createElement('button');
+        reverseBtn.type = 'button';
+        reverseBtn.className = 'tag-filter-action-btn tag-filter-reverse';
+        reverseBtn.title = '反向过滤';
+        reverseBtn.setAttribute('aria-label', '反向过滤');
+        reverseBtn.textContent = '⇄';
+
+        const noTagsBtn = document.createElement('button');
+        noTagsBtn.type = 'button';
+        noTagsBtn.className = 'tag-filter-action-btn tag-filter-no-tags';
+        noTagsBtn.title = '筛选无标签';
+        noTagsBtn.setAttribute('aria-label', '筛选无标签');
+        noTagsBtn.textContent = '∅';
+
+        const expandBtn = document.createElement('button');
+        expandBtn.type = 'button';
+        expandBtn.className = 'tag-filter-action-btn tag-filter-expand';
+        expandBtn.title = '展开/收起更多标签';
+        expandBtn.setAttribute('aria-label', '展开/收起更多标签');
+        expandBtn.textContent = '⋮';
+
+        const clearFiltersBtn = document.createElement('button');
+        clearFiltersBtn.type = 'button';
+        clearFiltersBtn.className = 'tag-filter-clear-btn';
+        clearFiltersBtn.title = '清除筛选';
+        clearFiltersBtn.setAttribute('aria-label', '清除筛选');
+        clearFiltersBtn.textContent = '×';
+
+        actions.appendChild(reverseBtn);
+        actions.appendChild(noTagsBtn);
+        actions.appendChild(expandBtn);
+        actions.appendChild(clearFiltersBtn);
+
+        header.appendChild(searchContainer);
+        header.appendChild(actions);
+
         const list = document.createElement('div');
         list.className = 'tag-filter-list';
+
+        container.appendChild(header);
         container.appendChild(list);
+
+        const normalizedManager = manager && typeof manager === 'object' ? manager : null;
+        const debounce = (fn, wait) => {
+            let timer = null;
+            return (...args) => {
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(() => fn(...args), wait);
+            };
+        };
+
+        const getAllTags = () => {
+            if (typeof normalizedManager?.getAllTags === 'function') {
+                const tags = normalizedManager.getAllTags();
+                return Array.isArray(tags) ? tags : [];
+            }
+            return [];
+        };
+
+        const getSessions = () => {
+            if (typeof normalizedManager?._getSessionsFromLocal === 'function') {
+                const sessions = normalizedManager._getSessionsFromLocal();
+                return Array.isArray(sessions) ? sessions : [];
+            }
+            return [];
+        };
+
+        const computeCounts = () => {
+            const sessions = getSessions();
+            const tagCounts = Object.create(null);
+            let noTagsCount = 0;
+
+            sessions.forEach((session) => {
+                const tags = Array.isArray(session?.tags) ? session.tags.map((t) => String(t ?? '').trim()).filter((t) => t) : [];
+                if (!tags.length) {
+                    noTagsCount += 1;
+                    return;
+                }
+                tags.forEach((tag) => {
+                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                });
+            });
+
+            return { tagCounts, noTagsCount };
+        };
+
+        const renderList = () => {
+            if (!normalizedManager) {
+                list.innerHTML = '';
+                return;
+            }
+
+            if (normalizedManager.selectedFilterTags === undefined) normalizedManager.selectedFilterTags = [];
+            if (!Array.isArray(normalizedManager.selectedFilterTags)) normalizedManager.selectedFilterTags = [];
+
+            const selected = normalizedManager.selectedFilterTags;
+            const reverse = !!normalizedManager.tagFilterReverse;
+            const noTags = !!normalizedManager.tagFilterNoTags;
+            const expanded = !!normalizedManager.tagFilterExpanded;
+            const visibleCount = typeof normalizedManager.tagFilterVisibleCount === 'number' ? normalizedManager.tagFilterVisibleCount : 8;
+            const keyword = String(normalizedManager.tagFilterSearchKeyword || '').trim();
+            const keywordLower = keyword.toLowerCase();
+
+            if (input.value !== keyword) input.value = keyword;
+            searchContainer.classList.toggle('has-keyword', !!keywordLower);
+            clearBtn.classList.toggle('visible', !!keywordLower);
+            reverseBtn.classList.toggle('active', reverse);
+            noTagsBtn.classList.toggle('active', noTags);
+            expandBtn.classList.toggle('active', expanded);
+            clearFiltersBtn.classList.toggle('active', !!keywordLower || !!noTags || (selected && selected.length > 0));
+
+            const allTags = getAllTags();
+            const filteredTags = keywordLower ? allTags.filter((t) => String(t || '').toLowerCase().includes(keywordLower)) : allTags;
+            const tagsToShow = expanded ? filteredTags : filteredTags.slice(0, Math.max(0, visibleCount));
+            const remainingCount = Math.max(0, filteredTags.length - Math.max(0, visibleCount));
+            const showExpandButton = !keywordLower && !expanded && filteredTags.length > Math.max(0, visibleCount);
+
+            const { tagCounts, noTagsCount } = computeCounts();
+
+            list.innerHTML = '';
+
+            if (noTagsCount > 0) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tag-filter-item tag-no-tags';
+                btn.dataset.tagName = '__no_tags__';
+                btn.setAttribute('data-tag-name', '__no_tags__');
+                btn.title = noTags ? '取消筛选无标签会话' : '筛选没有标签的会话';
+                btn.classList.toggle('selected', noTags);
+                btn.setAttribute('draggable', 'false');
+                btn.textContent = `没有标签 (${noTagsCount})`;
+                btn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    normalizedManager.tagFilterNoTags = !normalizedManager.tagFilterNoTags;
+                    if (typeof normalizedManager.updateSessionSidebar === 'function') normalizedManager.updateSessionSidebar();
+                    renderList();
+                });
+                list.appendChild(btn);
+            }
+
+            tagsToShow.forEach((tag) => {
+                const t = String(tag ?? '').trim();
+                if (!t) return;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tag-filter-item';
+                btn.dataset.tagName = t;
+                btn.setAttribute('data-tag-name', t);
+                const isSelected = selected.includes(t);
+                btn.classList.toggle('selected', isSelected);
+                btn.title = isSelected ? '取消选择 | 拖拽调整顺序' : '选择标签 | 拖拽调整顺序';
+                btn.setAttribute('draggable', 'true');
+                btn.textContent = `${t} (${tagCounts[t] || 0})`;
+                btn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    const idx = normalizedManager.selectedFilterTags.indexOf(t);
+                    if (idx > -1) normalizedManager.selectedFilterTags.splice(idx, 1);
+                    else normalizedManager.selectedFilterTags.push(t);
+                    if (typeof normalizedManager.updateSessionSidebar === 'function') normalizedManager.updateSessionSidebar();
+                    renderList();
+                });
+
+                if (typeof normalizedManager.attachDragHandlersToTag === 'function') {
+                    normalizedManager.attachDragHandlersToTag(btn, t, {
+                        skipClick: true,
+                        skipDomUpdate: true,
+                        onAfterReorder: () => {
+                            renderList();
+                        }
+                    });
+                }
+
+                list.appendChild(btn);
+            });
+
+            if (showExpandButton) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tag-filter-item tag-expand-btn';
+                btn.dataset.tagName = '__expand__';
+                btn.setAttribute('data-tag-name', '__expand__');
+                btn.title = expanded ? '收起标签' : '展开标签';
+                btn.setAttribute('draggable', 'false');
+                btn.textContent = expanded ? '收起' : `展开 (${remainingCount})`;
+                btn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    normalizedManager.tagFilterExpanded = !normalizedManager.tagFilterExpanded;
+                    if (typeof normalizedManager.updateSessionSidebar === 'function') normalizedManager.updateSessionSidebar();
+                    renderList();
+                });
+                list.appendChild(btn);
+            }
+        };
+
+        container._render = renderList;
+
+        const onKeywordInput = debounce((value) => {
+            if (!normalizedManager) return;
+            normalizedManager.tagFilterSearchKeyword = String(value || '');
+            renderList();
+        }, 300);
+
+        input.addEventListener('input', (e) => {
+            e?.stopPropagation?.();
+            onKeywordInput(e?.target?.value ?? '');
+        });
+        input.addEventListener('click', (e) => e?.stopPropagation?.());
+        clearBtn.addEventListener('click', (e) => {
+            e?.stopPropagation?.();
+            if (!normalizedManager) return;
+            normalizedManager.tagFilterSearchKeyword = '';
+            renderList();
+        });
+        reverseBtn.addEventListener('click', (e) => {
+            e?.stopPropagation?.();
+            if (!normalizedManager) return;
+            normalizedManager.tagFilterReverse = !normalizedManager.tagFilterReverse;
+            if (typeof normalizedManager.updateSessionSidebar === 'function') normalizedManager.updateSessionSidebar();
+            renderList();
+        });
+        noTagsBtn.addEventListener('click', (e) => {
+            e?.stopPropagation?.();
+            if (!normalizedManager) return;
+            normalizedManager.tagFilterNoTags = !normalizedManager.tagFilterNoTags;
+            if (typeof normalizedManager.updateSessionSidebar === 'function') normalizedManager.updateSessionSidebar();
+            renderList();
+        });
+        expandBtn.addEventListener('click', (e) => {
+            e?.stopPropagation?.();
+            if (!normalizedManager) return;
+            normalizedManager.tagFilterExpanded = !normalizedManager.tagFilterExpanded;
+            if (typeof normalizedManager.updateSessionSidebar === 'function') normalizedManager.updateSessionSidebar();
+            renderList();
+        });
+        clearFiltersBtn.addEventListener('click', (e) => {
+            e?.stopPropagation?.();
+            if (!normalizedManager) return;
+            normalizedManager.selectedFilterTags = [];
+            normalizedManager.tagFilterNoTags = false;
+            normalizedManager.tagFilterSearchKeyword = '';
+            normalizedManager.tagFilterExpanded = false;
+            if (typeof normalizedManager.updateSessionSidebar === 'function') normalizedManager.updateSessionSidebar();
+            renderList();
+        });
+
+        renderList();
+
         return container;
     }
 
@@ -204,7 +474,7 @@
         const scrollableContent = document.createElement('div');
         scrollableContent.className = 'session-sidebar-scrollable-content';
 
-        const tagFilterContainer = createTagFilterFallbackElement();
+        const tagFilterContainer = createTagFilterFallbackElement(manager);
         if (tagFilterContainer) scrollableContent.appendChild(tagFilterContainer);
 
         scrollableContent.appendChild(createSessionActionsRowElement());

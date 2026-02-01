@@ -1,0 +1,264 @@
+<template id="yi-pet-faq-manager-template">
+    <div class="pet-faq-manager-modal" role="document">
+        <div class="pet-faq-manager-header">
+            <div class="pet-faq-manager-title">
+                💡 常见问题 <span class="pet-faq-manager-title-sub">（一键插入/发送）</span>
+            </div>
+            <div class="pet-faq-modal-close" role="button" aria-label="关闭" tabindex="0" @click="close">✕</div>
+        </div>
+
+        <div class="pet-faq-modal-content">
+            <div class="pet-faq-layout">
+                <div class="pet-faq-sidebar" aria-label="筛选与标签">
+                    <div class="pet-faq-search-row">
+                        <input
+                            ref="searchInputEl"
+                            type="text"
+                            class="pet-faq-search-input"
+                            placeholder="搜索常见问题..."
+                            aria-label="搜索常见问题"
+                            v-model="store.searchFilter"
+                        />
+                        <button
+                            type="button"
+                            class="pet-faq-search-clear"
+                            aria-label="清除搜索"
+                            title="清除搜索"
+                            :disabled="!store.searchFilter"
+                            @click="clearSearch"
+                        >
+                            清除
+                        </button>
+                    </div>
+
+                    <div class="pet-faq-filter-row" aria-label="常见问题标签筛选">
+                        <div class="pet-faq-filter-actions">
+                            <button
+                                type="button"
+                                class="pet-faq-filter-btn"
+                                aria-label="反选"
+                                title="不包含选中标签"
+                                :class="{ active: store.tagFilterReverse }"
+                                @click="toggleReverse"
+                            >
+                                反选
+                            </button>
+                            <button
+                                type="button"
+                                class="pet-faq-filter-btn"
+                                aria-label="无标签"
+                                title="只显示无标签问题"
+                                :class="{ active: store.tagFilterNoTags }"
+                                @click="toggleNoTags"
+                            >
+                                无标签
+                            </button>
+                            <button
+                                type="button"
+                                class="pet-faq-filter-btn"
+                                aria-label="清除标签筛选"
+                                title="清除标签筛选"
+                                :disabled="store.selectedTags.length === 0 && !store.tagFilterReverse && !store.tagFilterNoTags"
+                                @click="clearTagFilters"
+                            >
+                                清除标签
+                            </button>
+                            <button
+                                type="button"
+                                class="pet-faq-filter-btn"
+                                aria-label="标签管理"
+                                title="标签管理"
+                                :class="{ active: store.tagManagerVisible }"
+                                @click="toggleTagManager"
+                            >
+                                标签管理
+                            </button>
+                            <button
+                                type="button"
+                                class="pet-faq-filter-btn"
+                                aria-label="刷新"
+                                title="从接口刷新"
+                                :disabled="store.isLoading"
+                                @click="refresh"
+                            >
+                                刷新
+                            </button>
+                        </div>
+
+                        <div class="pet-faq-tag-search">
+                            <input
+                                type="text"
+                                class="pet-faq-tag-search-input"
+                                placeholder="搜索标签..."
+                                aria-label="搜索标签"
+                                v-model="store.tagFilterSearchKeyword"
+                            />
+                            <button
+                                type="button"
+                                class="pet-faq-filter-btn"
+                                aria-label="清除标签搜索"
+                                title="清除标签搜索"
+                                :disabled="!store.tagFilterSearchKeyword"
+                                @click="clearTagSearch"
+                            >
+                                清除
+                            </button>
+                        </div>
+
+                        <div class="pet-faq-tag-list" role="list" aria-label="标签列表">
+                            <button
+                                v-for="tag in visibleTags"
+                                :key="tag"
+                                type="button"
+                                class="pet-faq-tag"
+                                role="listitem"
+                                :class="{ active: store.selectedTags.includes(tag) }"
+                                :aria-label="'筛选标签：' + tag"
+                                @click="toggleTag(tag)"
+                            >
+                                {{ tag }}
+                            </button>
+
+                            <button
+                                v-if="moreToggleVisible"
+                                type="button"
+                                class="pet-faq-tag more"
+                                role="listitem"
+                                aria-label="展开或收起标签"
+                                @click="toggleMoreTags"
+                            >
+                                {{ store.tagFilterExpanded ? '收起' : '更多' }}
+                            </button>
+                        </div>
+
+                        <div v-if="store.tagManagerVisible" class="pet-faq-tag-manager" aria-label="标签管理面板">
+                            <div class="pet-faq-tag-manager-header">
+                                <div class="pet-faq-tag-manager-title">标签管理</div>
+                                <button
+                                    type="button"
+                                    class="pet-faq-filter-btn"
+                                    aria-label="关闭标签管理"
+                                    @click="toggleTagManager"
+                                >
+                                    关闭
+                                </button>
+                            </div>
+
+                            <div class="pet-faq-tag-manager-list" role="list" aria-label="可管理标签列表">
+                                <div v-for="tag in allTags" :key="tag" class="pet-faq-tag-manager-item" role="listitem">
+                                    <div class="pet-faq-tag-manager-item-tag">{{ tag }}</div>
+                                    <div class="pet-faq-tag-manager-item-actions">
+                                        <button
+                                            type="button"
+                                            class="pet-faq-tag-manager-btn"
+                                            aria-label="重命名标签"
+                                            @click="renameTag(tag)"
+                                        >
+                                            重命名
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="pet-faq-tag-manager-btn danger"
+                                            aria-label="删除标签"
+                                            @click="deleteTag(tag)"
+                                        >
+                                            删除
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pet-faq-main" aria-label="常见问题列表">
+                    <div class="pet-faq-summary" role="status" aria-label="筛选结果">
+                        {{ summaryText }}
+                    </div>
+
+                    <div class="pet-faq-input-row" aria-label="添加常见问题">
+                        <textarea
+                            class="pet-faq-input"
+                            placeholder="输入问题内容，按 Ctrl+Enter 或 Shift+Enter 添加"
+                            aria-label="新增常见问题"
+                            v-model="store.newFaqText"
+                            @keydown="onNewFaqKeydown"
+                        ></textarea>
+                        <div class="pet-faq-input-hint">支持多行内容，首行作为标题，余下作为正文。</div>
+                    </div>
+
+                    <div v-if="store.isLoading" class="pet-faq-status" role="status">正在加载常见问题...</div>
+                    <div v-if="store.error" class="pet-faq-error" role="status">{{ store.error }}</div>
+
+                    <div class="pet-faq-list" role="list" aria-label="常见问题列表">
+                        <div v-if="filteredFaqs.length === 0" class="pet-faq-empty" role="listitem">未找到匹配的常见问题</div>
+
+                        <div
+                            v-for="(faq, index) in filteredFaqs"
+                            :key="faq.key"
+                            class="pet-faq-item"
+                            role="listitem"
+                            tabindex="0"
+                            @click="onFaqInsert(faq)"
+                            @keydown="onFaqKeydown($event, faq)"
+                        >
+                            <div class="pet-faq-item-header">
+                                <div class="pet-faq-item-title">{{ faq.title || '常见问题' }}</div>
+                                <div class="pet-faq-item-actions">
+                                    <button
+                                        type="button"
+                                        class="pet-faq-item-btn"
+                                        aria-label="标签"
+                                        @click.stop="editTags(index)"
+                                    >
+                                        标签
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="pet-faq-item-btn"
+                                        aria-label="插入"
+                                        @click.stop="onFaqInsert(faq)"
+                                    >
+                                        插入
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="pet-faq-item-btn primary"
+                                        aria-label="发送"
+                                        @click.stop="onFaqSend(faq)"
+                                    >
+                                        发送
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="pet-faq-item-btn danger"
+                                        aria-label="删除"
+                                        :disabled="!!store.deletingFaqKeys[faq.key]"
+                                        @click.stop="deleteFaq(faq)"
+                                    >
+                                        {{ store.deletingFaqKeys[faq.key] ? '删除中...' : '删除' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-if="Array.isArray(faq.tags) && faq.tags.length > 0" class="pet-faq-item-tags" aria-label="问题标签">
+                                <button
+                                    v-for="tag in faq.tags"
+                                    :key="tag"
+                                    type="button"
+                                    class="pet-faq-item-tag"
+                                    :aria-label="'筛选标签：' + tag"
+                                    @click.stop="toggleTag(tag)"
+                                >
+                                    {{ tag }}
+                                </button>
+                            </div>
+
+                            <div class="pet-faq-item-prompt">{{ faq.prompt || '' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

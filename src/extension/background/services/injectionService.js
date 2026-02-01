@@ -44,6 +44,8 @@ class InjectionService {
         'src/features/petManager/modules/petManager.tags.js',
         'src/features/petManager/modules/petManager.parser.js',
         'src/features/petManager/modules/petManager.io.js',
+        'src/features/faq/ui/components/FaqManager/index.js',
+        'src/features/faq/ui/components/FaqTagManager/index.js',
         'src/features/faq/faq.js',
         'src/features/faq/tags.js',
         'src/features/petManager/modules/petManager.messaging.js',

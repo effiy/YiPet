@@ -1,0 +1,56 @@
+<template id="yi-pet-faq-tag-manager-template">
+    <div
+        class="pet-faq-tag-manager tw-fixed tw-inset-0 tw-bg-black-25 tw-items-center tw-justify-center tw-z-modal"
+        :class="{ 'tw-hidden': !store.visible, 'tw-flex': store.visible }"
+        role="dialog"
+        aria-modal="true"
+        aria-label="管理标签"
+        @click.self="close"
+    >
+        <div class="tw-bg-white tw-rounded-lg tw-p-4 tw-w-full tw-max-w-90 tw-max-h-80vh tw-overflow-y-auto tw-shadow">
+            <div class="tw-flex tw-justify-between tw-items-center tw-mb-2">
+                <h3 class="tw-text-base tw-font-semibold tw-text-gray-700">管理标签</h3>
+                <button class="tw-btn tw-btn-light faq-tag-manager-close" type="button" @click="close">✕</button>
+            </div>
+
+            <div class="faq-tag-manager-input-group tw-flex tw-gap-2 tw-mb-2">
+                <input
+                    ref="tagInputEl"
+                    type="text"
+                    placeholder="输入标签名称，按回车添加"
+                    class="faq-tag-manager-input tw-input"
+                    v-model="store.inputValue"
+                    @keydown="onInputKeydown"
+                />
+                <button class="faq-tag-manager-add-btn tw-btn" type="button" @click="addFromInput">添加</button>
+                <button class="faq-tag-manager-smart-generate tw-btn" type="button" @click="smartGenerate">✨ 智能生成</button>
+            </div>
+
+            <div class="faq-tag-manager-quick-tags tw-flex tw-flex-wrap tw-gap-2 tw-mb-2">
+                <button
+                    v-for="tag in quickTags"
+                    :key="tag"
+                    type="button"
+                    class="faq-tag-manager-quick-tag-btn tw-chip"
+                    :class="{ 'is-selected': store.currentTags.includes(tag) }"
+                    :disabled="store.currentTags.includes(tag)"
+                    @click="addQuickTag(tag)"
+                >
+                    {{ tag }}
+                </button>
+            </div>
+
+            <div class="faq-tag-manager-tags tw-overflow-y-auto faq-tag-manager-tags-box">
+                <div v-for="(tag, idx) in store.currentTags" :key="tag + '::' + idx" class="faq-tag-chip">
+                    <span>{{ tag }}</span>
+                    <button type="button" class="faq-tag-chip-remove" title="删除标签" @click="removeTag(idx)">✕</button>
+                </div>
+            </div>
+
+            <div class="tw-flex tw-justify-end tw-gap-2">
+                <button class="tw-btn tw-btn-light" type="button" @click="close">取消</button>
+                <button class="faq-tag-manager-save tw-btn faq-tag-manager-save-btn" type="button" @click="save">保存</button>
+            </div>
+        </div>
+    </div>
+</template>

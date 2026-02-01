@@ -57,7 +57,6 @@ class RequestUtils {
             const urlObj = new URL(url);
             return `${urlObj.origin}${urlObj.pathname}`;
         } catch (e) {
-            // 如果URL解析失败，尝试简单处理
             const hashIndex = url.indexOf('#');
             const queryIndex = url.indexOf('?');
             let endIndex = url.length;
@@ -110,7 +109,6 @@ class RequestUtils {
      * @returns {Promise<Response>} fetch响应
      */
     static async fetchWithLoading(url, options = {}, context = null) {
-        // 显示加载动画
         if (context && typeof context._showLoadingAnimation === 'function') {
             context._showLoadingAnimation();
         } else if (typeof LoadingAnimationMixin !== 'undefined') {
@@ -119,7 +117,6 @@ class RequestUtils {
 
         try {
             const response = await fetch(url, options);
-            // 隐藏加载动画
             if (context && typeof context._hideLoadingAnimation === 'function') {
                 context._hideLoadingAnimation();
             } else if (typeof LoadingAnimationMixin !== 'undefined') {
@@ -127,7 +124,6 @@ class RequestUtils {
             }
             return response;
         } catch (error) {
-            // 隐藏加载动画
             if (context && typeof context._hideLoadingAnimation === 'function') {
                 context._hideLoadingAnimation();
             } else if (typeof LoadingAnimationMixin !== 'undefined') {
@@ -147,7 +143,6 @@ class RequestUtils {
         
         if (typeof body === 'string') {
             try {
-                // 尝试解析为JSON
                 return JSON.parse(body);
             } catch (e) {
                 return body;
@@ -184,14 +179,12 @@ class RequestUtils {
     static generateCurl(url, method, headers, body) {
         let curl = `curl -X ${method}`;
         
-        // 添加请求头
         if (headers && typeof headers === 'object') {
             Object.entries(headers).forEach(([key, value]) => {
                 curl += ` \\\n  -H "${key}: ${value}"`;
             });
         }
         
-        // 添加请求体
         if (body) {
             if (typeof body === 'string') {
                 curl += ` \\\n  -d '${body.replace(/'/g, "\\'")}'`;
@@ -300,28 +293,23 @@ RequestUtils.RequestClient = RequestClient;
 RequestUtils.createRequestClient = createRequestClient;
 RequestUtils.requestClient = RequestUtils.requestClient || createRequestClient();
 
-// 静态属性：避免使用 class fields 语法，提升兼容性（尤其是某些扩展运行环境/打包配置）
 RequestUtils.EXTENSION_URL_PATTERNS = [
     /^chrome-extension:\/\//i,
     /^chrome:\/\//i,
     /^moz-extension:\/\//i,
-    /api\.effiy\.cn/i, // 扩展使用的API域名
+    /api\.effiy\.cn/i,
 ];
 
-// 导出
 if (typeof module !== "undefined" && module.exports) {
     module.exports = RequestUtils;
 } else if (typeof self !== "undefined") {
-    // Service Worker / Web Worker 环境
     self.RequestUtils = RequestUtils;
     if (typeof globalThis !== "undefined") {
         globalThis.RequestUtils = RequestUtils;
     }
 } else if (typeof window !== "undefined") {
-    // 浏览器环境
     window.RequestUtils = RequestUtils;
 } else {
-    // 最后兜底
     try {
         globalThis.RequestUtils = RequestUtils;
     } catch (e) {

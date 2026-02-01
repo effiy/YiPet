@@ -36,7 +36,6 @@ class SessionApiManager extends BaseApiManager {
             return list;
         } catch (error) {
             console.warn('获取会话列表失败:', error.message);
-            // 返回空数组而不是抛出错误，避免影响主流程
             return [];
         }
     }

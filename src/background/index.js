@@ -27,7 +27,7 @@ try {
  */
 try {
     // 加载通用工具（供 service/handler 复用）
-    importScripts('../api/requestUtils.js');
+    importScripts('../api/legacy/requestUtils.js');
     importScripts('../utils/loggerUtils.js');
     importScripts('../utils/errorHandler.js');
     importScripts('../utils/moduleUtils.js');

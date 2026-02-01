@@ -5,17 +5,15 @@
 
   proto.openFaqTagManager = function(faqIndex) {
         if (!this.chatWindow) return;
-        if (typeof this.ensureFaqManagerUi === 'function') this.ensureFaqManagerUi();
 
         const list = typeof this.getFaqManagerFilteredFaqs === 'function' ? this.getFaqManagerFilteredFaqs() : [];
         const faq = list?.[faqIndex];
         if (!faq) return;
 
-        this.ensureFaqTagManagerUi();
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
+        const chatWindowComponent = this.chatWindowComponent;
+        if (!chatWindowComponent || !chatWindowComponent._vueApp) return;
 
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this.ensureFaqTagManagerStore();
         if (!store) return;
 
         const currentTags = Array.isArray(faq.tags) ? faq.tags : [];
@@ -29,9 +27,7 @@
     };
 
   proto.closeFaqTagManager = function() {
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this._faqTagManagerStore;
         if (store) {
             store.visible = false;
             store.faqIndex = -1;
@@ -43,32 +39,16 @@
         if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
     };
 
-  proto.ensureFaqTagManagerUi = function() {
-        if (!this.chatWindow) return;
-        if (this.chatWindow.querySelector('#pet-faq-tag-manager')) return;
-
+  proto.ensureFaqTagManagerStore = function() {
+        if (this._faqTagManagerStore) return this._faqTagManagerStore;
         const Vue = window.Vue || {};
-        const { createApp, reactive } = Vue;
-        if (typeof createApp !== 'function' || typeof reactive !== 'function') {
+        const { reactive } = Vue;
+        if (typeof reactive !== 'function') {
             if (typeof this.showNotification === 'function') {
                 this.showNotification('无法打开标签管理：Vue 未初始化', 'error');
             }
             return;
         }
-        const canUseTemplate = (() => {
-            if (typeof Vue?.compile !== 'function') return false;
-            try {
-                Function('return 1')();
-                return true;
-            } catch (_) {
-                return false;
-            }
-        })();
-
-        const modal = document.createElement('div');
-        modal.id = 'pet-faq-tag-manager';
-        const mountEl = document.createElement('div');
-        modal.appendChild(mountEl);
 
         const store = reactive({
             visible: false,
@@ -77,32 +57,16 @@
             currentTags: []
         });
 
-        modal._store = store;
         this._faqTagManagerStore = store;
+        return store;
+    };
 
-        modal._mountPromise = (async () => {
-            try {
-                const mod = window.PetManager?.Components?.FaqTagManager;
-                if (!mod || typeof mod.createComponent !== 'function') return;
-                const template = canUseTemplate && typeof mod.loadTemplate === 'function' ? await mod.loadTemplate() : '';
-                const ctor = mod.createComponent({ manager: this, store, template });
-                if (!ctor) return;
-                modal._vueApp = createApp(ctor);
-                modal._vueInstance = modal._vueApp.mount(mountEl);
-            } catch (e) {
-                try {
-                    console.error('初始化 FAQ 标签组件失败:', e);
-                } catch (_) {}
-            }
-        })();
-
-        this.chatWindow.appendChild(modal);
+  proto.ensureFaqTagManagerUi = function() {
+        return this.ensureFaqTagManagerStore();
     };
 
   proto.loadFaqTagsIntoManager = function(faqIndex, tags) {
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this._faqTagManagerStore;
         if (!store) return;
         const normalized = (Array.isArray(tags) ? tags : [])
             .map((t) => String(t ?? '').trim())
@@ -112,9 +76,7 @@
     };
 
   proto.addFaqTagFromInput = function(faqIndex) {
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this._faqTagManagerStore;
         if (!store) return;
         const tagName = String(store.inputValue || '').trim();
         if (!tagName) return;
@@ -128,9 +90,7 @@
     };
 
   proto.addFaqQuickTag = function(faqIndex, tagName) {
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this._faqTagManagerStore;
         if (!store) return;
         const t = String(tagName ?? '').trim();
         if (!t) return;
@@ -140,17 +100,13 @@
     };
 
   proto.removeFaqTag = function(faqIndex, index) {
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this._faqTagManagerStore;
         if (!store || !Array.isArray(store.currentTags)) return;
         store.currentTags.splice(index, 1);
     };
 
   proto.saveFaqTags = async function(faqIndex) {
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) return;
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this._faqTagManagerStore;
         if (!store) return;
 
         const list = typeof this.getFaqManagerFilteredFaqs === 'function' ? this.getFaqManagerFilteredFaqs() : [];
@@ -198,12 +154,7 @@
             return;
         }
 
-        const tagModal = this.chatWindow?.querySelector('#pet-faq-tag-manager');
-        if (!tagModal) {
-            console.error('常见问题标签管理弹窗未找到');
-            return;
-        }
-        const store = tagModal._store || this._faqTagManagerStore;
+        const store = this._faqTagManagerStore;
         if (!store) return;
 
         if (buttonElement) {

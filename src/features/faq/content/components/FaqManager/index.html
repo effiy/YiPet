@@ -1,35 +1,46 @@
 <template id="yi-pet-faq-manager-template">
-    <div class="pet-faq-manager-modal" role="document">
-        <div class="pet-faq-manager-header">
-            <div class="pet-faq-manager-title">
-                💡 常见问题 <span class="pet-faq-manager-title-sub">（一键插入/发送）</span>
+    <div
+        id="pet-faq-manager"
+        class="pet-faq-manager"
+        :class="{ 'pet-is-visible': store.visible }"
+        role="dialog"
+        aria-modal="true"
+        aria-label="常见问题"
+        tabindex="0"
+        @click.self="close"
+        @keydown.esc.prevent.stop="close"
+    >
+        <div class="pet-faq-manager-modal" role="document">
+            <div class="pet-faq-manager-header">
+                <div class="pet-faq-manager-title">
+                    💡 常见问题 <span class="pet-faq-manager-title-sub">（一键插入/发送）</span>
+                </div>
+                <div class="pet-faq-modal-close" role="button" aria-label="关闭" tabindex="0" @click="close">✕</div>
             </div>
-            <div class="pet-faq-modal-close" role="button" aria-label="关闭" tabindex="0" @click="close">✕</div>
-        </div>
 
-        <div class="pet-faq-modal-content">
-            <div class="pet-faq-layout">
-                <div class="pet-faq-sidebar" aria-label="筛选与标签">
-                    <div class="pet-faq-search-row">
-                        <input
-                            ref="searchInputEl"
-                            type="text"
-                            class="pet-faq-search-input"
-                            placeholder="搜索常见问题..."
-                            aria-label="搜索常见问题"
-                            v-model="store.searchFilter"
-                        />
-                        <button
-                            type="button"
-                            class="pet-faq-search-clear"
-                            aria-label="清除搜索"
-                            title="清除搜索"
-                            :disabled="!store.searchFilter"
-                            @click="clearSearch"
-                        >
-                            清除
-                        </button>
-                    </div>
+            <div class="pet-faq-modal-content">
+                <div class="pet-faq-layout">
+                    <div class="pet-faq-sidebar" aria-label="筛选与标签">
+                        <div class="pet-faq-search-row">
+                            <input
+                                ref="searchInputEl"
+                                type="text"
+                                class="pet-faq-search-input"
+                                placeholder="搜索常见问题..."
+                                aria-label="搜索常见问题"
+                                v-model="store.searchFilter"
+                            />
+                            <button
+                                type="button"
+                                class="pet-faq-search-clear"
+                                aria-label="清除搜索"
+                                title="清除搜索"
+                                :disabled="!store.searchFilter"
+                                @click="clearSearch"
+                            >
+                                清除
+                            </button>
+                        </div>
 
                     <div class="pet-faq-filter-row" aria-label="常见问题标签筛选">
                         <div class="pet-faq-filter-actions">

@@ -528,82 +528,91 @@
 
         container.classList.remove('js-hidden');
 
-        const fragment = document.createDocumentFragment();
+        const escapeAttr = (value) =>
+            String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
 
-        const existingImages = container.querySelectorAll('.yi-pet-chat-draft-image');
-        existingImages.forEach((img) => img.remove());
-        const existingClearBtn = container.querySelector('.yi-pet-chat-draft-images-clear');
-        if (existingClearBtn) existingClearBtn.remove();
+        const imagesHtml = draftImages
+            .map((src, index) => {
+                const idx = Number(index) + 1;
+                return `
+                    <div class="yi-pet-chat-draft-image yi-pet-chat-draft-image-loading" data-image-index="${Number(index)}">
+                        <img class="yi-pet-chat-draft-image-preview" src="${escapeAttr(src || '')}" alt="待发送图片 ${idx}" loading="lazy" />
+                        <button type="button" class="yi-pet-chat-draft-image-remove" aria-label="移除第 ${idx} 张图片" title="移除">✕</button>
+                    </div>
+                `.trim();
+            })
+            .join('');
 
-        draftImages.forEach((src, index) => {
-            const imageWrapper = document.createElement('div');
-            imageWrapper.className = 'yi-pet-chat-draft-image';
-            imageWrapper.setAttribute('data-image-index', index);
+        const clearBtnHtml = `
+            <button
+                type="button"
+                class="yi-pet-chat-draft-images-clear"
+                aria-label="清空所有 ${draftImages.length} 张图片"
+                title="清空所有图片"
+            >清空图片 (${draftImages.length})</button>
+        `.trim();
 
-            const img = document.createElement('img');
-            img.className = 'yi-pet-chat-draft-image-preview';
-            img.src = src;
-            img.alt = `待发送图片 ${index + 1}`;
-            img.loading = 'lazy';
+        container.innerHTML = `${imagesHtml}${clearBtnHtml}`;
 
-            img.addEventListener('error', () => {
-                imageWrapper.classList.add('yi-pet-chat-draft-image-error');
-                img.classList.add('tw-hidden');
-            });
+        if (!container._yiPetDraftImagesBound) {
+            container._yiPetDraftImagesBound = true;
+            container.addEventListener('click', (e) => {
+                const target = e?.target;
+                if (!target) return;
 
-            img.addEventListener('load', () => {
-                imageWrapper.classList.remove('yi-pet-chat-draft-image-loading');
-                img.classList.remove('tw-hidden');
-            });
-
-            imageWrapper.addEventListener('click', (e) => {
-                if (e.target.classList.contains('yi-pet-chat-draft-image-remove')) {
+                const clearBtn = target.closest?.('.yi-pet-chat-draft-images-clear');
+                if (clearBtn) {
+                    if (typeof instance?.clearDraftImages === 'function') {
+                        instance.clearDraftImages();
+                        return;
+                    }
+                    if (Array.isArray(instance?.draftImages)) {
+                        instance.draftImages = [];
+                        updateDraftImagesDisplay(instance);
+                    }
                     return;
                 }
+
+                const removeBtn = target.closest?.('.yi-pet-chat-draft-image-remove');
+                if (removeBtn) {
+                    e.stopPropagation();
+                    const wrapper = removeBtn.closest?.('.yi-pet-chat-draft-image');
+                    const idx = Number(wrapper?.getAttribute?.('data-image-index'));
+                    if (Number.isFinite(idx) && typeof instance?.removeDraftImage === 'function') {
+                        instance.removeDraftImage(idx);
+                    }
+                    return;
+                }
+
+                const wrapper = target.closest?.('.yi-pet-chat-draft-image');
+                if (!wrapper) return;
+                const idx = Number(wrapper.getAttribute('data-image-index'));
+                if (!Number.isFinite(idx)) return;
+                const src = draftImages[idx];
                 if (typeof instance?.previewDraftImage === 'function') {
-                    instance.previewDraftImage(src, index);
+                    instance.previewDraftImage(src, idx);
                 }
             });
+        }
 
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'yi-pet-chat-draft-image-remove';
-            removeBtn.innerHTML = '✕';
-            removeBtn.setAttribute('aria-label', `移除第 ${index + 1} 张图片`);
-            removeBtn.title = '移除';
-            removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (typeof instance?.removeDraftImage === 'function') {
-                    instance.removeDraftImage(index);
-                }
+        const previewImages = container.querySelectorAll('.yi-pet-chat-draft-image-preview');
+        previewImages.forEach((img) => {
+            const wrapper = img.closest?.('.yi-pet-chat-draft-image');
+            if (!wrapper) return;
+            img.addEventListener('error', () => {
+                wrapper.classList.add('yi-pet-chat-draft-image-error');
+                img.classList.add('tw-hidden');
             });
-
-            imageWrapper.classList.add('yi-pet-chat-draft-image-loading');
-
-            imageWrapper.appendChild(img);
-            imageWrapper.appendChild(removeBtn);
-            fragment.appendChild(imageWrapper);
+            img.addEventListener('load', () => {
+                wrapper.classList.remove('yi-pet-chat-draft-image-loading');
+                img.classList.remove('tw-hidden');
+            });
         });
-
-        container.appendChild(fragment);
-
-        const clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.className = 'yi-pet-chat-draft-images-clear';
-        clearBtn.textContent = `清空图片 (${draftImages.length})`;
-        clearBtn.setAttribute('aria-label', `清空所有 ${draftImages.length} 张图片`);
-        clearBtn.title = '清空所有图片';
-        clearBtn.addEventListener('click', () => {
-            if (typeof instance?.clearDraftImages === 'function') {
-                instance.clearDraftImages();
-                return;
-            }
-            if (Array.isArray(instance?.draftImages)) {
-                instance.draftImages = [];
-                updateDraftImagesDisplay(instance);
-            }
-        });
-        container.appendChild(clearBtn);
     }
 
     function handleImageInputChange(manager, instance, e) {
@@ -669,43 +678,56 @@
     }
 
     function previewDraftImage(src, index) {
-        const modal = document.createElement('div');
-        modal.className = 'pet-draft-image-preview-modal';
+        const existing = document.body ? document.body.querySelector('.pet-draft-image-preview-modal') : null;
+        if (existing) existing.remove();
 
-        const img = document.createElement('img');
-        img.src = src;
-        img.alt = `待发送图片 ${Number(index) + 1 || ''}`;
+        const escapeAttr = (value) =>
+            String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
 
-        const closeBtn = document.createElement('button');
-        closeBtn.innerHTML = '✕';
-        closeBtn.className = 'modal-close-btn';
+        const safeSrc = escapeAttr(src || '');
+        const safeAlt = escapeAttr(`待发送图片 ${Number(index) + 1 || ''}`);
+
+        document.body.insertAdjacentHTML(
+            'beforeend',
+            `
+                <div class="pet-draft-image-preview-modal" role="dialog" aria-modal="true" aria-label="图片预览">
+                    <img src="${safeSrc}" alt="${safeAlt}" />
+                    <button type="button" class="modal-close-btn" aria-label="关闭预览">✕</button>
+                </div>
+            `.trim()
+        );
+
+        const modal = document.body.querySelector('.pet-draft-image-preview-modal');
+        const closeBtn = modal ? modal.querySelector('.modal-close-btn') : null;
+        if (!modal) return;
 
         const closeModal = () => {
-            modal.remove();
-            document.body.style.overflow = '';
+            try {
+                modal.remove();
+            } catch (_) {}
+            try {
+                document.body.style.overflow = '';
+            } catch (_) {}
+            try {
+                document.removeEventListener('keydown', handleKeyDown);
+            } catch (_) {}
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') closeModal();
         };
 
         modal.addEventListener('click', (e) => {
-            if (e.target === modal || e.target === closeBtn) {
-                closeModal();
-            }
+            if (e.target === modal) closeModal();
         });
-
-        closeBtn.addEventListener('click', closeModal);
-
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                closeModal();
-                document.removeEventListener('keydown', handleKeyDown);
-            }
-        };
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
         document.addEventListener('keydown', handleKeyDown);
-
         document.body.style.overflow = 'hidden';
-
-        modal.appendChild(img);
-        modal.appendChild(closeBtn);
-        document.body.appendChild(modal);
     }
 
     function createFallbackInputHtml() {

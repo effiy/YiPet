@@ -48,63 +48,60 @@
         const existing = this.chatWindow.querySelector('#pet-robot-settings');
         if (existing) existing.remove();
 
-        const overlay = document.createElement('div');
-        overlay.id = 'pet-robot-settings';
-        overlay.classList.add('js-visible');
-        // 样式已通过 CSS 类定义
+        this.chatWindow.insertAdjacentHTML(
+            'beforeend',
+            `
+                <div
+                    id="pet-robot-settings"
+                    class="js-visible"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="企微机器人设置"
+                    tabindex="0"
+                >
+                    <div class="robot-settings-modal" role="document">
+                        <div class="robot-settings-header">
+                            <div class="robot-settings-title">🤖 企微机器人设置</div>
+                            <button type="button" class="robot-settings-close" aria-label="关闭">✕</button>
+                        </div>
+                        <div class="robot-settings-content">
+                            <button type="button" class="robot-add-btn">+ 新增机器人</button>
+                            <div id="pet-robot-list" class="robot-list"></div>
+                            <div id="pet-robot-form" class="robot-form"></div>
+                        </div>
+                    </div>
+                </div>
+            `.trim()
+        );
 
-        const modal = document.createElement('div');
-        modal.className = 'robot-settings-modal';
+        const overlay = this.chatWindow.querySelector('#pet-robot-settings');
+        if (!overlay) return;
 
-        // 头部
-        const header = document.createElement('div');
-        header.className = 'robot-settings-header';
-        
-        const title = document.createElement('div');
-        title.className = 'robot-settings-title';
-        title.innerHTML = '🤖 企微机器人设置';
-        
-        const closeBtn = document.createElement('div');
-        closeBtn.className = 'robot-settings-close';
-        closeBtn.innerHTML = '✕';
-        closeBtn.onclick = () => this.closeWeWorkRobotSettingsModal();
-        
-        header.appendChild(title);
-        header.appendChild(closeBtn);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) this.closeWeWorkRobotSettingsModal();
+        });
+        overlay.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                this.closeWeWorkRobotSettingsModal();
+            }
+        });
 
-        // 内容区域
-        const content = document.createElement('div');
-        content.className = 'robot-settings-content';
+        const closeBtn = overlay.querySelector('.robot-settings-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => this.closeWeWorkRobotSettingsModal());
 
-        // 列表容器
-        const listContainer = document.createElement('div');
-        listContainer.id = 'pet-robot-list';
-        listContainer.className = 'robot-list';
-
-        // 表单容器
-        const formContainer = document.createElement('div');
-        formContainer.id = 'pet-robot-form';
-        formContainer.className = 'robot-form';
-
-        // 新增按钮
-        const addBtn = document.createElement('button');
-        addBtn.innerHTML = '+ 新增机器人';
-        addBtn.className = 'robot-add-btn';
-        addBtn.onclick = () => this.renderWeWorkRobotSettingsForm(null);
-
-        content.appendChild(addBtn);
-        content.appendChild(listContainer);
-        content.appendChild(formContainer);
-
-        modal.appendChild(header);
-        modal.appendChild(content);
-        overlay.appendChild(modal);
-        this.chatWindow.appendChild(overlay);
+        const addBtn = overlay.querySelector('.robot-add-btn');
+        if (addBtn) addBtn.addEventListener('click', () => this.renderWeWorkRobotSettingsForm(null));
 
         this.chatWindow.classList.add('robot-settings-open');
 
         this.renderWeWorkRobotSettingsList();
         this.renderWeWorkRobotSettingsForm(editId, !editId); // 如果没有 editId，显示空白状态
+
+        try {
+            overlay.focus();
+        } catch (_) {}
     };
 
     proto.closeWeWorkRobotSettingsModal = function() {
@@ -119,78 +116,128 @@
         const list = this.chatWindow.querySelector('#pet-robot-list');
         if (!list) return;
 
-        const configs = await this.getWeWorkRobotConfigs();
-        list.innerHTML = '';
+        if (!list._yiPetRobotListBound) {
+            list._yiPetRobotListBound = true;
 
-        if (configs.length === 0) {
-            const empty = document.createElement('div');
-            empty.textContent = '暂无配置机器人';
-            empty.className = 'robot-list-empty';
-            list.appendChild(empty);
+            list.addEventListener('click', async (e) => {
+                const target = e?.target;
+                if (!target) return;
+
+                const delBtn = target.closest?.('.robot-list-item-delete-btn');
+                if (delBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const item = delBtn.closest?.('.robot-list-item');
+                    const id = item?.getAttribute?.('data-robot-id') || '';
+                    if (!id) return;
+                    if (!confirm('确定要删除这个机器人配置吗？')) return;
+                    const configs = await this.getWeWorkRobotConfigs();
+                    const next = configs.filter((x) => x && x.id !== id);
+                    await this.setWeWorkRobotConfigs(next);
+                    this.renderWeWorkRobotSettingsList();
+                    this.renderWeWorkRobotSettingsForm(null, true);
+                    await this.refreshWelcomeActionButtons();
+                    return;
+                }
+
+                const item = target.closest?.('.robot-list-item');
+                if (!item) return;
+                const id = item.getAttribute('data-robot-id');
+                if (!id) return;
+                this.renderWeWorkRobotSettingsForm(id);
+            });
+
+            list.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                const item = e?.target?.closest?.('.robot-list-item');
+                if (!item) return;
+                const id = item.getAttribute('data-robot-id');
+                if (!id) return;
+                e.preventDefault();
+                this.renderWeWorkRobotSettingsForm(id);
+            });
+        }
+
+        const configs = await this.getWeWorkRobotConfigs();
+        if (!Array.isArray(configs) || configs.length === 0) {
+            list.innerHTML = '<div class="robot-list-empty">暂无配置机器人</div>';
             return;
         }
 
-        configs.forEach(config => {
-            const row = this.createWeWorkRobotListItem(config);
-            list.appendChild(row);
-        });
+        const escapeHtml = (text) =>
+            String(text ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+
+        const rows = configs
+            .map((config) => {
+                const id = escapeHtml(config?.id || '');
+                const icon = escapeHtml(config?.icon || '🤖');
+                const name = escapeHtml(config?.name || '未命名机器人');
+                const urlText = config?.webhookUrl
+                    ? `${String(config.webhookUrl).substring(0, 30)}...`
+                    : '未配置 Webhook';
+                const url = escapeHtml(urlText);
+
+                return `
+                    <div class="robot-list-item" data-robot-id="${id}" role="button" tabindex="0">
+                        <div class="robot-list-item-info">
+                            <span class="robot-list-item-icon">${icon}</span>
+                            <div class="robot-list-item-name">
+                                <span class="robot-list-item-name-text">${name}</span>
+                                <span class="robot-list-item-url-text">${url}</span>
+                            </div>
+                        </div>
+                        <div class="robot-list-item-actions">
+                            <button type="button" class="robot-list-item-delete-btn" title="删除" aria-label="删除">🗑️</button>
+                        </div>
+                    </div>
+                `.trim();
+            })
+            .join('');
+
+        list.innerHTML = rows;
     };
 
     proto.createWeWorkRobotListItem = function(config) {
-        const row = document.createElement('div');
-        row.className = 'robot-list-item';
-        row.onclick = () => this.renderWeWorkRobotSettingsForm(config.id);
+        const escapeHtml = (text) =>
+            String(text ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
 
-        const info = document.createElement('div');
-        info.className = 'robot-list-item-info';
-        
-        const icon = document.createElement('span');
-        icon.textContent = config.icon || '🤖';
-        icon.className = 'robot-list-item-icon';
-        
-        const name = document.createElement('div');
-        name.className = 'robot-list-item-name';
-        
-        const nameText = document.createElement('span');
-        nameText.textContent = config.name || '未命名机器人';
-        nameText.className = 'robot-list-item-name-text';
-        
-        const urlText = document.createElement('span');
-        urlText.textContent = config.webhookUrl ? (config.webhookUrl.substring(0, 30) + '...') : '未配置 Webhook';
-        urlText.className = 'robot-list-item-url-text';
-        
-        name.appendChild(nameText);
-        name.appendChild(urlText);
-        
-        info.appendChild(icon);
-        info.appendChild(name);
+        const id = escapeHtml(config?.id || '');
+        const icon = escapeHtml(config?.icon || '🤖');
+        const name = escapeHtml(config?.name || '未命名机器人');
+        const urlText = config?.webhookUrl ? `${String(config.webhookUrl).substring(0, 30)}...` : '未配置 Webhook';
+        const url = escapeHtml(urlText);
 
-        const btns = document.createElement('div');
-        btns.className = 'robot-list-item-actions';
+        const html = `
+            <div class="robot-list-item" data-robot-id="${id}" role="button" tabindex="0">
+                <div class="robot-list-item-info">
+                    <span class="robot-list-item-icon">${icon}</span>
+                    <div class="robot-list-item-name">
+                        <span class="robot-list-item-name-text">${name}</span>
+                        <span class="robot-list-item-url-text">${url}</span>
+                    </div>
+                </div>
+                <div class="robot-list-item-actions">
+                    <button type="button" class="robot-list-item-delete-btn" title="删除" aria-label="删除">🗑️</button>
+                </div>
+            </div>
+        `.trim();
 
-        const del = document.createElement('button');
-        del.innerHTML = '🗑️';
-        del.title = '删除';
-        del.className = 'robot-list-item-delete-btn';
-        del.onclick = async (e) => {
-            e.stopPropagation();
-            if (confirm('确定要删除这个机器人配置吗？')) {
-                const configs = await this.getWeWorkRobotConfigs();
-                const next = configs.filter(x => x.id !== config.id);
-                await this.setWeWorkRobotConfigs(next);
-                this.renderWeWorkRobotSettingsList();
-                this.renderWeWorkRobotSettingsForm(null, true);
-                
-                // 刷新欢迎消息按钮
-                await this.refreshWelcomeActionButtons();
-            }
-        };
-
-        btns.appendChild(del);
-        row.appendChild(info);
-        row.appendChild(btns);
-
-        return row;
+        try {
+            const frag = document.createRange().createContextualFragment(html);
+            return frag.firstElementChild || null;
+        } catch (_) {
+            return null;
+        }
     };
 
     proto.renderWeWorkRobotSettingsForm = async function(editId = null, showEmptyState = false) {
@@ -199,11 +246,7 @@
         if (!form) return;
 
         if (showEmptyState) {
-            form.innerHTML = '';
-            const empty = document.createElement('div');
-            empty.textContent = '👈 请选择左侧列表进行编辑，或点击"新增机器人"';
-            empty.className = 'robot-form-empty';
-            form.appendChild(empty);
+            form.innerHTML = '<div class="robot-form-empty">👈 请选择左侧列表进行编辑，或点击"新增机器人"</div>';
             return;
         }
 
@@ -220,66 +263,82 @@
             return;
         }
 
-        form.innerHTML = '';
+        const escapeHtml = (text) =>
+            String(text ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
 
-        const createInput = (label, value, placeholder, key, type = 'text') => {
-            const container = document.createElement('div');
-            container.className = 'robot-config-field';
-            
-            const labelEl = document.createElement('div');
-            labelEl.textContent = label;
-            labelEl.className = 'robot-config-label';
-            
-            const input = document.createElement('input');
-            input.type = type;
-            input.value = value || '';
-            input.placeholder = placeholder;
-            input.className = 'robot-config-input';
-            
-            input.onchange = (e) => {
-                config[key] = e.target.value;
-            };
-            
-            container.appendChild(labelEl);
-            container.appendChild(input);
-            return container;
-        };
+        form.setAttribute('data-edit-id', String(config.id || ''));
+        form.innerHTML = `
+            <div class="robot-config-field">
+                <div class="robot-config-label">机器人名称</div>
+                <input
+                    type="text"
+                    class="robot-config-input"
+                    data-field="name"
+                    value="${escapeHtml(config.name || '')}"
+                    placeholder="例如：研发群助手"
+                />
+            </div>
+            <div class="robot-config-field">
+                <div class="robot-config-label">图标 (Emoji)</div>
+                <input
+                    type="text"
+                    class="robot-config-input"
+                    data-field="icon"
+                    value="${escapeHtml(config.icon || '')}"
+                    placeholder="例如：🤖"
+                />
+            </div>
+            <div class="robot-config-field">
+                <div class="robot-config-label">Webhook 地址</div>
+                <input
+                    type="text"
+                    class="robot-config-input"
+                    data-field="webhookUrl"
+                    value="${escapeHtml(config.webhookUrl || '')}"
+                    placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+                />
+            </div>
+            <div class="robot-config-btn-row">
+                <button type="button" class="robot-config-save-btn">保存配置</button>
+            </div>
+        `.trim();
 
-        form.appendChild(createInput('机器人名称', config.name, '例如：研发群助手', 'name'));
-        form.appendChild(createInput('图标 (Emoji)', config.icon, '例如：🤖', 'icon'));
-        form.appendChild(createInput('Webhook 地址', config.webhookUrl, 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...', 'webhookUrl'));
+        const saveBtn = form.querySelector('.robot-config-save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const getField = (name) => {
+                    const el = form.querySelector(`.robot-config-input[data-field="${name}"]`);
+                    return String(el?.value || '').trim();
+                };
 
-        // 按钮区域
-        const btnRow = document.createElement('div');
-        btnRow.className = 'robot-config-btn-row';
+                const nextConfig = {
+                    id: String(config.id || Date.now()),
+                    name: getField('name'),
+                    icon: getField('icon') || '🤖',
+                    webhookUrl: getField('webhookUrl')
+                };
 
-        const saveBtn = document.createElement('button');
-        saveBtn.textContent = '保存配置';
-        saveBtn.className = 'robot-config-save-btn';
-        saveBtn.onclick = async () => {
-            if (!config.name || !config.webhookUrl) {
-                alert('请填写名称和 Webhook 地址');
-                return;
-            }
+                if (!nextConfig.name || !nextConfig.webhookUrl) {
+                    alert('请填写名称和 Webhook 地址');
+                    return;
+                }
 
-            const all = await this.getWeWorkRobotConfigs();
-            const idx = all.findIndex(c => c.id === config.id);
-            if (idx >= 0) {
-                all[idx] = config;
-            } else {
-                all.push(config);
-            }
-            
-            await this.setWeWorkRobotConfigs(all);
-            this.renderWeWorkRobotSettingsList();
-            this.showNotification('保存成功', 'success');
-            
-            // 刷新欢迎消息按钮
-            await this.refreshWelcomeActionButtons();
-        };
+                const all = await this.getWeWorkRobotConfigs();
+                const idx = all.findIndex((c) => c && c.id === nextConfig.id);
+                if (idx >= 0) all[idx] = nextConfig;
+                else all.push(nextConfig);
 
-        btnRow.appendChild(saveBtn);
-        form.appendChild(btnRow);
+                await this.setWeWorkRobotConfigs(all);
+                this.renderWeWorkRobotSettingsList();
+                this.showNotification('保存成功', 'success');
+                await this.refreshWelcomeActionButtons();
+            });
+        }
     };
 
     // 处理消息内容，通过 prompt 接口处理并返回 md 格式

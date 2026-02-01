@@ -34,13 +34,13 @@
         const store = params?.store;
         const template = params?.template;
         const Vue = window.Vue || {};
-        const { defineComponent, computed, ref, onMounted, onBeforeUnmount, nextTick, h } = Vue;
+        const { defineComponent, computed, ref, onMounted, nextTick, h } = Vue;
         if (typeof defineComponent !== 'function' || !store) return null;
 
         const useTemplate = canUseVueTemplate(Vue);
         const resolvedTemplate = useTemplate ? String(template || faqManagerTemplateCache || '').trim() : '';
         if (useTemplate && !resolvedTemplate) return null;
-        if (!useTemplate && typeof h !== 'function') return null;
+        if (!useTemplate) return null;
 
         const normalizeTags = (tags) => {
             if (!tags) return [];
@@ -247,21 +247,8 @@
                     if (typeof manager?.openFaqTagManager === 'function') manager.openFaqTagManager(index);
                 };
 
-                const escHandler = (e) => {
-                    if (e?.key === 'Escape') close();
-                };
-
                 onMounted(() => {
-                    try {
-                        document.addEventListener('keydown', escHandler);
-                    } catch (_) {}
                     focusSearch();
-                });
-
-                onBeforeUnmount(() => {
-                    try {
-                        document.removeEventListener('keydown', escHandler);
-                    } catch (_) {}
                 });
 
                 if (useTemplate) {

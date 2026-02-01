@@ -60,48 +60,11 @@
     };
   };
 
-  proto.ensureFaqManagerUi = function() {
-    if (!this.chatWindow) {
-      console.warn('ensureFaqManagerUi: chatWindow 未初始化');
-      return;
-    }
-
-    const existing = this.chatWindow.querySelector('#pet-faq-manager');
-    if (existing) return;
-
+  proto.ensureFaqManagerStore = function() {
+    if (this._faqManagerStore) return this._faqManagerStore;
     const Vue = window.Vue || {};
-    const { createApp, reactive, watch } = Vue;
-    if (typeof createApp !== 'function' || typeof reactive !== 'function') {
-      if (typeof this.showNotification === 'function') {
-        this.showNotification('无法打开常见问题：Vue 未初始化', 'error');
-      }
-      return;
-    }
-    const canUseTemplate = (() => {
-      if (typeof Vue?.compile !== 'function') return false;
-      try {
-        Function('return 1')();
-        return true;
-      } catch (_) {
-        return false;
-      }
-    })();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'pet-faq-manager';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', '常见问题');
-    overlay.className = 'pet-faq-manager';
-
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        this.closeFaqManagerOnly();
-      }
-    });
-
-    const mountEl = document.createElement('div');
-    overlay.appendChild(mountEl);
+    const { reactive } = Vue;
+    if (typeof reactive !== 'function') return null;
 
     const store = reactive({
       visible: false,
@@ -120,36 +83,12 @@
       deletingFaqKeys: Object.create(null)
     });
 
-    overlay._store = store;
     this._faqManagerStore = store;
+    return store;
+  };
 
-    if (typeof watch === 'function') {
-      watch(
-        () => store.visible,
-        (v) => {
-          overlay.classList.toggle('pet-is-visible', !!v);
-        },
-        { immediate: true }
-      );
-    }
-
-    overlay._mountPromise = (async () => {
-      try {
-        const mod = window.PetManager?.Components?.FaqManager;
-        if (!mod || typeof mod.createComponent !== 'function') return;
-        const template = canUseTemplate && typeof mod.loadTemplate === 'function' ? await mod.loadTemplate() : '';
-        const ctor = mod.createComponent({ manager: this, store, template });
-        if (!ctor) return;
-        overlay._vueApp = createApp(ctor);
-        overlay._vueInstance = overlay._vueApp.mount(mountEl);
-      } catch (e) {
-        try {
-          console.error('初始化 FAQ 组件失败:', e);
-        } catch (_) {}
-      }
-    })();
-
-    this.chatWindow.appendChild(overlay);
+  proto.ensureFaqManagerUi = function() {
+    return this.ensureFaqManagerStore();
   };
 
   proto.openFaqManager = async function() {
@@ -181,14 +120,18 @@
         return;
       }
       
-      // 确保常见问题管理器 UI 已创建
-      this.ensureFaqManagerUi();
-      const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
-      if (!overlay) {
-        const errorMsg = '常见问题管理弹窗未找到';
-        console.error(errorMsg, 'chatWindow:', this.chatWindow);
+      const chatWindowComponent = this.chatWindowComponent;
+      if (!chatWindowComponent || !chatWindowComponent._vueApp) {
         if (typeof this.showNotification === 'function') {
-          this.showNotification('无法打开常见问题：UI 创建失败', 'error');
+          this.showNotification('无法打开常见问题：当前页面未启用 Vue 模式', 'error');
+        }
+        return;
+      }
+
+      const store = this.ensureFaqManagerStore();
+      if (!store) {
+        if (typeof this.showNotification === 'function') {
+          this.showNotification('无法打开常见问题：Vue 未初始化', 'error');
         }
         return;
       }
@@ -196,7 +139,6 @@
       // 隐藏侧边栏和输入框的折叠按钮
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
       if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
-      const store = overlay._store || this._faqManagerStore;
       if (store) {
         store.visible = true;
         store.searchFilter = '';
@@ -229,9 +171,6 @@
         return;
       }
 
-      try {
-        await overlay._mountPromise;
-      } catch (_) {}
       await this.loadFaqsIntoManager(false);
     } catch (error) {
       console.error('打开常见问题管理器失败:', error);
@@ -239,22 +178,17 @@
         this.showNotification(`打开常见问题失败：${error.message || '未知错误'}`, 'error');
       }
       // 确保弹窗关闭，按钮恢复显示
-      const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
-      if (overlay) {
-        const store = overlay._store || this._faqManagerStore;
-        if (store) store.visible = false;
-      }
+      const store = this._faqManagerStore;
+      if (store) store.visible = false;
       const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
       if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
     }
   };
 
   proto.closeFaqManagerOnly = function() {
-    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
-    if (!overlay) return;
     const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
     if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-    const store = overlay._store || this._faqManagerStore;
+    const store = this._faqManagerStore;
     if (store) {
       store.visible = false;
       store.newFaqText = '';
@@ -274,8 +208,7 @@
   };
 
   proto._getFaqManagerStore = function() {
-    const overlay = this.chatWindow?.querySelector('#pet-faq-manager');
-    return overlay?._store || this._faqManagerStore || null;
+    return this._faqManagerStore || null;
   };
 
   proto.getFaqManagerFilteredFaqs = function() {

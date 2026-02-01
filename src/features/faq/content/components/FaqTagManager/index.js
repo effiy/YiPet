@@ -34,13 +34,13 @@
         const store = params?.store;
         const template = params?.template;
         const Vue = window.Vue || {};
-        const { defineComponent, ref, onMounted, onBeforeUnmount, nextTick, h } = Vue;
+        const { defineComponent, ref, onMounted, nextTick, h } = Vue;
         if (typeof defineComponent !== 'function' || !store) return null;
 
         const useTemplate = canUseVueTemplate(Vue);
         const resolvedTemplate = useTemplate ? String(template || faqTagManagerTemplateCache || '').trim() : '';
         if (useTemplate && !resolvedTemplate) return null;
-        if (!useTemplate && typeof h !== 'function') return null;
+        if (!useTemplate) return null;
 
         const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '日记'];
 
@@ -89,21 +89,8 @@
                     addFromInput();
                 };
 
-                const escHandler = (e) => {
-                    if (e?.key === 'Escape') close();
-                };
-
                 onMounted(() => {
-                    try {
-                        document.addEventListener('keydown', escHandler);
-                    } catch (_) {}
                     focusInput();
-                });
-
-                onBeforeUnmount(() => {
-                    try {
-                        document.removeEventListener('keydown', escHandler);
-                    } catch (_) {}
                 });
 
                 if (useTemplate) {

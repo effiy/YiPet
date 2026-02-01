@@ -1,18 +1,27 @@
 <template id="yi-pet-ai-settings-modal-template">
-  <div @click.stop>
-    <div class="pet-ai-settings-title">⚙️ AI 设置</div>
-    <div class="pet-ai-settings-row">
-      <label class="pet-ai-settings-label">模型</label>
-      <select class="pet-ai-settings-select" v-model="store.selectedModel">
-        <option v-for="m in models" :key="m.id" :value="m.id">
-          {{ (m.icon ? (m.icon + ' ') : '') + (m.name || m.id) }}
-        </option>
-      </select>
-    </div>
-    <div class="pet-ai-settings-buttons">
-      <button type="button" class="pet-ai-settings-token-btn" @click="openToken">设置 Token</button>
-      <button type="button" class="pet-ai-settings-cancel-btn" @click="cancel">取消</button>
-      <button type="button" class="pet-ai-settings-save-btn" @click="save">保存</button>
+  <div
+    class="pet-ai-settings-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-label="AI 设置"
+    tabindex="0"
+    @keydown.esc.prevent.stop="cancel"
+  >
+    <div @click.stop>
+      <div class="pet-ai-settings-title">⚙️ AI 设置</div>
+      <div class="pet-ai-settings-row">
+        <label class="pet-ai-settings-label">模型</label>
+        <select class="pet-ai-settings-select" v-model="store.selectedModel">
+          <option v-for="m in models" :key="m.id" :value="m.id">
+            {{ (m.icon ? (m.icon + ' ') : '') + (m.name || m.id) }}
+          </option>
+        </select>
+      </div>
+      <div class="pet-ai-settings-buttons">
+        <button type="button" class="pet-ai-settings-token-btn" @click="openToken">设置 Token</button>
+        <button type="button" class="pet-ai-settings-cancel-btn" @click="cancel">取消</button>
+        <button type="button" class="pet-ai-settings-save-btn" @click="save">保存</button>
+      </div>
     </div>
   </div>
 </template>

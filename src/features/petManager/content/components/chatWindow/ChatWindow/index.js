@@ -440,6 +440,17 @@
                 return safeCall(() => mod.createComponent(payload), null);
             };
 
+            if (typeof manager?.ensureFaqManagerStore === 'function') {
+                try {
+                    manager.ensureFaqManagerStore();
+                } catch (_) {}
+            }
+            if (typeof manager?.ensureFaqTagManagerStore === 'function') {
+                try {
+                    manager.ensureFaqTagManagerStore();
+                } catch (_) {}
+            }
+
             const ChatHeader = await loadComponent('ChatHeader', { manager }, { includeTemplate: true, requireTemplateLoader: false });
             const ChatInput = await loadComponent('ChatInput', { manager, instance }, { includeTemplate: true, requireTemplateLoader: false });
             const TagFilter = await loadComponent('TagFilter', { manager, bumpUiTick }, { includeTemplate: true, requireTemplateLoader: true });
@@ -464,6 +475,20 @@
                 return this.createFallbackDom();
             }
 
+            const FaqManager = await loadComponent(
+                'FaqManager',
+                { manager, store: manager?._faqManagerStore },
+                { includeTemplate: true, requireTemplateLoader: true }
+            );
+            const FaqTagManager = await loadComponent(
+                'FaqTagManager',
+                { manager, store: manager?._faqTagManagerStore },
+                { includeTemplate: true, requireTemplateLoader: true }
+            );
+            if (!FaqManager || !FaqTagManager) {
+                return this.createFallbackDom();
+            }
+
             if (!canUseVueTemplate(Vue)) {
                 return this.createFallbackDom();
             }
@@ -471,11 +496,11 @@
             const templates = await safeCallAsync(() => loadChatWindowTemplates(), null);
             const resolvedTemplate =
                 String(templates?.chatWindow || '').trim() ||
-                '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div></div>';
+                '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div><FaqManager /><FaqTagManager /></div>';
 
             const Root = defineComponent({
                 name: 'YiPetChatWindow',
-                components: { ChatHeader, ChatInput, SessionSidebar, ChatMessages },
+                components: { ChatHeader, ChatInput, SessionSidebar, ChatMessages, FaqManager, FaqTagManager },
                 setup() {
                     const headerEl = ref(null);
                     const sidebarEl = ref(null);

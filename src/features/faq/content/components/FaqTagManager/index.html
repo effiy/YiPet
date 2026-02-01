@@ -5,7 +5,9 @@
         role="dialog"
         aria-modal="true"
         aria-label="管理标签"
+        tabindex="0"
         @click.self="close"
+        @keydown.esc.prevent.stop="close"
     >
         <div class="tw-bg-white tw-rounded-lg tw-p-4 tw-w-full tw-max-w-90 tw-max-h-80vh tw-overflow-y-auto tw-shadow">
             <div class="tw-flex tw-justify-between tw-items-center tw-mb-2">

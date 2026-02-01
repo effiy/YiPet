@@ -23,7 +23,7 @@
         const manager = params?.manager;
         const template = params?.template;
         const Vue = window.Vue || {};
-        const { defineComponent } = Vue;
+        const { defineComponent, computed } = Vue;
         if (typeof defineComponent !== 'function') return null;
 
         const resolvedTemplate = String(template || chatHeaderTemplateCache || '').trim();
@@ -35,6 +35,14 @@
                 uiTick: { type: Number, required: true }
             },
             setup() {
+                const sidebarToggleHidden = typeof computed === 'function'
+                    ? computed(() => {
+                        if (!manager) return false;
+                        if (typeof manager.isSidebarToggleHidden === 'function') return !!manager.isSidebarToggleHidden();
+                        return false;
+                    })
+                    : false;
+
                 const onAuthClick = (e) => {
                     e?.stopPropagation?.();
                     e?.preventDefault?.();
@@ -53,7 +61,7 @@
                     if (typeof manager?.toggleSidebar === 'function') manager.toggleSidebar();
                 };
 
-                return { onAuthClick, onRefreshClick, onSidebarToggleClick };
+                return { sidebarToggleHidden, onAuthClick, onRefreshClick, onSidebarToggleClick };
             },
             template: resolvedTemplate
         });

@@ -5,6 +5,7 @@
             class="yi-pet-chat-header-btn sidebar-toggle-btn"
             aria-label="折叠/展开会话列表"
             title="折叠会话列表"
+            v-show="!sidebarToggleHidden"
             @click.stop="onSidebarToggleClick"
         >
             <svg viewBox="0 0 24 24" aria-hidden="true">

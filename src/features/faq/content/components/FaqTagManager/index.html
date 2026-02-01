@@ -25,7 +25,12 @@
                     @keydown="onInputKeydown"
                 />
                 <button class="faq-tag-manager-add-btn tw-btn" type="button" @click="addFromInput">添加</button>
-                <button class="faq-tag-manager-smart-generate tw-btn" type="button" @click="smartGenerate">✨ 智能生成</button>
+                <button
+                    class="faq-tag-manager-smart-generate tw-btn"
+                    type="button"
+                    :disabled="store.isSmartGenerating"
+                    @click="smartGenerate"
+                >{{ store.isSmartGenerating ? '生成中...' : '✨ 智能生成' }}</button>
             </div>
 
             <div class="faq-tag-manager-quick-tags tw-flex tw-flex-wrap tw-gap-2 tw-mb-2">

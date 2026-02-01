@@ -201,4 +201,50 @@
         }
     };
 
+    proto.ensureHeaderUiStore = function () {
+        if (this._headerUiStore) return this._headerUiStore;
+        const Vue = window.Vue || {};
+        const { reactive } = Vue;
+        const base = {
+            sidebarToggleHiddenLocks: Object.create(null)
+        };
+        if (typeof reactive === 'function') {
+            this._headerUiStore = reactive(base);
+        } else {
+            this._headerUiStore = base;
+        }
+        return this._headerUiStore;
+    };
+
+    proto.lockSidebarToggle = function (lockId) {
+        const store = this.ensureHeaderUiStore();
+        if (!store) return;
+        const id = String(lockId || '').trim() || 'default';
+        if (!store.sidebarToggleHiddenLocks) store.sidebarToggleHiddenLocks = Object.create(null);
+        store.sidebarToggleHiddenLocks[id] = true;
+    };
+
+    proto.unlockSidebarToggle = function (lockId) {
+        const store = this.ensureHeaderUiStore();
+        if (!store || !store.sidebarToggleHiddenLocks) return;
+        const id = String(lockId || '').trim() || 'default';
+        try {
+            delete store.sidebarToggleHiddenLocks[id];
+        } catch (_) {
+            store.sidebarToggleHiddenLocks[id] = false;
+        }
+    };
+
+    proto.isSidebarToggleHidden = function () {
+        const store = this.ensureHeaderUiStore();
+        const locks = store?.sidebarToggleHiddenLocks;
+        if (!locks || typeof locks !== 'object') return false;
+        try {
+            for (const k in locks) {
+                if (locks[k]) return true;
+            }
+        } catch (_) {}
+        return false;
+    };
+
 })();

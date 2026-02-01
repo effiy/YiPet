@@ -136,9 +136,9 @@
         return;
       }
       
-      // 隐藏侧边栏和输入框的折叠按钮
-      const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-      if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+      if (typeof this.lockSidebarToggle === 'function') {
+        this.lockSidebarToggle('faq-manager');
+      }
       if (store) {
         store.visible = true;
         store.searchFilter = '';
@@ -153,8 +153,9 @@
           this.showNotification('常见问题功能未启用：FAQ API 未初始化', 'error');
         }
         if (store) store.visible = false;
-        // 恢复按钮显示
-        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (typeof this.unlockSidebarToggle === 'function') {
+          this.unlockSidebarToggle('faq-manager');
+        }
         return;
       }
       
@@ -166,8 +167,9 @@
           this.showNotification('常见问题功能未启用：FAQ API 未启用', 'error');
         }
         if (store) store.visible = false;
-        // 恢复按钮显示
-        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (typeof this.unlockSidebarToggle === 'function') {
+          this.unlockSidebarToggle('faq-manager');
+        }
         return;
       }
 
@@ -180,14 +182,16 @@
       // 确保弹窗关闭，按钮恢复显示
       const store = this._faqManagerStore;
       if (store) store.visible = false;
-      const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-      if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+      if (typeof this.unlockSidebarToggle === 'function') {
+        this.unlockSidebarToggle('faq-manager');
+      }
     }
   };
 
   proto.closeFaqManagerOnly = function() {
-    const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-    if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+    if (typeof this.unlockSidebarToggle === 'function') {
+      this.unlockSidebarToggle('faq-manager');
+    }
     const store = this._faqManagerStore;
     if (store) {
       store.visible = false;
@@ -196,10 +200,7 @@
     
     // 尝试将焦点返回到聊天输入框
     try {
-      const chatInput =
-        this.chatWindowComponent?.messageInput ||
-        this.chatWindow?.querySelector('#yi-pet-chat-input') ||
-        this.chatWindow?.querySelector('#pet-chat-input');
+      const chatInput = this.chatWindowComponent?.messageInput;
       if (chatInput && typeof chatInput.focus === 'function') {
         chatInput.focus();
         return;
@@ -362,10 +363,7 @@
     const text = title && prompt ? `${title}\n\n${prompt}` : (prompt || title);
     if (!text) return;
     
-    const chatInput =
-      this.chatWindowComponent?.messageInput ||
-      this.chatWindow?.querySelector('#yi-pet-chat-input') ||
-      this.chatWindow?.querySelector('#pet-chat-input');
+    const chatInput = this.chatWindowComponent?.messageInput;
     if (chatInput) {
       const current = String(chatInput.value || '');
       const next = current ? `${current}\n\n${text}` : text;

@@ -79,8 +79,8 @@
                 };
 
                 const smartGenerate = async (e) => {
-                    const el = e?.currentTarget || null;
-                    if (typeof manager?.generateFaqSmartTags === 'function') await manager.generateFaqSmartTags(store.faqIndex, el);
+                    void e;
+                    if (typeof manager?.generateFaqSmartTags === 'function') await manager.generateFaqSmartTags(store.faqIndex);
                 };
 
                 const onInputKeydown = (e) => {

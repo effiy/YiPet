@@ -21,22 +21,23 @@
         store.faqIndex = faqIndex;
         store.inputValue = '';
         store.currentTags = currentTags.map((t) => String(t ?? '').trim()).filter((t) => t);
-
-        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+        if (typeof this.lockSidebarToggle === 'function') {
+            this.lockSidebarToggle('faq-tag-manager');
+        }
     };
 
   proto.closeFaqTagManager = function() {
+        if (typeof this.unlockSidebarToggle === 'function') {
+            this.unlockSidebarToggle('faq-tag-manager');
+        }
         const store = this._faqTagManagerStore;
         if (store) {
             store.visible = false;
             store.faqIndex = -1;
             store.inputValue = '';
             store.currentTags = [];
+            store.isSmartGenerating = false;
         }
-
-        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
     };
 
   proto.ensureFaqTagManagerStore = function() {
@@ -54,7 +55,8 @@
             visible: false,
             faqIndex: -1,
             inputValue: '',
-            currentTags: []
+            currentTags: [],
+            isSmartGenerating: false
         });
 
         this._faqTagManagerStore = store;
@@ -146,7 +148,7 @@
         }
     };
 
-  proto.generateFaqSmartTags = async function(faqIndex, buttonElement) {
+  proto.generateFaqSmartTags = async function(faqIndex) {
         const list = typeof this.getFaqManagerFilteredFaqs === 'function' ? this.getFaqManagerFilteredFaqs() : [];
         const faq = list?.[faqIndex];
         if (!faq) {
@@ -156,14 +158,11 @@
 
         const store = this._faqTagManagerStore;
         if (!store) return;
+        if (store.isSmartGenerating) return;
+        store.isSmartGenerating = true;
 
-        if (buttonElement) {
-            buttonElement.disabled = true;
-            const originalText = buttonElement.textContent;
-            buttonElement.textContent = '生成中...';
-
-            try {
-                const systemPrompt = `你是一个专业的标签生成助手。根据用户提供的常见问题内容，生成合适的标签。
+        try {
+            const systemPrompt = `你是一个专业的标签生成助手。根据用户提供的常见问题内容，生成合适的标签。
 
 标签要求：
 1. 标签应该简洁明了，每个标签2-6个汉字或3-12个英文字符
@@ -175,19 +174,18 @@
 
 输出格式示例：技术,编程,前端开发,JavaScript`;
 
-                let userPrompt = `常见问题内容：\n${faq.text || ''}`;
-                const currentTags = Array.isArray(store.currentTags) ? store.currentTags : [];
-                if (currentTags.length > 0) {
-                    userPrompt += `\n\n已有标签：${currentTags.join(', ')}\n请避免生成重复的标签。`;
-                }
-                userPrompt += `\n\n请根据以上信息生成合适的标签。`;
-            } catch (e) {
-            } finally {
-                if (buttonElement) {
-                    buttonElement.disabled = false;
-                    buttonElement.textContent = '✨ 智能生成';
-                }
+            let userPrompt = `常见问题内容：\n${faq.text || ''}`;
+            const currentTags = Array.isArray(store.currentTags) ? store.currentTags : [];
+            if (currentTags.length > 0) {
+                userPrompt += `\n\n已有标签：${currentTags.join(', ')}\n请避免生成重复的标签。`;
             }
+            userPrompt += `\n\n请根据以上信息生成合适的标签。`;
+
+            void systemPrompt;
+            void userPrompt;
+        } catch (e) {
+        } finally {
+            store.isSmartGenerating = false;
         }
     };
 })();

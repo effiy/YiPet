@@ -858,9 +858,9 @@ ${pageContent || '无内容'}
 
         overlay.classList.add('pet-is-visible');
 
-        // 隐藏折叠按钮（避免在弹框中显示两个折叠按钮）
-        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
+        if (typeof this.lockSidebarToggle === 'function') {
+            this.lockSidebarToggle('role-settings');
+        }
 
         // 直接渲染当前配置（不再强制补齐默认项，便于"删除"生效）
         this.renderRoleSettingsList();
@@ -876,9 +876,9 @@ ${pageContent || '无内容'}
         const overlay = this.chatWindow.querySelector('#pet-role-settings');
         if (overlay) overlay.classList.remove('pet-is-visible');
 
-        // 显示折叠按钮
-        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (typeof this.unlockSidebarToggle === 'function') {
+            this.unlockSidebarToggle('role-settings');
+        }
     }
 
     proto.renderRoleSettingsList = async function () {

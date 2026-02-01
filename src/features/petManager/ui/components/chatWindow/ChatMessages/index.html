@@ -32,12 +32,74 @@
             <div
                 class="pet-chat-bubble"
                 :data-message-type="(msg && msg.type) === 'user' ? 'user-bubble' : 'pet-bubble'"
-                :data-original-text="(msg && msg.content) || ''"
+                :data-original-text="msg && msg.isWelcome ? ((msg.welcomeHtml) || '') : ((msg && msg.content) || '')"
             >
                 <img v-if="msg && msg.imageDataUrl" :src="msg.imageDataUrl" class="pet-chat-image" alt="图片消息" />
 
+                <div v-if="msg && msg.isWelcome && welcomeModel(msg)" class="welcome-card">
+                    <div class="welcome-card-header">
+                        <div class="welcome-card-header-left">
+                            <img v-if="welcomeModel(msg).iconUrl" class="welcome-card-favicon" :src="welcomeModel(msg).iconUrl" alt="" />
+                            <div class="welcome-card-title" :title="welcomeModel(msg).titleText" v-text="welcomeModel(msg).titleText"></div>
+                        </div>
+                    </div>
+
+                    <div v-if="welcomeModel(msg).url" class="welcome-card-row">
+                        <div class="welcome-card-label">网址</div>
+                        <div class="welcome-card-value">
+                            <a
+                                :href="welcomeModel(msg).url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="welcome-card-url"
+                                v-text="welcomeModel(msg).url"
+                            ></a>
+                        </div>
+                        <button
+                            type="button"
+                            class="welcome-card-action-btn"
+                            :class="{ 'js-copy-success': isCopied(`url-${idx}`) }"
+                            title="复制网址"
+                            aria-label="复制网址"
+                            @click.stop="onCopy(welcomeModel(msg).url, `url-${idx}`)"
+                        >
+                            <i :class="isCopied(`url-${idx}`) ? 'fas fa-check' : 'fas fa-copy'"></i>
+                        </button>
+                    </div>
+
+                    <div v-if="welcomeDescriptionHtml(msg)" class="welcome-card-row welcome-card-row--multiline">
+                        <div class="welcome-card-label">描述</div>
+                        <div class="welcome-card-value welcome-card-value--stack welcome-card-description">
+                            <div class="markdown-content" v-html="welcomeDescriptionHtml(msg)"></div>
+                        </div>
+                        <button
+                            type="button"
+                            class="welcome-card-action-btn"
+                            :class="{ 'js-copy-success': isCopied(`desc-${idx}`) }"
+                            title="复制描述"
+                            aria-label="复制描述"
+                            @click.stop="onCopy(welcomeModel(msg).descriptionText, `desc-${idx}`)"
+                        >
+                            <i :class="isCopied(`desc-${idx}`) ? 'fas fa-check' : 'fas fa-copy'"></i>
+                        </button>
+                    </div>
+
+                    <div v-if="welcomeModel(msg).tags && welcomeModel(msg).tags.length > 0" class="welcome-card-row welcome-card-row--multiline">
+                        <div class="welcome-card-label">标签</div>
+                        <div class="welcome-card-value welcome-card-tags">
+                            <span v-for="(tag, tIdx) in welcomeModel(msg).tags" :key="`${idx}-tag-${tIdx}`" class="welcome-card-tag" v-text="tag"></span>
+                        </div>
+                    </div>
+
+                    <div v-if="welcomeModel(msg).metaParts && welcomeModel(msg).metaParts.length > 0" class="welcome-card-footer">
+                        <div class="welcome-card-meta">
+                            <span v-for="(part, pIdx) in welcomeModel(msg).metaParts" :key="`${idx}-meta-${pIdx}`" v-text="part"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <div
-                    v-if="messageHtml(msg)"
+                    v-else-if="messageHtml(msg)"
                     class="pet-chat-content md-preview-body"
                     v-html="messageHtml(msg)"
                 ></div>

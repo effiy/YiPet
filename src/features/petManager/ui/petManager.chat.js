@@ -242,6 +242,12 @@
 
     // 滚动到底部（优化版）
     proto.scrollToBottom = function (smooth = false, force = false) {
+        const chatWindowComponent = this.chatWindowComponent;
+        if (chatWindowComponent && typeof chatWindowComponent.scrollToBottom === 'function') {
+            chatWindowComponent.scrollToBottom(!!force);
+            return;
+        }
+
         if (!this.chatWindow) return;
         const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
         if (!messagesContainer) return;
@@ -276,58 +282,62 @@
 
     // 初始化聊天窗口滚动
     proto.initializeChatScroll = function () {
+        const chatWindowComponent = this.chatWindowComponent;
+        if (chatWindowComponent && typeof chatWindowComponent.initializeChatScroll === 'function') {
+            chatWindowComponent.initializeChatScroll();
+            return;
+        }
+
         if (!this.chatWindow) return;
 
         const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
-        if (messagesContainer) {
-            // 确保滚动功能正常
-            messagesContainer.style.overflowY = 'auto';
+        if (!messagesContainer) return;
 
-            // 使用 requestAnimationFrame 优化滚动性能
+        messagesContainer.style.overflowY = 'auto';
+
+        requestAnimationFrame(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
             requestAnimationFrame(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                // 再次确保滚动（处理异步内容加载）
-                requestAnimationFrame(() => {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                });
             });
-        }
+        });
     };
 
     // 更新聊天窗口标题
     proto.updateChatHeaderTitle = function () {
+        const chatWindowComponent = this.chatWindowComponent;
+        if (chatWindowComponent && typeof chatWindowComponent.updateChatHeaderTitle === 'function') {
+            chatWindowComponent.updateChatHeaderTitle();
+            return;
+        }
+
         if (!this.chatWindow) return;
 
         const titleTextEl = this.chatWindow.querySelector('#yi-pet-chat-header-title-text');
         if (!titleTextEl) return;
 
-        // 获取当前会话名称
         if (this.currentSessionId && this.sessions[this.currentSessionId]) {
             const session = this.sessions[this.currentSessionId];
             const sessionTitle = session.title || '未命名会话';
-            // 如果标题太长，截断并添加省略号
-            const displayTitle = sessionTitle.length > 20
-                ? sessionTitle.substring(0, 20) + '...'
-                : sessionTitle;
+            const displayTitle = sessionTitle.length > 20 ? sessionTitle.substring(0, 20) + '...' : sessionTitle;
             titleTextEl.textContent = displayTitle;
         } else {
-            // 如果没有会话，显示默认文本
             titleTextEl.textContent = '与我聊天';
         }
 
-        // 更新编辑会话按钮状态
         const editSessionBtn = this.chatWindow.querySelector('#edit-session-btn');
-        if (editSessionBtn) {
-            if (this.currentSessionId && this.sessions[this.currentSessionId]) {
-                editSessionBtn.disabled = false;
-            } else {
-                editSessionBtn.disabled = true;
-            }
-        }
+        if (!editSessionBtn) return;
+        editSessionBtn.disabled = !(this.currentSessionId && this.sessions[this.currentSessionId]);
     };
 
     // 更新聊天窗口颜色（跟随宠物颜色）
     proto.updateChatWindowColor = function () {
+        const chatWindowComponent = this.chatWindowComponent;
+        if (chatWindowComponent && typeof chatWindowComponent.updateTheme === 'function') {
+            chatWindowComponent.updateTheme();
+            return;
+        }
+
         if (!this.chatWindow) return;
 
         // 获取当前宠物颜色
@@ -426,11 +436,6 @@
         const chatWindowComponent = this.chatWindowComponent;
         const useVueMessages = chatWindowComponent && typeof chatWindowComponent._messagesSet === 'function';
 
-        const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
-        if (!messagesContainer) {
-            return;
-        }
-
         // 获取当前会话
         const session = this.sessions[this.currentSessionId];
         if (!session) {
@@ -438,9 +443,7 @@
             return;
         }
 
-        const isApiRequestSession = session._isApiRequestSession && session._apiRequestInfo;
-
-        if (useVueMessages && !isApiRequestSession) {
+        if (useVueMessages) {
             let pageInfo = null;
             if (session) {
                 const sessionUrl = session.url && session.url.trim() ? session.url : null;
@@ -456,7 +459,14 @@
             }
             pageInfo.iconUrl = this.getPageIconUrl();
             const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);
-            const welcomeItem = { type: 'pet', isWelcome: true, welcomeHtml: pageInfoHtml, timestamp: Date.now() };
+            const pageInfoModel = this.buildWelcomeCardModel(pageInfo, session);
+            const welcomeItem = {
+                type: 'pet',
+                isWelcome: true,
+                welcomeHtml: pageInfoHtml,
+                welcomeModel: pageInfoModel,
+                timestamp: Date.now()
+            };
 
             const list = [welcomeItem];
             if (session.messages && Array.isArray(session.messages)) {
@@ -483,7 +493,14 @@
             setTimeout(() => {
                 if (chatWindowComponent.scrollToBottom) chatWindowComponent.scrollToBottom();
             }, 100);
-            await this.autoHandleSessionForUrl(pageInfo ? pageInfo.url : '');
+            if (pageInfo && pageInfo.url) {
+                await this.autoHandleSessionForUrl(pageInfo.url);
+            }
+            return;
+        }
+
+        const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages');
+        if (!messagesContainer) {
             return;
         }
 
@@ -822,6 +839,73 @@
         return pageInfoHtml;
     };
 
+    proto.buildWelcomeCardModel = function (pageInfo, session = null) {
+        if (!session && this.currentSessionId) {
+            session = this.sessions[this.currentSessionId];
+        }
+
+        const sessionTags = session && Array.isArray(session.tags) ? session.tags.filter(t => t && t.trim()) : [];
+        const sessionMessages = session && Array.isArray(session.messages) ? session.messages : [];
+        const sessionCreatedAt = session && session.createdAt ? session.createdAt : null;
+        const sessionUpdatedAt = session && session.updatedAt ? session.updatedAt : null;
+
+        const titleText = pageInfo && pageInfo.title && pageInfo.title.trim() ? pageInfo.title.trim() : '当前页面';
+        const iconUrl = pageInfo && pageInfo.iconUrl && pageInfo.iconUrl.trim() ? pageInfo.iconUrl.trim() : '';
+
+        const hasSessionUrl = session && session.url && session.url.trim();
+        const shouldShowUrl = !session || hasSessionUrl;
+        const url = shouldShowUrl && pageInfo && pageInfo.url && pageInfo.url.trim() ? pageInfo.url.trim() : '';
+
+        const descriptionText = pageInfo && pageInfo.description && pageInfo.description.trim() ? pageInfo.description.trim() : '';
+        const descriptionHtml = descriptionText ? (this.renderMarkdown(descriptionText) || '') : '';
+
+        const metaParts = [];
+        if (sessionMessages.length > 0) {
+            const userMessages = sessionMessages.filter(m => {
+                if (!m || typeof m !== 'object') return false;
+                const role = m.role || (m.type === 'user' ? 'user' : null);
+                return role === 'user';
+            }).length;
+            const assistantMessages = sessionMessages.filter(m => {
+                if (!m || typeof m !== 'object') return false;
+                const role = m.role || (m.type === 'pet' ? 'pet' : (m.type === 'assistant' ? 'assistant' : null));
+                return role === 'assistant' || role === 'pet';
+            }).length;
+
+            const detailParts = [];
+            if (userMessages > 0) detailParts.push(`用户 ${userMessages}`);
+            if (assistantMessages > 0) detailParts.push(`助手 ${assistantMessages}`);
+            const detailText = detailParts.length > 0 ? `（${detailParts.join(' / ')}）` : '';
+            metaParts.push(`消息 ${sessionMessages.length}${detailText}`);
+        }
+
+        if (sessionCreatedAt || sessionUpdatedAt) {
+            const createdDate = sessionCreatedAt ? new Date(sessionCreatedAt) : null;
+            const updatedDate = sessionUpdatedAt ? new Date(sessionUpdatedAt) : null;
+            const hasValidCreated = createdDate && !isNaN(createdDate.getTime());
+            const hasValidUpdated = updatedDate && !isNaN(updatedDate.getTime());
+            const isSameTime = hasValidCreated && hasValidUpdated &&
+                Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000;
+
+            if (hasValidCreated) {
+                metaParts.push(`创建 ${this.formatDate(createdDate)}`);
+            }
+            if (hasValidUpdated && !isSameTime) {
+                metaParts.push(`更新 ${this.formatDate(updatedDate)}`);
+            }
+        }
+
+        return {
+            titleText,
+            iconUrl,
+            url,
+            descriptionText,
+            descriptionHtml,
+            tags: sessionTags,
+            metaParts
+        };
+    };
+
     // @param {Object} pageInfo - 页面信息对象（可选，如果不提供则使用当前页面信息）
     //   - title: 页面标题
     //   - url: 页面URL
@@ -927,6 +1011,10 @@
             pageInfo.iconUrl = this.getPageIconUrl();
             const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session);
             chatWindowComponent._messagesUpdateWelcome(pageInfoHtml);
+            if (typeof chatWindowComponent._messagesUpdateWelcomeModel === 'function') {
+                const pageInfoModel = this.buildWelcomeCardModel(pageInfo, session);
+                chatWindowComponent._messagesUpdateWelcomeModel(pageInfoModel);
+            }
             await this.autoHandleSessionForUrl(pageInfo.url);
             return;
         }

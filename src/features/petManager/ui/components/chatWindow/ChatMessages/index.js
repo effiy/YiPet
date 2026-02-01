@@ -43,6 +43,8 @@
                 const viewStatePayload = vueRef(null);
                 const messages = vueRef([]);
                 const listEl = vueRef(null);
+                const copiedKey = vueRef('');
+                let copiedTimer = null;
 
                 vueOnMounted(() => {
                     const inst = props.instance;
@@ -71,6 +73,11 @@
                     inst._messagesUpdateWelcome = (html) => {
                         if (messages.value.length > 0 && messages.value[0].isWelcome) {
                             messages.value[0].welcomeHtml = html;
+                        }
+                    };
+                    inst._messagesUpdateWelcomeModel = (model) => {
+                        if (messages.value.length > 0 && messages.value[0].isWelcome) {
+                            messages.value[0].welcomeModel = model;
                         }
                     };
                     inst._getMessagesList = () => messages.value;
@@ -110,9 +117,31 @@
 
                 const messageHtml = (msg) => {
                     if (!msg) return '';
-                    if (msg.isWelcome) return msg.welcomeHtml || '';
                     if (props.manager && typeof props.manager.renderMarkdown === 'function') return props.manager.renderMarkdown(msg.content || '') || '';
                     return msg.content || '';
+                };
+
+                const welcomeModel = (msg) => (msg && msg.isWelcome ? (msg.welcomeModel || null) : null);
+
+                const welcomeDescriptionHtml = (msg) => {
+                    const m = welcomeModel(msg);
+                    if (!m) return '';
+                    return String(m.descriptionHtml || '').trim();
+                };
+
+                const isCopied = (key) => copiedKey.value === key;
+
+                const onCopy = async (text, key) => {
+                    const t = String(text || '').trim();
+                    if (!t) return;
+                    try {
+                        await navigator.clipboard.writeText(t);
+                        copiedKey.value = key;
+                        if (copiedTimer) clearTimeout(copiedTimer);
+                        copiedTimer = setTimeout(() => {
+                            if (copiedKey.value === key) copiedKey.value = '';
+                        }, 2000);
+                    } catch (_) {}
                 };
 
                 const processMessageDom = () => {
@@ -126,17 +155,6 @@
                         messageEls.forEach((el) => {
                             try {
                                 instance.addActionButtonsToMessage(el);
-                            } catch (_) {}
-                        });
-                    }
-
-                    if (manager && typeof manager.bindWelcomeCardEvents === 'function') {
-                        messageEls.forEach((el) => {
-                            if (el.getAttribute('data-welcome-message') !== 'true') return;
-                            const bubble = el.querySelector('[data-message-type="pet-bubble"]');
-                            if (!bubble) return;
-                            try {
-                                manager.bindWelcomeCardEvents(bubble);
                             } catch (_) {}
                         });
                     }
@@ -173,6 +191,10 @@
                     messageKey,
                     messageClass,
                     messageHtml,
+                    welcomeModel,
+                    welcomeDescriptionHtml,
+                    isCopied,
+                    onCopy,
                     messageIsoTime,
                     messageTimeText
                 };

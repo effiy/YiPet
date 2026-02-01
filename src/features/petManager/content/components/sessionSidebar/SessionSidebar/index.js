@@ -92,7 +92,7 @@
         };
 
     const SESSION_SIDEBAR_TEMPLATES_RESOURCE_PATH =
-        'src/features/petManager/ui/components/sessionSidebar/SessionSidebar/index.html';
+        'src/features/petManager/content/components/sessionSidebar/SessionSidebar/index.html';
 
     async function loadTemplate() {
         const DomHelper = window.DomHelper;

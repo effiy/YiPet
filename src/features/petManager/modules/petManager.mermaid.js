@@ -65,7 +65,7 @@
             // 使用注入脚本在页面上下文中加载 mermaid
             // 这样可以确保 mermaid 在页面的 window 对象中可用
             const scriptUrl = chrome.runtime.getURL('libs/mermaid.min.js');
-            const loadScriptUrl = chrome.runtime.getURL('src/features/mermaid/load-mermaid.js');
+            const loadScriptUrl = chrome.runtime.getURL('src/features/mermaid/page/load-mermaid.js');
             console.log('尝试在页面上下文中加载 Mermaid.js，URL:', scriptUrl);
             const DomHelper = window.DomHelper;
             if (!DomHelper || typeof DomHelper.runPageScriptWithData !== 'function') {
@@ -262,7 +262,7 @@
                         // 如果还没准备好，再等一会
                         setTimeout(() => {
                             DomHelper.runPageScriptWithData({
-                                scriptSrc: chrome.runtime.getURL('src/features/mermaid/render-mermaid.js'),
+                                scriptSrc: chrome.runtime.getURL('src/features/mermaid/page/render-mermaid.js'),
                                 dataContainerId: `__mermaid_render_id_container__${mermaidId}`,
                                 dataAttributes: { 'data-mermaid-id': mermaidId },
                                 successEvent: 'mermaid-rendered',
@@ -294,7 +294,7 @@
                     }
 
                     DomHelper.runPageScriptWithData({
-                        scriptSrc: chrome.runtime.getURL('src/features/mermaid/render-mermaid.js'),
+                        scriptSrc: chrome.runtime.getURL('src/features/mermaid/page/render-mermaid.js'),
                         dataContainerId: `__mermaid_render_id_container__${mermaidId}`,
                         dataAttributes: { 'data-mermaid-id': mermaidId },
                         successEvent: 'mermaid-rendered',
@@ -1805,7 +1805,7 @@
 
                 setTimeout(() => {
                     const renderScript = document.createElement('script');
-                    renderScript.src = chrome.runtime.getURL('src/features/mermaid/render-mermaid.js');
+                    renderScript.src = chrome.runtime.getURL('src/features/mermaid/page/render-mermaid.js');
                     renderScript.onload = () => {
                         if (renderScript.parentNode) {
                             renderScript.parentNode.removeChild(renderScript);

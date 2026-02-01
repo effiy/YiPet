@@ -72,7 +72,7 @@
             let scriptUrl, loadScriptUrl;
             try {
                 scriptUrl = getExtensionUrlOrThrow('libs/jszip.min.js');
-                loadScriptUrl = getExtensionUrlOrThrow('src/features/session/load-jszip.js');
+                loadScriptUrl = getExtensionUrlOrThrow('src/features/session/page/load-jszip.js');
             } catch (error) {
                 this.jszipLoading = false;
                 const errorMsg = error.message || '扩展上下文无效';
@@ -175,7 +175,7 @@
             // 检查扩展上下文是否有效
             let importScriptUrl;
             try {
-                importScriptUrl = getExtensionUrlOrThrow('src/features/session/import-sessions.js');
+                importScriptUrl = getExtensionUrlOrThrow('src/features/session/page/import-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导入脚本URL失败:', error);
@@ -496,7 +496,7 @@
             // 检查扩展上下文是否有效
             let exportScriptUrl;
             try {
-                exportScriptUrl = getExtensionUrlOrThrow('src/features/session/export-sessions.js');
+                exportScriptUrl = getExtensionUrlOrThrow('src/features/session/page/export-sessions.js');
             } catch (error) {
                 const errorMsg = error.message || '扩展上下文无效';
                 console.error('获取导出脚本URL失败:', error);

@@ -4,7 +4,7 @@
   if (!window.PetManager) return;
   if (!window.PetManager.Components) window.PetManager.Components = {};
 
-  const TEMPLATE_RESOURCE_PATH = 'src/features/petManager/ui/components/ai/AiSettingsModal/index.html';
+  const TEMPLATE_RESOURCE_PATH = 'src/features/petManager/content/components/ai/AiSettingsModal/index.html';
   let templateCache = '';
 
   function canUseVueTemplate(Vue) {

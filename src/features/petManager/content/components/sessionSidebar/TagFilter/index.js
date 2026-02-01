@@ -4,7 +4,7 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const TAG_FILTER_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/ui/components/sessionSidebar/TagFilter/index.html';
+    const TAG_FILTER_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/content/components/sessionSidebar/TagFilter/index.html';
     let tagFilterTemplateCache = '';
 
     async function loadTemplate() {

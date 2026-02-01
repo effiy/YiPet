@@ -4,7 +4,7 @@
     if (!window.PetManager) return;
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const FAQ_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'src/features/faq/ui/components/FaqTagManager/index.html';
+    const FAQ_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'src/features/faq/content/components/FaqTagManager/index.html';
     let faqTagManagerTemplateCache = '';
 
     function canUseVueTemplate(Vue) {

@@ -172,7 +172,7 @@
                   };
               };
 
-    const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/ui/components/chatWindow/ChatWindow/index.html';
+    const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/content/components/chatWindow/ChatWindow/index.html';
     let chatWindowTemplatesCache = null;
 
     async function loadChatWindowTemplates() {

@@ -4,7 +4,7 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const CHAT_HEADER_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/ui/components/chatWindow/ChatHeader/index.html';
+    const CHAT_HEADER_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/content/components/chatWindow/ChatHeader/index.html';
     let chatHeaderTemplateCache = '';
 
     async function loadTemplate() {

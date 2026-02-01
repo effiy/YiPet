@@ -4,7 +4,7 @@
     if (!window.PetManager) window.PetManager = {};
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const SESSION_LIST_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/ui/components/sessionSidebar/SessionList/index.html';
+    const SESSION_LIST_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/content/components/sessionSidebar/SessionList/index.html';
     let sessionListTemplateCache = '';
 
     async function loadTemplate() {

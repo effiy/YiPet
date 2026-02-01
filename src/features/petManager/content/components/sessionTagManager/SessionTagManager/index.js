@@ -4,7 +4,7 @@
     if (!window.PetManager) return;
     if (!window.PetManager.Components) window.PetManager.Components = {};
 
-    const SESSION_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/ui/components/sessionTagManager/SessionTagManager/index.html';
+    const SESSION_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/content/components/sessionTagManager/SessionTagManager/index.html';
     let sessionTagManagerTemplateCache = '';
 
     async function loadTemplate() {

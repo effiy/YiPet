@@ -4,7 +4,7 @@
   if (!window.PetManager) return;
   if (!window.PetManager.Components) window.PetManager.Components = {};
 
-  const TEMPLATE_RESOURCE_PATH = 'src/features/petManager/ui/components/auth/TokenSettingsModal/index.html';
+  const TEMPLATE_RESOURCE_PATH = 'src/features/petManager/content/components/auth/TokenSettingsModal/index.html';
   let templateCache = '';
 
   function canUseVueTemplate(Vue) {

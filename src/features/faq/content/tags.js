@@ -10,10 +10,7 @@
         const faq = list?.[faqIndex];
         if (!faq) return;
 
-        const chatWindowComponent = this.chatWindowComponent;
-        if (!chatWindowComponent || !chatWindowComponent._vueApp) return;
-
-        const store = this.ensureFaqTagManagerStore();
+        const store = this.ensureFaqTagManagerUi();
         if (!store) return;
 
         const currentTags = Array.isArray(faq.tags) ? faq.tags : [];
@@ -64,7 +61,65 @@
     };
 
   proto.ensureFaqTagManagerUi = function() {
-        return this.ensureFaqTagManagerStore();
+        const store = this.ensureFaqTagManagerStore();
+        if (!store) return null;
+
+        const mountParent = this.chatWindow || document.body;
+        const existing =
+            (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('.pet-faq-tag-manager')) ||
+            document.querySelector('.pet-faq-tag-manager');
+        if (existing) return store;
+
+        const existingHost =
+            (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('#pet-faq-tag-manager-host')) ||
+            document.querySelector('#pet-faq-tag-manager-host');
+        if (existingHost && existingHost._store === store) return store;
+
+        const Vue = window.Vue || {};
+        const { createApp } = Vue;
+        if (typeof createApp !== 'function') return store;
+
+        const canUseTemplate = (() => {
+            if (typeof Vue?.compile !== 'function') return false;
+            try {
+                Function('return 1')();
+                return true;
+            } catch (_) {
+                return false;
+            }
+        })();
+
+        const host = document.createElement('div');
+        host.id = 'pet-faq-tag-manager-host';
+        host._store = store;
+        try {
+            if (typeof PET_CONFIG !== 'undefined' && PET_CONFIG?.ui?.zIndex?.modal != null) {
+                host.style.setProperty('z-index', `${PET_CONFIG.ui.zIndex.modal}`, 'important');
+            }
+        } catch (_) {}
+
+        host._mountPromise = (async () => {
+            try {
+                const mod = window.PetManager?.Components?.FaqTagManager;
+                if (!mod || typeof mod.createComponent !== 'function') return;
+                const template = canUseTemplate && typeof mod.loadTemplate === 'function' ? await mod.loadTemplate() : '';
+                const ctor = mod.createComponent({ manager: this, store, template });
+                if (!ctor) return;
+                host._vueApp = createApp(ctor);
+                host._vueInstance = host._vueApp.mount(host);
+            } catch (_) {}
+        })();
+
+        try {
+            mountParent.appendChild(host);
+        } catch (_) {
+            try {
+                document.body.appendChild(host);
+            } catch (_) {}
+        }
+
+        this._faqTagManagerUiHost = host;
+        return store;
     };
 
   proto.loadFaqTagsIntoManager = function(faqIndex, tags) {

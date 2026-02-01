@@ -3,6 +3,7 @@
         id="pet-faq-manager"
         class="pet-faq-manager"
         :class="{ 'pet-is-visible': store.visible }"
+        ref="rootEl"
         role="dialog"
         aria-modal="true"
         aria-label="常见问题"
@@ -15,7 +16,7 @@
                 <div class="pet-faq-manager-title">
                     💡 常见问题 <span class="pet-faq-manager-title-sub">（一键插入/发送）</span>
                 </div>
-                <div class="pet-faq-modal-close" role="button" aria-label="关闭" tabindex="0" @click="close">✕</div>
+                <button type="button" class="pet-faq-modal-close" aria-label="关闭" @click="close">✕</button>
             </div>
 
             <div class="pet-faq-modal-content">

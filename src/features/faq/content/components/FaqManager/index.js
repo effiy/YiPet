@@ -34,13 +34,13 @@
         const store = params?.store;
         const template = params?.template;
         const Vue = window.Vue || {};
-        const { defineComponent, computed, ref, onMounted, nextTick, h } = Vue;
+        const { defineComponent, computed, ref, onMounted, onBeforeUnmount, nextTick, watch, h } = Vue;
         if (typeof defineComponent !== 'function' || !store) return null;
 
         const useTemplate = canUseVueTemplate(Vue);
         const resolvedTemplate = useTemplate ? String(template || faqManagerTemplateCache || '').trim() : '';
         if (useTemplate && !resolvedTemplate) return null;
-        if (!useTemplate) return null;
+        if (!useTemplate && typeof h !== 'function') return null;
 
         const normalizeTags = (tags) => {
             if (!tags) return [];
@@ -61,7 +61,9 @@
         const componentOptions = {
             name: 'YiPetFaqManager',
             setup() {
+                const rootEl = ref(null);
                 const searchInputEl = ref(null);
+                let previousActiveElement = null;
 
                 const allTags = computed(() => {
                     const tagSet = new Set();
@@ -137,6 +139,103 @@
                             searchInputEl.value?.focus?.();
                         } catch (_) {}
                     });
+                };
+
+                let previousBodyOverflow = '';
+                let bodyOverflowLocked = false;
+                const lockBodyScrollIfNeeded = () => {
+                    try {
+                        if (!bodyOverflowLocked) {
+                            previousBodyOverflow = document.body.style.overflow || '';
+                            document.body.style.overflow = 'hidden';
+                            bodyOverflowLocked = true;
+                        }
+                    } catch (_) {}
+                };
+                const unlockBodyScrollIfNeeded = () => {
+                    try {
+                        if (!bodyOverflowLocked) return;
+                        document.body.style.overflow = previousBodyOverflow;
+                    } catch (_) {}
+                    bodyOverflowLocked = false;
+                };
+
+                const restoreFocusIfNeeded = () => {
+                    try {
+                        const root = rootEl.value;
+                        if (root?.closest && root.closest('#pet-chat-window')) return;
+                    } catch (_) {}
+                    try {
+                        if (!previousActiveElement) return;
+                        if (!document.contains(previousActiveElement)) return;
+                        previousActiveElement.focus?.();
+                    } catch (_) {}
+                    previousActiveElement = null;
+                };
+
+                const getFocusableElements = (root) => {
+                    if (!root || typeof root.querySelectorAll !== 'function') return [];
+                    const nodes = root.querySelectorAll(
+                        'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
+                    );
+                    return Array.from(nodes).filter((el) => {
+                        try {
+                            if (!(el instanceof HTMLElement)) return false;
+                            if (el.hasAttribute('disabled')) return false;
+                            const rect = el.getClientRects?.();
+                            if (!rect || rect.length === 0) return false;
+                            return true;
+                        } catch (_) {
+                            return false;
+                        }
+                    });
+                };
+
+                const onRootKeydown = (e) => {
+                    if (!e || !store.visible) return;
+                    if (e.key === 'Escape') {
+                        try {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        } catch (_) {}
+                        close();
+                        return;
+                    }
+                    if (e.key !== 'Tab') return;
+
+                    const root = rootEl.value;
+                    const focusables = getFocusableElements(root);
+                    if (focusables.length === 0) {
+                        try {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            root?.focus?.();
+                        } catch (_) {}
+                        return;
+                    }
+
+                    const first = focusables[0];
+                    const last = focusables[focusables.length - 1];
+                    const active = document.activeElement;
+
+                    if (e.shiftKey) {
+                        if (active === first || active === root) {
+                            try {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                last.focus?.();
+                            } catch (_) {}
+                        }
+                        return;
+                    }
+
+                    if (active === last) {
+                        try {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            first.focus?.();
+                        } catch (_) {}
+                    }
                 };
 
                 const close = () => {
@@ -248,12 +347,52 @@
                 };
 
                 onMounted(() => {
+                    try {
+                        const root = rootEl.value;
+                        if (root && typeof root.addEventListener === 'function') {
+                            root.addEventListener('keydown', onRootKeydown, true);
+                        }
+                    } catch (_) {}
                     focusSearch();
                 });
+
+                if (typeof watch === 'function') {
+                    watch(
+                        () => !!store.visible,
+                        (visible) => {
+                            if (visible) {
+                                try {
+                                    previousActiveElement = document.activeElement || null;
+                                } catch (_) {
+                                    previousActiveElement = null;
+                                }
+                                lockBodyScrollIfNeeded();
+                                focusSearch();
+                                return;
+                            }
+                            unlockBodyScrollIfNeeded();
+                            restoreFocusIfNeeded();
+                        }
+                    );
+                }
+
+                if (typeof onBeforeUnmount === 'function') {
+                    onBeforeUnmount(() => {
+                        try {
+                            const root = rootEl.value;
+                            if (root && typeof root.removeEventListener === 'function') {
+                                root.removeEventListener('keydown', onRootKeydown, true);
+                            }
+                        } catch (_) {}
+                        unlockBodyScrollIfNeeded();
+                        restoreFocusIfNeeded();
+                    });
+                }
 
                 if (useTemplate) {
                     return {
                         store,
+                        rootEl,
                         searchInputEl,
                         allTags,
                         visibleTags,
@@ -323,6 +462,55 @@
                             )
                         );
                     }
+
+                    const tagManagerPanel = store.tagManagerVisible
+                        ? h('div', { class: 'pet-faq-tag-manager', 'aria-label': '标签管理面板' }, [
+                              h('div', { class: 'pet-faq-tag-manager-header' }, [
+                                  h('div', { class: 'pet-faq-tag-manager-title' }, '标签管理'),
+                                  h(
+                                      'button',
+                                      {
+                                          type: 'button',
+                                          class: 'pet-faq-filter-btn',
+                                          'aria-label': '关闭标签管理',
+                                          onClick: toggleTagManager
+                                      },
+                                      '关闭'
+                                  )
+                              ]),
+                              h(
+                                  'div',
+                                  { class: 'pet-faq-tag-manager-list', role: 'list', 'aria-label': '可管理标签列表' },
+                                  (Array.isArray(allTags.value) ? allTags.value : []).map((tag) =>
+                                      h('div', { key: tag, class: 'pet-faq-tag-manager-item', role: 'listitem' }, [
+                                          h('div', { class: 'pet-faq-tag-manager-item-tag' }, tag),
+                                          h('div', { class: 'pet-faq-tag-manager-item-actions' }, [
+                                              h(
+                                                  'button',
+                                                  {
+                                                      type: 'button',
+                                                      class: 'pet-faq-tag-manager-btn',
+                                                      'aria-label': '重命名标签',
+                                                      onClick: () => renameTag(tag)
+                                                  },
+                                                  '重命名'
+                                              ),
+                                              h(
+                                                  'button',
+                                                  {
+                                                      type: 'button',
+                                                      class: ['pet-faq-tag-manager-btn', 'danger'],
+                                                      'aria-label': '删除标签',
+                                                      onClick: () => deleteTag(tag)
+                                                  },
+                                                  '删除'
+                                              )
+                                          ])
+                                      ])
+                                  )
+                              )
+                          ])
+                        : null;
 
                     const faqItems = faqs.length
                         ? faqs.map((faq, index) => {
@@ -439,150 +627,195 @@
                           })
                         : [h('div', { key: '__empty__', class: 'pet-faq-empty', role: 'listitem' }, '未找到匹配的常见问题')];
 
-                    return h('div', { class: 'pet-faq-manager-modal', role: 'document' }, [
-                        h('div', { class: 'pet-faq-manager-header' }, [
-                            h('div', { class: 'pet-faq-manager-title' }, '常见问题'),
-                            h(
-                                'div',
-                                {
-                                    class: 'pet-faq-modal-close',
-                                    role: 'button',
-                                    tabindex: 0,
-                                    'aria-label': '关闭',
-                                    onClick: close
-                                },
-                                '✕'
-                            )
-                        ]),
-                        h('div', { class: 'pet-faq-modal-content' }, [
-                            h('div', { class: 'pet-faq-layout' }, [
-                                h('div', { class: 'pet-faq-sidebar', 'aria-label': '筛选与标签' }, [
-                                    h('div', { class: 'pet-faq-search-row' }, [
-                                        h('input', {
-                                            ref: searchInputEl,
-                                            type: 'text',
-                                            class: 'pet-faq-search-input',
-                                            placeholder: '搜索常见问题...',
-                                            'aria-label': '搜索常见问题',
-                                            value: store.searchFilter,
-                                            onInput: (e) => {
-                                                store.searchFilter = e?.target?.value ?? '';
-                                            }
-                                        }),
-                                        h(
-                                            'button',
-                                            {
-                                                type: 'button',
-                                                class: 'pet-faq-search-clear',
-                                                title: '清除搜索',
-                                                'aria-label': '清除搜索',
-                                                disabled: !store.searchFilter,
-                                                onClick: clearSearch
-                                            },
-                                            '清除'
-                                        )
+                    return h(
+                        'div',
+                        {
+                            id: 'pet-faq-manager',
+                            ref: rootEl,
+                            class: ['pet-faq-manager', store.visible ? 'pet-is-visible' : ''],
+                            role: 'dialog',
+                            'aria-modal': 'true',
+                            'aria-label': '常见问题',
+                            tabindex: 0,
+                            onClick: (e) => {
+                                if (e?.target === e?.currentTarget) close();
+                            },
+                            onKeydown: (e) => {
+                                if (!e || e.key !== 'Escape') return;
+                                try {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                } catch (_) {}
+                                close();
+                            }
+                        },
+                        [
+                            h('div', { class: 'pet-faq-manager-modal', role: 'document' }, [
+                                h('div', { class: 'pet-faq-manager-header' }, [
+                                    h('div', { class: 'pet-faq-manager-title' }, [
+                                        '💡 常见问题 ',
+                                        h('span', { class: 'pet-faq-manager-title-sub' }, '（一键插入/发送）')
                                     ]),
-                                    h('div', { class: 'pet-faq-filter-row', 'aria-label': '常见问题标签筛选' }, [
-                                        h('div', { class: 'pet-faq-filter-actions' }, [
-                                            h(
-                                                'button',
-                                                {
-                                                    type: 'button',
-                                                    class: ['pet-faq-filter-btn', store.tagFilterReverse ? 'active' : ''],
-                                                    title: '不包含选中标签',
-                                                    'aria-label': '反选',
-                                                    onClick: toggleReverse
-                                                },
-                                                '反选'
-                                            ),
-                                            h(
-                                                'button',
-                                                {
-                                                    type: 'button',
-                                                    class: ['pet-faq-filter-btn', store.tagFilterNoTags ? 'active' : ''],
-                                                    title: '只显示无标签问题',
-                                                    'aria-label': '无标签',
-                                                    onClick: toggleNoTags
-                                                },
-                                                '无标签'
-                                            ),
-                                            h(
-                                                'button',
-                                                {
-                                                    type: 'button',
-                                                    class: 'pet-faq-filter-btn',
-                                                    title: '清除标签筛选',
-                                                    'aria-label': '清除标签筛选',
-                                                    disabled:
-                                                        (Array.isArray(store.selectedTags) ? store.selectedTags.length : 0) === 0 &&
-                                                        !store.tagFilterReverse &&
-                                                        !store.tagFilterNoTags,
-                                                    onClick: clearTagFilters
-                                                },
-                                                '清除标签'
-                                            ),
-                                            h(
-                                                'button',
-                                                {
-                                                    type: 'button',
-                                                    class: 'pet-faq-filter-btn',
-                                                    title: '从接口刷新',
-                                                    'aria-label': '刷新',
-                                                    disabled: !!store.isLoading,
-                                                    onClick: refresh
-                                                },
-                                                '刷新'
-                                            )
-                                        ]),
-                                        h('div', { class: 'pet-faq-tag-search' }, [
-                                            h('input', {
-                                                type: 'text',
-                                                class: 'pet-faq-tag-search-input',
-                                                placeholder: '搜索标签...',
-                                                'aria-label': '搜索标签',
-                                                value: store.tagFilterSearchKeyword,
-                                                onInput: (e) => {
-                                                    store.tagFilterSearchKeyword = e?.target?.value ?? '';
-                                                }
-                                            }),
-                                            h(
-                                                'button',
-                                                {
-                                                    type: 'button',
-                                                    class: 'pet-faq-filter-btn',
-                                                    title: '清除标签搜索',
-                                                    'aria-label': '清除标签搜索',
-                                                    disabled: !store.tagFilterSearchKeyword,
-                                                    onClick: clearTagSearch
-                                                },
-                                                '清除'
-                                            )
-                                        ]),
-                                        h('div', { class: 'pet-faq-tag-list', role: 'list', 'aria-label': '标签列表' }, tagButtons)
-                                    ])
+                                    h(
+                                        'button',
+                                        {
+                                            type: 'button',
+                                            class: 'pet-faq-modal-close',
+                                            'aria-label': '关闭',
+                                            onClick: close
+                                        },
+                                        '✕'
+                                    )
                                 ]),
-                                h('div', { class: 'pet-faq-main', 'aria-label': '常见问题列表' }, [
-                                    h('div', { class: 'pet-faq-summary', role: 'status', 'aria-label': '筛选结果' }, summaryText.value),
-                                    h('div', { class: 'pet-faq-input-row', 'aria-label': '添加常见问题' }, [
-                                        h('textarea', {
-                                            class: 'pet-faq-input',
-                                            placeholder: '输入问题内容，按 Ctrl+Enter 或 Shift+Enter 添加',
-                                            'aria-label': '新增常见问题',
-                                            value: store.newFaqText,
-                                            onInput: (e) => {
-                                                store.newFaqText = e?.target?.value ?? '';
-                                            },
-                                            onKeydown: onNewFaqKeydown
-                                        }),
-                                        h('div', { class: 'pet-faq-input-hint' }, '支持多行内容，首行作为标题，余下作为正文。')
-                                    ]),
-                                    store.isLoading ? h('div', { class: 'pet-faq-status', role: 'status' }, '正在加载常见问题...') : null,
-                                    store.error ? h('div', { class: 'pet-faq-error', role: 'status' }, store.error) : null,
-                                    h('div', { class: 'pet-faq-list', role: 'list', 'aria-label': '常见问题列表' }, faqItems)
+                                h('div', { class: 'pet-faq-modal-content' }, [
+                                    h('div', { class: 'pet-faq-layout' }, [
+                                        h('div', { class: 'pet-faq-sidebar', 'aria-label': '筛选与标签' }, [
+                                            h('div', { class: 'pet-faq-search-row' }, [
+                                                h('input', {
+                                                    ref: searchInputEl,
+                                                    type: 'text',
+                                                    class: 'pet-faq-search-input',
+                                                    placeholder: '搜索常见问题...',
+                                                    'aria-label': '搜索常见问题',
+                                                    value: store.searchFilter,
+                                                    onInput: (e) => {
+                                                        store.searchFilter = e?.target?.value ?? '';
+                                                    }
+                                                }),
+                                                h(
+                                                    'button',
+                                                    {
+                                                        type: 'button',
+                                                        class: 'pet-faq-search-clear',
+                                                        title: '清除搜索',
+                                                        'aria-label': '清除搜索',
+                                                        disabled: !store.searchFilter,
+                                                        onClick: clearSearch
+                                                    },
+                                                    '清除'
+                                                )
+                                            ]),
+                                            h('div', { class: 'pet-faq-filter-row', 'aria-label': '常见问题标签筛选' }, [
+                                                h('div', { class: 'pet-faq-filter-actions' }, [
+                                                    h(
+                                                        'button',
+                                                        {
+                                                            type: 'button',
+                                                            class: ['pet-faq-filter-btn', store.tagFilterReverse ? 'active' : ''],
+                                                            title: '不包含选中标签',
+                                                            'aria-label': '反选',
+                                                            onClick: toggleReverse
+                                                        },
+                                                        '反选'
+                                                    ),
+                                                    h(
+                                                        'button',
+                                                        {
+                                                            type: 'button',
+                                                            class: ['pet-faq-filter-btn', store.tagFilterNoTags ? 'active' : ''],
+                                                            title: '只显示无标签问题',
+                                                            'aria-label': '无标签',
+                                                            onClick: toggleNoTags
+                                                        },
+                                                        '无标签'
+                                                    ),
+                                                    h(
+                                                        'button',
+                                                        {
+                                                            type: 'button',
+                                                            class: 'pet-faq-filter-btn',
+                                                            title: '清除标签筛选',
+                                                            'aria-label': '清除标签筛选',
+                                                            disabled:
+                                                                (Array.isArray(store.selectedTags) ? store.selectedTags.length : 0) === 0 &&
+                                                                !store.tagFilterReverse &&
+                                                                !store.tagFilterNoTags,
+                                                            onClick: clearTagFilters
+                                                        },
+                                                        '清除标签'
+                                                    ),
+                                                    h(
+                                                        'button',
+                                                        {
+                                                            type: 'button',
+                                                            class: ['pet-faq-filter-btn', store.tagManagerVisible ? 'active' : ''],
+                                                            title: '标签管理',
+                                                            'aria-label': '标签管理',
+                                                            onClick: toggleTagManager
+                                                        },
+                                                        '标签管理'
+                                                    ),
+                                                    h(
+                                                        'button',
+                                                        {
+                                                            type: 'button',
+                                                            class: 'pet-faq-filter-btn',
+                                                            title: '从接口刷新',
+                                                            'aria-label': '刷新',
+                                                            disabled: !!store.isLoading,
+                                                            onClick: refresh
+                                                        },
+                                                        '刷新'
+                                                    )
+                                                ]),
+                                                h('div', { class: 'pet-faq-tag-search' }, [
+                                                    h('input', {
+                                                        type: 'text',
+                                                        class: 'pet-faq-tag-search-input',
+                                                        placeholder: '搜索标签...',
+                                                        'aria-label': '搜索标签',
+                                                        value: store.tagFilterSearchKeyword,
+                                                        onInput: (e) => {
+                                                            store.tagFilterSearchKeyword = e?.target?.value ?? '';
+                                                        }
+                                                    }),
+                                                    h(
+                                                        'button',
+                                                        {
+                                                            type: 'button',
+                                                            class: 'pet-faq-filter-btn',
+                                                            title: '清除标签搜索',
+                                                            'aria-label': '清除标签搜索',
+                                                            disabled: !store.tagFilterSearchKeyword,
+                                                            onClick: clearTagSearch
+                                                        },
+                                                        '清除'
+                                                    )
+                                                ]),
+                                                h('div', { class: 'pet-faq-tag-list', role: 'list', 'aria-label': '标签列表' }, tagButtons),
+                                                tagManagerPanel
+                                            ])
+                                        ]),
+                                        h('div', { class: 'pet-faq-main', 'aria-label': '常见问题列表' }, [
+                                            h(
+                                                'div',
+                                                { class: 'pet-faq-summary', role: 'status', 'aria-label': '筛选结果' },
+                                                summaryText.value
+                                            ),
+                                            h('div', { class: 'pet-faq-input-row', 'aria-label': '添加常见问题' }, [
+                                                h('textarea', {
+                                                    class: 'pet-faq-input',
+                                                    placeholder: '输入问题内容，按 Ctrl+Enter 或 Shift+Enter 添加',
+                                                    'aria-label': '新增常见问题',
+                                                    value: store.newFaqText,
+                                                    onInput: (e) => {
+                                                        store.newFaqText = e?.target?.value ?? '';
+                                                    },
+                                                    onKeydown: onNewFaqKeydown
+                                                }),
+                                                h('div', { class: 'pet-faq-input-hint' }, '支持多行内容，首行作为标题，余下作为正文。')
+                                            ]),
+                                            store.isLoading
+                                                ? h('div', { class: 'pet-faq-status', role: 'status' }, '正在加载常见问题...')
+                                                : null,
+                                            store.error ? h('div', { class: 'pet-faq-error', role: 'status' }, store.error) : null,
+                                            h('div', { class: 'pet-faq-list', role: 'list', 'aria-label': '常见问题列表' }, faqItems)
+                                        ])
+                                    ])
                                 ])
                             ])
-                        ])
-                    ]);
+                        ]
+                    );
                 };
             }
         };

@@ -40,7 +40,7 @@
         const useTemplate = canUseVueTemplate(Vue);
         const resolvedTemplate = useTemplate ? String(template || faqTagManagerTemplateCache || '').trim() : '';
         if (useTemplate && !resolvedTemplate) return null;
-        if (!useTemplate) return null;
+        if (!useTemplate && typeof h !== 'function') return null;
 
         const quickTags = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '日记'];
 

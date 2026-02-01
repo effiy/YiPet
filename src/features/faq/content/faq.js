@@ -88,18 +88,90 @@
   };
 
   proto.ensureFaqManagerUi = function() {
-    return this.ensureFaqManagerStore();
+    const store = this.ensureFaqManagerStore();
+    if (!store) return null;
+
+    const mountParent = this.chatWindow || document.body;
+    const existing =
+      (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('#pet-faq-manager')) ||
+      document.querySelector('#pet-faq-manager');
+    if (existing) return store;
+
+    const existingHost =
+      (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('#pet-faq-manager-host')) ||
+      document.querySelector('#pet-faq-manager-host');
+    if (existingHost && existingHost._store === store) return store;
+
+    const Vue = window.Vue || {};
+    const { createApp } = Vue;
+    if (typeof createApp !== 'function') return store;
+
+    const canUseTemplate = (() => {
+      if (typeof Vue?.compile !== 'function') return false;
+      try {
+        Function('return 1')();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    const host = document.createElement('div');
+    host.id = 'pet-faq-manager-host';
+    host._store = store;
+    try {
+      if (typeof PET_CONFIG !== 'undefined' && PET_CONFIG?.ui?.zIndex?.modal != null) {
+        host.style.setProperty('z-index', `${PET_CONFIG.ui.zIndex.modal}`, 'important');
+      }
+    } catch (_) {}
+
+    host._mountPromise = (async () => {
+      try {
+        const mod = window.PetManager?.Components?.FaqManager;
+        if (!mod || typeof mod.createComponent !== 'function') return;
+        const template = canUseTemplate && typeof mod.loadTemplate === 'function' ? await mod.loadTemplate() : '';
+        const ctor = mod.createComponent({ manager: this, store, template });
+        if (!ctor) return;
+        host._vueApp = createApp(ctor);
+        host._vueInstance = host._vueApp.mount(host);
+      } catch (_) {}
+    })();
+
+    try {
+      mountParent.appendChild(host);
+    } catch (_) {
+      try {
+        document.body.appendChild(host);
+      } catch (_) {}
+    }
+
+    this._faqManagerUiHost = host;
+    return store;
   };
 
   proto.openFaqManager = async function() {
     try {
+      const waitFor = async (fn, timeoutMs = 2000, intervalMs = 50) => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          let ok = false;
+          try {
+            ok = !!fn();
+          } catch (_) {
+            ok = false;
+          }
+          if (ok) return true;
+          await new Promise((r) => setTimeout(r, intervalMs));
+        }
+        return false;
+      };
+
       // 确保聊天窗口已打开
       if (!this.chatWindow) {
         console.log('常见问题：聊天窗口未初始化，尝试打开聊天窗口');
         if (typeof this.openChatWindow === 'function') {
           await this.openChatWindow();
-          // 等待一下，确保聊天窗口完全初始化
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await waitFor(() => this.chatWindow && this.chatWindowComponent, 2500, 50);
         } else {
           const errorMsg = '无法打开聊天窗口：openChatWindow 方法不存在';
           console.error(errorMsg);
@@ -120,20 +192,22 @@
         return;
       }
       
-      const chatWindowComponent = this.chatWindowComponent;
-      if (!chatWindowComponent || !chatWindowComponent._vueApp) {
-        if (typeof this.showNotification === 'function') {
-          this.showNotification('无法打开常见问题：当前页面未启用 Vue 模式', 'error');
-        }
-        return;
-      }
-
-      const store = this.ensureFaqManagerStore();
+      const store = this.ensureFaqManagerUi();
       if (!store) {
         if (typeof this.showNotification === 'function') {
           this.showNotification('无法打开常见问题：Vue 未初始化', 'error');
         }
         return;
+      }
+
+      const host =
+        this._faqManagerUiHost ||
+        (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('#pet-faq-manager-host')) ||
+        document.querySelector('#pet-faq-manager-host');
+      if (host && host._mountPromise) {
+        try {
+          await host._mountPromise;
+        } catch (_) {}
       }
       
       if (typeof this.lockSidebarToggle === 'function') {

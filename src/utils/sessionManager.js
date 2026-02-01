@@ -7,7 +7,7 @@
 class SessionManager {
     constructor(options = {}) {
         // 配置选项
-        this.sessionApi = options.sessionApi || null; // SessionApiManager 实例
+        this.sessionApi = options.sessionApi || null; // SessionService 实例
         this.enableBackendSync = options.enableBackendSync || false; // 是否启用后端同步
 
         this.deleteAicrProjectFilesCallback = options.deleteAicrProjectFilesCallback || null; // 删除 aicr 项目文件的回调函数（可选）

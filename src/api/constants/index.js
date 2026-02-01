@@ -3,7 +3,8 @@
  */
 
 // HTTP方法
-export const HTTP_METHODS = {
+(function (root) {
+const HTTP_METHODS = {
     GET: 'GET',
     POST: 'POST',
     PUT: 'PUT',
@@ -14,7 +15,7 @@ export const HTTP_METHODS = {
 };
 
 // 状态码
-export const STATUS_CODES = {
+const STATUS_CODES = {
     // 成功
     OK: 200,
     CREATED: 201,
@@ -44,7 +45,7 @@ export const STATUS_CODES = {
 };
 
 // 错误类型
-export const ERROR_TYPES = {
+const ERROR_TYPES = {
     NETWORK_ERROR: 'NETWORK_ERROR',
     TIMEOUT_ERROR: 'TIMEOUT_ERROR',
     AUTH_ERROR: 'AUTH_ERROR',
@@ -55,7 +56,7 @@ export const ERROR_TYPES = {
 };
 
 // API配置
-export const API_CONFIG = {
+const API_CONFIG = {
     // 默认超时时间（毫秒）
     DEFAULT_TIMEOUT: 30000,
     
@@ -81,7 +82,7 @@ export const API_CONFIG = {
 };
 
 // 内容类型
-export const CONTENT_TYPES = {
+const CONTENT_TYPES = {
     JSON: 'application/json',
     FORM_DATA: 'multipart/form-data',
     URL_ENCODED: 'application/x-www-form-urlencoded',
@@ -91,27 +92,25 @@ export const CONTENT_TYPES = {
 };
 
 // 默认请求头
-export const DEFAULT_HEADERS = {
+const DEFAULT_HEADERS = {
     'Content-Type': CONTENT_TYPES.JSON,
     'Accept': CONTENT_TYPES.JSON,
     'X-Requested-With': 'XMLHttpRequest'
 };
 
 // 扩展相关的URL模式（用于过滤）
-export const EXTENSION_URL_PATTERNS = [
+const EXTENSION_URL_PATTERNS = [
     /^chrome-extension:\/\//i,
     /^chrome:\/\//i,
     /^moz-extension:\/\//i,
     /api\.effiy\.cn/i // 扩展使用的API域名
 ];
 
-// 导出默认配置
-export default {
-    HTTP_METHODS,
-    STATUS_CODES,
-    ERROR_TYPES,
-    API_CONFIG,
-    CONTENT_TYPES,
-    DEFAULT_HEADERS,
-    EXTENSION_URL_PATTERNS
-};
+root.HTTP_METHODS = HTTP_METHODS;
+root.STATUS_CODES = STATUS_CODES;
+root.ERROR_TYPES = ERROR_TYPES;
+root.API_CONFIG = API_CONFIG;
+root.CONTENT_TYPES = CONTENT_TYPES;
+root.DEFAULT_HEADERS = DEFAULT_HEADERS;
+root.EXTENSION_URL_PATTERNS = EXTENSION_URL_PATTERNS;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

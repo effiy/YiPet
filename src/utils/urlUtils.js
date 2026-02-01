@@ -44,11 +44,6 @@ class UrlUtils {
     static isExtensionRequest(url) {
         if (!url || typeof url !== 'string') return false;
         
-        // 优先使用RequestUtils（如果可用）
-        if (typeof RequestUtils !== 'undefined' && RequestUtils.isExtensionRequest) {
-            return RequestUtils.isExtensionRequest(url);
-        }
-        
         // 降级实现
         const extensionUrlPatterns = [
             /^chrome-extension:\/\//i,
@@ -67,4 +62,3 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
     window.UrlUtils = UrlUtils;
 }
-

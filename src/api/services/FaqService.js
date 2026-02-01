@@ -3,10 +3,8 @@
  * 提供常见问题相关的API操作
  */
 
-import { ApiManager } from '../core/ApiManager.js';
-import { DATABASE_ENDPOINTS, buildDatabaseUrl } from '../constants/endpoints.js';
-
-export class FaqService extends ApiManager {
+(function (root) {
+class FaqService extends ApiManager {
     constructor(baseUrl, options = {}) {
         super(baseUrl, {
             ...options,
@@ -44,6 +42,8 @@ export class FaqService extends ApiManager {
             return [];
         }
     }
+    
+    clearGetCache() {}
     
     /**
      * 创建常见问题
@@ -303,3 +303,6 @@ export class FaqService extends ApiManager {
         return normalized;
     }
 }
+
+root.FaqService = FaqService;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

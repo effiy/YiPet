@@ -3,7 +3,8 @@
  * 提供统一的错误处理、分类、格式化等功能
  */
 
-export class APIError extends Error {
+(function (root) {
+class APIError extends Error {
     constructor(message, code = 'UNKNOWN_ERROR', details = null) {
         super(message);
         this.name = 'APIError';
@@ -13,14 +14,14 @@ export class APIError extends Error {
     }
 }
 
-export class NetworkError extends APIError {
+class NetworkError extends APIError {
     constructor(message, details = null) {
         super(message, 'NETWORK_ERROR', details);
         this.name = 'NetworkError';
     }
 }
 
-export class TimeoutError extends APIError {
+class TimeoutError extends APIError {
     constructor(message, timeout = 0, details = null) {
         super(message, 'TIMEOUT_ERROR', details);
         this.name = 'TimeoutError';
@@ -28,14 +29,14 @@ export class TimeoutError extends APIError {
     }
 }
 
-export class AuthError extends APIError {
+class AuthError extends APIError {
     constructor(message, details = null) {
         super(message, 'AUTH_ERROR', details);
         this.name = 'AuthError';
     }
 }
 
-export class ValidationError extends APIError {
+class ValidationError extends APIError {
     constructor(message, fields = {}, details = null) {
         super(message, 'VALIDATION_ERROR', details);
         this.name = 'ValidationError';
@@ -43,7 +44,7 @@ export class ValidationError extends APIError {
     }
 }
 
-export class RateLimitError extends APIError {
+class RateLimitError extends APIError {
     constructor(message, retryAfter = 0, details = null) {
         super(message, 'RATE_LIMIT_ERROR', details);
         this.name = 'RateLimitError';
@@ -54,7 +55,7 @@ export class RateLimitError extends APIError {
 /**
  * 错误处理器
  */
-export class ErrorHandler {
+class ErrorHandler {
     constructor(options = {}) {
         this.options = {
             maxRetries: options.maxRetries || 3,
@@ -338,17 +339,19 @@ export class ErrorHandler {
     }
 }
 
-/**
- * 创建错误
- */
-export function createError(message, code = 'UNKNOWN_ERROR', details = null) {
+root.APIError = APIError;
+root.NetworkError = NetworkError;
+root.TimeoutError = TimeoutError;
+root.AuthError = AuthError;
+root.ValidationError = ValidationError;
+root.RateLimitError = RateLimitError;
+root.ErrorHandler = ErrorHandler;
+
+function createError(message, code = 'UNKNOWN_ERROR', details = null) {
     return new APIError(message, code, details);
 }
 
-/**
- * 格式化错误
- */
-export function formatError(error) {
+function formatError(error) {
     if (error instanceof APIError) {
         return {
             name: error.name,
@@ -368,15 +371,18 @@ export function formatError(error) {
     };
 }
 
-/**
- * 全局错误处理器
- */
 let globalErrorHandler = null;
 
-export function setGlobalErrorHandler(handler) {
+function setGlobalErrorHandler(handler) {
     globalErrorHandler = handler;
 }
 
-export function getGlobalErrorHandler() {
+function getGlobalErrorHandler() {
     return globalErrorHandler;
 }
+
+root.createError = createError;
+root.formatError = formatError;
+root.setGlobalErrorHandler = setGlobalErrorHandler;
+root.getGlobalErrorHandler = getGlobalErrorHandler;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

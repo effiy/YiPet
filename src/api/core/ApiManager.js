@@ -3,12 +3,8 @@
  * 提供统一的请求处理、错误处理、重试机制等功能
  */
 
-import { RequestClient } from '../utils/request.js';
-import { ErrorHandler } from '../utils/error.js';
-import { Logger } from '../utils/logger.js';
-import { TokenManager } from '../utils/token.js';
-
-export class ApiManager {
+(function (root) {
+class ApiManager {
     constructor(baseUrl, options = {}) {
         this.baseUrl = baseUrl;
         this.enabled = options.enabled !== false;
@@ -253,3 +249,6 @@ export class ApiManager {
         this.responseInterceptors = [];
     }
 }
+
+root.ApiManager = ApiManager;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

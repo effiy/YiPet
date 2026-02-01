@@ -3,10 +3,8 @@
  * 提供会话相关的API操作，包括CRUD、搜索、批量操作等
  */
 
-import { ApiManager } from '../core/ApiManager.js';
-import { DATABASE_ENDPOINTS, buildDatabaseUrl } from '../constants/endpoints.js';
-
-export class SessionService extends ApiManager {
+(function (root) {
+class SessionService extends ApiManager {
     constructor(baseUrl, options = {}) {
         super(baseUrl, {
             ...options,
@@ -301,6 +299,7 @@ export class SessionService extends ApiManager {
         }
         
         try {
+            const resolvedOptions = typeof options === 'number' ? { limit: options } : (options || {});
             const params = {
                 cname: 'sessions',
                 filter: {
@@ -309,8 +308,8 @@ export class SessionService extends ApiManager {
                         { 'content': { '$regex': query, '$options': 'i' } }
                     ]
                 },
-                limit: options.limit || 10,
-                ...options.filter
+                limit: resolvedOptions.limit || 10,
+                ...resolvedOptions.filter
             };
             
             const url = buildDatabaseUrl(this.baseUrl, 'query_documents', params);
@@ -321,6 +320,10 @@ export class SessionService extends ApiManager {
             this.logger.warn('搜索会话失败:', error.message);
             return [];
         }
+    }
+    
+    async _request(url, options = {}) {
+        return this.request(url, options);
     }
     
     /**
@@ -399,3 +402,6 @@ export class SessionService extends ApiManager {
         super.destroy();
     }
 }
+
+root.SessionService = SessionService;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

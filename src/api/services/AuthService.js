@@ -3,10 +3,8 @@
  * 提供用户认证相关的API操作
  */
 
-import { ApiManager } from '../core/ApiManager.js';
-import { AUTH_ENDPOINTS } from '../constants/endpoints.js';
-
-export class AuthService extends ApiManager {
+(function (root) {
+class AuthService extends ApiManager {
     constructor(baseUrl, options = {}) {
         super(baseUrl, {
             ...options,
@@ -159,3 +157,6 @@ export class AuthService extends ApiManager {
         this.userInfoExpiry = 0;
     }
 }
+
+root.AuthService = AuthService;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

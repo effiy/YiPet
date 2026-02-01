@@ -3,10 +3,8 @@
  * 提供系统配置相关的API操作
  */
 
-import { ApiManager } from '../core/ApiManager.js';
-import { CONFIG_ENDPOINTS } from '../constants/endpoints.js';
-
-export class ConfigService extends ApiManager {
+(function (root) {
+class ConfigService extends ApiManager {
     constructor(baseUrl, options = {}) {
         super(baseUrl, {
             ...options,
@@ -166,3 +164,6 @@ export class ConfigService extends ApiManager {
         return null;
     }
 }
+
+root.ConfigService = ConfigService;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

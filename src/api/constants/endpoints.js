@@ -3,14 +3,15 @@
  */
 
 // 基础端点
-export const BASE_ENDPOINTS = {
+ (function (root) {
+const BASE_ENDPOINTS = {
     API_BASE: '/api',
     V1_BASE: '/api/v1',
     V2_BASE: '/api/v2'
 };
 
 // 认证相关端点
-export const AUTH_ENDPOINTS = {
+const AUTH_ENDPOINTS = {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',
     REFRESH: '/auth/refresh',
@@ -19,7 +20,7 @@ export const AUTH_ENDPOINTS = {
 };
 
 // 会话相关端点
-export const SESSION_ENDPOINTS = {
+const SESSION_ENDPOINTS = {
     LIST: '/sessions',
     CREATE: '/sessions',
     UPDATE: '/sessions/:id',
@@ -32,7 +33,7 @@ export const SESSION_ENDPOINTS = {
 };
 
 // FAQ相关端点
-export const FAQ_ENDPOINTS = {
+const FAQ_ENDPOINTS = {
     LIST: '/faqs',
     CREATE: '/faqs',
     UPDATE: '/faqs/:id',
@@ -42,14 +43,14 @@ export const FAQ_ENDPOINTS = {
 };
 
 // 配置相关端点
-export const CONFIG_ENDPOINTS = {
+const CONFIG_ENDPOINTS = {
     GET: '/config',
     UPDATE: '/config',
     RESET: '/config/reset'
 };
 
 // 通用数据库操作端点（兼容现有实现）
-export const DATABASE_ENDPOINTS = {
+const DATABASE_ENDPOINTS = {
     QUERY: '/database/query',
     CREATE: '/database/create',
     UPDATE: '/database/update',
@@ -58,7 +59,7 @@ export const DATABASE_ENDPOINTS = {
 };
 
 // 构建完整URL的工具函数
-export function buildUrl(baseUrl, endpoint, params = {}) {
+function buildUrl(baseUrl, endpoint, params = {}) {
     let url = endpoint;
     
     // 替换路径参数
@@ -75,7 +76,7 @@ export function buildUrl(baseUrl, endpoint, params = {}) {
 }
 
 // 构建查询参数的工具函数
-export function buildQueryParams(params = {}) {
+function buildQueryParams(params = {}) {
     const searchParams = new URLSearchParams();
     
     Object.entries(params).forEach(([key, value]) => {
@@ -92,7 +93,7 @@ export function buildQueryParams(params = {}) {
 }
 
 // 构建数据库查询URL（兼容现有实现）
-export function buildDatabaseUrl(baseUrl, methodName, parameters = {}) {
+function buildDatabaseUrl(baseUrl, methodName, parameters = {}) {
     const queryParams = new URLSearchParams({
         module_name: 'services.database.data_service',
         method_name: methodName,
@@ -102,14 +103,13 @@ export function buildDatabaseUrl(baseUrl, methodName, parameters = {}) {
     return `${baseUrl}/?${queryParams.toString()}`;
 }
 
-export default {
-    BASE_ENDPOINTS,
-    AUTH_ENDPOINTS,
-    SESSION_ENDPOINTS,
-    FAQ_ENDPOINTS,
-    CONFIG_ENDPOINTS,
-    DATABASE_ENDPOINTS,
-    buildUrl,
-    buildQueryParams,
-    buildDatabaseUrl
-};
+root.BASE_ENDPOINTS = BASE_ENDPOINTS;
+root.AUTH_ENDPOINTS = AUTH_ENDPOINTS;
+root.SESSION_ENDPOINTS = SESSION_ENDPOINTS;
+root.FAQ_ENDPOINTS = FAQ_ENDPOINTS;
+root.CONFIG_ENDPOINTS = CONFIG_ENDPOINTS;
+root.DATABASE_ENDPOINTS = DATABASE_ENDPOINTS;
+root.buildUrl = buildUrl;
+root.buildQueryParams = buildQueryParams;
+root.buildDatabaseUrl = buildDatabaseUrl;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

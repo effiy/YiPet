@@ -3,7 +3,8 @@
  * 提供统一的请求发送、超时控制、取消请求等功能
  */
 
-export class RequestClient {
+(function (root) {
+class RequestClient {
     constructor(options = {}) {
         this.defaultOptions = {
             timeout: options.timeout || 30000,
@@ -23,8 +24,17 @@ export class RequestClient {
      * 发送请求
      */
     async request(options = {}) {
-        const config = { ...this.defaultOptions, ...options };
-        const { timeout, abortKey, signal: externalSignal, ...fetchOptions } = config;
+        const mergedHeaders = {
+            ...(this.defaultOptions.headers || {}),
+            ...(options.headers || {})
+        };
+        
+        const config = { ...this.defaultOptions, ...options, headers: mergedHeaders };
+        const { timeout, abortKey, signal: externalSignal, url, params, data, baseUrl, ...fetchOptions } = config;
+        
+        if (!url) {
+            throw new Error('请求缺少 url');
+        }
         
         let signal = externalSignal;
         
@@ -58,11 +68,11 @@ export class RequestClient {
             controller.signal._timer = timer;
         });
         
+        const finalUrl = this._buildUrlWithParams(url, params);
+        const requestInit = this._buildFetchOptions({ ...fetchOptions, data });
+        
         // 发送请求
-        const fetchPromise = this._fetchWithRetry(config.url, {
-            ...fetchOptions,
-            signal: controller.signal
-        });
+        const fetchPromise = this._fetchWithRetry(finalUrl, { ...requestInit, signal: controller.signal });
         
         try {
             const response = await Promise.race([fetchPromise, timeoutPromise]);
@@ -174,20 +184,10 @@ export class RequestClient {
      * GET请求
      */
     async get(url, params = {}, options = {}) {
-        const searchParams = new URLSearchParams();
-        Object.entries(params).forEach(([key, value]) => {
-            if (value !== undefined && value !== null) {
-                searchParams.append(key, String(value));
-            }
-        });
-        
-        const fullUrl = searchParams.toString() 
-            ? `${url}?${searchParams.toString()}` 
-            : url;
-        
         return this.request({
-            url: fullUrl,
+            url,
             method: 'GET',
+            params,
             ...options
         });
     }
@@ -199,7 +199,7 @@ export class RequestClient {
         return this.request({
             url,
             method: 'POST',
-            data: JSON.stringify(data),
+            data,
             ...options
         });
     }
@@ -211,7 +211,7 @@ export class RequestClient {
         return this.request({
             url,
             method: 'PUT',
-            data: JSON.stringify(data),
+            data,
             ...options
         });
     }
@@ -227,6 +227,58 @@ export class RequestClient {
         });
     }
     
+    _buildFetchOptions(options = {}) {
+        const { data, ...fetchOptions } = options;
+        const method = (fetchOptions.method || 'GET').toUpperCase();
+        
+        const headers = { ...(fetchOptions.headers || {}) };
+        let body = fetchOptions.body;
+        
+        if (body === undefined && data !== undefined && method !== 'GET' && method !== 'HEAD') {
+            if (data instanceof FormData) {
+                body = data;
+                if (headers['Content-Type']) {
+                    delete headers['Content-Type'];
+                }
+            } else if (typeof data === 'string' || data instanceof Blob || data instanceof ArrayBuffer) {
+                body = data;
+            } else {
+                body = JSON.stringify(data);
+                if (!headers['Content-Type']) {
+                    headers['Content-Type'] = 'application/json';
+                }
+            }
+        }
+        
+        return { ...fetchOptions, headers, body };
+    }
+    
+    _buildUrlWithParams(url, params) {
+        if (!params || typeof params !== 'object' || Object.keys(params).length === 0) {
+            return url;
+        }
+        
+        try {
+            const u = new URL(url, typeof location !== 'undefined' ? location.href : undefined);
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    u.searchParams.append(key, String(value));
+                }
+            });
+            return u.toString();
+        } catch (_) {
+            const searchParams = new URLSearchParams();
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    searchParams.append(key, String(value));
+                }
+            });
+            const qs = searchParams.toString();
+            if (!qs) return url;
+            return url.includes('?') ? `${url}&${qs}` : `${url}?${qs}`;
+        }
+    }
+    
     /**
      * 销毁客户端
      */
@@ -239,11 +291,16 @@ export class RequestClient {
 /**
  * 创建请求客户端
  */
-export function createRequestClient(options = {}) {
+function createRequestClient(options = {}) {
     return new RequestClient(options);
 }
 
 /**
  * 默认请求客户端实例
  */
-export const requestClient = createRequestClient();
+const requestClient = createRequestClient();
+
+root.RequestClient = RequestClient;
+root.createRequestClient = createRequestClient;
+root.requestClient = requestClient;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

@@ -3,134 +3,38 @@
  * 提供统一的API接口和工具函数
  */
 
-import { ApiManager } from './core/ApiManager.js';
-import { RequestClient } from './utils/request.js';
-
-import { AuthService } from './services/AuthService.js';
-import { ConfigService } from './services/ConfigService.js';
-import { SessionService } from './services/SessionService.js';
-import { FaqService } from './services/FaqService.js';
-
-import { TokenManager } from './utils/token.js';
-import { ErrorHandler } from './utils/error.js';
-import { Logger } from './utils/logger.js';
-
-import { buildUrl, buildQueryParams, buildDatabaseUrl } from './constants/endpoints.js';
-import {
-    HTTP_METHODS,
-    STATUS_CODES,
-    ERROR_TYPES,
-    API_CONFIG,
-    CONTENT_TYPES,
-    DEFAULT_HEADERS,
-    EXTENSION_URL_PATTERNS
-} from './constants/index.js';
-import {
-    BASE_ENDPOINTS,
-    AUTH_ENDPOINTS,
-    SESSION_ENDPOINTS,
-    FAQ_ENDPOINTS,
-    CONFIG_ENDPOINTS,
-    DATABASE_ENDPOINTS
-} from './constants/endpoints.js';
-import {
-    APIError,
-    NetworkError,
-    TimeoutError,
-    AuthError,
-    ValidationError,
-    RateLimitError,
-    ServerError
-} from './utils/error.js';
-
-// 核心类
-export { ApiManager, RequestClient };
-
-// 服务类
-export { AuthService, ConfigService, SessionService, FaqService };
-
-// 工具类
-export { TokenManager, ErrorHandler, Logger };
-
-// 工具函数
-export { buildUrl, buildQueryParams, buildDatabaseUrl };
-
-// 常量
-export {
-    HTTP_METHODS,
-    STATUS_CODES,
-    ERROR_TYPES,
-    API_CONFIG,
-    CONTENT_TYPES,
-    DEFAULT_HEADERS,
-    EXTENSION_URL_PATTERNS
-};
-
-export {
-    BASE_ENDPOINTS,
-    AUTH_ENDPOINTS,
-    SESSION_ENDPOINTS,
-    FAQ_ENDPOINTS,
-    CONFIG_ENDPOINTS,
-    DATABASE_ENDPOINTS
-};
-
-// 错误类
-export {
-    APIError,
-    NetworkError,
-    TimeoutError,
-    AuthError,
-    ValidationError,
-    RateLimitError,
-    ServerError
-};
-
-// 默认导出
-export default {
-    // 核心类
-    ApiManager,
-    RequestClient,
-    
-    // 服务类
-    AuthService,
-    ConfigService,
-    SessionService,
-    FaqService,
-    
-    // 工具类
-    TokenManager,
-    ErrorHandler,
-    Logger,
-    
-    // 工具函数
-    buildUrl,
-    buildQueryParams,
-    buildDatabaseUrl,
-    
-    // 常量
-    HTTP_METHODS,
-    STATUS_CODES,
-    ERROR_TYPES,
-    API_CONFIG,
-    CONTENT_TYPES,
-    DEFAULT_HEADERS,
-    EXTENSION_URL_PATTERNS,
-    
-    // 端点常量
-    BASE_ENDPOINTS,
-    AUTH_ENDPOINTS,
-    SESSION_ENDPOINTS,
-    FAQ_ENDPOINTS,
-    CONFIG_ENDPOINTS,
-    DATABASE_ENDPOINTS,
-    
-    // 错误类
-    APIError,
-    NetworkError,
-    TimeoutError,
-    AuthError,
-    ValidationError,
-    RateLimitError,
-    ServerError
-};
+(function (root) {
+    root.API = {
+        ApiManager: root.ApiManager,
+        RequestClient: root.RequestClient,
+        AuthService: root.AuthService,
+        ConfigService: root.ConfigService,
+        SessionService: root.SessionService,
+        FaqService: root.FaqService,
+        TokenManager: root.TokenManager,
+        ErrorHandler: root.ErrorHandler,
+        Logger: root.Logger,
+        buildUrl: root.buildUrl,
+        buildQueryParams: root.buildQueryParams,
+        buildDatabaseUrl: root.buildDatabaseUrl,
+        HTTP_METHODS: root.HTTP_METHODS,
+        STATUS_CODES: root.STATUS_CODES,
+        ERROR_TYPES: root.ERROR_TYPES,
+        API_CONFIG: root.API_CONFIG,
+        CONTENT_TYPES: root.CONTENT_TYPES,
+        DEFAULT_HEADERS: root.DEFAULT_HEADERS,
+        EXTENSION_URL_PATTERNS: root.EXTENSION_URL_PATTERNS,
+        BASE_ENDPOINTS: root.BASE_ENDPOINTS,
+        AUTH_ENDPOINTS: root.AUTH_ENDPOINTS,
+        SESSION_ENDPOINTS: root.SESSION_ENDPOINTS,
+        FAQ_ENDPOINTS: root.FAQ_ENDPOINTS,
+        CONFIG_ENDPOINTS: root.CONFIG_ENDPOINTS,
+        DATABASE_ENDPOINTS: root.DATABASE_ENDPOINTS,
+        APIError: root.APIError,
+        NetworkError: root.NetworkError,
+        TimeoutError: root.TimeoutError,
+        AuthError: root.AuthError,
+        ValidationError: root.ValidationError,
+        RateLimitError: root.RateLimitError
+    };
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

@@ -104,20 +104,19 @@
                 console.log('初始化宠物管理器');
 
                 // 初始化会话API管理器
-                if (typeof SessionApiManager !== 'undefined' && PET_CONFIG.api.syncSessionsToBackend) {
-                    this.sessionApi = new SessionApiManager(
-                        PET_CONFIG.api.yiaiBaseUrl,
-                        PET_CONFIG.api.syncSessionsToBackend
-                    );
+                if (typeof SessionService !== 'undefined' && PET_CONFIG.api.syncSessionsToBackend) {
+                    this.sessionApi = new SessionService(PET_CONFIG.api.yiaiBaseUrl, {
+                        enabled: PET_CONFIG.api.syncSessionsToBackend
+                    });
                     console.log('会话API管理器已初始化');
                 } else {
                     console.log('会话API管理器未启用');
                 }
 
                 // 初始化FAQ API管理器
-                if (typeof FaqApiManager !== 'undefined') {
+                if (typeof FaqService !== 'undefined') {
                     const faqApiUrl = PET_CONFIG?.api?.faqApiUrl || 'http://localhost:8000';
-                    this.faqApi = new FaqApiManager(faqApiUrl, true);
+                    this.faqApi = new FaqService(faqApiUrl, { enabled: true });
                     console.log('FAQ API管理器已初始化，URL:', faqApiUrl);
                 } else {
                     console.log('FAQ API管理器未启用');

@@ -3,7 +3,8 @@
  * 提供API Token的获取、存储、验证等功能
  */
 
-export class TokenManager {
+(function (root) {
+class TokenManager {
     constructor(options = {}) {
         this.storageKey = options.storageKey || 'YiPet.apiToken.v1';
         this._cachedToken = '';
@@ -206,19 +207,19 @@ export class TokenManager {
 /**
  * 创建Token管理器
  */
-export function createTokenManager(options = {}) {
+function createTokenManager(options = {}) {
     return new TokenManager(options);
 }
 
 /**
  * 默认Token管理器实例
  */
-export const tokenManager = createTokenManager();
+const tokenManager = createTokenManager();
 
 /**
  * Token工具函数
  */
-export const TokenUtils = {
+const TokenUtils = {
     async getApiToken() {
         return await tokenManager.getToken();
     },
@@ -243,3 +244,9 @@ export const TokenUtils = {
         return await tokenManager.ensureTokenSet();
     }
 };
+
+root.TokenManager = TokenManager;
+root.createTokenManager = createTokenManager;
+root.tokenManager = tokenManager;
+root.TokenUtils = TokenUtils;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

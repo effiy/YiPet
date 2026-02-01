@@ -3,7 +3,8 @@
  * 提供统一的日志记录、级别控制等功能
  */
 
-export const LOG_LEVELS = {
+(function (root) {
+const LOG_LEVELS = {
     DEBUG: 0,
     INFO: 1,
     WARN: 2,
@@ -11,7 +12,7 @@ export const LOG_LEVELS = {
     NONE: 4
 };
 
-export class Logger {
+class Logger {
     constructor(options = {}) {
         this.level = options.level !== undefined ? options.level : LOG_LEVELS.INFO;
         this.prefix = options.prefix || '[API]';
@@ -128,19 +129,19 @@ export class Logger {
 /**
  * 创建日志器
  */
-export function createLogger(options = {}) {
+function createLogger(options = {}) {
     return new Logger(options);
 }
 
 /**
  * 默认日志器实例
  */
-export const logger = createLogger();
+const logger = createLogger();
 
 /**
  * 日志工具函数
  */
-export const LoggerUtils = {
+const LoggerUtils = {
     logRequest(config) {
         logger.logRequest(config);
     },
@@ -169,3 +170,10 @@ export const LoggerUtils = {
         logger.disable();
     }
 };
+
+root.LOG_LEVELS = LOG_LEVELS;
+root.Logger = Logger;
+root.createLogger = createLogger;
+root.logger = logger;
+root.LoggerUtils = LoggerUtils;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window));

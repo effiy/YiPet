@@ -41,6 +41,7 @@ class InjectionService {
         'src/features/petManager/modules/petManager.requestEditor.js',
         'src/features/petManager/modules/petManager.editor.js',
         'src/features/petManager/modules/petManager.mermaid.js',
+        'src/features/petManager/ui/components/sessionTagManager/SessionTagManager/index.js',
         'src/features/petManager/modules/petManager.tags.js',
         'src/features/petManager/modules/petManager.parser.js',
         'src/features/petManager/modules/petManager.io.js',

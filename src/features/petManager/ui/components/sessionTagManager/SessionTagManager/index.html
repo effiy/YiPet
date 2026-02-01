@@ -1,0 +1,72 @@
+<template id="yi-pet-session-tag-manager-template">
+    <div class="tag-manager-modal-container" role="dialog" aria-modal="true" aria-label="管理标签">
+        <div class="tag-manager-header">
+            <div class="tag-manager-title">🏷️ 管理标签</div>
+            <div class="tag-manager-close" role="button" tabindex="0" aria-label="关闭" title="关闭" @click="close">✕</div>
+        </div>
+
+        <div class="tag-manager-content">
+            <div class="tag-manager-input-group">
+                <input
+                    ref="tagInputEl"
+                    class="tag-manager-input"
+                    type="text"
+                    placeholder="输入标签名称，按回车添加"
+                    v-model="store.inputValue"
+                    @compositionstart="onCompositionStart"
+                    @compositionend="onCompositionEnd"
+                    @keydown="onInputKeydown"
+                />
+                <button class="tag-manager-add-btn" type="button" @click="addFromInput">添加</button>
+            </div>
+
+            <div class="tag-manager-quick-tags">
+                <template v-if="quickTags && quickTags.length">
+                    <button
+                        v-for="tag in quickTags"
+                        :key="tag"
+                        type="button"
+                        class="tag-manager-quick-tag-btn"
+                        :class="{ added: currentTags.includes(tag) }"
+                        :disabled="currentTags.includes(tag)"
+                        @click="addQuickTag(tag)"
+                    >
+                        {{ tag }}
+                    </button>
+                </template>
+                <template v-else>
+                    <div class="tag-manager-empty-msg">暂无可用标签</div>
+                </template>
+            </div>
+
+            <div class="tag-manager-tags" role="list" aria-label="标签列表">
+                <template v-if="currentTags && currentTags.length">
+                    <div
+                        v-for="(tag, idx) in currentTags"
+                        :key="tag + '::' + idx"
+                        role="listitem"
+                        :class="tagItemClass(idx)"
+                        :data-tag-index="idx"
+                        draggable="true"
+                        @dragstart="onDragStart(idx, $event)"
+                        @dragend="onDragEnd"
+                        @dragover="onDragOver(idx, $event)"
+                        @dragleave="onDragLeave(idx, $event)"
+                        @drop="onDrop(idx, $event)"
+                    >
+                        <span>{{ tag }}</span>
+                        <button type="button" class="tag-remove-btn" title="删除标签" aria-label="删除标签" @click="removeTag(idx)">✕</button>
+                    </div>
+                </template>
+                <template v-else>
+                    <div class="tag-manager-empty-msg">暂无标签</div>
+                </template>
+            </div>
+
+            <div class="tag-manager-footer">
+                <button class="tag-manager-cancel-btn" type="button" @click="close">取消</button>
+                <button class="tag-manager-save" type="button" @click="save">保存</button>
+            </div>
+        </div>
+    </div>
+</template>

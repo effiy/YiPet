@@ -67,67 +67,21 @@
             }
 
             const session = this.sessions[sessionId];
-            const currentTags = [...(session.tags || [])];
+            const currentTags = Array.isArray(session.tags) ? [...session.tags] : [];
 
-            // 创建标签管理弹窗
             this.ensureTagManagerUi();
-            const overlay = document.querySelector('#pet-tag-manager');
-            if (!overlay) {
-                console.error('标签管理弹窗未找到');
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store) {
+                console.error('标签管理弹窗未初始化');
                 return;
             }
 
-            // 创建标签副本，避免直接修改 session.tags
-            overlay._currentTags = currentTags;
+            store.sessionId = sessionId;
+            store.inputValue = '';
+            store.currentTags = currentTags.map((t) => String(t ?? '').trim()).filter((t) => t);
+            store.visible = true;
+            this.refreshQuickTags();
 
-            // 显示弹窗
-            overlay.classList.add('js-visible');
-            overlay.dataset.sessionId = sessionId;
-
-            // 加载当前标签
-            this.loadTagsIntoManager(sessionId, currentTags);
-
-            // 初始化快捷标签列表
-            this.refreshQuickTags(overlay);
-
-            // 添加关闭事件
-            const closeBtn = overlay.querySelector('.tag-manager-close');
-            if (closeBtn) {
-                closeBtn.onclick = () => this.closeTagManager();
-            }
-
-            // 添加保存事件
-            const saveBtn = overlay.querySelector('.tag-manager-save');
-            if (saveBtn) {
-                saveBtn.onclick = () => this.saveTags(sessionId);
-            }
-
-            // 添加输入框回车事件（兼容中文输入法）
-            const tagInput = overlay.querySelector('.tag-manager-input');
-            if (tagInput) {
-                const existingHandler = tagInput._enterKeyHandler;
-                if (existingHandler) {
-                    tagInput.removeEventListener('keydown', existingHandler);
-                }
-
-                const enterKeyHandler = (e) => {
-                    if (tagInput._isComposing) {
-                        return;
-                    }
-
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        this.addTagFromInput(sessionId);
-                    }
-                };
-
-                tagInput._enterKeyHandler = enterKeyHandler;
-                tagInput.addEventListener('keydown', enterKeyHandler);
-
-                tagInput.focus();
-            }
-
-            // ESC 键关闭
             const escHandler = (e) => {
                 if (e.key === 'Escape') {
                     this.closeTagManager();
@@ -164,440 +118,164 @@
         proto.ensureTagManagerUi = function() {
             if (document.querySelector('#pet-tag-manager')) return;
 
+            const Vue = window.Vue || {};
+            const { createApp, reactive, watch } = Vue;
+            if (typeof createApp !== 'function' || typeof reactive !== 'function') {
+                if (typeof this.showNotification === 'function') {
+                    this.showNotification('无法打开标签管理：Vue 未初始化', 'error');
+                }
+                return;
+            }
+
+            const canUseTemplate = (() => {
+                if (typeof Vue?.compile !== 'function') return false;
+                try {
+                    Function('return 1')();
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            })();
+
             const overlay = document.createElement('div');
             overlay.id = 'pet-tag-manager';
-            // 样式已通过 CSS 类定义
+            const mountEl = document.createElement('div');
+            overlay.appendChild(mountEl);
 
-            // 点击背景关闭
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
-                    const sessionId = overlay.dataset.sessionId;
-                    if (sessionId) {
-                        this.closeTagManager();
-                    }
-                }
-            });
-
-            const modalContainer = document.createElement('div');
-            modalContainer.className = 'tag-manager-modal-container';
-
-            // 头部
-            const header = document.createElement('div');
-            header.className = 'tag-manager-header';
-
-            const title = document.createElement('div');
-            title.className = 'tag-manager-title';
-            title.textContent = '🏷️ 管理标签';
-
-            const closeBtn = document.createElement('div');
-            closeBtn.className = 'tag-manager-close';
-            closeBtn.innerHTML = '✕';
-            closeBtn.onclick = () => this.closeTagManager();
-
-            header.appendChild(title);
-            header.appendChild(closeBtn);
-
-            // 内容区域
-            const content = document.createElement('div');
-            content.className = 'tag-manager-content';
-
-            // 输入区域
-            const inputGroup = document.createElement('div');
-            inputGroup.className = 'tag-manager-input-group';
-
-            const tagInput = document.createElement('input');
-            tagInput.className = 'tag-manager-input';
-            tagInput.type = 'text';
-            tagInput.placeholder = '输入标签名称，按回车添加';
-            // 样式已通过 CSS 类定义
-
-            tagInput._isComposing = false;
-            tagInput.addEventListener('compositionstart', () => {
-                tagInput._isComposing = true;
-            });
-            tagInput.addEventListener('compositionend', () => {
-                tagInput._isComposing = false;
-            });
-
-            inputGroup.appendChild(tagInput);
-
-            // 快捷标签按钮容器
-            const quickTagsContainer = document.createElement('div');
-            quickTagsContainer.className = 'tag-manager-quick-tags';
-
-            // 标签列表
-            const tagsContainer = document.createElement('div');
-            tagsContainer.className = 'tag-manager-tags';
-
-            // 底部按钮
-            const footer = document.createElement('div');
-            footer.className = 'tag-manager-footer';
-
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'tag-manager-cancel-btn';
-            cancelBtn.textContent = '取消';
-            cancelBtn.addEventListener('click', () => {
-                const sessionId = overlay.dataset.sessionId;
-                if (sessionId) {
                     this.closeTagManager();
                 }
             });
 
-            const saveBtn = document.createElement('button');
-            saveBtn.className = 'tag-manager-save';
-            saveBtn.textContent = '保存';
+            const store = reactive({
+                visible: false,
+                sessionId: '',
+                inputValue: '',
+                currentTags: [],
+                quickTags: [],
+                draggingIndex: -1,
+                dragOverIndex: -1,
+                dragOverPosition: ''
+            });
 
-            footer.appendChild(cancelBtn);
-            footer.appendChild(saveBtn);
+            overlay._store = store;
+            this._tagManagerStore = store;
 
-            content.appendChild(inputGroup);
-            content.appendChild(quickTagsContainer);
-            content.appendChild(tagsContainer);
-            content.appendChild(footer);
-            modalContainer.appendChild(header);
-            modalContainer.appendChild(content);
-            overlay.appendChild(modalContainer);
-            
-            // 添加到聊天窗口
-            if (this.chatWindow) {
-                this.chatWindow.appendChild(overlay);
-            } else {
-                document.body.appendChild(overlay);
+            if (typeof watch === 'function') {
+                watch(
+                    () => store.visible,
+                    (v) => {
+                        overlay.classList.toggle('js-visible', !!v);
+                    },
+                    { immediate: true }
+                );
             }
+
+            overlay._mountPromise = (async () => {
+                try {
+                    const mod = window.PetManager?.Components?.SessionTagManager;
+                    if (!mod || typeof mod.createComponent !== 'function') return;
+                    const template = canUseTemplate && typeof mod.loadTemplate === 'function' ? await mod.loadTemplate() : '';
+                    const ctor = mod.createComponent({ manager: this, store, template });
+                    if (!ctor) return;
+                    overlay._vueApp = createApp(ctor);
+                    overlay._vueInstance = overlay._vueApp.mount(mountEl);
+                } catch (e) {
+                    try {
+                        console.error('初始化会话标签组件失败:', e);
+                    } catch (_) {}
+                }
+            })();
+
+            if (this.chatWindow) this.chatWindow.appendChild(overlay);
+            else document.body.appendChild(overlay);
         };
 
         /**
          * 加载标签到管理器
          */
         proto.loadTagsIntoManager = function(sessionId, tags) {
-            const overlay = document.querySelector('#pet-tag-manager');
-            if (!overlay) return;
-
-            const tagsContainer = overlay.querySelector('.tag-manager-tags');
-            if (!tagsContainer) return;
-
-            tagsContainer.innerHTML = '';
-
-            // 使用临时标签数据
-            if (!overlay._currentTags) overlay._currentTags = [];
-            if (tags) {
-                overlay._currentTags = [...tags];
-            }
-            const currentTags = overlay._currentTags;
-
-            if (!currentTags || currentTags.length === 0) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'tag-manager-empty-msg';
-                emptyMsg.textContent = '暂无标签';
-                tagsContainer.appendChild(emptyMsg);
-                // 更新快捷标签按钮状态
-                this.updateQuickTagButtons(overlay, currentTags);
-                return;
-            }
-
-            const tagColorCount = 8;
-
-            currentTags.forEach((tag, index) => {
-                const colorIndex = index % tagColorCount;
-                const tagItem = document.createElement('div');
-                tagItem.className = `tag-manager-tag-item tag-color-${colorIndex}`;
-                tagItem.dataset.tagName = tag;
-                tagItem.dataset.tagIndex = index;
-                tagItem.draggable = true;
-
-                const tagText = document.createElement('span');
-                tagText.textContent = tag;
-
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'tag-remove-btn';
-                removeBtn.innerHTML = '✕';
-                removeBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    const sessionId = overlay.dataset.sessionId;
-                    if (sessionId) {
-                        this.removeTag(sessionId, index);
-                    }
-                });
-
-                // 防止删除按钮触发拖拽
-                removeBtn.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                });
-
-                // 拖拽功能（与 YiWeb 一致）
-                tagItem.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', tag);
-                    e.dataTransfer.setData('application/tag-index', index.toString());
-                    tagItem.classList.add('tag-dragging');
-                });
-
-                tagItem.addEventListener('dragend', (e) => {
-                    tagItem.classList.remove('tag-dragging');
-                    const allTagItems = tagsContainer.querySelectorAll('.tag-manager-tag-item');
-                    allTagItems.forEach(item => {
-                        item.classList.remove('tag-drag-over-top', 'tag-drag-over-bottom', 'tag-drag-hover');
-                    });
-                });
-
-                tagItem.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.dataTransfer.dropEffect = 'move';
-
-                    if (tagItem.classList.contains('tag-dragging')) {
-                        return;
-                    }
-
-                    const rect = tagItem.getBoundingClientRect();
-                    const midY = rect.top + rect.height / 2;
-
-                    const allTagItems = tagsContainer.querySelectorAll('.tag-manager-tag-item');
-                    allTagItems.forEach(item => {
-                        if (!item.classList.contains('tag-dragging')) {
-                            item.classList.remove('tag-drag-over-top', 'tag-drag-over-bottom', 'tag-drag-hover');
-                        }
-                    });
-
-                    if (e.clientY < midY) {
-                        tagItem.classList.add('tag-drag-over-top');
-                        tagItem.classList.remove('tag-drag-over-bottom');
-                    } else {
-                        tagItem.classList.add('tag-drag-over-bottom');
-                        tagItem.classList.remove('tag-drag-over-top');
-                    }
-
-                    tagItem.classList.add('tag-drag-hover');
-                });
-
-                tagItem.addEventListener('dragleave', (e) => {
-                    const rect = tagItem.getBoundingClientRect();
-                    const x = e.clientX;
-                    const y = e.clientY;
-
-                    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-                        tagItem.classList.remove('tag-drag-over-top', 'tag-drag-over-bottom', 'tag-drag-hover');
-                    }
-                });
-
-                tagItem.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    const draggedTag = e.dataTransfer.getData('text/plain');
-                    const draggedIndex = parseInt(e.dataTransfer.getData('application/tag-index') || '0', 10);
-                    const targetIndex = parseInt(tagItem.dataset.tagIndex || '0', 10);
-
-                    if (draggedTag === tag || draggedIndex === targetIndex) {
-                        return;
-                    }
-
-                    const sessionId = overlay.dataset.sessionId;
-                    if (!sessionId) return;
-
-                    if (!overlay._currentTags) return;
-                    const currentTags = overlay._currentTags;
-
-                    const rect = tagItem.getBoundingClientRect();
-                    const midY = rect.top + rect.height / 2;
-                    let insertIndex = targetIndex;
-                    if (e.clientY < midY) {
-                        insertIndex = targetIndex;
-                    } else {
-                        insertIndex = targetIndex + 1;
-                    }
-
-                    if (draggedIndex < insertIndex) {
-                        insertIndex -= 1;
-                    }
-
-                    const newTags = [...currentTags];
-                    newTags.splice(draggedIndex, 1);
-                    newTags.splice(insertIndex, 0, draggedTag);
-
-                    overlay._currentTags = newTags;
-                    this.loadTagsIntoManager(sessionId, newTags);
-                    this.updateQuickTagButtons(overlay, newTags);
-                });
-
-                tagItem.appendChild(tagText);
-                tagItem.appendChild(removeBtn);
-                tagsContainer.appendChild(tagItem);
-            });
-
-            // 更新快捷标签按钮状态
-            this.updateQuickTagButtons(overlay, currentTags);
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store) return;
+            store.sessionId = String(sessionId || '').trim() || store.sessionId;
+            const normalized = (Array.isArray(tags) ? tags : []).map((t) => String(t ?? '').trim()).filter((t) => t);
+            store.currentTags = normalized;
         };
 
         /**
          * 更新快捷标签按钮状态
          */
         proto.updateQuickTagButtons = function(overlay, currentTags) {
-            if (!overlay) return;
-
-            const quickTagButtons = overlay.querySelectorAll('.tag-manager-quick-tag-btn');
-            quickTagButtons.forEach(btn => {
-                const tagName = btn.dataset.tagName;
-                const isAdded = currentTags && currentTags.includes(tagName);
-
-                btn.classList.toggle('added', !!isAdded);
-                btn.disabled = !!isAdded;
-            });
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store) return;
+            store.quickTags = Array.isArray(store.quickTags) ? store.quickTags : [];
         };
 
         /**
          * 刷新快捷标签列表
          */
         proto.refreshQuickTags = function(overlay) {
-            if (!overlay) return;
-
-            const quickTagsContainer = overlay.querySelector('.tag-manager-quick-tags');
-            if (!quickTagsContainer) return;
-
-            // 获取所有标签
-            const getAllTags = () => {
-                const tagSet = new Set();
-                const sessions = this.sessions || {};
-                Object.values(sessions).forEach(session => {
-                    if (session && session.tags && Array.isArray(session.tags)) {
-                        session.tags.forEach(tag => {
-                            if (tag && tag.trim()) {
-                                tagSet.add(tag.trim());
-                            }
-                        });
-                    }
-                });
-
-                const allTagsArray = Array.from(tagSet);
-                allTagsArray.sort();
-                return allTagsArray;
-            };
-
-            const quickTags = getAllTags();
-            quickTagsContainer.innerHTML = '';
-
-            if (quickTags.length === 0) {
-                const emptyHint = document.createElement('div');
-                emptyHint.className = 'tag-manager-empty-msg';
-                emptyHint.textContent = '暂无可用标签';
-                quickTagsContainer.appendChild(emptyHint);
-                return;
-            }
-
-            const sessionId = overlay.dataset.sessionId;
-            const session = this.sessions[sessionId];
-            const currentTags = overlay._currentTags || session?.tags || [];
-
-            quickTags.forEach(tagName => {
-                const isAdded = currentTags && currentTags.includes(tagName);
-                const quickTagBtn = document.createElement('button');
-                quickTagBtn.textContent = tagName;
-                quickTagBtn.className = isAdded ? 'tag-manager-quick-tag-btn added' : 'tag-manager-quick-tag-btn';
-                quickTagBtn.dataset.tagName = tagName;
-                quickTagBtn.disabled = !!isAdded;
-
-                quickTagBtn.addEventListener('click', () => {
-                    if (isAdded) {
-                        return;
-                    }
-                    const sessionId = overlay.dataset.sessionId;
-                    if (sessionId) {
-                        this.addQuickTag(sessionId, tagName);
-                    }
-                });
-                quickTagsContainer.appendChild(quickTagBtn);
-            });
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store) return;
+            const quickTags = typeof this.getAllTags === 'function' ? this.getAllTags() : [];
+            store.quickTags = Array.isArray(quickTags) ? quickTags.map((t) => String(t ?? '').trim()).filter((t) => t) : [];
         };
 
         /**
          * 从输入框添加标签
          */
         proto.addTagFromInput = function(sessionId) {
-            const overlay = document.querySelector('#pet-tag-manager');
-            if (!overlay) return;
-
-            const tagInput = overlay.querySelector('.tag-manager-input');
-            if (!tagInput) return;
-
-            const tagName = tagInput.value.trim();
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store) return;
+            const tagName = String(store.inputValue || '').trim();
             if (!tagName) return;
-
-            // 使用临时标签数据
-            if (!overlay._currentTags) overlay._currentTags = [];
-            const currentTags = overlay._currentTags;
-
-            // 检查标签是否已存在
-            if (currentTags.includes(tagName)) {
-                tagInput.value = '';
-                tagInput.focus();
+            if (!Array.isArray(store.currentTags)) store.currentTags = [];
+            if (store.currentTags.includes(tagName)) {
+                store.inputValue = '';
                 return;
             }
-
-            // 添加标签
-            currentTags.push(tagName);
-            tagInput.value = '';
-            tagInput.focus();
-
-            // 重新加载标签列表
-            this.loadTagsIntoManager(sessionId, currentTags);
-
-            // 如果添加了新标签，刷新快捷标签列表
-            setTimeout(() => {
-                const overlay = document.querySelector('#pet-tag-manager');
-                if (overlay) {
-                    this.refreshQuickTags(overlay);
-                }
-            }, 100);
+            store.currentTags.push(tagName);
+            store.inputValue = '';
+            this.refreshQuickTags();
         };
 
         /**
          * 添加快捷标签
          */
         proto.addQuickTag = function(sessionId, tagName) {
-            const overlay = document.querySelector('#pet-tag-manager');
-            if (!overlay) return;
-
-            // 使用临时标签数据
-            if (!overlay._currentTags) overlay._currentTags = [];
-            const currentTags = overlay._currentTags;
-
-            // 检查标签是否已存在
-            if (currentTags.includes(tagName)) {
-                return;
-            }
-
-            // 添加标签
-            currentTags.push(tagName);
-
-            // 重新加载标签列表
-            this.loadTagsIntoManager(sessionId, currentTags);
-
-            // 更新快捷标签按钮状态
-            this.updateQuickTagButtons(overlay, currentTags);
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store) return;
+            const t = String(tagName ?? '').trim();
+            if (!t) return;
+            if (!Array.isArray(store.currentTags)) store.currentTags = [];
+            if (store.currentTags.includes(t)) return;
+            store.currentTags.push(t);
         };
 
         /**
          * 移除标签
          */
         proto.removeTag = function(sessionId, index) {
-            const overlay = document.querySelector('#pet-tag-manager');
-            if (!overlay) return;
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store || !Array.isArray(store.currentTags)) return;
+            store.currentTags.splice(index, 1);
+            this.refreshQuickTags();
+        };
 
-            // 使用临时标签数据
-            if (!overlay._currentTags) return;
-            const currentTags = overlay._currentTags;
-
-            currentTags.splice(index, 1);
-            this.loadTagsIntoManager(sessionId, currentTags);
-
-            // 更新快捷标签按钮状态
-            this.updateQuickTagButtons(overlay, currentTags);
-
-            // 如果删除的标签不再被任何会话使用，刷新快捷标签列表
-            setTimeout(() => {
-                this.refreshQuickTags(overlay);
-            }, 100);
+        proto.reorderTag = function (sessionId, fromIndex, toIndex) {
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store || !Array.isArray(store.currentTags)) return;
+            const tags = store.currentTags;
+            const from = Number(fromIndex);
+            let to = Number(toIndex);
+            if (!Number.isFinite(from) || !Number.isFinite(to)) return;
+            if (from < 0 || from >= tags.length) return;
+            to = Math.max(0, Math.min(tags.length, to));
+            if (to === from) return;
+            const item = tags[from];
+            tags.splice(from, 1);
+            tags.splice(to, 0, item);
         };
 
         /**
@@ -610,15 +288,12 @@
             }
 
             try {
-                const overlay = document.querySelector('#pet-tag-manager');
-                if (!overlay) return;
-
                 const session = this.sessions[sessionId];
                 
-                // 从临时标签数据获取
                 let newTags = [];
-                if (overlay?._currentTags) {
-                    newTags = [...overlay._currentTags];
+                const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+                if (store && Array.isArray(store.currentTags)) {
+                    newTags = [...store.currentTags];
                 } else if (session.tags) {
                     newTags = [...session.tags];
                 }
@@ -810,20 +485,15 @@
          * 关闭标签管理器
          */
         proto.closeTagManager = async function() {
-            const overlay = document.querySelector('#pet-tag-manager');
-            if (overlay) {
-                overlay.classList.remove('js-visible');
-                
-                // 清空临时数据
-                if (overlay?._currentTags) {
-                    delete overlay._currentTags;
-                }
-                
-                const tagInput = overlay?.querySelector('.tag-manager-input');
-                if (tagInput) {
-                    tagInput.value = '';
-                }
-            }
+            const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store;
+            if (!store) return;
+            store.visible = false;
+            store.sessionId = '';
+            store.inputValue = '';
+            store.currentTags = [];
+            store.draggingIndex = -1;
+            store.dragOverIndex = -1;
+            store.dragOverPosition = '';
         };
     
     console.log('[TagManager] 所有方法已添加到原型');

@@ -69,4 +69,3 @@ if (typeof module !== "undefined" && module.exports) {
         self.WeWorkService = new WeWorkService();
     }
 }
-

@@ -137,4 +137,3 @@ if (typeof module !== "undefined" && module.exports) {
         self.MessageRouter = MessageRouter;
     }
 }
-

@@ -40,7 +40,6 @@ class InjectionService {
         'src/features/petManager/content/components/ai/AiSettingsModal/index.js',
         'src/features/petManager/content/modules/petManager.ai.js',
         'src/features/petManager/content/modules/petManager.sessionEditor.js',
-        'src/features/petManager/content/modules/petManager.requestEditor.js',
         'src/features/petManager/content/modules/petManager.editor.js',
         'src/features/petManager/content/modules/petManager.mermaid.js',
         'src/features/petManager/content/components/sessionTagManager/SessionTagManager/index.js',

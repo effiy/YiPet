@@ -46,7 +46,6 @@
         "src/features/petManager/content/components/ai/AiSettingsModal/index.js",
         "src/features/petManager/content/modules/petManager.ai.js",
         "src/features/petManager/content/modules/petManager.sessionEditor.js",
-        "src/features/petManager/content/modules/petManager.requestEditor.js",
         "src/features/petManager/content/modules/petManager.editor.js",
         "src/features/petManager/content/modules/petManager.mermaid.js",
         "src/features/petManager/content/components/sessionTagManager/SessionTagManager/index.js",
@@ -171,6 +170,7 @@
         "src/features/petManager/content/components/chatWindow/ChatMessages/index.html",
         "src/features/petManager/content/components/auth/TokenSettingsModal/index.html",
         "src/features/petManager/content/components/ai/AiSettingsModal/index.html",
+        "src/features/petManager/content/components/sessionEditor/SessionInfoEditor/index.html",
         "src/features/faq/content/components/FaqManager/index.html",
         "src/features/faq/content/components/FaqTagManager/index.html"
       ],

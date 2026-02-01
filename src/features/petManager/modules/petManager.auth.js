@@ -50,126 +50,115 @@
     // 打开鉴权对话框（使用友好的弹框 UI）
     proto.openAuth = async function() {
         return new Promise((resolve) => {
-            // 如果已经存在弹框，先关闭
-            const existingModal = document.getElementById('token-settings-modal');
-            if (existingModal) {
-                existingModal.remove();
+            try {
+                this.closeTokenSettingsModal(null, { suppressResolve: true });
+            } catch (_) {}
+
+            this.ensureTokenSettingsUi();
+            const modal = document.getElementById('token-settings-modal');
+            if (!modal) {
+                resolve(null);
+                return;
             }
 
-            // 获取当前 token
-            const curToken = this.getApiToken();
-
-            // 创建模态框
-            const modal = document.createElement('div');
-            modal.id = 'token-settings-modal';
-            modal.className = 'token-settings-modal';
-            try {
-                const zIndex = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal)
-                    ? PET_CONFIG.ui.zIndex.modal
-                    : 2147483649;
-                modal.style.zIndex = String(zIndex);
-            } catch (e) {}
-
-            // 创建弹框容器
-            const container = document.createElement('div');
-            container.className = 'token-settings-container';
-
-            // 创建标题
-            const title = document.createElement('h3');
-            title.innerHTML = '🔑 设置 X-Token';
-            title.className = 'token-settings-title';
-
-            // 创建说明文字
-            const description = document.createElement('p');
-            description.textContent = '请输入 X-Token 以访问 api.effiy.cn 服务';
-            description.className = 'token-settings-description';
-
-            // 创建输入框容器
-            const inputContainer = document.createElement('div');
-            inputContainer.className = 'auth-input-container';
-
-            // 创建输入框
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = '请输入 X-Token';
-            input.value = curToken || '';
-            input.className = 'auth-input';
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    saveButton.click();
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    cancelButton.click();
-                }
-            });
-
-            // 创建按钮容器
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'auth-button-container';
-
-            // 保存按钮
-            const saveButton = document.createElement('button');
-            saveButton.textContent = '保存';
-            saveButton.className = 'auth-save-btn';
-            saveButton.addEventListener('click', async () => {
-                const token = input.value.trim();
-                if (!token) {
-                    input.classList.add('invalid');
-                    input.focus();
-                    return;
-                }
-
-                // 保存 token
-                await this.saveApiToken(token);
-
-                // 关闭弹框
-                modal.remove();
-
-                // 配置完立即尝试刷新会话列表
-                if (typeof this.manualRefresh === 'function') {
-                    this.manualRefresh();
-                }
-
-                resolve(token);
-            });
-
-            // 取消按钮
-            const cancelButton = document.createElement('button');
-            cancelButton.textContent = '取消';
-            cancelButton.className = 'auth-cancel-btn';
-            cancelButton.addEventListener('click', () => {
-                modal.remove();
+            const store = modal._store;
+            if (!store) {
                 resolve(null);
-            });
+                return;
+            }
 
-            // 点击背景关闭
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.remove();
-                    resolve(null);
-                }
-            });
-
-            // 组装弹框
-            inputContainer.appendChild(input);
-            buttonContainer.appendChild(saveButton);
-            buttonContainer.appendChild(cancelButton);
-
-            container.appendChild(title);
-            container.appendChild(description);
-            container.appendChild(inputContainer);
-            container.appendChild(buttonContainer);
-
-            modal.appendChild(container);
-            document.body.appendChild(modal);
-
-            // 自动聚焦输入框
-            setTimeout(() => {
-                input.focus();
-                input.select();
-            }, 100);
+            store.token = this.getApiToken() || '';
+            store.invalid = false;
+            modal._resolve = resolve;
         });
+    };
+
+    proto.ensureTokenSettingsUi = function() {
+        const existing = document.getElementById('token-settings-modal');
+        if (existing) return;
+
+        const Vue = window.Vue || {};
+        const { createApp, reactive } = Vue;
+        if (typeof createApp !== 'function' || typeof reactive !== 'function') {
+            return;
+        }
+
+        const canUseTemplate = (() => {
+            if (typeof Vue?.compile !== 'function') return false;
+            try {
+                Function('return 1')();
+                return true;
+            } catch (_) {
+                return false;
+            }
+        })();
+
+        const modal = document.createElement('div');
+        modal.id = 'token-settings-modal';
+        modal.className = 'token-settings-modal';
+        try {
+            const zIndex = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal)
+                ? PET_CONFIG.ui.zIndex.modal
+                : 2147483649;
+            modal.style.zIndex = String(zIndex);
+        } catch (_) {}
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeTokenSettingsModal(null);
+            }
+        });
+
+        const mountEl = document.createElement('div');
+        modal.appendChild(mountEl);
+
+        const store = reactive({
+            token: '',
+            invalid: false
+        });
+
+        modal._store = store;
+
+        modal._mountPromise = (async () => {
+            try {
+                const mod = window.PetManager?.Components?.TokenSettingsModal;
+                if (!mod || typeof mod.createComponent !== 'function') return;
+                const template = canUseTemplate && typeof mod.loadTemplate === 'function' ? await mod.loadTemplate() : '';
+                const ctor = mod.createComponent({ manager: this, store, template });
+                if (!ctor) return;
+                modal._vueApp = createApp(ctor);
+                modal._vueInstance = modal._vueApp.mount(mountEl);
+            } catch (_) {}
+        })();
+
+        document.body.appendChild(modal);
+    };
+
+    proto.closeTokenSettingsModal = function(token, options = {}) {
+        const modal = document.getElementById('token-settings-modal');
+        if (!modal) return;
+
+        const suppressResolve = !!options.suppressResolve;
+        const resolve = modal._resolve;
+        modal._resolve = null;
+
+        try {
+            if (modal._vueApp) {
+                modal._vueApp.unmount();
+            }
+        } catch (_) {}
+        modal._vueApp = null;
+        modal._vueInstance = null;
+
+        try {
+            modal.remove();
+        } catch (_) {}
+
+        if (!suppressResolve && typeof resolve === 'function') {
+            try {
+                resolve(token ?? null);
+            } catch (_) {}
+        }
     };
 
     // 检查并提示设置 token（如果未设置则自动弹出设置框）

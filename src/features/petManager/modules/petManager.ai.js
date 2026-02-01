@@ -12,84 +12,91 @@
 
     proto.showSettingsModal = function() {
         if (!this.chatWindow) return;
-        const existing = this.chatWindow.querySelector('#pet-ai-settings');
-        if (existing) existing.remove();
-        const overlay = document.createElement('div');
-        overlay.id = 'pet-ai-settings';
-        overlay.style.setProperty('z-index', `${PET_CONFIG.ui.zIndex.modal}`, 'important');
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-                const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-                const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-                if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-                if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
-            }
-        });
-        const panel = document.createElement('div');
-        const title = document.createElement('div');
-        title.className = 'pet-ai-settings-title';
-        title.innerHTML = `⚙️ AI 设置`;
-        const row = document.createElement('div');
-        row.className = 'pet-ai-settings-row';
-        const label = document.createElement('label');
-        label.className = 'pet-ai-settings-label';
-        label.textContent = '模型';
-        const select = document.createElement('select');
-        select.className = 'pet-ai-settings-select';
+        this.ensureAiSettingsUi();
+        const overlay = this.chatWindow.querySelector('#pet-ai-settings');
+        if (!overlay) return;
+        const store = overlay._store;
+        if (!store) return;
+
         const models = (PET_CONFIG.chatModels && Array.isArray(PET_CONFIG.chatModels.models)) ? PET_CONFIG.chatModels.models : [];
-        models.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = `${m.icon || ''} ${m.name || m.id}`;
-            select.appendChild(opt);
-        });
-        select.value = this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
-        row.appendChild(label);
-        row.appendChild(select);
-        const buttons = document.createElement('div');
-        buttons.className = 'pet-ai-settings-buttons';
-        const tokenBtn = document.createElement('button');
-        tokenBtn.className = 'pet-ai-settings-token-btn';
-        tokenBtn.textContent = '设置 Token';
-        tokenBtn.addEventListener('click', () => {
-            this.openAuth && this.openAuth();
-        });
-        const saveBtn = document.createElement('button');
-        saveBtn.className = 'pet-ai-settings-save-btn';
-        saveBtn.textContent = '保存';
-        saveBtn.addEventListener('click', () => {
-            this.currentModel = select.value;
-            this.saveState && this.saveState();
-            overlay.remove();
-            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-            if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
-            this.showNotification && this.showNotification('模型已更新', 'success');
-        });
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'pet-ai-settings-cancel-btn';
-        cancelBtn.textContent = '取消';
-        cancelBtn.addEventListener('click', () => {
-            overlay.remove();
-            const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
-            const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
-            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
-            if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
-        });
-        buttons.appendChild(tokenBtn);
-        buttons.appendChild(cancelBtn);
-        buttons.appendChild(saveBtn);
-        panel.appendChild(title);
-        panel.appendChild(row);
-        panel.appendChild(buttons);
-        overlay.appendChild(panel);
-        this.chatWindow.appendChild(overlay);
+        store.models = models;
+        store.selectedModel = this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
+
         const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
         const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
         if (sidebarToggleBtn) sidebarToggleBtn.classList.add('tw-hidden');
         if (inputToggleBtn) inputToggleBtn.classList.add('tw-hidden');
+    };
+
+    proto.ensureAiSettingsUi = function() {
+        if (!this.chatWindow) return;
+        const existing = this.chatWindow.querySelector('#pet-ai-settings');
+        if (existing) return;
+
+        const Vue = window.Vue || {};
+        const { createApp, reactive } = Vue;
+        if (typeof createApp !== 'function' || typeof reactive !== 'function') return;
+
+        const canUseTemplate = (() => {
+            if (typeof Vue?.compile !== 'function') return false;
+            try {
+                Function('return 1')();
+                return true;
+            } catch (_) {
+                return false;
+            }
+        })();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'pet-ai-settings';
+        try {
+            overlay.style.setProperty('z-index', `${PET_CONFIG.ui.zIndex.modal}`, 'important');
+        } catch (_) {}
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.closeAiSettingsModal();
+            }
+        });
+
+        const store = reactive({
+            selectedModel: '',
+            models: []
+        });
+        overlay._store = store;
+
+        overlay._mountPromise = (async () => {
+            try {
+                const mod = window.PetManager?.Components?.AiSettingsModal;
+                if (!mod || typeof mod.createComponent !== 'function') return;
+                const template = canUseTemplate && typeof mod.loadTemplate === 'function' ? await mod.loadTemplate() : '';
+                const ctor = mod.createComponent({ manager: this, store, template });
+                if (!ctor) return;
+                overlay._vueApp = createApp(ctor);
+                overlay._vueInstance = overlay._vueApp.mount(overlay);
+            } catch (_) {}
+        })();
+
+        this.chatWindow.appendChild(overlay);
+    };
+
+    proto.closeAiSettingsModal = function() {
+        if (!this.chatWindow) return;
+        const overlay = this.chatWindow.querySelector('#pet-ai-settings');
+        if (!overlay) return;
+
+        try {
+            if (overlay._vueApp) overlay._vueApp.unmount();
+        } catch (_) {}
+
+        try {
+            overlay.remove();
+        } catch (_) {}
+
+        const sidebarToggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn');
+        const inputToggleBtn = this.chatWindow?.querySelector('#input-container-toggle-btn');
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('tw-hidden');
+        if (inputToggleBtn) inputToggleBtn.classList.remove('tw-hidden');
     };
 
     // 去除 think 内容（思考过程）

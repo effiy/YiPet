@@ -1,0 +1,21 @@
+<template id="yi-pet-token-settings-modal-template">
+  <div class="token-settings-container" @click.stop>
+    <h3 class="token-settings-title">🔑 设置 X-Token</h3>
+    <p class="token-settings-description">请输入 X-Token 以访问 api.effiy.cn 服务</p>
+    <div class="auth-input-container">
+      <input
+        ref="tokenInputEl"
+        type="text"
+        placeholder="请输入 X-Token"
+        class="auth-input"
+        :class="{ invalid: !!store.invalid }"
+        v-model="store.token"
+        @keydown="onKeydown"
+      />
+    </div>
+    <div class="auth-button-container">
+      <button type="button" class="auth-save-btn" @click="save">保存</button>
+      <button type="button" class="auth-cancel-btn" @click="cancel">取消</button>
+    </div>
+  </div>
+</template>

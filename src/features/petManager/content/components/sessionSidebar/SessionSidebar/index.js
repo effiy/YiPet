@@ -104,16 +104,38 @@
         );
     }
 
+    function createSessionSearchFallbackElement(manager) {
+        const row = document.createElement('div');
+        row.className = 'session-sidebar-search-row';
+
+        const container = document.createElement('div');
+        container.className = 'session-search-container';
+
+        const input = document.createElement('input');
+        input.id = 'session-search-input';
+        input.className = 'session-search-input';
+        input.type = 'text';
+        input.placeholder = '搜索会话...';
+        input.value = String(manager?.sessionTitleFilter || '');
+
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'session-search-clear-btn';
+        clearBtn.textContent = '✕';
+        if (String(manager?.sessionTitleFilter || '').trim()) {
+            clearBtn.classList.add('visible');
+        }
+
+        container.appendChild(input);
+        container.appendChild(clearBtn);
+        row.appendChild(container);
+        return row;
+    }
+
     function createSidebarHeaderElement(manager) {
         const header = document.createElement('div');
         header.className = 'session-sidebar-header';
-
-        const SessionSearchModule = window.PetManager?.Components?.SessionSearch;
-        const searchRow =
-            SessionSearchModule && typeof SessionSearchModule.createSearchElement === 'function'
-                ? SessionSearchModule.createSearchElement(manager || {})
-                : null;
-        if (searchRow) header.appendChild(searchRow);
+        header.appendChild(createSessionSearchFallbackElement(manager || {}));
 
         return header;
     }
@@ -182,11 +204,7 @@
         const scrollableContent = document.createElement('div');
         scrollableContent.className = 'session-sidebar-scrollable-content';
 
-        const TagFilterModule = window.PetManager?.Components?.TagFilter;
-        const tagFilterContainer =
-            TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function'
-                ? TagFilterModule.createTagFilterElement(manager || {})
-                : createTagFilterFallbackElement();
+        const tagFilterContainer = createTagFilterFallbackElement();
         if (tagFilterContainer) scrollableContent.appendChild(tagFilterContainer);
 
         scrollableContent.appendChild(createSessionActionsRowElement());
@@ -262,14 +280,10 @@
                         if (!el) return;
                         el.innerHTML = resolvedTemplate;
 
-                        const sessionSearchEl = el.querySelector('sessionsearch');
-                        if (sessionSearchEl) {
-                            const sessionSearchModule = window.PetManager?.Components?.SessionSearch;
-                            if (sessionSearchModule && typeof sessionSearchModule.createSearchElement === 'function') {
-                                sessionSearchEl.replaceWith(sessionSearchModule.createSearchElement(manager || {}));
-                            } else {
-                                sessionSearchEl.remove();
-                            }
+                        while (true) {
+                            const sessionSearchEl = el.querySelector('sessionsearch');
+                            if (!sessionSearchEl) break;
+                            sessionSearchEl.replaceWith(createSessionSearchFallbackElement(manager || {}));
                         }
 
                         const searchInput = el.querySelector('#session-search-input');

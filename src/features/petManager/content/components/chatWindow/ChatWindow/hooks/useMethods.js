@@ -703,14 +703,11 @@
                 const hasVueTagFilter =
                     !!tagMount.querySelector('[data-pet-tag-filter="vue"]') || !!sidebarEl.querySelector('[data-pet-tag-filter="vue"]');
                 if (!hasVueTagFilter) {
-                    const TagFilterModule = window.PetManager?.Components?.TagFilter;
                     const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar;
                     const tagFilterContainer =
-                        TagFilterModule && typeof TagFilterModule.createTagFilterElement === 'function'
-                            ? TagFilterModule.createTagFilterElement(manager)
-                            : SessionSidebarModule && typeof SessionSidebarModule.createTagFilterFallbackElement === 'function'
-                              ? SessionSidebarModule.createTagFilterFallbackElement()
-                              : null;
+                        SessionSidebarModule && typeof SessionSidebarModule.createTagFilterFallbackElement === 'function'
+                            ? SessionSidebarModule.createTagFilterFallbackElement()
+                            : null;
                     if (tagFilterContainer) tagMount.replaceWith(tagFilterContainer);
                 }
             }

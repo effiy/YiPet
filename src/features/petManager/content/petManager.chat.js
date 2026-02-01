@@ -192,6 +192,10 @@
             }
 
             await this.createChatWindow();
+            if (!this.chatWindow) {
+                console.warn('聊天窗口创建失败，跳过后续初始化');
+                return;
+            }
             this.isChatOpen = true;
             this.hasLoadedSessionsForChat = true;
 

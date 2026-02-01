@@ -18,7 +18,7 @@
         // Ensure components namespace exists
         if (!window.PetManager.Components || !window.PetManager.Components.ChatWindow) {
             console.error('PetManager: ChatWindow component not found');
-            return;
+            return null;
         }
 
         // Create instance if not exists
@@ -28,8 +28,11 @@
 
         // Create the window
         this.chatWindow = await this.chatUiComponent.create();
-        
-        // 设置 chatWindowComponent 引用（用于侧边栏控制等方法）
+        if (!this.chatWindow) {
+            console.error('PetManager: ChatWindow create() returned null');
+            return null;
+        }
+
         this.chatWindowComponent = this.chatUiComponent;
         
         // Add to document if not already added
@@ -65,6 +68,7 @@
             };
             chrome.storage.onChanged.addListener(this.roleConfigChangeListener);
         }
+        return this.chatWindow;
     }
 
     // 更新消息容器的底部padding（公共方法）- 已移除，由CSS处理

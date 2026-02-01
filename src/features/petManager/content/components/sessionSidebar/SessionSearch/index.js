@@ -69,40 +69,8 @@
         });
     }
 
-    /**
-     * 创建 fallback 模式下的 session-search DOM（无 Vue 时使用，如 ChatWindow.createSidebar）
-     * 事件由 ChatWindow._bindSidebarDomEvents 在侧栏上统一绑定。
-     * @param {Object} manager - PetManager 实例
-     * @returns {HTMLElement} session-sidebar-search-row 根元素
-     */
-    function createSearchElement(manager) {
-        const template = String(sessionSearchTemplateCache || '').trim();
-        const resolved =
-            template ||
-            '<div class="session-sidebar-search-row"><div class="session-search-container"><input id="session-search-input" class="session-search-input" type="text" placeholder="搜索会话..." /><button type="button" class="session-search-clear-btn">✕</button></div></div>';
-
-        const tpl = document.createElement('template');
-        tpl.innerHTML = resolved;
-        const root = tpl.content.firstElementChild;
-        if (!root) return document.createElement('div');
-
-        const searchInput = root.querySelector('#session-search-input');
-        if (searchInput) {
-            searchInput.value = String(manager?.sessionTitleFilter || '');
-        }
-
-        const clearBtn = root.querySelector('.session-search-clear-btn');
-        if (clearBtn) {
-            const visible = !!String(manager?.sessionTitleFilter || '').trim();
-            clearBtn.classList.toggle('visible', visible);
-        }
-
-        return root;
-    }
-
     window.PetManager.Components.SessionSearch = {
         loadTemplate,
-        createComponent,
-        createSearchElement
+        createComponent
     };
 })();

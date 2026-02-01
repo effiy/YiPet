@@ -27,10 +27,10 @@ try {
  */
 try {
     // 加载通用工具（供 service/handler 复用）
-    importScripts('../utils/loggerUtils.js');
-    importScripts('../utils/errorHandler.js');
-    importScripts('../utils/moduleUtils.js');
-    importScripts('../utils/globalAccessor.js');
+    importScripts('../utils/logging/loggerUtils.js');
+    importScripts('../utils/error/errorHandler.js');
+    importScripts('../utils/runtime/moduleUtils.js');
+    importScripts('../utils/runtime/globalAccessor.js');
 
     // 加载服务
     importScripts('services/tabMessaging.js');

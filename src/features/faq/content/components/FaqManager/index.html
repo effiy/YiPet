@@ -214,8 +214,28 @@
                             @click="onFaqInsert(faq)"
                             @keydown="onFaqKeydown($event, faq)"
                         >
-                            <div class="pet-faq-item-header">
-                                <div class="pet-faq-item-title">{{ faq.title || '常见问题' }}</div>
+                            <div class="pet-faq-item-title-row">
+                                <div class="pet-faq-item-title">{{ faq.title || faq.text || '常见问题' }}</div>
+                            </div>
+
+                            <div class="pet-faq-item-meta-row">
+                                <div
+                                    v-if="Array.isArray(faq.tags) && faq.tags.length > 0"
+                                    class="pet-faq-item-tags"
+                                    aria-label="问题标签"
+                                >
+                                    <button
+                                        v-for="tag in faq.tags"
+                                        :key="tag"
+                                        type="button"
+                                        class="pet-faq-item-tag"
+                                        :aria-label="'筛选标签：' + tag"
+                                        @click.stop="toggleTag(tag)"
+                                    >
+                                        {{ tag }}
+                                    </button>
+                                </div>
+
                                 <div class="pet-faq-item-actions">
                                     <button
                                         type="button"
@@ -251,19 +271,6 @@
                                         {{ store.deletingFaqKeys[faq.key] ? '删除中...' : '删除' }}
                                     </button>
                                 </div>
-                            </div>
-
-                            <div v-if="Array.isArray(faq.tags) && faq.tags.length > 0" class="pet-faq-item-tags" aria-label="问题标签">
-                                <button
-                                    v-for="tag in faq.tags"
-                                    :key="tag"
-                                    type="button"
-                                    class="pet-faq-item-tag"
-                                    :aria-label="'筛选标签：' + tag"
-                                    @click.stop="toggleTag(tag)"
-                                >
-                                    {{ tag }}
-                                </button>
                             </div>
 
                             <div class="pet-faq-item-prompt">{{ faq.prompt || '' }}</div>

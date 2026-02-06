@@ -689,8 +689,11 @@
 .pet-faq-item {
     border: 1px solid rgba(148, 163, 184, 0.16) !important;
     background: rgba(0,0,0,0.18) !important;
-    border-radius: 16px !important;
-    padding: 12px !important;
+    border-radius: 14px !important;
+    padding: 12px 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
     cursor: pointer !important;
     transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease !important;
 }
@@ -710,7 +713,22 @@
     display: flex !important;
     align-items: flex-start !important;
     justify-content: space-between !important;
+    gap: 12px !important;
+    min-width: 0 !important;
+}
+
+.pet-faq-item-title-row {
+    display: flex !important;
+    align-items: flex-start !important;
+    min-width: 0 !important;
+}
+
+.pet-faq-item-meta-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     gap: 10px !important;
+    min-width: 0 !important;
 }
 
 .pet-faq-item-title {
@@ -719,13 +737,19 @@
     font-size: 14px !important;
     line-height: 1.4 !important;
     min-width: 0 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    word-break: break-word !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
 }
 
 .pet-faq-item-actions {
     display: inline-flex !important;
     flex-wrap: wrap !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 6px !important;
     flex-shrink: 0 !important;
 }
 
@@ -733,9 +757,9 @@
     border: 1px solid rgba(148, 163, 184, 0.22) !important;
     background: rgba(15, 23, 42, 0.35) !important;
     color: rgba(226, 232, 240, 0.9) !important;
-    border-radius: 10px !important;
-    padding: 6px 10px !important;
-    font-size: 12px !important;
+    border-radius: 9px !important;
+    padding: 5px 9px !important;
+    font-size: 11px !important;
     cursor: pointer !important;
     transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
 }
@@ -768,7 +792,9 @@
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 8px !important;
-    margin-top: 10px !important;
+    margin-top: 0 !important;
+    min-width: 0 !important;
+    flex: 1 !important;
 }
 
 .pet-faq-item-tag {
@@ -788,12 +814,16 @@
 }
 
 .pet-faq-item-prompt {
-    margin-top: 10px !important;
-    color: rgba(226, 232, 240, 0.86) !important;
+    margin-top: 0 !important;
+    color: rgba(148, 163, 184, 0.9) !important;
     font-size: 13px !important;
-    line-height: 1.65 !important;
-    white-space: pre-wrap !important;
+    line-height: 1.6 !important;
+    white-space: pre-line !important;
     word-break: break-word !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 3 !important;
 }
 
 @media (max-width: 720px) {
@@ -1272,16 +1302,10 @@
 
 /* 上下文编辑器撤销按钮 */
 #pet-context-editor #pet-context-undo-btn {
-    padding: 4px 12px !important;
-    border-radius: 4px !important;
     border: 1px solid rgba(245, 158, 11, 0.35) !important;
     background: rgba(245, 158, 11, 0.16) !important;
     color: var(--warning, #f59e0b) !important;
-    cursor: pointer !important;
-    font-size: 12px !important;
-    white-space: nowrap !important;
     display: none !important;
-    transition: all 0.2s !important;
 }
 
 #pet-context-editor #pet-context-undo-btn.js-visible {
@@ -1346,14 +1370,15 @@
     white-space: nowrap !important;
 }
 
-#pet-context-editor .chat-toolbar-btn:hover:not([data-refreshing]):not([data-saving]):not([data-translating]) {
+#pet-context-editor .chat-toolbar-btn:hover:not([data-refreshing]):not([data-saving]):not([data-translating]):not([data-optimizing]) {
     background: rgba(255,255,255,0.12) !important;
     border-color: rgba(255,255,255,0.25) !important;
 }
 
 #pet-context-editor .chat-toolbar-btn[data-refreshing],
 #pet-context-editor .chat-toolbar-btn[data-saving],
-#pet-context-editor .chat-toolbar-btn[data-translating] {
+#pet-context-editor .chat-toolbar-btn[data-translating],
+#pet-context-editor .chat-toolbar-btn[data-optimizing] {
     opacity: 0.6 !important;
     cursor: not-allowed !important;
 }
@@ -1368,6 +1393,59 @@
     background: rgba(244, 67, 54, 0.2) !important;
     color: #ef4444 !important;
     border-color: rgba(244, 67, 54, 0.4) !important;
+}
+
+#pet-context-editor .chat-toolbar-btn[data-status="warn"] {
+    background: rgba(245, 158, 11, 0.18) !important;
+    color: #f59e0b !important;
+    border-color: rgba(245, 158, 11, 0.42) !important;
+}
+
+#pet-context-editor #pet-context-refresh-btn[data-refreshing]::after {
+    content: '' !important;
+    width: 10px !important;
+    height: 10px !important;
+    display: inline-block !important;
+    margin-left: 6px !important;
+    border-radius: 999px !important;
+    border: 2px solid rgba(229, 231, 235, 0.35) !important;
+    border-top-color: rgba(229, 231, 235, 0.95) !important;
+    vertical-align: -1px !important;
+    animation: pet-context-spin 0.8s linear infinite !important;
+}
+
+#pet-context-editor #pet-context-refresh-btn[data-confirm] {
+    animation: pet-context-pulse 0.9s ease-in-out infinite !important;
+}
+
+#pet-context-editor #pet-context-optimize-btn {
+    border-color: rgba(76, 175, 80, 0.3) !important;
+    background: rgba(76, 175, 80, 0.15) !important;
+    color: #22c55e !important;
+}
+
+#pet-context-editor #pet-context-optimize-btn:hover:not([data-optimizing]) {
+    filter: brightness(1.05) !important;
+}
+
+#pet-context-editor[data-flash] #pet-context-editor-textarea,
+#pet-context-editor[data-flash] #pet-context-preview {
+    animation: pet-context-flash 0.42s ease-out !important;
+}
+
+@keyframes pet-context-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pet-context-pulse {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-1px) scale(1.03); }
+}
+
+@keyframes pet-context-flash {
+    0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+    40% { box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.22); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
 }
 
 #pet-context-editor #pet-context-undo-btn:hover {

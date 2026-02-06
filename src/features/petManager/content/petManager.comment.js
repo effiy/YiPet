@@ -16,49 +16,49 @@
             {
                 id: 'analyze',
                 label: '代码分析',
-                icon: 'fa-code',
+                icon: '🔎',
                 prompt: '请对这段代码进行详细分析，包括：\n1. 代码功能和逻辑\n2. 潜在问题和风险\n3. 优化建议\n4. 最佳实践建议'
             },
             {
                 id: 'review',
                 label: '代码审查',
-                icon: 'fa-check-circle',
+                icon: '✅',
                 prompt: '请对这段代码进行代码审查，重点关注：\n1. 代码质量和可读性\n2. 性能问题\n3. 安全性问题\n4. 是否符合编码规范'
             },
             {
                 id: 'explain',
                 label: '代码解释',
-                icon: 'fa-question-circle',
+                icon: '🧩',
                 prompt: '请详细解释这段代码的工作原理，包括：\n1. 代码的执行流程\n2. 关键概念和原理\n3. 各个部分的作用\n4. 使用场景和示例'
             },
             {
                 id: 'optimize',
                 label: '性能优化',
-                icon: 'fa-tachometer-alt',
+                icon: '⚡️',
                 prompt: '请分析这段代码的性能问题并提供优化建议：\n1. 性能瓶颈识别\n2. 优化方案\n3. 优化后的预期效果\n4. 注意事项'
             },
             {
                 id: 'refactor',
                 label: '重构建议',
-                icon: 'fa-sync-alt',
+                icon: '🛠️',
                 prompt: '请提供代码重构建议：\n1. 代码结构问题\n2. 重构方案\n3. 重构步骤\n4. 重构后的优势'
             },
             {
                 id: 'bug-fix',
                 label: 'Bug修复',
-                icon: 'fa-bug',
+                icon: '🐛',
                 prompt: '请分析这段代码可能存在的Bug：\n1. 潜在的Bug点\n2. Bug原因分析\n3. 修复方案\n4. 预防措施'
             },
             {
                 id: 'test',
                 label: '测试建议',
-                icon: 'fa-vial',
+                icon: '🧪',
                 prompt: '请为这段代码提供测试建议：\n1. 测试用例设计\n2. 边界情况测试\n3. 测试覆盖范围\n4. 测试工具推荐'
             },
             {
                 id: 'document',
                 label: '文档生成',
-                icon: 'fa-file-alt',
+                icon: '📝',
                 prompt: '请为这段代码生成文档：\n1. 功能说明\n2. 参数说明\n3. 返回值说明\n4. 使用示例'
             }
         ];
@@ -66,25 +66,11 @@
 
     // 加载Font Awesome CSS
     proto.loadFontAwesome = function() {
-        // 检查是否已加载
-        if (document.getElementById('pet-fa-stylesheet')) {
-            return;
-        }
-
-        // 创建link标签加载Font Awesome
-        const link = document.createElement('link');
-        link.id = 'pet-fa-stylesheet';
-        link.rel = 'stylesheet';
-        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
-        link.crossOrigin = 'anonymous';
-        document.head.appendChild(link);
+        return;
     };
 
     // 初始化划词评论功能
     proto.initCommentFeature = function() {
-        // 加载Font Awesome CSS（如果尚未加载）
-        this.loadFontAwesome();
-        
         // 创建评论弹框容器
         this.createCommentContainer();
         
@@ -132,19 +118,19 @@
         container.innerHTML = `
             <div class="quick-comment-header" data-drag-handle>
                 <div class="quick-comment-title">
-                    <i class="fas fa-comment-dots"></i>
+                    <span class="quick-comment-title-icon">💬</span>
                     <span>添加评论</span>
                 </div>
                 <div class="quick-comment-header-actions">
                     <button type="button" class="quick-comment-close" title="关闭 (Esc)" aria-label="关闭">
-                        <i class="fas fa-times"></i>
+                        ✕
                     </button>
                 </div>
             </div>
 
             <div class="quick-comment-quote" id="pet-quick-comment-quote" style="display: none;">
                 <div class="quick-comment-quote-label">
-                    <i class="fas fa-code"></i>
+                    <span class="quick-comment-quote-icon">⌘</span>
                     <span>引用代码</span>
                 </div>
                 <div class="quick-comment-quote-code" id="pet-quick-comment-quote-code"></div>
@@ -160,7 +146,7 @@
                         rows="1"
                     ></textarea>
                     <div class="quick-comment-error" id="pet-quick-comment-error" style="display: none;">
-                        <i class="fas fa-exclamation-circle"></i>
+                        <span class="quick-comment-error-icon">⚠️</span>
                         <span></span>
                     </div>
                 </div>
@@ -170,11 +156,11 @@
             <div class="quick-comment-ai-response" id="pet-quick-comment-ai-response" style="display: none;">
                 <div class="quick-comment-ai-response-header">
                     <div class="quick-comment-ai-response-title">
-                        <i class="fas fa-sparkles"></i>
+                        <span class="quick-comment-ai-response-icon">✨</span>
                         <span>AI 回复</span>
                     </div>
                     <button type="button" class="quick-comment-ai-response-close" id="pet-quick-comment-ai-response-close" title="关闭">
-                        <i class="fas fa-times"></i>
+                        ✕
                     </button>
                 </div>
                 <div class="quick-comment-ai-response-content" id="pet-quick-comment-ai-response-content">
@@ -194,8 +180,8 @@
                     <span>打开</span>
                 </div>
                 <button type="button" class="quick-comment-submit-btn" id="pet-quick-comment-submit">
-                    <i class="fas fa-paper-plane"></i>
-                    <span>提交</span>
+                    <span class="quick-comment-submit-icon">📨</span>
+                    <span class="quick-comment-submit-text">提交</span>
                 </button>
             </div>
             
@@ -572,10 +558,10 @@
 
         // 根据 YiWeb 的预设配置，定义要显示的预设
         const presetConfig = [
-            { id: 'review', icon: 'fa-search', label: '代码审查' },
-            { id: 'optimize', icon: 'fa-lightbulb', label: '改进建议' },
-            { id: 'explain', icon: 'fa-info-circle', label: '解释代码' },
-            { id: 'bug-fix', icon: 'fa-bug', label: '查找问题' }
+            { id: 'review', icon: '🔍', label: '代码审查' },
+            { id: 'optimize', icon: '💡', label: '改进建议' },
+            { id: 'explain', icon: 'ℹ️', label: '解释代码' },
+            { id: 'bug-fix', icon: '🐛', label: '查找问题' }
         ];
 
         presetConfig.forEach(config => {
@@ -583,7 +569,7 @@
             btn.type = 'button';
             btn.className = 'ai-preset-btn';
             btn.dataset.presetId = config.id;
-            btn.innerHTML = `<i class="fas ${config.icon}"></i> ${config.label}`;
+            btn.innerHTML = `<span class="ai-preset-icon">${config.icon}</span> ${config.label}`;
             
             // 绑定点击事件
             btn.addEventListener('click', () => {
@@ -1487,9 +1473,9 @@
         const submitBtn = document.getElementById('pet-quick-comment-submit');
         if (submitBtn) {
             submitBtn.disabled = true;
-            const icon = submitBtn.querySelector('i');
-            const span = submitBtn.querySelector('span');
-            if (icon) icon.className = 'fas fa-spinner fa-spin';
+            const icon = submitBtn.querySelector('.quick-comment-submit-icon');
+            const span = submitBtn.querySelector('.quick-comment-submit-text');
+            if (icon) icon.textContent = '⏳';
             if (span) span.textContent = '提交中...';
         }
 
@@ -1661,9 +1647,9 @@
             this.commentState.quickCommentSubmitting = false;
             if (submitBtn) {
                 submitBtn.disabled = false;
-                const icon = submitBtn.querySelector('i');
-                const span = submitBtn.querySelector('span');
-                if (icon) icon.className = 'fas fa-paper-plane';
+                const icon = submitBtn.querySelector('.quick-comment-submit-icon');
+                const span = submitBtn.querySelector('.quick-comment-submit-text');
+                if (icon) icon.textContent = '📨';
                 if (span) span.textContent = '提交';
             }
         }
@@ -1719,4 +1705,3 @@
     };
 
 })();
-

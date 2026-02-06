@@ -64,7 +64,9 @@
         optimizeBtn.id = 'pet-context-optimize-btn';
         optimizeBtn.textContent = '✨ 智能优化';
         optimizeBtn.setAttribute('title', '智能优化上下文内容');
-        optimizeBtn.className = 'context-optimize-btn';
+        optimizeBtn.setAttribute('aria-label', '智能优化上下文内容');
+        optimizeBtn.setAttribute('type', 'button');
+        optimizeBtn.className = 'chat-toolbar-btn context-optimize-btn';
         optimizeBtn.addEventListener('click', async () => {
             await this.optimizeContext();
         });
@@ -72,7 +74,10 @@
         const undoBtn = document.createElement('button');
         undoBtn.id = 'pet-context-undo-btn';
         undoBtn.textContent = '↶ 撤销';
-        undoBtn.setAttribute('title', '撤销优化');
+        undoBtn.setAttribute('title', '撤销');
+        undoBtn.setAttribute('aria-label', '撤销');
+        undoBtn.setAttribute('type', 'button');
+        undoBtn.className = 'chat-toolbar-btn context-undo-btn';
         // 样式已通过 CSS 类定义
         undoBtn.addEventListener('click', () => {
             const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
@@ -82,7 +87,8 @@
                     textarea.value = originalText;
                     textarea.dispatchEvent(new Event('input', { bubbles: true }));
                     undoBtn.classList.remove('js-visible');
-                    this.showNotification('已撤销优化', 'info');
+                    const notificationText = textarea.getAttribute('data-undo-notification') || '已撤销';
+                    this.showNotification(notificationText, 'info');
                 }
             }
         });
@@ -96,24 +102,70 @@
         refreshBtn.className = 'chat-toolbar-btn';
         refreshBtn.setAttribute('title', '拉取当前网页上下文');
         refreshBtn.setAttribute('aria-label', '拉取当前网页上下文');
-        refreshBtn.textContent = '刷新';
+        refreshBtn.textContent = '拉取';
+        let refreshConfirmTimer = null;
         refreshBtn.addEventListener('click', async () => {
             if (refreshBtn.hasAttribute('data-refreshing')) return;
 
+            const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+            const isDirty = !!textarea &&
+                textarea.getAttribute('data-user-edited') === '1' &&
+                String(textarea.value || '').trim().length > 0;
+
+            if (isDirty && !refreshBtn.hasAttribute('data-confirm')) {
+                refreshBtn.setAttribute('data-confirm', 'true');
+                refreshBtn.setAttribute('data-status', 'warn');
+                refreshBtn.textContent = '确认拉取';
+                this.showNotification('再次点击将覆盖当前编辑内容', 'warning');
+                if (refreshConfirmTimer) clearTimeout(refreshConfirmTimer);
+                refreshConfirmTimer = setTimeout(() => {
+                    refreshBtn.removeAttribute('data-confirm');
+                    refreshBtn.removeAttribute('data-status');
+                    refreshBtn.textContent = '拉取';
+                }, 2500);
+                return;
+            }
+
+            refreshBtn.removeAttribute('data-confirm');
+            if (refreshConfirmTimer) {
+                clearTimeout(refreshConfirmTimer);
+                refreshConfirmTimer = null;
+            }
+
             refreshBtn.setAttribute('data-refreshing', 'true');
             refreshBtn.removeAttribute('data-status');
-            const originalText = refreshBtn.textContent;
-            refreshBtn.textContent = '拉取中...';
+            refreshBtn.textContent = '拉取中';
+
+            const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
+            if (textarea) {
+                textarea.setAttribute('data-original-text', textarea.value || '');
+                textarea.setAttribute('data-undo-notification', '已撤销拉取');
+                if (undoBtn) undoBtn.setAttribute('title', '撤销拉取');
+            }
+
+            try {
+                await new Promise((resolve) => requestAnimationFrame(resolve));
+            } catch (_) {}
 
             try {
                 await this.refreshContextFromPage();
 
                 // 显示成功提示
-                refreshBtn.textContent = '✓ 已更新';
+                refreshBtn.textContent = '✓ 已拉取';
                 refreshBtn.setAttribute('data-status', 'success');
 
+                if (undoBtn && textarea) {
+                    undoBtn.classList.add('js-visible');
+                }
+
+                const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
+                if (overlay) {
+                    overlay.setAttribute('data-flash', 'true');
+                    setTimeout(() => overlay.removeAttribute('data-flash'), 420);
+                }
+
                 setTimeout(() => {
-                    refreshBtn.textContent = originalText;
+                    refreshBtn.textContent = '拉取';
                     refreshBtn.removeAttribute('data-refreshing');
                     refreshBtn.removeAttribute('data-status');
                 }, 2000);
@@ -125,7 +177,7 @@
                 refreshBtn.setAttribute('data-status', 'error');
 
                 setTimeout(() => {
-                    refreshBtn.textContent = originalText;
+                    refreshBtn.textContent = '拉取';
                     refreshBtn.removeAttribute('data-refreshing');
                     refreshBtn.removeAttribute('data-status');
                 }, 2000);
@@ -224,6 +276,9 @@
         preview.addEventListener('touchmove', (e) => { e.stopPropagation(); }, { passive: true });
         // 编辑时实时更新预览（防抖）
         textarea.addEventListener('input', () => {
+            try {
+                textarea.setAttribute('data-user-edited', '1');
+            } catch (_) {}
             if (this._contextPreviewTimer) clearTimeout(this._contextPreviewTimer);
             this._contextPreviewTimer = setTimeout(() => {
                 this.updateContextPreview();
@@ -268,6 +323,12 @@
         const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
         if (undoBtn) {
             undoBtn.classList.remove('js-visible');
+            undoBtn.setAttribute('title', '撤销');
+        }
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
+        if (textarea) {
+            textarea.removeAttribute('data-original-text');
+            textarea.removeAttribute('data-undo-notification');
         }
         // 默认并排模式
         this._contextPreviewMode = this._contextPreviewMode || 'split';
@@ -366,6 +427,18 @@
         }
 
         try {
+            const waitFor = async (predicate, timeoutMs) => {
+                const timeout = Math.max(0, Number(timeoutMs) || 0);
+                const start = Date.now();
+                while (true) {
+                    try {
+                        if (predicate()) return true;
+                    } catch (_) {}
+                    if (timeout && Date.now() - start > timeout) return false;
+                    await new Promise(r => setTimeout(r, 30));
+                }
+            };
+
             // 如果指定的会话不是当前会话，先切换到该会话
             if (this.currentSessionId !== sessionId) {
                 console.log('切换到会话以显示上下文:', sessionId);
@@ -386,8 +459,10 @@
                     this.currentSessionId = sessionId;
                 }
 
-                // 等待会话切换完成
-                await new Promise(resolve => setTimeout(resolve, 100));
+                const switched = await waitFor(() => this.currentSessionId === sessionId, 1500);
+                if (!switched) {
+                    throw new Error('会话切换超时');
+                }
                 
                 // 切换会话后，调用 read-file 接口获取页面上下文
                 if (typeof this.fetchSessionPageContent === 'function') {
@@ -461,6 +536,8 @@
 
             // 更新编辑器内容
             textarea.value = pageContent || '';
+            textarea.setAttribute('data-user-edited', '0');
+            textarea.setAttribute('data-last-synced-text', textarea.value || '');
 
             // 更新预览
             this.updateContextPreview();
@@ -807,6 +884,8 @@
             }
 
             console.log('页面上下文已保存到会话:', this.currentSessionId);
+            textarea.setAttribute('data-user-edited', '0');
+            textarea.setAttribute('data-last-synced-text', textarea.value || '');
             return true;
         } catch (error) {
             console.error('保存页面上下文失败:', error);
@@ -918,9 +997,13 @@
                 const md = this.getPageContentAsMarkdown();
                 textarea.value = md || '';
             }
+            textarea.setAttribute('data-user-edited', '0');
+            textarea.setAttribute('data-last-synced-text', textarea.value || '');
         } catch (e) {
             console.error('加载页面上下文到编辑器失败:', e);
             textarea.value = '获取页面上下文失败。';
+            textarea.setAttribute('data-user-edited', '0');
+            textarea.setAttribute('data-last-synced-text', textarea.value || '');
         }
     };
 
@@ -1294,4 +1377,3 @@
     };
 
 })(typeof window !== 'undefined' ? window : this);
-

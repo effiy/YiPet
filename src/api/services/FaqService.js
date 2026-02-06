@@ -56,8 +56,8 @@ class FaqService extends ApiManager {
         try {
             const data = this._normalizeFaqData(faqData);
             
-            if (!data.title && !data.prompt) {
-                throw new Error('FAQ数据无效：缺少 title 或 prompt 字段');
+            if (!data.title && !data.prompt && !data.text) {
+                throw new Error('FAQ数据无效：缺少 title、prompt 或 text 字段');
             }
             
             const payload = {
@@ -282,22 +282,45 @@ class FaqService extends ApiManager {
      * 规范化FAQ数据
      */
     _normalizeFaqData(faqData) {
+        const rawText = faqData && faqData.text != null ? String(faqData.text) : '';
+        const text = rawText.trim();
+
+        let title = String((faqData && faqData.title) || '').trim();
+        let prompt = String((faqData && faqData.prompt) || '').trim();
+
+        if (!title && !prompt && text) {
+            const normalizedText = text.replace(/\r\n/g, '\n');
+            const lines = normalizedText.split('\n');
+            title = String(lines[0] || '').trim();
+            prompt = String(lines.slice(1).join('\n') || '').trim();
+        }
+
         const normalized = {
-            key: faqData.key || `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-            title: String(faqData.title || ''),
-            prompt: String(faqData.prompt || ''),
-            tags: Array.isArray(faqData.tags) ? faqData.tags : [],
-            order: faqData.order !== undefined ? Number(faqData.order) : 0
+            key:
+                (faqData && (faqData.key || faqData.id || faqData._id)) ||
+                `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            title,
+            prompt,
+            text: text || (title && prompt ? `${title}\n\n${prompt}` : title),
+            tags: faqData && Array.isArray(faqData.tags) ? faqData.tags : [],
+            order: faqData && faqData.order !== undefined ? Number(faqData.order) : 0
         };
         
         // 自动生成标题
         if (!normalized.title && normalized.prompt) {
             normalized.title = normalized.prompt.slice(0, 40);
+            if (!normalized.text) {
+                normalized.text = normalized.title;
+            }
         }
         
         // 统一ID字段
         if (faqData.id && !faqData._id) {
             normalized._id = faqData.id;
+        }
+        
+        if (faqData && faqData.updatedTime != null) {
+            normalized.updatedTime = faqData.updatedTime;
         }
         
         return normalized;

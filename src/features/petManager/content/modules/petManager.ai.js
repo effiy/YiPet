@@ -915,22 +915,23 @@
         const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
         if (!textarea) return;
 
-        const originalText = textarea.value.trim();
+        const rawText = textarea.value || '';
+        const originalText = rawText.trim();
         if (!originalText) {
             this.showNotification('请先输入内容', 'warning');
             return;
         }
 
-        if (!textarea.hasAttribute('data-original-text')) {
-            textarea.setAttribute('data-original-text', originalText);
-        }
-
         const optimizeBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-optimize-btn') : null;
         const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
         const originalBtnText = optimizeBtn ? optimizeBtn.textContent : '';
+        textarea.setAttribute('data-original-text', rawText);
+        textarea.setAttribute('data-undo-notification', '已撤销优化');
+        if (undoBtn) undoBtn.setAttribute('title', '撤销优化');
 
         if (optimizeBtn) {
             optimizeBtn.disabled = true;
+            optimizeBtn.setAttribute('data-optimizing', 'true');
             optimizeBtn.textContent = '优化中...';
         }
 
@@ -1084,6 +1085,15 @@ ${originalText}
                 ? `（${originalCharCount}字 → ${charCount}字）`
                 : `（${charCount}字）`;
             this.showNotification(`优化完成 ${changeInfo}`, 'success');
+
+            if (optimizeBtn) {
+                optimizeBtn.setAttribute('data-status', 'success');
+                setTimeout(() => {
+                    try {
+                        optimizeBtn.removeAttribute('data-status');
+                    } catch (_) {}
+                }, 1600);
+            }
         } catch (error) {
             this._hideLoadingAnimation();
             console.error('优化上下文失败:', error);
@@ -1102,9 +1112,19 @@ ${originalText}
             }
 
             this.showNotification(errorMessage, 'error');
+
+            if (optimizeBtn) {
+                optimizeBtn.setAttribute('data-status', 'error');
+                setTimeout(() => {
+                    try {
+                        optimizeBtn.removeAttribute('data-status');
+                    } catch (_) {}
+                }, 2000);
+            }
         } finally {
             if (optimizeBtn) {
                 optimizeBtn.disabled = false;
+                optimizeBtn.removeAttribute('data-optimizing');
                 optimizeBtn.textContent = originalBtnText;
             }
         }
@@ -1115,18 +1135,19 @@ ${originalText}
         const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
         if (!textarea) return;
 
-        const originalText = textarea.value.trim();
+        const rawText = textarea.value || '';
+        const originalText = rawText.trim();
         if (!originalText) {
             this.showNotification('请先输入内容', 'warning');
             return;
         }
 
-        if (!textarea.hasAttribute('data-original-text')) {
-            textarea.setAttribute('data-original-text', originalText);
-        }
-
         const translateZhBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-zh-btn') : null;
         const translateEnBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-en-btn') : null;
+        const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
+        textarea.setAttribute('data-original-text', rawText);
+        textarea.setAttribute('data-undo-notification', '已撤销翻译');
+        if (undoBtn) undoBtn.setAttribute('title', '撤销翻译');
 
         if (translateZhBtn) {
             translateZhBtn.disabled = true;
@@ -1264,6 +1285,10 @@ ${originalText}
             textarea.value = translatedText;
             textarea.setAttribute('data-translated-text', translatedText);
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+            if (undoBtn) {
+                undoBtn.classList.add('js-visible');
+            }
 
             const charCount = translatedText.length;
             const originalCharCount = originalText.length;

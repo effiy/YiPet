@@ -554,8 +554,11 @@
                                       onKeydown: (e) => onFaqKeydown(e, faq)
                                   },
                                   [
-                                      h('div', { class: 'pet-faq-item-header' }, [
-                                          h('div', { class: 'pet-faq-item-title' }, faq?.title || '常见问题'),
+                                      h('div', { class: 'pet-faq-item-title-row' }, [
+                                          h('div', { class: 'pet-faq-item-title' }, faq?.title || faq?.text || '常见问题')
+                                      ]),
+                                      h('div', { class: 'pet-faq-item-meta-row' }, [
+                                          tagsRow,
                                           h('div', { class: 'pet-faq-item-actions' }, [
                                               h(
                                                   'button',
@@ -620,7 +623,6 @@
                                               )
                                           ])
                                       ]),
-                                      tagsRow,
                                       h('div', { class: 'pet-faq-item-prompt' }, faq?.prompt || '')
                                   ]
                               );

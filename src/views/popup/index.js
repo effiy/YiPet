@@ -43,7 +43,8 @@ class PopupController {
             color: PET_CONFIG.pet.defaultColorIndex,
             size: PET_CONFIG.pet.defaultSize,
             position: { x: 0, y: 0 },                 // 位置坐标
-            role: (PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS) ? PET_CONFIG.constants.DEFAULTS.PET_ROLE : '教师'
+            role: (PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS) ? PET_CONFIG.constants.DEFAULTS.PET_ROLE : '教师',
+            model: null
         };
         
         // 状态同步定时器ID
@@ -80,6 +81,8 @@ class PopupController {
             
             // 步骤2: 初始化UI事件监听器
             this.setupEventListeners();
+            this.setControlsEnabled(false);
+            this.setHintText('连接中…');
             
             // 步骤3: 检查并等待content script就绪（带重试）
             const isContentScriptReady = await this.initWithRetry(
@@ -117,6 +120,9 @@ class PopupController {
                     }
                 }
             );
+
+            this.setControlsEnabled(true);
+            this.setHintText('准备就绪');
             
             // 步骤5: 启动定期状态同步，确保UI与宠物状态保持一致
             this.startStatusSync();
@@ -177,6 +183,13 @@ class PopupController {
         // 事件映射配置：定义所有需要绑定事件的UI元素
         const eventMap = [
             { id: 'openChatBtn', event: 'click', handler: () => this.openChatWindow() },
+            { id: 'openQuickCommentBtn', event: 'click', handler: () => this.openQuickComment() },
+            { id: 'centerPetBtn', event: 'click', handler: () => this.centerPet() },
+            { id: 'resetPositionBtn', event: 'click', handler: () => this.resetPosition() },
+            { id: 'visibilityToggle', event: 'change', handler: (e) => this.toggleVisibility(e) },
+            { id: 'sizeSlider', event: 'input', handler: (e) => this.previewPetSize(parseInt(e.target.value)) },
+            { id: 'sizeSlider', event: 'change', handler: (e) => this.setPetSize(parseInt(e.target.value)) },
+            { id: 'roleSelect', event: 'change', handler: (e) => this.setPetRole(String(e.target.value || '教师')) },
             { id: 'colorSelect', event: 'change', handler: (e) => this.setPetColor(parseInt(e.target.value)) }
         ];
 
@@ -268,8 +281,21 @@ class PopupController {
      * 根据当前宠物状态更新所有UI元素的显示
      */
     updateUI() {
-        // 更新颜色和角色选择
+        const visibilityToggle = DomHelper.getElement('visibilityToggle');
+        if (visibilityToggle) {
+            visibilityToggle.checked = !!this.currentPetStatus.visible;
+        }
+
+        const sizeSlider = DomHelper.getElement('sizeSlider');
+        DomHelper.setValue(sizeSlider, this.currentPetStatus.size);
+        this.previewPetSize(this.currentPetStatus.size);
+
+        DomHelper.setValue(DomHelper.getElement('roleSelect'), this.currentPetStatus.role || '教师');
         DomHelper.setValue(DomHelper.getElement('colorSelect'), this.currentPetStatus.color);
+
+        const modelTextEl = DomHelper.getElement('modelText');
+        const model = this.currentPetStatus.model ? String(this.currentPetStatus.model) : '-';
+        DomHelper.setText(modelTextEl, `模型：${model}`);
         
         // 更新状态指示器
         this.updateStatusIndicator();
@@ -298,6 +324,190 @@ class PopupController {
         
         this.setButtonLoading('openChatBtn', false);
         return result;
+    }
+
+    previewPetSize(size) {
+        const normalized = Number.isFinite(size) ? size : this.currentPetStatus.size;
+        const el = DomHelper.getElement('sizeValue');
+        DomHelper.setText(el, `${normalized}px`);
+    }
+
+    async toggleVisibility(e) {
+        const el = e && e.target ? e.target : DomHelper.getElement('visibilityToggle');
+        if (el) el.disabled = true;
+
+        await ErrorHandler.safeExecute(async () => {
+            const response = await this.sendMessageToContentScript({ action: 'toggleVisibility' });
+            if (!response || response.success === false) {
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
+                    : '操作失败';
+                throw new Error(errorMsg);
+            }
+
+            this.currentPetStatus.visible = response.visible !== undefined ? response.visible : !this.currentPetStatus.visible;
+            await this.updateGlobalState();
+            this.updateUI();
+
+            const msg = this.currentPetStatus.visible
+                ? ((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.SHOWN : '已显示')
+                : ((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.HIDDEN : '已隐藏');
+            this.showNotification(msg, 'success');
+        }, { showNotification: true });
+
+        if (el) el.disabled = false;
+    }
+
+    async setPetSize(size) {
+        const min = (PET_CONFIG.pet && PET_CONFIG.pet.sizeLimits) ? PET_CONFIG.pet.sizeLimits.min : 80;
+        const max = (PET_CONFIG.pet && PET_CONFIG.pet.sizeLimits) ? PET_CONFIG.pet.sizeLimits.max : 400;
+        const normalized = Math.max(min, Math.min(max, Number(size)));
+        this.currentPetStatus.size = normalized;
+        this.previewPetSize(normalized);
+
+        await ErrorHandler.safeExecute(async () => {
+            await this.updateGlobalState();
+            const response = await this.sendMessageToContentScript({
+                action: 'changeSize',
+                size: normalized
+            });
+            if (!response || response.success === false) {
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
+                    : '操作失败';
+                throw new Error(errorMsg);
+            }
+            const nextSize = response.size !== undefined ? response.size : normalized;
+            this.currentPetStatus.size = nextSize;
+            await this.updateGlobalState();
+            this.updateUI();
+            this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.SIZE_UPDATED : '大小已更新', 'success');
+        }, { showNotification: true });
+    }
+
+    async setPetRole(role) {
+        const nextRole = role && String(role).trim() ? String(role).trim() : '教师';
+        this.currentPetStatus.role = nextRole;
+
+        await ErrorHandler.safeExecute(async () => {
+            await this.updateGlobalState();
+            const response = await this.sendMessageToContentScript({
+                action: 'setRole',
+                role: nextRole
+            });
+            if (!response || response.success === false) {
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
+                    : '操作失败';
+                throw new Error(errorMsg);
+            }
+            this.currentPetStatus.role = response.role || nextRole;
+            await this.updateGlobalState();
+            this.updateUI();
+            this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.ROLE_CHANGED : '角色已切换', 'success');
+        }, { showNotification: true });
+    }
+
+    async centerPet() {
+        this.setButtonLoading('centerPetBtn', true);
+
+        await ErrorHandler.safeExecute(async () => {
+            const response = await this.sendMessageToContentScript({ action: 'centerPet' });
+            if (!response || response.success === false) {
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
+                    : '操作失败';
+                throw new Error(errorMsg);
+            }
+            this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.CENTERED : '已居中', 'success');
+            await this.refreshStatus();
+        }, { showNotification: true });
+
+        this.setButtonLoading('centerPetBtn', false);
+    }
+
+    async resetPosition() {
+        this.setButtonLoading('resetPositionBtn', true);
+
+        await ErrorHandler.safeExecute(async () => {
+            const response = await this.sendMessageToContentScript({ action: 'resetPosition' });
+            if (!response || response.success === false) {
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
+                    : '操作失败';
+                throw new Error(errorMsg);
+            }
+            this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.POSITION_RESET : '位置已重置', 'success');
+            await this.refreshStatus();
+        }, { showNotification: true });
+
+        this.setButtonLoading('resetPositionBtn', false);
+    }
+
+    async openQuickComment() {
+        this.setButtonLoading('openQuickCommentBtn', true);
+
+        await ErrorHandler.safeExecute(async () => {
+            const response = await this.sendMessageToContentScript({ action: 'openQuickComment' });
+            if (!response || response.success === false) {
+                if (response && response.disabled) {
+                    this.showNotification('快评功能已关闭', 'warn');
+                    return;
+                }
+                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
+                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
+                    : '操作失败';
+                throw new Error(errorMsg);
+            }
+            this.showNotification('快评已打开', 'success');
+        }, { showNotification: true });
+
+        this.setButtonLoading('openQuickCommentBtn', false);
+    }
+
+    async refreshStatus() {
+        try {
+            const response = await this.sendMessageToContentScript({ action: 'getStatus' });
+            if (response && response.success !== false) {
+                this.currentPetStatus.visible = response.visible !== undefined ? response.visible : this.currentPetStatus.visible;
+                this.currentPetStatus.color = response.color !== undefined ? response.color : this.currentPetStatus.color;
+                this.currentPetStatus.size = response.size !== undefined ? response.size : this.currentPetStatus.size;
+                this.currentPetStatus.position = response.position || this.currentPetStatus.position;
+                this.currentPetStatus.role = response.role || this.currentPetStatus.role || '教师';
+                this.currentPetStatus.model = response.model !== undefined ? response.model : this.currentPetStatus.model;
+                this.updateUI();
+            }
+        } catch (_) {}
+    }
+
+    setHintText(text) {
+        const el = DomHelper.getElement('hintText');
+        DomHelper.setText(el, text);
+    }
+
+    setControlsEnabled(enabled) {
+        const main = DomHelper.getElement('mainContent');
+        if (main) {
+            if (enabled) main.classList.remove('popup-controls-disabled');
+            else main.classList.add('popup-controls-disabled');
+        }
+
+        const ids = [
+            'openChatBtn',
+            'openQuickCommentBtn',
+            'centerPetBtn',
+            'resetPositionBtn',
+            'visibilityToggle',
+            'sizeSlider',
+            'roleSelect',
+            'colorSelect'
+        ];
+
+        ids.forEach((id) => {
+            const el = DomHelper.getElement(id);
+            if (!el) return;
+            if ('disabled' in el) el.disabled = !enabled;
+        });
     }
     
     /**
@@ -419,6 +629,8 @@ class PopupController {
                     this.currentPetStatus.color = response.color !== undefined ? response.color : this.currentPetStatus.color;
                     this.currentPetStatus.size = response.size !== undefined ? response.size : this.currentPetStatus.size;
                     this.currentPetStatus.position = response.position || this.currentPetStatus.position;
+                    this.currentPetStatus.role = response.role || this.currentPetStatus.role || '教师';
+                    this.currentPetStatus.model = response.model !== undefined ? response.model : this.currentPetStatus.model;
                     
                     // 更新UI
                     this.updateUI();

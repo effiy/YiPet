@@ -4,54 +4,100 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>温柔陪伴助手</title>
-    <link rel="stylesheet" href="../../styles/base/theme.css">
-    <link rel="stylesheet" href="../../styles/tailwind.css">
-    <link rel="stylesheet" href="../../styles/popup.css">
+    <link rel="stylesheet" href="../../assets/styles/base/theme.css">
+    <link rel="stylesheet" href="../../assets/styles/tailwind.css">
+    <link rel="stylesheet" href="../../assets/styles/popup.css">
 </head>
 <body>
     <div class="popup-container">
         <header class="header">
             <div class="logo" data-icon="💕">
-                <h1>温柔陪伴</h1>
+                <div class="brand">
+                    <h1>温柔陪伴</h1>
+                    <div class="brand-sub" id="modelText">模型：-</div>
+                </div>
             </div>
             <div class="status-indicator" id="statusIndicator" role="status" aria-live="polite" aria-atomic="true">
-                <span class="status-text">已激活</span>
+                <span class="status-text">连接中…</span>
             </div>
         </header>
         
-        <main class="main-content">
-            <section class="control-section" aria-labelledby="basicControlsTitle">
-                <h2 id="basicControlsTitle">基本控制</h2>
-                <div class="control-group">
-                    <button id="openChatBtn" type="button" class="control-btn primary tw-btn tw-w-full tw-font-medium" data-icon="💬">
-                        <span class="btn-text">打开聊天窗口</span>
+        <main class="main-content" id="mainContent">
+            <section class="card" aria-labelledby="quickActionsTitle">
+                <div class="card-header">
+                    <h2 id="quickActionsTitle">快捷操作</h2>
+                </div>
+                <div class="action-grid" role="group" aria-label="快捷操作">
+                    <button id="openChatBtn" type="button" class="control-btn primary" data-icon="💬">
+                        <span class="btn-text">聊天</span>
+                    </button>
+                    <button id="openQuickCommentBtn" type="button" class="control-btn secondary" data-icon="⚡">
+                        <span class="btn-text">快评</span>
+                    </button>
+                    <button id="centerPetBtn" type="button" class="control-btn info" data-icon="🎯">
+                        <span class="btn-text">居中</span>
+                    </button>
+                    <button id="resetPositionBtn" type="button" class="control-btn warning" data-icon="↩️">
+                        <span class="btn-text">重置</span>
                     </button>
                 </div>
             </section>
-            
-            <section class="control-section" aria-labelledby="appearanceTitle">
-                <h2 id="appearanceTitle">外观设置</h2>
-                <div class="setting-group">
-                    <label for="colorSelect" class="setting-label" data-icon="🌈">
-                        颜色主题
-                    </label>
-                    <select id="colorSelect" class="select">
-                        <option value="0">量子蓝紫（主色）</option>
-                        <option value="1">靛蓝紫</option>
-                        <option value="2">量子海洋</option>
-                        <option value="3">量子森林</option>
-                        <option value="4">量子日落</option>
-                    </select>
+
+            <section class="card" aria-labelledby="petSettingsTitle">
+                <div class="card-header">
+                    <h2 id="petSettingsTitle">宠物设置</h2>
+                </div>
+
+                <div class="setting-list">
+                    <div class="setting-row">
+                        <div class="setting-meta">
+                            <div class="setting-label-inline">显示宠物</div>
+                            <div class="setting-desc">在当前标签页显示/隐藏</div>
+                        </div>
+                        <label class="switch" aria-label="显示宠物">
+                            <input id="visibilityToggle" type="checkbox" class="switch-input">
+                            <span class="switch-track" aria-hidden="true"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-row">
+                        <label for="sizeSlider" class="setting-label-inline">大小</label>
+                        <div class="slider-row">
+                            <input id="sizeSlider" class="slider" type="range" min="80" max="400" step="10">
+                            <span id="sizeValue" class="value-pill">-</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <label for="roleSelect" class="setting-label-inline">角色</label>
+                        <select id="roleSelect" class="select">
+                            <option value="教师">教师</option>
+                            <option value="医生">医生</option>
+                            <option value="甜品师">甜品师</option>
+                            <option value="警察">警察</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <label for="colorSelect" class="setting-label-inline">颜色主题</label>
+                        <select id="colorSelect" class="select">
+                            <option value="0">量子蓝紫（主色）</option>
+                            <option value="1">靛蓝紫</option>
+                            <option value="2">量子海洋</option>
+                            <option value="3">量子森林</option>
+                            <option value="4">量子日落</option>
+                        </select>
+                    </div>
                 </div>
             </section>
         </main>
         
         <footer class="footer">
             <div class="info-text">
-                <p>点击按钮打开聊天窗口</p>
+                <p id="hintText">准备就绪</p>
             </div>
             <div class="version">
-                <span>v1.1.0</span>
+                <span id="versionText">v1.1.0</span>
             </div>
         </footer>
     </div>
@@ -60,6 +106,7 @@
     <script src="../../utils/error/errorHandler.js"></script>
     <script src="../../utils/storage/storageUtils.js"></script>
     <script src="../../utils/dom/domHelper.js"></script>
+    <script src="../../utils/messaging/messageHelper.js"></script>
     <script src="../../config.js"></script>
     <script src="./index.js"></script>
 </body>

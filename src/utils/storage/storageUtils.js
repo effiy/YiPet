@@ -73,12 +73,27 @@ class StorageUtils {
      */
     normalizeState(state) {
         if (!state) return null;
-        
+
+        const fallbackPosition = (() => {
+            try {
+                if (typeof getPetDefaultPosition === 'function') return getPetDefaultPosition();
+            } catch (_) {}
+            try {
+                const cfgPos = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.pet && PET_CONFIG.pet.defaultPosition) ? PET_CONFIG.pet.defaultPosition : null;
+                if (cfgPos && typeof cfgPos === 'object') {
+                    const x = typeof cfgPos.x === 'number' ? cfgPos.x : 20;
+                    const y = typeof cfgPos.y === 'number' ? cfgPos.y : Math.round(window.innerHeight * 0.2);
+                    return { x, y };
+                }
+            } catch (_) {}
+            return { x: 20, y: Math.round(window.innerHeight * 0.2) };
+        })();
+
         return {
             visible: state.visible !== undefined ? state.visible : this.DEFAULT_VALUES.visible,
             color: state.color !== undefined ? state.color : this.DEFAULT_VALUES.color,
             size: state.size !== undefined ? state.size : this.DEFAULT_VALUES.size,
-            position: state.position || getPetDefaultPosition(),
+            position: state.position || fallbackPosition,
             role: state.role || this.DEFAULT_VALUES.role
         };
     }

@@ -62,6 +62,23 @@
                     if (typeof manager?.openAuth === 'function') manager.openAuth();
                 };
 
+                const onCloseClick = (e) => {
+                    stopEvent(e);
+                    if (typeof manager?.closeChatWindow === 'function') {
+                        manager.closeChatWindow();
+                        return;
+                    }
+                    if (typeof manager?.toggleChatWindowVisibility === 'function') {
+                        manager.toggleChatWindowVisibility();
+                        return;
+                    }
+                    const chatWindowElement = document.getElementById('pet-chat-window');
+                    if (chatWindowElement) {
+                        chatWindowElement.classList.add('js-hidden');
+                        chatWindowElement.setAttribute('hidden', '');
+                    }
+                };
+
                 const onAicrClick = (e) => {
                     stopEvent(e);
                     openExternal(
@@ -76,7 +93,7 @@
                     );
                 };
 
-                return { onAuthClick, onAicrClick, onNewsClick };
+                return { onAuthClick, onCloseClick, onAicrClick, onNewsClick };
             },
             template: resolvedTemplate
         });

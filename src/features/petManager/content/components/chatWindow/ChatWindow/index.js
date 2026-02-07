@@ -565,6 +565,27 @@
                 });
             }
 
+            const closeBtn = root.querySelector('#yi-pet-chat-close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', (e) => {
+                    stopEvent(e);
+                    if (typeof manager?.closeChatWindow === 'function') {
+                        manager.closeChatWindow();
+                        return;
+                    }
+                    if (typeof manager?.toggleChatWindowVisibility === 'function') {
+                        manager.toggleChatWindowVisibility();
+                        return;
+                    }
+                    const chatWindowElement = manager?.chatWindow || document.getElementById('pet-chat-window');
+                    if (chatWindowElement) {
+                        chatWindowElement.classList.add('js-hidden');
+                        chatWindowElement.setAttribute('hidden', '');
+                        if (manager) manager.isChatOpen = false;
+                    }
+                });
+            }
+
             const sidebarToggleBtn = root.querySelector('#sidebar-toggle-btn');
             if (sidebarToggleBtn) {
                 sidebarToggleBtn.addEventListener('click', (e) => {

@@ -142,10 +142,13 @@
             refreshBtn.textContent = '⏳';
 
             const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
+            if (undoBtn) {
+                undoBtn.classList.remove('js-visible');
+                undoBtn.setAttribute('title', '撤销');
+            }
             if (textarea) {
-                textarea.setAttribute('data-original-text', textarea.value || '');
-                textarea.setAttribute('data-undo-notification', '已撤销拉取');
-                if (undoBtn) undoBtn.setAttribute('title', '撤销拉取');
+                textarea.removeAttribute('data-original-text');
+                textarea.removeAttribute('data-undo-notification');
             }
 
             try {
@@ -158,10 +161,6 @@
                 // 显示成功提示
                 refreshBtn.textContent = '✅';
                 refreshBtn.setAttribute('data-status', 'success');
-
-                if (undoBtn && textarea) {
-                    undoBtn.classList.add('js-visible');
-                }
 
                 const overlay = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor') : null;
                 if (overlay) {

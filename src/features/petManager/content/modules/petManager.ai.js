@@ -923,11 +923,7 @@
         }
 
         const optimizeBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-optimize-btn') : null;
-        const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
         const originalBtnText = optimizeBtn ? optimizeBtn.textContent : '';
-        textarea.setAttribute('data-original-text', rawText);
-        textarea.setAttribute('data-undo-notification', '已撤销优化');
-        if (undoBtn) undoBtn.setAttribute('title', '撤销优化');
 
         if (optimizeBtn) {
             optimizeBtn.disabled = true;
@@ -1070,10 +1066,6 @@ ${originalText}
             textarea.setAttribute('data-optimized-text', optimizedText);
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-            if (undoBtn) {
-                undoBtn.classList.add('js-visible');
-            }
-
             const charCount = optimizedText.length;
             const originalCharCount = originalText.length;
             const changeInfo = charCount !== originalCharCount
@@ -1139,10 +1131,6 @@ ${originalText}
 
         const translateZhBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-zh-btn') : null;
         const translateEnBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-translate-en-btn') : null;
-        const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
-        textarea.setAttribute('data-original-text', rawText);
-        textarea.setAttribute('data-undo-notification', '已撤销翻译');
-        if (undoBtn) undoBtn.setAttribute('title', '撤销翻译');
 
         if (translateZhBtn) {
             translateZhBtn.disabled = true;
@@ -1280,10 +1268,6 @@ ${originalText}
             textarea.value = translatedText;
             textarea.setAttribute('data-translated-text', translatedText);
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
-
-            if (undoBtn) {
-                undoBtn.classList.add('js-visible');
-            }
 
             const charCount = translatedText.length;
             const originalCharCount = originalText.length;

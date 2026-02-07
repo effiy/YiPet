@@ -76,30 +76,7 @@
             await this.optimizeContext();
         });
 
-        const undoBtn = document.createElement('button');
-        undoBtn.id = 'pet-context-undo-btn';
-        undoBtn.textContent = '↶';
-        undoBtn.setAttribute('title', '撤销');
-        undoBtn.setAttribute('aria-label', '撤销');
-        undoBtn.setAttribute('type', 'button');
-        undoBtn.className = 'chat-toolbar-btn context-undo-btn';
-        // 样式已通过 CSS 类定义
-        undoBtn.addEventListener('click', () => {
-            const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
-            if (textarea) {
-                const originalText = textarea.getAttribute('data-original-text');
-                if (originalText !== null) {
-                    textarea.value = originalText;
-                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                    undoBtn.classList.remove('js-visible');
-                    const notificationText = textarea.getAttribute('data-undo-notification') || '已撤销';
-                    this.showNotification(notificationText, 'info');
-                }
-            }
-        });
-
         optimizeBtnGroup.appendChild(optimizeBtn);
-        optimizeBtnGroup.appendChild(undoBtn);
 
         // 拉取当前网页上下文按钮
         const refreshBtn = document.createElement('button');
@@ -141,11 +118,6 @@
             refreshBtn.removeAttribute('data-status');
             refreshBtn.textContent = '⏳';
 
-            const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
-            if (undoBtn) {
-                undoBtn.classList.remove('js-visible');
-                undoBtn.setAttribute('title', '撤销');
-            }
             if (textarea) {
                 textarea.removeAttribute('data-original-text');
                 textarea.removeAttribute('data-undo-notification');
@@ -257,10 +229,10 @@
         translateBtnGroup.appendChild(translateToZhBtn);
         translateBtnGroup.appendChild(translateToEnBtn);
 
-        headerBtns.appendChild(copyBtn);
+        headerBtns.appendChild(refreshBtn);
         headerBtns.appendChild(optimizeBtnGroup);
         headerBtns.appendChild(translateBtnGroup);
-        headerBtns.appendChild(refreshBtn);
+        headerBtns.appendChild(copyBtn);
         headerBtns.appendChild(saveBtn);
         headerBtns.appendChild(downloadBtn);
         headerBtns.appendChild(closeBtn);
@@ -327,11 +299,6 @@
         await this.loadContextIntoEditor();
         this.updateContextPreview();
         // 隐藏撤销按钮（打开编辑器时重置状态）
-        const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
-        if (undoBtn) {
-            undoBtn.classList.remove('js-visible');
-            undoBtn.setAttribute('title', '撤销');
-        }
         const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;
         if (textarea) {
             textarea.removeAttribute('data-original-text');

@@ -95,6 +95,26 @@
             }
 
             // 更新聊天窗口样式（确保高度等样式正确）
+            try {
+                const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+                const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+                const sizeLimits = PET_CONFIG?.chatWindow?.sizeLimits || {};
+                const minWidth = Number.isFinite(sizeLimits.minWidth) ? sizeLimits.minWidth : 300;
+                const maxWidth = Number.isFinite(sizeLimits.maxWidth) ? sizeLimits.maxWidth : viewportWidth;
+                const maxHeight = Number.isFinite(sizeLimits.maxHeight) ? sizeLimits.maxHeight : viewportHeight;
+
+                const computedWidth = Math.round(viewportWidth * 0.4);
+                const defaultWidth = Math.min(Math.max(computedWidth, minWidth), Math.min(maxWidth, viewportWidth));
+                const defaultHeight = Math.min(viewportHeight, Math.min(maxHeight, viewportHeight));
+
+                if (this.chatWindowState && !this.chatWindowState.isFullscreen) {
+                    const defaultPosition = getChatWindowDefaultPosition(defaultWidth, defaultHeight);
+                    this.chatWindowState.x = defaultPosition.x;
+                    this.chatWindowState.y = defaultPosition.y;
+                    this.chatWindowState.width = defaultWidth;
+                    this.chatWindowState.height = defaultHeight;
+                }
+            } catch (_) {}
             if (typeof this.updateChatWindowStyle === 'function') {
                 this.updateChatWindowStyle();
             }
@@ -157,14 +177,25 @@
         }
 
         // 初始化聊天窗口状态（先设置默认值）
-        const defaultSize = PET_CONFIG.chatWindow.defaultSize;
-        const defaultPosition = getChatWindowDefaultPosition(defaultSize.width, defaultSize.height);
+        const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+        const sizeLimits = PET_CONFIG?.chatWindow?.sizeLimits || {};
+        const minWidth = Number.isFinite(sizeLimits.minWidth) ? sizeLimits.minWidth : 300;
+        const maxWidth = Number.isFinite(sizeLimits.maxWidth) ? sizeLimits.maxWidth : viewportWidth;
+        const minHeight = Number.isFinite(sizeLimits.minHeight) ? sizeLimits.minHeight : 450;
+        const maxHeight = Number.isFinite(sizeLimits.maxHeight) ? sizeLimits.maxHeight : viewportHeight;
+
+        const computedWidth = Math.round(viewportWidth * 0.4);
+        const defaultWidth = Math.min(Math.max(computedWidth, minWidth), Math.min(maxWidth, viewportWidth));
+        const defaultHeight = Math.min(Math.max(viewportHeight, Math.min(minHeight, viewportHeight)), Math.min(maxHeight, viewportHeight));
+
+        const defaultPosition = getChatWindowDefaultPosition(defaultWidth, defaultHeight);
 
         this.chatWindowState = {
             x: defaultPosition.x,
             y: defaultPosition.y,
-            width: defaultSize.width,
-            height: defaultSize.height,
+            width: defaultWidth,
+            height: defaultHeight,
             isDragging: false,
             isResizing: false,
             resizeType: 'bottom-right', // 默认缩放类型

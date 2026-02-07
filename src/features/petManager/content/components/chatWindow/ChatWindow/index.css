@@ -83,7 +83,8 @@
                 left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     pointer-events: auto !important;
     min-height: 450px !important;
-    max-height: 90vh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
     overflow: hidden !important; /* 防止内容溢出 */
     
     /* Variables scope - 使用全局主题色变量 */

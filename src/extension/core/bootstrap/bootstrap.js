@@ -198,8 +198,8 @@ window.getPetDefaultPosition = function() {
 
 window.getChatWindowDefaultPosition = function(width, height) {
     return {
-        x: Math.max(0, (window.innerWidth - width) / 2),
-        y: Math.round(window.innerHeight * 0.12)
+        x: Math.max(0, window.innerWidth - width),
+        y: 0
     };
 };
 

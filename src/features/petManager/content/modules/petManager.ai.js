@@ -932,38 +932,33 @@
         if (optimizeBtn) {
             optimizeBtn.disabled = true;
             optimizeBtn.setAttribute('data-optimizing', 'true');
-            optimizeBtn.textContent = '优化中...';
+            optimizeBtn.textContent = '⏳';
         }
 
         try {
-            const systemPrompt = `你是一个专业的文档内容优化专家，擅长：
-1. 保留原文的核心信息和完整内容，不丢失重要信息
-2. 去除无意义的重复内容、冗余描述和无关信息
-3. 优化和清理HTML标签，将HTML内容转换为清晰的Markdown格式
-4. 优化文档结构和层次，使其逻辑清晰、层次分明
-5. 改进语言表达，使其更加流畅自然、易于理解
-6. 提升可读性，优化段落组织和过渡
-7. 确保Markdown格式规范美观，标题层级清晰
+            const systemPrompt = `你是一个专业的“页面上下文清理与排版”专家。
+你的任务不是总结或改写，而是：在不新增信息、不遗漏关键信息的前提下，把页面渲染后的上下文内容清理干净并排版成更易读的 Markdown。
 
-请优化页面上下文内容，重点保留原文信息，去除无意义内容，优化HTML标签。`;
+必须遵守：
+1. 不总结、不提炼、不下结论，不添加原文没有的新信息
+2. 尽量保持原文的信息顺序与层级，只做清理与格式化
+3. 删除与正文无关的内容：广告/赞助、导航菜单、推荐/相关阅读、评论区、页脚版权、Cookie/订阅/登录提示、分享按钮文案等
+4. 保留代码块、表格、列表、链接文字等结构；必要时仅做轻量的结构化（如把连续短句整理成列表）
+5. 输出必须是有效的 Markdown，且只输出 Markdown 正文，不要任何解释`;
 
             const userPrompt = `请优化以下页面上下文内容，要求：
 
 【核心要求】
-1. **必须保留原文的所有核心信息和完整内容**，不能丢失重要信息
-2. **去除无意义的重复内容、冗余描述、无关信息**（如重复的导航链接、广告文本、无意义的装饰性内容等）
-3. **优化HTML标签**：将HTML标签转换为清晰的Markdown格式，去除无用的HTML标签，但保留文本内容
-4. **优化文档结构**：使逻辑更清晰、层次更分明
-5. **改进语言表达**：使其更加流畅自然
-6. **提升可读性**：优化段落组织和过渡
-7. **保持Markdown格式有效性**：确保标题层级清晰，段落之间过渡自然
+1. **必须保留原文的核心信息与完整内容**，不能丢失重要信息（但可以删除明确无关的噪声）
+2. **内容尽量与页面渲染后的正文一致**：删除导航/侧边栏/页脚等非正文信息
+3. **去除广告等无关信息**：广告/赞助、推荐阅读、评论区、分享/关注/订阅/登录提示、Cookie 弹窗文案、版权声明等
+4. **智能格式化（不新增信息）**：修正标题层级、段落切分、列表化、表格排版、代码块保持不变，使阅读更顺畅
+5. **保持 Markdown 格式有效**：不要输出 HTML 标签；不要在内容前后加引号或说明文字
 
 【注意事项】
-- 不要添加原文中没有的新内容
-- 不要改变原文的核心意思
-- 去除HTML标签时，要保留标签内的文本内容
-- 去除无意义的导航、广告、重复性内容
-- 保持Markdown格式的规范性
+- 不要总结/提炼/改写成“摘要”
+- 不要改变原文的核心意思与信息顺序
+- 允许把“碎片化短句”整理成列表，但不能遗漏条目
 
 原始内容：
 ${originalText}
@@ -1153,14 +1148,14 @@ ${originalText}
             translateZhBtn.disabled = true;
             translateZhBtn.setAttribute('data-translating', 'true');
             if (targetLang === 'zh') {
-                translateZhBtn.textContent = '翻译中...';
+                translateZhBtn.textContent = '⏳';
             }
         }
         if (translateEnBtn) {
             translateEnBtn.disabled = true;
             translateEnBtn.setAttribute('data-translating', 'true');
             if (targetLang === 'en') {
-                translateEnBtn.textContent = '翻译中...';
+                translateEnBtn.textContent = '⏳';
             }
         }
 
@@ -1318,12 +1313,12 @@ ${originalText}
             if (translateZhBtn) {
                 translateZhBtn.disabled = false;
                 translateZhBtn.removeAttribute('data-translating');
-                translateZhBtn.textContent = '🇨🇳 中文';
+                translateZhBtn.textContent = '🇨🇳';
             }
             if (translateEnBtn) {
                 translateEnBtn.disabled = false;
                 translateEnBtn.removeAttribute('data-translating');
-                translateEnBtn.textContent = '🇺🇸 英文';
+                translateEnBtn.textContent = '🇺🇸';
             }
         }
     };

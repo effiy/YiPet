@@ -25,17 +25,21 @@
         // 简洁模式切换：并排 / 仅编辑 / 仅预览
         const modeGroup = document.createElement('div');
         modeGroup.className = 'editor-mode-group';
-        const makeModeBtn = (id, label, mode) => {
+        const makeModeBtn = (id, icon, mode, tooltip) => {
             const btn = document.createElement('button');
             btn.id = id;
-            btn.textContent = label;
+            btn.textContent = icon;
             btn.className = 'editor-mode-btn';
+            if (tooltip) {
+                btn.setAttribute('title', tooltip);
+                btn.setAttribute('aria-label', tooltip);
+            }
             btn.addEventListener('click', () => this.setContextMode(mode));
             return btn;
         };
-        const btnSplit = makeModeBtn('pet-context-mode-split', '并排', 'split');
-        const btnEdit = makeModeBtn('pet-context-mode-edit', '仅编辑', 'edit');
-        const btnPreview = makeModeBtn('pet-context-mode-preview', '仅预览', 'preview');
+        const btnSplit = makeModeBtn('pet-context-mode-split', '▦', 'split', '并排模式');
+        const btnEdit = makeModeBtn('pet-context-mode-edit', '✏️', 'edit', '仅编辑模式');
+        const btnPreview = makeModeBtn('pet-context-mode-preview', '👁️', 'preview', '仅预览模式');
         modeGroup.appendChild(btnSplit);
         modeGroup.appendChild(btnEdit);
         modeGroup.appendChild(btnPreview);
@@ -52,7 +56,8 @@
         copyBtn.id = 'pet-context-copy-btn';
         copyBtn.className = 'chat-toolbar-btn';
         copyBtn.setAttribute('title', '复制内容');
-        copyBtn.textContent = '复制';
+        copyBtn.setAttribute('aria-label', '复制内容');
+        copyBtn.textContent = '📋';
         copyBtn.classList.add('context-copy-btn');
         copyBtn.addEventListener('click', () => this.copyContextEditor());
 
@@ -62,7 +67,7 @@
 
         const optimizeBtn = document.createElement('button');
         optimizeBtn.id = 'pet-context-optimize-btn';
-        optimizeBtn.textContent = '✨ 智能优化';
+        optimizeBtn.textContent = '✨';
         optimizeBtn.setAttribute('title', '智能优化上下文内容');
         optimizeBtn.setAttribute('aria-label', '智能优化上下文内容');
         optimizeBtn.setAttribute('type', 'button');
@@ -73,7 +78,7 @@
 
         const undoBtn = document.createElement('button');
         undoBtn.id = 'pet-context-undo-btn';
-        undoBtn.textContent = '↶ 撤销';
+        undoBtn.textContent = '↶';
         undoBtn.setAttribute('title', '撤销');
         undoBtn.setAttribute('aria-label', '撤销');
         undoBtn.setAttribute('type', 'button');
@@ -102,7 +107,7 @@
         refreshBtn.className = 'chat-toolbar-btn';
         refreshBtn.setAttribute('title', '拉取当前网页上下文');
         refreshBtn.setAttribute('aria-label', '拉取当前网页上下文');
-        refreshBtn.textContent = '拉取';
+        refreshBtn.textContent = '🔄';
         let refreshConfirmTimer = null;
         refreshBtn.addEventListener('click', async () => {
             if (refreshBtn.hasAttribute('data-refreshing')) return;
@@ -115,13 +120,13 @@
             if (isDirty && !refreshBtn.hasAttribute('data-confirm')) {
                 refreshBtn.setAttribute('data-confirm', 'true');
                 refreshBtn.setAttribute('data-status', 'warn');
-                refreshBtn.textContent = '确认拉取';
+                refreshBtn.textContent = '⚠️';
                 this.showNotification('再次点击将覆盖当前编辑内容', 'warning');
                 if (refreshConfirmTimer) clearTimeout(refreshConfirmTimer);
                 refreshConfirmTimer = setTimeout(() => {
                     refreshBtn.removeAttribute('data-confirm');
                     refreshBtn.removeAttribute('data-status');
-                    refreshBtn.textContent = '拉取';
+                    refreshBtn.textContent = '🔄';
                 }, 2500);
                 return;
             }
@@ -134,7 +139,7 @@
 
             refreshBtn.setAttribute('data-refreshing', 'true');
             refreshBtn.removeAttribute('data-status');
-            refreshBtn.textContent = '拉取中';
+            refreshBtn.textContent = '⏳';
 
             const undoBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-undo-btn') : null;
             if (textarea) {
@@ -151,7 +156,7 @@
                 await this.refreshContextFromPage();
 
                 // 显示成功提示
-                refreshBtn.textContent = '✓ 已拉取';
+                refreshBtn.textContent = '✅';
                 refreshBtn.setAttribute('data-status', 'success');
 
                 if (undoBtn && textarea) {
@@ -165,7 +170,7 @@
                 }
 
                 setTimeout(() => {
-                    refreshBtn.textContent = '拉取';
+                    refreshBtn.textContent = '🔄';
                     refreshBtn.removeAttribute('data-refreshing');
                     refreshBtn.removeAttribute('data-status');
                 }, 2000);
@@ -173,11 +178,11 @@
                 console.error('拉取网页上下文失败:', error);
 
                 // 显示失败提示
-                refreshBtn.textContent = '✕ 失败';
+                refreshBtn.textContent = '✕';
                 refreshBtn.setAttribute('data-status', 'error');
 
                 setTimeout(() => {
-                    refreshBtn.textContent = '拉取';
+                    refreshBtn.textContent = '🔄';
                     refreshBtn.removeAttribute('data-refreshing');
                     refreshBtn.removeAttribute('data-status');
                 }, 2000);
@@ -190,14 +195,14 @@
         saveBtn.className = 'chat-toolbar-btn';
         saveBtn.setAttribute('title', '保存修改 (Ctrl+S / Cmd+S)');
         saveBtn.setAttribute('aria-label', '保存修改');
-        saveBtn.textContent = '保存';
+        saveBtn.textContent = '💾';
         saveBtn.addEventListener('click', async () => {
             if (saveBtn.hasAttribute('data-saving')) return;
 
             saveBtn.setAttribute('data-saving', 'true');
             saveBtn.removeAttribute('data-status');
-            const originalText = saveBtn.textContent; // 保存原始文本（应该是"保存"）
-            saveBtn.textContent = '保存中...';
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = '⏳';
 
             try {
                 const success = await this.saveContextEditor();
@@ -220,7 +225,8 @@
         downloadBtn.id = 'pet-context-download-btn';
         downloadBtn.className = 'chat-toolbar-btn';
         downloadBtn.setAttribute('title', '下载当前上下文为 Markdown (.md)');
-        downloadBtn.textContent = '下载';
+        downloadBtn.setAttribute('aria-label', '下载当前上下文为 Markdown (.md)');
+        downloadBtn.textContent = '⬇️';
         downloadBtn.addEventListener('click', () => this.downloadContextMarkdown());
 
         // 翻译按钮组
@@ -232,7 +238,8 @@
         translateToZhBtn.id = 'pet-context-translate-zh-btn';
         translateToZhBtn.className = 'chat-toolbar-btn';
         translateToZhBtn.setAttribute('title', '翻译成中文');
-        translateToZhBtn.textContent = '🇨🇳 中文';
+        translateToZhBtn.setAttribute('aria-label', '翻译成中文');
+        translateToZhBtn.textContent = '🇨🇳';
         translateToZhBtn.addEventListener('click', async () => {
             await this.translateContext('zh');
         });
@@ -242,7 +249,8 @@
         translateToEnBtn.id = 'pet-context-translate-en-btn';
         translateToEnBtn.className = 'chat-toolbar-btn';
         translateToEnBtn.setAttribute('title', '翻译成英文');
-        translateToEnBtn.textContent = '🇺🇸 英文';
+        translateToEnBtn.setAttribute('aria-label', '翻译成英文');
+        translateToEnBtn.textContent = '🇺🇸';
         translateToEnBtn.addEventListener('click', async () => {
             await this.translateContext('en');
         });
@@ -531,8 +539,7 @@
         }
 
         try {
-            // 获取当前网页渲染后的 HTML 内容并转换为 Markdown
-            const pageContent = this.getRenderedHTMLAsMarkdown();
+            const pageContent = this.buildPageContextMarkdownForEditor();
 
             // 更新编辑器内容
             textarea.value = pageContent || '';
@@ -582,120 +589,440 @@
      */
     proto.getRenderedHTMLAsMarkdown = function() {
         try {
-            // 检查 Turndown 是否可用
-            if (typeof TurndownService === 'undefined') {
-                console.warn('Turndown 未加载，返回纯文本内容');
-                return this.getFullPageText();
-            }
-
-            // 定义需要排除的选择器
-            const excludeSelectors = [
-                'script', 'style', 'noscript', 'iframe', 'embed', 'object',
-                'svg', 'canvas', 'video', 'audio',
-                '.ad', '.advertisement', '.ads', '.advertisement-container',
-                '[class*="ad-"]', '[class*="banner"]', '[class*="promo"]',
-                '[id*="ad-"]', '[id*="banner"]', '[id*="promo"]',
-                'nav', 'header', 'footer', 'aside',
-                '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
-                '.header', '.footer', '.comment', '.comments', '.social-share',
-                '.related-posts', '.related', '.widget', '.sidebar-widget',
-                // 排除插件相关元素
-                `#${(typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids) ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'}`, '[id^="pet-"]', '[class*="pet-"]',
-                '[id*="pet-chat"]', '[class*="pet-chat"]',
-                '[id*="pet-context"]', '[class*="pet-context"]',
-                '[id*="pet-faq"]', '[class*="pet-faq"]',
-                '[id*="pet-api"]', '[class*="pet-api"]',
-                '[id*="pet-session"]', '[class*="pet-session"]'
-            ];
-
-            // 定义主要正文内容选择器（优先级从高到低）
-            const contentSelectors = [
-                'article',
-                'main',
-                '[role="main"]',
-                '[role="article"]',
-                '.post-content', '.entry-content', '.article-content',
-                '.post-body', '.article-body', '.text-content',
-                '.content', '.main-content', '.page-content',
-                '.article', '.blog-post', '.entry', '.post',
-                '#content', '#main-content', '#main',
-                '.content-area', '.content-wrapper',
-                '.text-wrapper', '.text-container'
-            ];
-
-            // 尝试从主要内容区域获取渲染后的 HTML
-            let mainContent = null;
-            for (const selector of contentSelectors) {
-                const element = document.querySelector(selector);
-                if (element && element.textContent.trim().length > 100) {
-                    mainContent = element;
-                    break;
-                }
-            }
-
-            // 如果没有找到主要内容区域，使用 body（但排除导航、侧边栏等）
-            if (!mainContent) {
-                mainContent = document.body;
-            }
-
-            // 深度克隆内容，保留所有渲染后的属性和状态
-            const cloned = mainContent.cloneNode(true);
-
-            // 移除不需要的元素
-            excludeSelectors.forEach(sel => {
-                try {
-                    const elements = cloned.querySelectorAll(sel);
-                    elements.forEach(el => {
-                        if (el && el.parentNode) {
-                            el.parentNode.removeChild(el);
-                        }
-                    });
-                } catch (e) {
-                    console.warn('移除元素失败:', sel, e);
-                }
-            });
-
-            // 配置 Turndown 服务
-            const turndownService = new TurndownService({
-                headingStyle: 'atx',
-                hr: '---',
-                bulletListMarker: '-',
-                codeBlockStyle: 'fenced',
-                fence: '```',
-                emDelimiter: '_',
-                strongDelimiter: '**',
-                linkStyle: 'inlined',
-                linkReferenceStyle: 'full',
-                preformattedCode: true
-            });
-
-            // 添加自定义规则，更好地处理特殊元素
-            turndownService.addRule('preserveLineBreaks', {
-                filter: ['br'],
-                replacement: () => '\n'
-            });
-
-            // 转换为 Markdown
-            let markdown = turndownService.turndown(cloned);
-
-            // 清理多余的空行（保留双空行用于段落分隔）
-            markdown = markdown
-                .replace(/\n{4,}/g, '\n\n\n')  // 最多保留三个换行（两个空行）
-                .trim();
-
-            // 如果 Markdown 内容太短或为空，尝试获取纯文本
-            if (!markdown || markdown.trim().length < 50) {
-                console.warn('Markdown 内容过短，尝试获取纯文本');
-                const textContent = cloned.textContent || cloned.innerText || '';
-                return textContent.trim();
-            }
-
-            return markdown;
+            return this.getRenderedMainContentAsMarkdown();
         } catch (error) {
             console.error('将渲染后的 HTML 转换为 Markdown 时出错:', error);
             // 出错时返回纯文本
             return this.getFullPageText();
         }
+    };
+
+    proto._getContextExcludeSelectors = function() {
+        const assistantId =
+            (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids)
+                ? PET_CONFIG.constants.ids.assistantElement
+                : 'chat-assistant-element';
+        return [
+            'script',
+            'style',
+            'noscript',
+            'iframe',
+            'embed',
+            'object',
+            'svg',
+            'canvas',
+            'video',
+            'audio',
+            'nav',
+            'aside',
+            '[role="navigation"]',
+            '[role="banner"]',
+            '[role="contentinfo"]',
+            '[role="complementary"]',
+            '[role="dialog"]',
+            '[role="alert"]',
+            '[role="alertdialog"]',
+            '[aria-modal="true"]',
+            '[aria-hidden="true"]',
+            '[hidden]',
+            '.ad',
+            '.advertisement',
+            '.ads',
+            '.advertisement-container',
+            '[class*="ad-"]',
+            '[class*="advert"]',
+            '[class*="banner"]',
+            '[class*="promo"]',
+            '[class*="sponsor"]',
+            '[class*="cookie"]',
+            '[class*="consent"]',
+            '[class*="subscribe"]',
+            '[class*="newsletter"]',
+            '[class*="breadcrumb"]',
+            '[class*="pagination"]',
+            '[class*="pager"]',
+            '[class*="toc"]',
+            '[class*="table-of-contents"]',
+            '[class*="share"]',
+            '[class*="social"]',
+            '[class*="comment"]',
+            '[class*="related"]',
+            '[class*="recommend"]',
+            '[id*="ad"]',
+            '[id*="advert"]',
+            '[id*="banner"]',
+            '[id*="promo"]',
+            '[id*="sponsor"]',
+            '[id*="cookie"]',
+            '[id*="consent"]',
+            '[id*="subscribe"]',
+            '[id*="newsletter"]',
+            '[id*="breadcrumb"]',
+            '[id*="pagination"]',
+            '[id*="pager"]',
+            '[id*="toc"]',
+            '[id*="table-of-contents"]',
+            '[id*="share"]',
+            '[id*="social"]',
+            '[id*="comment"]',
+            '[id*="related"]',
+            '[id*="recommend"]',
+            `#${assistantId}`,
+            '[id^="pet-"]',
+            '[class*="pet-"]',
+            '[id*="pet-chat"]',
+            '[class*="pet-chat"]',
+            '[id*="pet-context"]',
+            '[class*="pet-context"]',
+            '[id*="pet-faq"]',
+            '[class*="pet-faq"]',
+            '[id*="pet-api"]',
+            '[class*="pet-api"]',
+            '[id*="pet-session"]',
+            '[class*="pet-session"]'
+        ];
+    };
+
+    proto._cloneAndCleanElementForContext = function(rootEl) {
+        if (!rootEl) return null;
+        let cloned = null;
+        try {
+            cloned = rootEl.cloneNode(true);
+        } catch (_) {
+            return null;
+        }
+        if (!cloned) return null;
+
+        const excludeSelectors = this._getContextExcludeSelectors();
+        excludeSelectors.forEach((sel) => {
+            try {
+                const nodes = cloned.querySelectorAll(sel);
+                nodes.forEach((n) => n && n.remove && n.remove());
+            } catch (_) {}
+        });
+
+        const keywordRe = /(advert|ad-|ads|banner|promo|sponsor|cookie|consent|subscribe|newsletter|breadcrumb|pagination|pager|toc|table-of-contents|share|social|comment|related|recommend)/i;
+        const removeIfBoilerplate = (el) => {
+            if (!el || el.nodeType !== 1) return;
+            const tag = String(el.tagName || '').toLowerCase();
+            if (tag === 'main' || tag === 'article') return;
+            const idClass = `${el.id || ''} ${el.className || ''}`.trim();
+            if (idClass && keywordRe.test(idClass)) {
+                try {
+                    el.remove();
+                } catch (_) {}
+            }
+        };
+
+        try {
+            const all = Array.from(cloned.querySelectorAll('*'));
+            all.forEach((el) => {
+                if (el.hasAttribute('hidden')) {
+                    try {
+                        el.remove();
+                    } catch (_) {}
+                    return;
+                }
+                const ariaHidden = String(el.getAttribute('aria-hidden') || '').toLowerCase();
+                if (ariaHidden === 'true') {
+                    try {
+                        el.remove();
+                    } catch (_) {}
+                    return;
+                }
+                const style = String(el.getAttribute('style') || '').toLowerCase();
+                if (style.includes('display:none') || style.includes('visibility:hidden') || style.includes('opacity:0')) {
+                    try {
+                        el.remove();
+                    } catch (_) {}
+                    return;
+                }
+                const role = String(el.getAttribute('role') || '').toLowerCase();
+                if (role && ['navigation', 'banner', 'contentinfo', 'complementary', 'dialog', 'alert', 'alertdialog'].includes(role)) {
+                    try {
+                        el.remove();
+                    } catch (_) {}
+                    return;
+                }
+                removeIfBoilerplate(el);
+            });
+        } catch (_) {}
+
+        try {
+            const blocks = Array.from(cloned.querySelectorAll('nav, aside, form, button, input, select, textarea'));
+            blocks.forEach((el) => el && el.remove && el.remove());
+        } catch (_) {}
+
+        const calcLinkDensity = (el) => {
+            try {
+                const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+                const total = text.length;
+                if (!total) return 0;
+                const links = Array.from(el.querySelectorAll('a'));
+                const linkTextLen = links.reduce((sum, a) => sum + String(a.textContent || '').replace(/\s+/g, ' ').trim().length, 0);
+                return linkTextLen / total;
+            } catch (_) {
+                return 0;
+            }
+        };
+
+        const maybeRemoveLinkHeavy = (el) => {
+            const density = calcLinkDensity(el);
+            if (density < 0.65) return;
+            const textLen = String(el.textContent || '').replace(/\s+/g, ' ').trim().length;
+            if (textLen < 800) {
+                try {
+                    el.remove();
+                } catch (_) {}
+            }
+        };
+
+        try {
+            const candidates = Array.from(cloned.querySelectorAll('ul, ol, nav, aside, header, footer, section, div'));
+            candidates.forEach((el) => maybeRemoveLinkHeavy(el));
+        } catch (_) {}
+
+        return cloned;
+    };
+
+    proto._scoreContextCandidate = function(el) {
+        if (!el || el.nodeType !== 1) return -Infinity;
+        const tag = String(el.tagName || '').toLowerCase();
+        if (['script', 'style', 'noscript'].includes(tag)) return -Infinity;
+
+        const cleaned = this._cloneAndCleanElementForContext(el);
+        if (!cleaned) return -Infinity;
+        const text = String(cleaned.textContent || '').replace(/\s+/g, ' ').trim();
+        const textLen = text.length;
+        if (textLen < 200 && el !== document.body) return -Infinity;
+
+        let linkDensity = 0;
+        try {
+            const links = Array.from(cleaned.querySelectorAll('a'));
+            const linkTextLen = links.reduce((sum, a) => sum + String(a.textContent || '').replace(/\s+/g, ' ').trim().length, 0);
+            linkDensity = textLen ? linkTextLen / textLen : 0;
+        } catch (_) {}
+
+        const idClass = `${el.id || ''} ${el.className || ''}`.trim();
+        const keywordRe = /(advert|ad-|ads|banner|promo|sponsor|cookie|consent|subscribe|newsletter|breadcrumb|pagination|pager|toc|table-of-contents|share|social|comment|related|recommend)/i;
+        const penalty = idClass && keywordRe.test(idClass) ? 2500 : 0;
+
+        const densityFactor = 1 - Math.min(Math.max(linkDensity, 0), 0.9);
+        return textLen * densityFactor - penalty;
+    };
+
+    proto._selectBestContextRootElement = function() {
+        const selectors = [
+            'article',
+            'main',
+            '[role="main"]',
+            '[role="article"]',
+            '.post-content',
+            '.entry-content',
+            '.article-content',
+            '.post-body',
+            '.article-body',
+            '.text-content',
+            '.content',
+            '.main-content',
+            '.page-content',
+            '.article',
+            '.blog-post',
+            '.entry',
+            '.post',
+            '#content',
+            '#main-content',
+            '#main',
+            '.content-area',
+            '.content-wrapper',
+            '.text-wrapper',
+            '.text-container'
+        ];
+
+        const seen = new Set();
+        const candidates = [];
+        selectors.forEach((sel) => {
+            try {
+                document.querySelectorAll(sel).forEach((el) => {
+                    if (!el || seen.has(el)) return;
+                    seen.add(el);
+                    candidates.push(el);
+                });
+            } catch (_) {}
+        });
+
+        if (document.body) candidates.push(document.body);
+
+        let best = null;
+        let bestScore = -Infinity;
+        for (const el of candidates) {
+            let score = -Infinity;
+            try {
+                score = this._scoreContextCandidate(el);
+            } catch (_) {
+                score = -Infinity;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                best = el;
+            }
+        }
+        return best || document.body || document.documentElement || null;
+    };
+
+    proto._turndownForContext = function(clonedRoot) {
+        if (!clonedRoot) return '';
+        if (typeof TurndownService === 'undefined') {
+            const textContent = clonedRoot.textContent || clonedRoot.innerText || '';
+            return String(textContent || '').trim();
+        }
+
+        const turndownService = new TurndownService({
+            headingStyle: 'atx',
+            hr: '---',
+            bulletListMarker: '-',
+            codeBlockStyle: 'fenced',
+            fence: '```',
+            emDelimiter: '_',
+            strongDelimiter: '**',
+            linkStyle: 'inlined',
+            linkReferenceStyle: 'full',
+            preformattedCode: true
+        });
+
+        turndownService.addRule('preserveLineBreaks', {
+            filter: ['br'],
+            replacement: () => '\n'
+        });
+
+        turndownService.addRule('cleanImage', {
+            filter: ['img'],
+            replacement: function(_content, node) {
+                const alt = String(node.getAttribute('alt') || '').trim();
+                const title = String(node.getAttribute('title') || '').trim();
+                const text = alt || title;
+                if (!text) return '';
+                return `![${text}]()`;
+            }
+        });
+
+        const escapeTableCell = (s) => String(s || '').replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|');
+        const buildTableMarkdown = (tableEl) => {
+            const rows = Array.from(tableEl.querySelectorAll('tr'));
+            if (rows.length === 0) return '';
+            const rowCells = rows.map((tr) => Array.from(tr.querySelectorAll('th,td')).map((cell) => escapeTableCell(cell.textContent || '')));
+            const maxCols = rowCells.reduce((m, r) => Math.max(m, r.length), 0);
+            if (maxCols === 0) return '';
+            const normalized = rowCells.map((r) => {
+                const out = r.slice(0, maxCols);
+                while (out.length < maxCols) out.push('');
+                return out;
+            });
+            const firstRowIsHeader = rows[0].querySelectorAll('th').length > 0;
+            const header = firstRowIsHeader ? normalized[0] : normalized[0];
+            const body = firstRowIsHeader ? normalized.slice(1) : normalized.slice(1);
+            const sep = new Array(maxCols).fill('---');
+            const lines = [];
+            lines.push(`| ${header.join(' | ')} |`);
+            lines.push(`| ${sep.join(' | ')} |`);
+            body.forEach((r) => {
+                if (r.every((c) => !String(c || '').trim())) return;
+                lines.push(`| ${r.join(' | ')} |`);
+            });
+            return lines.join('\n');
+        };
+
+        turndownService.addRule('tableToMarkdown', {
+            filter: function(node) {
+                return node.nodeName === 'TABLE';
+            },
+            replacement: function(_content, node) {
+                const md = buildTableMarkdown(node);
+                if (!md) return '';
+                return `\n\n${md}\n\n`;
+            }
+        });
+
+        let markdown = '';
+        try {
+            markdown = turndownService.turndown(clonedRoot);
+        } catch (_) {
+            const textContent = clonedRoot.textContent || clonedRoot.innerText || '';
+            markdown = String(textContent || '').trim();
+        }
+        return String(markdown || '');
+    };
+
+    proto._postProcessContextMarkdown = function(markdown) {
+        let md = String(markdown || '');
+        md = md.replace(/\r\n/g, '\n');
+        md = md.replace(/[ \t]+\n/g, '\n');
+        md = md.replace(/\n{4,}/g, '\n\n\n');
+
+        const adLineRe =
+            /^(?:广告|推广|赞助|赞助内容|广告内容|Sponsored|Advertisement|Promoted|Ad|Cookie Policy|Privacy Policy|Terms of Service|订阅|登录|注册|分享|关注我们|立即购买|加入购物车|推荐阅读|相关阅读|相关文章|你可能还喜欢|更多推荐|展开全文|阅读原文)\s*$/i;
+        const lines = md.split('\n');
+        const out = [];
+        let last = '';
+        for (const line of lines) {
+            const t = String(line || '').trim();
+            if (!t) {
+                out.push('');
+                last = '';
+                continue;
+            }
+            if (adLineRe.test(t)) continue;
+            if (t === last) continue;
+            if (/[|›»·•]\s*[^|›»·•]+(?:\s*[|›»·•]\s*[^|›»·•]+){3,}/.test(t) && t.length < 180) continue;
+            out.push(line);
+            last = t;
+        }
+        md = out.join('\n');
+        md = md.replace(/\n{4,}/g, '\n\n\n').trim();
+        return md;
+    };
+
+    proto.getRenderedMainContentAsMarkdown = function() {
+        try {
+            const root = this._selectBestContextRootElement();
+            const cloned = this._cloneAndCleanElementForContext(root);
+            if (!cloned) return this.getFullPageText();
+            const markdown = this._turndownForContext(cloned);
+            const cleaned = this._postProcessContextMarkdown(markdown);
+            if (!cleaned || cleaned.length < 50) {
+                const textContent = cloned.textContent || cloned.innerText || '';
+                return String(textContent || '').trim();
+            }
+            return cleaned;
+        } catch (_) {
+            return this.getFullPageText();
+        }
+    };
+
+    proto.buildPageContextMarkdownForEditor = function() {
+        const title = String(document.title || '当前页面').trim();
+        const url = String(window.location && window.location.href ? window.location.href : '').trim();
+        const metaDescription = document.querySelector('meta[name="description"]');
+        const description = metaDescription ? String(metaDescription.content || '').trim() : '';
+
+        let content = this.getRenderedMainContentAsMarkdown();
+        content = String(content || '').trim();
+
+        const firstHeadingMatch = content.match(/^#{1,6}\s+(.+)\s*$/m);
+        if (firstHeadingMatch && title) {
+            const heading = String(firstHeadingMatch[1] || '').trim();
+            const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[·•\-\—\|]/g, '');
+            if (norm(heading) && norm(heading) === norm(title)) {
+                content = content.replace(firstHeadingMatch[0], '').trim();
+            }
+        }
+
+        const parts = [];
+        if (title) parts.push(`# ${title}`);
+        if (url) parts.push(`来源: ${url}`);
+        if (description) parts.push(`> ${description}`);
+        if (content) parts.push(content);
+        return parts.join('\n\n').trim();
     };
 
     /**
@@ -901,10 +1228,10 @@
      */
     proto._showSaveStatus = function(button, success, originalText = '保存') {
         if (success) {
-            button.textContent = '✓ 已保存';
+            button.textContent = '✅';
             button.setAttribute('data-status', 'success');
         } else {
-            button.textContent = '✕ 保存失败';
+            button.textContent = '⚠️';
             button.setAttribute('data-status', 'error');
         }
 
@@ -936,7 +1263,7 @@
             const copyBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-copy-btn') : null;
             if (copyBtn) {
                 const originalText = copyBtn.textContent;
-                copyBtn.textContent = '已复制';
+                copyBtn.textContent = '✅';
                 copyBtn.setAttribute('data-status', 'success');
                 setTimeout(() => {
                     copyBtn.textContent = originalText;
@@ -994,7 +1321,7 @@
                 textarea.value = md || '';
             } else {
                 // 没有会话时，从当前页面获取
-                const md = this.getPageContentAsMarkdown();
+                const md = this.buildPageContextMarkdownForEditor();
                 textarea.value = md || '';
             }
             textarea.setAttribute('data-user-edited', '0');
@@ -1058,14 +1385,16 @@
         copyBtn.id = 'pet-message-copy-btn';
         copyBtn.className = 'chat-toolbar-btn';
         copyBtn.setAttribute('title', '复制内容');
-        copyBtn.textContent = '复制';
+        copyBtn.setAttribute('aria-label', '复制内容');
+        copyBtn.textContent = '📋';
         copyBtn.addEventListener('click', () => this.copyMessageEditor());
 
         const saveBtn = document.createElement('button');
         saveBtn.id = 'pet-message-save-btn';
         saveBtn.className = 'chat-toolbar-btn';
         saveBtn.setAttribute('title', '保存修改 (Ctrl+S / Cmd+S)');
-        saveBtn.textContent = '保存';
+        saveBtn.setAttribute('aria-label', '保存修改');
+        saveBtn.textContent = '💾';
         saveBtn.addEventListener('click', async () => {
             if (saveBtn.hasAttribute('data-saving')) return;
             saveBtn.setAttribute('data-saving', 'true');
@@ -1073,7 +1402,7 @@
             const ok = await this.saveMessageEditor();
             saveBtn.removeAttribute('data-saving');
             if (typeof this._showSaveStatus === 'function') {
-                this._showSaveStatus(saveBtn, !!ok, '保存');
+                this._showSaveStatus(saveBtn, !!ok, '💾');
             }
         });
 
@@ -1269,7 +1598,7 @@
             const copyBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-message-copy-btn') : null;
             if (copyBtn) {
                 const originalText = copyBtn.textContent;
-                copyBtn.textContent = '已复制';
+                copyBtn.textContent = '✅';
                 copyBtn.setAttribute('data-status', 'success');
                 setTimeout(() => {
                     copyBtn.textContent = originalText;

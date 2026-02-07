@@ -313,6 +313,48 @@
                     if (typeof manager?.addFaqFromInput === 'function') manager.addFaqFromInput();
                 };
 
+                const getFaqText = (faq) => {
+                    const title = String(faq?.title || '').trim();
+                    const prompt = String(faq?.prompt || '').trim();
+                    return title && prompt ? `${title}\n\n${prompt}` : prompt || title;
+                };
+
+                const copyTextToClipboard = async (text) => {
+                    const value = String(text || '');
+                    if (!value) return false;
+                    try {
+                        if (navigator?.clipboard?.writeText) {
+                            await navigator.clipboard.writeText(value);
+                            return true;
+                        }
+                    } catch (_) {}
+                    try {
+                        const el = document.createElement('textarea');
+                        el.value = value;
+                        el.setAttribute('readonly', 'readonly');
+                        el.style.position = 'fixed';
+                        el.style.left = '-9999px';
+                        el.style.top = '0';
+                        document.body.appendChild(el);
+                        el.select();
+                        el.setSelectionRange(0, el.value.length);
+                        const ok = document.execCommand && document.execCommand('copy');
+                        document.body.removeChild(el);
+                        return !!ok;
+                    } catch (_) {
+                        return false;
+                    }
+                };
+
+                const onFaqCopy = async (faq) => {
+                    const text = getFaqText(faq);
+                    if (!text) return;
+                    const ok = await copyTextToClipboard(text);
+                    if (typeof manager?.showNotification === 'function') {
+                        manager.showNotification(ok ? '已复制到剪贴板' : '复制失败', ok ? 'success' : 'error');
+                    }
+                };
+
                 const onFaqInsert = (faq) => {
                     if (typeof manager?.applyFaqItem === 'function') manager.applyFaqItem(faq, 'insert');
                     close();
@@ -412,6 +454,7 @@
                         renameTag,
                         deleteTag,
                         onNewFaqKeydown,
+                        onFaqCopy,
                         onFaqInsert,
                         onFaqSend,
                         onFaqKeydown,
@@ -589,6 +632,22 @@
                                                       }
                                                   },
                                                   '插入'
+                                              ),
+                                              h(
+                                                  'button',
+                                                  {
+                                                      type: 'button',
+                                                      class: 'pet-faq-item-btn',
+                                                      title: '复制',
+                                                      'aria-label': '复制',
+                                                      onClick: (e) => {
+                                                          try {
+                                                              e?.stopPropagation?.();
+                                                          } catch (_) {}
+                                                          onFaqCopy(faq);
+                                                      }
+                                                  },
+                                                  '复制'
                                               ),
                                               h(
                                                   'button',

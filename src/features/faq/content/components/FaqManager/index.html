@@ -255,6 +255,15 @@
                                     </button>
                                     <button
                                         type="button"
+                                        class="pet-faq-item-btn"
+                                        aria-label="复制"
+                                        title="复制"
+                                        @click.stop="onFaqCopy(faq)"
+                                    >
+                                        复制
+                                    </button>
+                                    <button
+                                        type="button"
                                         class="pet-faq-item-btn primary"
                                         aria-label="发送"
                                         @click.stop="onFaqSend(faq)"

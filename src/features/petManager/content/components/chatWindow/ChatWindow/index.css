@@ -2077,13 +2077,19 @@
     padding: 4px !important;
 }
 .editor-mode-btn {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    font-size: 13px !important;
     border-radius: 6px !important;
     border: none !important;
     background: transparent !important;
     color: #e5e7eb !important;
     cursor: pointer !important;
+    line-height: 1 !important;
 }
 .context-close-btn {
     width: 28px !important;
@@ -2107,8 +2113,13 @@
     transform: scale(0.96) !important;
 }
 .context-copy-btn {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    font-size: 14px !important;
     border-radius: 6px !important;
     border: 1px solid rgba(255,255,255,0.15) !important;
     background: rgba(255,255,255,0.04) !important;
@@ -2116,6 +2127,7 @@
     cursor: pointer !important;
     transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
     outline: none !important;
+    line-height: 1 !important;
 }
 .context-copy-btn:hover {
     background: rgba(255,255,255,0.12) !important;
@@ -2127,14 +2139,19 @@
     align-items: center !important;
 }
 .context-optimize-btn {
-    padding: 4px 12px !important;
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
     border-radius: 4px !important;
     border: 1px solid rgba(76, 175, 80, 0.3) !important;
     background: rgba(76, 175, 80, 0.15) !important;
     color: #22c55e !important;  /* 现代绿 */
     cursor: pointer !important;
-    font-size: 12px !important;
-    white-space: nowrap !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
     transition: all 0.2s !important;
 }
 .context-optimize-btn:hover {

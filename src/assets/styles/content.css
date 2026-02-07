@@ -1316,7 +1316,7 @@
 }
 
 #pet-context-editor #pet-context-undo-btn.js-visible {
-    display: inline-block !important;
+    display: inline-flex !important;
 }
 
 #pet-context-editor .editor-header-btns {

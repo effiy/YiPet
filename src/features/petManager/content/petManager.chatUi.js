@@ -192,11 +192,42 @@
         this.isFullscreen = false;
         this.preFullscreenStyle = null;
 
+        if (this._forceDockedChatWindowOnOpen) {
+            try {
+                const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+                const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+                const sizeLimits = PET_CONFIG?.chatWindow?.sizeLimits || {};
+                const minWidth = Number.isFinite(sizeLimits.minWidth) ? sizeLimits.minWidth : 300;
+                const maxWidth = Number.isFinite(sizeLimits.maxWidth) ? sizeLimits.maxWidth : viewportWidth;
+                const maxHeight = Number.isFinite(sizeLimits.maxHeight) ? sizeLimits.maxHeight : viewportHeight;
+
+                const desiredWidth = Math.round(viewportWidth * 0.5);
+                const width = Math.min(Math.max(desiredWidth, minWidth), Math.min(maxWidth, viewportWidth));
+                const height = Math.min(maxHeight, viewportHeight);
+
+                this.chatWindowState.width = width;
+                this.chatWindowState.height = height;
+                this.chatWindowState.x = Math.max(0, viewportWidth - width);
+                this.chatWindowState.y = 0;
+            } catch (_) {}
+            this._forceDockedChatWindowOnOpen = false;
+        }
+
         // 验证位置和大小
-        this.chatWindowState.width = Math.max(PET_CONFIG.chatWindow.sizeLimits.minWidth, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxWidth, this.chatWindowState.width));
-        this.chatWindowState.height = Math.max(PET_CONFIG.chatWindow.sizeLimits.minHeight, Math.min(PET_CONFIG.chatWindow.sizeLimits.maxHeight, this.chatWindowState.height));
-        this.chatWindowState.x = Math.max(0, Math.min(window.innerWidth - this.chatWindowState.width, this.chatWindowState.x));
-        this.chatWindowState.y = Math.max(0, Math.min(window.innerHeight - this.chatWindowState.height, this.chatWindowState.y));
+        const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+        const minWidth = PET_CONFIG.chatWindow.sizeLimits.minWidth;
+        const maxWidth = PET_CONFIG.chatWindow.sizeLimits.maxWidth;
+        const minHeight = PET_CONFIG.chatWindow.sizeLimits.minHeight;
+        const maxHeight = PET_CONFIG.chatWindow.sizeLimits.maxHeight;
+
+        const safeMinWidth = Math.min(minWidth, viewportWidth);
+        const safeMinHeight = Math.min(minHeight, viewportHeight);
+
+        this.chatWindowState.width = Math.max(safeMinWidth, Math.min(Math.min(maxWidth, viewportWidth), this.chatWindowState.width));
+        this.chatWindowState.height = Math.max(safeMinHeight, Math.min(Math.min(maxHeight, viewportHeight), this.chatWindowState.height));
+        this.chatWindowState.x = Math.max(0, Math.min(viewportWidth - this.chatWindowState.width, this.chatWindowState.x));
+        this.chatWindowState.y = Math.max(0, Math.min(viewportHeight - this.chatWindowState.height, this.chatWindowState.y));
 
         console.log('聊天窗口状态已恢复:', this.chatWindowState);
     }

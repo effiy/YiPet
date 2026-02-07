@@ -10,6 +10,25 @@
 
     const proto = window.PetManager.prototype;
 
+    function computeDockedChatWindowRect(widthRatio) {
+        const ratio = Number(widthRatio);
+        const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+        const sizeLimits = PET_CONFIG?.chatWindow?.sizeLimits || {};
+        const minWidth = Number.isFinite(sizeLimits.minWidth) ? sizeLimits.minWidth : 300;
+        const maxWidth = Number.isFinite(sizeLimits.maxWidth) ? sizeLimits.maxWidth : viewportWidth;
+        const maxHeight = Number.isFinite(sizeLimits.maxHeight) ? sizeLimits.maxHeight : viewportHeight;
+
+        const desiredWidth = Math.round(viewportWidth * (Number.isFinite(ratio) ? ratio : 0.5));
+        const width = Math.min(Math.max(desiredWidth, minWidth), Math.min(maxWidth, viewportWidth));
+
+        const desiredHeight = viewportHeight;
+        const height = Math.min(Math.min(Math.max(desiredHeight, 0), maxHeight), viewportHeight);
+
+        const pos = getChatWindowDefaultPosition(width, height);
+        return { x: pos.x, y: pos.y, width, height };
+    }
+
     // 切换聊天窗口
     proto.toggleChatWindow = function () {
         if (this.isChatOpen) {
@@ -43,6 +62,19 @@
             } else {
                 this.chatWindow.classList.remove('js-hidden');
                 this.isChatOpen = true;
+            }
+
+            try {
+                if (this.chatWindowState && !this.chatWindowState.isFullscreen) {
+                    const rect = computeDockedChatWindowRect(0.5);
+                    this.chatWindowState.x = rect.x;
+                    this.chatWindowState.y = rect.y;
+                    this.chatWindowState.width = rect.width;
+                    this.chatWindowState.height = rect.height;
+                }
+            } catch (_) {}
+            if (typeof this.updateChatWindowStyle === 'function') {
+                this.updateChatWindowStyle();
             }
 
             // 窗口显示后，检查并处理未渲染的 Mermaid 图表
@@ -96,23 +128,12 @@
 
             // 更新聊天窗口样式（确保高度等样式正确）
             try {
-                const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
-                const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
-                const sizeLimits = PET_CONFIG?.chatWindow?.sizeLimits || {};
-                const minWidth = Number.isFinite(sizeLimits.minWidth) ? sizeLimits.minWidth : 300;
-                const maxWidth = Number.isFinite(sizeLimits.maxWidth) ? sizeLimits.maxWidth : viewportWidth;
-                const maxHeight = Number.isFinite(sizeLimits.maxHeight) ? sizeLimits.maxHeight : viewportHeight;
-
-                const computedWidth = Math.round(viewportWidth * 0.4);
-                const defaultWidth = Math.min(Math.max(computedWidth, minWidth), Math.min(maxWidth, viewportWidth));
-                const defaultHeight = Math.min(viewportHeight, Math.min(maxHeight, viewportHeight));
-
                 if (this.chatWindowState && !this.chatWindowState.isFullscreen) {
-                    const defaultPosition = getChatWindowDefaultPosition(defaultWidth, defaultHeight);
-                    this.chatWindowState.x = defaultPosition.x;
-                    this.chatWindowState.y = defaultPosition.y;
-                    this.chatWindowState.width = defaultWidth;
-                    this.chatWindowState.height = defaultHeight;
+                    const rect = computeDockedChatWindowRect(0.5);
+                    this.chatWindowState.x = rect.x;
+                    this.chatWindowState.y = rect.y;
+                    this.chatWindowState.width = rect.width;
+                    this.chatWindowState.height = rect.height;
                 }
             } catch (_) {}
             if (typeof this.updateChatWindowStyle === 'function') {
@@ -177,25 +198,13 @@
         }
 
         // 初始化聊天窗口状态（先设置默认值）
-        const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
-        const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
-        const sizeLimits = PET_CONFIG?.chatWindow?.sizeLimits || {};
-        const minWidth = Number.isFinite(sizeLimits.minWidth) ? sizeLimits.minWidth : 300;
-        const maxWidth = Number.isFinite(sizeLimits.maxWidth) ? sizeLimits.maxWidth : viewportWidth;
-        const minHeight = Number.isFinite(sizeLimits.minHeight) ? sizeLimits.minHeight : 450;
-        const maxHeight = Number.isFinite(sizeLimits.maxHeight) ? sizeLimits.maxHeight : viewportHeight;
-
-        const computedWidth = Math.round(viewportWidth * 0.4);
-        const defaultWidth = Math.min(Math.max(computedWidth, minWidth), Math.min(maxWidth, viewportWidth));
-        const defaultHeight = Math.min(Math.max(viewportHeight, Math.min(minHeight, viewportHeight)), Math.min(maxHeight, viewportHeight));
-
-        const defaultPosition = getChatWindowDefaultPosition(defaultWidth, defaultHeight);
+        const rect = computeDockedChatWindowRect(0.5);
 
         this.chatWindowState = {
-            x: defaultPosition.x,
-            y: defaultPosition.y,
-            width: defaultWidth,
-            height: defaultHeight,
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
             isDragging: false,
             isResizing: false,
             resizeType: 'bottom-right', // 默认缩放类型
@@ -207,6 +216,7 @@
 
         // 尝试加载保存的聊天窗口状态（会覆盖默认值）
         // 加载完成后创建窗口
+        this._forceDockedChatWindowOnOpen = true;
         this.loadChatWindowState(async (success) => {
             if (success) {
                 console.log('聊天窗口状态已加载，创建窗口');

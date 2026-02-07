@@ -10,6 +10,55 @@
 
     const proto = window.PetManager.prototype;
 
+    function clampNumber(value, min, max) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return min;
+        return Math.min(Math.max(n, min), max);
+    }
+
+    function getViewportSize() {
+        const vv = window.visualViewport;
+        const width = (vv && Number.isFinite(vv.width) && vv.width > 0 ? vv.width : window.innerWidth) || document.documentElement?.clientWidth || 0;
+        const height = (vv && Number.isFinite(vv.height) && vv.height > 0 ? vv.height : window.innerHeight) || document.documentElement?.clientHeight || 0;
+        return { width, height };
+    }
+
+    proto.adjustQuickCommentToViewport = function(container) {
+        if (!this.commentState || !this.commentState.quickCommentPosition) return;
+
+        const padding = 16;
+        const { width: vw, height: vh } = getViewportSize();
+        const maxWidth = Math.max(0, vw - padding * 2);
+        const maxHeight = Math.max(0, vh - padding * 2);
+        const minWidth = Math.min(280, maxWidth);
+        const minHeight = Math.min(220, maxHeight);
+
+        const current = this.commentState.quickCommentPosition || {};
+        const width = maxWidth > 0 ? clampNumber(current.width ?? 600, minWidth, maxWidth) : clampNumber(current.width ?? 600, 0, Number.MAX_SAFE_INTEGER);
+        const height = maxHeight > 0 ? clampNumber(current.height ?? 450, minHeight, maxHeight) : clampNumber(current.height ?? 450, 0, Number.MAX_SAFE_INTEGER);
+
+        const maxLeft = Math.max(padding, vw - width - padding);
+        const maxTop = Math.max(padding, vh - height - padding);
+        const left = clampNumber(current.left ?? padding, padding, maxLeft);
+        const top = clampNumber(current.top ?? padding, padding, maxTop);
+
+        this.commentState.quickCommentPosition = {
+            ...current,
+            left,
+            top,
+            width,
+            height
+        };
+
+        const el = container || document.getElementById('pet-quick-comment-container');
+        if (el) {
+            el.style.left = `${left}px`;
+            el.style.top = `${top}px`;
+            el.style.width = `${width}px`;
+            el.style.height = `${height}px`;
+        }
+    };
+
     // AI预设数据
     proto.getQuickCommentPresets = function() {
         return [
@@ -95,8 +144,28 @@
             isDraggingQuickComment: false,
             isResizingQuickComment: false,
             quickCommentAnimating: false,
-            _quickCommentOutsideClickHandler: null
+            _quickCommentOutsideClickHandler: null,
+            _quickCommentViewportHandler: null
         };
+
+        if (!this.commentState._quickCommentViewportHandler) {
+            const handler = () => {
+                try {
+                    if (this.commentState && this.commentState.showQuickComment) {
+                        this.adjustQuickCommentToViewport();
+                    }
+                } catch (_) {}
+            };
+            this.commentState._quickCommentViewportHandler = handler;
+            try {
+                window.addEventListener('resize', handler);
+            } catch (_) {}
+            try {
+                if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+                    window.visualViewport.addEventListener('resize', handler);
+                }
+            } catch (_) {}
+        }
 
         console.log('[PetManager] 划词评论功能已初始化');
     };
@@ -413,6 +482,8 @@
             };
         }
 
+        this.adjustQuickCommentToViewport(container);
+
         // 设置引用代码
         const quoteCode = container.querySelector('#pet-quick-comment-quote-code');
         const quoteContainer = container.querySelector('#pet-quick-comment-quote');
@@ -499,10 +570,13 @@
     // 计算评论弹框位置
     proto.calculateQuickCommentPosition = function(referenceRect) {
         const padding = 12;
-        const containerWidth = this.commentState.quickCommentPosition.width || 600;
-        const containerHeight = this.commentState.quickCommentPosition.height || 450;
-        const vw = window.innerWidth || document.documentElement.clientWidth;
-        const vh = window.innerHeight || document.documentElement.clientHeight;
+        const { width: vw, height: vh } = getViewportSize();
+        const maxWidth = Math.max(0, vw - padding * 2);
+        const maxHeight = Math.max(0, vh - padding * 2);
+        const minWidth = Math.min(280, maxWidth);
+        const minHeight = Math.min(220, maxHeight);
+        const containerWidth = maxWidth > 0 ? clampNumber(this.commentState.quickCommentPosition.width ?? 600, minWidth, maxWidth) : (this.commentState.quickCommentPosition.width || 600);
+        const containerHeight = maxHeight > 0 ? clampNumber(this.commentState.quickCommentPosition.height ?? 450, minHeight, maxHeight) : (this.commentState.quickCommentPosition.height || 450);
 
         let left = referenceRect.right + padding;
         let top = referenceRect.top;
@@ -515,18 +589,17 @@
             }
         }
 
-        // 确保不超出视口
-        if (top + containerHeight > vh - padding) {
-            top = Math.max(padding, vh - containerHeight - padding);
-        }
-        if (top < padding) {
-            top = padding;
-        }
+        const maxLeft = Math.max(padding, vw - containerWidth - padding);
+        const maxTop = Math.max(padding, vh - containerHeight - padding);
+        left = clampNumber(left, padding, maxLeft);
+        top = clampNumber(top, padding, maxTop);
 
         this.commentState.quickCommentPosition = {
             ...this.commentState.quickCommentPosition,
             left: left,
-            top: top
+            top: top,
+            width: containerWidth,
+            height: containerHeight
         };
     };
 
@@ -1292,8 +1365,8 @@
             const vh = window.innerHeight;
             const minLeft = padding;
             const minTop = padding;
-            const maxLeft = vw - containerWidth - padding;
-            const maxTop = vh - containerHeight - padding;
+            const maxLeft = Math.max(minLeft, vw - containerWidth - padding);
+            const maxTop = Math.max(minTop, vh - containerHeight - padding);
 
             newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
             newTop = Math.max(minTop, Math.min(newTop, maxTop));
@@ -1339,10 +1412,13 @@
         const startX = event.clientX;
         const startY = event.clientY;
         const startRect = container.getBoundingClientRect();
-        const minWidth = 400;
-        const minHeight = 300;
-        const maxWidth = window.innerWidth * 0.95;
-        const maxHeight = window.innerHeight * 0.95;
+        const vw = window.innerWidth || document.documentElement?.clientWidth || 0;
+        const vh = window.innerHeight || document.documentElement?.clientHeight || 0;
+        const padding = 16;
+        const maxWidth = Math.max(0, vw - padding * 2);
+        const maxHeight = Math.max(0, vh - padding * 2);
+        const minWidth = Math.min(280, maxWidth);
+        const minHeight = Math.min(220, maxHeight);
 
         const onMouseMove = (e) => {
             if (!this.commentState.isResizingQuickComment) return;
@@ -1378,10 +1454,6 @@
             }
 
             // 确保不超出视口
-            const vw = window.innerWidth;
-            const vh = window.innerHeight;
-            const padding = 16;
-
             if (newLeft < padding) {
                 newLeft = padding;
                 if (position.includes('w')) {
@@ -1395,10 +1467,10 @@
                 }
             }
             if (newLeft + newWidth > vw - padding) {
-                newWidth = vw - newLeft - padding;
+                newWidth = Math.max(0, vw - newLeft - padding);
             }
             if (newTop + newHeight > vh - padding) {
-                newHeight = vh - newTop - padding;
+                newHeight = Math.max(0, vh - newTop - padding);
             }
 
             // 应用新尺寸和位置

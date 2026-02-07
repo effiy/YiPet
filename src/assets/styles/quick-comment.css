@@ -4,9 +4,9 @@
     z-index: 2147483652;
     display: none;
     flex-direction: column;
-    min-width: 400px;
+    min-width: 280px;
     max-width: 90vw;
-    min-height: 300px;
+    min-height: 220px;
     max-height: 85vh;
     width: 600px;
     height: 450px;

@@ -751,6 +751,7 @@
     align-items: center !important;
     gap: 6px !important;
     flex-shrink: 0 !important;
+    margin-left: auto !important;
 }
 
 .pet-faq-item-btn {

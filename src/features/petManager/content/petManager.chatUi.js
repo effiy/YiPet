@@ -7,6 +7,52 @@
     if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') return;
     const proto = window.PetManager.prototype;
 
+    function clampNumber(value, min, max) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return min;
+        return Math.min(Math.max(n, min), max);
+    }
+
+    function getViewportSize() {
+        const vv = window.visualViewport;
+        const width = (vv && Number.isFinite(vv.width) && vv.width > 0 ? vv.width : window.innerWidth) || document.documentElement?.clientWidth || 0;
+        const height = (vv && Number.isFinite(vv.height) && vv.height > 0 ? vv.height : window.innerHeight) || document.documentElement?.clientHeight || 0;
+        return { width, height };
+    }
+
+    proto.adjustChatWindowToViewport = function() {
+        if (!this.chatWindowState || this.chatWindowState.isFullscreen) return;
+
+        const { width: vw, height: vh } = getViewportSize();
+        if (!vw || !vh) return;
+
+        const sizeLimits = PET_CONFIG?.chatWindow?.sizeLimits || {};
+        const minWidth = Number.isFinite(sizeLimits.minWidth) ? sizeLimits.minWidth : 300;
+        const maxWidth = Number.isFinite(sizeLimits.maxWidth) ? sizeLimits.maxWidth : vw;
+        const minHeight = Number.isFinite(sizeLimits.minHeight) ? sizeLimits.minHeight : 450;
+        const maxHeight = Number.isFinite(sizeLimits.maxHeight) ? sizeLimits.maxHeight : vh;
+
+        const safeMinWidth = Math.min(minWidth, vw);
+        const safeMinHeight = Math.min(minHeight, vh);
+        const safeMaxWidth = Math.min(maxWidth, vw);
+        const safeMaxHeight = Math.min(maxHeight, vh);
+
+        const width = clampNumber(this.chatWindowState.width ?? safeMaxWidth, safeMinWidth, safeMaxWidth);
+        const height = clampNumber(this.chatWindowState.height ?? safeMaxHeight, safeMinHeight, safeMaxHeight);
+
+        const maxX = Math.max(0, vw - width);
+        const maxY = Math.max(0, vh - height);
+        const x = clampNumber(this.chatWindowState.x ?? maxX, 0, maxX);
+        const y = clampNumber(this.chatWindowState.y ?? 0, 0, maxY);
+
+        this.chatWindowState.width = width;
+        this.chatWindowState.height = height;
+        this.chatWindowState.x = x;
+        this.chatWindowState.y = y;
+
+        if (this.chatWindow) this.updateChatWindowStyle();
+    };
+
     // 动态更新上下文覆盖层的位置与尺寸，避免遮挡 chat-header
 
     // 更新聊天窗口中的模型选择器显示
@@ -39,6 +85,24 @@
         if (this.chatWindow && !this.chatWindow.parentNode) {
             document.body.appendChild(this.chatWindow);
         }
+
+        if (!this._chatWindowViewportHandler) {
+            this._chatWindowViewportHandler = () => {
+                try {
+                    if (this.isChatOpen && this.chatWindowState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
+                        this.adjustChatWindowToViewport();
+                    }
+                } catch (_) {}
+            };
+            try {
+                window.addEventListener('resize', this._chatWindowViewportHandler);
+            } catch (_) {}
+            try {
+                if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+                    window.visualViewport.addEventListener('resize', this._chatWindowViewportHandler);
+                }
+            } catch (_) {}
+        }
         
         // 加载并应用侧边栏折叠状态（确保侧边栏正确显示）
         if (typeof this.loadSidebarCollapsed === 'function') {
@@ -57,6 +121,8 @@
         // Initialize messages only; 会话列表由打开聊天窗口时统一加载
         await this.updateSessionSidebar();
         await this.loadSessionMessages();
+
+        this.adjustChatWindowToViewport();
         
         // Listen for role config changes (Legacy support)
         if (!this.roleConfigChangeListener && chrome && chrome.storage) {

@@ -1,6 +1,29 @@
 (function(global) {
     const proto = global.PetManager.prototype;
     const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_');
+    const sanitizePathSegment = (value) => {
+        const s = String(value ?? '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+        return (s && s.length <= 80 ? s : s.slice(0, 80)) || 'page';
+    };
+    const parseImageDataUrl = (dataUrl) => {
+        const raw = String(dataUrl || '');
+        const m = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/i);
+        if (!m) return null;
+        const mime = String(m[1] || '').toLowerCase();
+        const base64 = String(m[2] || '').trim();
+        if (!base64) return null;
+        const extMap = {
+            'image/png': 'png',
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/gif': 'gif',
+            'image/webp': 'webp',
+            'image/bmp': 'bmp',
+            'image/svg+xml': 'svg'
+        };
+        const ext = extMap[mime] || 'png';
+        return { mime, base64, ext };
+    };
 
     // ========== 页面上下文编辑器 ==========
 
@@ -251,6 +274,17 @@
         const preview = document.createElement('div');
         preview.id = 'pet-context-preview';
         preview.className = 'context-editor-preview markdown-content';
+        preview.addEventListener('click', (e) => {
+            const target = e?.target;
+            const img = target && typeof target.closest === 'function' ? target.closest('img') : null;
+            const src = img ? (img.getAttribute('src') || img.src) : '';
+            if (!src) return;
+            if (typeof this.showImagePreview === 'function') {
+                e.preventDefault?.();
+                e.stopPropagation?.();
+                this.showImagePreview(src, img.getAttribute('alt') || '');
+            }
+        });
         // 防止滚动事件冒泡到父级，保证自身滚动有效
         preview.addEventListener('wheel', (e) => { e.stopPropagation(); }, { passive: true });
         preview.addEventListener('touchmove', (e) => { e.stopPropagation(); }, { passive: true });
@@ -263,6 +297,114 @@
             this._contextPreviewTimer = setTimeout(() => {
                 this.updateContextPreview();
             }, 150);
+        });
+        textarea.addEventListener('paste', async (e) => {
+            const items = e?.clipboardData?.items ? Array.from(e.clipboardData.items) : [];
+            const imageItems = items.filter((item) => item && typeof item.type === 'string' && item.type.includes('image'));
+            if (imageItems.length === 0) return;
+            e.preventDefault();
+
+            const fileList = imageItems
+                .map((item) => {
+                    try {
+                        return item.getAsFile();
+                    } catch (_) {
+                        return null;
+                    }
+                })
+                .filter(Boolean);
+            if (fileList.length === 0) return;
+
+            const insertTextAtCursor = (el, text) => {
+                const value = String(el.value || '');
+                const start = Number.isFinite(el.selectionStart) ? el.selectionStart : value.length;
+                const end = Number.isFinite(el.selectionEnd) ? el.selectionEnd : start;
+                el.value = value.slice(0, start) + text + value.slice(end);
+                const nextPos = start + text.length;
+                try {
+                    el.selectionStart = nextPos;
+                    el.selectionEnd = nextPos;
+                } catch (_) {}
+                try {
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                } catch (_) {
+                    this.updateContextPreview();
+                }
+            };
+
+            const replaceTokenInTextarea = (token, replacement) => {
+                const v = String(textarea.value || '');
+                if (!v.includes(token)) return;
+                textarea.value = v.split(token).join(replacement);
+                try {
+                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                } catch (_) {
+                    this.updateContextPreview();
+                }
+            };
+
+            const fileToDataUrl = (file) => {
+                if (!file) return Promise.resolve('');
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => resolve(String(event?.target?.result || ''));
+                    reader.onerror = () => resolve('');
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            const uploadDataUrlToStaticUrl = async (dataUrl) => {
+                const parsed = parseImageDataUrl(dataUrl);
+                if (!parsed) throw new Error('无效的图片数据');
+
+                const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
+                    ? String(window.API_URL).replace(/\/+$/, '')
+                    : (PET_CONFIG?.api?.yiaiBaseUrl || '');
+                if (!apiBase) throw new Error('API_URL 未配置');
+
+                const sessionSeg = sanitizePathSegment(this.currentSessionId || 'page');
+                const name = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${parsed.ext}`;
+                const targetFile = `uploads/${sessionSeg}/${name}`;
+
+                const res = await fetch(`${apiBase}/write-file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_file: targetFile,
+                        content: parsed.base64,
+                        is_base64: true
+                    })
+                });
+
+                if (!res.ok) {
+                    const text = await res.text().catch(() => '');
+                    throw new Error(`HTTP ${res.status}${text ? `: ${text}` : ''}`);
+                }
+                const json = await res.json().catch(() => null);
+                if (!json || typeof json !== 'object' || json.code !== 0) {
+                    const msg = json && json.message ? String(json.message) : '上传失败';
+                    throw new Error(msg);
+                }
+
+                return `${apiBase}/static/${targetFile}`;
+            };
+
+            for (const file of fileList) {
+                const token = `__PET_CONTEXT_IMG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}__`;
+                insertTextAtCursor(textarea, `![](${token})\n`);
+                const dataUrl = await fileToDataUrl(file);
+                if (!dataUrl) {
+                    replaceTokenInTextarea(token, '');
+                    continue;
+                }
+                try {
+                    const url = await uploadDataUrlToStaticUrl(dataUrl);
+                    replaceTokenInTextarea(token, url);
+                } catch (err) {
+                    replaceTokenInTextarea(token, dataUrl);
+                    this.showNotification?.(`图片上传失败，已使用本地图片：${err?.message || '未知错误'}`, 'warning');
+                }
+            }
         });
         // 同步滚动（比例映射）
         textarea.addEventListener('scroll', () => {

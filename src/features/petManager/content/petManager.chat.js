@@ -401,13 +401,61 @@
 
         if (!this.chatWindow) return;
 
-        // 获取当前宠物颜色
-        const currentColor = this.colors[this.colorIndex];
-        const mainColor = this.getMainColorFromGradient(currentColor);
+        const toRgbFromHex = (hex) => {
+            const normalized = String(hex || '').trim();
+            const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
+            if (!match) return null;
+            const value = match[1];
+            const r = parseInt(value.slice(0, 2), 16);
+            const g = parseInt(value.slice(2, 4), 16);
+            const b = parseInt(value.slice(4, 6), 16);
+            if (![r, g, b].every((n) => Number.isFinite(n))) return null;
+            return { r, g, b };
+        };
 
-        // 通过 CSS 变量统一更新主题色
+        const clampInt = (n, min, max) => {
+            const x = Math.round(Number(n));
+            if (!Number.isFinite(x)) return min;
+            return Math.min(Math.max(x, min), max);
+        };
+
+        const shadeHexColor = (hex, ratio) => {
+            const rgb = toRgbFromHex(hex);
+            if (!rgb) return null;
+            const t = ratio < 0 ? 0 : 255;
+            const p = Math.abs(Number(ratio));
+            if (!Number.isFinite(p)) return null;
+            const r = clampInt((t - rgb.r) * p + rgb.r, 0, 255);
+            const g = clampInt((t - rgb.g) * p + rgb.g, 0, 255);
+            const b = clampInt((t - rgb.b) * p + rgb.b, 0, 255);
+            return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+        };
+
+        const colors = Array.isArray(this.colors) ? this.colors : [];
+        const currentColor =
+            colors.length > 0
+                ? colors[Number(this.colorIndex) || 0]
+                : (PET_CONFIG?.pet?.colors?.[PET_CONFIG?.pet?.defaultColorIndex ?? 0] ||
+                  'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)');
+        const mainColor = this.getMainColorFromGradient(currentColor);
+        const rgb = toRgbFromHex(mainColor) || { r: 102, g: 126, b: 234 };
+        const rgbText = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+        const hoverColor = shadeHexColor(mainColor, -0.08) || mainColor;
+        const hoverRgb = toRgbFromHex(hoverColor) || rgb;
+        const hoverRgbText = `${hoverRgb.r}, ${hoverRgb.g}, ${hoverRgb.b}`;
+        const primaryAlpha = `rgba(${rgbText}, 0.12)`;
+
         this.chatWindow.style.setProperty('--pet-chat-primary-color', currentColor);
         this.chatWindow.style.setProperty('--pet-chat-main-color', mainColor);
+        this.chatWindow.style.setProperty('--primary', mainColor);
+        this.chatWindow.style.setProperty('--primary-color', mainColor);
+        this.chatWindow.style.setProperty('--primary-rgb', rgbText);
+        this.chatWindow.style.setProperty('--primary-hover', hoverColor);
+        this.chatWindow.style.setProperty('--primary-color-hover', hoverColor);
+        this.chatWindow.style.setProperty('--primary-dark', hoverColor);
+        this.chatWindow.style.setProperty('--primary-dark-rgb', hoverRgbText);
+        this.chatWindow.style.setProperty('--primary-alpha', primaryAlpha);
+        this.chatWindow.style.setProperty('--primary-color-alpha', primaryAlpha);
 
         // 更新页面上下文开关颜色
         const contextSwitchContainer = this.chatWindow.querySelector('.context-switch-container');

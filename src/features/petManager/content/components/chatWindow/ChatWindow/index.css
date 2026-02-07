@@ -90,6 +90,7 @@
     /* Variables scope - 使用全局主题色变量 */
     --pet-chat-primary-color: var(--primary, #667eea);
     --pet-chat-main-color: var(--primary, #667eea);
+    --pet-chat-bg-gradient: var(--bg-gradient, linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%));
 }
 
 #pet-chat-window.dragging,
@@ -706,7 +707,7 @@
 
 .yi-pet-chat-header-btn:hover {
     background: rgba(var(--primary-rgb, 102, 126, 234), 0.2) !important;
-    color: var(--pet-chat-primary-color, #667eea) !important;
+    color: var(--pet-chat-main-color, #667eea) !important;
     transform: scale(1.05) !important;
     box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.3) inset,
                 0 2px 8px rgba(var(--primary-rgb, 102, 126, 234), 0.2) !important;
@@ -716,8 +717,6 @@
 /* Main Content - 重新设计高度自适应，确保能够撑满弹框高度，并正确分配子元素空间 */
 #pet-chat-window .yi-pet-chat-right-panel,
 #pet-chat-window .yi-pet-chat-main-content {
-    --pet-chat-bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-    --pet-chat-main-color: #3b82f6;
     display: flex !important;
     flex-direction: column !important;
     flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据所有剩余空间 */
@@ -725,7 +724,7 @@
     max-height: 100% !important; /* 确保不超过父容器高度 */
     height: calc(100vh - 60px) !important;
     width: 100% !important; /* 确保占据全部宽度 */
-    background: var(--pet-chat-bg-gradient);
+    background: var(--pet-chat-bg-gradient, linear-gradient(180deg, #0f172a 0%, #1e293b 100%));
     position: relative;
     z-index: 1;
     overflow: hidden !important; /* 防止内容溢出 */
@@ -1585,7 +1584,7 @@
 .welcome-card-action-btn:hover {
     background: rgba(255, 255, 255, 0.07) !important;
     border-color: rgba(148, 163, 184, 0.28) !important;
-    color: var(--pet-chat-primary-color, #667eea) !important;
+    color: var(--pet-chat-main-color, #667eea) !important;
     opacity: 1 !important;
 }
 
@@ -1610,11 +1609,11 @@
 .welcome-card-url:hover {
     text-decoration: underline !important;
     text-decoration-color: rgba(var(--primary-rgb, 102, 126, 234), 0.55) !important;
-    color: var(--pet-chat-primary-color, #667eea) !important;
+    color: var(--pet-chat-main-color, #667eea) !important;
 }
 
 .welcome-card-url:active {
-    color: var(--pet-chat-primary-color, #667eea) !important;
+    color: var(--pet-chat-main-color, #667eea) !important;
     opacity: 0.9 !important;
 }
 

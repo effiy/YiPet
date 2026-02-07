@@ -184,6 +184,36 @@
         return chatWindowTemplatesCache;
     }
 
+    function toRgbFromHex(hex) {
+        const normalized = String(hex || '').trim();
+        const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
+        if (!match) return null;
+        const value = match[1];
+        const r = parseInt(value.slice(0, 2), 16);
+        const g = parseInt(value.slice(2, 4), 16);
+        const b = parseInt(value.slice(4, 6), 16);
+        if (![r, g, b].every((n) => Number.isFinite(n))) return null;
+        return { r, g, b };
+    }
+
+    function clampInt(n, min, max) {
+        const x = Math.round(Number(n));
+        if (!Number.isFinite(x)) return min;
+        return Math.min(Math.max(x, min), max);
+    }
+
+    function shadeHexColor(hex, ratio) {
+        const rgb = toRgbFromHex(hex);
+        if (!rgb) return null;
+        const t = ratio < 0 ? 0 : 255;
+        const p = Math.abs(Number(ratio));
+        if (!Number.isFinite(p)) return null;
+        const r = clampInt((t - rgb.r) * p + rgb.r, 0, 255);
+        const g = clampInt((t - rgb.g) * p + rgb.g, 0, 255);
+        const b = clampInt((t - rgb.b) * p + rgb.b, 0, 255);
+        return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+    }
+
     class ChatWindow {
         constructor(manager) {
             this.manager = manager;
@@ -996,15 +1026,31 @@
             if (!this.element) return;
             const manager = this.manager;
 
-            // 获取当前宠物颜色
-            const currentColor = manager.colors[manager.colorIndex];
+            const colors = Array.isArray(manager?.colors) ? manager.colors : [];
+            const currentColor =
+                colors.length > 0
+                    ? colors[Number(manager?.colorIndex) || 0]
+                    : (window.PET_CONFIG?.pet?.colors?.[window.PET_CONFIG?.pet?.defaultColorIndex ?? 0] ||
+                      'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)');
             const mainColor = this.getMainColorFromGradient(currentColor);
+            const rgb = toRgbFromHex(mainColor) || { r: 102, g: 126, b: 234 };
+            const rgbText = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+            const hoverColor = shadeHexColor(mainColor, -0.08) || mainColor;
+            const hoverRgb = toRgbFromHex(hoverColor) || rgb;
+            const hoverRgbText = `${hoverRgb.r}, ${hoverRgb.g}, ${hoverRgb.b}`;
+            const primaryAlpha = `rgba(${rgbText}, 0.12)`;
 
-            // Update CSS variables
             this.element.style.setProperty('--pet-chat-primary-color', currentColor, 'important');
             this.element.style.setProperty('--pet-chat-main-color', mainColor, 'important');
-
-            // 其余组件通过 CSS 变量生效，无需逐一设置
+            this.element.style.setProperty('--primary', mainColor, 'important');
+            this.element.style.setProperty('--primary-color', mainColor, 'important');
+            this.element.style.setProperty('--primary-rgb', rgbText, 'important');
+            this.element.style.setProperty('--primary-hover', hoverColor, 'important');
+            this.element.style.setProperty('--primary-color-hover', hoverColor, 'important');
+            this.element.style.setProperty('--primary-dark', hoverColor, 'important');
+            this.element.style.setProperty('--primary-dark-rgb', hoverRgbText, 'important');
+            this.element.style.setProperty('--primary-alpha', primaryAlpha, 'important');
+            this.element.style.setProperty('--primary-color-alpha', primaryAlpha, 'important');
         }
 
         updateChatWindowStyle() {

@@ -1355,6 +1355,24 @@
         copyBtn.textContent = '📋';
         copyBtn.addEventListener('click', () => this.copyMessageEditor());
 
+        const optimizeBtnGroup = document.createElement('div');
+        optimizeBtnGroup.className = 'optimize-btn-group';
+
+        const optimizeBtn = document.createElement('button');
+        optimizeBtn.id = 'pet-message-optimize-btn';
+        optimizeBtn.textContent = '✨';
+        optimizeBtn.setAttribute('title', '智能优化消息内容');
+        optimizeBtn.setAttribute('aria-label', '智能优化消息内容');
+        optimizeBtn.setAttribute('type', 'button');
+        optimizeBtn.className = 'chat-toolbar-btn context-optimize-btn';
+        optimizeBtn.addEventListener('click', async () => {
+            if (typeof this.optimizeMessageEditorContent === 'function') {
+                await this.optimizeMessageEditorContent();
+            }
+        });
+
+        optimizeBtnGroup.appendChild(optimizeBtn);
+
         const saveBtn = document.createElement('button');
         saveBtn.id = 'pet-message-save-btn';
         saveBtn.className = 'chat-toolbar-btn';
@@ -1380,6 +1398,7 @@
         closeBtn.onclick = () => this.closeMessageEditor();
 
         headerBtns.appendChild(copyBtn);
+        headerBtns.appendChild(optimizeBtnGroup);
         headerBtns.appendChild(saveBtn);
         headerBtns.appendChild(closeBtn);
         header.appendChild(title);

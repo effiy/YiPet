@@ -1117,6 +1117,199 @@ ${originalText}
         }
     };
 
+    proto.optimizeMessageEditorContent = async function() {
+        const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor-textarea') : null;
+        if (!textarea) return;
+
+        const rawText = textarea.value || '';
+        const originalText = rawText.trim();
+        if (!originalText) {
+            this.showNotification('请先输入内容', 'warning');
+            return;
+        }
+
+        const optimizeBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-message-optimize-btn') : null;
+        const originalBtnText = optimizeBtn ? optimizeBtn.textContent : '';
+
+        if (optimizeBtn) {
+            optimizeBtn.disabled = true;
+            optimizeBtn.setAttribute('data-optimizing', 'true');
+            optimizeBtn.textContent = '⏳';
+        }
+
+        try {
+            const systemPrompt = `你是一个专业的“消息内容清理与排版”助手。
+你的任务不是总结或改写，而是：在不新增信息、不遗漏关键信息的前提下，把消息内容清理干净并排版成更易读的 Markdown。
+
+必须遵守：
+1. 不总结、不提炼、不下结论，不添加原文没有的新信息
+2. 保持原文的语气与信息顺序，只做清理与格式化
+3. 保留代码块、表格、列表、链接文字等结构；必要时仅做轻量的结构化（如把连续短句整理成列表）
+4. 输出必须是有效的 Markdown，且只输出 Markdown 正文，不要任何解释`;
+
+            const userPrompt = `请智能优化以下消息内容，要求：
+
+【核心要求】
+1. 必须保留原文的核心信息与完整内容，不能丢失重要信息
+2. 不要总结/提炼/改写成“摘要”
+3. 智能格式化（不新增信息）：修正标题层级、段落切分、列表化、表格排版、代码块保持不变，使阅读更顺畅
+4. 保持 Markdown 格式有效：不要输出 HTML 标签；不要在内容前后加引号或说明文字
+
+原始内容：
+${originalText}
+
+请直接返回优化后的Markdown内容，不要包含任何说明文字、引号或其他格式标记。`;
+
+            const oldPayload = this.buildPromptPayload(
+                systemPrompt,
+                userPrompt
+            );
+
+            const payload = {
+                module_name: 'services.ai.chat_service',
+                method_name: 'chat',
+                parameters: {
+                    system: oldPayload.fromSystem,
+                    user: oldPayload.fromUser,
+                    stream: false
+                }
+            };
+            if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+                payload.parameters.images = oldPayload.images;
+            }
+            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
+                payload.parameters.model = PET_CONFIG.chatModels.default;
+            }
+            if (oldPayload.conversation_id) {
+                payload.parameters.conversation_id = oldPayload.conversation_id;
+            }
+
+            this._showLoadingAnimation();
+
+            const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders(),
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result || typeof result !== 'object') {
+                throw new Error('响应格式错误');
+            }
+            if (result.code !== 0) {
+                throw new Error(result.message || `请求失败 (code=${result.code})`);
+            }
+
+            this._hideLoadingAnimation();
+
+            const data = result.data || {};
+            let optimizedText =
+                (typeof data.message === 'string' ? data.message : '') ||
+                (typeof data.content === 'string' ? data.content : '') ||
+                (typeof result.content === 'string' ? result.content : '');
+
+            optimizedText = this.stripThinkContent(optimizedText);
+            optimizedText = optimizedText.trim();
+
+            const quotePairs = [
+                ['"', '"'],
+                ['"', '"'],
+                ['"', '"'],
+                ["'", "'"],
+                ['`', '`'],
+                ['「', '」'],
+                ['『', '』']
+            ];
+
+            for (const [startQuote, endQuote] of quotePairs) {
+                if (optimizedText.startsWith(startQuote) && optimizedText.endsWith(endQuote)) {
+                    optimizedText = optimizedText.slice(startQuote.length, -endQuote.length).trim();
+                }
+            }
+
+            const prefixes = [
+                /^优化后的消息：?\s*/i,
+                /^以下是优化后的消息：?\s*/i,
+                /^优化结果：?\s*/i,
+                /^优化后的文本：?\s*/i
+            ];
+
+            for (const prefix of prefixes) {
+                optimizedText = optimizedText.replace(prefix, '').trim();
+            }
+
+            optimizedText = this._cleanAndOptimizeText(optimizedText);
+
+            if (!optimizedText || optimizedText.length < 5) {
+                throw new Error('优化后的文本过短，可能优化失败，请重试');
+            }
+
+            if (optimizedText === originalText) {
+                this.showNotification('优化后的内容与原文相同', 'info');
+            }
+
+            textarea.value = optimizedText;
+            textarea.setAttribute('data-optimized-text', optimizedText);
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+            const charCount = optimizedText.length;
+            const originalCharCount = originalText.length;
+            const changeInfo = charCount !== originalCharCount
+                ? `（${originalCharCount}字 → ${charCount}字）`
+                : `（${charCount}字）`;
+            this.showNotification(`优化完成 ${changeInfo}`, 'success');
+
+            if (optimizeBtn) {
+                optimizeBtn.setAttribute('data-status', 'success');
+                setTimeout(() => {
+                    try {
+                        optimizeBtn.removeAttribute('data-status');
+                    } catch (_) {}
+                }, 1600);
+            }
+        } catch (error) {
+            this._hideLoadingAnimation();
+            console.error('优化消息失败:', error);
+
+            let errorMessage = '优化失败，请稍后重试';
+            if (error.message) {
+                if (error.message.includes('HTTP error')) {
+                    errorMessage = '网络请求失败，请检查网络连接';
+                } else if (error.message.includes('无法解析')) {
+                    errorMessage = '服务器响应格式异常，请稍后重试';
+                } else if (error.message.includes('过短')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage = error.message;
+                }
+            }
+
+            this.showNotification(errorMessage, 'error');
+
+            if (optimizeBtn) {
+                optimizeBtn.setAttribute('data-status', 'error');
+                setTimeout(() => {
+                    try {
+                        optimizeBtn.removeAttribute('data-status');
+                    } catch (_) {}
+                }, 2000);
+            }
+        } finally {
+            if (optimizeBtn) {
+                optimizeBtn.disabled = false;
+                optimizeBtn.removeAttribute('data-optimizing');
+                optimizeBtn.textContent = originalBtnText;
+            }
+        }
+    };
+
     // 翻译上下文内容
     proto.translateContext = async function(targetLang) {
         const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null;

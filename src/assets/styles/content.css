@@ -1627,14 +1627,25 @@
     line-height: 1 !important;
 }
 
-#pet-message-editor .chat-toolbar-btn:hover:not([data-saving]) {
+#pet-message-editor .chat-toolbar-btn:hover:not([data-saving]):not([data-optimizing]) {
     background: rgba(255,255,255,0.12) !important;
     border-color: rgba(255,255,255,0.25) !important;
 }
 
-#pet-message-editor .chat-toolbar-btn[data-saving] {
+#pet-message-editor .chat-toolbar-btn[data-saving],
+#pet-message-editor .chat-toolbar-btn[data-optimizing] {
     opacity: 0.6 !important;
     cursor: not-allowed !important;
+}
+
+#pet-message-editor #pet-message-optimize-btn {
+    border-color: rgba(76, 175, 80, 0.3) !important;
+    background: rgba(76, 175, 80, 0.15) !important;
+    color: #22c55e !important;
+}
+
+#pet-message-editor #pet-message-optimize-btn:hover:not([data-optimizing]) {
+    filter: brightness(1.05) !important;
 }
 
 #pet-message-editor .chat-toolbar-btn[data-status="success"] {

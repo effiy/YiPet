@@ -522,7 +522,7 @@
                 // 添加文本内容（与 YiWeb 一致）
                 if (text && text.trim()) {
                     const contentDiv = document.createElement('div');
-                    contentDiv.className = 'pet-chat-content md-preview-body';
+                    contentDiv.className = 'pet-chat-content md-preview-body markdown-content';
 
                     // 渲染 Markdown
                     const displayText = this.renderMarkdown(text);

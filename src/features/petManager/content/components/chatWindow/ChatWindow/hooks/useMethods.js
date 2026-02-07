@@ -484,7 +484,7 @@
             let contentDiv = messageBubble.querySelector('.pet-chat-content');
             if (!contentDiv) {
                 contentDiv = document.createElement('div');
-                contentDiv.className = 'pet-chat-content md-preview-body';
+                contentDiv.className = 'pet-chat-content md-preview-body markdown-content';
                 const typingDiv = messageBubble.querySelector('.pet-chat-typing');
                 if (typingDiv) typingDiv.remove();
                 const meta = messageBubble.querySelector('.pet-chat-meta');
@@ -586,7 +586,7 @@
                 let contentDiv = messageBubble.querySelector('.pet-chat-content');
                 if (!contentDiv) {
                     contentDiv = document.createElement('div');
-                    contentDiv.className = 'pet-chat-content md-preview-body pet-chat-content-streaming';
+                    contentDiv.className = 'pet-chat-content md-preview-body markdown-content pet-chat-content-streaming';
                     const typingDiv = messageBubble.querySelector('.pet-chat-typing');
                     if (typingDiv) {
                         typingDiv.remove();

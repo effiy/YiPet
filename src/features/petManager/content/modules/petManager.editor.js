@@ -1628,7 +1628,7 @@
                 if (editedText.trim()) {
                     if (!contentDiv) {
                         contentDiv = document.createElement('div');
-                        contentDiv.className = 'pet-chat-content md-preview-body';
+                        contentDiv.className = 'pet-chat-content md-preview-body markdown-content';
                         const meta = bubble.querySelector('.pet-chat-meta');
                         if (meta) {
                             bubble.insertBefore(contentDiv, meta);

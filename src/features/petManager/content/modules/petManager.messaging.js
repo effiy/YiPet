@@ -21,9 +21,23 @@
                     break;
 
                 case 'initPet':
-                    // this.createPet();
-                    this.openChatWindow();
-                    sendResponse({ success: true });
+                    if (!this.pet && typeof this.createPet === 'function') {
+                        this.createPet();
+                    } else if (this.pet && !this.pet.parentNode && typeof this.addPetToPage === 'function') {
+                        this.addPetToPage();
+                    }
+                    if (typeof this.updatePetStyle === 'function') {
+                        this.updatePetStyle();
+                    }
+                    sendResponse({
+                        success: true,
+                        visible: this.isVisible,
+                        color: this.colorIndex,
+                        size: this.size,
+                        position: this.position,
+                        role: this.role || '教师',
+                        model: this.currentModel
+                    });
                     break;
 
                 case 'openChatWindow':

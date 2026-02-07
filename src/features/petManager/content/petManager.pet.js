@@ -92,11 +92,16 @@
         const iconUrl = chrome.runtime.getURL(`src/assets/images/${role}/icon.png`);
 
         // 设置动态属性（位置、大小、显示状态、背景图片、z-index）
+        this.pet.style.position = 'fixed';
         this.pet.style.top = `${this.position.y}px`;
         this.pet.style.left = `${this.position.x}px`;
         this.pet.style.width = `${this.size}px`;
         this.pet.style.height = `${this.size}px`;
         this.pet.style.backgroundImage = `url(${iconUrl})`;
+        this.pet.style.backgroundSize = 'contain';
+        this.pet.style.backgroundPosition = 'center';
+        this.pet.style.backgroundRepeat = 'no-repeat';
+        this.pet.style.borderRadius = `${(PET_CONFIG.ui && PET_CONFIG.ui.borderRadius && PET_CONFIG.ui.borderRadius.pet) ? PET_CONFIG.ui.borderRadius.pet : '50%'}`;
         this.pet.style.zIndex = `${PET_CONFIG.ui.zIndex.pet}`;
         if (this.isVisible) {
             this.pet.classList.remove('tw-hidden');
@@ -193,6 +198,11 @@
     // 添加交互功能
     // 切换可见性
     proto.toggleVisibility = function() {
+        if (!this.pet) {
+            this.createPet();
+        } else if (this.pet && !this.pet.parentNode) {
+            this.addPetToPage();
+        }
         this.isVisible = !this.isVisible;
         this.updatePetStyle();
         this.saveState(); // 保存状态

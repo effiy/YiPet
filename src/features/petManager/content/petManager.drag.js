@@ -156,43 +156,89 @@
     if (!this.pet) return;
 
     let isDragging = false;
+    let activePointerId = null;
     let startX = 0;
     let startY = 0;
     let startLeft = 0;
     let startTop = 0;
 
     this.pet.classList.add('pet-draggable');
+    this.pet.style.touchAction = 'none';
 
-    this.pet.addEventListener('mousedown', (e) => {
+    const updatePosition = (clientX, clientY) => {
+      if (!this.pet) return;
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
+      this.position.x = Math.max(0, Math.min(window.innerWidth - this.size, startLeft + deltaX));
+      this.position.y = Math.max(0, Math.min(window.innerHeight - this.size, startTop + deltaY));
+      this.pet.style.left = this.position.x + 'px';
+      this.pet.style.top = this.position.y + 'px';
+    };
+
+    const endDrag = () => {
+      isDragging = false;
+      activePointerId = null;
+      if (this.pet) {
+        this.pet.classList.remove('pet-is-dragging');
+        this.saveState();
+        this.syncToGlobalState();
+      }
+    };
+
+    if (typeof window.PointerEvent !== 'undefined') {
+      this.pet.addEventListener('pointerdown', (e) => {
+        if (!this.pet) return;
+        if (e.button !== undefined && e.button !== 0) return;
+        activePointerId = e.pointerId;
         isDragging = true;
         startX = e.clientX;
         startY = e.clientY;
         startLeft = this.position.x;
         startTop = this.position.y;
         this.pet.classList.add('pet-is-dragging');
+        try {
+          this.pet.setPointerCapture(activePointerId);
+        } catch (_) {}
         e.preventDefault();
-    });
+      });
 
-    document.addEventListener('mousemove', (e) => {
-        if (isDragging && this.pet) {
-            const deltaX = e.clientX - startX;
-            const deltaY = e.clientY - startY;
-            this.position.x = Math.max(0, Math.min(window.innerWidth - this.size, startLeft + deltaX));
-            this.position.y = Math.max(0, Math.min(window.innerHeight - this.size, startTop + deltaY));
-            this.pet.style.left = this.position.x + 'px';
-            this.pet.style.top = this.position.y + 'px';
-        }
-    });
+      this.pet.addEventListener('pointermove', (e) => {
+        if (!isDragging || !this.pet) return;
+        if (activePointerId !== null && e.pointerId !== activePointerId) return;
+        updatePosition(e.clientX, e.clientY);
+      });
 
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        if (this.pet) {
-            this.pet.classList.remove('pet-is-dragging');
-            this.saveState(); // 拖拽结束后保存状态
-            // 立即同步到全局状态
-            this.syncToGlobalState();
-        }
-    });
+      this.pet.addEventListener('pointerup', () => {
+        if (!isDragging) return;
+        endDrag();
+      });
+
+      this.pet.addEventListener('pointercancel', () => {
+        if (!isDragging) return;
+        endDrag();
+      });
+    } else {
+      this.pet.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          startLeft = this.position.x;
+          startTop = this.position.y;
+          this.pet.classList.add('pet-is-dragging');
+          e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+          if (isDragging && this.pet) {
+              updatePosition(e.clientX, e.clientY);
+          }
+      });
+
+      document.addEventListener('mouseup', () => {
+          if (!isDragging) return;
+          endDrag();
+      });
+    }
 
     this.pet.addEventListener('dblclick', (e) => {
         e.stopPropagation();

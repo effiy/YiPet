@@ -182,10 +182,6 @@ class PopupController {
     setupEventListeners() {
         // 事件映射配置：定义所有需要绑定事件的UI元素
         const eventMap = [
-            { id: 'openChatBtn', event: 'click', handler: () => this.openChatWindow() },
-            { id: 'openQuickCommentBtn', event: 'click', handler: () => this.openQuickComment() },
-            { id: 'centerPetBtn', event: 'click', handler: () => this.centerPet() },
-            { id: 'resetPositionBtn', event: 'click', handler: () => this.resetPosition() },
             { id: 'visibilityToggle', event: 'change', handler: (e) => this.toggleVisibility(e) },
             { id: 'sizeSlider', event: 'input', handler: (e) => this.previewPetSize(parseInt(e.target.value)) },
             { id: 'sizeSlider', event: 'change', handler: (e) => this.setPetSize(parseInt(e.target.value)) },
@@ -300,31 +296,6 @@ class PopupController {
         // 更新状态指示器
         this.updateStatusIndicator();
     }
-    
-    /**
-     * 打开聊天窗口
-     */
-    async openChatWindow() {
-        this.setButtonLoading('openChatBtn', true);
-        
-        const result = await ErrorHandler.safeExecute(async () => {
-            console.log('打开聊天窗口...');
-            const response = await this.sendMessageToContentScript({ action: 'openChatWindow' });
-            
-            if (response && response.success) {
-                this.showNotification('聊天窗口已打开');
-                return { success: true };
-            } else {
-                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) 
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED 
-                    : '操作失败';
-                throw new Error(errorMsg);
-            }
-        }, { showNotification: true });
-        
-        this.setButtonLoading('openChatBtn', false);
-        return result;
-    }
 
     previewPetSize(size) {
         const normalized = Number.isFinite(size) ? size : this.currentPetStatus.size;
@@ -408,63 +379,6 @@ class PopupController {
         }, { showNotification: true });
     }
 
-    async centerPet() {
-        this.setButtonLoading('centerPetBtn', true);
-
-        await ErrorHandler.safeExecute(async () => {
-            const response = await this.sendMessageToContentScript({ action: 'centerPet' });
-            if (!response || response.success === false) {
-                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
-                    : '操作失败';
-                throw new Error(errorMsg);
-            }
-            this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.CENTERED : '已居中', 'success');
-            await this.refreshStatus();
-        }, { showNotification: true });
-
-        this.setButtonLoading('centerPetBtn', false);
-    }
-
-    async resetPosition() {
-        this.setButtonLoading('resetPositionBtn', true);
-
-        await ErrorHandler.safeExecute(async () => {
-            const response = await this.sendMessageToContentScript({ action: 'resetPosition' });
-            if (!response || response.success === false) {
-                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
-                    : '操作失败';
-                throw new Error(errorMsg);
-            }
-            this.showNotification((PET_CONFIG.constants && PET_CONFIG.constants.SUCCESS_MESSAGES) ? PET_CONFIG.constants.SUCCESS_MESSAGES.POSITION_RESET : '位置已重置', 'success');
-            await this.refreshStatus();
-        }, { showNotification: true });
-
-        this.setButtonLoading('resetPositionBtn', false);
-    }
-
-    async openQuickComment() {
-        this.setButtonLoading('openQuickCommentBtn', true);
-
-        await ErrorHandler.safeExecute(async () => {
-            const response = await this.sendMessageToContentScript({ action: 'openQuickComment' });
-            if (!response || response.success === false) {
-                if (response && response.disabled) {
-                    this.showNotification('快评功能已关闭', 'warn');
-                    return;
-                }
-                const errorMsg = (PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-                    ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
-                    : '操作失败';
-                throw new Error(errorMsg);
-            }
-            this.showNotification('快评已打开', 'success');
-        }, { showNotification: true });
-
-        this.setButtonLoading('openQuickCommentBtn', false);
-    }
-
     async refreshStatus() {
         try {
             const response = await this.sendMessageToContentScript({ action: 'getStatus' });
@@ -493,10 +407,6 @@ class PopupController {
         }
 
         const ids = [
-            'openChatBtn',
-            'openQuickCommentBtn',
-            'centerPetBtn',
-            'resetPositionBtn',
             'visibilityToggle',
             'sizeSlider',
             'roleSelect',

@@ -23,7 +23,7 @@
 
         chrome.storage.local.set({
             petSettings: {
-                size: 60,
+                size: 260,
                 color: 0,
                 visible: false,
                 autoStart: true
@@ -34,7 +34,7 @@
             petGlobalState: {
                 visible: false,
                 color: 0,
-                size: 60,
+                size: 260,
                 timestamp: Date.now()
             }
         });

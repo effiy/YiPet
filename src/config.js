@@ -8,7 +8,7 @@
 // --- Defaults ---
 const DEFAULT_CONFIG = {
   pet: {
-    defaultSize: 180,
+    defaultSize: 260,
     defaultPosition: { x: 20, y: "20%" },
     defaultColorIndex: 0,
     defaultVisible: false,

@@ -176,7 +176,7 @@
                 // 通用下载逻辑
                 const link = document.createElement('a');
                 link.href = imageUrl;
-                link.download = fileName || 'image.png';
+                link.download = String(fileName || 'image.png').replace(/\s+/g, '_');
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);

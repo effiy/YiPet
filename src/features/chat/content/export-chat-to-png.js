@@ -86,6 +86,10 @@ function copyAllElementStyles(sourceElement, targetElement) {
     }
 }
 
+function sanitizeExportFileNamePart(name) {
+    return String(name || '').replace(/\s+/g, '_').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+}
+
 /**
  * 导出聊天记录为高清 PNG
  * @param {HTMLElement} messagesContainer - 聊天消息容器元素
@@ -228,7 +232,8 @@ async function exportChatToPNG(messagesContainer, sessionName = '聊天记录') 
             // 创建下载链接
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            const fileName = `${sessionName}_${new Date().getTime()}.png`;
+            const safeSessionName = sanitizeExportFileNamePart(sessionName) || '聊天记录';
+            const fileName = `${safeSessionName}_${new Date().getTime()}.png`;
             link.href = url;
             link.download = fileName;
             link.click();
@@ -434,7 +439,8 @@ async function exportSingleMessageToPNG(messageElement, messageType = null) {
             // 创建下载链接
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            const fileName = `消息_${messageType}_${new Date().getTime()}.png`;
+            const safeMessageType = sanitizeExportFileNamePart(messageType) || 'message';
+            const fileName = `消息_${safeMessageType}_${new Date().getTime()}.png`;
             link.href = url;
             link.download = fileName;
             link.click();

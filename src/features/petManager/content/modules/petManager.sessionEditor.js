@@ -340,7 +340,7 @@
                         currentPath = currentPath ? currentPath + '/' + folderName : folderName;
                     });
 
-                    const sanitizeFileName = (name) => String(name || '').replace(/[\/\\:*?"<>|]/g, '-').trim();
+                    const sanitizeFileName = (name) => String(name || '').replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-').trim();
                     let fileName = sanitizeFileName(title) || 'Untitled';
                     fileName = String(fileName).replace(/\//g, '-');
 

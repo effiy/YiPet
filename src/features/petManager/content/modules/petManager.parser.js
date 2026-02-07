@@ -9,7 +9,7 @@
     // 清理文件名（移除非法字符）
     proto._sanitizeFileName = function(fileName) {
         // 移除或替换Windows/Linux文件名中的非法字符
-        return fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+        return String(fileName || '').replace(/\s+/g, '_').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
     };
 
     // 生成context.md内容

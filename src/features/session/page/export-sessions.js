@@ -37,7 +37,7 @@
     
     // 清理路径中的非法字符
     function sanitizePath(path) {
-        return path.replace(/[<>:"|?*\x00-\x1f]/g, '_').trim();
+        return String(path || '').replace(/\s+/g, '_').replace(/[<>:"|?*\x00-\x1f]/g, '_').trim();
     }
     
     // 用于跟踪已使用的文件路径，避免文件名冲突
@@ -119,4 +119,3 @@
         }));
     });
 })();
-

@@ -315,7 +315,7 @@
                     });
                     
                     // 清理文件名（移除特殊字符，避免路径问题）
-                    const sanitizeFileName = (name) => String(name || '').replace(/[\/\\:*?"<>|]/g, '-').trim();
+                    const sanitizeFileName = (name) => String(name || '').replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-').trim();
                     let fileName = sanitizeFileName(title) || 'Untitled';
                     fileName = String(fileName).replace(/\//g, '-');
                     

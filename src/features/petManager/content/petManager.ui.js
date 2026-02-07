@@ -13,7 +13,6 @@
   };
   proto.updateSessionSidebar = async function (forceRefresh = false, skipBackendRefresh = false) {
     if (!this.sessionSidebar) {
-      console.log('会话侧边栏未创建，跳过更新');
       return;
     }
     const apiRequestList = this.sessionSidebar.querySelector('.api-request-list');

@@ -146,12 +146,6 @@
                       manager.openAuth();
                   };
 
-                  const onRefreshClick = (e) => {
-                      e?.stopPropagation?.();
-                      e?.preventDefault?.();
-                      manager.manualRefresh(e.currentTarget);
-                  };
-
                   const onSidebarToggleClick = (e) => {
                       e?.stopPropagation?.();
                       e?.preventDefault?.();
@@ -167,7 +161,6 @@
                       onImportClick,
                       onAddClick,
                       onAuthClick,
-                      onRefreshClick,
                       onSidebarToggleClick
                   };
               };
@@ -319,10 +312,8 @@
             const contentContainer = document.createElement('div');
             contentContainer.className = 'yi-pet-chat-content-container';
 
-            // Create Sidebar - 会话列表侧边栏
-            this.sidebar = this.createSidebar();
-            manager.sessionSidebar = this.sidebar;
-            contentContainer.appendChild(this.sidebar);
+            this.sidebar = null;
+            if (manager) manager.sessionSidebar = null;
 
             // Create Main Content Container - 与 YiWeb pet-chat-right-panel 完全一致
             this.mainContent = document.createElement('div');
@@ -349,14 +340,6 @@
 
             // Bind Events
             this.bindEvents();
-
-            // 确保侧边栏默认显示（加载状态会在 createChatWindow 中处理）
-            // 如果 manager 的 sidebarCollapsed 未定义，默认为 false（显示）
-            if (manager.sidebarCollapsed === undefined) {
-                manager.sidebarCollapsed = false;
-            }
-            // 立即应用状态
-            this.setSidebarCollapsed(manager.sidebarCollapsed);
 
             return this.element;
         }
@@ -393,42 +376,8 @@
 
             const { createApp, defineComponent, ref, onMounted } = vueApi;
 
-            const store = (() => {
-                const resolved = safeCall(() => createStore(manager), null);
-                const current = resolved && typeof resolved === 'object' ? resolved : {};
-                if (!current.searchValue || typeof current.searchValue !== 'object' || !('value' in current.searchValue)) {
-                    current.searchValue = ref(manager?.sessionTitleFilter || '');
-                }
-                return current;
-            })();
-
-            const computedProps = (() => {
-                const resolved = safeCall(() => useComputed(store), null);
-                const current = resolved && typeof resolved === 'object' ? resolved : {};
-                if (!current.clearVisible || typeof current.clearVisible !== 'object' || !('value' in current.clearVisible)) {
-                    current.clearVisible = {
-                        get value() {
-                            return !!String(store?.searchValue?.value || '').trim();
-                        }
-                    };
-                }
-                return current;
-            })();
-
-            const methods = useMethods({ manager, instance, store });
-
-            const uiTick =
-                manager?._sidebarUiTickRef && typeof manager._sidebarUiTickRef === 'object' && manager._sidebarUiTickRef && 'value' in manager._sidebarUiTickRef
-                    ? manager._sidebarUiTickRef
-                    : ref(0);
-            manager._sidebarUiTickRef = uiTick;
-            const bumpUiTick =
-                typeof manager?._bumpSidebarUiTick === 'function'
-                    ? manager._bumpSidebarUiTick
-                    : () => {
-                          uiTick.value += 1;
-                      };
-            manager._bumpSidebarUiTick = bumpUiTick;
+            const uiTick = ref(0);
+            if (manager) manager.sessionSidebar = null;
 
             const loadComponent = async (name, args, options) => {
                 const opts = options && typeof options === 'object' ? options : {};
@@ -453,20 +402,7 @@
 
             const ChatHeader = await loadComponent('ChatHeader', { manager }, { includeTemplate: true, requireTemplateLoader: false });
             const ChatInput = await loadComponent('ChatInput', { manager, instance }, { includeTemplate: true, requireTemplateLoader: false });
-            const TagFilter = await loadComponent('TagFilter', { manager, bumpUiTick }, { includeTemplate: true, requireTemplateLoader: true });
-            const BatchToolbar = await loadComponent('BatchToolbar', { manager, bumpUiTick }, { includeTemplate: true, requireTemplateLoader: true });
-            const SessionSearch = await loadComponent(
-                'SessionSearch',
-                { manager, store, computedProps, methods },
-                { includeTemplate: true, requireTemplateLoader: true }
-            );
-            const SessionSidebar = await loadComponent(
-                'SessionSidebar',
-                { store, computedProps, methods, manager, SessionSearch, TagFilter, BatchToolbar },
-                { includeTemplate: true, requireTemplateLoader: true }
-            );
-
-            if (!SessionSidebar || !ChatHeader || !ChatInput) {
+            if (!ChatHeader || !ChatInput) {
                 return this.createFallbackDom();
             }
 
@@ -496,60 +432,33 @@
             const templates = await safeCallAsync(() => loadChatWindowTemplates(), null);
             const resolvedTemplate =
                 String(templates?.chatWindow || '').trim() ||
-                '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="session-sidebar" ref="sidebarEl"><SessionSidebar :uiTick="uiTick" /></div><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div><FaqManager /><FaqTagManager /></div>';
+                '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div><FaqManager /><FaqTagManager /></div>';
 
             const Root = defineComponent({
                 name: 'YiPetChatWindow',
-                components: { ChatHeader, ChatInput, SessionSidebar, ChatMessages, FaqManager, FaqTagManager },
+                components: { ChatHeader, ChatInput, ChatMessages, FaqManager, FaqTagManager },
                 setup() {
                     const headerEl = ref(null);
-                    const sidebarEl = ref(null);
                     const mainEl = ref(null);
                     const messagesEl = ref(null);
 
                     onMounted(() => {
                         instance.header = headerEl.value?.$el ?? headerEl.value;
-                        instance.sidebar = sidebarEl.value;
+                        instance.sidebar = null;
                         instance.mainContent = mainEl.value;
                         instance.messagesContainer = messagesEl.value;
 
-                        if (instance.sidebar) {
-                            instance._setupSidebarAfterRender(instance.sidebar, {
-                                store,
-                                computedProps,
-                                methods,
-                                bindSidebarDomEvents: false
-                            });
-                        }
-
                         instance.createResizeHandles();
                         instance.bindEvents();
-
-                        if (manager.sidebarCollapsed === undefined) {
-                            manager.sidebarCollapsed = false;
-                        }
-                        instance.setSidebarCollapsed(manager.sidebarCollapsed);
-
-                        requestAnimationFrame(() => {
-                            instance.updateSidebarToggleButton(manager.sidebarCollapsed || false);
-                        });
                     });
-
-                    const onAuthClick = (e) => methods?.onAuthClick?.(e);
-                    const onRefreshClick = (e) => methods?.onRefreshClick?.(e);
-                    const onSidebarToggleClick = (e) => methods?.onSidebarToggleClick?.(e);
 
                     return {
                         uiTick,
                         instance,
                         manager,
                         headerEl,
-                        sidebarEl,
                         mainEl,
-                        messagesEl,
-                        onAuthClick,
-                        onRefreshClick,
-                        onSidebarToggleClick
+                        messagesEl
                     };
                 },
                 template: resolvedTemplate
@@ -586,15 +495,6 @@
                     e?.stopPropagation?.();
                     e?.preventDefault?.();
                     if (typeof manager?.openAuth === 'function') manager.openAuth();
-                });
-            }
-
-            const refreshBtn = root.querySelector('#yi-pet-chat-refresh-btn');
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
-                    if (typeof manager?.manualRefresh === 'function') manager.manualRefresh(e?.currentTarget);
                 });
             }
 

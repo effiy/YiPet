@@ -676,7 +676,6 @@
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
-    margin-left: 52px !important; /* 为 sidebar-toggle-btn (32px + 20px padding) 留出空间 */
 }
 
 .yi-pet-chat-header-buttons {

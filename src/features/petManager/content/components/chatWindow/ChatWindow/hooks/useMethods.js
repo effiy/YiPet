@@ -83,12 +83,6 @@
             manager.openAuth();
         };
 
-        const onRefreshClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
-            manager.manualRefresh(e.currentTarget);
-        };
-
         const onSidebarToggleClick = (e) => {
             e?.stopPropagation?.();
             e?.preventDefault?.();
@@ -98,7 +92,6 @@
         return {
             ...sidebarMethods,
             onAuthClick,
-            onRefreshClick,
             onSidebarToggleClick
         };
     };
@@ -748,11 +741,6 @@
             const authBtn = rootEl.querySelector('#yi-pet-chat-auth-btn');
             if (authBtn && typeof methods?.onAuthClick === 'function') {
                 authBtn.addEventListener('click', (e) => methods.onAuthClick(e));
-            }
-
-            const refreshBtn = rootEl.querySelector('#yi-pet-chat-refresh-btn');
-            if (refreshBtn && typeof methods?.onRefreshClick === 'function') {
-                refreshBtn.addEventListener('click', (e) => methods.onRefreshClick(e));
             }
 
             const sidebarToggleBtn = rootEl.querySelector('#sidebar-toggle-btn');

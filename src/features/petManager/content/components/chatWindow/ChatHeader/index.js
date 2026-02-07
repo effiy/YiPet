@@ -49,19 +49,13 @@
                     if (typeof manager?.openAuth === 'function') manager.openAuth();
                 };
 
-                const onRefreshClick = (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
-                    if (typeof manager?.manualRefresh === 'function') manager.manualRefresh(e?.currentTarget);
-                };
-
                 const onSidebarToggleClick = (e) => {
                     e?.stopPropagation?.();
                     e?.preventDefault?.();
                     if (typeof manager?.toggleSidebar === 'function') manager.toggleSidebar();
                 };
 
-                return { sidebarToggleHidden, onAuthClick, onRefreshClick, onSidebarToggleClick };
+                return { sidebarToggleHidden, onAuthClick, onSidebarToggleClick };
             },
             template: resolvedTemplate
         });

@@ -1731,33 +1731,22 @@
     };
 
     // 手动刷新
-    proto.manualRefresh = async function (btnElement) {
+    proto.manualRefresh = async function () {
         console.log('[petManager] manualRefresh called');
-        const refreshBtn = btnElement || document.getElementById('yi-pet-chat-refresh-btn');
-        if (!refreshBtn) {
-            console.warn('[petManager] Refresh button not found: yi-pet-chat-refresh-btn');
-            return;
-        }
-
-        // 防止重复刷新
-        if (refreshBtn.classList.contains('is-spinning')) {
-            console.log('[petManager] Already refreshing');
-            return;
-        }
-
-        refreshBtn.classList.add('is-spinning');
         try {
             console.log('[petManager] Starting refresh...');
             // 重新加载所有会话（强制从后端获取）
             await this.loadAllSessions();
             
-            console.log('手动刷新完成');
-            this.showNotification('刷新成功', 'success');
+            console.log('刷新完成');
+            if (typeof this.showNotification === 'function') {
+                this.showNotification('刷新成功', 'success');
+            }
         } catch (error) {
-            console.warn('手动刷新失败:', error);
-            this.showNotification('刷新失败: ' + error.message, 'error');
-        } finally {
-            refreshBtn.classList.remove('is-spinning');
+            console.warn('刷新失败:', error);
+            if (typeof this.showNotification === 'function') {
+                this.showNotification('刷新失败: ' + error.message, 'error');
+            }
         }
     };
 

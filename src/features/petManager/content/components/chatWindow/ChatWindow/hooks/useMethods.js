@@ -7,6 +7,29 @@
 
     window.PetManager.Components.ChatWindowHooks.useMethods = function useMethods(params) {
         const { manager, instance, store } = params;
+
+        const stopEvent = (e) => {
+            e?.stopPropagation?.();
+            e?.preventDefault?.();
+        };
+
+        const resolveExternalUrl = (key, fallbackUrl) => {
+            const urls = window.PET_CONFIG?.constants?.URLS;
+            const value = urls && typeof urls[key] === 'string' ? urls[key] : '';
+            return String(value || fallbackUrl || '').trim();
+        };
+
+        const openExternal = (url) => {
+            const targetUrl = String(url || '').trim();
+            if (!targetUrl) return;
+            const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+            if (newWindow) {
+                try {
+                    newWindow.opener = null;
+                } catch (_) {}
+            }
+        };
+
         const createSidebarMethods = () => {
             const sidebarHooks = window.PetManager?.Components?.SessionSidebarHooks || {};
             if (typeof sidebarHooks.useMethods === 'function') {
@@ -78,26 +101,22 @@
         const sidebarMethods = createSidebarMethods();
 
         const onAuthClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
-            manager.openAuth();
+            stopEvent(e);
+            if (typeof manager?.openAuth === 'function') manager.openAuth();
         };
 
         const onAicrClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
-            window.open('https://effiy.cn/src/views/aicr/index.html', '_blank');
+            stopEvent(e);
+            openExternal(resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html'));
         };
 
         const onNewsClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
-            window.open('https://effiy.cn/src/views/news/index.html', '_blank');
+            stopEvent(e);
+            openExternal(resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html'));
         };
 
         const onSidebarToggleClick = (e) => {
-            e?.stopPropagation?.();
-            e?.preventDefault?.();
+            stopEvent(e);
             if (instance.toggleSidebar) instance.toggleSidebar();
         };
 

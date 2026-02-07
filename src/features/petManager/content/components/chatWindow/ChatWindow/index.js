@@ -489,11 +489,32 @@
             const root = tpl.content.firstElementChild;
             if (!root) return null;
 
+            const stopEvent = (e) => {
+                e?.stopPropagation?.();
+                e?.preventDefault?.();
+            };
+
+            const resolveExternalUrl = (key, fallbackUrl) => {
+                const urls = window.PET_CONFIG?.constants?.URLS;
+                const value = urls && typeof urls[key] === 'string' ? urls[key] : '';
+                return String(value || fallbackUrl || '').trim();
+            };
+
+            const openExternal = (url) => {
+                const targetUrl = String(url || '').trim();
+                if (!targetUrl) return;
+                const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                if (newWindow) {
+                    try {
+                        newWindow.opener = null;
+                    } catch (_) {}
+                }
+            };
+
             const authBtn = root.querySelector('#yi-pet-chat-auth-btn');
             if (authBtn) {
                 authBtn.addEventListener('click', (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
+                    stopEvent(e);
                     if (typeof manager?.openAuth === 'function') manager.openAuth();
                 });
             }
@@ -501,26 +522,23 @@
             const aicrBtn = root.querySelector('#yi-pet-chat-aicr-btn');
             if (aicrBtn) {
                 aicrBtn.addEventListener('click', (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
-                    window.open('https://effiy.cn/src/views/aicr/index.html', '_blank');
+                    stopEvent(e);
+                    openExternal(resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html'));
                 });
             }
 
             const newsBtn = root.querySelector('#yi-pet-chat-news-btn');
             if (newsBtn) {
                 newsBtn.addEventListener('click', (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
-                    window.open('https://effiy.cn/src/views/news/index.html', '_blank');
+                    stopEvent(e);
+                    openExternal(resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html'));
                 });
             }
 
             const sidebarToggleBtn = root.querySelector('#sidebar-toggle-btn');
             if (sidebarToggleBtn) {
                 sidebarToggleBtn.addEventListener('click', (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
+                    stopEvent(e);
                     if (typeof this.toggleSidebar === 'function') this.toggleSidebar();
                 });
             }

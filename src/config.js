@@ -117,6 +117,8 @@ const DEFAULT_CONFIG = {
       CHROME_EXTENSION_PROTOCOL: "chrome-extension://",
       MOZ_EXTENSION_PROTOCOL: "moz-extension://",
       ABOUT_PROTOCOL: "about:",
+      AICR_REVIEW_PAGE: "https://effiy.cn/src/views/aicr/index.html",
+      NEWS_ASSISTANT_PAGE: "https://effiy.cn/src/views/news/index.html",
       isSystemPage(url) {
         if (!url || typeof url !== "string") return false;
         return url.startsWith(this.CHROME_PROTOCOL) ||

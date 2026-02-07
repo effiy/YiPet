@@ -7,6 +7,28 @@
     const CHAT_HEADER_TEMPLATES_RESOURCE_PATH = 'src/features/petManager/content/components/chatWindow/ChatHeader/index.html';
     let chatHeaderTemplateCache = '';
 
+    function stopEvent(e) {
+        e?.stopPropagation?.();
+        e?.preventDefault?.();
+    }
+
+    function resolveExternalUrl(key, fallbackUrl) {
+        const urls = window.PET_CONFIG?.constants?.URLS;
+        const value = urls && typeof urls[key] === 'string' ? urls[key] : '';
+        return String(value || fallbackUrl || '').trim();
+    }
+
+    function openExternal(url) {
+        const targetUrl = String(url || '').trim();
+        if (!targetUrl) return;
+        const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        if (newWindow) {
+            try {
+                newWindow.opener = null;
+            } catch (_) {}
+        }
+    }
+
     async function loadTemplate() {
         if (chatHeaderTemplateCache) return chatHeaderTemplateCache;
         const DomHelper = window.DomHelper;
@@ -23,7 +45,7 @@
         const manager = params?.manager;
         const template = params?.template;
         const Vue = window.Vue || {};
-        const { defineComponent, computed } = Vue;
+        const { defineComponent } = Vue;
         if (typeof defineComponent !== 'function') return null;
 
         const resolvedTemplate = String(template || chatHeaderTemplateCache || '').trim();
@@ -35,39 +57,26 @@
                 uiTick: { type: Number, required: true }
             },
             setup() {
-                const sidebarToggleHidden = typeof computed === 'function'
-                    ? computed(() => {
-                        if (!manager) return false;
-                        if (typeof manager.isSidebarToggleHidden === 'function') return !!manager.isSidebarToggleHidden();
-                        return false;
-                    })
-                    : false;
-
                 const onAuthClick = (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
+                    stopEvent(e);
                     if (typeof manager?.openAuth === 'function') manager.openAuth();
                 };
 
                 const onAicrClick = (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
-                    window.open('https://effiy.cn/src/views/aicr/index.html', '_blank');
+                    stopEvent(e);
+                    openExternal(
+                        resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html')
+                    );
                 };
 
                 const onNewsClick = (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
-                    window.open('https://effiy.cn/src/views/news/index.html', '_blank');
+                    stopEvent(e);
+                    openExternal(
+                        resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html')
+                    );
                 };
 
-                const onSidebarToggleClick = (e) => {
-                    e?.stopPropagation?.();
-                    e?.preventDefault?.();
-                    if (typeof manager?.toggleSidebar === 'function') manager.toggleSidebar();
-                };
-
-                return { sidebarToggleHidden, onAuthClick, onAicrClick, onNewsClick, onSidebarToggleClick };
+                return { onAuthClick, onAicrClick, onNewsClick };
             },
             template: resolvedTemplate
         });

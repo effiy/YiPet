@@ -9,6 +9,7 @@
     }
 
     const proto = window.PetManager.prototype;
+    const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_');
 
     proto.showSettingsModal = function() {
         if (!this.chatWindow) return;
@@ -358,7 +359,7 @@
 
             // 优先使用会话保存的页面内容，如果没有则使用当前页面内容
             let fullPageMarkdown = '';
-            let contextTitle = document.title || '当前页面';
+            let contextTitle = normalizeNameSpaces(document.title || '当前页面');
 
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
@@ -375,7 +376,7 @@
                 } else if (!isBlankSession) {
                     // 如果不是空白会话且没有保存的页面内容，获取当前页面内容并保存到会话
                     fullPageMarkdown = this.getPageContentAsMarkdown();
-                    contextTitle = document.title || '当前页面';
+                    contextTitle = normalizeNameSpaces(document.title || '当前页面');
                     session.pageContent = fullPageMarkdown;
                     const ensureMdSuffix = (str) => {
                         if (!str || !String(str).trim()) return '';
@@ -390,7 +391,7 @@
                         currentTitle === '未命名页面' ||
                         currentTitle === '当前页面';
                     if (isDefaultTitle) {
-                        session.title = ensureMdSuffix(contextTitle);
+                        session.title = ensureMdSuffix(normalizeNameSpaces(contextTitle));
                     }
                     // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
                 } else {
@@ -642,7 +643,7 @@
 
             // 优先使用会话保存的页面内容，如果没有则使用当前页面内容
             let fullPageMarkdown = '';
-            let contextTitle = document.title || '当前页面';
+            let contextTitle = normalizeNameSpaces(document.title || '当前页面');
 
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
@@ -659,7 +660,7 @@
                 } else if (!isBlankSession) {
                     // 如果不是空白会话且没有保存的页面内容，获取当前页面内容并保存到会话
                     fullPageMarkdown = this.getPageContentAsMarkdown();
-                    contextTitle = document.title || '当前页面';
+                    contextTitle = normalizeNameSpaces(document.title || '当前页面');
                     session.pageContent = fullPageMarkdown;
                     const ensureMdSuffix = (str) => {
                         if (!str || !String(str).trim()) return '';
@@ -674,7 +675,7 @@
                         currentTitle === '未命名页面' ||
                         currentTitle === '当前页面';
                     if (isDefaultTitle) {
-                        session.title = ensureMdSuffix(contextTitle);
+                        session.title = ensureMdSuffix(normalizeNameSpaces(contextTitle));
                     }
                     // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
                 } else {

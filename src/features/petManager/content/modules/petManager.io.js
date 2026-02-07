@@ -6,6 +6,7 @@
 
     const proto = window.PetManager.prototype;
     const DomHelper = window.DomHelper;
+    const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_');
     const getErrorMessages = () => {
         try {
             return (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES) ? PET_CONFIG.constants.ERROR_MESSAGES : null;
@@ -241,12 +242,13 @@
 
                                 // 使用导入的标签（如果markdown中没有标签，使用目录结构中的标签）
                                 let tags = parsed.tags.length > 0 ? parsed.tags : item.tags;
+                                tags = Array.isArray(tags) ? tags.map(normalizeNameSpaces) : [];
 
                                 // 过滤掉"未分类"标签，根目录和"未分类"目录不需要创建标签
                                 tags = tags.filter(tag => tag !== '未分类');
 
                                 // 使用导入的标题（如果markdown中没有标题，使用文件名）
-                                const title = parsed.title || item.title;
+                                const title = normalizeNameSpaces(parsed.title || item.title);
 
                                 // 查找是否存在相同的会话（根据标签和标题）
                                 const existingSession = this._findSessionByTagsAndTitle(tags, title);

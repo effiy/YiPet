@@ -72,11 +72,11 @@
                 if (fileName.startsWith('._')) {
                     return;
                 }
-                const title = fileName.replace(/\.md$/, '');
+                const title = fileName.replace(/\.md$/, '').replace(/\s+/g, '_').trim();
                 
                 // 前面的部分都是标签（目录层次），过滤掉 ._ 开头的目录
                 // 第一个目录不算入标签，从第二个目录开始作为标签
-                let tags = filteredPathParts.slice(1, -1).filter(tag => !tag.startsWith('._'));
+                let tags = filteredPathParts.slice(1, -1).filter(tag => !tag.startsWith('._')).map(tag => tag.replace(/\s+/g, '_').trim());
                 
                 // 过滤掉"未分类"标签，根目录和"未分类"目录的文件不需要标签
                 tags = tags.filter(tag => tag !== '未分类');
@@ -145,4 +145,3 @@
         }));
     }
 })();
-

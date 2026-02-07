@@ -21,6 +21,8 @@
         return s.toLowerCase().endsWith('.md') ? s.slice(0, -3) : s;
     };
 
+    const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_');
+
     const extractChatReplyText = (result) => {
         if (!result || typeof result !== 'object') return '';
         if (result.code !== 0) return '';
@@ -288,7 +290,7 @@
         store.sessionId = resolvedSessionId;
 
         const session = resolvedSessionId && this.sessions ? this.sessions[resolvedSessionId] : null;
-        store.title = String(originalTitle || session?.title || '').trim();
+        store.title = normalizeNameSpaces(String(originalTitle || session?.title || '').trim());
         store.url = String(session?.url || '').trim();
         store.description = String(originalDescription || session?.pageDescription || '').trim();
         store.visible = true;
@@ -305,7 +307,7 @@
         }
 
         const store = getSessionEditorStore(this);
-        const rawNewTitle = String(store?.title || '').trim();
+        const rawNewTitle = normalizeNameSpaces(String(store?.title || '').trim());
         const newUrl = String(store?.url || '').trim();
         const newDescription = String(store?.description || '').trim();
 
@@ -332,12 +334,13 @@
 
         try {
             if (titleChanged) {
-                const buildFilePath = (session, title) => {
+                const buildFilePath = (session, title, normalizeFolders = true) => {
                     const tags = Array.isArray(session.tags) ? session.tags : [];
                     let currentPath = '';
                     tags.forEach((folderName) => {
-                        if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
-                        currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+                        const folder = normalizeFolders ? normalizeNameSpaces(folderName) : String(folderName ?? '').trim();
+                        if (!folder || folder.toLowerCase() === 'default') return;
+                        currentPath = currentPath ? currentPath + '/' + folder : folder;
                     });
 
                     const sanitizeFileName = (name) => String(name || '').replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-').trim();
@@ -368,9 +371,9 @@
                     return cleanPath;
                 };
 
-                const oldPath = buildFilePath(session, normalizedOriginalTitle);
+                const oldPath = buildFilePath(session, normalizedOriginalTitle, false);
                 const tempSession = { ...session, title: normalizedNewTitle };
-                const newPath = buildFilePath(tempSession, normalizedNewTitle);
+                const newPath = buildFilePath(tempSession, normalizedNewTitle, true);
 
                 if (oldPath && newPath && oldPath !== newPath) {
                     const apiBase = window.API_URL && /^https?:\/\//i.test(window.API_URL) ? String(window.API_URL).replace(/\/+$/, '') : PET_CONFIG?.api?.yiaiBaseUrl || '';

@@ -96,7 +96,7 @@
         // 提取标题（第一行的 # 标题）
         const titleMatch = pageInfoContent.match(/^#\s+(.+?)$/m);
         if (titleMatch) {
-            result.title = ensureMdSuffix(titleMatch[1].trim());
+            result.title = ensureMdSuffix(titleMatch[1].trim().replace(/\s+/g, '_'));
         }
 
         // 提取创建时间

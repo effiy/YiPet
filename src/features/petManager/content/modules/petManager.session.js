@@ -7,6 +7,7 @@
 
     const proto = window.PetManager.prototype;
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+    const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_');
     const scrollToSessionItemAfterSidebarUpdate = async (ctx, sessionId, delayMs = 100) => {
         if (!ctx || !sessionId) return;
         if (ctx.sessionSidebar && typeof ctx.scrollToSessionItem === 'function') {
@@ -225,7 +226,7 @@
                                 existingSession.pageContent = fullSession.pageContent;
                             }
                             const title = fullSession.title || existingSession.title;
-                            existingSession.title = title;
+                            existingSession.title = normalizeNameSpaces(title);
                             // 如果 preserveOrder 为 true，不更新时间戳，保持排列位置不变
                             if (!preserveOrder) {
                                 existingSession.updatedAt = fullSession.updatedAt || existingSession.updatedAt;
@@ -238,7 +239,7 @@
 
                         } else {
                             // 如果本地不存在，直接使用后端数据
-                            const title = fullSession.title || '';
+                            const title = normalizeNameSpaces(fullSession.title || '');
                             // 确保有 key
                             if (!fullSession.key) {
                                 fullSession.key = this._generateUUID();
@@ -324,7 +325,7 @@
         const createdAt = existingSession?.createdAt || now;
         const lastAccessTime = now; // 每次创建或更新时都更新访问时间
 
-        const rawTitle = pageInfo.title || '';
+        const rawTitle = normalizeNameSpaces(pageInfo.title || '');
         let title = rawTitle || '新会话';
 
         // 初始化标签数组
@@ -379,7 +380,7 @@
 
         return {
             url: pageInfo.url, // 页面URL（用于查找会话，作为会话的唯一标识）
-            title: title, // 会话标题
+            title: normalizeNameSpaces(title), // 会话标题
             pageDescription: pageInfo.description || '', // 页面描述（meta description）
             pageContent: pageInfo.content || '', // 页面内容（Markdown格式，用于AI理解上下文）
             messages: messages, // 聊天记录（该会话的所有对话）
@@ -441,8 +442,14 @@
         // 确保页面标题一致
         // 只有当会话的标题为空或者是默认值时，才用当前页面的标题更新
         // 这样可以保留从后端加载的有效标题，避免被当前页面标题覆盖
-        const currentPageTitle = pageInfo.title || '';
-        const sessionTitle = session.title || '';
+        const currentPageTitle = normalizeNameSpaces(pageInfo.title || '');
+        let sessionTitle = session.title || '';
+        const normalizedSessionTitle = sessionTitle ? normalizeNameSpaces(sessionTitle) : '';
+        if (sessionTitle && normalizedSessionTitle && normalizedSessionTitle !== sessionTitle) {
+            session.title = normalizedSessionTitle;
+            sessionTitle = normalizedSessionTitle;
+            updated = true;
+        }
         const isDefaultTitle = !sessionTitle ||
             sessionTitle.trim() === '' ||
             sessionTitle === '未命名会话' ||
@@ -460,7 +467,7 @@
 
         if (isDefaultTitle && nextTitle && nextTitle !== sessionTitle) {
             console.log(`修复会话 ${sessionId} 的标题（从默认值更新）:`, sessionTitle, '->', nextTitle);
-            session.title = nextTitle;
+            session.title = normalizeNameSpaces(nextTitle);
             updated = true;
         } else if (!isDefaultTitle && sessionTitle !== nextTitle && currentPageTitle) {
             // 如果会话已经有有效标题，但当前页面标题不同，记录日志但不强制更新
@@ -1419,7 +1426,7 @@
             // 不更新页面信息，保持会话中已有的信息不变
             pageInfo = {
                 url: session.url || window.location.href,
-                title: session.title || document.title || '未命名页面',
+                title: normalizeNameSpaces(session.title || document.title || '未命名页面'),
                 description: session.pageDescription || '',
                 content: session.pageContent || ''
             };
@@ -1901,12 +1908,13 @@
         const tags = Array.isArray(session.tags) ? session.tags : [];
         let currentPath = '';
         tags.forEach((folderName) => {
-            if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
-            currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+            const folder = normalizeNameSpaces(folderName);
+            if (!folder || folder.toLowerCase() === 'default') return;
+            currentPath = currentPath ? currentPath + '/' + folder : folder;
         });
 
         // 使用 title 作为文件名
-        let fileName = session.title || 'Untitled';
+        let fileName = normalizeNameSpaces(session.title || 'Untitled');
         fileName = String(fileName).replace(/\//g, '-'); // 清理文件名中的斜杠
         cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
         cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -1947,6 +1955,9 @@
                 const json = await res.json();
                 if (json.code === 0) {
                     console.log('[writeSessionPageContent] write-file 接口调用成功，文件路径:', cleanPath);
+                    if (session.pageDescription && session.pageDescription.includes('文件：')) {
+                        session.pageDescription = session.pageDescription.replace(/文件：.*/, `文件：${cleanPath}`);
+                    }
 
                     // 刷新会话列表（调用 query_document 接口）
                     if (typeof this.loadSessionsFromBackend === 'function') {
@@ -1995,11 +2006,12 @@
         const tags = Array.isArray(session.tags) ? session.tags : [];
         let currentPath = '';
         tags.forEach((folderName) => {
-            if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
-            currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+            const folder = normalizeNameSpaces(folderName);
+            if (!folder || folder.toLowerCase() === 'default') return;
+            currentPath = currentPath ? currentPath + '/' + folder : folder;
         });
 
-        let fileName = session.title || 'Untitled';
+        let fileName = normalizeNameSpaces(session.title || 'Untitled');
         fileName = String(fileName).replace(/\//g, '-');
         cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
         cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -2008,18 +2020,18 @@
         }
         cleanPath = cleanPath.replace(/^\/+/, '');
 
-        // 如果 cleanPath 仍然为空，使用会话的 pageDescription 或其他信息
-        if (!cleanPath) {
+        const getDescPath = () => {
             const pageDesc = session.pageDescription || '';
-            if (pageDesc && pageDesc.includes('文件：')) {
-                cleanPath = pageDesc.replace('文件：', '').trim();
-                cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
-                if (cleanPath.startsWith('static/')) {
-                    cleanPath = cleanPath.substring(7);
-                }
-                cleanPath = cleanPath.replace(/^\/+/, '');
+            if (!pageDesc || !pageDesc.includes('文件：')) return '';
+            let p = pageDesc.replace('文件：', '').trim();
+            p = p.replace(/\\/g, '/').replace(/^\/+/, '');
+            if (p.startsWith('static/')) {
+                p = p.substring(7);
             }
-        }
+            p = p.replace(/^\/+/, '');
+            return p;
+        };
+        const descPath = getDescPath();
 
         // 如果还是没有路径，使用会话的 key 作为文件名（作为最后的备选方案）
         if (!cleanPath && session.key) {
@@ -2033,33 +2045,30 @@
         }
 
         try {
-            console.log('[fetchSessionPageContent] 调用 read-file 接口，路径:', cleanPath);
-            const res = await fetch(`${apiBase}/read-file`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target_file: cleanPath })
-            });
+            const readOnce = async (targetFile) => {
+                if (!targetFile) return { ok: false };
+                console.log('[fetchSessionPageContent] 调用 read-file 接口，路径:', targetFile);
+                const res = await fetch(`${apiBase}/read-file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_file: targetFile })
+                });
+                if (!res.ok) return { ok: false, status: res.status };
+                const json = await res.json().catch(() => null);
+                if (!json || json.code !== 0 || !json.data || !json.data.content) return { ok: false, json };
+                if (json.data.type === 'base64') return { ok: false, json };
+                return { ok: true, content: json.data.content };
+            };
 
-            if (res.ok) {
-                const json = await res.json();
-                if (json.code === 0 && json.data && json.data.content) {
-                    if (json.data.type !== 'base64') {
-                        const staticContent = json.data.content;
-                        console.log('[fetchSessionPageContent] read-file 接口调用成功，内容长度:', staticContent.length);
-
-                        // 更新会话的 pageContent（不更新时间戳，保持排列位置不变）
-                        if (session) {
-                            session.pageContent = staticContent;
-                            console.log('[fetchSessionPageContent] 已更新会话页面上下文');
-                        }
-                    } else {
-                        console.log('[fetchSessionPageContent] read-file 接口返回 base64 类型，跳过');
-                    }
-                } else {
-                    console.warn('[fetchSessionPageContent] read-file 接口返回异常:', json);
-                }
+            let result = await readOnce(cleanPath);
+            if ((!result || !result.ok) && descPath && descPath !== cleanPath) {
+                result = await readOnce(descPath);
+            }
+            if (result && result.ok) {
+                session.pageContent = result.content;
+                console.log('[fetchSessionPageContent] 已更新会话页面上下文');
             } else {
-                console.warn('[fetchSessionPageContent] read-file 接口调用失败，状态码:', res.status);
+                console.warn('[fetchSessionPageContent] read-file 接口返回异常');
             }
         } catch (error) {
             console.error('[fetchSessionPageContent] read-file 接口调用异常:', error);
@@ -2091,12 +2100,13 @@
         const tags = Array.isArray(session.tags) ? session.tags : [];
         let currentPath = '';
         tags.forEach((folderName) => {
-            if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return;
-            currentPath = currentPath ? currentPath + '/' + folderName : folderName;
+            const folder = normalizeNameSpaces(folderName);
+            if (!folder || folder.toLowerCase() === 'default') return;
+            currentPath = currentPath ? currentPath + '/' + folder : folder;
         });
 
         // 使用 title 作为文件名
-        let fileName = session.title || 'Untitled';
+        let fileName = normalizeNameSpaces(session.title || 'Untitled');
         fileName = String(fileName).replace(/\//g, '-'); // 清理文件名中的斜杠
         cleanPath = currentPath ? currentPath + '/' + fileName : fileName;
         cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -2106,6 +2116,19 @@
             cleanPath = cleanPath.substring(7);
         }
         cleanPath = cleanPath.replace(/^\/+/, '');
+
+        const getDescPath = () => {
+            const pageDesc = session.pageDescription || '';
+            if (!pageDesc || !pageDesc.includes('文件：')) return '';
+            let p = pageDesc.replace('文件：', '').trim();
+            p = p.replace(/\\/g, '/').replace(/^\/+/, '');
+            if (p.startsWith('static/')) {
+                p = p.substring(7);
+            }
+            p = p.replace(/^\/+/, '');
+            return p;
+        };
+        const descPath = getDescPath();
 
         // 如果 cleanPath 仍然为空，使用会话的 key 作为文件名（作为最后的备选方案）
         if (!cleanPath && session.key) {
@@ -2119,25 +2142,31 @@
         }
 
         try {
-            console.log('[deleteSessionFile] 调用 delete-file 接口，路径:', cleanPath);
-            const res = await fetch(`${apiBase}/delete-file`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    target_file: cleanPath
-                })
-            });
-
-            if (res.ok) {
-                const json = await res.json();
-                if (json.code === 0) {
-                    console.log('[deleteSessionFile] delete-file 接口调用成功，文件路径:', cleanPath);
-                } else {
-                    console.warn('[deleteSessionFile] delete-file 接口返回异常:', json);
+            const deleteOnce = async (targetFile) => {
+                if (!targetFile) return { ok: false };
+                console.log('[deleteSessionFile] 调用 delete-file 接口，路径:', targetFile);
+                const res = await fetch(`${apiBase}/delete-file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_file: targetFile })
+                });
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    return { ok: false, status: res.status, message: errorData.message || '' };
                 }
+                const json = await res.json().catch(() => null);
+                if (json && json.code === 0) return { ok: true };
+                return { ok: false, json };
+            };
+
+            let result = await deleteOnce(cleanPath);
+            if ((!result || !result.ok) && descPath && descPath !== cleanPath) {
+                result = await deleteOnce(descPath);
+            }
+            if (result && result.ok) {
+                console.log('[deleteSessionFile] delete-file 接口调用成功');
             } else {
-                const errorData = await res.json().catch(() => ({}));
-                console.warn('[deleteSessionFile] delete-file 接口调用失败，状态码:', res.status, errorData.message || '');
+                console.warn('[deleteSessionFile] delete-file 接口返回异常');
             }
         } catch (error) {
             console.warn('[deleteSessionFile] delete-file 接口调用异常（已忽略）:', error?.message);

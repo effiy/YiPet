@@ -1,5 +1,6 @@
 (function(global) {
     const proto = global.PetManager.prototype;
+    const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_');
 
     // ========== 页面上下文编辑器 ==========
 
@@ -519,7 +520,7 @@
             if (this.currentSessionId && this.sessions[this.currentSessionId]) {
                 const session = this.sessions[this.currentSessionId];
                 session.pageContent = pageContent;
-                const documentTitle = document.title || '当前页面';
+                const documentTitle = normalizeNameSpaces(document.title || '当前页面');
                 const currentTitle = session.title || '';
                 const ensureMdSuffix = (str) => {
                     if (!str || !String(str).trim()) return '';
@@ -1032,7 +1033,7 @@
 
             // 更新页面信息（确保信息是最新的）
             const pageInfo = this.getPageInfo();
-            const currentPageTitle = pageInfo.title || document.title || '当前页面';
+            const currentPageTitle = normalizeNameSpaces(pageInfo.title || document.title || '当前页面');
             const sessionTitle = session.title || '';
             const isDefaultTitle = !sessionTitle ||
                                   sessionTitle.trim() === '' ||
@@ -1151,7 +1152,7 @@
 
             // 如果页面标题还没有设置，同时更新页面标题
             if (!session.title || session.title === '当前页面') {
-                const documentTitle = document.title || '当前页面';
+                const documentTitle = normalizeNameSpaces(document.title || '当前页面');
                 const ensureMdSuffix = (str) => {
                     if (!str || !String(str).trim()) return '';
                     const s = String(str).trim();

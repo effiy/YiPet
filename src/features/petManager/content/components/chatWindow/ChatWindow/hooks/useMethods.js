@@ -83,6 +83,18 @@
             manager.openAuth();
         };
 
+        const onAicrClick = (e) => {
+            e?.stopPropagation?.();
+            e?.preventDefault?.();
+            window.open('https://effiy.cn/src/views/aicr/index.html', '_blank');
+        };
+
+        const onNewsClick = (e) => {
+            e?.stopPropagation?.();
+            e?.preventDefault?.();
+            window.open('https://effiy.cn/src/views/news/index.html', '_blank');
+        };
+
         const onSidebarToggleClick = (e) => {
             e?.stopPropagation?.();
             e?.preventDefault?.();
@@ -92,6 +104,8 @@
         return {
             ...sidebarMethods,
             onAuthClick,
+            onAicrClick,
+            onNewsClick,
             onSidebarToggleClick
         };
     };
@@ -741,6 +755,16 @@
             const authBtn = rootEl.querySelector('#yi-pet-chat-auth-btn');
             if (authBtn && typeof methods?.onAuthClick === 'function') {
                 authBtn.addEventListener('click', (e) => methods.onAuthClick(e));
+            }
+
+            const aicrBtn = rootEl.querySelector('#yi-pet-chat-aicr-btn');
+            if (aicrBtn && typeof methods?.onAicrClick === 'function') {
+                aicrBtn.addEventListener('click', (e) => methods.onAicrClick(e));
+            }
+
+            const newsBtn = rootEl.querySelector('#yi-pet-chat-news-btn');
+            if (newsBtn && typeof methods?.onNewsClick === 'function') {
+                newsBtn.addEventListener('click', (e) => methods.onNewsClick(e));
             }
 
             const sidebarToggleBtn = rootEl.querySelector('#sidebar-toggle-btn');

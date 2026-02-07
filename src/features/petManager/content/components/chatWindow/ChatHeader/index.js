@@ -49,13 +49,25 @@
                     if (typeof manager?.openAuth === 'function') manager.openAuth();
                 };
 
+                const onAicrClick = (e) => {
+                    e?.stopPropagation?.();
+                    e?.preventDefault?.();
+                    window.open('https://effiy.cn/src/views/aicr/index.html', '_blank');
+                };
+
+                const onNewsClick = (e) => {
+                    e?.stopPropagation?.();
+                    e?.preventDefault?.();
+                    window.open('https://effiy.cn/src/views/news/index.html', '_blank');
+                };
+
                 const onSidebarToggleClick = (e) => {
                     e?.stopPropagation?.();
                     e?.preventDefault?.();
                     if (typeof manager?.toggleSidebar === 'function') manager.toggleSidebar();
                 };
 
-                return { sidebarToggleHidden, onAuthClick, onSidebarToggleClick };
+                return { sidebarToggleHidden, onAuthClick, onAicrClick, onNewsClick, onSidebarToggleClick };
             },
             template: resolvedTemplate
         });

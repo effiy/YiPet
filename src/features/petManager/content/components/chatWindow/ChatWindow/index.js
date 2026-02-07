@@ -498,6 +498,24 @@
                 });
             }
 
+            const aicrBtn = root.querySelector('#yi-pet-chat-aicr-btn');
+            if (aicrBtn) {
+                aicrBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    e?.preventDefault?.();
+                    window.open('https://effiy.cn/src/views/aicr/index.html', '_blank');
+                });
+            }
+
+            const newsBtn = root.querySelector('#yi-pet-chat-news-btn');
+            if (newsBtn) {
+                newsBtn.addEventListener('click', (e) => {
+                    e?.stopPropagation?.();
+                    e?.preventDefault?.();
+                    window.open('https://effiy.cn/src/views/news/index.html', '_blank');
+                });
+            }
+
             const sidebarToggleBtn = root.querySelector('#sidebar-toggle-btn');
             if (sidebarToggleBtn) {
                 sidebarToggleBtn.addEventListener('click', (e) => {

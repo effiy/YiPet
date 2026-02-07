@@ -42,13 +42,26 @@
 
         const maxX = Math.max(0, vw - width);
         const maxY = Math.max(0, vh - height);
-        const x = clampNumber(this.chatWindowState.x ?? maxX, 0, maxX);
-        const y = clampNumber(this.chatWindowState.y ?? 0, 0, maxY);
+
+        const lastVp = this._chatWindowLastViewport;
+        let xCandidate = this.chatWindowState.x ?? maxX;
+        let yCandidate = this.chatWindowState.y ?? 0;
+
+        if (lastVp && Number.isFinite(lastVp.width) && lastVp.width > 0 && Number.isFinite(lastVp.height) && lastVp.height > 0) {
+            const rightOffset = clampNumber(lastVp.width - (xCandidate + width), 0, lastVp.width);
+            const bottomOffset = clampNumber(lastVp.height - (yCandidate + height), 0, lastVp.height);
+            xCandidate = vw - width - rightOffset;
+            yCandidate = vh - height - bottomOffset;
+        }
+
+        const x = clampNumber(xCandidate, 0, maxX);
+        const y = clampNumber(yCandidate, 0, maxY);
 
         this.chatWindowState.width = width;
         this.chatWindowState.height = height;
         this.chatWindowState.x = x;
         this.chatWindowState.y = y;
+        this._chatWindowLastViewport = { width: vw, height: vh };
 
         if (this.chatWindow) this.updateChatWindowStyle();
     };

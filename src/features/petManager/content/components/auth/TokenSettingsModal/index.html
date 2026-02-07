@@ -13,6 +13,14 @@
         @keydown="onKeydown"
       />
     </div>
+    <p class="token-settings-description">接口请求模型（默认 qwen3）</p>
+    <div class="auth-input-container">
+      <select class="auth-input" v-model="store.model">
+        <option v-for="m in store.models" :key="m.id" :value="m.id">
+          {{ (m && m.icon ? (m.icon + ' ') : '') + (m && (m.name || m.id) ? (m.name || m.id) : '') }}
+        </option>
+      </select>
+    </div>
     <div class="auth-button-container">
       <button type="button" class="auth-save-btn" @click="save">保存</button>
       <button type="button" class="auth-cancel-btn" @click="cancel">取消</button>

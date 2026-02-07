@@ -602,10 +602,8 @@ ${pageContent || '无内容'}
                 if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
                     payload.parameters.images = oldPayload.images;
                 }
-                // 使用 chatModels 的 default 字段
-                if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
-                    payload.parameters.model = PET_CONFIG.chatModels.default;
-                }
+                const selectedModel = this.currentModel || (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3';
+                if (selectedModel) payload.parameters.model = selectedModel;
                 if (oldPayload.conversation_id) {
                     payload.parameters.conversation_id = oldPayload.conversation_id;
                 }

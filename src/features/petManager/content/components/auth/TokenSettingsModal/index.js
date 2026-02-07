@@ -34,7 +34,7 @@
     const store = params?.store;
     const template = params?.template;
     const Vue = window.Vue || {};
-    const { defineComponent, ref, onMounted, nextTick, h } = Vue;
+    const { defineComponent, ref, onMounted, nextTick, computed, h } = Vue;
     if (typeof defineComponent !== 'function' || !store) return null;
 
     const useTemplate = canUseVueTemplate(Vue);
@@ -46,6 +46,10 @@
       name: 'YiPetTokenSettingsModal',
       setup() {
         const tokenInputEl = ref(null);
+        const models =
+          typeof computed === 'function'
+            ? computed(() => (Array.isArray(store.models) ? store.models : []))
+            : { value: Array.isArray(store.models) ? store.models : [] };
 
         const focusInput = () => {
           if (typeof nextTick !== 'function') return;
@@ -73,6 +77,13 @@
             await manager?.saveApiToken?.(token);
           } catch (_) {}
           try {
+            const model = String(store.model || '').trim();
+            if (model) {
+              manager.currentModel = model;
+              manager?.saveState?.();
+            }
+          } catch (_) {}
+          try {
             manager?.manualRefresh?.();
           } catch (_) {}
           manager?.closeTokenSettingsModal?.(token);
@@ -96,7 +107,7 @@
         });
 
         if (useTemplate) {
-          return { store, tokenInputEl, save, cancel, onKeydown };
+          return { store, tokenInputEl, save, cancel, onKeydown, models };
         }
 
         return () =>
@@ -116,6 +127,26 @@
                 },
                 onKeydown
               })
+            ]),
+            h('p', { class: 'token-settings-description' }, '接口请求模型（默认 qwen3）'),
+            h('div', { class: 'auth-input-container' }, [
+              h(
+                'select',
+                {
+                  class: 'auth-input',
+                  value: store.model || '',
+                  onChange: (evt) => {
+                    store.model = evt?.target?.value || '';
+                  }
+                },
+                models.value.map((m) =>
+                  h(
+                    'option',
+                    { key: m?.id, value: m?.id },
+                    `${m?.icon ? `${m.icon} ` : ''}${m?.name || m?.id || ''}`
+                  )
+                )
+              )
             ]),
             h('div', { class: 'auth-button-container' }, [
               h('button', { type: 'button', class: 'auth-save-btn', onClick: save }, '保存'),

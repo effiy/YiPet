@@ -69,6 +69,8 @@
 
             store.token = this.getApiToken() || '';
             store.invalid = false;
+            store.models = (PET_CONFIG.chatModels && Array.isArray(PET_CONFIG.chatModels.models)) ? PET_CONFIG.chatModels.models : [];
+            store.model = this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3');
             modal._resolve = resolve;
         });
     };
@@ -114,7 +116,9 @@
 
         const store = reactive({
             token: '',
-            invalid: false
+            invalid: false,
+            model: '',
+            models: []
         });
 
         modal._store = store;

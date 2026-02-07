@@ -845,9 +845,8 @@
             };
 
             // 添加模型参数 - 使用 chatModels 的 default 字段
-            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
-                payload.parameters.model = PET_CONFIG.chatModels.default;
-            }
+            const selectedModel = this.currentModel || (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3';
+            if (selectedModel) payload.parameters.model = selectedModel;
 
             // 添加会话ID
             if (this.currentSessionId) {
@@ -1595,9 +1594,8 @@
             };
 
             // 添加模型参数 - 使用 chatModels 的 default 字段
-            if (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) {
-                payload.parameters.model = PET_CONFIG.chatModels.default;
-            }
+            const selectedModel = this.currentModel || (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3';
+            if (selectedModel) payload.parameters.model = selectedModel;
 
             // 添加会话ID
             if (this.currentSessionId) {

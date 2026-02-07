@@ -998,14 +998,12 @@
             if (manager.currentSessionId && manager.sessions && manager.sessions[manager.currentSessionId]) {
                 const session = manager.sessions[manager.currentSessionId];
                 const sessionTitle = session.title || '未命名会话';
-                // 如果标题太长，截断并添加省略号
-                const displayTitle = sessionTitle.length > 20
-                    ? sessionTitle.substring(0, 20) + '...'
-                    : sessionTitle;
-                titleTextEl.textContent = displayTitle;
+                titleTextEl.textContent = sessionTitle;
+                titleTextEl.setAttribute('title', sessionTitle);
             } else {
                 // 如果没有会话，显示默认文本
                 titleTextEl.textContent = '与我聊天';
+                titleTextEl.setAttribute('title', '与我聊天');
             }
 
             // 更新编辑会话按钮状态

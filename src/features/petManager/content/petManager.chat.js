@@ -380,10 +380,11 @@
         if (this.currentSessionId && this.sessions[this.currentSessionId]) {
             const session = this.sessions[this.currentSessionId];
             const sessionTitle = session.title || '未命名会话';
-            const displayTitle = sessionTitle.length > 20 ? sessionTitle.substring(0, 20) + '...' : sessionTitle;
-            titleTextEl.textContent = displayTitle;
+            titleTextEl.textContent = sessionTitle;
+            titleTextEl.setAttribute('title', sessionTitle);
         } else {
             titleTextEl.textContent = '与我聊天';
+            titleTextEl.setAttribute('title', '与我聊天');
         }
 
         const editSessionBtn = this.chatWindow.querySelector('#edit-session-btn');

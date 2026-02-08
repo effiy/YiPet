@@ -80,7 +80,8 @@
       isLoading: false,
       error: '',
       newFaqText: '',
-      deletingFaqKeys: Object.create(null)
+      deletingFaqKeys: Object.create(null),
+      reorderingFaqKeys: Object.create(null)
     });
 
     this._faqManagerStore = store;
@@ -425,6 +426,78 @@
       }
     } finally {
       store.isLoading = false;
+    }
+  };
+
+  proto.moveFaqOrder = async function(key, direction) {
+    const faqKey = String(key || '').trim();
+    const delta = Number(direction);
+    if (!faqKey || !Number.isFinite(delta) || delta === 0) return;
+
+    const store = this._getFaqManagerStore();
+    if (!store) return;
+
+    if (!this.faqApi || !this.faqApi.isEnabled()) {
+      if (typeof this.showNotification === 'function') {
+        this.showNotification('常见问题功能未启用：FAQ API 未启用', 'error');
+      }
+      return;
+    }
+
+    if (!store.reorderingFaqKeys) store.reorderingFaqKeys = Object.create(null);
+    if (store.reorderingFaqKeys[faqKey]) return;
+
+    const currentRaw = Array.isArray(store.allFaqs) ? store.allFaqs : [];
+    const decorated = currentRaw.map((faq, index) => ({
+      faq,
+      index,
+      order: Number.isFinite(Number(faq?.order)) ? Number(faq.order) : 0
+    }));
+    decorated.sort((a, b) => (a.order - b.order) || (a.index - b.index));
+    const list = decorated.map((d) => d.faq);
+
+    const currentIndex = list.findIndex((f) => String(f?.key || '').trim() === faqKey);
+    if (currentIndex < 0) return;
+    const targetIndex = currentIndex + (delta < 0 ? -1 : 1);
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+
+    const beforeSnapshot = list.map((f) => ({ ...f }));
+    const nextList = list.slice();
+    const tmp = nextList[currentIndex];
+    nextList[currentIndex] = nextList[targetIndex];
+    nextList[targetIndex] = tmp;
+
+    const updates = [];
+    for (let i = 0; i < nextList.length; i++) {
+      const k = String(nextList[i]?.key || '').trim();
+      if (!k) continue;
+      const nextOrder = i;
+      const prevOrder = Number.isFinite(Number(nextList[i]?.order)) ? Number(nextList[i].order) : 0;
+      if (prevOrder !== nextOrder) {
+        nextList[i] = { ...nextList[i], order: nextOrder };
+        updates.push({ key: k, order: nextOrder });
+      }
+    }
+
+    store.allFaqs = nextList;
+    store.reorderingFaqKeys[faqKey] = true;
+
+    try {
+      if (typeof this.faqApi.batchUpdateOrder === 'function') {
+        await this.faqApi.batchUpdateOrder(updates);
+      } else {
+        await Promise.all(updates.map((item) => this.faqApi.updateFaq(item.key, { order: item.order })));
+      }
+      if (typeof this.showNotification === 'function') {
+        this.showNotification('已更新排序', 'success');
+      }
+    } catch (e) {
+      store.allFaqs = beforeSnapshot;
+      if (typeof this.showNotification === 'function') {
+        this.showNotification('更新排序失败: ' + (e?.message || '未知错误'), 'error');
+      }
+    } finally {
+      store.reorderingFaqKeys[faqKey] = false;
     }
   };
 

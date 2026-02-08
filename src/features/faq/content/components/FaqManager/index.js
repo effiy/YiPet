@@ -388,6 +388,32 @@
                     if (typeof manager?.openFaqTagManager === 'function') manager.openFaqTagManager(index);
                 };
 
+                const getAllFaqIndex = (faq) => {
+                    const key = String(faq?.key || '').trim();
+                    if (!key) return -1;
+                    const list = Array.isArray(store.allFaqs) ? store.allFaqs : [];
+                    return list.findIndex((f) => String(f?.key || '').trim() === key);
+                };
+
+                const canMoveFaqUp = (faq) => getAllFaqIndex(faq) > 0;
+                const canMoveFaqDown = (faq) => {
+                    const list = Array.isArray(store.allFaqs) ? store.allFaqs : [];
+                    const idx = getAllFaqIndex(faq);
+                    return idx >= 0 && idx < list.length - 1;
+                };
+
+                const moveFaqUp = async (faq) => {
+                    const key = String(faq?.key || '').trim();
+                    if (!key) return;
+                    if (typeof manager?.moveFaqOrder === 'function') await manager.moveFaqOrder(key, -1);
+                };
+
+                const moveFaqDown = async (faq) => {
+                    const key = String(faq?.key || '').trim();
+                    if (!key) return;
+                    if (typeof manager?.moveFaqOrder === 'function') await manager.moveFaqOrder(key, 1);
+                };
+
                 onMounted(() => {
                     try {
                         const root = rootEl.value;
@@ -459,7 +485,11 @@
                         onFaqSend,
                         onFaqKeydown,
                         deleteFaq,
-                        editTags
+                        editTags,
+                        canMoveFaqUp,
+                        canMoveFaqDown,
+                        moveFaqUp,
+                        moveFaqDown
                     };
                 }
 
@@ -468,9 +498,14 @@
                     const m = store?.deletingFaqKeys;
                     return m && typeof m === 'object' ? m : Object.create(null);
                 };
+                const getReorderingMap = () => {
+                    const m = store?.reorderingFaqKeys;
+                    return m && typeof m === 'object' ? m : Object.create(null);
+                };
 
                 return () => {
                     const deletingMap = getDeletingMap();
+                    const reorderingMap = getReorderingMap();
                     const tags = Array.isArray(visibleTags.value) ? visibleTags.value : [];
                     const faqs = Array.isArray(filteredFaqs.value) ? filteredFaqs.value : [];
 
@@ -585,6 +620,9 @@
 
                               const key = String(faq?.key || '');
                               const isDeleting = !!(key && deletingMap && deletingMap[key]);
+                              const isReordering = !!(key && reorderingMap && reorderingMap[key]);
+                              const canUp = canMoveFaqUp(faq);
+                              const canDown = canMoveFaqDown(faq);
 
                               return h(
                                   'div',
@@ -603,6 +641,40 @@
                                       h('div', { class: 'pet-faq-item-meta-row' }, [
                                           tagsRow,
                                           h('div', { class: 'pet-faq-item-actions' }, [
+                                              h(
+                                                  'button',
+                                                  {
+                                                      type: 'button',
+                                                      class: 'pet-faq-item-btn',
+                                                      title: '上移',
+                                                      'aria-label': '上移',
+                                                      disabled: isReordering || !canUp,
+                                                      onClick: (e) => {
+                                                          try {
+                                                              e?.stopPropagation?.();
+                                                          } catch (_) {}
+                                                          moveFaqUp(faq);
+                                                      }
+                                                  },
+                                                  '↑'
+                                              ),
+                                              h(
+                                                  'button',
+                                                  {
+                                                      type: 'button',
+                                                      class: 'pet-faq-item-btn',
+                                                      title: '下移',
+                                                      'aria-label': '下移',
+                                                      disabled: isReordering || !canDown,
+                                                      onClick: (e) => {
+                                                          try {
+                                                              e?.stopPropagation?.();
+                                                          } catch (_) {}
+                                                          moveFaqDown(faq);
+                                                      }
+                                                  },
+                                                  '↓'
+                                              ),
                                               h(
                                                   'button',
                                                   {

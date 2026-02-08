@@ -240,6 +240,26 @@
                                     <button
                                         type="button"
                                         class="pet-faq-item-btn"
+                                        aria-label="上移"
+                                        title="上移"
+                                        :disabled="!!store.reorderingFaqKeys[faq.key] || !canMoveFaqUp(faq)"
+                                        @click.stop="moveFaqUp(faq)"
+                                    >
+                                        ↑
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="pet-faq-item-btn"
+                                        aria-label="下移"
+                                        title="下移"
+                                        :disabled="!!store.reorderingFaqKeys[faq.key] || !canMoveFaqDown(faq)"
+                                        @click.stop="moveFaqDown(faq)"
+                                    >
+                                        ↓
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="pet-faq-item-btn"
                                         aria-label="标签"
                                         @click.stop="editTags(index)"
                                     >

@@ -67,7 +67,6 @@ class InjectionService {
         'src/features/petManager/content/petManager.chat.js',
         'src/features/petManager/content/petManager.chatUi.js',
         'src/features/petManager/content/petManager.events.js',
-        'src/features/petManager/content/petManager.comment.js',
         'src/features/petManager/content/petManager.media.js',
         'src/features/petManager/content/petManager.message.js',
         'src/features/petManager/content/petManager.screenshot.js',

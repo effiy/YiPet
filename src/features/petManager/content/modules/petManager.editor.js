@@ -455,27 +455,6 @@
         this._contextKeydownHandler = (e) => {
             if (e.key === 'Escape') {
                 this.closeContextEditor();
-            } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
-                if (this.quickCommentShortcutEnabled !== false) {
-                    if (this.commentState && this.commentState.showQuickComment) {
-                        const textarea = document.getElementById('pet-quick-comment-textarea');
-                        if (textarea) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            textarea.focus();
-                            return;
-                        }
-                    }
-
-                    if (typeof this.openQuickCommentFromShortcut === 'function') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        this.openQuickCommentFromShortcut();
-                        return;
-                    }
-                }
             } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
                 const saveBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-context-save-btn') : null;
@@ -1943,27 +1922,6 @@
         this._messageKeydownHandler = (e) => {
             if (e.key === 'Escape') {
                 this.closeMessageEditor();
-            } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
-                if (this.quickCommentShortcutEnabled !== false) {
-                    if (this.commentState && this.commentState.showQuickComment) {
-                        const textarea = document.getElementById('pet-quick-comment-textarea');
-                        if (textarea) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            textarea.focus();
-                            return;
-                        }
-                    }
-
-                    if (typeof this.openQuickCommentFromShortcut === 'function') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        this.openQuickCommentFromShortcut();
-                        return;
-                    }
-                }
             } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
                 const saveBtn = this.chatWindow ? this.chatWindow.querySelector('#pet-message-save-btn') : null;

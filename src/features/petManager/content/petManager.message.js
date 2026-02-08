@@ -582,60 +582,25 @@
                 while (from.firstChild) to.appendChild(from.firstChild);
             };
 
-            const hasElementChild = (el) => {
-                if (!el) return false;
-                for (const node of Array.from(el.childNodes || [])) {
-                    if (node && node.nodeType === Node.ELEMENT_NODE) return true;
-                }
-                return false;
-            };
-
             const hasRenderedMarkdown = (el) => {
                 if (!el || typeof el.querySelector !== 'function') return false;
                 return !!el.querySelector(
-                    'strong, em, table, thead, tbody, tr, ul, ol, pre, code, h1, h2, h3, h4, h5, h6, blockquote'
+                    'p, strong, em, table, thead, tbody, tr, ul, ol, pre, code, h1, h2, h3, h4, h5, h6, blockquote'
                 );
             };
 
-            const hasNonWrapperChild = (el) => {
-                if (!el || typeof el.querySelectorAll !== 'function') return false;
-                const wrappers = new Set(['div', 'span', 'p', 'br']);
-                const descendants = Array.from(el.querySelectorAll('*'));
-                for (const node of descendants) {
-                    const tag = String(node?.tagName || '').toLowerCase();
-                    if (!tag) continue;
-                    if (!wrappers.has(tag)) return true;
-                    const attrs = Array.from(node.attributes || []).map((a) => String(a?.name || '').toLowerCase());
-                    const safeAttrs = attrs.filter((name) => name && name !== 'class');
-                    if (safeAttrs.length > 0) return true;
+            const isInsideCodeBlock = (el) => {
+                let cur = el;
+                while (cur && cur.nodeType === Node.ELEMENT_NODE) {
+                    const tag = String(cur.tagName || '').toLowerCase();
+                    if (tag === 'pre' || tag === 'code') return true;
+                    cur = cur.parentElement;
                 }
                 return false;
             };
 
             const extractMarkdownCandidate = (el) => {
                 if (!el) return '';
-                const parts = [];
-                const nodes = Array.from(el.childNodes || []);
-                for (const node of nodes) {
-                    if (!node) continue;
-                    if (node.nodeType === Node.TEXT_NODE) {
-                        parts.push(String(node.textContent || ''));
-                        continue;
-                    }
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        const tag = String(node.tagName || '').toLowerCase();
-                        if (tag === 'br') {
-                            parts.push('\n');
-                            continue;
-                        }
-                        parts.push(String(node.outerHTML || ''));
-                        continue;
-                    }
-                }
-
-                const serialized = parts.join('').trim();
-                if (serialized) return serialized;
-
                 let text = '';
                 try {
                     if (typeof el.innerText === 'string') text = el.innerText;
@@ -646,68 +611,96 @@
                 return String(text || '').trim();
             };
 
-            const renderMarkdownInto = (markdownText, targetEl) => {
-                if (!targetEl) return;
-                const rawMd = String(markdownText ?? '');
-                let md = rawMd.replace(/\r\n?/g, '\n');
-                const lines = md.split('\n');
-                while (lines.length && !String(lines[0] || '').trim()) lines.shift();
-                while (lines.length && !String(lines[lines.length - 1] || '').trim()) lines.pop();
-                let minIndent = Infinity;
-                for (const line of lines) {
-                    const l = String(line || '');
-                    if (!l.trim()) continue;
-                    const match = l.match(/^[\t ]+/);
-                    if (!match) {
-                        minIndent = 0;
-                        break;
-                    }
-                    const indentText = match[0];
-                    const indentWidth = indentText.replace(/\t/g, '    ').length;
-                    if (indentWidth < minIndent) minIndent = indentWidth;
-                }
-                if (Number.isFinite(minIndent) && minIndent > 0) {
-                    md = lines
-                        .map((line) => {
-                            let remaining = String(line || '');
-                            let toRemove = minIndent;
-                            while (toRemove > 0 && remaining) {
-                                if (remaining[0] === ' ') {
-                                    remaining = remaining.slice(1);
-                                    toRemove -= 1;
-                                    continue;
-                                }
-                                if (remaining[0] === '\t') {
-                                    remaining = remaining.slice(1);
-                                    toRemove -= 4;
-                                    continue;
-                                }
-                                break;
-                            }
-                            return remaining;
-                        })
-                        .join('\n');
-                } else {
-                    md = lines.join('\n');
-                }
-                md = md.trim();
-                if (!md) return;
+            const customTagsForSerialize = new Set([
+                'tabs',
+                'tab',
+                'tabitem',
+                'cardgroup',
+                'card',
+                'tip',
+                'note',
+                'info',
+                'warning',
+                'danger',
+                'caution',
+                'success'
+            ]);
 
-                if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-                    const tpl = document.createElement('template');
-                    try {
-                        let html = '';
-                        try {
-                            html = String(marked.parse(md, { gfm: true, breaks: true }) || '');
-                        } catch (_) {
-                            html = String(marked.parse(md) || '');
-                        }
-                        tpl.innerHTML = html;
-                        moveChildren(tpl.content, targetEl);
-                        return;
-                    } catch (_) {}
+            const serializeMarkdownFromNode = (node) => {
+                if (!node) return '';
+                if (node.nodeType === Node.TEXT_NODE) return String(node.textContent || '');
+                if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+                const el = node;
+                const tag = String(el.tagName || '').toLowerCase();
+                if (tag === 'br') return '\n';
+                if (tag === 'pre' || tag === 'code') return String(el.outerHTML || '');
+                if (customTagsForSerialize.has(tag)) return String(el.outerHTML || '');
+
+                if (tag === 'p' || tag === 'div') {
+                    const inner = Array.from(el.childNodes || []).map(serializeMarkdownFromNode).join('');
+                    return `\n${inner}\n`;
                 }
-                targetEl.textContent = md;
+                if (tag === 'span') {
+                    return Array.from(el.childNodes || []).map(serializeMarkdownFromNode).join('');
+                }
+
+                return String(el.outerHTML || '');
+            };
+
+            const extractMarkdownSource = (el) => {
+                if (!el) return '';
+                const nodes = Array.from(el.childNodes || []);
+                const serialized = nodes.map(serializeMarkdownFromNode).join('').trim();
+                if (serialized) return serialized;
+                return extractMarkdownCandidate(el);
+            };
+
+            const renderMarkdownInCustomTags = (rootEl) => {
+                if (!rootEl || typeof rootEl.querySelectorAll !== 'function') return;
+                if (typeof marked === 'undefined' || typeof marked.parse !== 'function') return;
+
+                const selector = [
+                    'card',
+                    'tab',
+                    'tabitem',
+                    'tip',
+                    'note',
+                    'info',
+                    'warning',
+                    'danger',
+                    'caution',
+                    'success'
+                ].join(',');
+
+                for (let pass = 0; pass < 5; pass++) {
+                    let changed = false;
+                    const nodes = Array.from(rootEl.querySelectorAll(selector));
+                    for (const el of nodes) {
+                        if (!el || el.nodeType !== Node.ELEMENT_NODE) continue;
+                        if (isInsideCodeBlock(el)) continue;
+                        if (hasRenderedMarkdown(el)) continue;
+
+                        const md = extractMarkdownSource(el);
+                        if (!String(md || '').trim()) continue;
+
+                        const tpl = document.createElement('template');
+                        try {
+                            tpl.innerHTML = String(marked.parse(String(md), { gfm: true, breaks: true }) || '');
+                        } catch (_) {
+                            try {
+                                tpl.innerHTML = String(marked.parse(String(md)) || '');
+                            } catch (_) {
+                                continue;
+                            }
+                        }
+
+                        while (el.firstChild) el.removeChild(el.firstChild);
+                        moveChildren(tpl.content, el);
+                        changed = true;
+                    }
+                    if (!changed) break;
+                }
             };
 
             const handleCardGroup = () => {
@@ -765,14 +758,7 @@
 
                     const body = document.createElement('div');
                     body.className = 'pet-card__body';
-                    const candidate = extractMarkdownCandidate(el);
-                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el);
-                    if (shouldParseMarkdown) {
-                        while (el.firstChild) el.removeChild(el.firstChild);
-                        renderMarkdownInto(candidate, body);
-                    } else {
-                        moveChildren(el, body);
-                    }
+                    moveChildren(el, body);
                     if (body.childNodes.length) outer.appendChild(body);
 
                     replaceWith(el, outer);
@@ -820,14 +806,7 @@
 
                     const content = document.createElement('div');
                     content.className = 'pet-tip__content';
-                    const candidate = extractMarkdownCandidate(el);
-                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el);
-                    if (shouldParseMarkdown) {
-                        while (el.firstChild) el.removeChild(el.firstChild);
-                        renderMarkdownInto(candidate, content);
-                    } else {
-                        moveChildren(el, content);
-                    }
+                    moveChildren(el, content);
                     outer.appendChild(content);
 
                     replaceWith(el, outer);
@@ -839,9 +818,9 @@
                 nodes.forEach((tabsEl) => {
                     const outer = document.createElement('div');
                     outer.className = 'pet-tabs';
-                    const items = Array.from(tabsEl.children || []).filter((child) => {
-                        const name = normalizeComponentName(child);
-                        return name === 'tab' || name === 'tabitem';
+                    const items = Array.from(tabsEl.querySelectorAll('tab, tabitem')).filter((tabEl) => {
+                        if (typeof tabEl?.closest === 'function') return tabEl.closest('tabs') === tabsEl;
+                        return true;
                     });
 
                     const finalItems = items.length ? items : [tabsEl];
@@ -862,14 +841,7 @@
                         const content = document.createElement('div');
                         content.className = 'pet-tab__content';
                         const sourceEl = itemEl === tabsEl ? tabsEl : itemEl;
-                        const candidate = extractMarkdownCandidate(sourceEl);
-                        const shouldParseMarkdown = candidate && !hasRenderedMarkdown(sourceEl);
-                        if (shouldParseMarkdown) {
-                            while (sourceEl.firstChild) sourceEl.removeChild(sourceEl.firstChild);
-                            renderMarkdownInto(candidate, content);
-                        } else {
-                            moveChildren(sourceEl, content);
-                        }
+                        moveChildren(sourceEl, content);
                         details.appendChild(content);
 
                         outer.appendChild(details);
@@ -884,6 +856,22 @@
                 nodes.forEach((tabEl, idx) => {
                     if (typeof tabEl.closest === 'function' && tabEl.closest('tabs')) return;
 
+                    const wrapper = tabEl.parentElement;
+                    const wrapperTag = normalizeComponentName(wrapper);
+                    const wrapperIsSimple =
+                        wrapper && (wrapperTag === 'p' || wrapperTag === 'div' || wrapperTag === 'span');
+
+                    const wrapperIsSolo = (() => {
+                        if (!wrapperIsSimple) return false;
+                        const meaningful = Array.from(wrapper.childNodes || []).filter((n) => {
+                            if (!n) return false;
+                            if (n.nodeType === Node.ELEMENT_NODE) return true;
+                            if (n.nodeType === Node.TEXT_NODE) return String(n.textContent || '').trim().length > 0;
+                            return false;
+                        });
+                        return meaningful.length === 1 && meaningful[0] === tabEl;
+                    })();
+
                     const details = document.createElement('details');
                     details.className = 'pet-tab';
                     details.setAttribute('open', '');
@@ -896,24 +884,18 @@
 
                     const content = document.createElement('div');
                     content.className = 'pet-tab__content';
-                    const candidate = extractMarkdownCandidate(tabEl);
-                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(tabEl);
-                    if (shouldParseMarkdown) {
-                        while (tabEl.firstChild) tabEl.removeChild(tabEl.firstChild);
-                        renderMarkdownInto(candidate, content);
-                    } else {
-                        moveChildren(tabEl, content);
-                    }
+                    moveChildren(tabEl, content);
                     details.appendChild(content);
 
-                    replaceWith(tabEl, details);
+                    replaceWith(wrapperIsSolo ? wrapper : tabEl, details);
                 });
             };
 
+            renderMarkdownInCustomTags(root);
             handleCardGroup();
-            handleCard();
             handleTabs();
             handleStandaloneTab();
+            handleCard();
             handleAdmonitions();
         };
 

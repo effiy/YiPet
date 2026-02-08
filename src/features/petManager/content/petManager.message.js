@@ -704,7 +704,7 @@
 
                 // 覆盖 image 渲染
                 renderer.image = (href, title, text) => {
-                    const safeHref = this._sanitizeUrl(href);
+                    const safeHref = this._sanitizeImageSrc ? this._sanitizeImageSrc(href) : this._sanitizeUrl(href);
                     const alt = this.escapeHtml(text || '');
                     if (!safeHref) return alt;
                     const safeTitle = title ? ` title="${this.escapeHtml(title)}"` : '';

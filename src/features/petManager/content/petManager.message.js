@@ -551,6 +551,176 @@
             return this.escapeHtml(raw);
         }
 
+        const normalizeComponentName = (el) => String(el?.tagName || '').trim().toLowerCase();
+        const pickAttr = (el, names) => {
+            if (!el || !names) return '';
+            for (const name of names) {
+                if (el.hasAttribute(name)) return String(el.getAttribute(name) || '').trim();
+                const lower = String(name).toLowerCase();
+                if (lower !== name && el.hasAttribute(lower)) return String(el.getAttribute(lower) || '').trim();
+            }
+            return '';
+        };
+
+        const toSafeText = (value, maxLen = 240) => {
+            const s = String(value ?? '').replace(/\s+/g, ' ').trim();
+            if (!s) return '';
+            return s.length > maxLen ? s.slice(0, maxLen).trim() : s;
+        };
+
+        const transformComponents = (root) => {
+            if (!root || typeof root.querySelectorAll !== 'function') return;
+
+            const replaceWith = (from, to) => {
+                const parent = from?.parentNode;
+                if (!parent || !to) return;
+                parent.replaceChild(to, from);
+            };
+
+            const moveChildren = (from, to) => {
+                if (!from || !to) return;
+                while (from.firstChild) to.appendChild(from.firstChild);
+            };
+
+            const handleCardGroup = () => {
+                const nodes = Array.from(root.querySelectorAll('cardgroup'));
+                nodes.forEach((el) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'pet-card-group';
+                    moveChildren(el, wrapper);
+                    replaceWith(el, wrapper);
+                });
+            };
+
+            const handleCard = () => {
+                const nodes = Array.from(root.querySelectorAll('card'));
+                nodes.forEach((el) => {
+                    const title = toSafeText(pickAttr(el, ['title', 'name', 'header']));
+                    const desc = toSafeText(pickAttr(el, ['desc', 'description', 'subtitle']), 400);
+                    const icon = toSafeText(pickAttr(el, ['icon', 'emoji']), 24);
+                    const hrefRaw = pickAttr(el, ['href', 'link', 'to', 'url']);
+                    const href = hrefRaw ? String(hrefRaw).trim() : '';
+
+                    const outer = href ? document.createElement('a') : document.createElement('div');
+                    outer.className = 'pet-card';
+                    if (href && outer.tagName === 'A') {
+                        outer.setAttribute('href', href);
+                        outer.setAttribute('target', '_blank');
+                        outer.setAttribute('rel', 'noopener noreferrer');
+                    }
+
+                    const header = document.createElement('div');
+                    header.className = 'pet-card__header';
+
+                    if (icon) {
+                        const iconEl = document.createElement('span');
+                        iconEl.className = 'pet-card__icon';
+                        iconEl.textContent = icon;
+                        header.appendChild(iconEl);
+                    }
+
+                    if (title) {
+                        const titleEl = document.createElement('span');
+                        titleEl.className = 'pet-card__title';
+                        titleEl.textContent = title;
+                        header.appendChild(titleEl);
+                    }
+
+                    if (header.childNodes.length) outer.appendChild(header);
+
+                    if (desc) {
+                        const descEl = document.createElement('div');
+                        descEl.className = 'pet-card__desc';
+                        descEl.textContent = desc;
+                        outer.appendChild(descEl);
+                    }
+
+                    const body = document.createElement('div');
+                    body.className = 'pet-card__body';
+                    moveChildren(el, body);
+                    if (body.childNodes.length) outer.appendChild(body);
+
+                    replaceWith(el, outer);
+                });
+            };
+
+            const handleTip = () => {
+                const nodes = Array.from(root.querySelectorAll('tip'));
+                nodes.forEach((el) => {
+                    const rawType = toSafeText(pickAttr(el, ['type', 'kind', 'variant']), 32).toLowerCase();
+                    const type = ['info', 'tip', 'warning', 'danger', 'success'].includes(rawType) ? rawType : 'info';
+                    const title = toSafeText(pickAttr(el, ['title', 'header']), 120);
+
+                    const outer = document.createElement('div');
+                    outer.className = `pet-tip pet-tip--${type}`;
+
+                    if (title) {
+                        const titleEl = document.createElement('div');
+                        titleEl.className = 'pet-tip__title';
+                        titleEl.textContent = title;
+                        outer.appendChild(titleEl);
+                    }
+
+                    const content = document.createElement('div');
+                    content.className = 'pet-tip__content';
+                    moveChildren(el, content);
+                    outer.appendChild(content);
+
+                    replaceWith(el, outer);
+                });
+            };
+
+            const handleTabs = () => {
+                const nodes = Array.from(root.querySelectorAll('tabs'));
+                nodes.forEach((tabsEl) => {
+                    const outer = document.createElement('div');
+                    outer.className = 'pet-tabs';
+                    const items = Array.from(tabsEl.children || []).filter((child) => {
+                        const name = normalizeComponentName(child);
+                        return name === 'tab' || name === 'tabitem';
+                    });
+
+                    const finalItems = items.length ? items : [tabsEl];
+                    finalItems.forEach((itemEl, idx) => {
+                        const details = document.createElement('details');
+                        details.className = 'pet-tab';
+                        if (idx === 0) details.setAttribute('open', '');
+
+                        const summary = document.createElement('summary');
+                        summary.className = 'pet-tab__label';
+
+                        const label =
+                            toSafeText(pickAttr(itemEl, ['label', 'title', 'name', 'value']), 120) ||
+                            `Tab ${idx + 1}`;
+                        summary.textContent = label;
+                        details.appendChild(summary);
+
+                        const content = document.createElement('div');
+                        content.className = 'pet-tab__content';
+                        if (itemEl === tabsEl) {
+                            moveChildren(tabsEl, content);
+                        } else {
+                            moveChildren(itemEl, content);
+                        }
+                        details.appendChild(content);
+
+                        outer.appendChild(details);
+                    });
+
+                    replaceWith(tabsEl, outer);
+                });
+            };
+
+            handleCardGroup();
+            handleCard();
+            handleTip();
+            handleTabs();
+        };
+
+        try {
+            transformComponents(template.content);
+        } catch (_) {}
+
         const allowedTags = new Set([
             'a', 'b', 'blockquote', 'br', 'code', 'del', 'details', 'div', 'em',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'kbd', 'li',

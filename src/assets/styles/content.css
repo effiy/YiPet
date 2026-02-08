@@ -4003,6 +4003,63 @@
     display: block !important;
 }
 
+.markdown-content .pet-steps {
+    counter-reset: pet-step !important;
+    list-style: none !important;
+    margin: 0.75em 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.markdown-content .pet-step {
+    counter-increment: pet-step !important;
+    position: relative !important;
+    padding: 10px 12px 10px 44px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: rgba(229, 231, 235, 0.9) !important;
+}
+
+.markdown-content .pet-step::before {
+    content: counter(pet-step) !important;
+    position: absolute !important;
+    left: 12px !important;
+    top: 12px !important;
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.16) !important;
+    box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.22) inset !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+}
+
+.markdown-content .pet-step__title {
+    font-weight: 700 !important;
+    margin: 0 0 6px 0 !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.markdown-content .pet-step__desc {
+    margin: 0 0 6px 0 !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+    color: rgba(229, 231, 235, 0.86) !important;
+}
+
+.markdown-content .pet-step__content {
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+    color: rgba(229, 231, 235, 0.9) !important;
+}
+
 /* Mermaid 图表样式 */
 .markdown-content .mermaid,
 .mermaid {

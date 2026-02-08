@@ -612,6 +612,8 @@
             };
 
             const customTagsForSerialize = new Set([
+                'steps',
+                'step',
                 'tabs',
                 'tab',
                 'tabitem',
@@ -707,6 +709,8 @@
                 if (typeof marked === 'undefined' || typeof marked.parse !== 'function') return;
 
                 const selector = [
+                    'steps',
+                    'step',
                     'tabs',
                     'card',
                     'tab',
@@ -860,6 +864,112 @@
                 });
             };
 
+            const handleSteps = () => {
+                const nodes = Array.from(root.querySelectorAll('steps'));
+                nodes.forEach((stepsEl) => {
+                    const outer = document.createElement('ol');
+                    outer.className = 'pet-steps';
+
+                    const items = Array.from(stepsEl.querySelectorAll('step')).filter((stepEl) => {
+                        if (typeof stepEl?.closest === 'function') return stepEl.closest('steps') === stepsEl;
+                        return true;
+                    });
+
+                    const finalItems = items.length ? items : [stepsEl];
+                    finalItems.forEach((itemEl, idx) => {
+                        const title =
+                            toSafeText(pickAttr(itemEl, ['title', 'label', 'name', 'header']), 120) ||
+                            `Step ${idx + 1}`;
+
+                        const li = document.createElement('li');
+                        li.className = 'pet-step';
+
+                        const header = document.createElement('div');
+                        header.className = 'pet-step__header';
+
+                        const indexEl = document.createElement('div');
+                        indexEl.className = 'pet-step__index';
+                        indexEl.textContent = String(idx + 1);
+                        header.appendChild(indexEl);
+
+                        if (title) {
+                            const titleEl = document.createElement('div');
+                            titleEl.className = 'pet-step__title';
+                            titleEl.textContent = title;
+                            header.appendChild(titleEl);
+                        }
+
+                        const content = document.createElement('div');
+                        content.className = 'pet-step__content';
+                        const sourceEl = itemEl === stepsEl ? stepsEl : itemEl;
+                        moveChildren(sourceEl, content);
+
+                        li.appendChild(header);
+                        li.appendChild(content);
+                        outer.appendChild(li);
+                    });
+
+                    replaceWith(stepsEl, outer);
+                });
+            };
+
+            const handleStandaloneStep = () => {
+                const nodes = Array.from(root.querySelectorAll('step'));
+                nodes.forEach((stepEl, idx) => {
+                    if (typeof stepEl.closest === 'function' && stepEl.closest('steps')) return;
+
+                    const wrapper = stepEl.parentElement;
+                    const wrapperTag = normalizeComponentName(wrapper);
+                    const wrapperIsSimple =
+                        wrapper && (wrapperTag === 'p' || wrapperTag === 'div' || wrapperTag === 'span');
+
+                    const wrapperIsSolo = (() => {
+                        if (!wrapperIsSimple) return false;
+                        const meaningful = Array.from(wrapper.childNodes || []).filter((n) => {
+                            if (!n) return false;
+                            if (n.nodeType === Node.ELEMENT_NODE) return true;
+                            if (n.nodeType === Node.TEXT_NODE) return String(n.textContent || '').trim().length > 0;
+                            return false;
+                        });
+                        return meaningful.length === 1 && meaningful[0] === stepEl;
+                    })();
+
+                    const outer = document.createElement('ol');
+                    outer.className = 'pet-steps';
+
+                    const li = document.createElement('li');
+                    li.className = 'pet-step';
+
+                    const header = document.createElement('div');
+                    header.className = 'pet-step__header';
+
+                    const indexEl = document.createElement('div');
+                    indexEl.className = 'pet-step__index';
+                    indexEl.textContent = '1';
+                    header.appendChild(indexEl);
+
+                    const title =
+                        toSafeText(pickAttr(stepEl, ['title', 'label', 'name', 'header']), 120) ||
+                        `Step ${idx + 1}`;
+                    if (title) {
+                        const titleEl = document.createElement('div');
+                        titleEl.className = 'pet-step__title';
+                        titleEl.textContent = title;
+                        header.appendChild(titleEl);
+                    }
+
+                    const content = document.createElement('div');
+                    content.className = 'pet-step__content';
+                    moveChildren(stepEl, content);
+
+                    li.appendChild(header);
+                    li.appendChild(content);
+                    outer.appendChild(li);
+
+                    replaceWith(wrapperIsSolo ? wrapper : stepEl, outer);
+                });
+            };
+
             const handleTabs = () => {
                 const nodes = Array.from(root.querySelectorAll('tabs'));
                 nodes.forEach((tabsEl) => {
@@ -945,6 +1055,8 @@
 
             renderMarkdownInCustomTags(root);
             handleCardGroup();
+            handleSteps();
+            handleStandaloneStep();
             handleTabs();
             handleStandaloneTab();
             handleCard();

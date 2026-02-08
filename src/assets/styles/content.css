@@ -3863,8 +3863,8 @@
 
 .markdown-content .pet-card-group {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-    gap: 12px !important;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+    gap: 10px !important;
     margin: 0.75em 0 !important;
 }
 
@@ -3873,18 +3873,16 @@
     padding: 10px 12px !important;
     border-radius: 12px !important;
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
     color: inherit !important;
     text-decoration: none !important;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
-    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease !important;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease !important;
 }
 
 .markdown-content a.pet-card:hover {
     border-color: rgba(var(--primary-rgb, 102, 126, 234), 0.6) !important;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32) !important;
+    background: rgba(255, 255, 255, 0.07) !important;
+    transform: translateY(-1px) !important;
 }
 
 .markdown-content .pet-card__header {
@@ -3929,41 +3927,17 @@
 }
 
 .markdown-content .pet-tip {
-    --pet-tip-accent: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important;
-    --pet-tip-bg: rgba(var(--info-rgb, 59, 130, 246), 0.10) !important;
     margin: 0.75em 0 !important;
     padding: 10px 12px !important;
     border-radius: 12px !important;
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    border-left: 4px solid var(--pet-tip-accent) !important;
-    background: linear-gradient(90deg, var(--pet-tip-bg), rgba(255, 255, 255, 0.03)) !important;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22) !important;
-}
-
-.markdown-content .pet-tip__header {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    margin: 0 0 6px 0 !important;
-}
-
-.markdown-content .pet-tip__icon {
-    width: 22px !important;
-    height: 22px !important;
-    border-radius: 8px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    flex: 0 0 auto !important;
-    background: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10) inset !important;
-    font-size: 13px !important;
-    line-height: 1 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-left-width: 4px !important;
 }
 
 .markdown-content .pet-tip__title {
     font-weight: 700 !important;
-    margin: 0 !important;
+    margin: 0 0 6px 0 !important;
     color: rgba(255, 255, 255, 0.95) !important;
 }
 
@@ -3973,21 +3947,13 @@
     font-size: 12px !important;
 }
 
-.markdown-content .pet-tip--info { --pet-tip-accent: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important; --pet-tip-bg: rgba(var(--info-rgb, 59, 130, 246), 0.10) !important; }
-.markdown-content .pet-tip--tip { --pet-tip-accent: rgba(var(--accent-rgb, 6, 182, 212), 0.95) !important; --pet-tip-bg: rgba(var(--accent-rgb, 6, 182, 212), 0.10) !important; }
-.markdown-content .pet-tip--note { --pet-tip-accent: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important; --pet-tip-bg: rgba(var(--info-rgb, 59, 130, 246), 0.10) !important; }
-.markdown-content .pet-tip--success { --pet-tip-accent: rgba(34, 197, 94, 0.95) !important; --pet-tip-bg: rgba(34, 197, 94, 0.10) !important; }
-.markdown-content .pet-tip--warning { --pet-tip-accent: rgba(245, 158, 11, 0.95) !important; --pet-tip-bg: rgba(245, 158, 11, 0.10) !important; }
-.markdown-content .pet-tip--caution { --pet-tip-accent: rgba(245, 158, 11, 0.95) !important; --pet-tip-bg: rgba(245, 158, 11, 0.10) !important; }
-.markdown-content .pet-tip--danger { --pet-tip-accent: rgba(239, 68, 68, 0.95) !important; --pet-tip-bg: rgba(239, 68, 68, 0.10) !important; }
-
-.markdown-content .pet-tip--info .pet-tip__icon { background: rgba(var(--info-rgb, 59, 130, 246), 0.16) !important; }
-.markdown-content .pet-tip--tip .pet-tip__icon { background: rgba(var(--accent-rgb, 6, 182, 212), 0.16) !important; }
-.markdown-content .pet-tip--note .pet-tip__icon { background: rgba(var(--info-rgb, 59, 130, 246), 0.16) !important; }
-.markdown-content .pet-tip--success .pet-tip__icon { background: rgba(34, 197, 94, 0.16) !important; }
-.markdown-content .pet-tip--warning .pet-tip__icon { background: rgba(245, 158, 11, 0.16) !important; }
-.markdown-content .pet-tip--caution .pet-tip__icon { background: rgba(245, 158, 11, 0.16) !important; }
-.markdown-content .pet-tip--danger .pet-tip__icon { background: rgba(239, 68, 68, 0.16) !important; }
+.markdown-content .pet-tip--info { border-left-color: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important; }
+.markdown-content .pet-tip--tip { border-left-color: rgba(var(--accent-rgb, 6, 182, 212), 0.95) !important; }
+.markdown-content .pet-tip--note { border-left-color: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important; }
+.markdown-content .pet-tip--success { border-left-color: rgba(34, 197, 94, 0.95) !important; }
+.markdown-content .pet-tip--warning { border-left-color: rgba(245, 158, 11, 0.95) !important; }
+.markdown-content .pet-tip--caution { border-left-color: rgba(245, 158, 11, 0.95) !important; }
+.markdown-content .pet-tip--danger { border-left-color: rgba(239, 68, 68, 0.95) !important; }
 
 .markdown-content .pet-tabs {
     margin: 0.75em 0 !important;
@@ -4035,58 +4001,6 @@
 
 .markdown-content .pet-tabs__panel.is-active {
     display: block !important;
-}
-
-.markdown-content .pet-steps {
-    margin: 0.75em 0 !important;
-    padding-left: 0 !important;
-    list-style: none !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
-}
-
-.markdown-content .pet-step {
-    padding: 10px 12px !important;
-    border-radius: 12px !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03)) !important;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22) !important;
-}
-
-.markdown-content .pet-step__header {
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-    margin-bottom: 8px !important;
-}
-
-.markdown-content .pet-step__index {
-    width: 22px !important;
-    height: 22px !important;
-    border-radius: 8px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-weight: 800 !important;
-    font-size: 12px !important;
-    background: rgba(var(--primary-rgb, 102, 126, 234), 0.16) !important;
-    box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.22) inset !important;
-    color: rgba(255, 255, 255, 0.95) !important;
-    flex: 0 0 auto !important;
-}
-
-.markdown-content .pet-step__title {
-    font-weight: 700 !important;
-    color: rgba(255, 255, 255, 0.95) !important;
-    min-width: 0 !important;
-    word-break: break-word !important;
-}
-
-.markdown-content .pet-step__content {
-    color: rgba(229, 231, 235, 0.9) !important;
-    line-height: 1.6 !important;
-    font-size: 12px !important;
 }
 
 /* Mermaid 图表样式 */

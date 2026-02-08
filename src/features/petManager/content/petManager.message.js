@@ -582,6 +582,121 @@
                 while (from.firstChild) to.appendChild(from.firstChild);
             };
 
+            const hasElementChild = (el) => {
+                if (!el) return false;
+                for (const node of Array.from(el.childNodes || [])) {
+                    if (node && node.nodeType === Node.ELEMENT_NODE) return true;
+                }
+                return false;
+            };
+
+            const hasRenderedMarkdown = (el) => {
+                if (!el || typeof el.querySelector !== 'function') return false;
+                return !!el.querySelector(
+                    'strong, em, table, thead, tbody, tr, ul, ol, pre, code, h1, h2, h3, h4, h5, h6, blockquote'
+                );
+            };
+
+            const hasNonWrapperChild = (el) => {
+                if (!el || typeof el.querySelectorAll !== 'function') return false;
+                const wrappers = new Set(['div', 'span', 'p', 'br']);
+                const descendants = Array.from(el.querySelectorAll('*'));
+                for (const node of descendants) {
+                    const tag = String(node?.tagName || '').toLowerCase();
+                    if (!tag) continue;
+                    if (!wrappers.has(tag)) return true;
+                    const attrs = Array.from(node.attributes || []).map((a) => String(a?.name || '').toLowerCase());
+                    const safeAttrs = attrs.filter((name) => name && name !== 'class');
+                    if (safeAttrs.length > 0) return true;
+                }
+                return false;
+            };
+
+            const extractMarkdownCandidate = (el) => {
+                if (!el) return '';
+                let text = '';
+                try {
+                    if (typeof el.innerText === 'string') text = el.innerText;
+                } catch (_) {}
+                if (!String(text || '').trim()) {
+                    text = String(el.textContent || '');
+                }
+                const html = String(el.innerHTML || '');
+                if (html && /<br\s*\/?>/i.test(html) && !String(text || '').includes('\n')) {
+                    try {
+                        const tpl = document.createElement('template');
+                        tpl.innerHTML = html.replace(/<br\s*\/?>/gi, '\n');
+                        const withBreaks = String(tpl.content.textContent || '');
+                        if (withBreaks.trim()) text = withBreaks;
+                    } catch (_) {}
+                }
+                return String(text || '').trim();
+            };
+
+            const renderMarkdownInto = (markdownText, targetEl) => {
+                if (!targetEl) return;
+                const rawMd = String(markdownText ?? '');
+                let md = rawMd.replace(/\r\n?/g, '\n');
+                const lines = md.split('\n');
+                while (lines.length && !String(lines[0] || '').trim()) lines.shift();
+                while (lines.length && !String(lines[lines.length - 1] || '').trim()) lines.pop();
+                let minIndent = Infinity;
+                for (const line of lines) {
+                    const l = String(line || '');
+                    if (!l.trim()) continue;
+                    const match = l.match(/^[\t ]+/);
+                    if (!match) {
+                        minIndent = 0;
+                        break;
+                    }
+                    const indentText = match[0];
+                    const indentWidth = indentText.replace(/\t/g, '    ').length;
+                    if (indentWidth < minIndent) minIndent = indentWidth;
+                }
+                if (Number.isFinite(minIndent) && minIndent > 0) {
+                    md = lines
+                        .map((line) => {
+                            let remaining = String(line || '');
+                            let toRemove = minIndent;
+                            while (toRemove > 0 && remaining) {
+                                if (remaining[0] === ' ') {
+                                    remaining = remaining.slice(1);
+                                    toRemove -= 1;
+                                    continue;
+                                }
+                                if (remaining[0] === '\t') {
+                                    remaining = remaining.slice(1);
+                                    toRemove -= 4;
+                                    continue;
+                                }
+                                break;
+                            }
+                            return remaining;
+                        })
+                        .join('\n');
+                } else {
+                    md = lines.join('\n');
+                }
+                md = md.trim();
+                if (!md) return;
+
+                if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                    const tpl = document.createElement('template');
+                    try {
+                        let html = '';
+                        try {
+                            html = String(marked.parse(md, { gfm: true, breaks: true }) || '');
+                        } catch (_) {
+                            html = String(marked.parse(md) || '');
+                        }
+                        tpl.innerHTML = html;
+                        moveChildren(tpl.content, targetEl);
+                        return;
+                    } catch (_) {}
+                }
+                targetEl.textContent = md;
+            };
+
             const handleCardGroup = () => {
                 const nodes = Array.from(root.querySelectorAll('cardgroup'));
                 nodes.forEach((el) => {
@@ -637,18 +752,47 @@
 
                     const body = document.createElement('div');
                     body.className = 'pet-card__body';
-                    moveChildren(el, body);
+                    const candidate = extractMarkdownCandidate(el);
+                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el) && !hasNonWrapperChild(el);
+                    if (shouldParseMarkdown) {
+                        while (el.firstChild) el.removeChild(el.firstChild);
+                        renderMarkdownInto(candidate, body);
+                    } else {
+                        moveChildren(el, body);
+                    }
                     if (body.childNodes.length) outer.appendChild(body);
 
                     replaceWith(el, outer);
                 });
             };
 
-            const handleTip = () => {
-                const nodes = Array.from(root.querySelectorAll('tip'));
+            const handleAdmonitions = () => {
+                const tags = ['tip', 'note', 'info', 'warning', 'danger', 'caution', 'success'];
+                const selector = tags.join(',');
+                const nodes = Array.from(root.querySelectorAll(selector));
                 nodes.forEach((el) => {
+                    const tagName = String(el?.tagName || '').toLowerCase();
+                    const defaultType =
+                        tagName === 'tip'
+                            ? 'tip'
+                            : tagName === 'note'
+                                ? 'note'
+                                : tagName === 'warning'
+                                    ? 'warning'
+                                    : tagName === 'danger'
+                                        ? 'danger'
+                                        : tagName === 'caution'
+                                            ? 'caution'
+                                            : tagName === 'success'
+                                                ? 'success'
+                                                : 'info';
+
                     const rawType = toSafeText(pickAttr(el, ['type', 'kind', 'variant']), 32).toLowerCase();
-                    const type = ['info', 'tip', 'warning', 'danger', 'success'].includes(rawType) ? rawType : 'info';
+                    const normalized = rawType || defaultType;
+                    const type = ['info', 'tip', 'note', 'warning', 'danger', 'caution', 'success'].includes(normalized)
+                        ? normalized
+                        : defaultType;
+
                     const title = toSafeText(pickAttr(el, ['title', 'header']), 120);
 
                     const outer = document.createElement('div');
@@ -663,7 +807,14 @@
 
                     const content = document.createElement('div');
                     content.className = 'pet-tip__content';
-                    moveChildren(el, content);
+                    const candidate = extractMarkdownCandidate(el);
+                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el) && !hasNonWrapperChild(el);
+                    if (shouldParseMarkdown) {
+                        while (el.firstChild) el.removeChild(el.firstChild);
+                        renderMarkdownInto(candidate, content);
+                    } else {
+                        moveChildren(el, content);
+                    }
                     outer.appendChild(content);
 
                     replaceWith(el, outer);
@@ -697,10 +848,14 @@
 
                         const content = document.createElement('div');
                         content.className = 'pet-tab__content';
-                        if (itemEl === tabsEl) {
-                            moveChildren(tabsEl, content);
+                        const sourceEl = itemEl === tabsEl ? tabsEl : itemEl;
+                        const candidate = extractMarkdownCandidate(sourceEl);
+                        const shouldParseMarkdown = candidate && !hasRenderedMarkdown(sourceEl) && !hasNonWrapperChild(sourceEl);
+                        if (shouldParseMarkdown) {
+                            while (sourceEl.firstChild) sourceEl.removeChild(sourceEl.firstChild);
+                            renderMarkdownInto(candidate, content);
                         } else {
-                            moveChildren(itemEl, content);
+                            moveChildren(sourceEl, content);
                         }
                         details.appendChild(content);
 
@@ -711,10 +866,42 @@
                 });
             };
 
+            const handleStandaloneTab = () => {
+                const nodes = Array.from(root.querySelectorAll('tab, tabitem'));
+                nodes.forEach((tabEl, idx) => {
+                    if (typeof tabEl.closest === 'function' && tabEl.closest('tabs')) return;
+
+                    const details = document.createElement('details');
+                    details.className = 'pet-tab';
+                    details.setAttribute('open', '');
+
+                    const summary = document.createElement('summary');
+                    summary.className = 'pet-tab__label';
+                    const label = toSafeText(pickAttr(tabEl, ['label', 'title', 'name', 'value']), 120) || `Tab ${idx + 1}`;
+                    summary.textContent = label;
+                    details.appendChild(summary);
+
+                    const content = document.createElement('div');
+                    content.className = 'pet-tab__content';
+                    const candidate = extractMarkdownCandidate(tabEl);
+                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(tabEl) && !hasNonWrapperChild(tabEl);
+                    if (shouldParseMarkdown) {
+                        while (tabEl.firstChild) tabEl.removeChild(tabEl.firstChild);
+                        renderMarkdownInto(candidate, content);
+                    } else {
+                        moveChildren(tabEl, content);
+                    }
+                    details.appendChild(content);
+
+                    replaceWith(tabEl, details);
+                });
+            };
+
             handleCardGroup();
             handleCard();
-            handleTip();
+            handleAdmonitions();
             handleTabs();
+            handleStandaloneTab();
         };
 
         try {

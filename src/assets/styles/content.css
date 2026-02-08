@@ -3949,8 +3949,10 @@
 
 .markdown-content .pet-tip--info { border-left-color: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important; }
 .markdown-content .pet-tip--tip { border-left-color: rgba(var(--accent-rgb, 6, 182, 212), 0.95) !important; }
+.markdown-content .pet-tip--note { border-left-color: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important; }
 .markdown-content .pet-tip--success { border-left-color: rgba(34, 197, 94, 0.95) !important; }
 .markdown-content .pet-tip--warning { border-left-color: rgba(245, 158, 11, 0.95) !important; }
+.markdown-content .pet-tip--caution { border-left-color: rgba(245, 158, 11, 0.95) !important; }
 .markdown-content .pet-tip--danger { border-left-color: rgba(239, 68, 68, 0.95) !important; }
 
 .markdown-content .pet-tabs {

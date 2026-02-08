@@ -712,6 +712,7 @@
                     'steps',
                     'step',
                     'tabs',
+                    'cardgroup',
                     'card',
                     'tab',
                     'tabitem',
@@ -848,12 +849,33 @@
                     const outer = document.createElement('div');
                     outer.className = `pet-tip pet-tip--${type}`;
 
+                    const header = document.createElement('div');
+                    header.className = 'pet-tip__header';
+
+                    const iconEl = document.createElement('span');
+                    iconEl.className = 'pet-tip__icon';
+                    iconEl.textContent =
+                        type === 'tip'
+                            ? '💡'
+                            : type === 'success'
+                                ? '✅'
+                                : type === 'warning' || type === 'caution'
+                                    ? '⚠️'
+                                    : type === 'danger'
+                                        ? '⛔'
+                                        : type === 'note'
+                                            ? '📝'
+                                            : 'ℹ️';
+                    header.appendChild(iconEl);
+
                     if (title) {
                         const titleEl = document.createElement('div');
                         titleEl.className = 'pet-tip__title';
                         titleEl.textContent = title;
-                        outer.appendChild(titleEl);
+                        header.appendChild(titleEl);
                     }
+
+                    outer.appendChild(header);
 
                     const content = document.createElement('div');
                     content.className = 'pet-tip__content';

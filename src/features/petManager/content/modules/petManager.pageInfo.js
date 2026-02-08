@@ -229,17 +229,36 @@
                 return this.getFullPageText();
             }
 
+            const safeAbsUrl = (u) => {
+                const raw = String(u || '').trim();
+                if (!raw) return '';
+                if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+                try {
+                    return new URL(raw, document.baseURI).href;
+                } catch (_) {
+                    return raw;
+                }
+            };
+            const markdownUrl = (u) => {
+                const s = String(u || '').trim();
+                if (!s) return '';
+                if (/[<>\s()]/.test(s)) return `<${s}>`;
+                return s;
+            };
+            const escapeHtmlAttr = (v) =>
+                String(v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
             // 定义需要排除的选择器
             const excludeSelectors = [
                 'script', 'style', 'nav', 'header', 'footer', 'aside',
-                'noscript', 'iframe', 'embed', 'svg', 'canvas',
+                'noscript',
                 '.ad', '.advertisement', '.ads', '.advertisement-container',
                 '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
                 '.header', '.footer', '.comment', '.comments', '.social-share',
                 '.related-posts', '.related', '.widget', '.sidebar-widget',
                 '[class*="ad"]', '[class*="banner"]', '[class*="promo"]',
                 '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
-                'iframe', 'embed', 'object', 'form', 'button', 'input',
+                'form', 'button', 'input',
                 // 排除插件相关元素
                 `#${(typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids) ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'}`, '[id^="pet-"]', '[class*="pet-"]',
                 '[id*="pet-chat"]', '[class*="pet-chat"]',
@@ -288,6 +307,80 @@
 
             // 克隆内容
             let cloned;
+            const collectCanvasDataUrls = () => {
+                const urls = [];
+                try {
+                    const canvases = Array.from(mainContent.querySelectorAll('canvas'));
+                    canvases.forEach((c) => {
+                        try {
+                            urls.push(c.toDataURL('image/png'));
+                        } catch (_) {
+                            urls.push(null);
+                        }
+                    });
+                } catch (_) {}
+                return urls;
+            };
+            const collectMediaInfo = () => {
+                const info = { video: [], audio: [], iframe: [], bg: [] };
+                const extractCssUrl = (bg) => {
+                    const s = String(bg || '').trim();
+                    if (!s || s === 'none') return '';
+                    const m = s.match(/url\((['"]?)(.*?)\1\)/i);
+                    return m ? safeAbsUrl(m[2]) : '';
+                };
+                try {
+                    Array.from(mainContent.querySelectorAll('video')).forEach((v) => {
+                        info.video.push({
+                            src: safeAbsUrl(v.currentSrc || v.getAttribute('src') || ''),
+                            poster: safeAbsUrl(v.getAttribute('poster') || ''),
+                            sources: Array.from(v.querySelectorAll('source')).map((s) => ({
+                                src: safeAbsUrl(s.getAttribute('src') || ''),
+                                type: String(s.getAttribute('type') || '').trim()
+                            }))
+                        });
+                    });
+                } catch (_) {}
+                try {
+                    Array.from(mainContent.querySelectorAll('audio')).forEach((a) => {
+                        info.audio.push({
+                            src: safeAbsUrl(a.currentSrc || a.getAttribute('src') || ''),
+                            sources: Array.from(a.querySelectorAll('source')).map((s) => ({
+                                src: safeAbsUrl(s.getAttribute('src') || ''),
+                                type: String(s.getAttribute('type') || '').trim()
+                            }))
+                        });
+                    });
+                } catch (_) {}
+                try {
+                    Array.from(mainContent.querySelectorAll('iframe')).forEach((f) => {
+                        info.iframe.push({ src: safeAbsUrl(f.getAttribute('src') || '') });
+                    });
+                } catch (_) {}
+                try {
+                    const walker = document.createTreeWalker(mainContent, NodeFilter.SHOW_ELEMENT);
+                    let idx = -1;
+                    while (walker.nextNode()) {
+                        idx++;
+                        const el = walker.currentNode;
+                        try {
+                            if (!el || el.nodeType !== 1) continue;
+                            if (el.tagName && ['IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'SVG', 'IFRAME', 'PICTURE', 'SOURCE', 'SCRIPT', 'STYLE'].includes(el.tagName)) continue;
+                            if (el.querySelector && el.querySelector('img,video,audio,svg,canvas')) continue;
+                            const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+                            if (rect && rect.width * rect.height < 1600) continue;
+                            const bg = window.getComputedStyle ? window.getComputedStyle(el).backgroundImage : '';
+                            const url = extractCssUrl(bg);
+                            if (!url) continue;
+                            info.bg.push({ index: idx, url });
+                        } catch (_) {}
+                    }
+                } catch (_) {}
+                return info;
+            };
+
+            const canvasDataUrls = collectCanvasDataUrls();
+            const mediaInfo = collectMediaInfo();
             try {
                 cloned = mainContent.cloneNode(true);
             } catch (cloneError) {
@@ -299,6 +392,30 @@
                 return textContent.trim();
             }
 
+            try {
+                const walker = document.createTreeWalker(cloned, NodeFilter.SHOW_ELEMENT);
+                let idx = -1;
+                let bgCursor = 0;
+                let nextBg = mediaInfo.bg && mediaInfo.bg.length ? mediaInfo.bg[bgCursor] : null;
+                while (walker.nextNode()) {
+                    idx++;
+                    const el = walker.currentNode;
+                    if (!nextBg || idx < nextBg.index) continue;
+                    if (idx !== nextBg.index) continue;
+                    const url = nextBg.url;
+                    if (url) {
+                        const img = document.createElement('img');
+                        img.setAttribute('src', url);
+                        img.setAttribute('alt', 'background');
+                        try {
+                            el.insertBefore(img, el.firstChild);
+                        } catch (_) {}
+                    }
+                    bgCursor++;
+                    nextBg = mediaInfo.bg[bgCursor] || null;
+                }
+            } catch (_) {}
+
             // 移除不需要的元素
             excludeSelectors.forEach(sel => {
                 try {
@@ -306,6 +423,71 @@
                     elements.forEach(el => el.remove());
                 } catch (e) {}
             });
+
+            try {
+                const canvases = Array.from(cloned.querySelectorAll('canvas'));
+                canvases.forEach((c, i) => {
+                    const dataUrl = canvasDataUrls[i];
+                    if (!dataUrl) return;
+                    const img = document.createElement('img');
+                    img.setAttribute('src', dataUrl);
+                    img.setAttribute('alt', 'canvas');
+                    try {
+                        c.replaceWith(img);
+                    } catch (_) {}
+                });
+            } catch (_) {}
+
+            try {
+                const videos = Array.from(cloned.querySelectorAll('video'));
+                videos.forEach((v, i) => {
+                    const info = mediaInfo.video[i];
+                    if (!v.hasAttribute('controls')) v.setAttribute('controls', '');
+                    if (info && info.poster && !v.getAttribute('poster')) v.setAttribute('poster', info.poster);
+                    if (info && info.src) v.setAttribute('src', info.src);
+                    if (info && Array.isArray(info.sources) && info.sources.length) {
+                        try {
+                            v.querySelectorAll('source').forEach((s) => s.remove());
+                        } catch (_) {}
+                        info.sources.forEach((s) => {
+                            if (!s || !s.src) return;
+                            const sourceEl = document.createElement('source');
+                            sourceEl.setAttribute('src', s.src);
+                            if (s.type) sourceEl.setAttribute('type', s.type);
+                            v.appendChild(sourceEl);
+                        });
+                    }
+                });
+            } catch (_) {}
+
+            try {
+                const audios = Array.from(cloned.querySelectorAll('audio'));
+                audios.forEach((a, i) => {
+                    const info = mediaInfo.audio[i];
+                    if (!a.hasAttribute('controls')) a.setAttribute('controls', '');
+                    if (info && info.src) a.setAttribute('src', info.src);
+                    if (info && Array.isArray(info.sources) && info.sources.length) {
+                        try {
+                            a.querySelectorAll('source').forEach((s) => s.remove());
+                        } catch (_) {}
+                        info.sources.forEach((s) => {
+                            if (!s || !s.src) return;
+                            const sourceEl = document.createElement('source');
+                            sourceEl.setAttribute('src', s.src);
+                            if (s.type) sourceEl.setAttribute('type', s.type);
+                            a.appendChild(sourceEl);
+                        });
+                    }
+                });
+            } catch (_) {}
+
+            try {
+                const iframes = Array.from(cloned.querySelectorAll('iframe'));
+                iframes.forEach((f, i) => {
+                    const info = mediaInfo.iframe[i];
+                    if (info && info.src) f.setAttribute('src', info.src);
+                });
+            } catch (_) {}
 
             // 检查克隆的元素是否有效
             if (!cloned || !cloned.nodeType) {
@@ -325,6 +507,124 @@
                     strongDelimiter: '**',
                     linkStyle: 'inlined',
                     linkReferenceStyle: 'collapsed'
+                });
+
+                turndownService.addRule('preserveLineBreaks', {
+                    filter: ['br'],
+                    replacement: () => '\n'
+                });
+
+                turndownService.addRule('mediaCanvas', {
+                    filter: function(node) {
+                        return node && node.nodeName === 'CANVAS';
+                    },
+                    replacement: function(_content, node) {
+                        const html = node && node.outerHTML ? String(node.outerHTML) : '';
+                        if (!html) return '';
+                        return `\n\n${html}\n\n`;
+                    }
+                });
+
+                turndownService.addRule('cleanImage', {
+                    filter: ['img'],
+                    replacement: function(_content, node) {
+                        const alt = String(node.getAttribute('alt') || '').trim();
+                        const title = String(node.getAttribute('title') || '').trim();
+                        const getBestSrc = () => {
+                            const direct = node.getAttribute('src') || '';
+                            const dataSrc =
+                                node.getAttribute('data-src') ||
+                                node.getAttribute('data-original') ||
+                                node.getAttribute('data-url') ||
+                                node.getAttribute('data-lazy-src') ||
+                                node.getAttribute('data-actualsrc') ||
+                                node.getAttribute('data-image') ||
+                                '';
+                            const srcset = node.getAttribute('srcset') || node.getAttribute('data-srcset') || '';
+                            const pickFromSrcset = (s) => {
+                                const raw = String(s || '').trim();
+                                if (!raw) return '';
+                                const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+                                if (!parts.length) return '';
+                                const last = parts[parts.length - 1];
+                                const url = last.split(/\s+/)[0];
+                                return url || '';
+                            };
+                            return direct || dataSrc || pickFromSrcset(srcset);
+                        };
+                        const src = safeAbsUrl(getBestSrc());
+                        if (!src) return '';
+                        const label = String(alt || title || '').replace(/[\[\]\n\r]/g, ' ').trim();
+                        const urlPart = markdownUrl(src);
+                        const titlePart = title ? ` "${title.replace(/"/g, '\\"')}"` : '';
+                        return `![${label}](${urlPart}${titlePart})`;
+                    }
+                });
+
+                turndownService.addRule('mediaVideo', {
+                    filter: function(node) {
+                        return node && node.nodeName === 'VIDEO';
+                    },
+                    replacement: function(_content, node) {
+                        const src = safeAbsUrl(node.getAttribute('src') || '');
+                        const poster = safeAbsUrl(node.getAttribute('poster') || '');
+                        const sources = Array.from(node.querySelectorAll('source')).map((s) => ({
+                            src: safeAbsUrl(s.getAttribute('src') || ''),
+                            type: String(s.getAttribute('type') || '').trim()
+                        })).filter((s) => s.src);
+                        const attrs = [];
+                        attrs.push('controls');
+                        if (poster) attrs.push(`poster="${escapeHtmlAttr(poster)}"`);
+                        if (src) attrs.push(`src="${escapeHtmlAttr(src)}"`);
+                        const inner = sources.map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`).join('');
+                        const html = `<video ${attrs.join(' ')}>${inner}</video>`;
+                        const url = src || (sources[0] ? sources[0].src : '');
+                        const link = url ? `\n\n[视频链接](${markdownUrl(url)})\n\n` : '\n\n';
+                        return `\n\n${html}${link}`;
+                    }
+                });
+
+                turndownService.addRule('mediaAudio', {
+                    filter: function(node) {
+                        return node && node.nodeName === 'AUDIO';
+                    },
+                    replacement: function(_content, node) {
+                        const src = safeAbsUrl(node.getAttribute('src') || '');
+                        const sources = Array.from(node.querySelectorAll('source')).map((s) => ({
+                            src: safeAbsUrl(s.getAttribute('src') || ''),
+                            type: String(s.getAttribute('type') || '').trim()
+                        })).filter((s) => s.src);
+                        const attrs = [];
+                        attrs.push('controls');
+                        if (src) attrs.push(`src="${escapeHtmlAttr(src)}"`);
+                        const inner = sources.map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`).join('');
+                        const html = `<audio ${attrs.join(' ')}>${inner}</audio>`;
+                        const url = src || (sources[0] ? sources[0].src : '');
+                        const link = url ? `\n\n[音频链接](${markdownUrl(url)})\n\n` : '\n\n';
+                        return `\n\n${html}${link}`;
+                    }
+                });
+
+                turndownService.addRule('mediaIframe', {
+                    filter: function(node) {
+                        return node && node.nodeName === 'IFRAME';
+                    },
+                    replacement: function(_content, node) {
+                        const src = safeAbsUrl(node.getAttribute('src') || '');
+                        if (!src) return '';
+                        return `\n\n[嵌入内容](${markdownUrl(src)})\n\n`;
+                    }
+                });
+
+                turndownService.addRule('mediaSvg', {
+                    filter: function(node) {
+                        return node && node.nodeName === 'SVG';
+                    },
+                    replacement: function(_content, node) {
+                        const html = node && node.outerHTML ? String(node.outerHTML) : '';
+                        if (!html) return '';
+                        return `\n\n${html}\n\n`;
+                    }
                 });
 
                 markdown = turndownService.turndown(cloned);

@@ -4,6 +4,9 @@
  */
 (function (global) {
     const proto = global.PetManager.prototype;
+    const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
+        ? window.LoggerUtils.getLogger('mermaid')
+        : console;
 
     // 加载 Mermaid.js (CDN)
     proto.loadMermaid = async function () {
@@ -51,11 +54,11 @@
                     });
                     this.mermaidLoaded = true;
                     this.mermaidLoading = false;
-                    console.log('Mermaid.js 已加载并初始化');
+                    logger.info('Mermaid.js 已加载并初始化');
                     resolve(true);
                     return;
                 } catch (error) {
-                    console.error('初始化 Mermaid 失败:', error);
+                    logger.error('初始化 Mermaid 失败:', error);
                     this.mermaidLoading = false;
                     reject(error);
                     return;
@@ -66,7 +69,7 @@
             // 这样可以确保 mermaid 在页面的 window 对象中可用
             const scriptUrl = chrome.runtime.getURL('libs/mermaid.min.js');
             const loadScriptUrl = chrome.runtime.getURL('src/features/mermaid/page/load-mermaid.js');
-            console.log('尝试在页面上下文中加载 Mermaid.js，URL:', scriptUrl);
+            logger.debug('尝试在页面上下文中加载 Mermaid.js，URL:', scriptUrl);
             const DomHelper = window.DomHelper;
             if (!DomHelper || typeof DomHelper.runPageScriptWithData !== 'function') {
                 this.mermaidLoading = false;
@@ -85,13 +88,13 @@
                 timeoutMs: 30000,
                 cleanupDelayMs: 1000
             }).then(() => {
-                console.log('[Content] 收到 Mermaid 加载完成事件');
+                logger.debug('[Content] 收到 Mermaid 加载完成事件');
                 this.mermaidLoaded = true;
                 this.mermaidLoading = false;
-                console.log('[Content] Mermaid.js 在页面上下文中已加载');
+                logger.info('[Content] Mermaid.js 在页面上下文中已加载');
                 resolve(true);
             }).catch((eventOrError) => {
-                console.error('[Content] 收到 Mermaid 加载失败事件', eventOrError);
+                logger.error('[Content] 收到 Mermaid 加载失败事件', eventOrError);
                 this.mermaidLoading = false;
                 const errorMsg = (eventOrError && eventOrError.detail && eventOrError.detail.error)
                     ? eventOrError.detail.error
@@ -158,7 +161,7 @@
         // 加载 mermaid（如果需要）
         const mermaidAvailable = await this.loadMermaid().catch(() => false);
         if (!mermaidAvailable) {
-            console.warn('Mermaid.js 未加载，无法渲染图表');
+            logger.warn('Mermaid.js 未加载，无法渲染图表');
             return;
         }
 
@@ -226,7 +229,7 @@
                     try {
                         preElement.parentNode.replaceChild(mermaidDiv, preElement);
                     } catch (error) {
-                        console.error('替换 Mermaid 代码块时出错:', error);
+                        logger.error('替换 Mermaid 代码块时出错:', error);
                         return;
                     }
                 } else {
@@ -258,7 +261,7 @@
                     // 再次检查 mermaid div 是否存在（确保 DOM 已更新）
                     const checkDiv = document.getElementById(mermaidId);
                     if (!checkDiv) {
-                        console.warn('[ProcessMermaid] mermaid div 尚未准备好，延迟渲染:', mermaidId);
+                        logger.warn('[ProcessMermaid] mermaid div 尚未准备好，延迟渲染:', mermaidId);
                         // 如果还没准备好，再等一会
                         setTimeout(() => {
                             DomHelper.runPageScriptWithData({
@@ -287,7 +290,7 @@
                                     }, 100);
                                 }
                             }).catch((error) => {
-                                console.warn('[ProcessMermaid] Mermaid 渲染失败:', error);
+                                logger.warn('[ProcessMermaid] Mermaid 渲染失败:', error);
                             });
                         }, 150);
                         return;
@@ -319,11 +322,11 @@
                             }, 100);
                         }
                     }).catch((error) => {
-                        console.warn('[ProcessMermaid] Mermaid 渲染失败:', error);
+                        logger.warn('[ProcessMermaid] Mermaid 渲染失败:', error);
                     });
                 }, 200);
             } catch (error) {
-                console.error('处理 Mermaid 代码块时出错:', error);
+                logger.error('处理 Mermaid 代码块时出错:', error);
                 // 出错时显示错误信息，但保留原始代码
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'mermaid-error';
@@ -429,7 +432,7 @@
                 return this.escapeHtml(markdown);
             }
         } catch (error) {
-            console.error('渲染 Markdown 失败:', error);
+            logger.error('渲染 Markdown 失败:', error);
             return this.escapeHtml(markdown);
         }
     };
@@ -1068,7 +1071,7 @@
                         resolve(svgString);
                         return;
                     } catch (error) {
-                        console.warn('通过 DOM 获取 SVG 失败，尝试注入脚本:', error);
+                        logger.warn('通过 DOM 获取 SVG 失败，尝试注入脚本:', error);
                     }
                 }
 
@@ -1138,7 +1141,7 @@
                     throw new Error('无法获取 Mermaid 源代码');
                 }
             } catch (error) {
-                console.error('复制 Mermaid 代码失败:', error);
+                logger.error('复制 Mermaid 代码失败:', error);
                 copyButton.innerHTML = '✗';
                 copyButton.style.background = 'rgba(244, 67, 54, 0.3) !important';
                 setTimeout(() => {
@@ -1180,7 +1183,7 @@
                     throw new Error('无法获取 SVG 内容');
                 }
             } catch (error) {
-                console.error('下载 SVG 失败:', error);
+                logger.error('下载 SVG 失败:', error);
                 downloadButton.innerHTML = '✗';
                 downloadButton.style.background = 'rgba(244, 67, 54, 0.3) !important';
                 setTimeout(() => {
@@ -1270,7 +1273,7 @@
                         return; // 成功启动 DOM 方法，退出
                     } catch (error) {
                         // DOM 方法出错，继续尝试字符串方法
-                        console.warn('从 DOM 绘制 SVG 失败，尝试字符串方法:', error);
+                        logger.warn('从 DOM 绘制 SVG 失败，尝试字符串方法:', error);
                     }
                 }
 
@@ -1511,7 +1514,7 @@
                     throw new Error('无法获取 SVG 内容');
                 }
             } catch (error) {
-                console.error('下载 PNG 失败:', error);
+                logger.error('下载 PNG 失败:', error);
                 downloadPngButton.innerHTML = '✗';
                 downloadPngButton.classList.remove('js-loading');
                 downloadPngButton.classList.add('js-error');
@@ -1551,10 +1554,10 @@
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         await navigator.clipboard.writeText(codeToEdit);
                         clipboardSuccess = true;
-                        console.log('代码已复制到剪贴板');
+                        logger.info('代码已复制到剪贴板');
                     }
                 } catch (clipboardError) {
-                    console.warn('复制到剪贴板失败，尝试 fallback 方法:', clipboardError);
+                    logger.warn('复制到剪贴板失败，尝试 fallback 方法:', clipboardError);
                     // 如果 Clipboard API 失败，尝试使用 fallback 方法
                     try {
                         const textArea = document.createElement('textarea');
@@ -1566,10 +1569,10 @@
                         document.body.removeChild(textArea);
                         if (successful) {
                             clipboardSuccess = true;
-                            console.log('代码已通过 fallback 方法复制到剪贴板');
+                            logger.info('代码已通过 fallback 方法复制到剪贴板');
                         }
                     } catch (fallbackError) {
-                        console.error('Fallback 复制方法也失败:', fallbackError);
+                        logger.error('Fallback 复制方法也失败:', fallbackError);
                     }
                 }
 
@@ -1586,7 +1589,7 @@
                     const stateBase64 = btoa(unescape(encodeURIComponent(stateJson)));
                     urlFormats.push(`https://mermaid.live/edit#state/${stateBase64}`);
                 } catch (e) {
-                    console.warn('生成 state 格式 URL 失败:', e);
+                    logger.warn('生成 state 格式 URL 失败:', e);
                 }
 
                 // 格式2: code 参数（代码直接 base64 编码）
@@ -1594,7 +1597,7 @@
                     const codeBase64 = btoa(unescape(encodeURIComponent(codeToEdit)));
                     urlFormats.push(`https://mermaid.live/edit#code/${codeBase64}`);
                 } catch (e) {
-                    console.warn('生成 code 格式 URL 失败:', e);
+                    logger.warn('生成 code 格式 URL 失败:', e);
                 }
 
                 // 格式3: 查询参数方式
@@ -1602,7 +1605,7 @@
                     const encodedCode = encodeURIComponent(codeToEdit);
                     urlFormats.push(`https://mermaid.live/edit?code=${encodedCode}`);
                 } catch (e) {
-                    console.warn('生成查询参数 URL 失败:', e);
+                    logger.warn('生成查询参数 URL 失败:', e);
                 }
 
                 // 尝试打开编辑器（使用多种 URL 格式）
@@ -1611,11 +1614,11 @@
                         const newWindow = window.open(editorUrl, '_blank');
                         if (newWindow) {
                             urlOpened = true;
-                            console.log('Mermaid Live Editor 已打开，尝试通过 URL 传递代码');
+                            logger.info('Mermaid Live Editor 已打开，尝试通过 URL 传递代码');
                             break; // 成功打开后就停止尝试
                         }
                     } catch (error) {
-                        console.warn('打开编辑器失败，尝试下一个 URL 格式:', error);
+                        logger.warn('打开编辑器失败，尝试下一个 URL 格式:', error);
                     }
                 }
 
@@ -1625,10 +1628,10 @@
                         const newWindow = window.open('https://mermaid.live/edit', '_blank');
                         urlOpened = !!newWindow;
                         if (urlOpened) {
-                            console.log('Mermaid Live Editor 已打开（代码已在剪贴板中）');
+                            logger.info('Mermaid Live Editor 已打开（代码已在剪贴板中）');
                         }
                     } catch (error) {
-                        console.error('打开编辑器窗口失败:', error);
+                        logger.error('打开编辑器窗口失败:', error);
                     }
                 }
 
@@ -1676,12 +1679,12 @@
                 }, 100);
 
             } catch (error) {
-                console.error('打开 Mermaid Live Editor 失败:', error);
+                logger.error('打开 Mermaid Live Editor 失败:', error);
                 // 出错时仍尝试打开编辑器
                 try {
                     window.open('https://mermaid.live/edit', '_blank');
                 } catch (openError) {
-                    console.error('无法打开编辑器窗口:', openError);
+                    logger.error('无法打开编辑器窗口:', openError);
                 }
                 // 恢复按钮状态
                 setTimeout(() => {
@@ -1723,7 +1726,7 @@
         // 获取聊天窗口
         const chatWindow = document.getElementById('pet-chat-window');
         if (!chatWindow) {
-            console.error('找不到聊天窗口');
+            logger.error('找不到聊天窗口');
             return;
         }
 

@@ -6,6 +6,9 @@
     'use strict';
     if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') return;
     const proto = window.PetManager.prototype;
+    const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
+        ? window.LoggerUtils.getLogger('chat-ui')
+        : console;
 
     function clampNumber(value, min, max) {
         const n = Number(value);
@@ -72,11 +75,11 @@
 
     // 创建聊天窗口
     proto.createChatWindow = async function() {
-        console.log('PetManager: Using ChatWindow component');
+        logger.info('PetManager: Using ChatWindow component');
         
         // Ensure components namespace exists
         if (!window.PetManager.Components || !window.PetManager.Components.ChatWindow) {
-            console.error('PetManager: ChatWindow component not found');
+            logger.error('PetManager: ChatWindow component not found');
             return null;
         }
 
@@ -88,7 +91,7 @@
         // Create the window
         this.chatWindow = await this.chatUiComponent.create();
         if (!this.chatWindow) {
-            console.error('PetManager: ChatWindow create() returned null');
+            logger.error('PetManager: ChatWindow create() returned null');
             return null;
         }
 
@@ -202,13 +205,13 @@
             // 保存到chrome.storage.local避免写入配额限制
             chrome.storage.local.set({ [PET_CONFIG.storage.keys.chatWindowState]: state }, () => {
                 if (chrome.runtime.lastError) {
-                    console.warn('保存聊天窗口状态失败:', chrome.runtime.lastError.message);
+                    logger.warn('保存聊天窗口状态失败:', chrome.runtime.lastError.message);
                 } else {
-                    console.log('聊天窗口状态已保存到local存储:', state);
+                    logger.debug('聊天窗口状态已保存到local存储:', state);
                 }
             });
         } catch (error) {
-            console.log('保存聊天窗口状态失败:', error);
+            logger.warn('保存聊天窗口状态失败:', error);
         }
     }
 
@@ -242,7 +245,7 @@
                         // 更新聊天窗口样式（如果已经创建）
                         if (this.chatWindow) {
                             this.updateChatWindowStyle();
-                            console.log('聊天窗口状态已从local存储更新:', newState);
+                            logger.debug('聊天窗口状态已从local存储更新:', newState);
                         }
                     }
                 }
@@ -250,7 +253,7 @@
 
             return true;
         } catch (error) {
-            console.log('恢复聊天窗口状态失败:', error);
+            logger.warn('恢复聊天窗口状态失败:', error);
             if (callback) callback(false);
             return false;
         }
@@ -308,7 +311,7 @@
         this.chatWindowState.x = Math.max(0, Math.min(viewportWidth - this.chatWindowState.width, this.chatWindowState.x));
         this.chatWindowState.y = Math.max(0, Math.min(viewportHeight - this.chatWindowState.height, this.chatWindowState.y));
 
-        console.log('聊天窗口状态已恢复:', this.chatWindowState);
+        logger.debug('聊天窗口状态已恢复:', this.chatWindowState);
     }
 
     // 为消息添加动作按钮

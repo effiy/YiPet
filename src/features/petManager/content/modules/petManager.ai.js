@@ -9,7 +9,54 @@
     }
 
     const proto = window.PetManager.prototype;
+    const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
+        ? window.LoggerUtils.getLogger('ai')
+        : console;
+    const DEFAULT_SYSTEM_PROMPT = '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。';
     const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_');
+    const ensureMdSuffix = (str) => {
+        if (!str || !String(str).trim()) return '';
+        const s = String(str).trim();
+        return s.endsWith('.md') ? s : `${s}.md`;
+    };
+    const isDefaultSessionTitle = (title) => {
+        const currentTitle = String(title ?? '');
+        return !currentTitle ||
+            currentTitle.trim() === '' ||
+            currentTitle === '未命名会话' ||
+            currentTitle === '新会话' ||
+            currentTitle === '未命名页面' ||
+            currentTitle === '当前页面';
+    };
+    const extractSseText = (chunk) => {
+        if (!chunk) return null;
+        if (chunk.message && chunk.message.content) return chunk.message.content;
+        if (chunk.data && chunk.data.message) return chunk.data.message;
+        if (chunk.content) return chunk.content;
+        if (chunk.type === 'content') return chunk.data;
+        return null;
+    };
+    const handleSseMetaChunk = (manager, chunk) => {
+        if (!chunk || typeof chunk !== 'object') return false;
+        if (chunk.type === 'context_info') {
+            const contextData = chunk.data || {};
+            if (contextData.chats_count > 0) {
+                logger.info(`检索到 ${contextData.chats_count} 条聊天记录`);
+            }
+            return true;
+        }
+        if (chunk.type === 'chat_saved') {
+            const conversationId = chunk.conversation_id;
+            if (conversationId && !manager.currentSessionId) {
+                manager.currentSessionId = conversationId;
+                logger.info('从后端同步会话 ID:', conversationId);
+            } else if (conversationId && manager.currentSessionId !== conversationId) {
+                logger.info('后端返回的会话 ID 与当前不同:', conversationId, 'vs', manager.currentSessionId);
+            }
+            return true;
+        }
+        return false;
+    };
 
     proto.showSettingsModal = function() {
         if (!this.chatWindow) return;
@@ -112,7 +159,7 @@
     // 构建 prompt 请求 payload，自动包含会话 ID
     proto.buildPromptPayload = function(fromSystem, fromUser, options = {}) {
         const payload = {
-            fromSystem: fromSystem || '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
+            fromSystem: fromSystem || DEFAULT_SYSTEM_PROMPT,
             fromUser: fromUser
         };
 
@@ -243,58 +290,21 @@
                         const dataStr = message.substring(6);
                         const chunk = JSON.parse(dataStr);
 
-                        // 处理后端返回的上下文信息
-                        if (chunk.type === 'context_info') {
-                            const contextData = chunk.data || {};
-                            if (contextData.chats_count > 0) {
-                                console.log(`检索到 ${contextData.chats_count} 条聊天记录`);
-                            }
-                        }
-                        // 处理后端返回的聊天保存成功事件，同步会话 ID
-                        else if (chunk.type === 'chat_saved') {
-                            const conversationId = chunk.conversation_id;
-                            if (conversationId && !this.currentSessionId) {
-                                // 如果当前没有会话 ID，使用后端返回的会话 ID
-                                this.currentSessionId = conversationId;
-                                console.log('从后端同步会话 ID:', conversationId);
-                            } else if (conversationId && this.currentSessionId !== conversationId) {
-                                // 如果后端返回的会话 ID 与当前不同，记录日志（但不强制更新，因为前端可能有自己的会话管理逻辑）
-                                console.log('后端返回的会话 ID 与当前不同:', conversationId, 'vs', this.currentSessionId);
-                            }
-                        }
-                        // 支持 Ollama 格式: chunk.message.content
-                        else if (chunk.message && chunk.message.content) {
-                            fullContent += chunk.message.content;
-                            if (onContent) {
-                                onContent(chunk.message.content, fullContent);
-                            }
-                        }
-                        // 支持嵌套格式: chunk.data.message
-                        else if (chunk.data && chunk.data.message) {
-                            fullContent += chunk.data.message;
-                            if (onContent) {
-                                onContent(chunk.data.message, fullContent);
-                            }
-                        }
-                        // 支持旧的自定义格式: data.type === 'content'
-                        else if (chunk.type === 'content') {
-                            fullContent += chunk.data;
-                            if (onContent) {
-                                onContent(chunk.data, fullContent);
-                            }
-                        }
-                        // 检查是否完成
-                        else if (chunk.done === true) {
-                            console.log('流式响应完成');
-                        }
-                        // 处理错误
-                        else if (chunk.type === 'error' || chunk.error) {
+                        if (handleSseMetaChunk(this, chunk)) continue;
+
+                        const text = extractSseText(chunk);
+                        if (text !== null && text !== undefined) {
+                            fullContent += text;
+                            if (onContent) onContent(text, fullContent);
+                        } else if (chunk.done === true) {
+                            logger.info('流式响应完成');
+                        } else if (chunk.type === 'error' || chunk.error) {
                             const errorMsg = chunk.data || chunk.error || '未知错误';
-                            console.error('流式响应错误:', errorMsg);
+                            logger.error('流式响应错误:', errorMsg);
                             throw new Error(errorMsg);
                         }
                     } catch (e) {
-                        console.warn('解析 SSE 消息失败:', message, e);
+                        logger.warn('解析 SSE 消息失败:', message, e);
                     }
                 }
             }
@@ -307,13 +317,13 @@
                 try {
                     const chunk = JSON.parse(message.substring(6));
                     if (chunk.done === true || chunk.type === 'done') {
-                        console.log('流式响应完成');
+                        logger.info('流式响应完成');
                     } else if (chunk.type === 'error' || chunk.error) {
                         const errorMsg = chunk.data || chunk.error || '未知错误';
                         throw new Error(errorMsg);
                     }
                 } catch (e) {
-                    console.warn('解析最后的 SSE 消息失败:', message, e);
+                    logger.warn('解析最后的 SSE 消息失败:', message, e);
                 }
             }
         }
@@ -326,9 +336,9 @@
 
                 // 调用 session/save 接口保存会话
                 await this.syncSessionToBackend(this.currentSessionId, true);
-                console.log(`processStreamingResponse 完成后，会话 ${this.currentSessionId} 已保存到后端`);
+                logger.info(`processStreamingResponse 完成后，会话 ${this.currentSessionId} 已保存到后端`);
             } catch (error) {
-                console.warn('processStreamingResponse 完成后保存会话失败:', error);
+                logger.warn('processStreamingResponse 完成后保存会话失败:', error);
             }
         }
 
@@ -339,7 +349,7 @@
     proto.generatePetResponseStream = async function(message, onContent, abortController = null, options = {}) {
         // 开始加载动画（不等待，避免阻塞）
         this.showLoadingAnimation().catch(err => {
-            console.warn('显示加载动画失败:', err);
+            logger.warn('显示加载动画失败:', err);
         });
 
         try {
@@ -378,19 +388,8 @@
                     fullPageMarkdown = this.getPageContentAsMarkdown();
                     contextTitle = normalizeNameSpaces(document.title || '当前页面');
                     session.pageContent = fullPageMarkdown;
-                    const ensureMdSuffix = (str) => {
-                        if (!str || !String(str).trim()) return '';
-                        const s = String(str).trim();
-                        return s.endsWith('.md') ? s : `${s}.md`;
-                    };
                     const currentTitle = session.title || '';
-                    const isDefaultTitle = !currentTitle ||
-                        currentTitle.trim() === '' ||
-                        currentTitle === '未命名会话' ||
-                        currentTitle === '新会话' ||
-                        currentTitle === '未命名页面' ||
-                        currentTitle === '当前页面';
-                    if (isDefaultTitle) {
+                    if (isDefaultSessionTitle(currentTitle)) {
                         session.title = ensureMdSuffix(normalizeNameSpaces(contextTitle));
                     }
                     // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
@@ -398,7 +397,7 @@
                     // 空白会话：不填充页面内容，使用空内容
                     fullPageMarkdown = '';
                     contextTitle = session.title || '新会话';
-                    console.log('空白会话，不填充页面内容');
+                    logger.info('空白会话，不填充页面内容');
                 }
             } else {
                 // 如果没有当前会话，使用当前页面内容
@@ -432,7 +431,7 @@
 
             // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl
             const oldPayload = this.buildPromptPayload(
-                '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
+                DEFAULT_SYSTEM_PROMPT,
                 userMessage,
                 { images }
             );
@@ -510,77 +509,22 @@
                             const dataStr = message.substring(6);
                             const chunk = JSON.parse(dataStr);
 
-                            // 处理后端返回的上下文信息
-                            if (chunk.type === 'context_info') {
-                                const contextData = chunk.data || {};
-                                if (contextData.chats_count > 0) {
-                                    console.log(`检索到 ${contextData.chats_count} 条聊天记录`);
-                                }
-                            }
-                            // 处理后端返回的聊天保存成功事件，同步会话 ID
-                            else if (chunk.type === 'chat_saved') {
-                                const conversationId = chunk.conversation_id;
-                                if (conversationId && !this.currentSessionId) {
-                                    // 如果当前没有会话 ID，使用后端返回的会话 ID
-                                    this.currentSessionId = conversationId;
-                                    console.log('从后端同步会话 ID:', conversationId);
-                                } else if (conversationId && this.currentSessionId !== conversationId) {
-                                    // 如果后端返回的会话 ID 与当前不同，记录日志（但不强制更新，因为前端可能有自己的会话管理逻辑）
-                                    console.log('后端返回的会话 ID 与当前不同:', conversationId, 'vs', this.currentSessionId);
-                                }
-                            }
-                            // 支持 Ollama 格式: chunk.message.content
-                            else if (chunk.message && chunk.message.content) {
-                                fullContent += chunk.message.content;
-                                // 实时处理并保存处理后的内容，确保与显示内容一致
+                            if (handleSseMetaChunk(this, chunk)) continue;
+
+                            const text = extractSseText(chunk);
+                            if (text !== null && text !== undefined) {
+                                fullContent += text;
                                 processedContent = this.stripThinkContent(fullContent);
-                                if (onContent) {
-                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
-                                    onContent(chunk.message.content, processedContent);
-                                }
-                            }
-                            // 支持嵌套格式: chunk.data.message
-                            else if (chunk.data && chunk.data.message) {
-                                fullContent += chunk.data.message;
-                                // 实时处理并保存处理后的内容，确保与显示内容一致
-                                processedContent = this.stripThinkContent(fullContent);
-                                if (onContent) {
-                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
-                                    onContent(chunk.data.message, processedContent);
-                                }
-                            }
-                            // 支持通用格式: chunk.content
-                            else if (chunk.content) {
-                                fullContent += chunk.content;
-                                // 实时处理并保存处理后的内容，确保与显示内容一致
-                                processedContent = this.stripThinkContent(fullContent);
-                                if (onContent) {
-                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
-                                    onContent(chunk.content, processedContent);
-                                }
-                            }
-                            // 支持旧的自定义格式: data.type === 'content'
-                            else if (chunk.type === 'content') {
-                                fullContent += chunk.data;
-                                // 实时处理并保存处理后的内容，确保与显示内容一致
-                                processedContent = this.stripThinkContent(fullContent);
-                                if (onContent) {
-                                    // 实时显示时也去除 think 内容（可能不完整，但可以改善体验）
-                                    onContent(chunk.data, processedContent);
-                                }
-                            }
-                            // 检查是否完成
-                            else if (chunk.done === true) {
-                                console.log('流式响应完成');
-                            }
-                            // 处理错误
-                            else if (chunk.type === 'error' || chunk.error) {
+                                if (onContent) onContent(text, processedContent);
+                            } else if (chunk.done === true) {
+                                logger.info('流式响应完成');
+                            } else if (chunk.type === 'error' || chunk.error) {
                                 const errorMsg = chunk.data || chunk.error || '未知错误';
-                                console.error('流式响应错误:', errorMsg);
+                                logger.error('流式响应错误:', errorMsg);
                                 throw new Error(errorMsg);
                             }
                         } catch (e) {
-                            console.warn('解析 SSE 消息失败:', message, e);
+                            logger.warn('解析 SSE 消息失败:', message, e);
                         }
                     }
                 }
@@ -593,13 +537,13 @@
                     try {
                         const chunk = JSON.parse(message.substring(6));
                         if (chunk.done === true || chunk.type === 'done') {
-                            console.log('流式响应完成');
+                            logger.info('流式响应完成');
                         } else if (chunk.type === 'error' || chunk.error) {
                             const errorMsg = chunk.data || chunk.error || '未知错误';
                             throw new Error(errorMsg);
                         }
                     } catch (e) {
-                        console.warn('解析最后的 SSE 消息失败:', message, e);
+                        logger.warn('解析最后的 SSE 消息失败:', message, e);
                     }
                 }
             }
@@ -613,10 +557,10 @@
         } catch (error) {
             // 如果是中止错误，不记录为错误
             if (error.name === 'AbortError' || error.message === '请求已取消') {
-                console.log('请求已取消');
+                logger.info('请求已取消');
                 throw error;
             }
-            console.error('API 调用失败:', error);
+            logger.error('API 调用失败:', error);
             throw error;
         } finally {
             // 停止加载动画
@@ -628,7 +572,7 @@
     proto.generatePetResponse = async function(message) {
         // 开始加载动画（不等待，避免阻塞）
         this.showLoadingAnimation().catch(err => {
-            console.warn('显示加载动画失败:', err);
+            logger.warn('显示加载动画失败:', err);
         });
 
         try {
@@ -660,19 +604,8 @@
                     fullPageMarkdown = this.getPageContentAsMarkdown();
                     contextTitle = normalizeNameSpaces(document.title || '当前页面');
                     session.pageContent = fullPageMarkdown;
-                    const ensureMdSuffix = (str) => {
-                        if (!str || !String(str).trim()) return '';
-                        const s = String(str).trim();
-                        return s.endsWith('.md') ? s : `${s}.md`;
-                    };
                     const currentTitle = session.title || '';
-                    const isDefaultTitle = !currentTitle ||
-                        currentTitle.trim() === '' ||
-                        currentTitle === '未命名会话' ||
-                        currentTitle === '新会话' ||
-                        currentTitle === '未命名页面' ||
-                        currentTitle === '当前页面';
-                    if (isDefaultTitle) {
+                    if (isDefaultSessionTitle(currentTitle)) {
                         session.title = ensureMdSuffix(normalizeNameSpaces(contextTitle));
                     }
                     // 注意：已移除临时保存，页面内容会在 prompt 接口调用完成后统一保存
@@ -680,7 +613,7 @@
                     // 空白会话：不填充页面内容，使用空内容
                     fullPageMarkdown = '';
                     contextTitle = session.title || '新会话';
-                    console.log('空白会话，不填充页面内容');
+                    logger.info('空白会话，不填充页面内容');
                 }
             } else {
                 // 如果没有当前会话，使用当前页面内容
@@ -696,7 +629,7 @@
 
             // 使用统一的 payload 构建函数，自动包含会话 ID 和 imageDataUrl（如果是 qwen3-vl 模型）
             const oldPayload = this.buildPromptPayload(
-                '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。',
+                DEFAULT_SYSTEM_PROMPT,
                 userMessage
             );
 
@@ -772,15 +705,15 @@
 
                     // 调用 session/save 接口保存会话
                     await this.syncSessionToBackend(this.currentSessionId, true);
-                    console.log(`非流式 prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
+                    logger.info(`非流式 prompt 接口调用后，会话 ${this.currentSessionId} 已保存到后端`);
                 } catch (error) {
-                    console.warn('非流式 prompt 接口调用后保存会话失败:', error);
+                    logger.warn('非流式 prompt 接口调用后保存会话失败:', error);
                 }
             }
 
             return responseContent;
         } catch (error) {
-            console.error('API 调用失败:', error);
+            logger.error('API 调用失败:', error);
             // 如果 API 调用失败，返回默认响应
             return '抱歉，我现在无法连接到服务器。请稍后再试。😔';
         } finally {
@@ -797,7 +730,7 @@
     // 通用的流式生成函数，支持动态 systemPrompt 和 userPrompt
     proto.generateContentStream = async function(systemPrompt, userPrompt, onContent, loadingText = '正在处理...') {
         try {
-            console.log('调用大模型生成内容，systemPrompt长度:', systemPrompt ? systemPrompt.length : 0);
+            logger.debug('调用大模型生成内容，systemPrompt长度:', systemPrompt ? systemPrompt.length : 0);
 
             // 使用统一的 payload 构建函数，自动包含会话 ID
             const oldPayload = this.buildPromptPayload(
@@ -838,7 +771,7 @@
             // 使用通用的流式响应处理
             return await this.processStreamingResponse(response, onContent);
         } catch (error) {
-            console.error('生成内容失败:', error);
+            logger.error('生成内容失败:', error);
             throw error;
         }
     };
@@ -1076,7 +1009,7 @@ ${originalText}
             }
         } catch (error) {
             this._hideLoadingAnimation();
-            console.error('优化上下文失败:', error);
+            logger.error('优化上下文失败:', error);
 
             let errorMessage = '优化失败，请稍后重试';
             if (error.message) {
@@ -1268,7 +1201,7 @@ ${originalText}
             }
         } catch (error) {
             this._hideLoadingAnimation();
-            console.error('优化消息失败:', error);
+            logger.error('优化消息失败:', error);
 
             let errorMessage = '优化失败，请稍后重试';
             if (error.message) {
@@ -1460,7 +1393,7 @@ ${originalText}
             this.showNotification(`翻译完成 ${changeInfo}`, 'success');
         } catch (error) {
             this._hideLoadingAnimation();
-            console.error('翻译上下文失败:', error);
+            logger.error('翻译上下文失败:', error);
 
             let errorMessage = '翻译失败，请稍后重试';
             if (error.message) {

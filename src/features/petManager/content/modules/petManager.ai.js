@@ -779,61 +779,55 @@
     // 清理和优化文本
     proto._cleanAndOptimizeText = function(text) {
         if (!text || typeof text !== 'string') return '';
-        let cleaned = text;
-        // 1. 去除HTML标签（保留代码块中的内容）
-        // 先保护代码块
-        const codeBlocks = [];
-        cleaned = cleaned.replace(/```[\s\S]*?```/g, (match) => {
-            const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`;
-            codeBlocks.push(match);
-            return placeholder;
-        });
-        cleaned = cleaned.replace(/<[^>]+>/g, '');
-        codeBlocks.forEach((block, index) => {
-            cleaned = cleaned.replace(`__CODE_BLOCK_${index}__`, block);
-        });
-        // 2. 去除HTML实体编码（如 &nbsp; &lt; &gt; 等）
-        cleaned = cleaned.replace(/&nbsp;/g, ' ');
-        cleaned = cleaned.replace(/&lt;/g, '<');
-        cleaned = cleaned.replace(/&gt;/g, '>');
-        cleaned = cleaned.replace(/&amp;/g, '&');
-        cleaned = cleaned.replace(/&quot;/g, '"');
+        let cleaned = String(text);
+        cleaned = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+        const placeholders = [];
+        const protect = (regex) => {
+            cleaned = cleaned.replace(regex, (match) => {
+                const placeholder = `__PET_PROTECTED_${placeholders.length}__`;
+                placeholders.push(match);
+                return placeholder;
+            });
+        };
+
+        protect(/```[\s\S]*?```/g);
+        protect(/`[^`\n]+`/g);
+
+        cleaned = cleaned.replace(/<\/?[a-z][a-z0-9-]*(?:\s[^<>]*?)?\/?>/g, '');
+
+        cleaned = cleaned.replace(/&nbsp;/gi, ' ');
+        cleaned = cleaned.replace(/&lt;/gi, '<');
+        cleaned = cleaned.replace(/&gt;/gi, '>');
+        cleaned = cleaned.replace(/&amp;/gi, '&');
+        cleaned = cleaned.replace(/&quot;/gi, '"');
         cleaned = cleaned.replace(/&#39;/g, "'");
-        cleaned = cleaned.replace(/&[a-z]+;/gi, '');
-        // 3. 去除无意义的重复内容
-        // 去除重复的换行（保留代码块中的）
-        const codeBlockPlaceholders = [];
-        cleaned = cleaned.replace(/```[\s\S]*?```/g, (match) => {
-            const placeholder = `__CODE_${codeBlockPlaceholders.length}__`;
-            codeBlockPlaceholders.push(match);
-            return placeholder;
-        });
-        cleaned = cleaned.replace(/\n{4,}/g, '\n\n\n');
-        codeBlockPlaceholders.forEach((block, index) => {
-            cleaned = cleaned.replace(`__CODE_${index}__`, block);
-        });
-        // 4. 去除无意义的空白字符（但保留代码块和列表中的）
-        // 保护代码块和列表项
-        const protectedBlocks = [];
-        cleaned = cleaned.replace(/(```[\s\S]*?```|^[\s]*[-*+]\s+|^\s*\d+\.\s+)/gm, (match) => {
-            const placeholder = `__PROTECTED_${protectedBlocks.length}__`;
-            protectedBlocks.push(match);
-            return placeholder;
-        });
-        cleaned = cleaned.replace(/[ \t]+/g, (match, offset, string) => {
-            const lineStart = string.lastIndexOf('\n', offset - 1) + 1;
-            if (offset === lineStart) {
-                return match.includes('\t') ? '\t' : ' ';
+        cleaned = cleaned.replace(/&#(\d+);/g, (m, dec) => {
+            const codePoint = Number(dec);
+            if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return m;
+            try {
+                return String.fromCodePoint(codePoint);
+            } catch (_) {
+                return m;
             }
-            return ' ';
         });
-        protectedBlocks.forEach((block, index) => {
-            cleaned = cleaned.replace(`__PROTECTED_${index}__`, block);
+        cleaned = cleaned.replace(/&#x([0-9a-fA-F]+);/g, (m, hex) => {
+            const codePoint = Number.parseInt(hex, 16);
+            if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return m;
+            try {
+                return String.fromCodePoint(codePoint);
+            } catch (_) {
+                return m;
+            }
         });
-        // 5. 去除无意义的标记和符号
-        cleaned = cleaned.replace(/\*\*\*\*/g, '');
+
+        cleaned = cleaned.replace(/\n{4,}/g, '\n\n\n');
         cleaned = cleaned.replace(/^#{7,}\s+/gm, '');
-        // 6. 清理首尾空白
+
+        placeholders.forEach((value, index) => {
+            cleaned = cleaned.replaceAll(`__PET_PROTECTED_${index}__`, value);
+        });
+
         cleaned = cleaned.trim();
         return cleaned;
     };

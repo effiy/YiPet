@@ -351,21 +351,39 @@
 
                 // 覆盖 link 渲染（安全处理）
                 renderer.link = (href, title, text) => {
-                    const safeHref = this._sanitizeUrl ? this._sanitizeUrl(href) : href;
-                    const safeText = text || '';
+                    let resolvedHref = href;
+                    let resolvedTitle = title;
+                    let resolvedText = text;
+                    if (href && typeof href === 'object') {
+                        resolvedHref = href.href;
+                        resolvedTitle = href.title;
+                        resolvedText = href.text;
+                    }
+
+                    const safeHref = this._sanitizeUrl ? this._sanitizeUrl(resolvedHref) : resolvedHref;
+                    const safeText = resolvedText || '';
                     if (!safeHref) return safeText;
-                    const safeTitle = title ? ` title="${this.escapeHtml(title)}"` : '';
+                    const safeTitle = resolvedTitle ? ` title="${this.escapeHtml(resolvedTitle)}"` : '';
                     return `<a href="${this.escapeHtml(safeHref)}"${safeTitle} target="_blank" rel="noopener noreferrer">${safeText}</a>`;
                 };
 
                 // 覆盖 image 渲染（安全处理）
                 renderer.image = (href, title, text) => {
+                    let resolvedHref = href;
+                    let resolvedTitle = title;
+                    let resolvedAlt = text;
+                    if (href && typeof href === 'object') {
+                        resolvedHref = href.href;
+                        resolvedTitle = href.title;
+                        resolvedAlt = href.text;
+                    }
+
                     const safeHref = this._sanitizeImageSrc
-                        ? this._sanitizeImageSrc(href)
-                        : (this._sanitizeUrl ? this._sanitizeUrl(href) : href);
-                    const alt = this.escapeHtml(text || '');
+                        ? this._sanitizeImageSrc(resolvedHref)
+                        : (this._sanitizeUrl ? this._sanitizeUrl(resolvedHref) : resolvedHref);
+                    const alt = this.escapeHtml(resolvedAlt || '');
                     if (!safeHref) return alt;
-                    const safeTitle = title ? ` title="${this.escapeHtml(title)}"` : '';
+                    const safeTitle = resolvedTitle ? ` title="${this.escapeHtml(resolvedTitle)}"` : '';
                     return `<img src="${this.escapeHtml(safeHref)}" alt="${alt}" loading="lazy"${safeTitle} />`;
                 };
 
@@ -378,11 +396,20 @@
 
                 // 覆盖 code 渲染（处理 mermaid）- 关键：将 mermaid 转换为 div.mermaid
                 renderer.code = (code, language, isEscaped) => {
-                    const lang = (language || '').trim().toLowerCase();
-                    if (lang === 'mermaid' || lang === 'mmd') {
-                        return `<div class="mermaid">${code}</div>`;
+                    let resolvedCode = code;
+                    let resolvedLang = language;
+                    if (code && typeof code === 'object') {
+                        resolvedCode = code.text;
+                        resolvedLang = code.lang;
                     }
-                    return marked.Renderer.prototype.code.call(renderer, code, language, isEscaped);
+
+                    const lang = (resolvedLang || '').trim().toLowerCase();
+                    if (lang === 'mermaid' || lang === 'mmd') {
+                        return `<div class="mermaid">${resolvedCode || ''}</div>`;
+                    }
+                    const escaped = this.escapeHtml(String(resolvedCode || ''));
+                    const classAttr = lang ? ` class="language-${this.escapeHtml(lang)}"` : '';
+                    return `<pre><code${classAttr}>${escaped}</code></pre>`;
                 };
 
                 // 配置 marked

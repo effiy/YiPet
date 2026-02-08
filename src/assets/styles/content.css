@@ -3957,41 +3957,50 @@
 
 .markdown-content .pet-tabs {
     margin: 0.75em 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-}
-
-.markdown-content .pet-tab {
     border-radius: 12px !important;
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
     background: rgba(255, 255, 255, 0.04) !important;
     overflow: hidden !important;
 }
 
-.markdown-content .pet-tab > summary.pet-tab__label {
+.markdown-content .pet-tabs__nav {
+    display: flex !important;
+    gap: 6px !important;
+    padding: 8px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    overflow-x: auto !important;
+}
+
+.markdown-content .pet-tabs__tab {
     cursor: pointer !important;
-    padding: 10px 12px !important;
-    list-style: none !important;
+    padding: 6px 10px !important;
+    border-radius: 10px !important;
     user-select: none !important;
     font-weight: 600 !important;
     color: rgba(255, 255, 255, 0.92) !important;
-    background: rgba(255, 255, 255, 0.03) !important;
+    background: transparent !important;
+    white-space: nowrap !important;
 }
 
-.markdown-content .pet-tab > summary.pet-tab__label::-webkit-details-marker {
-    display: none !important;
+.markdown-content .pet-tabs__tab.is-active {
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.16) !important;
+    box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.22) inset !important;
 }
 
-.markdown-content .pet-tab[open] > summary.pet-tab__label {
-    background: rgba(var(--primary-rgb, 102, 126, 234), 0.12) !important;
-}
-
-.markdown-content .pet-tab__content {
+.markdown-content .pet-tabs__panels {
     padding: 10px 12px !important;
+}
+
+.markdown-content .pet-tabs__panel {
+    display: none !important;
     color: rgba(229, 231, 235, 0.9) !important;
     line-height: 1.6 !important;
     font-size: 12px !important;
+}
+
+.markdown-content .pet-tabs__panel.is-active {
+    display: block !important;
 }
 
 /* Mermaid 图表样式 */

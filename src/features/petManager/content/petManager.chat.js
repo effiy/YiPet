@@ -785,6 +785,7 @@
                     // 折叠
                     targetElement.classList.remove('expanded');
                     targetElement.innerHTML = this.renderMarkdown(previewText);
+                    if (typeof this.processTabs === 'function') this.processTabs(targetElement);
                     if (icon) {
                         icon.className = 'fas fa-chevron-down';
                     }
@@ -792,6 +793,7 @@
                     // 展开
                     targetElement.classList.add('expanded');
                     targetElement.innerHTML = this.renderMarkdown(fullText);
+                    if (typeof this.processTabs === 'function') this.processTabs(targetElement);
                     if (icon) {
                         icon.className = 'fas fa-chevron-up';
                     }

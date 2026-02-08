@@ -169,6 +169,14 @@
                             manager.processMermaidBlocks(contentDiv).catch(() => {});
                         });
                     }
+
+                    if (manager && typeof manager.processTabs === 'function') {
+                        messageEls.forEach((el) => {
+                            const contentDiv = el.querySelector('.pet-chat-content');
+                            if (!contentDiv) return;
+                            manager.processTabs(contentDiv);
+                        });
+                    }
                 };
 
                 vueOnMounted(() => {

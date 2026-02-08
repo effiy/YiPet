@@ -879,6 +879,7 @@
                 const finalDiv = this._getOrCreateMessageContentDiv(messageBubble);
                 if (finalDiv) {
                     finalDiv.innerHTML = manager.renderMarkdown(finalContent);
+                        if (typeof manager.processTabs === 'function') manager.processTabs(finalDiv);
                 }
                 messageBubble.setAttribute('data-original-text', finalContent);
 
@@ -993,6 +994,7 @@
                                 if (contentDiv) {
                                     contentDiv.classList.remove('pet-chat-content-streaming');
                                     contentDiv.innerHTML = manager.renderMarkdown(`❌ ${errorMessage}`);
+                                        if (typeof manager.processTabs === 'function') manager.processTabs(contentDiv);
                                 }
                             }
                         }
@@ -1614,6 +1616,7 @@
                                 contentDiv.innerHTML = this.manager.renderMarkdown(
                                     `${originalText}\n\n💡 **提示**：此消息可能是通过按钮操作生成的，无法重新生成。`
                                 );
+                                if (typeof this.manager.processTabs === 'function') this.manager.processTabs(contentDiv);
                             }
                         }
 

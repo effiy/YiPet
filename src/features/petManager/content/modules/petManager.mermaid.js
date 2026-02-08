@@ -447,6 +447,7 @@
             // 需要等待 DOM 更新后再处理
             setTimeout(async () => {
                 await this.processMermaidBlocks(container);
+                if (typeof this.processTabs === 'function') this.processTabs(container);
             }, 100);
         }
 

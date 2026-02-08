@@ -1759,6 +1759,7 @@
         }
         preview._mermaidTimer = setTimeout(async () => {
             await this.processMermaidBlocks(preview);
+            if (typeof this.processTabs === 'function') this.processTabs(preview);
             preview._mermaidTimer = null;
         }, 200);
     };
@@ -2006,6 +2007,7 @@
         }
         preview._mermaidTimer = setTimeout(async () => {
             await this.processMermaidBlocks(preview);
+            if (typeof this.processTabs === 'function') this.processTabs(preview);
             preview._mermaidTimer = null;
         }, 200);
     };
@@ -2104,6 +2106,7 @@
                     setTimeout(async () => {
                         try {
                             await this.processMermaidBlocks(contentDiv);
+                            if (typeof this.processTabs === 'function') this.processTabs(contentDiv);
                         } catch (_) { }
                     }, 80);
                 } else {

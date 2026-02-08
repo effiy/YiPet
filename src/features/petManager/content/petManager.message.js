@@ -656,11 +656,58 @@
                 return extractMarkdownCandidate(el);
             };
 
+            const normalizeMarkdownText = (markdownText) => {
+                const rawMd = String(markdownText ?? '');
+                let md = rawMd.replace(/\r\n?/g, '\n');
+                const lines = md.split('\n');
+                while (lines.length && !String(lines[0] || '').trim()) lines.shift();
+                while (lines.length && !String(lines[lines.length - 1] || '').trim()) lines.pop();
+                let minIndent = Infinity;
+                for (const line of lines) {
+                    const l = String(line || '');
+                    if (!l.trim()) continue;
+                    const match = l.match(/^[\t ]+/);
+                    if (!match) {
+                        minIndent = 0;
+                        break;
+                    }
+                    const indentText = match[0];
+                    const indentWidth = indentText.replace(/\t/g, '    ').length;
+                    if (indentWidth < minIndent) minIndent = indentWidth;
+                }
+                if (Number.isFinite(minIndent) && minIndent > 0) {
+                    md = lines
+                        .map((line) => {
+                            let remaining = String(line || '');
+                            let toRemove = minIndent;
+                            while (toRemove > 0 && remaining) {
+                                if (remaining[0] === ' ') {
+                                    remaining = remaining.slice(1);
+                                    toRemove -= 1;
+                                    continue;
+                                }
+                                if (remaining[0] === '\t') {
+                                    remaining = remaining.slice(1);
+                                    toRemove -= 4;
+                                    continue;
+                                }
+                                break;
+                            }
+                            return remaining;
+                        })
+                        .join('\n');
+                } else {
+                    md = lines.join('\n');
+                }
+                return String(md || '').trim();
+            };
+
             const renderMarkdownInCustomTags = (rootEl) => {
                 if (!rootEl || typeof rootEl.querySelectorAll !== 'function') return;
                 if (typeof marked === 'undefined' || typeof marked.parse !== 'function') return;
 
                 const selector = [
+                    'tabs',
                     'card',
                     'tab',
                     'tabitem',
@@ -681,7 +728,7 @@
                         if (isInsideCodeBlock(el)) continue;
                         if (hasRenderedMarkdown(el)) continue;
 
-                        const md = extractMarkdownSource(el);
+                        const md = normalizeMarkdownText(extractMarkdownSource(el));
                         if (!String(md || '').trim()) continue;
 
                         const tpl = document.createElement('template');
@@ -818,6 +865,10 @@
                 nodes.forEach((tabsEl) => {
                     const outer = document.createElement('div');
                     outer.className = 'pet-tabs';
+                    const nav = document.createElement('div');
+                    nav.className = 'pet-tabs__nav';
+                    const panels = document.createElement('div');
+                    panels.className = 'pet-tabs__panels';
                     const items = Array.from(tabsEl.querySelectorAll('tab, tabitem')).filter((tabEl) => {
                         if (typeof tabEl?.closest === 'function') return tabEl.closest('tabs') === tabsEl;
                         return true;
@@ -825,28 +876,23 @@
 
                     const finalItems = items.length ? items : [tabsEl];
                     finalItems.forEach((itemEl, idx) => {
-                        const details = document.createElement('details');
-                        details.className = 'pet-tab';
-                        if (idx === 0) details.setAttribute('open', '');
-
-                        const summary = document.createElement('summary');
-                        summary.className = 'pet-tab__label';
-
                         const label =
                             toSafeText(pickAttr(itemEl, ['label', 'title', 'name', 'value']), 120) ||
                             `Tab ${idx + 1}`;
-                        summary.textContent = label;
-                        details.appendChild(summary);
+                        const tabEl = document.createElement('div');
+                        tabEl.className = `pet-tabs__tab${idx === 0 ? ' is-active' : ''}`;
+                        tabEl.textContent = label;
+                        nav.appendChild(tabEl);
 
-                        const content = document.createElement('div');
-                        content.className = 'pet-tab__content';
+                        const panel = document.createElement('div');
+                        panel.className = `pet-tabs__panel${idx === 0 ? ' is-active' : ''}`;
                         const sourceEl = itemEl === tabsEl ? tabsEl : itemEl;
-                        moveChildren(sourceEl, content);
-                        details.appendChild(content);
-
-                        outer.appendChild(details);
+                        moveChildren(sourceEl, panel);
+                        panels.appendChild(panel);
                     });
 
+                    outer.appendChild(nav);
+                    outer.appendChild(panels);
                     replaceWith(tabsEl, outer);
                 });
             };
@@ -872,22 +918,28 @@
                         return meaningful.length === 1 && meaningful[0] === tabEl;
                     })();
 
-                    const details = document.createElement('details');
-                    details.className = 'pet-tab';
-                    details.setAttribute('open', '');
+                    const outer = document.createElement('div');
+                    outer.className = 'pet-tabs';
 
-                    const summary = document.createElement('summary');
-                    summary.className = 'pet-tab__label';
+                    const nav = document.createElement('div');
+                    nav.className = 'pet-tabs__nav';
                     const label = toSafeText(pickAttr(tabEl, ['label', 'title', 'name', 'value']), 120) || `Tab ${idx + 1}`;
-                    summary.textContent = label;
-                    details.appendChild(summary);
+                    const tabButton = document.createElement('div');
+                    tabButton.className = 'pet-tabs__tab is-active';
+                    tabButton.textContent = label;
+                    nav.appendChild(tabButton);
 
-                    const content = document.createElement('div');
-                    content.className = 'pet-tab__content';
-                    moveChildren(tabEl, content);
-                    details.appendChild(content);
+                    const panels = document.createElement('div');
+                    panels.className = 'pet-tabs__panels';
+                    const panel = document.createElement('div');
+                    panel.className = 'pet-tabs__panel is-active';
+                    moveChildren(tabEl, panel);
+                    panels.appendChild(panel);
 
-                    replaceWith(wrapperIsSolo ? wrapper : tabEl, details);
+                    outer.appendChild(nav);
+                    outer.appendChild(panels);
+
+                    replaceWith(wrapperIsSolo ? wrapper : tabEl, outer);
                 });
             };
 
@@ -1125,6 +1177,44 @@
         }
     };
 
+    proto.processTabs = function(container) {
+        const root = container && container.nodeType === Node.ELEMENT_NODE ? container : null;
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+
+        const tabsEls = Array.from(root.querySelectorAll('.pet-tabs'));
+        tabsEls.forEach((tabsEl) => {
+            if (!tabsEl || tabsEl.__petTabsBound) return;
+            const nav = tabsEl.querySelector('.pet-tabs__nav');
+            const panelsWrap = tabsEl.querySelector('.pet-tabs__panels');
+            if (!nav || !panelsWrap) return;
+            const tabButtons = Array.from(nav.querySelectorAll('.pet-tabs__tab'));
+            const panels = Array.from(panelsWrap.querySelectorAll('.pet-tabs__panel'));
+            if (!tabButtons.length || !panels.length) return;
+
+            const activate = (index) => {
+                const idx = Math.max(0, Math.min(index, Math.min(tabButtons.length, panels.length) - 1));
+                tabButtons.forEach((btn, i) => {
+                    btn.classList.toggle('is-active', i === idx);
+                });
+                panels.forEach((panel, i) => {
+                    panel.classList.toggle('is-active', i === idx);
+                });
+            };
+
+            let initial = tabButtons.findIndex((btn) => btn.classList.contains('is-active'));
+            if (initial < 0) initial = 0;
+            activate(initial);
+
+            tabButtons.forEach((btn, i) => {
+                btn.addEventListener('click', (e) => {
+                    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                    activate(i);
+                });
+            });
+            tabsEl.__petTabsBound = true;
+        });
+    };
+
     // 渲染 Markdown 并处理 Mermaid（完整流程）
     proto.renderMarkdownWithMermaid = async function(markdown, container) {
         // 先渲染 Markdown
@@ -1135,6 +1225,7 @@
             // 需要等待 DOM 更新后再处理
             setTimeout(async () => {
                 await this.processMermaidBlocks(container);
+                if (typeof this.processTabs === 'function') this.processTabs(container);
             }, 100);
         }
         

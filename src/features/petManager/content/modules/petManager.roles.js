@@ -670,6 +670,7 @@ ${pageContent || '无内容'}
                         content = '抱歉，未能获取到有效内容。';
                     }
                     messageText.innerHTML = this.renderMarkdown(content);
+                    if (typeof this.processTabs === 'function') this.processTabs(messageText);
                     // 更新原始文本用于复制功能
                     messageText.setAttribute('data-original-text', content);
                     // 添加复制按钮
@@ -740,6 +741,7 @@ ${pageContent || '无内容'}
                         ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${loadingIcon}`
                         : `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。${error.message ? `错误信息：${error.message}` : '请稍后重试。'}${loadingIcon}`;
                     messageText.innerHTML = this.renderMarkdown(errorMessage);
+                    if (typeof this.processTabs === 'function') this.processTabs(messageText);
                     // 添加 try again 按钮（仅当不是第一条消息时）
                     const petMessages = Array.from(messagesContainer.children).filter(
                         child => child.querySelector('[data-message-type="pet-bubble"]')

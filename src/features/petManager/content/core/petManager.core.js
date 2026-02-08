@@ -527,6 +527,7 @@
                     // 渲染 Markdown
                     const displayText = this.renderMarkdown(text);
                     contentDiv.innerHTML = displayText;
+                    if (typeof this.processTabs === 'function') this.processTabs(contentDiv);
 
                     bubble.appendChild(contentDiv);
 

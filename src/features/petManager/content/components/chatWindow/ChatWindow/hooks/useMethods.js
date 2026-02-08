@@ -673,6 +673,7 @@
                     setTimeout(async () => {
                         const targetDiv = messageBubble.querySelector('.pet-chat-content') || messageBubble;
                         await this.manager.processMermaidBlocks(targetDiv);
+                        if (typeof this.manager.processTabs === 'function') this.manager.processTabs(targetDiv);
                     }, 100);
                 }
 

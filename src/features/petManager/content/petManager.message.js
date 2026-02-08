@@ -614,21 +614,34 @@
 
             const extractMarkdownCandidate = (el) => {
                 if (!el) return '';
+                const parts = [];
+                const nodes = Array.from(el.childNodes || []);
+                for (const node of nodes) {
+                    if (!node) continue;
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        parts.push(String(node.textContent || ''));
+                        continue;
+                    }
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const tag = String(node.tagName || '').toLowerCase();
+                        if (tag === 'br') {
+                            parts.push('\n');
+                            continue;
+                        }
+                        parts.push(String(node.outerHTML || ''));
+                        continue;
+                    }
+                }
+
+                const serialized = parts.join('').trim();
+                if (serialized) return serialized;
+
                 let text = '';
                 try {
                     if (typeof el.innerText === 'string') text = el.innerText;
                 } catch (_) {}
                 if (!String(text || '').trim()) {
                     text = String(el.textContent || '');
-                }
-                const html = String(el.innerHTML || '');
-                if (html && /<br\s*\/?>/i.test(html) && !String(text || '').includes('\n')) {
-                    try {
-                        const tpl = document.createElement('template');
-                        tpl.innerHTML = html.replace(/<br\s*\/?>/gi, '\n');
-                        const withBreaks = String(tpl.content.textContent || '');
-                        if (withBreaks.trim()) text = withBreaks;
-                    } catch (_) {}
                 }
                 return String(text || '').trim();
             };
@@ -753,7 +766,7 @@
                     const body = document.createElement('div');
                     body.className = 'pet-card__body';
                     const candidate = extractMarkdownCandidate(el);
-                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el) && !hasNonWrapperChild(el);
+                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el);
                     if (shouldParseMarkdown) {
                         while (el.firstChild) el.removeChild(el.firstChild);
                         renderMarkdownInto(candidate, body);
@@ -808,7 +821,7 @@
                     const content = document.createElement('div');
                     content.className = 'pet-tip__content';
                     const candidate = extractMarkdownCandidate(el);
-                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el) && !hasNonWrapperChild(el);
+                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(el);
                     if (shouldParseMarkdown) {
                         while (el.firstChild) el.removeChild(el.firstChild);
                         renderMarkdownInto(candidate, content);
@@ -850,7 +863,7 @@
                         content.className = 'pet-tab__content';
                         const sourceEl = itemEl === tabsEl ? tabsEl : itemEl;
                         const candidate = extractMarkdownCandidate(sourceEl);
-                        const shouldParseMarkdown = candidate && !hasRenderedMarkdown(sourceEl) && !hasNonWrapperChild(sourceEl);
+                        const shouldParseMarkdown = candidate && !hasRenderedMarkdown(sourceEl);
                         if (shouldParseMarkdown) {
                             while (sourceEl.firstChild) sourceEl.removeChild(sourceEl.firstChild);
                             renderMarkdownInto(candidate, content);
@@ -884,7 +897,7 @@
                     const content = document.createElement('div');
                     content.className = 'pet-tab__content';
                     const candidate = extractMarkdownCandidate(tabEl);
-                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(tabEl) && !hasNonWrapperChild(tabEl);
+                    const shouldParseMarkdown = candidate && !hasRenderedMarkdown(tabEl);
                     if (shouldParseMarkdown) {
                         while (tabEl.firstChild) tabEl.removeChild(tabEl.firstChild);
                         renderMarkdownInto(candidate, content);
@@ -899,9 +912,9 @@
 
             handleCardGroup();
             handleCard();
-            handleAdmonitions();
             handleTabs();
             handleStandaloneTab();
+            handleAdmonitions();
         };
 
         try {

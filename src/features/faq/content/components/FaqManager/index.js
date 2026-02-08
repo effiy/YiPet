@@ -503,6 +503,48 @@
                     return m && typeof m === 'object' ? m : Object.create(null);
                 };
 
+                const icon = (name) => {
+                    const svgBase = { viewBox: '0 0 24 24', 'aria-hidden': 'true' };
+                    const strokeBase = {
+                        fill: 'none',
+                        stroke: 'currentColor',
+                        'stroke-width': '2',
+                        'stroke-linecap': 'round',
+                        'stroke-linejoin': 'round'
+                    };
+                    if (name === 'chevron-up') return h('svg', svgBase, [h('path', { ...strokeBase, d: 'M6 15l6-6 6 6' })]);
+                    if (name === 'chevron-down') return h('svg', svgBase, [h('path', { ...strokeBase, d: 'M6 9l6 6 6-6' })]);
+                    if (name === 'tag')
+                        return h('svg', svgBase, [
+                            h('path', { ...strokeBase, d: 'M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82Z' }),
+                            h('circle', { cx: '7.5', cy: '7.5', r: '1.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' })
+                        ]);
+                    if (name === 'return')
+                        return h('svg', svgBase, [
+                            h('path', { ...strokeBase, d: 'M20 4v7a4 4 0 0 1-4 4H4' }),
+                            h('path', { ...strokeBase, d: 'M8 15l-4 4 4 4' })
+                        ]);
+                    if (name === 'copy')
+                        return h('svg', svgBase, [
+                            h('rect', { x: '9', y: '9', width: '13', height: '13', rx: '2', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' }),
+                            h('rect', { x: '2', y: '2', width: '13', height: '13', rx: '2', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' })
+                        ]);
+                    if (name === 'send')
+                        return h('svg', svgBase, [
+                            h('path', { ...strokeBase, d: 'M22 2 11 13' }),
+                            h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round', d: 'M22 2 15 22l-4-9-9-4 20-7Z' })
+                        ]);
+                    if (name === 'trash')
+                        return h('svg', svgBase, [
+                            h('path', { ...strokeBase, d: 'M3 6h18' }),
+                            h('path', { ...strokeBase, d: 'M8 6V4h8v2' }),
+                            h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round', d: 'M19 6 18 20H6L5 6' }),
+                            h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', d: 'M10 11v6' }),
+                            h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', d: 'M14 11v6' })
+                        ]);
+                    return '';
+                };
+
                 return () => {
                     const deletingMap = getDeletingMap();
                     const reorderingMap = getReorderingMap();
@@ -659,7 +701,7 @@
                                                           moveFaqUp(faq);
                                                       }
                                                   },
-                                                  '↑'
+                                                  icon('chevron-up')
                                               ),
                                               h(
                                                   'button',
@@ -676,7 +718,7 @@
                                                           moveFaqDown(faq);
                                                       }
                                                   },
-                                                  '↓'
+                                                  icon('chevron-down')
                                               ),
                                               h(
                                                   'button',
@@ -692,7 +734,7 @@
                                                           editTags(index);
                                                       }
                                                   },
-                                                  '🏷'
+                                                  icon('tag')
                                               ),
                                               h(
                                                   'button',
@@ -708,7 +750,7 @@
                                                           onFaqInsert(faq);
                                                       }
                                                   },
-                                                  '↩︎'
+                                                  icon('return')
                                               ),
                                               h(
                                                   'button',
@@ -724,7 +766,7 @@
                                                           onFaqCopy(faq);
                                                       }
                                                   },
-                                                  '⧉'
+                                                  icon('copy')
                                               ),
                                               h(
                                                   'button',
@@ -740,7 +782,7 @@
                                                           onFaqSend(faq);
                                                       }
                                                   },
-                                                  '➤'
+                                                  icon('send')
                                               ),
                                               h(
                                                   'button',
@@ -757,7 +799,7 @@
                                                           deleteFaq(faq);
                                                       }
                                                   },
-                                                  isDeleting ? '⏳' : '🗑'
+                                                  isDeleting ? '⏳' : icon('trash')
                                               )
                                           ])
                                       ]),

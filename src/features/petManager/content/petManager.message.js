@@ -957,7 +957,7 @@
 
         const allowedTags = new Set([
             'a', 'b', 'blockquote', 'br', 'code', 'del', 'details', 'div', 'em',
-            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'kbd', 'li',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'input', 'kbd', 'li',
             'mark', 'ol', 'p', 'pre', 'small', 'span', 'strong', 'sub', 'summary',
             'sup', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'u', 'ul', 'style'
         ]);
@@ -1058,6 +1058,17 @@
                     continue;
                 }
 
+                if (tag === 'input' && (name === 'type' || name === 'checked' || name === 'disabled')) {
+                    if (name === 'type') {
+                        const v = String(attr.value || '').toLowerCase();
+                        if (v === 'checkbox') el.setAttribute('type', 'checkbox');
+                        else el.removeAttribute('type');
+                    } else {
+                        el.setAttribute(name, '');
+                    }
+                    continue;
+                }
+
                 if ((name === 'title' || name === 'aria-label') && attr.value) {
                     el.setAttribute(name, String(attr.value).slice(0, 200));
                     continue;
@@ -1072,6 +1083,17 @@
 
             if (tag === 'img') {
                 if (!el.getAttribute('loading')) el.setAttribute('loading', 'lazy');
+            }
+
+            if (tag === 'input') {
+                const t = String(el.getAttribute('type') || '').toLowerCase();
+                if (t !== 'checkbox') {
+                    el.parentNode && el.parentNode.removeChild(el);
+                    return;
+                }
+                el.setAttribute('type', 'checkbox');
+                el.setAttribute('disabled', '');
+                if (el.hasAttribute('checked')) el.setAttribute('checked', '');
             }
         };
 

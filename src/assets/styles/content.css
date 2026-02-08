@@ -3655,6 +3655,14 @@
     color: #e5e7eb !important;
 }
 
+#pet-context-preview.markdown-content img {
+    max-width: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    display: block !important;
+}
+
 #pet-context-preview.markdown-content h1,
 #pet-context-preview.markdown-content h2,
 #pet-context-preview.markdown-content h3,

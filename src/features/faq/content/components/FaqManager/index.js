@@ -536,7 +536,7 @@
                                     'aria-label': '展开或收起标签',
                                     onClick: toggleMoreTags
                                 },
-                                store.tagFilterExpanded ? '收起' : '更多'
+                                store.tagFilterExpanded ? '▴' : '⋯'
                             )
                         );
                     }
@@ -551,9 +551,10 @@
                                           type: 'button',
                                           class: 'pet-faq-filter-btn',
                                           'aria-label': '关闭标签管理',
+                                          title: '关闭标签管理',
                                           onClick: toggleTagManager
                                       },
-                                      '关闭'
+                                      '✕'
                                   )
                               ]),
                               h(
@@ -569,9 +570,10 @@
                                                       type: 'button',
                                                       class: 'pet-faq-tag-manager-btn',
                                                       'aria-label': '重命名标签',
+                                                      title: '重命名标签',
                                                       onClick: () => renameTag(tag)
                                                   },
-                                                  '重命名'
+                                                  '✎'
                                               ),
                                               h(
                                                   'button',
@@ -579,9 +581,10 @@
                                                       type: 'button',
                                                       class: ['pet-faq-tag-manager-btn', 'danger'],
                                                       'aria-label': '删除标签',
+                                                      title: '删除标签',
                                                       onClick: () => deleteTag(tag)
                                                   },
-                                                  '删除'
+                                                  '🗑'
                                               )
                                           ])
                                       ])
@@ -681,6 +684,7 @@
                                                       type: 'button',
                                                       class: 'pet-faq-item-btn',
                                                       'aria-label': '标签',
+                                                      title: '标签',
                                                       onClick: (e) => {
                                                           try {
                                                               e?.stopPropagation?.();
@@ -688,7 +692,7 @@
                                                           editTags(index);
                                                       }
                                                   },
-                                                  '标签'
+                                                  '🏷'
                                               ),
                                               h(
                                                   'button',
@@ -696,6 +700,7 @@
                                                       type: 'button',
                                                       class: 'pet-faq-item-btn',
                                                       'aria-label': '插入',
+                                                      title: '插入',
                                                       onClick: (e) => {
                                                           try {
                                                               e?.stopPropagation?.();
@@ -703,7 +708,7 @@
                                                           onFaqInsert(faq);
                                                       }
                                                   },
-                                                  '插入'
+                                                  '↩︎'
                                               ),
                                               h(
                                                   'button',
@@ -719,7 +724,7 @@
                                                           onFaqCopy(faq);
                                                       }
                                                   },
-                                                  '复制'
+                                                  '⧉'
                                               ),
                                               h(
                                                   'button',
@@ -727,6 +732,7 @@
                                                       type: 'button',
                                                       class: ['pet-faq-item-btn', 'primary'],
                                                       'aria-label': '发送',
+                                                      title: '发送',
                                                       onClick: (e) => {
                                                           try {
                                                               e?.stopPropagation?.();
@@ -734,7 +740,7 @@
                                                           onFaqSend(faq);
                                                       }
                                                   },
-                                                  '发送'
+                                                  '➤'
                                               ),
                                               h(
                                                   'button',
@@ -742,6 +748,7 @@
                                                       type: 'button',
                                                       class: ['pet-faq-item-btn', 'danger'],
                                                       'aria-label': '删除',
+                                                      title: '删除',
                                                       disabled: isDeleting,
                                                       onClick: (e) => {
                                                           try {
@@ -750,7 +757,7 @@
                                                           deleteFaq(faq);
                                                       }
                                                   },
-                                                  isDeleting ? '删除中...' : '删除'
+                                                  isDeleting ? '⏳' : '🗑'
                                               )
                                           ])
                                       ]),
@@ -825,7 +832,7 @@
                                                         disabled: !store.searchFilter,
                                                         onClick: clearSearch
                                                     },
-                                                    '清除'
+                                                    '⌫'
                                                 )
                                             ]),
                                             h('div', { class: 'pet-faq-filter-row', 'aria-label': '常见问题标签筛选' }, [
@@ -839,7 +846,7 @@
                                                             'aria-label': '反选',
                                                             onClick: toggleReverse
                                                         },
-                                                        '反选'
+                                                        '⇄'
                                                     ),
                                                     h(
                                                         'button',
@@ -850,7 +857,7 @@
                                                             'aria-label': '无标签',
                                                             onClick: toggleNoTags
                                                         },
-                                                        '无标签'
+                                                        '∅'
                                                     ),
                                                     h(
                                                         'button',
@@ -865,7 +872,7 @@
                                                                 !store.tagFilterNoTags,
                                                             onClick: clearTagFilters
                                                         },
-                                                        '清除标签'
+                                                        '⟲'
                                                     ),
                                                     h(
                                                         'button',
@@ -876,7 +883,7 @@
                                                             'aria-label': '标签管理',
                                                             onClick: toggleTagManager
                                                         },
-                                                        '标签管理'
+                                                        '🏷'
                                                     ),
                                                     h(
                                                         'button',
@@ -888,7 +895,7 @@
                                                             disabled: !!store.isLoading,
                                                             onClick: refresh
                                                         },
-                                                        '刷新'
+                                                        '↻'
                                                     )
                                                 ]),
                                                 h('div', { class: 'pet-faq-tag-search' }, [
@@ -912,7 +919,7 @@
                                                             disabled: !store.tagFilterSearchKeyword,
                                                             onClick: clearTagSearch
                                                         },
-                                                        '清除'
+                                                        '⌫'
                                                     )
                                                 ]),
                                                 h('div', { class: 'pet-faq-tag-list', role: 'list', 'aria-label': '标签列表' }, tagButtons),

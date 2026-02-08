@@ -39,7 +39,7 @@
                                 :disabled="!store.searchFilter"
                                 @click="clearSearch"
                             >
-                                清除
+                                ⌫
                             </button>
                         </div>
 
@@ -53,7 +53,7 @@
                                 :class="{ active: store.tagFilterReverse }"
                                 @click="toggleReverse"
                             >
-                                反选
+                                ⇄
                             </button>
                             <button
                                 type="button"
@@ -63,7 +63,7 @@
                                 :class="{ active: store.tagFilterNoTags }"
                                 @click="toggleNoTags"
                             >
-                                无标签
+                                ∅
                             </button>
                             <button
                                 type="button"
@@ -73,7 +73,7 @@
                                 :disabled="store.selectedTags.length === 0 && !store.tagFilterReverse && !store.tagFilterNoTags"
                                 @click="clearTagFilters"
                             >
-                                清除标签
+                                ⟲
                             </button>
                             <button
                                 type="button"
@@ -83,7 +83,7 @@
                                 :class="{ active: store.tagManagerVisible }"
                                 @click="toggleTagManager"
                             >
-                                标签管理
+                                🏷
                             </button>
                             <button
                                 type="button"
@@ -93,7 +93,7 @@
                                 :disabled="store.isLoading"
                                 @click="refresh"
                             >
-                                刷新
+                                ↻
                             </button>
                         </div>
 
@@ -113,7 +113,7 @@
                                 :disabled="!store.tagFilterSearchKeyword"
                                 @click="clearTagSearch"
                             >
-                                清除
+                                ⌫
                             </button>
                         </div>
 
@@ -139,7 +139,7 @@
                                 aria-label="展开或收起标签"
                                 @click="toggleMoreTags"
                             >
-                                {{ store.tagFilterExpanded ? '收起' : '更多' }}
+                                {{ store.tagFilterExpanded ? '▴' : '⋯' }}
                             </button>
                         </div>
 
@@ -152,7 +152,7 @@
                                     aria-label="关闭标签管理"
                                     @click="toggleTagManager"
                                 >
-                                    关闭
+                                    ✕
                                 </button>
                             </div>
 
@@ -166,7 +166,7 @@
                                             aria-label="重命名标签"
                                             @click="renameTag(tag)"
                                         >
-                                            重命名
+                                        ✎
                                         </button>
                                         <button
                                             type="button"
@@ -174,7 +174,7 @@
                                             aria-label="删除标签"
                                             @click="deleteTag(tag)"
                                         >
-                                            删除
+                                        🗑
                                         </button>
                                     </div>
                                 </div>
@@ -261,17 +261,19 @@
                                         type="button"
                                         class="pet-faq-item-btn"
                                         aria-label="标签"
+                                        title="标签"
                                         @click.stop="editTags(index)"
                                     >
-                                        标签
+                                        🏷
                                     </button>
                                     <button
                                         type="button"
                                         class="pet-faq-item-btn"
                                         aria-label="插入"
+                                        title="插入"
                                         @click.stop="onFaqInsert(faq)"
                                     >
-                                        插入
+                                        ↩︎
                                     </button>
                                     <button
                                         type="button"
@@ -280,24 +282,26 @@
                                         title="复制"
                                         @click.stop="onFaqCopy(faq)"
                                     >
-                                        复制
+                                        ⧉
                                     </button>
                                     <button
                                         type="button"
                                         class="pet-faq-item-btn primary"
                                         aria-label="发送"
+                                        title="发送"
                                         @click.stop="onFaqSend(faq)"
                                     >
-                                        发送
+                                        ➤
                                     </button>
                                     <button
                                         type="button"
                                         class="pet-faq-item-btn danger"
                                         aria-label="删除"
+                                        title="删除"
                                         :disabled="!!store.deletingFaqKeys[faq.key]"
                                         @click.stop="deleteFaq(faq)"
                                     >
-                                        {{ store.deletingFaqKeys[faq.key] ? '删除中...' : '删除' }}
+                                        {{ store.deletingFaqKeys[faq.key] ? '⏳' : '🗑' }}
                                     </button>
                                 </div>
                             </div>

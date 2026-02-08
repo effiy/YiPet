@@ -416,6 +416,10 @@
     border-radius: 12px !important;
     padding: 9px 12px !important;
     font-size: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 36px !important;
     cursor: pointer !important;
     transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
 }
@@ -453,6 +457,10 @@
     border-radius: 10px !important;
     padding: 7px 10px !important;
     font-size: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 32px !important;
     cursor: pointer !important;
     transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
     user-select: none !important;
@@ -610,6 +618,10 @@
     border-radius: 10px !important;
     padding: 6px 10px !important;
     font-size: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 32px !important;
     cursor: pointer !important;
     transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease !important;
 }
@@ -761,6 +773,10 @@
     border-radius: 9px !important;
     padding: 5px 9px !important;
     font-size: 11px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 28px !important;
     cursor: pointer !important;
     transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
 }

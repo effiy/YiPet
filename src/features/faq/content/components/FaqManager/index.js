@@ -395,11 +395,15 @@
                     return list.findIndex((f) => String(f?.key || '').trim() === key);
                 };
 
-                const canMoveFaqUp = (faq) => getAllFaqIndex(faq) > 0;
+                const canMoveFaqUp = (faq) => {
+                    const list = Array.isArray(store.allFaqs) ? store.allFaqs : [];
+                    const idx = getAllFaqIndex(faq);
+                    return idx >= 0 && list.length > 1;
+                };
                 const canMoveFaqDown = (faq) => {
                     const list = Array.isArray(store.allFaqs) ? store.allFaqs : [];
                     const idx = getAllFaqIndex(faq);
-                    return idx >= 0 && idx < list.length - 1;
+                    return idx >= 0 && list.length > 1;
                 };
 
                 const moveFaqUp = async (faq) => {
@@ -1014,3 +1018,4 @@
         createComponent
     };
 })();
+

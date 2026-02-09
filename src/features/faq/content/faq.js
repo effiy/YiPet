@@ -455,17 +455,20 @@
     }));
     decorated.sort((a, b) => (a.order - b.order) || (a.index - b.index));
     const list = decorated.map((d) => d.faq);
+    if (list.length < 2) return;
 
     const currentIndex = list.findIndex((f) => String(f?.key || '').trim() === faqKey);
     if (currentIndex < 0) return;
-    const targetIndex = currentIndex + (delta < 0 ? -1 : 1);
-    if (targetIndex < 0 || targetIndex >= list.length) return;
+    const step = delta < 0 ? -1 : 1;
+    let targetIndex = currentIndex + step;
+    if (targetIndex < 0) targetIndex = list.length - 1;
+    if (targetIndex >= list.length) targetIndex = 0;
+    if (targetIndex === currentIndex) return;
 
     const beforeSnapshot = list.map((f) => ({ ...f }));
     const nextList = list.slice();
-    const tmp = nextList[currentIndex];
-    nextList[currentIndex] = nextList[targetIndex];
-    nextList[targetIndex] = tmp;
+    const [movingItem] = nextList.splice(currentIndex, 1);
+    nextList.splice(targetIndex, 0, movingItem);
 
     const updates = [];
     for (let i = 0; i < nextList.length; i++) {
@@ -638,3 +641,4 @@
     }
   };
 })();
+

@@ -711,7 +711,6 @@
                     'card',
                     'tab',
                     'tabitem',
-                    'tip',
                     'note',
                     'info',
                     'warning',
@@ -813,29 +812,27 @@
             };
 
             const handleAdmonitions = () => {
-                const tags = ['tip', 'note', 'info', 'warning', 'danger', 'caution', 'success'];
+                const tags = ['note', 'info', 'warning', 'danger', 'caution', 'success'];
                 const selector = tags.join(',');
                 const nodes = Array.from(root.querySelectorAll(selector));
                 nodes.forEach((el) => {
                     const tagName = String(el?.tagName || '').toLowerCase();
                     const defaultType =
-                        tagName === 'tip'
-                            ? 'tip'
-                            : tagName === 'note'
-                                ? 'note'
-                                : tagName === 'warning'
-                                    ? 'warning'
-                                    : tagName === 'danger'
-                                        ? 'danger'
-                                        : tagName === 'caution'
-                                            ? 'caution'
-                                            : tagName === 'success'
-                                                ? 'success'
-                                                : 'info';
+                        tagName === 'note'
+                            ? 'note'
+                            : tagName === 'warning'
+                                ? 'warning'
+                                : tagName === 'danger'
+                                    ? 'danger'
+                                    : tagName === 'caution'
+                                        ? 'caution'
+                                        : tagName === 'success'
+                                            ? 'success'
+                                            : 'info';
 
                     const rawType = toSafeText(pickAttr(el, ['type', 'kind', 'variant']), 32).toLowerCase();
                     const normalized = rawType || defaultType;
-                    const type = ['info', 'tip', 'note', 'warning', 'danger', 'caution', 'success'].includes(normalized)
+                    const type = ['info', 'note', 'warning', 'danger', 'caution', 'success'].includes(normalized)
                         ? normalized
                         : defaultType;
 

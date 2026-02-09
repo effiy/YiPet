@@ -73,7 +73,6 @@
         "src/features/petManager/content/petManager.chat.js",
         "src/features/petManager/content/petManager.chatUi.js",
         "src/features/petManager/content/petManager.events.js",
-        "src/features/petManager/content/petManager.comment.js",
         "src/features/petManager/content/petManager.media.js",
         "src/features/petManager/content/petManager.message.js",
         "src/features/petManager/content/petManager.screenshot.js",
@@ -83,7 +82,6 @@
       "css": [
         "src/assets/styles/tailwind.css",
         "src/assets/styles/content.css",
-        "src/assets/styles/quick-comment.css",
         "src/features/petManager/content/components/chatWindow/ChatWindow/index.css"
       ],
       "run_at": "document_end"
@@ -114,13 +112,6 @@
         "mac": "Command+Shift+R"
       },
       "description": "重置宠物位置"
-    },
-    "open-quick-comment": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+K",
-        "mac": "Command+Shift+K"
-      },
-      "description": "打开添加评论弹框"
     }
   },
   "icons": {

@@ -145,11 +145,6 @@
                 // 添加键盘快捷键支持
                 this.setupKeyboardShortcuts();
 
-                // 初始化划词评论功能
-                if (typeof this.initCommentFeature === 'function') {
-                    this.initCommentFeature();
-                }
-
                 // 初始化会话：等待页面加载完成后1秒再创建新会话
                 this.initSessionWithDelay();
 

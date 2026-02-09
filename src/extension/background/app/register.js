@@ -226,8 +226,7 @@
     const KEYBOARD_COMMANDS = {
         'toggle-pet': { action: 'toggleVisibility' },
         'change-color': { action: 'changeColor' },
-        'reset-position': { action: 'resetPosition' },
-        'open-quick-comment': { action: 'openQuickCommentFromShortcut' }
+        'reset-position': { action: 'resetPosition' }
     };
 
     try {
@@ -237,22 +236,6 @@
                     const commandConfig = KEYBOARD_COMMANDS[command];
                     if (!commandConfig) {
                         console.warn(`未知的键盘命令: ${command}`);
-                        return;
-                    }
-
-                    if (command === 'open-quick-comment') {
-                        try {
-                            chrome.storage.local.get(['petSettings'], (result) => {
-                                const settings = result && result.petSettings ? result.petSettings : null;
-                                const enabled = settings ? settings.quickCommentShortcutEnabled : undefined;
-                                if (enabled === false || enabled === 'false') {
-                                    return;
-                                }
-                                sendMessageToActiveTab(commandConfig);
-                            });
-                        } catch (_) {
-                            sendMessageToActiveTab(commandConfig);
-                        }
                         return;
                     }
 

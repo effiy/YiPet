@@ -168,50 +168,6 @@
         if (this._keyboardShortcutHandler) {
             return;
         }
-        if (typeof this.quickCommentShortcutEnabled !== 'boolean') {
-            this.quickCommentShortcutEnabled = true;
-        }
-
-        const notifyShortcutToggle = (enabled) => {
-            const message = enabled ? 'Command+Shift+K 已启用' : 'Command+Shift+K 已禁用';
-            if (typeof this.showNotification === 'function') {
-                this.showNotification(message, 'info');
-            } else {
-                console.log(message);
-            }
-        };
-
-        const loadQuickCommentShortcutEnabled = () => {
-            try {
-                chrome.storage.local.get(['petSettings'], (result) => {
-                    const settings = result && result.petSettings ? result.petSettings : null;
-                    const enabled = settings ? settings.quickCommentShortcutEnabled : undefined;
-                    if (typeof enabled === 'boolean') {
-                        this.quickCommentShortcutEnabled = enabled;
-                    } else if (enabled === 'false') {
-                        this.quickCommentShortcutEnabled = false;
-                    } else if (enabled === 'true') {
-                        this.quickCommentShortcutEnabled = true;
-                    }
-                });
-            } catch (e) {}
-        };
-
-        const persistQuickCommentShortcutEnabled = (enabled) => {
-            try {
-                chrome.storage.local.get(['petSettings'], (result) => {
-                    const settings = (result && result.petSettings) ? result.petSettings : {};
-                    chrome.storage.local.set({
-                        petSettings: {
-                            ...settings,
-                            quickCommentShortcutEnabled: enabled
-                        }
-                    });
-                });
-            } catch (e) {}
-        };
-
-        loadQuickCommentShortcutEnabled();
 
         // 使用箭头函数确保 this 绑定正确
         const handleKeyDown = (e) => {
@@ -260,47 +216,6 @@
                 this.closeChatWindow();
                 return false;
             }
-
-            // 检查是否按下了 Cmd/Ctrl + Alt/Option + Shift + K (切换 Cmd/Ctrl + Shift + K 快捷键启用状态)
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.altKey && e.key.toLowerCase() === 'k') {
-                const nextEnabled = !this.quickCommentShortcutEnabled;
-                this.quickCommentShortcutEnabled = nextEnabled;
-                persistQuickCommentShortcutEnabled(nextEnabled);
-                notifyShortcutToggle(nextEnabled);
-
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                return false;
-            }
-
-            // 检查是否按下了 Cmd/Ctrl + Shift + K (打开划词评论弹框)
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'k') {
-                if (this.quickCommentShortcutEnabled === false) {
-                    return;
-                }
-
-                // 如果评论弹框已打开，则聚焦输入框
-                if (this.commentState && this.commentState.showQuickComment) {
-                    const textarea = document.getElementById('pet-quick-comment-textarea');
-                    if (textarea) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        textarea.focus();
-                        return false;
-                    }
-                }
-                
-                // 打开评论弹框
-                if (typeof this.openQuickCommentFromShortcut === 'function') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    this.openQuickCommentFromShortcut();
-                    return false;
-                }
-            }
         };
 
         // 同时监听 window 和 document，确保能够捕获所有键盘事件
@@ -314,8 +229,6 @@
         console.log('  - Ctrl+Shift+S：截图');
         console.log('  - Ctrl+Shift+X：切换聊天窗口');
         console.log('  - Ctrl+Shift+P：切换宠物显示/隐藏');
-        console.log('  - Ctrl/Cmd+Shift+K：打开划词评论弹框');
-        console.log('  - Ctrl/Cmd+Alt+Shift+K：启用/禁用打开评论快捷键');
         console.log('  - Esc：关闭聊天窗口');
     };
 

@@ -299,28 +299,6 @@
                     if (!textarea) return;
 
                     if (e.key !== 'Enter') {
-                        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
-                            if (manager && manager.quickCommentShortcutEnabled !== false) {
-                                if (manager.commentState && manager.commentState.showQuickComment) {
-                                    const commentTextarea = document.getElementById('pet-quick-comment-textarea');
-                                    if (commentTextarea) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        e.stopImmediatePropagation();
-                                        commentTextarea.focus();
-                                        return;
-                                    }
-                                }
-                                if (typeof manager.openQuickCommentFromShortcut === 'function') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.stopImmediatePropagation();
-                                    manager.openQuickCommentFromShortcut();
-                                    return;
-                                }
-                            }
-                        }
-
                         if (e.key === 'Escape') {
                             e.preventDefault();
                             textarea.value = '';
@@ -867,28 +845,6 @@
         const onTextareaKeydown = (e) => {
             if (!textarea) return;
             if (e.key !== 'Enter') {
-                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'k') {
-                    if (manager && manager.quickCommentShortcutEnabled !== false) {
-                        if (manager.commentState && manager.commentState.showQuickComment) {
-                            const commentTextarea = document.getElementById('pet-quick-comment-textarea');
-                            if (commentTextarea) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.stopImmediatePropagation();
-                                commentTextarea.focus();
-                                return;
-                            }
-                        }
-                        if (typeof manager.openQuickCommentFromShortcut === 'function') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            manager.openQuickCommentFromShortcut();
-                            return;
-                        }
-                    }
-                }
-
                 if (e.key === 'Escape') {
                     e.preventDefault();
                     textarea.value = '';

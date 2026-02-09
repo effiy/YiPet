@@ -70,46 +70,6 @@
                     sendResponse({ success: true });
                     break;
 
-                case 'openQuickComment':
-                case 'openQuickCommentFromShortcut':
-                    {
-                        const openIfEnabled = (enabled) => {
-                            if (enabled === false) {
-                                sendResponse({ success: false, disabled: true });
-                                return;
-                            }
-
-                            if (typeof this.openQuickCommentFromShortcut === 'function') {
-                                this.openQuickCommentFromShortcut();
-                                sendResponse({ success: true });
-                            } else {
-                                sendResponse({ success: false, error: 'openQuickCommentFromShortcut not available' });
-                            }
-                        };
-
-                        if (typeof this.quickCommentShortcutEnabled === 'boolean') {
-                            openIfEnabled(this.quickCommentShortcutEnabled);
-                            break;
-                        }
-
-                        try {
-                            chrome.storage.local.get(['petSettings'], (result) => {
-                                const settings = result && result.petSettings ? result.petSettings : null;
-                                const enabled = settings ? settings.quickCommentShortcutEnabled : undefined;
-                                let normalizedEnabled = enabled;
-                                if (normalizedEnabled === 'false') normalizedEnabled = false;
-                                if (normalizedEnabled === 'true') normalizedEnabled = true;
-                                if (typeof normalizedEnabled === 'boolean') {
-                                    this.quickCommentShortcutEnabled = normalizedEnabled;
-                                }
-                                openIfEnabled(typeof normalizedEnabled === 'boolean' ? normalizedEnabled : true);
-                            });
-                        } catch (e) {
-                            openIfEnabled(true);
-                        }
-                        return true;
-                    }
-
                 case 'centerPet':
                     this.centerPet();
                     sendResponse({ success: true });

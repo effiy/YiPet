@@ -4,155 +4,126 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**YiPet** - 温柔陪伴助手 (Gentle Companion Assistant)
-- **Type**: Chrome/Firefox Browser Extension (Manifest V3)
-- **Version**: 1.1.1
-- **Purpose**: Adds a virtual pet companion to web browsing with AI chat capabilities
+This is a Chrome browser extension (Manifest V3) called "温柔陪伴助手" (Gentle Companionship Assistant) that adds interactive AI-powered virtual pets to web pages.
 
-### Key Features
-- Interactive pet overlay on web pages (draggable, resizable)
-- AI chat integration with multiple models
-- Screenshot tools and region capture
-- Session management with import/export (ZIP)
-- FAQ management with tags
+**Key Features:**
+- Virtual pet display on web pages with drag-and-drop support
+- AI chat interface with streaming responses
+- Screenshot capabilities (region selection)
+- Session management with import/export (ZIP format)
+- FAQ system with tagging
 - Mermaid diagram rendering
-- WeWork (企业微信) integration
-- Multiple pet roles (教师, 医生, 甜品师, 警察)
+- Multiple pet roles (Teacher, Doctor, Pastry Chef, Police Officer)
+- Keyboard shortcuts (Ctrl+Shift+P to toggle pet, Ctrl+Shift+X to open chat)
 
-### Keyboard Shortcuts
-- `Ctrl+Shift+P` (Mac: `Cmd+Shift+P`): Toggle pet display/hide
-- `Ctrl+Shift+X` (Mac: `Cmd+Shift+X`): Toggle chat window
+**Technology Stack:**
+- Vanilla JavaScript (no framework for core extension)
+- Vue.js 3 for UI components
+- Chrome Extension API (Manifest V3)
+- External libraries: marked, html2canvas, JSZip, mermaid, turndown, md5
+
+## Development Setup
+
+This is a zero-build extension - files are ready to be loaded directly into Chrome as an unpacked extension.
+
+### Loading the Extension in Chrome:
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable "Developer mode" (toggle in top-right)
+3. Click "Load unpacked" and select this repository directory
+
+### Environment Configuration:
+- API endpoints are configured in `cdn/core/config.js`
+- Default environment: `production` (uses `https://api.effiy.cn`)
+- Set `window.__PET_ENV_MODE__` to `development` or `staging` before loading config to use different endpoints
+- Development mode uses `http://localhost:8000`
 
 ## Architecture
 
-### File Structure
-
+### Directory Structure:
 ```
-YiPet/
-├── manifest.json                   # Extension configuration
-├── cdn/                            # CDN-hosted static assets
-│   ├── libs/                       # Third-party libraries (local)
-│   │   ├── vue.global.js          # Vue.js framework
-│   │   ├── marked.min.js          # Markdown parsing
-│   │   ├── html2canvas.min.js     # Screenshot capture
-│   │   ├── jszip.min.js           # ZIP archive handling
-│   │   ├── mermaid.min.js         # Diagram rendering
-│   │   ├── md5.js                 # MD5 hashing
-│   │   └── turndown.js            # HTML to Markdown
-│   ├── core/                       # Core modules
-│   │   ├── config.js              # Central configuration (PET_CONFIG)
-│   │   ├── constants/endpoints.js # API endpoints
-│   │   └── bootstrap/              # Bootstrap logic
-│   ├── utils/                      # Shared utilities
-│   │   ├── dom/                   # DOM helpers
-│   │   ├── storage/               # Storage utilities
-│   │   ├── session/               # Session manager
-│   │   ├── media/                 # Image resource manager
-│   │   ├── logging/               # Logger utilities
-│   │   ├── error/                 # Error handler
-│   │   └── ui/                    # UI utilities
-│   ├── assets/
-│   │   ├── icons/
-│   │   ├── images/                # Pet avatars (教师, 医生, 甜品师, 警察)
-│   │   └── styles/
-│   └── components/                 # Vue components
-│       ├── chat/                   # Chat components
-│       ├── manager/                # Manager components
-│       ├── modal/                  # Modal components
-│       └── editor/                 # Editor components
+├── manifest.json                    # Extension manifest
+├── cdn/
+│   ├── core/                        # Core utilities and config
+│   │   ├── config.js               # Centralized configuration
+│   │   ├── bootstrap/              # Bootstrap/init code
+│   │   └── constants/              # Constants (endpoints, etc.)
+│   ├── libs/                        # Third-party libraries
+│   ├── assets/                      # Styles, images, icons
+│   ├── components/                  # Vue.js components (ChatWindow, modals, etc.)
+│   └── utils/                       # Utility modules
 ├── src/
-│   ├── api/                        # API layer
-│   │   ├── core/ApiManager.js     # Request manager with interceptors
-│   │   ├── services/              # SessionService, FaqService, AuthService, ConfigService
-│   │   └── utils/                 # token, logger, error, request
 │   ├── extension/
-│   │   └── background/            # Service worker
-│   │       ├── index.js
-│   │       ├── actions/           # petHandler, screenshotHandler, tabHandler, etc.
-│   │       ├── messaging/         # messageRouter
-│   │       ├── services/          # injectionService, tabMessaging
-│   │       ├── bootstrap/         # Background imports
-│   │       ├── app/               # App registration
-│   │       └── integrations/wework/
+│   │   └── background/              # Background service worker
 │   ├── features/
-│   │   ├── petManager/            # Core pet functionality (content scripts)
-│   │   ├── chat/content/          # export-chat-to-png.js
-│   │   ├── faq/content/           # FAQ management
-│   │   ├── mermaid/page/          # Mermaid rendering
-│   │   └── session/page/          # Session import/export
-│   └── views/popup/               # Popup UI
-└── CLAUDE.md                       # This file
+│   │   ├── petManager/              # Core pet management (content script)
+│   │   ├── chat/                    # Chat functionality
+│   │   ├── faq/                     # FAQ system
+│   │   ├── session/                 # Session import/export
+│   │   └── mermaid/                 # Mermaid diagram rendering
+│   ├── api/                         # API integration layer
+│   └── views/                       # Popup UI
 ```
 
-## Configuration
+### Key Modules:
 
-**Central Config**: `cdn/core/config.js` exposes `window.PET_CONFIG`
+**PetManager** (`src/features/petManager/content/`):
+- Main entry: `petManager.js` (lightweight assembly)
+- Core implementation: `core/petManager.core.js`
+- Feature modules: `modules/petManager.*.js` (ai, auth, roles, session, etc.)
+- Feature files: `petManager.*.js` (chat, drag, events, screenshot, ui, state, etc.)
 
-Key configuration sections:
-- `pet`: Pet size, position, colors, visibility
-- `chatWindow`: Chat window dimensions, behavior
-- `api`: API endpoints (api.effiy.cn)
-- `chatModels`: AI model configuration (uses text input, default empty)
-- `env`: Environment modes (production/staging/development) with endpoint overrides
+**Background Script** (`src/extension/background/`):
+- Service worker: `index.js`
+- Message handlers: `actions/*.js` (extension, pet, tab, screenshot handlers)
+- Message router: `messaging/messageRouter.js`
 
-## Development
+**API Layer** (`src/api/`):
+- `core/ApiManager.js` - API request management
+- `services/SessionService.js` - Session CRUD operations
+- `services/FaqService.js` - FAQ CRUD operations
+- `utils/` - Token management, logging, error handling
 
-### Setup
-1. Load unpacked extension from the `YiPet/` directory in Chrome/Firefox developer tools
-2. No build step required - modify source files directly and reload extension
+**Vue Components** (`cdn/components/`):
+- `chat/ChatWindow/` - Main chat interface
+- `modal/` - Settings modals (AI, token)
+- `manager/` - FAQ and session tag managers
+- `editor/` - Session info editor
 
-### Permissions
-- `activeTab`, `storage`, `tabs`, `scripting`, `webRequest`
-- Host permissions: `<all_urls>` (content script injection), `https://api.effiy.cn/*`
+### Message Flow:
+- Popup ↔ Background ↔ Content Script via Chrome Runtime Messaging
+- Content script uses `window.PetManager` as main entry point
+- Background uses `messageRouter.js` to route actions to handlers
 
-## API Layer
+## Common Development Tasks
 
-**Base URL**: `https://api.effiy.cn`
+### Adding a New Pet Role:
+1. Add role configuration in `petManager.roles.js`
+2. Add role image assets in `cdn/assets/images/{roleName}/`
+3. Update manifest `web_accessible_resources` if needed
 
-**ApiManager Features**:
-- Request/response interceptors
-- Token management (X-Token header)
-- Error handling with retry logic
-- Request logging
-- Statistics tracking
+### Modifying API Endpoints:
+- Edit `cdn/core/config.js` - endpoints are configured per environment
+- Constants also in `cdn/core/constants/endpoints.js`
 
-**Services**:
-- `SessionService` - CRUD for chat sessions
-- `FaqService` - FAQ management
-- `AuthService` - Authentication
-- `ConfigService` - Configuration sync
+### Working with Vue Components:
+- Components are loaded as HTML templates via `web_accessible_resources`
+- Vue 3 is loaded globally from `cdn/libs/vue.global.js`
+- Component JS files define Vue apps using `Vue.createApp()`
 
-## Third-party Libraries
+### Debugging:
+- Content script logs: Open web page DevTools → Console
+- Background script logs: `chrome://extensions/` → Inspect views service worker
+- Popup logs: Right-click extension icon → Inspect popup
 
-All libraries are included locally in `cdn/libs/` (no CDN dependencies):
-- **Vue.js** - UI framework (global `Vue`)
-- **marked** - Markdown parsing
-- **html2canvas** - Screenshot capture
-- **jsZip** - ZIP export/import
-- **mermaid** - Diagram rendering
-- **md5** - Hash generation
-- **turndown** - HTML to Markdown conversion
+## Storage
 
-## Styling
+Chrome `storage.local` is used with keys:
+- `petGlobalState` - Pet visibility, position, size, color
+- `petChatWindowState` - Chat window position and size
+- `petSettings` - User settings (API token, AI config)
+- `petDevMode` - Dev mode flag
 
-- Tailwind CSS (via CDN in HTML)
-- Custom animations in `cdn/assets/styles/base/animations.css`
-- Pet gradient colors (5 themes)
+## Keyboard Shortcuts
 
-## Security
-
-- Network access restricted to `https://api.effiy.cn/*`
-- Content scripts injected on all URLs (`<all_urls>`) for pet overlay
-- No external CDNs for libraries (all local in `cdn/libs/`)
-
-## Key Files to Modify
-
-| Task | File(s) |
-|------|---------|
-| Change pet appearance | `cdn/core/config.js` (pet.colors), `cdn/assets/images/` |
-| Add chat model | `cdn/core/config.js` (chatModels) |
-| Modify API endpoint | `cdn/core/config.js` (api) |
-| Add pet feature | `src/features/petManager/content/modules/petManager.*.js` |
-| Update background logic | `src/extension/background/actions/` |
-| Change manifest | `manifest.json` |
-| Update Vue components | `cdn/components/` |
+- `Ctrl+Shift+P` (Mac: `Cmd+Shift+P`) - Toggle pet display
+- `Ctrl+Shift+X` (Mac: `Cmd+Shift+X`) - Open chat window

@@ -1,0 +1,44 @@
+(function initBackgroundImports () {
+  const toUrl = (path) => {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+        return chrome.runtime.getURL(path)
+      }
+    } catch (_) {}
+    return path
+  }
+
+  const safeImport = (path) => {
+    try {
+      importScripts(toUrl(path))
+    } catch (e) {
+      try {
+        console.error('无法加载脚本:', path, e)
+      } catch (_) {}
+    }
+  };
+
+  [
+    'cdn/core/config.js',
+
+    'cdn/utils/logging/loggerUtils.js',
+    'cdn/utils/error/errorHandler.js',
+    'cdn/utils/runtime/moduleUtils.js',
+    'cdn/utils/runtime/globalAccessor.js',
+
+    'src/extension/background/services/tabMessaging.js',
+    'src/extension/background/services/injectionService.js',
+
+    'src/extension/background/integrations/wework/weworkService.js',
+
+    'src/extension/background/actions/extensionHandler.js',
+    'src/extension/background/actions/petHandler.js',
+    'src/extension/background/actions/screenshotHandler.js',
+    'src/extension/background/actions/messageForwardHandler.js',
+    'src/extension/background/actions/tabHandler.js',
+
+    'src/extension/background/integrations/wework/weworkHandler.js',
+
+    'src/extension/background/messaging/messageRouter.js'
+  ].forEach(safeImport)
+})()

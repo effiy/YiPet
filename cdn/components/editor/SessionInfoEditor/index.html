@@ -1,0 +1,85 @@
+<template id="yi-pet-session-info-editor-template">
+    <div
+        ref="modalEl"
+        class="aicr-session-context-modal-body aicr-session-settings-modal-body session-editor-modal"
+        role="document"
+        tabindex="0"
+        @keydown.esc.prevent.stop="close"
+    >
+        <div class="aicr-session-context-modal-header session-editor-header">
+            <div class="aicr-session-context-modal-title session-editor-title">✏️ 编辑会话</div>
+            <div class="aicr-session-context-modal-header-right session-editor-header-right">
+                <button
+                    type="button"
+                    class="aicr-session-context-toolbar-btn primary session-editor-save"
+                    aria-label="保存"
+                    title="保存"
+                    :disabled="store.isSaving"
+                    @click="save"
+                >
+                    {{ store.isSaving ? '保存中...' : '保存' }}
+                </button>
+                <div class="aicr-session-context-modal-close" role="button" aria-label="关闭" tabindex="0" @click="close">
+                    ✕
+                </div>
+            </div>
+        </div>
+
+        <div class="aicr-session-context-modal-content aicr-session-settings-modal-content">
+            <div class="aicr-session-settings-field">
+                <label class="aicr-session-settings-label" for="session-edit-title">标题</label>
+                <input
+                    ref="titleInputEl"
+                    id="session-edit-title"
+                    type="text"
+                    class="aicr-session-settings-input"
+                    placeholder="请输入会话标题"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="会话标题"
+                    v-model="store.title"
+                />
+            </div>
+
+            <div class="aicr-session-settings-field">
+                <label class="aicr-session-settings-label" for="session-edit-url">网址</label>
+                <input
+                    id="session-edit-url"
+                    type="url"
+                    class="aicr-session-settings-input"
+                    placeholder="请输入网址（可选）"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="会话网址"
+                    v-model="store.url"
+                />
+                <div class="aicr-session-settings-hint">网址将显示在欢迎卡片中</div>
+            </div>
+
+            <div class="aicr-session-settings-field">
+                <div class="aicr-session-edit-description-header">
+                    <label class="aicr-session-settings-label" for="session-edit-description">描述</label>
+                    <button
+                        type="button"
+                        class="aicr-session-context-toolbar-btn session-editor-generate-description"
+                        aria-label="AI生成描述"
+                        title="根据页面上下文内容AI智能生成描述"
+                        :disabled="store.isGeneratingDescription"
+                        @click="generateDescription"
+                    >
+                        <span>{{ store.isGeneratingDescription ? '生成中...' : '✨ AI生成' }}</span>
+                    </button>
+                </div>
+                <textarea
+                    id="session-edit-description"
+                    class="aicr-session-settings-textarea"
+                    rows="6"
+                    placeholder="请输入会话描述，或点击AI生成按钮自动生成"
+                    aria-label="会话描述"
+                    v-model="store.description"
+                ></textarea>
+                <div class="aicr-session-settings-hint">描述将帮助您更好地理解和管理会话内容</div>
+            </div>
+        </div>
+    </div>
+</template>

@@ -1,0 +1,143 @@
+{
+  "manifest_version": 3,
+  "name": "温柔陪伴助手",
+  "version": "1.1.1",
+  "description": "在浏览器中添加一位温柔体贴的伴侣，陪伴您的浏览时光。支持多种互动功能，包括区域截图功能，让网页浏览更加有趣！",
+  "permissions": ["activeTab", "storage", "tabs", "scripting", "webRequest"],
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.effiy.cn/*"
+  ],
+  "background": {
+    "service_worker": "src/extension/background/index.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "cdn/core/config.js",
+        "cdn/libs/md5.js",
+        "src/api/utils/token.js",
+        "src/api/utils/logger.js",
+        "src/api/utils/error.js",
+        "src/api/utils/request.js",
+        "cdn/utils/media/imageResourceManager.js",
+        "cdn/utils/ui/loadingAnimationMixin.js",
+        "cdn/utils/ui/loadingAnimation.js",
+        "cdn/core/constants/endpoints.js",
+        "src/api/core/ApiManager.js",
+        "src/api/services/SessionService.js",
+        "cdn/utils/session/sessionManager.js",
+        "src/api/services/FaqService.js",
+        "cdn/libs/marked.min.js",
+        "cdn/libs/vue.global.js",
+        "cdn/libs/html2canvas.min.js",
+        "src/features/chat/content/export-chat-to-png.js",
+        "cdn/utils/logging/loggerUtils.js",
+        "cdn/utils/error/errorHandler.js",
+        "cdn/utils/dom/domHelper.js",
+        "cdn/core/bootstrap/bootstrap.js",
+        "src/features/petManager/content/core/petManager.core.js",
+        "cdn/components/modal/TokenSettingsModal/index.js",
+        "src/features/petManager/content/modules/petManager.auth.js",
+        "src/features/petManager/content/modules/petManager.roles.js",
+        "src/features/petManager/content/modules/petManager.robot.js",
+        "cdn/components/modal/AiSettingsModal/index.js",
+        "src/features/petManager/content/modules/petManager.ai.js",
+        "src/features/petManager/content/modules/petManager.sessionEditor.js",
+        "src/features/petManager/content/modules/petManager.editor.js",
+        "src/features/petManager/content/modules/petManager.mermaid.js",
+        "cdn/components/manager/SessionTagManager/index.js",
+        "src/features/petManager/content/modules/petManager.tags.js",
+        "src/features/petManager/content/modules/petManager.parser.js",
+        "src/features/petManager/content/modules/petManager.io.js",
+        "cdn/components/manager/FaqManager/index.js",
+        "cdn/components/manager/FaqTagManager/index.js",
+        "src/features/faq/content/faq.js",
+        "src/features/faq/content/tags.js",
+        "src/features/petManager/content/modules/petManager.messaging.js",
+        "src/features/petManager/content/modules/petManager.pageInfo.js",
+        "src/features/petManager/content/modules/petManager.session.js",
+        "cdn/components/chat/ChatWindow/hooks/store.js",
+        "cdn/components/chat/ChatWindow/hooks/useComputed.js",
+        "cdn/components/chat/ChatWindow/hooks/useMethods.js",
+        "cdn/components/chat/ChatHeader/index.js",
+        "cdn/components/chat/ChatInput/index.js",
+        "cdn/components/chat/ChatMessages/index.js",
+        "cdn/components/chat/ChatWindow/index.js",
+        "src/features/petManager/content/petManager.ui.js",
+        "src/features/petManager/content/petManager.drag.js",
+        "src/features/petManager/content/petManager.pet.js",
+        "src/features/petManager/content/petManager.state.js",
+        "src/features/petManager/content/petManager.chat.js",
+        "src/features/petManager/content/petManager.chatUi.js",
+        "src/features/petManager/content/petManager.events.js",
+        "src/features/petManager/content/petManager.media.js",
+        "src/features/petManager/content/petManager.message.js",
+        "src/features/petManager/content/petManager.screenshot.js",
+        "src/features/petManager/content/petManager.js",
+        "cdn/core/bootstrap/index.js"
+      ],
+      "css": [
+        "cdn/assets/styles/tailwind.css",
+        "cdn/assets/styles/content.css",
+        "cdn/components/chat/ChatWindow/index.css"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "src/views/popup/index.html",
+    "default_title": "伴侣控制面板"
+  },
+  "commands": {
+    "toggle-pet": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "切换宠物显示/隐藏"
+    },
+    "open-chat": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+X",
+        "mac": "Command+Shift+X"
+      },
+      "description": "打开聊天窗口"
+    }
+  },
+  "icons": {
+    "16": "cdn/assets/icons/icon16.png",
+    "32": "cdn/assets/icons/icon32.png",
+    "48": "cdn/assets/icons/icon48.png",
+    "128": "cdn/assets/icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "cdn/assets/icons/icon.png",
+        "cdn/assets/images/*/icon.png",
+        "cdn/assets/images/*/run/*.png",
+        "cdn/libs/mermaid.min.js",
+        "src/features/mermaid/page/load-mermaid.js",
+        "src/features/mermaid/page/render-mermaid.js",
+        "src/features/mermaid/page/preview-mermaid.js",
+        "cdn/libs/jszip.min.js",
+        "src/features/session/page/load-jszip.js",
+        "src/features/session/page/export-sessions.js",
+        "src/features/session/page/import-sessions.js",
+        "cdn/components/chat/ChatWindow/index.html",
+        "cdn/components/chat/ChatHeader/index.html",
+        "cdn/components/manager/SessionTagManager/index.html",
+        "cdn/components/chat/ChatInput/index.html",
+        "cdn/components/chat/ChatMessages/index.html",
+        "cdn/components/modal/TokenSettingsModal/index.html",
+        "cdn/components/modal/AiSettingsModal/index.html",
+        "cdn/components/editor/SessionInfoEditor/index.html",
+        "cdn/components/manager/FaqManager/index.html",
+        "cdn/components/manager/FaqTagManager/index.html"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

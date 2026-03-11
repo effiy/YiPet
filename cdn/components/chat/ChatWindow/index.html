@@ -1,0 +1,23 @@
+<template id="yi-pet-chat-window-template">
+    <div>
+        <ChatHeader ref="headerEl" :uiTick="uiTick" />
+
+        <div class="yi-pet-chat-content-container">
+            <div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板">
+                <div
+                    id="yi-pet-chat-messages"
+                    ref="messagesEl"
+                    class="yi-pet-chat-messages"
+                    role="log"
+                    aria-live="polite"
+                >
+                    <ChatMessages :instance="instance" :manager="manager" />
+                </div>
+                <ChatInput :uiTick="uiTick" />
+            </div>
+        </div>
+
+        <FaqManager />
+        <FaqTagManager />
+    </div>
+</template>

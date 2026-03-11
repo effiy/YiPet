@@ -1,0 +1,63 @@
+<template id="yi-pet-chat-header-template">
+    <div class="yi-pet-chat-header" title="拖拽移动窗口 | 双击全屏" style="position: relative">
+        <div class="yi-pet-chat-header-title" id="yi-pet-chat-header-title">
+            <span style="font-size: 20px;">💕</span>
+            <span id="yi-pet-chat-header-title-text" style="font-weight: 600; font-size: 16px;">与我聊天</span>
+        </div>
+
+        <div class="yi-pet-chat-header-buttons">
+            <button
+                id="yi-pet-chat-aicr-btn"
+                class="yi-pet-chat-header-btn"
+                aria-label="代码审查"
+                title="代码审查"
+                @click.stop="onAicrClick"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"
+                    />
+                </svg>
+            </button>
+            <button
+                id="yi-pet-chat-news-btn"
+                class="yi-pet-chat-header-btn"
+                aria-label="新闻助手"
+                title="新闻助手"
+                @click.stop="onNewsClick"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"
+                    />
+                </svg>
+            </button>
+            <button
+                id="yi-pet-chat-auth-btn"
+                class="yi-pet-chat-header-btn"
+                aria-label="API 鉴权"
+                title="API 鉴权"
+                @click.stop="onAuthClick"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1 1 0 0 0-1 1v2a1 1 0 1 0 2 0v-2a1 1 0 0 0-1-1Z"
+                    />
+                </svg>
+            </button>
+            <button
+                id="yi-pet-chat-close-btn"
+                class="yi-pet-chat-header-btn"
+                aria-label="关闭聊天窗口"
+                title="关闭"
+                @click.stop="onCloseClick"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 1 0 5.7 7.11L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.9a1 1 0 1 0 1.41-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z"
+                    />
+                </svg>
+            </button>
+        </div>
+    </div>
+</template>

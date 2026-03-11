@@ -1,0 +1,3076 @@
+/**
+ * ChatWindow.css
+ * Styles for the ChatWindow component
+ */
+
+/* UI Button Base - 限定在聊天窗口作用域内 */
+#pet-chat-window .ui-btn,
+#chrome-pet-container .ui-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid var(--pet-chat-border-color) !important;
+    background: var(--bg-tertiary, #334155) !important;
+    color: var(--text-primary, #f8fafc) !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    gap: 4px !important;
+}
+#pet-chat-window .ui-btn:hover,
+#chrome-pet-container .ui-btn:hover {
+    background: var(--bg-elevated, rgba(30,41,59,0.9)) !important;
+}
+#pet-chat-window .ui-btn--primary,
+#chrome-pet-container .ui-btn--primary {
+    border-color: var(--pet-chat-main-color) !important;
+    color: var(--pet-chat-main-color) !important;
+    background: var(--bg-tertiary, #334155) !important;
+}
+#pet-chat-window .ui-btn--primary:hover,
+#chrome-pet-container .ui-btn--primary:hover {
+    background: var(--pet-chat-main-color) !important;
+    color: white !important;
+}
+#pet-chat-window .ui-btn--danger,
+#chrome-pet-container .ui-btn--danger {
+    background: var(--error-gradient, linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%)) !important;
+    color: white !important;
+    border: none !important;
+}
+#pet-chat-window .ui-btn--ghost,
+#chrome-pet-container .ui-btn--ghost {
+    background: transparent !important;
+    border-color: var(--pet-chat-border-color) !important;
+    color: var(--text-muted, #94a3b8) !important;
+}
+#pet-chat-window .ui-btn--sm,
+#chrome-pet-container .ui-btn--sm {
+    padding: 4px 8px !important;
+}
+#pet-chat-window .ui-btn--md,
+#chrome-pet-container .ui-btn--md {
+    padding: 6px 10px !important;
+}
+#pet-chat-window .ui-btn--lg,
+#chrome-pet-container .ui-btn--lg {
+    padding: 8px 12px !important;
+}
+#pet-chat-window .ui-btn--icon,
+#chrome-pet-container .ui-btn--icon {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+}
+
+#pet-chat-window {
+    /* Base styles to be populated from updateChatWindowStyle */
+    position: fixed !important;
+    z-index: 2147483646 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-secondary, #1e293b) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    pointer-events: auto !important;
+    min-height: 450px !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important; /* 防止内容溢出 */
+    
+    /* Variables scope - 使用全局主题色变量 */
+    --pet-chat-primary-color: var(--primary, #667eea);
+    --pet-chat-main-color: var(--primary, #667eea);
+    --pet-chat-bg-gradient: var(--bg-gradient, linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%));
+}
+
+#pet-chat-window.dragging,
+#pet-chat-window.resizing {
+    transition: none !important;
+}
+
+/* Fullscreen Mode */
+#pet-chat-window.fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important; /* 使用动态视口高度，更好地适配移动设备 */
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important; /* 确保不超过视口高度 */
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    border-radius: 0 !important;
+    overflow: hidden !important; /* 确保窗口本身不产生滚动条 */
+    box-sizing: border-box !important; /* 确保 padding 和 border 包含在高度内 */
+}
+
+#pet-chat-window.fullscreen .yi-pet-chat-header {
+    border-radius: 0 !important;
+    flex-shrink: 0 !important; /* 防止 header 被压缩 */
+}
+
+/* 全屏模式下确保内容容器正确计算高度 */
+#pet-chat-window.fullscreen .yi-pet-chat-content-container {
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，确保正确计算 */
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+}
+
+/* 全屏模式下确保消息容器正确显示滚动条，同时为输入框留出空间 */
+#pet-chat-window.fullscreen .pet-chat-messages,
+#pet-chat-window.fullscreen .yi-pet-chat-messages,
+#pet-chat-window.fullscreen #yi-pet-chat-messages {
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩 */
+    max-height: none !important; /* 移除 max-height 限制，让 flex 完全控制高度 */
+    height: 0 !important; /* 设置为 0，让 flex: 1 控制高度，这是关键修复 */
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important; /* iOS 平滑滚动 */
+    box-sizing: border-box !important; /* 确保 padding 包含在高度计算内 */
+    flex-shrink: 1 !important; /* 允许消息容器收缩，为输入框让出空间 */
+    flex-grow: 1 !important; /* 允许消息容器增长，占据剩余空间 */
+}
+
+/* 全屏模式下确保输入框容器正确显示 */
+#pet-chat-window.fullscreen .yi-pet-chat-input-container {
+    flex: 0 0 auto !important; /* 使用 auto flex-basis，不允许收缩或增长，使用内容高度 */
+    flex-shrink: 0 !important; /* 防止输入框被压缩 */
+    flex-grow: 0 !important; /* 防止输入框被拉伸 */
+    position: relative !important;
+    z-index: 10 !important; /* 确保输入框在其他内容之上 */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important; /* 确保可见 */
+    opacity: 1 !important; /* 确保不透明 */
+    order: 999 !important; /* 确保输入框在最后（底部） */
+    margin-top: auto !important; /* 确保输入框在底部，但不会被裁剪 */
+}
+
+/* 全屏模式下确保主内容区域正确布局 */
+#pet-chat-window.fullscreen .yi-pet-chat-right-panel,
+#pet-chat-window.fullscreen .yi-pet-chat-main-content {
+    flex: 1 1 0 !important;
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩 */
+    max-height: 100% !important;
+    height: calc(100vh - 60px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important; /* 保持 hidden，但确保子元素正确布局 */
+    position: relative !important;
+    align-items: stretch !important;
+    width: 100% !important; /* 确保占据全部宽度 */
+    padding-bottom: 0 !important; /* 确保底部没有额外 padding */
+    /* 确保 flex 容器正确分配空间给子元素 */
+    justify-content: flex-start !important;
+}
+
+/* 全屏模式下，当会话栏折叠时，right-panel 应该占据全部空间 */
+/* 使用兄弟选择器，当 sidebar 折叠（display: none）时，right-panel 占据全部空间 */
+#pet-chat-window.fullscreen .session-sidebar.collapsed ~ .yi-pet-chat-right-panel,
+#pet-chat-window.fullscreen .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel {
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+/* 全屏模式下，如果 content-container 只有一个子元素（right-panel），确保它占据全部空间 */
+#pet-chat-window.fullscreen .yi-pet-chat-content-container:not(:has(.session-sidebar:not(.collapsed))) .yi-pet-chat-right-panel {
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+/* 非全屏模式下，当会话栏折叠时，right-panel 应该占据全部空间 */
+#pet-chat-window:not(.fullscreen) .session-sidebar.collapsed ~ .yi-pet-chat-right-panel,
+#pet-chat-window:not(.fullscreen) .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel {
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+/* 确保消息容器在所有情况下都能自适应高度（包括折叠侧边栏后） */
+#pet-chat-window .session-sidebar.collapsed ~ .yi-pet-chat-right-panel .yi-pet-chat-messages,
+#pet-chat-window .session-sidebar.collapsed ~ .yi-pet-chat-right-panel #yi-pet-chat-messages,
+#pet-chat-window .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel .yi-pet-chat-messages,
+#pet-chat-window .session-sidebar[style*="display: none"] ~ .yi-pet-chat-right-panel #yi-pet-chat-messages {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+/* Header - 限定在 YiPet 作用域内（虽然 header 已移除，但保留样式以防需要） */
+#pet-chat-window .yi-pet-chat-header {
+    background: linear-gradient(135deg, 
+        rgba(var(--bg-primary-rgb, 15, 23, 42), 0.98) 0%, 
+        rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.96) 30%,
+        rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.94) 50%,
+        rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.96) 70%,
+        rgba(var(--bg-primary-rgb, 15, 23, 42), 0.98) 100%) !important;
+    background-image: 
+        linear-gradient(135deg, 
+            rgba(var(--bg-primary-rgb, 15, 23, 42), 0.98) 0%, 
+            rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.96) 30%,
+            rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.94) 50%,
+            rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.96) 70%,
+            rgba(var(--bg-primary-rgb, 15, 23, 42), 0.98) 100%),
+        linear-gradient(90deg, 
+            transparent 0%, 
+            rgba(var(--primary-rgb, 102, 126, 234), 0.4) 20%,
+            rgba(var(--primary-rgb, 102, 126, 234), 0.6) 50%,
+            rgba(var(--primary-rgb, 102, 126, 234), 0.4) 80%,
+            transparent 100%) !important;
+    background-size: 100% 100%, 100% 2px !important;
+    background-position: center, bottom !important;
+    background-repeat: no-repeat !important;
+    color: var(--text-primary, #f8fafc) !important;
+    padding: 15px 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    cursor: move !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    border-radius: 16px 16px 0 0 !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    pointer-events: auto !important;
+    box-shadow: 
+        0 2px 12px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 1px 0 rgba(255, 255, 255, 0.08) inset,
+        0 -1px 20px rgba(var(--primary-rgb, 102, 126, 234), 0.15) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
+}
+
+#pet-chat-window .yi-pet-chat-header::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(var(--primary-rgb, 102, 126, 234), 0.3) 50%,
+        transparent 100%) !important;
+    opacity: 0.8 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+#pet-chat-window .yi-pet-chat-header button,
+#pet-chat-window .yi-pet-chat-header .yi-pet-chat-header-buttons {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Input Container */
+/* ========== 输入容器样式 - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 ========== */
+/* 输入容器基础样式 - 与 YiWeb pet-chat-input-container 完全一致 */
+#pet-chat-window .yi-pet-chat-input-container {
+    --pet-chat-input-border: var(--border-primary, rgba(255,255,255,0.12));
+    --pet-chat-input-surface: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.96);
+    --pet-chat-input-surface-2: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.92);
+    --pet-chat-input-soft: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.35);
+    --pet-chat-input-soft-border: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.55);
+    --pet-chat-input-btn-bg: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.72);
+    --pet-chat-input-btn-bg-hover: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.78);
+    --pet-chat-input-btn-border: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.9);
+    --pet-chat-input-btn-border-hover: rgba(71, 85, 105, 0.95);
+    --pet-chat-input-text: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.92);
+    --pet-chat-input-muted: rgba(var(--text-muted-rgb, 148, 163, 184), 0.85);
+    --pet-chat-input-accent: rgba(var(--info-rgb, 59, 130, 246), 0.55);
+    
+    /* Optimized Textarea Variables */
+    --pet-chat-textarea-bg: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.55);
+    --pet-chat-textarea-focus-bg: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.75);
+    --pet-chat-textarea-border: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.85);
+    --pet-chat-textarea-focus-border: rgba(var(--info-rgb, 59, 130, 246), 0.55);
+    --pet-chat-textarea-focus-shadow: rgba(var(--info-rgb, 59, 130, 246), 0.18);
+    --pet-chat-placeholder: rgba(var(--text-muted-rgb, 148, 163, 184), 0.5);
+
+    flex: 0 0 auto !important; /* 使用 auto flex-basis，不允许收缩或增长，使用内容高度 */
+    flex-shrink: 0 !important; /* 防止输入框被压缩 */
+    flex-grow: 0 !important; /* 防止输入框被拉伸 */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    border-top: 1px solid var(--pet-chat-input-border);
+    background: linear-gradient(180deg, var(--pet-chat-input-surface) 0%, var(--pet-chat-input-surface-2) 100%);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    padding: 14px 18px;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
+    position: relative !important; /* 确保定位正确 */
+    z-index: 10 !important; /* 确保输入框在其他内容之上 */
+    order: 999 !important; /* 确保输入框在最后（底部） */
+    display: flex !important; /* 确保是 flex 容器 */
+    flex-direction: column !important;
+    visibility: visible !important; /* 确保可见 */
+    opacity: 1 !important; /* 确保不透明 */
+}
+
+/* 输入容器在 right-panel 内部时的特殊样式 - 与 YiWeb pet-chat-right-panel .chat-input-container 完全一致 */
+#pet-chat-window .yi-pet-chat-right-panel .chat-input-container,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto !important; /* 使用 auto flex-basis，不允许收缩或增长 */
+    flex-shrink: 0 !important; /* 防止输入容器被压缩 */
+    gap: 8px;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--pet-chat-input-soft);
+    border: 1px solid var(--pet-chat-input-soft-border);
+    border-top: none;
+    box-shadow: none;
+    position: relative !important; /* 确保定位正确 */
+    z-index: 10 !important; /* 确保输入容器在其他内容之上 */
+}
+
+/* 全屏模式下，确保 right-panel 内的输入容器完全可见 */
+#pet-chat-window.fullscreen .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+#pet-chat-window.fullscreen .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    margin-top: auto !important; /* 确保输入框在底部，但不会被裁剪 */
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* 工具栏样式 - 与 YiWeb pet-chat-toolbar 完全一致 */
+#pet-chat-window .yi-pet-chat-toolbar,
+#pet-chat-window .chat-input-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+#pet-chat-window .yi-pet-chat-right-panel .chat-input-toolbar,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container .chat-input-toolbar,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container .chat-input-toolbar {
+    margin-bottom: 8px;
+}
+
+/* 工具栏左右按钮组 - 与 YiWeb 完全一致 */
+#pet-chat-window .yi-pet-chat-toolbar-left,
+#pet-chat-window .yi-pet-chat-toolbar-right,
+#pet-chat-window .chat-input-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 按钮样式 - 与 YiWeb pet-chat-btn 完全一致 */
+#pet-chat-window .yi-pet-chat-btn,
+#pet-chat-window .chat-input-btn {
+    border: 1px solid var(--pet-chat-input-btn-border);
+    background: var(--pet-chat-input-btn-bg);
+    color: var(--pet-chat-input-text);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#pet-chat-window .yi-pet-chat-btn:hover,
+#pet-chat-window .chat-input-btn:hover {
+    background: var(--pet-chat-input-btn-bg-hover);
+    border-color: var(--pet-chat-input-btn-border-hover);
+    transform: translateY(-1px);
+}
+
+#pet-chat-window .yi-pet-chat-btn:disabled,
+#pet-chat-window .chat-input-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    pointer-events: none;
+}
+
+/* 编辑会话按钮特殊样式 */
+#pet-chat-window #edit-session-btn {
+    white-space: nowrap;
+}
+
+#pet-chat-window #edit-session-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* 上下文开关激活状态 - 与 YiWeb pet-chat-context-switch.active 完全一致 */
+#pet-chat-window .yi-pet-chat-context-switch.active {
+    background: rgba(34, 211, 238, 0.18);
+    border-color: rgba(34, 211, 238, 0.35);
+}
+
+/* 文本按钮样式 - 与 YiWeb chat-input-text-btn 完全一致 */
+#pet-chat-window .chat-input-text-btn {
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    gap: 4px;
+}
+
+/* 输入框样式 - 与 YiWeb pet-chat-right-panel .chat-message-input 完全一致 */
+#pet-chat-window .yi-pet-chat-right-panel .chat-message-input,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container .chat-message-input,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container .chat-message-input {
+    resize: none;
+    min-height: 60px;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    background: var(--pet-chat-textarea-bg);
+    color: var(--pet-chat-input-text);
+    border: 1px solid var(--pet-chat-textarea-border);
+    transition: all 0.2s ease;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    overflow-x: hidden;
+}
+
+#pet-chat-window .yi-pet-chat-right-panel .chat-message-input:focus,
+#pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container .chat-message-input:focus,
+#pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container .chat-message-input:focus {
+    background: var(--pet-chat-textarea-focus-bg);
+    border-color: var(--pet-chat-textarea-focus-border);
+    box-shadow: 0 0 0 3px var(--pet-chat-textarea-focus-shadow);
+}
+
+/* 输入包装器 - 与 YiWeb chat-input-wrapper 完全一致 */
+#pet-chat-window .chat-input-wrapper {
+    display: flex;
+    flex-shrink: 0; /* 防止输入包装器被压缩 */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    gap: 10px;
+    flex-direction: column;
+}
+
+/* 输入行 - 与 YiWeb pet-chat-input-row 完全一致 */
+#pet-chat-window .yi-pet-chat-input-row {
+    display: flex;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+/* 文本域样式 - 与 YiWeb pet-chat-textarea 完全一致 */
+#pet-chat-window .yi-pet-chat-textarea {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    min-height: 44px;
+    max-height: 220px;
+    border-radius: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--pet-chat-textarea-border);
+    background: var(--pet-chat-textarea-bg);
+    color: var(--pet-chat-input-text);
+    outline: none;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    font-size: 14px;
+    line-height: 1.6;
+    transition: all 0.2s ease;
+    resize: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar {
+    width: 4px;
+}
+
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 2px;
+}
+
+#pet-chat-window .yi-pet-chat-textarea::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+}
+
+#pet-chat-window .yi-pet-chat-textarea:focus {
+    background: var(--pet-chat-textarea-focus-bg);
+    border-color: var(--pet-chat-textarea-focus-border);
+    box-shadow: 0 0 0 3px var(--pet-chat-textarea-focus-shadow);
+}
+
+#pet-chat-window .yi-pet-chat-textarea::placeholder {
+    color: var(--pet-chat-placeholder);
+}
+
+/* ========== 输入框加载状态 ========== */
+#pet-chat-window .yi-pet-chat-textarea.loading-input,
+#pet-chat-window .chat-message-input.loading-input {
+    position: relative;
+    background: var(--pet-chat-textarea-focus-bg) !important;
+    border-color: var(--pet-chat-textarea-focus-border) !important;
+    box-shadow: 0 0 0 2px var(--pet-chat-textarea-focus-shadow) !important;
+    transition: all 0.3s ease;
+}
+
+#pet-chat-window .yi-pet-chat-textarea.loading-input::before,
+#pet-chat-window .chat-message-input.loading-input::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid var(--pet-chat-textarea-focus-border);
+    border-radius: 50%;
+    animation: loading-spin 1s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes loading-spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
+}
+
+#pet-chat-window .yi-pet-chat-textarea.loading-input::after,
+#pet-chat-window .chat-message-input.loading-input::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 0;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* 加载状态下的输入框聚焦效果 */
+#pet-chat-window .yi-pet-chat-textarea.loading-input:focus,
+#pet-chat-window .chat-message-input.loading-input:focus {
+    box-shadow: 0 0 0 3px var(--pet-chat-textarea-focus-shadow) !important;
+    border-color: var(--pet-chat-textarea-focus-border) !important;
+}
+
+/* 加载状态下的占位符样式 */
+#pet-chat-window .yi-pet-chat-textarea.loading-input::placeholder,
+#pet-chat-window .chat-message-input.loading-input::placeholder {
+    color: var(--pet-chat-placeholder);
+    font-style: italic;
+    opacity: 0.8;
+}
+
+/* Collapsed 状态 - 限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-input-container.collapsed,
+#pet-chat-window .chat-input-container.collapsed {
+    display: none !important;
+}
+
+/* 工具栏样式 - 与 YiWeb 完全一致，但限定在 YiPet 作用域内（已在上面定义，这里删除重复） */
+
+/* Request Status Button */
+/* 状态按钮 - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .chat-input-status-btn {
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 14px;
+    border: 1px solid var(--pet-chat-input-btn-border);
+    background: var(--pet-chat-input-btn-bg);
+    color: var(--pet-chat-input-muted);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#pet-chat-window .chat-input-status-btn.active {
+    opacity: 1;
+    cursor: pointer;
+    background: rgba(239, 68, 68, 0.18);
+    color: rgba(248, 113, 113, 0.95);
+    border-color: rgba(248, 113, 113, 0.55);
+}
+
+/* Clear Context Button - 限定在 YiPet 作用域内 */
+#pet-chat-window .chat-input-clear-btn {
+    padding: 4px 12px;
+    border-radius: 16px;
+    background: var(--bg-tertiary, #334155);
+    color: var(--text-muted, #94a3b8);
+    border: 1px solid var(--pet-chat-border-color);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+#pet-chat-window .chat-input-clear-btn:hover {
+    background: var(--pet-chat-input-btn-bg-hover);
+    color: var(--pet-chat-input-text);
+    border-color: var(--pet-chat-input-btn-border-hover);
+}
+
+/* Textarea Styles - 限定在 YiPet 作用域内（已在上面定义，这里删除重复） */
+
+
+#pet-chat-window .yi-pet-chat-header-title {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+#pet-chat-window .yi-pet-chat-header-title {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+}
+
+#pet-chat-window #yi-pet-chat-header-title-text {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+#pet-chat-window .yi-pet-chat-header-buttons {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 50 !important;
+}
+
+#pet-chat-window .yi-pet-chat-header-btn {
+    background: none !important;
+    border: none !important;
+    color: white !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    padding: 5px !important;
+    border-radius: 10px !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.3s ease !important;
+}
+
+#pet-chat-window .yi-pet-chat-header-btn:hover {
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.2) !important;
+    color: var(--pet-chat-main-color, #667eea) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.3) inset,
+                0 2px 8px rgba(var(--primary-rgb, 102, 126, 234), 0.2) !important;
+}
+
+/* ========== YiPet 样式隔离：所有样式限定在 #pet-chat-window 作用域内 ========== */
+/* Main Content - 重新设计高度自适应，确保能够撑满弹框高度，并正确分配子元素空间 */
+#pet-chat-window .yi-pet-chat-right-panel,
+#pet-chat-window .yi-pet-chat-main-content {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据所有剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩，这是 flex 布局正确工作的必要条件 */
+    max-height: 100% !important; /* 确保不超过父容器高度 */
+    height: calc(100vh - 60px) !important;
+    width: 100% !important; /* 确保占据全部宽度 */
+    background: var(--pet-chat-bg-gradient, linear-gradient(180deg, #0f172a 0%, #1e293b 100%));
+    position: relative;
+    z-index: 1;
+    overflow: hidden !important; /* 防止内容溢出 */
+    box-sizing: border-box !important; /* 确保 padding 和 border 包含在高度计算内 */
+    align-items: stretch !important; /* 确保子元素拉伸 */
+    /* 确保 flex 容器正确计算子元素高度 */
+    contain: layout style !important;
+}
+
+/* Messages - 重新设计高度自适应，确保能够自适应窗口高度，同时为输入框留出空间 */
+#pet-chat-window .pet-chat-messages,
+#pet-chat-window .yi-pet-chat-messages,
+#pet-chat-window #yi-pet-chat-messages {
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据所有剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩，这是 flex 布局正确工作的必要条件 */
+    max-height: none !important; /* 移除 max-height 限制，让 flex 完全控制高度 */
+    height: 0 !important; /* 设置为 0，让 flex: 1 控制高度，这是关键修复 */
+    overflow-y: auto !important; /* 内容超出时显示滚动条 */
+    overflow-x: hidden !important; /* 防止水平滚动 */
+    padding: 10px 12px;
+    padding-bottom: 10px !important; /* 确保底部有 padding，为输入框留出空间 */
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    align-items: flex-start;
+    order: 1; /* 确保消息容器在输入框之前 */
+    position: relative; /* 确保定位上下文正确 */
+    box-sizing: border-box; /* 确保 padding 包含在高度计算内 */
+    flex-shrink: 1 !important; /* 允许消息容器收缩，为输入框让出空间 */
+    flex-grow: 1 !important; /* 允许消息容器增长，占据剩余空间 */
+    margin-bottom: 0 !important; /* 确保没有额外的底部边距 */
+}
+
+#pet-chat-window #yi-pet-chat-messages.pet-is-fading {
+    opacity: 0.5;
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* Message Styles - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .pet-chat-message {
+    display: flex;
+    width: 100%;
+    margin: 12px 0;
+    max-width: 100%;
+}
+
+#pet-chat-window .pet-chat-message[data-welcome-message="true"] {
+    justify-content: flex-start;
+    width: 100%;
+}
+
+/* 移除 welcome-card 外层气泡样式 */
+#pet-chat-window .pet-chat-message[data-welcome-message="true"] .pet-chat-bubble,
+#pet-chat-window .pet-chat-message[data-welcome-message="true"] [data-message-type="pet-bubble"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+#pet-chat-window .pet-chat-message[data-welcome-message="true"] .welcome-card {
+    max-width: min(920px, 95%) !important;
+    width: 100% !important;
+}
+
+#pet-chat-window .pet-chat-message.is-user {
+    justify-content: flex-end;
+}
+
+#pet-chat-window .pet-chat-message.is-pet {
+    justify-content: flex-start;
+}
+
+@supports not (gap: 1rem) {
+    #pet-chat-window .pet-chat-message {
+        margin: 12px 0;
+    }
+
+    #pet-chat-window .pet-chat-message:first-child {
+        margin-top: 0;
+    }
+
+    #pet-chat-window .pet-chat-message:last-child {
+        margin-bottom: 0;
+    }
+}
+
+#pet-chat-window .pet-chat-bubble {
+    max-width: min(1400px, 98%);
+    width: fit-content;
+    min-width: 0;
+    border-radius: 14px;
+    padding: 12px 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(30, 41, 59, 0.55);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#pet-chat-window .pet-chat-message.is-user .pet-chat-bubble {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.85) 0%, rgba(34, 211, 238, 0.55) 100%);
+    border-color: rgba(79, 70, 229, 0.35);
+}
+
+#pet-chat-window .pet-chat-message.is-pet .pet-chat-bubble {
+    background: rgba(15, 23, 42, 0.62);
+    border-color: rgba(148, 163, 184, 0.15);
+}
+
+#pet-chat-window .pet-chat-message.is-error .pet-chat-bubble {
+    border-color: rgba(248, 113, 113, 0.55);
+    box-shadow: 0 8px 24px rgba(248, 113, 113, 0.08);
+}
+
+#pet-chat-window .pet-chat-message.is-aborted .pet-chat-bubble {
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+#pet-chat-window .pet-chat-content {
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.95);
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+
+/* Chat Meta - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .pet-chat-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+#pet-chat-window .pet-chat-meta-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#pet-chat-window .pet-chat-meta-btn {
+    border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.9);
+    background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.72);
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.92);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+#pet-chat-window .pet-chat-meta-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#pet-chat-window .pet-chat-meta-btn:hover {
+    background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.78);
+    border-color: rgba(71, 85, 105, 0.95);
+    transform: translateY(-1px);
+}
+
+#pet-chat-window .pet-chat-time {
+    display: block;
+    font-size: 12px;
+    color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.7);
+}
+
+/* Message Images - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .pet-chat-image {
+    max-width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    margin-bottom: 10px;
+    display: block;
+}
+
+#pet-chat-window .pet-chat-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+/* Streaming Message Indicator - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .pet-chat-message.is-streaming .pet-chat-content::after {
+    content: '▍';
+    display: inline-block;
+    margin-left: 2px;
+    opacity: 0.55;
+    animation: aicr-chat-caret-blink 1.8s ease-in-out infinite;
+}
+
+#pet-chat-window .pet-chat-typing {
+    color: rgba(var(--text-muted-rgb, 148, 163, 184), 0.9);
+    font-size: 14px;
+    padding: 6px 2px;
+}
+
+@keyframes aicr-chat-caret-blink {
+    0% {
+        opacity: 0.25;
+    }
+    50% {
+        opacity: 0.55;
+    }
+    to {
+        opacity: 0.35;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #pet-chat-window .pet-chat-message.is-streaming .pet-chat-content::after {
+        animation: none;
+        opacity: 0.4;
+    }
+}
+
+/* Draft Images - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-draft-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px dashed rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.7);
+    background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.35);
+    max-width: 320px;
+}
+
+#pet-chat-window .yi-pet-chat-draft-image {
+    position: relative;
+    width: 64px;
+    height: 48px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.7);
+    background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.6);
+}
+
+#pet-chat-window .yi-pet-chat-draft-image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+#pet-chat-window .yi-pet-chat-draft-image-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.85);
+    background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.75);
+    color: rgba(var(--text-primary-rgb, 248, 250, 252), 0.95);
+    border-radius: 8px;
+    padding: 2px 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+#pet-chat-window .yi-pet-chat-draft-image-remove:hover {
+    background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.7);
+}
+
+#pet-chat-window .yi-pet-chat-draft-images-clear {
+    border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.85);
+    background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.6);
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.9);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#pet-chat-window .yi-pet-chat-draft-images-clear:hover {
+    background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.6);
+}
+
+/* 图片加载状态 - 限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-draft-image-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--bg-primary-rgb, 15, 23, 42), 0.6);
+}
+
+#pet-chat-window .yi-pet-chat-draft-image-loading::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(148, 163, 184, 0.3);
+    border-top-color: rgba(148, 163, 184, 0.8);
+    border-radius: 50%;
+    animation: draft-image-spin 0.6s linear infinite;
+}
+
+@keyframes draft-image-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 图片错误状态 - 限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-draft-image-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+#pet-chat-window .yi-pet-chat-draft-image-error::before {
+    content: '⚠';
+    font-size: 24px;
+    color: rgba(239, 68, 68, 0.6);
+}
+
+/* 响应式设计 - 限定在 YiPet 作用域内 */
+@media (max-width: 640px) {
+    #pet-chat-window .yi-pet-chat-draft-image {
+        width: 64px;
+        height: 64px;
+    }
+    
+    #pet-chat-window .yi-pet-chat-draft-images {
+        padding: 8px 10px;
+        gap: 8px;
+    }
+    
+    #pet-chat-window .yi-pet-chat-draft-images-clear {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+}
+
+/* 减少动画（无障碍）- 限定在 YiPet 作用域内 */
+@media (prefers-reduced-motion: reduce) {
+    #pet-chat-window .yi-pet-chat-draft-image,
+    #pet-chat-window .yi-pet-chat-draft-image-preview,
+    #pet-chat-window .yi-pet-chat-draft-image-remove,
+    #pet-chat-window .yi-pet-chat-draft-images-clear,
+    #pet-chat-window .yi-pet-chat-draft-images {
+        transition: none;
+        animation: none;
+    }
+    
+    #pet-chat-window .yi-pet-chat-draft-image:hover {
+        transform: none;
+    }
+}
+
+/* Context Switch - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .context-switch-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#pet-chat-window .context-switch-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(203, 213, 225, 0.82);
+    white-space: nowrap;
+    transition: color 0.12s ease;
+}
+
+#pet-chat-window .context-switch-wrapper {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    border-radius: 10px;
+    background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.92);
+    border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.85);
+    transition: background-color 0.12s ease;
+    cursor: pointer;
+}
+
+#pet-chat-window .context-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(203, 213, 225, 0.95);
+    transition: transform 0.12s ease;
+    transform: translateX(0);
+}
+
+#pet-chat-window .context-switch-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+    pointer-events: none;
+}
+
+#pet-chat-window .context-switch-container.active .context-switch-wrapper {
+    background: rgba(var(--accent-rgb, 6, 182, 212), 0.28);
+    border-color: rgba(var(--accent-rgb, 6, 182, 212), 0.45);
+}
+
+#pet-chat-window .context-switch-container.active .context-switch-thumb {
+    transform: translateX(20px);
+}
+
+#pet-chat-window .context-switch-container.active .context-switch-label {
+    color: rgba(var(--accent-rgb, 6, 182, 212), 0.95);
+}
+
+/* Content Container - 包裹侧边栏和主内容区域，确保能够撑满弹框高度 */
+#pet-chat-window .yi-pet-chat-content-container {
+    display: flex !important;
+    flex-direction: row !important;
+    flex: 1 1 0 !important; /* 使用 0 作为 flex-basis，占据所有剩余空间 */
+    min-height: 0 !important; /* 关键：允许 flex 子元素收缩 */
+    max-height: 100% !important; /* 确保不超过父容器高度 */
+    height: calc(100% - 70px) !important; /* 设置为 100% 以撑满父容器（弹框）的高度 */
+    overflow: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important; /* 确保 padding 和 border 包含在高度计算内 */
+    align-items: stretch !important; /* 确保子元素（侧边栏和 right-panel）拉伸 */
+}
+
+/* ========== 响应式设计 ========== */
+/* 输入容器响应式优化，但限定在 YiPet 作用域内 */
+@media (max-width: 768px) {
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-right-panel #yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content #yi-pet-chat-messages {
+        padding: 10px 12px;
+    }
+    
+    #pet-chat-window .yi-pet-chat-input-container {
+        padding: 12px 14px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
+        padding: 10px 12px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-input-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-toolbar,
+    #pet-chat-window .chat-input-toolbar {
+        gap: 8px;
+        margin-bottom: 8px;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-toolbar-left,
+    #pet-chat-window .yi-pet-chat-toolbar-right,
+    #pet-chat-window .chat-input-btn-group {
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    
+    #pet-chat-window .yi-pet-chat-btn,
+    #pet-chat-window .chat-input-btn {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-right-panel #yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-messages,
+    #pet-chat-window .yi-pet-chat-main-content #yi-pet-chat-messages {
+        padding: 10px 12px;
+    }
+    
+    #pet-chat-window .yi-pet-chat-input-container {
+        padding: 10px 12px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-input-container.chat-input-container,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-input-container.chat-input-container {
+        padding: 8px 10px !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-input-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        padding: 8px 10px !important;
+        font-size: 13px !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-toolbar,
+    #pet-chat-window .chat-input-toolbar {
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    #pet-chat-window .yi-pet-chat-toolbar-left,
+    #pet-chat-window .yi-pet-chat-toolbar-right,
+    #pet-chat-window .chat-input-btn-group {
+        gap: 6px;
+        flex-shrink: 0;
+    }
+    
+    #pet-chat-window .yi-pet-chat-btn,
+    #pet-chat-window .chat-input-btn {
+        padding: 5px 8px;
+        font-size: 11px;
+    }
+    
+    #pet-chat-window .chat-input-text-btn {
+        padding: 5px 8px;
+        font-size: 11px;
+    }
+}
+
+/* 空状态优化 - 限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-messages:empty::before {
+    content: '';
+    display: block;
+    height: 100%;
+    min-height: 200px;
+}
+
+/* 加载状态优化 - 限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-messages.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* 焦点可见性优化（无障碍）- 限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-right-panel:focus-within,
+#pet-chat-window .yi-pet-chat-main-content:focus-within {
+    outline: none;
+}
+
+#pet-chat-window .yi-pet-chat-messages:focus {
+    outline: 2px solid var(--pet-chat-main-color, rgba(102, 126, 234, 0.5));
+    outline-offset: -2px;
+    border-radius: 4px;
+}
+
+/* 高对比度模式支持 - 限定在 YiPet 作用域内 */
+@media (prefers-contrast: high) {
+    #pet-chat-window .yi-pet-chat-right-panel,
+    #pet-chat-window .yi-pet-chat-main-content {
+        border: 1px solid var(--pet-chat-border-color, rgba(255, 255, 255, 0.3));
+    }
+    
+    #pet-chat-window .yi-pet-chat-right-panel .yi-pet-chat-messages::-webkit-scrollbar-thumb,
+    #pet-chat-window .yi-pet-chat-right-panel #yi-pet-chat-messages::-webkit-scrollbar-thumb,
+    #pet-chat-window .yi-pet-chat-main-content .yi-pet-chat-messages::-webkit-scrollbar-thumb,
+    #pet-chat-window .yi-pet-chat-main-content #yi-pet-chat-messages::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.6);
+    }
+}
+
+/* Pet Message Colors by CSS variables */
+#pet-chat-window .chat-message[data-typing-indicator="true"] [data-message-type="pet-avatar"] {
+    background: var(--pet-chat-primary-color) !important;
+}
+#pet-chat-window .chat-message[data-typing-indicator="true"] [data-message-type="pet-bubble"] {
+    background: var(--pet-chat-primary-color) !important;
+}
+
+/* Window Resize Handles - 只保留四个角的拖拽手柄 */
+#pet-chat-window .resize-handle {
+    position: absolute !important;
+    z-index: 100 !important;
+    background: transparent !important;
+}
+/* 四边手柄已移除，只保留四个角 */
+#pet-chat-window .resize-handle.ne {
+    top: -5px !important;
+    right: -5px !important;
+    width: 10px !important;
+    height: 10px !important;
+    cursor: ne-resize !important;
+}
+#pet-chat-window .resize-handle.nw {
+    top: -5px !important;
+    left: -5px !important;
+    width: 10px !important;
+    height: 10px !important;
+    cursor: nw-resize !important;
+}
+#pet-chat-window .resize-handle.se {
+    bottom: -5px !important;
+    right: -5px !important;
+    width: 10px !important;
+    height: 10px !important;
+    cursor: se-resize !important;
+}
+#pet-chat-window .resize-handle.sw {
+    bottom: -5px !important;
+    left: -5px !important;
+    width: 10px !important;
+    height: 10px !important;
+    cursor: sw-resize !important;
+}
+/* Try Again Button */
+#pet-chat-window .try-again-button {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 4px 8px !important;
+    opacity: 0.7 !important;
+    transition: opacity 0.2s ease, color 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: currentColor !important;
+}
+
+#pet-chat-window .try-again-button:not([data-retrying="true"]):hover {
+    opacity: 1 !important;
+}
+
+#pet-chat-window .try-again-button--loading {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
+#pet-chat-window .try-again-button--success {
+    opacity: 0.7 !important;
+    cursor: pointer !important;
+    color: #22c55e !important;  /* 现代绿 */
+}
+
+#pet-chat-window .try-again-button--error {
+    opacity: 0.7 !important;
+    cursor: pointer !important;
+    color: #ef4444 !important;  /* 量子红 */
+}
+
+/* User Message Layout */
+#pet-chat-window .user-message-time-copy-container {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    max-width: 80% !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+    margin-left: auto !important;
+    box-sizing: border-box !important;
+}
+
+#pet-chat-window .copy-button-container {
+    display: flex !important;
+}
+
+/* Welcome Actions Layout */
+#pet-chat-window .welcome-actions-container {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 11px !important;
+    color: rgba(148, 163, 184, 0.7) !important;  /* 适配深色主题 */
+    margin-top: 4px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+#pet-chat-window .welcome-time-text {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+#pet-chat-window .welcome-actions-group {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+}
+
+#pet-chat-window .welcome-actions-wrapper {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+#pet-chat-window .welcome-card {
+    margin-bottom: 12px !important;
+    padding: 12px 14px !important;
+    background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.55) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(148, 163, 184, 0.16) !important;
+    border-left: 2px solid rgba(var(--primary-rgb, 102, 126, 234), 0.8) !important;
+    transition: border-color 0.2s ease, background 0.2s ease !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16) !important;
+}
+
+#pet-chat-window .welcome-card::before {
+    display: none !important;
+}
+
+#pet-chat-window .welcome-card::after {
+    display: none !important;
+}
+
+#pet-chat-window .welcome-card:hover::before {
+    display: none !important;
+}
+
+#pet-chat-window .welcome-card:hover::after {
+    display: none !important;
+}
+
+#pet-chat-window .welcome-card:hover {
+    background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.62) !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
+}
+#pet-chat-window .welcome-card-header {
+    margin-bottom: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14) !important;
+}
+
+#pet-chat-window .welcome-card-header::after {
+    display: none !important;
+}
+
+#pet-chat-window .welcome-card-header-left {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+}
+
+#pet-chat-window .welcome-card-favicon {
+    width: 16px !important;
+    height: 16px !important;
+    border-radius: 4px !important;
+    flex-shrink: 0 !important;
+}
+
+#pet-chat-window .welcome-card-title {
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: var(--text-primary, #f8fafc) !important;
+    line-height: 1.4 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+#pet-chat-window .welcome-card-label {
+    font-size: 12px !important;
+    color: var(--text-muted, #94a3b8) !important;
+    font-weight: 500 !important;
+    flex: 0 0 44px !important;
+    padding-top: 2px !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+}
+
+#pet-chat-window .welcome-card-row {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+}
+
+#pet-chat-window .welcome-card-row + .welcome-card-row {
+    margin-top: 8px !important;
+}
+
+#pet-chat-window .welcome-card-row--multiline .welcome-card-label {
+    padding-top: 4px !important;
+}
+
+#pet-chat-window .welcome-card-value {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+#pet-chat-window .welcome-card-value--stack {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+}
+
+#pet-chat-window .welcome-card-action-btn {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    color: var(--text-muted, #94a3b8) !important;
+    opacity: 0.9 !important;
+    cursor: pointer !important;
+    padding: 4px 6px !important;
+    border-radius: 8px !important;
+    font-size: 11px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease !important;
+    flex-shrink: 0 !important;
+}
+
+#pet-chat-window .welcome-card-action-btn:hover {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    color: var(--pet-chat-main-color, #667eea) !important;
+    opacity: 1 !important;
+}
+
+#pet-chat-window .welcome-card-action-btn:active {
+    opacity: 0.85 !important;
+}
+
+#pet-chat-window .welcome-card-action-btn i {
+    font-size: 11px !important;
+}
+#pet-chat-window .welcome-card-url {
+    word-break: break-all !important;
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.92) !important;
+    text-decoration: none !important;
+    font-size: 12px !important;
+    display: inline-block !important;
+    max-width: 100% !important;
+    line-height: 1.45 !important;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease !important;
+}
+
+#pet-chat-window .welcome-card-url:hover {
+    text-decoration: underline !important;
+    text-decoration-color: rgba(var(--primary-rgb, 102, 126, 234), 0.55) !important;
+    color: var(--pet-chat-main-color, #667eea) !important;
+}
+
+#pet-chat-window .welcome-card-url:active {
+    color: var(--pet-chat-main-color, #667eea) !important;
+    opacity: 0.9 !important;
+}
+
+#pet-chat-window .welcome-card .markdown-content {
+    font-size: 12px !important;
+    color: var(--text-secondary, #e2e8f0) !important;
+    opacity: 0.88 !important;
+    line-height: 1.6 !important;
+    max-height: 220px !important;
+    overflow-y: auto !important;
+    padding-right: 4px !important;
+}
+
+#pet-chat-window .welcome-card .markdown-content p {
+    margin: 0 0 6px 0 !important;
+}
+
+#pet-chat-window .welcome-card .markdown-content p:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* 标签样式 */
+#pet-chat-window .welcome-card-tags {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+}
+
+#pet-chat-window .welcome-card-tag {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.82) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+    cursor: default !important;
+}
+
+#pet-chat-window .welcome-card-tag:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(148, 163, 184, 0.26) !important;
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.92) !important;
+}
+
+/* 页面内容预览样式 */
+#pet-chat-window .welcome-card-content-preview {
+    position: relative !important;
+}
+
+#pet-chat-window .welcome-card-content-preview-text {
+    font-size: 12px !important;
+    color: rgba(203, 213, 225, 0.8) !important;
+    line-height: 1.6 !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    transition: max-height 0.3s ease !important;
+    position: relative !important;
+}
+
+#pet-chat-window .welcome-card-content-preview-text.expanded {
+    max-height: 600px !important;
+}
+
+#pet-chat-window .welcome-card-content-more {
+    font-size: 11px !important;
+    color: rgba(148, 163, 184, 0.7) !important;
+    margin-top: 8px !important;
+    font-style: italic !important;
+}
+
+/* 元数据样式 */
+#pet-chat-window .welcome-card-meta {
+    font-size: 11px !important;
+    color: rgba(203, 213, 225, 0.78) !important;
+    margin-top: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+}
+
+#pet-chat-window .welcome-card-meta > span {
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+#pet-chat-window .welcome-card-meta > span:not(:last-child)::after {
+    content: '•' !important;
+    color: rgba(148, 163, 184, 0.5) !important;
+    margin-left: 10px !important;
+}
+
+#pet-chat-window .welcome-card-footer {
+    margin-top: 10px !important;
+    padding-top: 10px !important;
+    border-top: 1px solid rgba(148, 163, 184, 0.14) !important;
+}
+
+/* 滚动条样式优化 */
+#pet-chat-window .welcome-card-content-preview-text::-webkit-scrollbar, 
+#pet-chat-window .welcome-card .markdown-content::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
+}
+
+#pet-chat-window .welcome-card-content-preview-text::-webkit-scrollbar-track, 
+#pet-chat-window .welcome-card .markdown-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 3px !important;
+}
+
+#pet-chat-window .welcome-card-content-preview-text::-webkit-scrollbar-thumb, 
+#pet-chat-window .welcome-card .markdown-content::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3) !important;
+    border-radius: 3px !important;
+    transition: background 0.2s ease !important;
+}
+
+#pet-chat-window .welcome-card-content-preview-text::-webkit-scrollbar-thumb:hover, 
+#pet-chat-window .welcome-card .markdown-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5) !important;
+}
+
+#pet-chat-window .welcome-card-empty {
+    font-size: 13px !important;
+    color: rgba(148, 163, 184, 0.7) !important;
+    font-style: italic !important;
+    text-align: center !important;
+    padding: 12px 0 !important;
+}
+
+#pet-chat-window .welcome-card-save {
+    margin-top: 16px !important;
+    padding-top: 16px !important;
+    border-top: 1px solid rgba(34, 211, 238, 0.25) !important;  /* 适配深色主题 */
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+#pet-chat-window .welcome-card {
+        padding: 10px 12px !important;
+    }
+    
+#pet-chat-window .welcome-card-title {
+        font-size: 13px !important;
+    }
+    
+#pet-chat-window .welcome-card-url {
+        font-size: 12px !important;
+    }
+    
+#pet-chat-window .welcome-card-action-btn {
+        padding: 3px 5px !important;
+        font-size: 10px !important;
+    }
+}
+@keyframes spin {
+    to { transform: rotate(360deg) }
+}
+
+/* User Message Image */
+#pet-chat-window .user-message-image-container {
+    margin-bottom: 8px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+#pet-chat-window .user-message-image-container--no-text {
+    margin-bottom: 0 !important;
+}
+
+#pet-chat-window .user-message-image {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: 300px !important;
+    border-radius: 8px !important;
+    display: block !important;
+    cursor: pointer !important;
+    object-fit: contain !important;
+}
+
+#pet-chat-window .welcome-panel {
+    margin-bottom: 20px !important;
+    padding: 16px !important;
+    background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.05)) !important;
+    border-radius: 12px !important;
+    border-left: 3px solid #06b6d4 !important;  /* 量子青 */
+}
+#pet-chat-window .welcome-header {
+    margin-bottom: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+#pet-chat-window .welcome-icon {
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 4px !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+}
+#pet-chat-window .hidden-icon {
+    display: none !important;
+}
+#pet-chat-window .welcome-title {
+    font-weight: 600 !important;
+    font-size: 15px !important;
+    color: var(--text-primary, #f8fafc) !important;
+}
+#pet-chat-window .welcome-url-section {
+    margin-bottom: 12px !important;
+}
+#pet-chat-window .welcome-url-label {
+    font-size: 12px !important;
+    color: #6B7280 !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+}
+#pet-chat-window .welcome-url {
+    word-break: break-all !important;
+    color: #3b82f6 !important;  /* 信息蓝 */
+    text-decoration: none !important;
+    font-size: 13px !important;
+    display: inline-block !important;
+    max-width: 100% !important;
+}
+#pet-chat-window .welcome-url:hover {
+    text-decoration: underline !important;
+}
+#pet-chat-window .welcome-description-section {
+    margin-bottom: 0 !important;
+}
+#pet-chat-window .welcome-description-label {
+    font-size: 12px !important;
+    color: #6B7280 !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+}
+#pet-chat-window .welcome-description {
+    font-size: 13px !important;
+    color: #4B5563 !important;
+    line-height: 1.5 !important;
+}
+#pet-chat-window .manual-save-section {
+    margin-top: 16px !important;
+    padding-top: 16px !important;
+    border-top: 1px solid rgba(78, 205, 196, 0.2) !important;
+}
+#pet-chat-window .pet-manual-save-btn {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    padding: 10px 20px !important;
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%) !important;  /* 量子青渐变 */
+    color: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    overflow: hidden !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+}
+#pet-chat-window .pet-manual-save-btn:hover:not(:disabled) {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+#pet-chat-window .pet-manual-save-btn:active:not(:disabled) {
+    transform: translateY(0) !important;
+    box-shadow: 0 1px 4px rgba(78, 205, 196, 0.2) !important;
+}
+#pet-chat-window .pet-manual-save-btn:disabled {
+    opacity: 0.7 !important;
+}
+#pet-chat-window .pet-manual-save-btn.loading .save-btn-icon {
+    display: none !important;
+}
+#pet-chat-window .pet-manual-save-btn.loading .save-btn-text {
+    opacity: 0 !important;
+}
+#pet-chat-window .pet-manual-save-btn.loading .save-btn-loader {
+    display: block !important;
+}
+#pet-chat-window .save-btn-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+    transition: transform 0.3s ease !important;
+}
+#pet-chat-window .save-btn-loader {
+    display: none !important;
+    position: absolute !important;
+    width: 16px !important;
+    height: 16px !important;
+    border: 2px solid rgba(255, 255, 255, 0.3) !important;
+    border-top-color: white !important;
+    border-radius: 50% !important;
+    animation: spin 0.8s linear infinite !important;
+}
+#pet-chat-window .save-btn-loader.visible {
+    display: block !important;
+}
+/* Auth Modal */
+#pet-chat-window .auth-input-container {
+    margin-bottom: 20px !important;
+}
+#pet-chat-window .auth-input {
+    width: 100% !important;
+    padding: 12px 16px !important;
+    border: 2px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    box-sizing: border-box !important;
+    transition: border-color 0.3s ease !important;
+}
+#pet-chat-window .auth-input:focus {
+    border-color: #22c55e !important;  /* 现代绿 */
+}
+#pet-chat-window .auth-input.invalid {
+    border-color: #ef4444 !important;  /* 量子红 */
+}
+#pet-chat-window .auth-button-container {
+    display: flex !important;
+    gap: 12px !important;
+    justify-content: center !important;
+}
+#pet-chat-window .auth-save-btn {
+    flex: 1 !important;
+    padding: 12px 24px !important;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%) !important;  /* 现代绿渐变 */
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+}
+#pet-chat-window .auth-save-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+}
+#pet-chat-window .auth-cancel-btn {
+    flex: 1 !important;
+    padding: 12px 24px !important;
+    background: #f5f5f5 !important;
+    color: #94a3b8 !important;  /* 中量子灰 */
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+}
+#pet-chat-window .auth-cancel-btn:hover {
+    background: #e0e0e0 !important;
+}
+
+#pet-chat-window .chat-message {
+    display: flex !important;
+    margin-bottom: 15px !important;
+    animation: messageSlideIn 0.3s ease-out !important;
+}
+
+#pet-chat-window .chat-message--user {
+    flex-direction: row-reverse !important;
+}
+
+#pet-chat-window .chat-message-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+    flex-shrink: 0 !important;
+    /* Background handled by inline style or CSS variable */
+}
+
+#pet-chat-window .chat-message--pet .chat-message-avatar {
+    margin-right: 10px !important;
+}
+
+#pet-chat-window .chat-message--user .chat-message-avatar {
+    margin-left: 10px !important;
+    margin-right: 0 !important;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%) !important;  /* 信息蓝渐变 */
+}
+
+#pet-chat-window .chat-message-content {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+#pet-chat-window .chat-message-bubble {
+    max-width: 100% !important;
+    padding: 12px 16px !important;
+    border-radius: 16px !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    color: #f8fafc !important;  /* 量子白 */
+}
+
+#pet-chat-window .chat-message-bubble--pet {
+    border-top-left-radius: 4px !important;
+    background: var(--bg-tertiary, #334155) !important; /* Fallback */
+    margin-right: 48px !important;
+}
+
+#pet-chat-window .chat-message-bubble--user {
+    border-top-right-radius: 4px !important;
+    background: var(--primary-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)) !important;
+    color: var(--text-on-accent, #ffffff) !important;
+    margin-left: 48px !important;
+}
+
+/* Context Editor */
+#pet-chat-window .editor-header-btns {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+}
+#pet-chat-window .editor-mode-group {
+    display: inline-flex !important;
+    gap: 6px !important;
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 8px !important;
+    padding: 4px !important;
+}
+#pet-chat-window .editor-mode-btn {
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    font-size: 13px !important;
+    border-radius: 6px !important;
+    border: none !important;
+    background: transparent !important;
+    color: #e5e7eb !important;
+    cursor: pointer !important;
+    line-height: 1 !important;
+}
+#pet-chat-window .context-close-btn {
+    width: 28px !important;
+    height: 28px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    background: rgba(255,255,255,0.04) !important;
+    color: #e5e7eb !important;
+    cursor: pointer !important;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
+    outline: none !important;
+}
+#pet-chat-window .context-close-btn:hover {
+    background: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.25) !important;
+}
+#pet-chat-window .context-close-btn:active {
+    transform: scale(0.96) !important;
+}
+#pet-chat-window .context-copy-btn {
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    background: rgba(255,255,255,0.04) !important;
+    color: #e5e7eb !important;
+    cursor: pointer !important;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease !important;
+    outline: none !important;
+    line-height: 1 !important;
+}
+#pet-chat-window .context-copy-btn:hover {
+    background: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.25) !important;
+}
+#pet-chat-window .optimize-btn-group {
+    display: flex !important;
+    gap: 6px !important;
+    align-items: center !important;
+}
+#pet-chat-window .context-optimize-btn {
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(76, 175, 80, 0.3) !important;
+    background: rgba(76, 175, 80, 0.15) !important;
+    color: #22c55e !important;  /* 现代绿 */
+    cursor: pointer !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    transition: all 0.2s !important;
+}
+#pet-chat-window .context-optimize-btn:hover {
+    filter: brightness(1.05) !important;
+}
+
+#pet-chat-window .context-optimize-btn:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
+/* Header Button SVG */
+#pet-chat-window .yi-pet-chat-header-btn svg {
+    width: 20px !important;
+    height: 20px !important;
+    fill: currentColor !important;
+}
+
+/* 侧边栏折叠按钮样式 - 始终在 title 左边 */
+#pet-chat-window .sidebar-toggle-btn {
+    display: flex !important;
+    position: absolute !important;
+    left: 20px !important; /* 与 header padding 对齐，在 title 左边 */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 100 !important;
+    background: var(--bg-secondary, #1e293b) !important;
+    border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+    border-radius: 50% !important;
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+#pet-chat-window .sidebar-toggle-btn:hover {
+    background: var(--bg-primary, #0f172a) !important;
+    border-color: var(--border-secondary, rgba(6,182,212,0.3)) !important;
+    transform: translateY(-50%) scale(1.1) !important;
+}
+
+#pet-chat-window .sidebar-toggle-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+    fill: currentColor !important;
+}
+
+/* 标签管理器动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes tagSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes tagSlideOut {
+    to {
+        opacity: 0;
+        transform: scale(0.8) translateY(-10px);
+    }
+}
+
+#pet-chat-window .tag-manager-input {
+    width: 100% !important;
+    padding: 10px 12px !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    transition: border-color 0.2s ease !important;
+}
+#pet-chat-window .tag-manager-input:focus {
+    border-color: #22c55e !important;  /* 现代绿 */
+}
+#pet-chat-window .tag-manager-add-btn {
+    padding: 10px 20px !important;
+    background: #22c55e !important;  /* 现代绿 */
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    transition: background 0.2s ease !important;
+}
+#pet-chat-window .tag-manager-add-btn:hover {
+    background: #45a049 !important;
+}
+#pet-chat-window .tag-manager-smart-generate {
+    padding: 10px 20px !important;
+    background: #9C27B0 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    transition: background 0.2s ease !important;
+    white-space: nowrap !important;
+}
+#pet-chat-window .tag-manager-smart-generate:hover:not(:disabled) {
+    background: #7B1FA2 !important;
+}
+#pet-chat-window .tag-manager-smart-generate:disabled {
+    background: #ccc !important;
+    cursor: not-allowed !important;
+}
+#pet-chat-window .tag-manager-quick-tags {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-bottom: 20px !important;
+}
+#pet-chat-window .tag-manager-quick-tag-btn {
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    transition: all 0.2s ease !important;
+}
+#pet-chat-window .tag-manager-quick-tag-btn:hover {
+    border-color: #22c55e !important;  /* 现代绿 */
+}
+#pet-chat-window .tag-manager-quick-tag-btn.added {
+    background: #22c55e !important;  /* 现代绿 */
+    border-color: #22c55e !important;  /* 现代绿 */
+    opacity: 0.7 !important;
+    cursor: not-allowed !important;
+}
+#pet-chat-window .tag-manager-tags {
+    min-height: 100px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+    margin-bottom: 20px !important;
+    padding: 12px !important;
+    background: var(--bg-primary, #0f172a) !important;
+    border-radius: 6px !important;
+}
+#pet-chat-window .tag-manager-empty-msg {
+    text-align: center !important;
+    color: #999 !important;
+    padding: 20px !important;
+    font-size: 14px !important;
+}
+#pet-chat-window .tag-manager-tag-item {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: #22c55e !important;  /* 现代绿 */
+    color: white !important;
+    padding: 6px 12px !important;
+    border-radius: 20px !important;
+    margin: 4px !important;
+    font-size: 13px !important;
+}
+#pet-chat-window .tag-manager-remove-btn {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border: none !important;
+    color: white !important;
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    transition: background 0.2s ease !important;
+}
+#pet-chat-window .tag-manager-remove-btn:hover {
+    background: rgba(255, 255, 255, 0.5) !important;
+}
+#pet-chat-window .tag-manager-footer {
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+}
+#pet-chat-window .tag-manager-cancel {
+    padding: 10px 20px !important;
+    background: #f0f0f0 !important;
+    color: #f8fafc !important;  /* 量子白 */
+    border: none !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    transition: background 0.2s ease !important;
+}
+#pet-chat-window .tag-manager-cancel:hover {
+    background: #e0e0e0 !important;
+}
+#pet-chat-window .tag-manager-save {
+    padding: 10px 20px !important;
+    background: #3b82f6 !important;  /* 信息蓝 */
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    transition: background 0.2s ease !important;
+}
+#pet-chat-window .tag-manager-save:hover {
+    background: #1976D2 !important;
+}
+#pet-chat-window .chat-message-bubble--no-padding {
+    padding: 0 !important;
+}
+
+#pet-chat-window .chat-message-time-wrapper {
+    flex: 1 !important;
+}
+
+#pet-chat-window .chat-message-time-wrapper--user {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+}
+
+#pet-chat-window .chat-message-copy-container {
+    display: none !important;
+    margin-left: 8px !important;
+}
+
+#pet-chat-window .chat-message-try-again-container {
+    display: none !important;
+    margin-left: 8px !important;
+    align-items: center !important;
+}
+
+#pet-chat-window .chat-message-copy-container--user {
+    /* Special styling for user message copy container if needed */
+}
+
+#pet-chat-window .delete-button-deleting {
+    opacity: 0.5 !important;
+}
+
+#pet-chat-window .chat-message-action-btn {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 22px !important;
+    height: 22px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    color: currentColor !important;
+    transition: all 0.2s ease !important;
+    opacity: 0.8 !important;
+    flex-shrink: 0 !important;
+    margin-left: 4px !important;
+    padding: 0 !important;
+}
+
+#pet-chat-window .chat-message-action-btn:hover {
+    background: rgba(var(--primary-rgb, 102, 126, 234), 0.3) !important;
+    transform: scale(1.1);
+    opacity: 1 !important;
+}
+
+#pet-chat-window .chat-message-sort-btn {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 4px 8px !important;
+    transition: opacity 0.2s ease, transform 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+    opacity: 0.7;
+}
+
+#pet-chat-window .chat-message-sort-btn:hover {
+    opacity: 1 !important;
+    transform: scale(1.1);
+}
+
+#pet-chat-window .chat-message-sort-btn--disabled {
+    opacity: 0.3 !important;
+    pointer-events: none !important;
+    transform: none !important;
+}
+
+#pet-chat-window .chat-message--fading-out {
+    transition: opacity 0.3s ease !important;
+    opacity: 0 !important;
+}
+
+#pet-chat-window .chat-window.fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important; /* 使用动态视口高度，更好地适配移动设备 */
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important; /* 确保不超过视口高度 */
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    overflow: hidden !important; /* 确保窗口本身不产生滚动条 */
+}
+
+#pet-chat-window .chat-message-buttons-container {
+    display: flex;
+    gap: 8px;
+}
+
+#pet-chat-window .chat-message-resend-btn {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 4px 8px !important;
+    opacity: 0.7 !important;
+    transition: opacity 0.2s ease, color 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: currentColor !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+}
+
+#pet-chat-window .chat-message-resend-btn:hover {
+    opacity: 1 !important;
+}
+
+#pet-chat-window .chat-message-resend-btn--loading {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    color: inherit !important;
+}
+
+#pet-chat-window .chat-message-resend-btn--success {
+    color: #22c55e !important;  /* 现代绿 */
+    opacity: 0.7 !important;
+    cursor: pointer !important;
+}
+
+#pet-chat-window .chat-message-resend-btn--error {
+    color: #ef4444 !important;  /* 量子红 */
+    opacity: 0.7 !important;
+    cursor: pointer !important;
+}
+
+#pet-chat-window .clipboard-textarea-hidden {
+    position: fixed !important;
+    left: -999999px !important;
+}
+
+#pet-chat-window .copy-button-success {
+    color: #22c55e !important;  /* 现代绿 */
+}
+
+/* Ensure images in bubbles are handled correctly */
+#pet-chat-window .chat-message-bubble img {
+    max-width: 100% !important;
+    border-radius: 8px !important;
+}
+
+#pet-chat-window .chat-message-image-container {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+#pet-chat-window .chat-message-image-container--with-text {
+    margin-bottom: 8px !important;
+}
+
+#pet-chat-window .chat-message-image {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: 300px !important;
+    border-radius: 8px !important;
+    display: block !important;
+    cursor: pointer !important;
+    object-fit: contain !important;
+}
+
+#pet-chat-window .chat-message-time {
+    display: block !important;
+    font-size: 12px !important;
+    color: rgba(148, 163, 184, 0.7) !important;
+}
+
+/* Message Meta */
+#pet-chat-window .chat-message-actions-container, 
+#pet-chat-window .user-message-time-copy-container {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin-top: 8px !important;
+}
+
+#pet-chat-window .chat-message-actions-group, 
+#pet-chat-window .copy-button-container {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+}
+
+#pet-chat-window .chat-message-action-btn, 
+#pet-chat-window .copy-button {
+    border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.9) !important;
+    background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.72) !important;
+    color: rgba(var(--text-secondary-rgb, 226, 232, 240), 0.92) !important;
+    border-radius: 10px !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+    transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease !important;
+}
+
+#pet-chat-window .chat-message-action-btn:disabled, 
+#pet-chat-window .copy-button:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+#pet-chat-window .chat-message-action-btn:hover:not(:disabled), 
+#pet-chat-window .copy-button:hover:not(:disabled) {
+    background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.78) !important;
+    border-color: rgba(71, 85, 105, 0.95) !important;
+    transform: translateY(-1px) !important;
+}
+
+#pet-chat-window .chat-message-actions-container {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    max-width: 80% !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+    margin-left: auto !important; /* Default for user, overridden for pet if needed */
+    box-sizing: border-box !important;
+}
+
+#pet-chat-window .chat-message--pet .chat-message-actions-container {
+    margin-left: 0 !important;
+}
+
+#pet-chat-window .chat-message-copy-container {
+    display: flex;
+}
+
+@keyframes messageSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Typing Indicator */
+#pet-chat-window .chat-message-typing-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+    margin-right: 10px !important;
+    flex-shrink: 0 !important;
+    animation: petTyping 1.2s ease-in-out infinite !important;
+}
+
+#pet-chat-window .chat-message-typing-bubble {
+    color: white !important;
+    padding: 12px 16px !important;
+    border-radius: 12px !important;
+    border-bottom-left-radius: 4px !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    max-width: 80% !important;
+}
+
+#pet-chat-window .chat-message-typing-time {
+    font-size: 11px !important;
+    color: #999 !important;
+    margin-top: 4px !important;
+    text-align: left !important;
+}
+
+@keyframes petTyping {
+    0% { transform: translateY(0); opacity: 1; }
+    50% { transform: translateY(-3px); opacity: 0.8; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes petThinking {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(-5deg); }
+    50% { transform: scale(1.05) rotate(5deg); }
+    75% { transform: scale(1.1) rotate(-3deg); }
+}
+
+@keyframes petThinkingBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.08); }
+}
+
+@keyframes petThinkingPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.9; }
+}
+
+@keyframes bubbleAppear {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(10px) scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+}
+
+/* Empty, Loading, Error States - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-empty,
+#pet-chat-window .yi-pet-chat-loading,
+#pet-chat-window .yi-pet-chat-error {
+    padding: 24px 12px;
+    color: rgba(148, 163, 184, 0.85);
+}
+
+#pet-chat-window .yi-pet-chat-empty {
+    flex: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    width: 100%;
+    position: relative;
+}
+
+#pet-chat-window .yi-pet-chat-loading {
+    flex: 1;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    width: 100%;
+    gap: 16px;
+}
+
+#pet-chat-window .yi-pet-chat-loading .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(79, 70, 229, 0.2);
+    border-top: 4px solid rgba(59, 130, 246, 0.8);
+    border-radius: 50%;
+    animation: pet-chat-spin 1s linear infinite;
+}
+
+#pet-chat-window .yi-pet-chat-loading .loading-text {
+    color: rgba(148, 163, 184, 0.85);
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
+    text-align: center;
+}
+
+@keyframes pet-chat-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #pet-chat-window .yi-pet-chat-loading .loading-spinner {
+        animation-duration: 0.01ms;
+        animation-iteration-count: 1;
+    }
+}
+
+#pet-chat-window .yi-pet-chat-error {
+    flex: 1;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    width: 100%;
+    position: relative;
+}
+
+#pet-chat-window .yi-pet-chat-error .error-text {
+    color: rgba(248, 113, 113, 0.9);
+    font-size: 14px;
+    text-align: center;
+    padding: 16px;
+}
+
+/* 空状态卡片 - 与 YiWeb 完全一致，但限定在 YiPet 作用域内 */
+#pet-chat-window .yi-pet-chat-empty-card {
+    width: min(480px, 90%);
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 32px 24px;
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(30, 41, 59, 0.65) 100%);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), 
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+                0 1px 0 rgba(255, 255, 255, 0.1) inset;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+#pet-chat-window .yi-pet-chat-empty-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(34, 211, 238, 0.4) 20%, 
+        rgba(59, 130, 246, 0.4) 50%, 
+        rgba(34, 211, 238, 0.4) 80%, 
+        transparent 100%);
+    opacity: 0.6;
+}
+
+#pet-chat-window .yi-pet-chat-empty-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 72px rgba(0, 0, 0, 0.4), 
+                0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+                0 1px 0 rgba(255, 255, 255, 0.12) inset;
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+#pet-chat-window .yi-pet-chat-empty-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(226, 232, 240, 0.95);
+    background: linear-gradient(135deg, 
+        rgba(79, 70, 229, 0.4) 0%, 
+        rgba(34, 211, 238, 0.25) 50%,
+        rgba(59, 130, 246, 0.2) 100%);
+    border: 1px solid rgba(79, 70, 229, 0.35);
+    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.2),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    font-size: 28px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+#pet-chat-window .yi-pet-chat-empty-card:hover .yi-pet-chat-empty-icon {
+    transform: scale(1.05);
+    box-shadow: 0 12px 32px rgba(79, 70, 229, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+}
+
+#pet-chat-window .yi-pet-chat-empty-icon::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, 
+        rgba(79, 70, 229, 0.3), 
+        rgba(34, 211, 238, 0.2));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+
+#pet-chat-window .yi-pet-chat-empty-card:hover .yi-pet-chat-empty-icon::after {
+    opacity: 1;
+}
+
+#pet-chat-window .yi-pet-chat-empty-title {
+    font-size: 18px;
+    font-weight: 650;
+    margin-bottom: 10px;
+    color: rgba(226, 232, 240, 0.98);
+    letter-spacing: -0.01em;
+}
+
+#pet-chat-window .yi-pet-chat-empty-subtitle {
+    font-size: 14px;
+    color: rgba(203, 213, 225, 0.85);
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+
+#pet-chat-window .yi-pet-chat-empty-hint {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    font-size: 12px;
+    color: rgba(148, 163, 184, 0.7);
+    line-height: 1.5;
+}
+
+
+/* 确保消息容器支持 role 和 aria 属性 - 限定在 YiPet 作用域内 */
+#pet-chat-window .pet-chat-messages[role="log"],
+#pet-chat-window .yi-pet-chat-messages[role="log"],
+#pet-chat-window #yi-pet-chat-messages[role="log"] {
+    /* 已通过前面的样式定义 */
+}
+
+/* 消息状态类，但限定在 YiPet 作用域内 */
+#pet-chat-window .pet-chat-message.is-streaming {
+    /* 流式消息状态 */
+}
+
+#pet-chat-window .pet-chat-message.is-error {
+    /* 错误消息状态 */
+}
+
+#pet-chat-window .pet-chat-message.is-aborted {
+    /* 中断消息状态 */
+}
+
+/* 确保内容区域支持 Markdown 渲染 - 限定在 YiPet 作用域内 */
+#pet-chat-window .pet-chat-content.md-preview-body {
+    /* Markdown 预览样式 */
+}
+
+/* 响应式优化，但限定在 YiPet 作用域内 */
+@media (max-width: 1200px) {
+    #pet-chat-window .pet-chat-bubble {
+        max-width: min(900px, calc(100% - 24px));
+    }
+}
+
+@media (max-width: 768px) {
+    #pet-chat-window .pet-chat-bubble {
+        max-width: calc(100% - 24px);
+        padding: 10px 14px;
+    }
+    
+    #pet-chat-window .pet-chat-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    
+    #pet-chat-window .pet-chat-meta-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    #pet-chat-window .pet-chat-meta-btn {
+        font-size: 11px;
+        padding: 5px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    #pet-chat-window .pet-chat-bubble {
+        max-width: calc(100% - 16px);
+        padding: 10px 12px;
+        border-radius: 12px;
+    }
+}
+
+/* ============================================
+   JS 提取的样式类 - 从内联样式重构而来
+   ============================================ */
+
+/* Session Actions Right Group */
+#pet-chat-window .session-actions-right-group {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 4px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+/* Hidden Elements */
+#pet-chat-window .js-hidden,
+#pet-chat-window .js-hidden {
+    display: none !important;
+}
+
+/* Draft Images Container */
+#pet-chat-window .yi-pet-chat-draft-images.js-hidden {
+    display: none !important;
+}
+
+#pet-chat-window .yi-pet-chat-draft-images:not(.js-hidden) {
+    display: flex !important;
+}
+
+/* Image Preview Modal */
+#pet-chat-window .pet-draft-image-preview-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 10000 !important;
+    cursor: pointer !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+#pet-chat-window .pet-draft-image-preview-modal img {
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    object-fit: contain !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+#pet-chat-window .pet-draft-image-preview-modal .modal-close-btn {
+    position: absolute !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px !important;
+    height: 40px !important;
+    border: none !important;
+    background: rgba(15, 23, 42, 0.9) !important;
+    color: white !important;
+    border-radius: 50% !important;
+    font-size: 20px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+}
+
+#pet-chat-window .pet-draft-image-preview-modal .modal-close-btn:hover {
+    background: rgba(239, 68, 68, 0.9) !important;
+    transform: scale(1.1) !important;
+}
+
+/* Textarea Auto-resize (动态高度通过 JS 控制，这里只定义基础样式) */
+#pet-chat-window .yi-pet-chat-textarea {
+    min-height: 60px !important;
+}
+
+/* Message Delete Animation */
+#pet-chat-window .pet-chat-message.js-deleting {
+    transition: opacity 0.3s ease !important;
+    opacity: 0 !important;
+}
+
+/* API Request List Hidden */
+#pet-chat-window .api-request-list.js-hidden {
+    display: none !important;
+}
+
+#pet-chat-window .api-request-tag-filter-container.js-hidden {
+    display: none !important;
+}
+
+/* Chat Window Visibility States */
+#pet-chat-window.js-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
+#pet-chat-window:not(.js-hidden) {
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Copy Button Success State */
+#pet-chat-window .pet-chat-meta-btn.js-copy-success {
+    color: rgba(34, 197, 94, 0.9) !important;
+}

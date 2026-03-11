@@ -1,0 +1,300 @@
+// 在页面上下文中渲染 mermaid 图表的脚本
+(function () {
+  'use strict'
+
+  // 从 data 属性或 window 变量中获取 mermaid ID
+  let mermaidId = window.__MERMAID_RENDER_ID__
+
+  // 如果没有设置，尝试从隐藏的容器元素中获取
+  if (!mermaidId) {
+    // 查找所有可能的 ID 容器（支持多个同时处理）
+    // 支持新的唯一 ID 格式：__mermaid_render_id_container__${mermaidId}
+    const idContainers = document.querySelectorAll('[id^="__mermaid_render_id_container__"]')
+    if (idContainers.length > 0) {
+      // 使用第一个找到的容器
+      const idContainer = idContainers[0]
+      mermaidId = idContainer.getAttribute('data-mermaid-id')
+
+      // 验证 ID 是否有效（确保容器 ID 和 data 属性匹配）
+      const containerId = idContainer.id
+      if (containerId.includes(mermaidId)) {
+        // 清理已使用的容器
+        if (idContainer.parentNode) {
+          idContainer.parentNode.removeChild(idContainer)
+        }
+      } else {
+        // ID 不匹配，尝试下一个
+        mermaidId = null
+      }
+    }
+  }
+
+  if (!mermaidId) {
+    console.error('[RenderMermaid] 未提供 mermaid ID')
+    window.dispatchEvent(new CustomEvent('mermaid-rendered', {
+      detail: { id: '', success: false, error: '未提供 ID' }
+    }))
+    return
+  }
+
+  // 使用 MutationObserver + 轮询的组合方式查找元素
+  let attempts = 0
+  const maxAttempts = 40 // 增加到 40 次
+  let found = false
+  let observer = null
+
+  const tryRender = () => {
+    if (found) return // 如果已经找到，不再继续
+
+    attempts++
+
+    try {
+      // 尝试多种方式查找元素
+      let mermaidDiv = document.getElementById(mermaidId)
+
+      // 如果通过 ID 找不到，尝试通过类名和内容查找（处理可能的 ID 冲突）
+      if (!mermaidDiv && mermaidId) {
+        const allMermaidDivs = document.querySelectorAll('.mermaid')
+        for (const div of allMermaidDivs) {
+          if (div.id === mermaidId || (div.id && div.id.startsWith('mermaid-'))) {
+            mermaidDiv = div
+            break
+          }
+        }
+      }
+
+      if (!mermaidDiv) {
+        if (attempts < maxAttempts) {
+          // 等待一段时间后重试，使用指数退避
+          const delay = Math.min(50 + attempts * 10, 200) // 50ms 到 200ms
+          setTimeout(tryRender, delay)
+          return
+        } else {
+          console.error('[RenderMermaid] 找不到 mermaid div:', mermaidId, '尝试了', attempts, '次')
+          // 清理观察者
+          if (observer) {
+            observer.disconnect()
+            observer = null
+          }
+          window.dispatchEvent(new CustomEvent('mermaid-rendered', {
+            detail: { id: mermaidId, success: false, error: '找不到 div (超时)' }
+          }))
+          return
+        }
+      }
+
+      // 检查 mermaid 是否可用
+      if (typeof mermaid === 'undefined' || typeof mermaid.run !== 'function') {
+        if (attempts < maxAttempts) {
+          // 等待 mermaid 加载
+          const delay = Math.min(50 + attempts * 10, 200)
+          setTimeout(tryRender, delay)
+          return
+        } else {
+          console.error('[RenderMermaid] Mermaid 不可用')
+          if (observer) {
+            observer.disconnect()
+            observer = null
+          }
+          window.dispatchEvent(new CustomEvent('mermaid-rendered', {
+            detail: { id: mermaidId, success: false, error: 'Mermaid 不可用' }
+          }))
+          return
+        }
+      }
+
+      // 找到元素且 mermaid 可用
+      found = true
+      if (observer) {
+        observer.disconnect()
+        observer = null
+      }
+
+      // 执行渲染
+      mermaid.run({
+        nodes: [mermaidDiv],
+        suppressErrors: true
+      }).then(() => {
+        console.log('[RenderMermaid] Mermaid 图表渲染成功:', mermaidId)
+
+        // 调整图表尺寸（根据内容自适应）
+        const adjustMermaidSize = (mermaidDiv) => {
+          if (!mermaidDiv) return
+
+          // 查找渲染后的 SVG 元素
+          const svg = mermaidDiv.querySelector('svg')
+          if (!svg) return
+
+          try {
+            // 获取父容器的最大宽度（考虑 padding）
+            const parent = mermaidDiv.parentElement
+            let maxContainerWidth = parent
+              ? parent.clientWidth - 32 // 减去 padding 和边距
+              : window.innerWidth - 100
+
+            // 确保 maxContainerWidth 至少为 100，避免负数或过小的值
+            maxContainerWidth = Math.max(maxContainerWidth, 100)
+
+            let svgWidth, svgHeight
+
+            // 优先使用 getBBox 获取精确尺寸
+            try {
+              const bbox = svg.getBBox()
+              if (bbox && bbox.width > 0 && bbox.height > 0) {
+                svgWidth = bbox.width
+                svgHeight = bbox.height
+              }
+            } catch (e) {
+              // getBBox 可能失败（如 SVG 未渲染完成），继续尝试其他方法
+            }
+
+            // 如果 getBBox 失败，尝试从属性获取
+            if (!svgWidth || !svgHeight) {
+              const widthAttr = svg.getAttribute('width')
+              const heightAttr = svg.getAttribute('height')
+              const viewBox = svg.getAttribute('viewBox')
+
+              if (widthAttr && heightAttr) {
+                svgWidth = parseFloat(widthAttr)
+                svgHeight = parseFloat(heightAttr)
+              } else if (viewBox) {
+                const parts = viewBox.split(/\s+/)
+                if (parts.length >= 4) {
+                  svgWidth = parseFloat(parts[2])
+                  svgHeight = parseFloat(parts[3])
+                }
+              }
+            }
+
+            // 如果还是无法获取，使用计算尺寸
+            if (!svgWidth || !svgHeight) {
+              svgWidth = svg.clientWidth || svg.offsetWidth || svg.scrollWidth
+              svgHeight = svg.clientHeight || svg.offsetHeight || svg.scrollHeight
+            }
+
+            // 确保 svgWidth 和 svgHeight 是有效的正数
+            svgWidth = Math.max(0, svgWidth || 0)
+            svgHeight = Math.max(0, svgHeight || 0)
+
+            if (svgWidth > 0 && svgHeight > 0) {
+              // 确保 SVG 有 viewBox（用于响应式缩放）
+              if (!svg.getAttribute('viewBox')) {
+                svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`)
+              }
+
+              // 如果 SVG 宽度超过容器，进行缩放
+              if (svgWidth > maxContainerWidth && maxContainerWidth > 0) {
+                const scale = maxContainerWidth / svgWidth
+                svgWidth = maxContainerWidth
+                svgHeight = svgHeight * scale
+                // 再次确保计算后的值不为负数
+                svgWidth = Math.max(0, svgWidth)
+                svgHeight = Math.max(0, svgHeight)
+              }
+
+              // 只有在值有效时才设置属性
+              if (svgWidth > 0 && svgHeight > 0) {
+                svg.setAttribute('width', svgWidth)
+                svg.setAttribute('height', svgHeight)
+              }
+
+              // 设置容器尺寸，但不超过父容器
+              mermaidDiv.style.width = 'auto'
+              mermaidDiv.style.height = 'auto'
+              mermaidDiv.style.maxWidth = '100%'
+              mermaidDiv.style.minWidth = '0'
+            }
+          } catch (e) {
+            console.warn('[RenderMermaid] Mermaid size adjustment failed', e)
+            // 失败时至少确保容器不会溢出
+            mermaidDiv.style.maxWidth = '100%'
+            mermaidDiv.style.overflowX = 'auto'
+          }
+        }
+
+        // 使用 requestAnimationFrame 和多次尝试确保 SVG 渲染完成
+        const adjustSize = () => {
+          const svg = mermaidDiv.querySelector('svg')
+          if (svg) {
+            // 检查 SVG 是否已经渲染完成（有内容）
+            const hasContent = svg.children.length > 0 || svg.innerHTML.trim().length > 0
+            if (hasContent) {
+              adjustMermaidSize(mermaidDiv)
+            } else {
+              // 如果还没渲染完成，稍后再试
+              setTimeout(adjustSize, 100)
+            }
+          } else {
+            // 如果 SVG 还没创建，稍后再试
+            setTimeout(adjustSize, 100)
+          }
+        }
+
+        // 立即尝试一次
+        requestAnimationFrame(() => {
+          adjustSize()
+        })
+
+        // 延迟再次尝试（防止首次渲染未完成）
+        setTimeout(() => {
+          adjustSize()
+        }, 100)
+
+        // 最终尝试（确保渲染完成）
+        setTimeout(() => {
+          adjustSize()
+        }, 500)
+
+        // 获取渲染后的 SVG 内容
+        const svgElement = mermaidDiv.querySelector('svg')
+        let svgContent = ''
+        if (svgElement) {
+          // 克隆 SVG 以获取完整的 XML 字符串
+          const clone = svgElement.cloneNode(true)
+          // 确保 SVG 有正确的命名空间
+          if (!clone.getAttribute('xmlns')) {
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+          }
+          svgContent = new XMLSerializer().serializeToString(clone)
+        }
+        window.dispatchEvent(new CustomEvent('mermaid-rendered', {
+          detail: { id: mermaidId, success: true, svgContent }
+        }))
+      }).catch((error) => {
+        console.error('[RenderMermaid] 渲染 Mermaid 图表失败:', error)
+        window.dispatchEvent(new CustomEvent('mermaid-rendered', {
+          detail: { id: mermaidId, success: false, error: error.message }
+        }))
+      })
+    } catch (error) {
+      console.error('[RenderMermaid] 执行渲染时出错:', error)
+      if (observer) {
+        observer.disconnect()
+        observer = null
+      }
+      window.dispatchEvent(new CustomEvent('mermaid-rendered', {
+        detail: { id: mermaidId, success: false, error: error.message }
+      }))
+    }
+  }
+
+  // 使用 MutationObserver 监听 DOM 变化（更快响应）
+  if (typeof MutationObserver !== 'undefined') {
+    observer = new MutationObserver((mutations) => {
+      // 检查是否有新的元素添加，然后尝试渲染
+      const mermaidDiv = document.getElementById(mermaidId)
+      if (mermaidDiv && !found) {
+        // 延迟一点，确保元素完全插入
+        setTimeout(tryRender, 50)
+      }
+    })
+
+    observer.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true
+    })
+  }
+
+  // 延迟第一次尝试，确保 DOM 已更新
+  setTimeout(tryRender, 150)
+})()

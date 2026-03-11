@@ -1,0 +1,121 @@
+<template id="yi-pet-chat-input-template">
+    <div class="yi-pet-chat-input-container chat-input-container" ref="rootEl">
+        <div class="yi-pet-chat-toolbar chat-input-toolbar">
+            <div class="yi-pet-chat-toolbar-left chat-input-btn-group">
+                <button type="button" class="yi-pet-chat-btn chat-input-btn chat-input-text-btn ui-btn" title="编辑页面上下文" aria-label="页面上下文" @click.stop="onContextClick">📝</button>
+                <button type="button" class="yi-pet-chat-btn chat-input-btn chat-input-text-btn ui-btn" title="编辑当前会话信息（标题、描述等）" aria-label="编辑会话" id="edit-session-btn" @click.stop="onEditSessionClick">✏️</button>
+                <button type="button" class="yi-pet-chat-btn chat-input-btn chat-input-text-btn ui-btn" title="管理会话标签" aria-label="标签管理" @click.stop="onTagManagerClick">🏷️</button>
+                <button type="button" class="yi-pet-chat-btn chat-input-btn chat-input-text-btn ui-btn" title="常见问题" aria-label="常见问题" @click.stop="onFaqClick">💡</button>
+                <button type="button" class="yi-pet-chat-btn chat-input-btn chat-input-text-btn ui-btn" title="微信机器人设置" aria-label="微信机器人设置" @click.stop="onWeChatClick">🤖</button>
+                <button type="button" class="yi-pet-chat-btn chat-input-btn chat-input-text-btn ui-btn" title="上传图片" aria-label="上传图片" @click.stop="onImageClick">🖼️</button>
+                <input ref="imageInputEl" type="file" accept="image/*" multiple class="js-hidden" id="yi-pet-chat-image-input" @change="onImageInputChange" />
+            </div>
+
+            <div class="yi-pet-chat-toolbar-right chat-input-btn-group">
+                <div
+                    ref="contextSwitchContainerEl"
+                    class="context-switch-container"
+                    :class="{ active: contextSwitchEnabled }"
+                    title="开启/关闭页面上下文，帮助AI理解当前页面内容"
+                    @click.stop="toggleContextSwitch"
+                >
+                    <span class="context-switch-label">页面上下文</span>
+                    <div class="context-switch-wrapper">
+                        <div class="context-switch-thumb"></div>
+                    </div>
+                    <input
+                        type="checkbox"
+                        id="context-switch"
+                        class="context-switch-input"
+                        :checked="contextSwitchEnabled"
+                        @click.stop
+                        @change.stop="onContextSwitchChange"
+                    />
+                </div>
+
+                <button
+                    ref="requestStatusButtonEl"
+                    type="button"
+                    id="request-status-btn"
+                    class="chat-input-status-btn"
+                    aria-label="请求状态"
+                    title="请求状态：空闲"
+                    disabled
+                    @click.stop="onRequestStatusClick"
+                >⏹️</button>
+            </div>
+        </div>
+
+        <div class="chat-input-wrapper">
+            <div
+                ref="draftImagesEl"
+                class="yi-pet-chat-draft-images"
+                :class="{ 'js-hidden': !draftImages || draftImages.length === 0 }"
+                aria-label="待发送图片"
+            >
+                <div
+                    v-for="(src, index) in draftImages"
+                    :key="`${index}-${String(src).slice(0, 24)}`"
+                    class="yi-pet-chat-draft-image"
+                    :class="{
+                        'yi-pet-chat-draft-image-loading': !!draftImageMeta?.[index]?.loading,
+                        'yi-pet-chat-draft-image-error': !!draftImageMeta?.[index]?.error
+                    }"
+                    :data-image-index="index"
+                    @click="onDraftImageClick(src, index, $event)"
+                >
+                    <img
+                        class="yi-pet-chat-draft-image-preview"
+                        :class="{ 'tw-hidden': !!draftImageMeta?.[index]?.error }"
+                        :src="src"
+                        :alt="`待发送图片 ${index + 1}`"
+                        loading="lazy"
+                        @load="onDraftImageLoad(index)"
+                        @error="onDraftImageError(index)"
+                    />
+                    <button
+                        type="button"
+                        class="yi-pet-chat-draft-image-remove"
+                        :aria-label="`移除第 ${index + 1} 张图片`"
+                        title="移除"
+                        @click.stop="onRemoveDraftImage(index)"
+                    >✕</button>
+                </div>
+
+                <button
+                    v-if="draftImages && draftImages.length > 0"
+                    type="button"
+                    class="yi-pet-chat-draft-images-clear"
+                    :aria-label="`清空所有 ${draftImages.length} 张图片`"
+                    title="清空所有图片"
+                    @click.stop="onClearDraftImages"
+                >清空图片 ({{ draftImages.length }})</button>
+            </div>
+            <div class="yi-pet-chat-input-row">
+                <textarea
+                    ref="textareaEl"
+                    id="yi-pet-chat-input"
+                    class="yi-pet-chat-textarea chat-message-input"
+                    :class="{ 'chat-message-input--has-content': hasContent }"
+                    :style="{ height: textareaHeight }"
+                    placeholder="输入消息... (Shift+Enter 换行，Enter 发送)"
+                    rows="4"
+                    aria-label="会话输入框"
+                    @input="onTextareaInput"
+                    @keydown="onTextareaKeydown"
+                    @paste="onTextareaPaste"
+                    @compositionstart="onCompositionStart"
+                    @compositionupdate="onCompositionUpdate"
+                    @compositionend="onCompositionEnd"
+                ></textarea>
+            </div>
+        </div>
+
+        <teleport to="body">
+            <div v-if="previewVisible" class="pet-draft-image-preview-modal" @click="onPreviewOverlayClick">
+                <img :src="previewSrc" :alt="previewAlt" />
+                <button type="button" class="modal-close-btn" @click.stop="closePreview">✕</button>
+            </div>
+        </teleport>
+    </div>
+</template>

@@ -32,7 +32,7 @@ This is a zero-build extension - files are ready to be loaded directly into Chro
 3. Click "Load unpacked" and select this repository directory
 
 ### Environment Configuration:
-- API endpoints are configured in `cdn/core/config.js`
+- API endpoints are configured in `core/config.js`
 - Default environment: `production` (uses `https://api.effiy.cn`)
 - Set `window.__PET_ENV_MODE__` to `development` or `staging` before loading config to use different endpoints
 - Development mode uses `http://localhost:8000`
@@ -42,48 +42,66 @@ This is a zero-build extension - files are ready to be loaded directly into Chro
 ### Directory Structure:
 ```
 ├── manifest.json                    # Extension manifest
-├── cdn/
-│   ├── core/                        # Core utilities and config
-│   │   ├── config.js               # Centralized configuration
-│   │   ├── bootstrap/              # Bootstrap/init code
-│   │   └── constants/              # Constants (endpoints, etc.)
-│   ├── libs/                        # Third-party libraries
-│   ├── assets/                      # Styles, images, icons
-│   ├── components/                  # Vue.js components (ChatWindow, modals, etc.)
-│   └── utils/                       # Utility modules
-├── src/
-│   ├── extension/
-│   │   └── background/              # Background service worker
-│   ├── features/
-│   │   ├── petManager/              # Core pet management (content script)
-│   │   ├── chat/                    # Chat functionality
-│   │   ├── faq/                     # FAQ system
-│   │   ├── session/                 # Session import/export
-│   │   └── mermaid/                 # Mermaid diagram rendering
+├── assets/                          # Global assets (styles, images, icons)
+│   ├── styles/                      # Stylesheets
+│   ├── images/                      # Pet role images
+│   └── icons/                       # Extension icons
+├── core/                            # Core system modules
+│   ├── config.js                    # Centralized configuration
+│   ├── bootstrap/                   # Bootstrap/init code
+│   ├── constants/                   # Constants (endpoints, etc.)
 │   ├── api/                         # API integration layer
-│   └── views/                       # Popup UI
+│   │   ├── core/                    # API manager
+│   │   ├── services/                # API services (Session, FAQ)
+│   │   └── utils/                   # API utilities (token, logger, error)
+│   └── utils/                       # Global utility modules
+│       ├── api/                     # API-specific utilities
+│       ├── dom/                     # DOM manipulation
+│       ├── storage/                 # Chrome storage utilities
+│       ├── media/                   # Media handling (images, resources)
+│       └── ui/                      # UI utilities (loading, notifications)
+├── libs/                            # Third-party libraries
+├── modules/                         # Feature modules (by functionality)
+│   ├── pet/                         # Pet management module
+│   │   ├── components/              # Vue components (chat, modals, managers)
+│   │   ├── content/                 # Core pet manager logic
+│   │   │   ├── core/                # Main pet manager implementation
+│   │   │   └── modules/             # Feature modules (AI, auth, roles, etc.)
+│   │   └── styles/                  # Pet-specific styles
+│   ├── chat/                        # Chat functionality module
+│   ├── faq/                         # FAQ system module
+│   ├── session/                     # Session management module
+│   ├── screenshot/                  # Screenshot functionality module
+│   ├── mermaid/                     # Mermaid diagram rendering module
+│   └── extension/                   # Chrome extension system
+│       ├── background/              # Background service worker
+│       ├── content-scripts/         # Content scripts
+│       ├── popup/                   # Popup UI
+│       └── messaging/               # Message routing
+└── docs/                            # Documentation
 ```
 
 ### Key Modules:
 
-**PetManager** (`src/features/petManager/content/`):
+**PetManager** (`modules/pet/content/`):
 - Main entry: `petManager.js` (lightweight assembly)
 - Core implementation: `core/petManager.core.js`
 - Feature modules: `modules/petManager.*.js` (ai, auth, roles, session, etc.)
 - Feature files: `petManager.*.js` (chat, drag, events, screenshot, ui, state, etc.)
+- Vue components in `modules/pet/components/`
 
-**Background Script** (`src/extension/background/`):
+**Background Script** (`modules/extension/background/`):
 - Service worker: `index.js`
 - Message handlers: `actions/*.js` (extension, pet, tab, screenshot handlers)
 - Message router: `messaging/messageRouter.js`
 
-**API Layer** (`src/api/`):
+**API Layer** (`core/api/`):
 - `core/ApiManager.js` - API request management
 - `services/SessionService.js` - Session CRUD operations
 - `services/FaqService.js` - FAQ CRUD operations
-- `utils/` - Token management, logging, error handling
+- `utils/` - Token management, logging, error handling (under `core/utils/api/`)
 
-**Vue Components** (`cdn/components/`):
+**Vue Components** (`modules/pet/components/`):
 - `chat/ChatWindow/` - Main chat interface
 - `modal/` - Settings modals (AI, token)
 - `manager/` - FAQ and session tag managers
@@ -98,16 +116,16 @@ This is a zero-build extension - files are ready to be loaded directly into Chro
 
 ### Adding a New Pet Role:
 1. Add role configuration in `petManager.roles.js`
-2. Add role image assets in `cdn/assets/images/{roleName}/`
+2. Add role image assets in `assets/images/{roleName}/`
 3. Update manifest `web_accessible_resources` if needed
 
 ### Modifying API Endpoints:
-- Edit `cdn/core/config.js` - endpoints are configured per environment
-- Constants also in `cdn/core/constants/endpoints.js`
+- Edit `core/config.js` - endpoints are configured per environment
+- Constants also in `core/constants/endpoints.js`
 
 ### Working with Vue Components:
 - Components are loaded as HTML templates via `web_accessible_resources`
-- Vue 3 is loaded globally from `cdn/libs/vue.global.js`
+- Vue 3 is loaded globally from `libs/vue.global.js`
 - Component JS files define Vue apps using `Vue.createApp()`
 
 ### Debugging:

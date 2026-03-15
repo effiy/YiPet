@@ -29,7 +29,6 @@
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Manifest%20V3-blue)](https://developer.chrome.com/docs/extensions/mv3/)
 [![Version](https://img.shields.io/badge/version-1.1.1-green)](manifest.json)
-[![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
 
 [English Overview](#english-overview) • [快速开始](#-快速开始) • [功能特性](#-功能特性) • [开发指南](#-开发指南)
 ```
@@ -128,6 +127,7 @@
 ```
 ├── manifest.json                    # 扩展清单文件
 ├── CLAUDE.md                        # Claude Code 指导文档
+├── README.md                        # 项目说明文档（当前正在创建）
 ├── cdn/
 │   ├── core/                        # 核心工具和配置
 │   ├── libs/                        # 第三方库
@@ -149,30 +149,70 @@
 
 ### 3.10 🤝 贡献指南
 
-- 如何提交 Issue
-- Pull Request 流程
-- 代码风格指南
+**提交 Issue：**
+- 首先查看是否有类似的 Issue 已存在
+- 提供详细的复现步骤、预期行为和实际行为
+- 包含截图或视频（如果有）
+
+**Pull Request 流程：**
+1. Fork 仓库
+2. 创建功能分支：`git checkout -b feature/your-feature`
+3. 提交更改
+4. 推送到您的 fork 仓库
+5. 创建 Pull Request
+
+**代码规范：**
+- 使用一致的代码风格（基于项目现有代码）
+- 添加适当的注释
+- 确保功能的完整性
+- 测试您的更改
 
 ### 3.11 📄 许可证
 
 MIT 许可证声明。
 
-### 3.12 📞 联系方式
+### 3.12 🔍 故障排除
 
-- 项目仓库链接
-- Issue 追踪
-- 开发者信息
+**常见问题：**
+
+1. **扩展无法加载**：
+   - 确保已启用"开发者模式"
+   - 检查 `manifest.json` 是否有语法错误
+   - 确认目录结构正确
+
+2. **宠物不显示**：
+   - 检查浏览器控制台是否有错误
+   - 确认是否在支持的网站上（`https://` 或 `http://localhost/`）
+   - 尝试重新加载网页
+
+3. **聊天功能无法使用**：
+   - 检查网络连接
+   - 确认已配置有效的 API 令牌
+   - 查看浏览器控制台的错误信息
+
+4. **API 连接失败**：
+   - 确认网络环境允许连接到 API 地址
+   - 检查防火墙或代理设置
+   - 尝试切换网络环境
+
+### 3.13 📞 联系方式
+
+- 项目仓库链接：[GitHub 仓库](https://github.com/yourusername/your-repo)（请替换为实际链接）
+- Issue 追踪：[提交 Issue](https://github.com/yourusername/your-repo/issues)（请替换为实际链接）
+- 开发者：[您的名字/团队](https://yourwebsite.com)
 
 ## 4. 实现计划
 
 1. 创建 `README.md` 文件
 2. 按照上述结构编写内容
-3. 参考 `CLAUDE.md` 和 `manifest.json` 中的信息
-4. 确保所有链接和引用正确
-5. 添加适当的 badge 和图标
+3. 确保所有链接和引用正确
+4. 添加适当的 badge 和图标
+5. 验证所有信息的准确性
 
 ## 5. 注意事项
 
-- README 不应重复 `CLAUDE.md` 中的内容，而是提供更高层次的概述
+- README 应提供完整的项目信息，面向最终用户和开发者
 - 保持技术准确性，确保所有代码示例和命令正确
 - 使用清晰的 Markdown 格式，便于在 GitHub 等平台上渲染
+- 定期更新 README 以反映项目的最新状态
+- 如果有 LICENSE 文件，请确保其内容与 README 中的声明一致

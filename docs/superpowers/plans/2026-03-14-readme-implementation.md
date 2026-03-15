@@ -527,8 +527,8 @@ git commit -m "feat: add development guide section"
 │   └── views/                       # Popup UI
 └── docs/                            # 文档目录
     └── superpowers/
-        ├── specs/                   # 设计规范
-        └── plans/                   # 实施计划
+        ├── specs/                   # 设计规范文档
+        └── plans/                   # 实施计划文档
 ```
 
 ---
@@ -543,7 +543,31 @@ git commit -m "feat: add project structure section"
 
 ---
 
-### Task 10: 添加贡献指南部分
+### Task 10: 添加许可证部分
+
+**Files:**
+- Modify: `README.md`
+
+- [ ] **Step 1: 添加 📄 许可证部分**
+
+```markdown
+## 📄 许可证
+
+本项目采用 MIT 许可证。
+
+---
+```
+
+- [ ] **Step 2: 提交更改**
+
+```bash
+git add README.md
+git commit -m "feat: add license section"
+```
+
+---
+
+### Task 11: 添加贡献指南部分
 
 **Files:**
 - Modify: `README.md`
@@ -613,7 +637,7 @@ git commit -m "feat: add contributing guide section"
 
 ## Chunk 5: 添加故障排除和联系方式
 
-### Task 11: 添加故障排除部分
+### Task 12: 添加故障排除部分
 
 **Files:**
 - Modify: `README.md`
@@ -687,7 +711,7 @@ git commit -m "feat: add troubleshooting section"
 
 ---
 
-### Task 12: 添加联系方式和结束部分
+### Task 13: 添加联系方式和结束部分
 
 **Files:**
 - Modify: `README.md`
@@ -721,7 +745,7 @@ git commit -m "feat: add contact and final sections"
 
 ---
 
-### Task 13: 验证并完成
+### Task 14: 验证并完成
 
 **Files:**
 - Read: `README.md`

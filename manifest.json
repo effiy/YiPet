@@ -16,7 +16,7 @@
       "matches": ["<all_urls>"],
       "js": [
         "cdn/core/config.js",
-        "cdn/libs/md5.js",
+        "libs/md5.js",
         "src/api/utils/token.js",
         "src/api/utils/logger.js",
         "src/api/utils/error.js",
@@ -29,9 +29,9 @@
         "src/api/services/SessionService.js",
         "cdn/utils/session/sessionManager.js",
         "src/api/services/FaqService.js",
-        "cdn/libs/marked.min.js",
-        "cdn/libs/vue.global.js",
-        "cdn/libs/html2canvas.min.js",
+        "libs/marked.min.js",
+        "libs/vue.global.js",
+        "libs/html2canvas.min.js",
         "src/features/chat/content/export-chat-to-png.js",
         "cdn/utils/logging/loggerUtils.js",
         "cdn/utils/error/errorHandler.js",
@@ -79,8 +79,8 @@
         "cdn/core/bootstrap/index.js"
       ],
       "css": [
-        "cdn/assets/styles/tailwind.css",
-        "cdn/assets/styles/content.css",
+        "assets/styles/tailwind.css",
+        "assets/styles/content.css",
         "cdn/components/chat/ChatWindow/index.css"
       ],
       "run_at": "document_end"
@@ -107,22 +107,22 @@
     }
   },
   "icons": {
-    "16": "cdn/assets/icons/icon16.png",
-    "32": "cdn/assets/icons/icon32.png",
-    "48": "cdn/assets/icons/icon48.png",
-    "128": "cdn/assets/icons/icon128.png"
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "cdn/assets/icons/icon.png",
-        "cdn/assets/images/*/icon.png",
-        "cdn/assets/images/*/run/*.png",
-        "cdn/libs/mermaid.min.js",
+        "assets/icons/icon.png",
+        "assets/images/*/icon.png",
+        "assets/images/*/run/*.png",
+        "libs/mermaid.min.js",
         "src/features/mermaid/page/load-mermaid.js",
         "src/features/mermaid/page/render-mermaid.js",
         "src/features/mermaid/page/preview-mermaid.js",
-        "cdn/libs/jszip.min.js",
+        "libs/jszip.min.js",
         "src/features/session/page/load-jszip.js",
         "src/features/session/page/export-sessions.js",
         "src/features/session/page/import-sessions.js",

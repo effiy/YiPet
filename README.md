@@ -1,33 +1,11 @@
-# 温柔陪伴助手 (Gentle Companionship Assistant)
+# 温柔陪伴助手
 
 > 在浏览器中添加一位温柔体贴的伴侣，陪伴您的浏览时光
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Manifest%20V3-blue)](https://developer.chrome.com/docs/extensions/mv3/)
 [![Version](https://img.shields.io/badge/version-1.1.1-green)](manifest.json)
 
-[English Overview](#english-overview) • [快速开始](#-快速开始) • [功能特性](#-功能特性) • [开发指南](#-开发指南)
-
----
-
-## English Overview
-
-**Gentle Companionship Assistant** is a Chrome browser extension (Manifest V3) that adds interactive AI-powered virtual pets to your web pages, making your browsing experience more enjoyable and productive.
-
-### Key Features:
-- 🐾 Virtual pet display with drag-and-drop support
-- 💬 AI chat interface with streaming responses
-- 📸 Region screenshot capabilities
-- 📦 Session management with import/export (ZIP format)
-- ❓ FAQ system with tagging
-- 📊 Mermaid diagram rendering
-- 🎭 Multiple pet roles (Teacher, Doctor, Pastry Chef, Police Officer)
-- ⌨️ Keyboard shortcuts
-
-### Quick Install:
-1. Clone this repository
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable "Developer mode"
-4. Click "Load unpacked" and select this repository directory
+[快速开始](#-快速开始) • [功能特性](#-功能特性) • [开发指南](#-开发指南)
 
 ---
 

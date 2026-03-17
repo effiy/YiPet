@@ -32,8 +32,6 @@
         this.colors = PET_CONFIG.pet.colors
         this.mermaidLoaded = false
         this.mermaidLoading = false
-        this.jszipLoaded = false
-        this.jszipLoading = false
 
         // 会话管理相关属性
         this.currentSessionId = null
@@ -785,51 +783,6 @@
         if (this.sendMessage) {
           await this.sendMessage(userContent, userImageDataUrl)
         }
-      }
-
-      // 为消息添加导出图片按钮
-      addExportButtonForMessage (buttonContainer, messageDiv, messageType) {
-        if (!buttonContainer || !messageDiv) {
-          return
-        }
-
-        // 检查是否已经存在导出按钮
-        if (buttonContainer.querySelector('.export-message-button')) {
-          return
-        }
-
-        // 创建导出按钮
-        const exportBtn = document.createElement('button')
-        // 使用 SVG 图标替代 emoji，更专业美观
-        exportBtn.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        `
-        exportBtn.title = '导出消息为图片'
-        exportBtn.className = 'pet-chat-meta-btn chat-message-action-btn'
-
-        // 点击事件
-        exportBtn.addEventListener('click', async (e) => {
-          e.preventDefault()
-          e.stopPropagation()
-
-          // 调用导出函数
-          if (window.exportSingleMessageToPNG) {
-            await window.exportSingleMessageToPNG(messageDiv, messageType)
-          } else {
-            console.error('导出函数未加载')
-            const exportError = (PET_CONFIG && PET_CONFIG.constants && PET_CONFIG.constants.ERROR_MESSAGES)
-              ? PET_CONFIG.constants.ERROR_MESSAGES.OPERATION_FAILED
-              : '导出功能未加载'
-            this.showNotification(exportError, 'error')
-          }
-        })
-
-        // 将按钮添加到容器中（在编辑按钮后面）
-        buttonContainer.appendChild(exportBtn)
       }
 
       // 创建打字指示器（有趣的等待动画）

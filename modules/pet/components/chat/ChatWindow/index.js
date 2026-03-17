@@ -120,22 +120,6 @@
               }
             }
 
-            const onExportClick = () => {
-              if (typeof manager.exportSessionsToZip === 'function') manager.exportSessionsToZip()
-            }
-
-            const onImportClick = () => {
-              const DomHelper = window.DomHelper
-              if (!DomHelper || typeof DomHelper.pickFile !== 'function') return
-              DomHelper.pickFile({ accept: '.zip' })
-                .then(async (file) => {
-                  if (file && typeof manager.importSessionsFromZip === 'function') {
-                    await manager.importSessionsFromZip(file)
-                  }
-                })
-                .catch(() => {})
-            }
-
             const onAddClick = () => {
               if (typeof manager.createBlankSession === 'function') manager.createBlankSession()
             }
@@ -157,8 +141,6 @@
               onSearchInput,
               onSearchKeydown,
               onBatchToggleClick,
-              onExportClick,
-              onImportClick,
               onAddClick,
               onAuthClick,
               onSidebarToggleClick

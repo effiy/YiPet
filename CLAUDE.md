@@ -10,7 +10,6 @@ This is a Chrome browser extension (Manifest V3) called "温柔陪伴助手" (Ge
 - Virtual pet display on web pages with drag-and-drop support
 - AI chat interface with streaming responses
 - Screenshot capabilities (region selection)
-- Session management with import/export (ZIP format)
 - FAQ system with tagging
 - Mermaid diagram rendering
 - Multiple pet roles (Teacher, Doctor, Pastry Chef, Police Officer)
@@ -20,7 +19,7 @@ This is a Chrome browser extension (Manifest V3) called "温柔陪伴助手" (Ge
 - Vanilla JavaScript (no framework for core extension)
 - Vue.js 3 for UI components
 - Chrome Extension API (Manifest V3)
-- External libraries: marked, html2canvas, JSZip, mermaid, turndown, md5
+- External libraries: marked, mermaid, turndown, md5
 
 ## Development Setup
 

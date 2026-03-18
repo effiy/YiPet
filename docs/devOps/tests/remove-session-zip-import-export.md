@@ -45,7 +45,7 @@ rm -f libs/jszip.min.js
 # 6. 更新文档
 # CLAUDE.md - 删除 JSZip 依赖描述
 # README.md - 删除会话导入/导出功能描述
-# docs/structure.md - 删除文件结构描述
+# docs/架构设计.md - 删除文件结构描述
 ```
 
 #### 3.1.2 文件变更统计

@@ -35,7 +35,7 @@
 | `modules/pet/components/chat/ChatWindow/index.js` | 移除组件方法 |
 | `CLAUDE.md` | 更新项目概述和技术栈 |
 | `README.md` | 更新功能特性和会话管理部分 |
-| `docs/structure.md` | 更新项目结构文档 |
+| `docs/架构设计.md` | 更新项目结构文档 |
 
 ## 3. 技术规格
 

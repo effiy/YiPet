@@ -52,7 +52,7 @@
 ├── manifest.json                                   # Chrome 扩展配置文件
 ├── modules/pet/content/core/petManager.core.js     # 移除按钮添加方法
 ├── CLAUDE.md                                       # 项目文档
-└── docs/structure.md                               # 项目结构说明
+└── docs/架构设计.md                               # 项目结构说明
 ```
 
 ### 3.2 架构调整

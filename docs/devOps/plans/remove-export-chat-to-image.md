@@ -31,7 +31,7 @@
 ### 2.3 引用位置
 - `manifest.json` - 在 content_scripts 和 web_accessible_resources 中引用
 - `CLAUDE.md` - 文档描述
-- `structure.md` - 项目结构说明
+- `架构设计.md` - 项目结构说明
 
 ## 3. 实施计划
 
@@ -95,8 +95,8 @@ rm -f libs/html2canvas.min.js
 2. 在"技术栈"部分移除 html2canvas 库的说明
 3. 在"开发任务"部分移除与导出功能相关的任务
 
-#### 3.3.2 更新 structure.md
-**文件位置**：`/Users/yi/Yi/YiPet/docs/structure.md`
+#### 3.3.2 更新 架构设计.md
+**文件位置**：`/Users/yi/Yi/YiPet/docs/架构设计.md`
 
 **修改内容**：
 1. 移除 `export-chat-to-png.js` 文件的描述
@@ -144,7 +144,7 @@ git status
 git diff
 
 # 提交
-git add manifest.json modules/pet/content/core/petManager.core.js CLAUDE.md docs/structure.md
+git add manifest.json modules/pet/content/core/petManager.core.js CLAUDE.md docs/架构设计.md
 git add -u  # 删除的文件会自动追踪
 git commit -m "refactor: 移除聊天记录导出为图片功能"
 ```

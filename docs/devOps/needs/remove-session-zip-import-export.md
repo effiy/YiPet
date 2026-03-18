@@ -65,7 +65,7 @@
 6. **`modules/pet/components/chat/ChatWindow/index.js`** - 移除组件中的导入/导出按钮和功能
 7. **`CLAUDE.md`** - 更新项目概述和技术栈，移除会话导入/导出功能描述
 8. **`README.md`** - 更新功能特性和会话管理部分
-9. **`docs/structure.md`** - 更新项目结构文档
+9. **`docs/架构设计.md`** - 更新项目结构文档
 
 ## 4. 实施步骤
 
@@ -98,7 +98,7 @@ rm -f libs/jszip.min.js
 ### 步骤 6：更新文档
 - 更新 `CLAUDE.md` - 移除功能描述和技术栈
 - 更新 `README.md` - 更新功能特性和会话管理部分
-- 更新 `docs/structure.md` - 更新项目结构文档
+- 更新 `docs/架构设计.md` - 更新项目结构文档
 
 ## 5. 影响分析
 

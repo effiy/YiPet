@@ -38,7 +38,7 @@
 - `modules/pet/components/chat/ChatWindow/index.js` - 有组件方法
 - `CLAUDE.md` - 文档描述
 - `README.md` - 功能描述
-- `docs/structure.md` - 项目结构说明
+- `docs/架构设计.md` - 项目结构说明
 
 ## 3. 实施计划
 
@@ -109,8 +109,8 @@ rm -f libs/jszip.min.js
 1. 在"功能特性"部分移除 ZIP 导入/导出功能描述
 2. 在"会话管理"部分移除相关说明
 
-#### 3.3.3 更新 docs/structure.md
-**文件位置**：`/Users/yi/Yi/YiPet/docs/structure.md`
+#### 3.3.3 更新 docs/架构设计.md
+**文件位置**：`/Users/yi/Yi/YiPet/docs/架构设计.md`
 
 **修改内容**：
 1. 移除对 jszip.min.js 的描述
@@ -140,7 +140,7 @@ rm -f libs/jszip.min.js
 ### 4.3 文档验证
 - [x] CLAUDE.md 已更新
 - [x] README.md 已更新
-- [x] docs/structure.md 已更新
+- [x] docs/架构设计.md 已更新
 
 ## 5. 实施步骤总结
 

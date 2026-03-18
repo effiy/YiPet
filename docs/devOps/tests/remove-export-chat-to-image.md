@@ -38,7 +38,7 @@ rm -f libs/html2canvas.min.js
 
 # 4. 更新文档
 # CLAUDE.md - 删除 html2canvas 依赖描述
-# docs/structure.md - 删除文件结构描述
+# docs/架构设计.md - 删除文件结构描述
 ```
 
 #### 3.1.2 文件变更统计
@@ -158,7 +158,7 @@ rm -f libs/html2canvas.min.js
 
 ### 8.3 文档验收
 - [x] CLAUDE.md 中已移除导出功能的描述 ✅
-- [x] structure.md 文件结构说明已更新 ✅
+- [x] 架构设计.md 文件结构说明已更新 ✅
 
 ## 9. 问题报告
 
@@ -207,7 +207,7 @@ rm -f libs/html2canvas.min.js
 │   ├── manifest.json (更新 content_scripts 数组)
 │   ├── modules/pet/content/core/petManager.core.js (删除 addExportButtonForMessage 方法)
 │   ├── CLAUDE.md (更新技术栈和功能描述)
-│   └── docs/structure.md (更新项目结构说明)
+│   └── docs/架构设计.md (更新项目结构说明)
 ```
 
 ### 11.2 截图证据

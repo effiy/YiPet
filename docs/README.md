@@ -26,29 +26,81 @@
 
 | 类别         | 技术/库                     | 用途说明                                  |
 |--------------|------------------------------|-------------------------------------------|
-| **核心技术** | 🗼 Vanilla JavaScript        | 核心扩展逻辑（无框架，性能更优）          |
-|              | 💚 Vue.js 3                   | 现代化 UI 组件框架                        |
-|              | 🔌 Chrome Extension API (Manifest V3) | 最新浏览器扩展 API                  |
-| **第三方库** | 📝 marked                    | Markdown 快速渲染                          |
-|              | 📊 mermaid                   | 专业图表渲染                              |
-|              | 🔄 turndown                  | HTML 转 Markdown 工具                      |
-|              | 🔒 md5                       | 安全哈希计算                              |
+| **核心架构** | 🗼 Vanilla JavaScript        | 核心扩展逻辑（零构建，直接加载运行）      |
+|              | 💚 Vue.js 3 (Global Build)   | 现代化 UI 组件框架，提供响应式组件        |
+|              | 🔌 Chrome Extension API (Manifest V3) | 最新浏览器扩展标准                  |
+| **UI 框架**  | 🎨 Tailwind CSS              | 实用优先的 CSS 框架，快速构建界面          |
+|              | ✨ CSS3 Animations           | 宠物浮动、眨眼等动画效果                  |
+| **Markdown** | 📝 marked                    | Markdown 解析与渲染（支持 GFM 语法）      |
+|              | 🔄 turndown                  | HTML 逆向转换为 Markdown                  |
+| **图表渲染** | 📊 mermaid                   | 专业图表渲染（流程图、时序图、甘特图等）  |
+| **工具库**   | 🔒 md5                       | 安全哈希计算，用于数据校验                |
+| **Chrome API**| 💾 storage.local             | 本地数据持久化存储                        |
+|              | 📋 activeTab                 | 当前标签页访问权限                        |
+|              | 🎯 scripting                 | 动态脚本注入能力                          |
+|              | 🔗 tabs                      | 标签页管理与通信                          |
+|              | ⌨️ commands                  | 键盘快捷键支持                            |
+|              | 📸 webRequest                | 网络请求监听（用于截图等功能）            |
+| **开发模式** | 🏗️ Zero Build                | 无需构建工具，直接加载源代码到 Chrome    |
+|              | 🔍 DevTools Integration      | 支持浏览器开发者工具调试                  |
 
 ---
 ---
 
 ## ⚙️ 配置指南
 
-| 配置分类 | 配置说明 |
-|---------|---------|
-| 🌍 环境配置 | 生产/开发/测试环境灵活切换 |
-| 🔌 API 端点配置 | 不同环境的 API 地址配置 |
-| 💾 Chrome 存储说明 | 数据存储和读取说明 |
-| ⚙️ 功能配置 | AI、角色、快捷键等功能配置 |
-| 🔧 高级配置 | 调试模式、权限设置等高级选项 |
-| 📝 配置示例 | 完整的配置文件示例 |
+| 类别 | 配置项 | 默认值 | 说明 |
+|------|--------|--------|------|
+| 🌍 环境配置 | `__PET_ENV_MODE__` | `production` | 全局环境变量，用于切换环境 |
+| | `API_BASE_URL` (生产) | `https://api.effiy.cn` | 正式使用的 API 基础地址 |
+| | `API_BASE_URL` (开发) | `http://localhost:8000` | 本地开发调试的 API 地址 |
+| | `API_BASE_URL` (测试) | `https://staging.api.effiy.cn` | 测试验证的 API 地址 |
+| 🔌 API 配置 | `streamPromptUrl` | `https://api.effiy.cn/prompt` | 流式提示接口 |
+| | `promptUrl` | `https://api.effiy.cn/prompt/` | 提示接口 |
+| | `yiaiBaseUrl` | `https://api.effiy.cn` | 基础 API 地址 |
+| | `faqApiUrl` | `https://api.effiy.cn` | FAQ API 地址 |
+| 💾 存储配置 | `petGlobalState` | 见下方 | 宠物全局状态（可见性、位置、大小、颜色） |
+| | `petChatWindowState` | 见下方 | 聊天窗口状态（位置、大小） |
+| | `petSettings` | 见下方 | 用户设置（API 令牌、AI 配置、角色） |
+| | `petDevMode` | `false` | 开发模式标志 |
+| 🐾 宠物配置 | `defaultSize` | `260` | 默认宠物大小 |
+| | `defaultPosition` | `{ x: 20, y: '20%' }` | 默认宠物位置 |
+| 🪟 聊天窗口配置 | `defaultSize.width` | `700` | 默认窗口宽度 |
+| | `defaultSize.height` | `720` | 默认窗口高度 |
+| 🤖 AI 配置 | `aiModel` | `'gpt-4'` | AI 模型名称 |
+| | `aiTemperature` | `0.7` | 生成温度 (0-1) |
+| 🔧 高级配置 | `env.flags.debug` | `false` | 调试模式标志 |
+| | `env.flags.mockApi` | `false` | Mock API 标志 |
+| | `<all_urls>` | 已配置 | 访问所有网站的主机权限 |
 
-详细的配置说明请参考独立文档 [配置指南](./配置指南.md)，该文档提供了全面的参数说明和使用方法，帮助用户根据需求调整扩展行为，从基础的 API 设置到高级的调试选项，覆盖了扩展使用的各个方面。
+**petGlobalState 默认值：**
+```javascript
+{
+  visible: false,
+  position: { x: 20, y: '20%' },
+  size: 260,
+  colorIndex: 0
+}
+```
+
+**petChatWindowState 默认值：**
+```javascript
+{
+  position: { x: 'center', y: '12%' },
+  size: { width: 700, height: 720 }
+}
+```
+
+**petSettings 默认值：**
+```javascript
+{
+  apiToken: '',
+  aiModel: 'gpt-4',
+  aiTemperature: 0.7,
+  currentRole: '教师',
+  autoSave: true
+}
+```
 
 ---
 
@@ -86,20 +138,38 @@
 
 ## 🎯 核心功能
 
-### 📋 功能分类
+| 功能分类 | 功能名称 | 功能说明 | 使用方法 | 相关文件 |
+|---------|---------|---------|---------|---------|
+| 🐾 基础功能 | 虚拟宠物展示 | 在网页上显示可爱的虚拟宠物，支持拖拽和动画效果 | • 显示/隐藏：`Ctrl+Shift+P`<br>• 移动：按住左键拖动<br>• 位置自动记忆 | • `modules/pet/content/petManager.pet.js`<br>• `modules/pet/content/petManager.drag.js`<br>• `modules/pet/content/petManager.state.js` |
+| | AI 聊天界面 | 流式响应的 AI 对话体验，支持 Markdown 渲染 | • 打开/关闭：`Ctrl+Shift+X`<br>• 发送：Enter 或点击<br>• 插入截图：点击截图按钮 | • `modules/pet/components/chat/ChatWindow/`<br>• `modules/pet/content/petManager.ai.js`<br>• `modules/pet/content/petManager.parser.js` |
+| | 多种宠物角色 | 提供不同类型的虚拟宠物角色，每个角色有独特的外观和性格特点 | • 打开聊天窗口<br>• 点击角色选择按钮<br>• 选择角色 | • `modules/pet/content/modules/petManager.roles.js`<br>• `assets/images/` (角色图片目录)<br>• Vue 组件 |
+| 🛠️ 实用工具 | 区域截图功能 | 自由选择截图区域，便捷快速截图 | • 在聊天窗口点击截图按钮<br>• 选择区域<br>• 按 Enter 确认或 Esc 取消 | • `modules/pet/content/petManager.screenshot.js`<br>• `modules/extension/background/actions/screenshotHandler.js` |
+| | 键盘快捷键 | 快捷操作，提高效率 | • 默认：`Ctrl+Shift+P`（显示/隐藏）<br>• 默认：`Ctrl+Shift+X`（聊天）<br>• 可在 `chrome://extensions/` 中自定义 | • `manifest.json` (快捷键定义)<br>• `modules/extension/background/index.js` (事件处理) |
+| 📦 数据管理 | 会话管理 | 保存和管理多个对话会话，支持标签分类 | • 创建：会话列表 → 新建会话<br>• 切换：直接点击<br>• 编辑：点击编辑按钮 | • `modules/pet/content/petManager.session.js`<br>• `modules/session/` (会话功能模块)<br>• `core/api/services/SessionService.js` |
+| | FAQ 系统 | 保存常用问题和答案，快速检索和复用 | • 打开 FAQ 管理器<br>• 点击"添加 FAQ"<br>• 输入问题和答案<br>• 可选添加标签 | • `modules/faq/content/faq.js`<br>• `modules/faq/content/tags.js`<br>• `core/api/services/FaqService.js` |
+| 📊 增强功能 | Mermaid 图表渲染 | 支持 Mermaid 语法的图表渲染功能（流程图、时序图、甘特图等） | • 使用三个反引号包裹 Mermaid 代码块发送<br>• 示例：```mermaid graph TD A[开始] --> B``` | • `modules/pet/content/petManager.mermaid.js`<br>• `modules/mermaid/page/load-mermaid.js`<br>• `modules/mermaid/page/render-mermaid.js` |
 
-| 功能分类 | 功能名称 | 功能说明 |
-|---------|---------|---------|
-| 🐾 基础功能 | [虚拟宠物展示](./核心功能/虚拟宠物展示.md) | 在网页上显示可爱的虚拟宠物，支持拖拽和动画效果 |
-| | [AI 聊天界面](./核心功能/AI聊天界面.md) | 流式响应的 AI 对话体验，支持 Markdown 渲染 |
-| | [多种宠物角色](./核心功能/多种宠物角色.md) | 多种可爱的虚拟宠物角色可选，满足不同喜好 |
-| 🛠️ 实用工具 | [区域截图功能](./核心功能/区域截图功能.md) | 自由选择截图区域，便捷快速截图 |
-| | [键盘快捷键](./核心功能/键盘快捷键.md) | 快捷操作，提高效率 |
-| 📦 数据管理 | [会话管理](./核心功能/会话管理.md) | 保存和管理多个对话会话，支持标签分类 |
-| | [FAQ 系统](./核心功能/FAQ系统.md) | 保存常用问题和答案，快速检索和复用 |
-| 📊 增强功能 | [Mermaid 图表渲染](./核心功能/Mermaid图表渲染.md) | 支持 Mermaid 语法的图表渲染 |
+---
 
-详细的功能说明请参考独立文档 [核心功能文档](./核心功能/)，该文档提供了各个核心功能的详细说明，从基础的虚拟宠物展示到增强的 Mermaid 图表渲染，涵盖了扩展的全部功能特性。
+### 🎭 宠物角色详情
+
+| 角色 | 定位 | 性格特点 | 适用场景 |
+|------|------|----------|----------|
+| 📚 教师 | 知识渊博的学习伙伴 | 耐心、智慧、乐于助人 | 学习辅导、知识问答 |
+| 👨‍⚕️ 医生 | 关心健康的医疗顾问 | 专业、关怀、温和 | 健康咨询、医疗建议 |
+| 👨‍🍳 甜品师 | 甜蜜温馨的生活伴侣 | 温柔、甜美、乐观 | 日常聊天、生活建议 |
+| 👮 警察 | 正直可靠的安全卫士 | 严谨、可靠、果断 | 安全咨询、问题解决 |
+
+---
+
+### ⌨️ 快捷键参考
+
+| 功能 | Windows/Linux | Mac | 描述 |
+|------|--------------|-----|------|
+| 切换宠物显示/隐藏 | `Ctrl+Shift+P` | `Cmd+Shift+P` | 快速显示或隐藏宠物 |
+| 打开/关闭聊天窗口 | `Ctrl+Shift+X` | `Cmd+Shift+X` | 快速打开或关闭聊天 |
+
+**自定义快捷键：** 打开 `chrome://extensions/` → 点击"键盘快捷键" → 找到"温柔陪伴助手"扩展 → 修改或添加快捷键
 
 ---
 

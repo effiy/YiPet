@@ -140,14 +140,14 @@
 
 | 功能分类 | 功能名称 | 功能说明 | 使用方法 | 相关文件 |
 |---------|---------|---------|---------|---------|
-| 🐾 基础功能 | 虚拟宠物展示 | 在网页上显示可爱的虚拟宠物，支持拖拽和动画效果 | • 显示/隐藏：`Ctrl+Shift+P`<br>• 移动：按住左键拖动<br>• 位置自动记忆 | • `modules/pet/content/petManager.pet.js`<br>• `modules/pet/content/petManager.drag.js`<br>• `modules/pet/content/petManager.state.js` |
-| | AI 聊天界面 | 流式响应的 AI 对话体验，支持 Markdown 渲染 | • 打开/关闭：`Ctrl+Shift+X`<br>• 发送：Enter 或点击<br>• 插入截图：点击截图按钮 | • `modules/pet/components/chat/ChatWindow/`<br>• `modules/pet/content/petManager.ai.js`<br>• `modules/pet/content/petManager.parser.js` |
-| | 多种宠物角色 | 提供不同类型的虚拟宠物角色，每个角色有独特的外观和性格特点 | • 打开聊天窗口<br>• 点击角色选择按钮<br>• 选择角色 | • `modules/pet/content/modules/petManager.roles.js`<br>• `assets/images/` (角色图片目录)<br>• Vue 组件 |
-| 🛠️ 实用工具 | 区域截图功能 | 自由选择截图区域，便捷快速截图 | • 在聊天窗口点击截图按钮<br>• 选择区域<br>• 按 Enter 确认或 Esc 取消 | • `modules/pet/content/petManager.screenshot.js`<br>• `modules/extension/background/actions/screenshotHandler.js` |
-| | 键盘快捷键 | 快捷操作，提高效率 | • 默认：`Ctrl+Shift+P`（显示/隐藏）<br>• 默认：`Ctrl+Shift+X`（聊天）<br>• 可在 `chrome://extensions/` 中自定义 | • `manifest.json` (快捷键定义)<br>• `modules/extension/background/index.js` (事件处理) |
-| 📦 数据管理 | 会话管理 | 保存和管理多个对话会话，支持标签分类 | • 创建：会话列表 → 新建会话<br>• 切换：直接点击<br>• 编辑：点击编辑按钮 | • `modules/pet/content/petManager.session.js`<br>• `modules/session/` (会话功能模块)<br>• `core/api/services/SessionService.js` |
-| | FAQ 系统 | 保存常用问题和答案，快速检索和复用 | • 打开 FAQ 管理器<br>• 点击"添加 FAQ"<br>• 输入问题和答案<br>• 可选添加标签 | • `modules/faq/content/faq.js`<br>• `modules/faq/content/tags.js`<br>• `core/api/services/FaqService.js` |
-| 📊 增强功能 | Mermaid 图表渲染 | 支持 Mermaid 语法的图表渲染功能（流程图、时序图、甘特图等） | • 使用三个反引号包裹 Mermaid 代码块发送<br>• 示例：```mermaid graph TD A[开始] --> B``` | • `modules/pet/content/petManager.mermaid.js`<br>• `modules/mermaid/page/load-mermaid.js`<br>• `modules/mermaid/page/render-mermaid.js` |
+| 🐾 基础功能 | [在网页上展示虚拟宠物](./核心功能/在网页上展示虚拟宠物.md) | 在网页上显示可爱的虚拟宠物，支持拖拽和动画效果 | • 显示/隐藏：`Ctrl+Shift+P`<br>• 移动：按住左键拖动<br>• 位置自动记忆 | • `modules/pet/content/petManager.pet.js`<br>• `modules/pet/content/petManager.drag.js`<br>• `modules/pet/content/petManager.state.js` |
+| | [与 AI 进行智能对话](./核心功能/与 AI 进行智能对话.md) | 流式响应的 AI 对话体验，支持 Markdown 渲染 | • 打开/关闭：`Ctrl+Shift+X`<br>• 发送：Enter 或点击<br>• 插入截图：点击截图按钮 | • `modules/pet/components/chat/ChatWindow/`<br>• `modules/pet/content/petManager.ai.js`<br>• `modules/pet/content/petManager.parser.js` |
+| | [选择不同的宠物角色](./核心功能/选择不同的宠物角色.md) | 提供不同类型的虚拟宠物角色，每个角色有独特的外观和性格特点 | • 打开聊天窗口<br>• 点击角色选择按钮<br>• 选择角色 | • `modules/pet/content/modules/petManager.roles.js`<br>• `assets/images/` (角色图片目录)<br>• Vue 组件 |
+| 🛠️ 实用工具 | [截取网页区域](./核心功能/截取网页区域.md) | 自由选择截图区域，便捷快速截图 | • 在聊天窗口点击截图按钮<br>• 选择区域<br>• 按 Enter 确认或 Esc 取消 | • `modules/pet/content/petManager.screenshot.js`<br>• `modules/extension/background/actions/screenshotHandler.js` |
+| | [使用键盘快捷键操作](./核心功能/使用键盘快捷键操作.md) | 快捷操作，提高效率 | • 默认：`Ctrl+Shift+P`（显示/隐藏）<br>• 默认：`Ctrl+Shift+X`（聊天）<br>• 可在 `chrome://extensions/` 中自定义 | • `manifest.json` (快捷键定义)<br>• `modules/extension/background/index.js` (事件处理) |
+| 📦 数据管理 | [管理对话会话](./核心功能/管理对话会话.md) | 保存和管理多个对话会话，支持标签分类 | • 创建：会话列表 → 新建会话<br>• 切换：直接点击<br>• 编辑：点击编辑按钮 | • `modules/pet/content/petManager.session.js`<br>• `modules/session/` (会话功能模块)<br>• `core/api/services/SessionService.js` |
+| | [管理和使用 FAQ 知识库](./核心功能/管理和使用 FAQ 知识库.md) | 保存常用问题和答案，快速检索和复用 | • 打开 FAQ 管理器<br>• 点击"添加 FAQ"<br>• 输入问题和答案<br>• 可选添加标签 | • `modules/faq/content/faq.js`<br>• `modules/faq/content/tags.js`<br>• `core/api/services/FaqService.js` |
+| 📊 增强功能 | [渲染 Mermaid 图表](./核心功能/渲染 Mermaid 图表.md) | 支持 Mermaid 语法的图表渲染功能（流程图、时序图、甘特图等） | • 使用三个反引号包裹 Mermaid 代码块发送<br>• 示例：```mermaid graph TD A[开始] --> B``` | • `modules/pet/content/petManager.mermaid.js`<br>• `modules/mermaid/page/load-mermaid.js`<br>• `modules/mermaid/page/render-mermaid.js` |
 
 ---
 
@@ -481,15 +481,36 @@ API 端点包含环境配置、认证、会话、FAQ 等接口，支持生产、
 ## 📝 更新日志
 
 ### v1.0.0 (2026-03-18)
-- ✨ 初始版本发布
-- 🐾 实现虚拟宠物展示和拖拽功能
-- 💬 添加 AI 聊天界面，支持流式响应
-- 📸 集成智能截图工具，支持区域选择
-- 📦 实现会话管理，支持标签分类
-- 📚 添加 FAQ 知识库系统
-- 🎭 支持 4 种宠物角色（教师、医生、甜品师、警察）
-- 📊 集成 Mermaid 图表渲染功能
-- 🔧 完善开发规范和文档体系
+**初始版本发布 - 核心功能完整实现**
+
+#### 🐾 基础功能
+- ✨ 虚拟宠物展示：在网页上显示可爱的虚拟宠物，支持拖拽移动和位置自动记忆
+- 🎭 多种宠物角色：提供 4 种专业角色（教师、医生、甜品师、警察），每个角色有独特的外观和性格特点
+- ⌨️ 键盘快捷键：支持 `Ctrl+Shift+P` 切换宠物显示/隐藏，`Ctrl+Shift+X` 打开/关闭聊天窗口
+
+#### 💬 AI 对话系统
+- 💬 AI 聊天界面：流式响应的智能对话体验，支持 Markdown 渲染和图表解析
+- 📝 Markdown 渲染：集成 marked 库，支持 GFM 语法的 Markdown 解析与渲染
+- 🔄 HTML 转 Markdown：使用 turndown 实现 HTML 逆向转换为 Markdown
+
+#### 🛠️ 实用工具
+- 📸 区域截图功能：自由选择截图区域，支持一键保存，便捷快速截图
+- 🖼️ 截图插入聊天：支持将截图直接插入到聊天对话中
+
+#### 📦 数据管理
+- 📦 会话管理：保存和管理多个对话会话，支持标签分类和快速切换
+- 📚 FAQ 知识库系统：存储常用问题和答案，支持快速检索和复用，带有标签管理功能
+- 🏷️ 标签管理：支持会话标签和 FAQ 标签的增删改查
+
+#### 📊 增强功能
+- 📊 Mermaid 图表渲染：支持 Mermaid 语法的图表渲染功能（流程图、时序图、甘特图等）
+- 🎨 Vue.js 3 组件库：提供现代化的响应式 UI 组件（聊天窗口、设置弹窗、管理器、编辑器等）
+
+#### 🏗️ 架构与文档
+- 🔌 Chrome Extension Manifest V3：采用最新的浏览器扩展标准
+- 🗼 零构建架构：原生 JavaScript 实现，无需构建工具，直接加载运行
+- 📖 完善的开发规范和文档体系：包括编码规范、测试规范、安全规范、API 文档等
+- 📚 组件库文档：详细的 Vue 组件使用文档和示例
 
 ### v1.0.1 (2026-03-19)
 - 📖 优化文档结构
@@ -502,6 +523,7 @@ API 端点包含环境配置、认证、会话、FAQ 等接口，支持生产、
 - 📝 文档优化
   - 去除一级标题下的描述文字
   - 在故障排除下面添加更新日志
+  - 根据核心功能内容重写更新日志，详细记录各功能模块的实现
 
 ---
 

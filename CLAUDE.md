@@ -6,20 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Chrome browser extension (Manifest V3) called "温柔陪伴助手" (Gentle Companionship Assistant) that adds interactive AI-powered virtual pets to web pages.
 
-**Key Features:**
-- Virtual pet display on web pages with drag-and-drop support
-- AI chat interface with streaming responses
-- Screenshot capabilities (region selection)
-- FAQ system with tagging
-- Mermaid diagram rendering
-- Multiple pet roles (Teacher, Doctor, Pastry Chef, Police Officer)
-- Keyboard shortcuts (Ctrl+Shift+P to toggle pet, Ctrl+Shift+X to open chat)
+**核心功能 (Key Features):**
+- 虚拟宠物在网页上的展示和拖拽支持
+- AI 聊天界面，支持流式响应
+- 区域截图功能
+- 带有标签管理的 FAQ 系统
+- Mermaid 图表渲染
+- 多种宠物角色（教师、医生、甜品师、警察）
+- 键盘快捷键（Ctrl+Shift+P 切换宠物显示，Ctrl+Shift+X 打开聊天窗口）
 
-**Technology Stack:**
-- Vanilla JavaScript (no framework for core extension)
-- Vue.js 3 for UI components
+**技术栈 (Technology Stack):**
+- 原生 JavaScript（核心扩展无框架）
+- Vue.js 3 用于 UI 组件
 - Chrome Extension API (Manifest V3)
-- External libraries: marked, mermaid, turndown, md5
+- 外部库：marked, mermaid, turndown, md5
 
 ## Development Setup
 

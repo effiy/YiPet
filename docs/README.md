@@ -138,16 +138,16 @@
 
 ## 🎯 核心功能
 
-| 功能分类 | 功能名称 | 功能说明 | 使用方法 | 相关文件 |
-|---------|---------|---------|---------|---------|
-| 🐾 基础功能 | [在网页上展示虚拟宠物](./核心功能/在网页上展示虚拟宠物.md) | 在网页上显示可爱的虚拟宠物，支持拖拽和动画效果 | • 显示/隐藏：`Ctrl+Shift+P`<br>• 移动：按住左键拖动<br>• 位置自动记忆 | • `modules/pet/content/petManager.pet.js`<br>• `modules/pet/content/petManager.drag.js`<br>• `modules/pet/content/petManager.state.js` |
-| | [与 AI 进行智能对话](./核心功能/与 AI 进行智能对话.md) | 流式响应的 AI 对话体验，支持 Markdown 渲染 | • 打开/关闭：`Ctrl+Shift+X`<br>• 发送：Enter 或点击<br>• 插入截图：点击截图按钮 | • `modules/pet/components/chat/ChatWindow/`<br>• `modules/pet/content/petManager.ai.js`<br>• `modules/pet/content/petManager.parser.js` |
-| | [选择不同的宠物角色](./核心功能/选择不同的宠物角色.md) | 提供不同类型的虚拟宠物角色，每个角色有独特的外观和性格特点 | • 打开聊天窗口<br>• 点击角色选择按钮<br>• 选择角色 | • `modules/pet/content/modules/petManager.roles.js`<br>• `assets/images/` (角色图片目录)<br>• Vue 组件 |
-| 🛠️ 实用工具 | [截取网页区域](./核心功能/截取网页区域.md) | 自由选择截图区域，便捷快速截图 | • 在聊天窗口点击截图按钮<br>• 选择区域<br>• 按 Enter 确认或 Esc 取消 | • `modules/pet/content/petManager.screenshot.js`<br>• `modules/extension/background/actions/screenshotHandler.js` |
-| | [使用键盘快捷键操作](./核心功能/使用键盘快捷键操作.md) | 快捷操作，提高效率 | • 默认：`Ctrl+Shift+P`（显示/隐藏）<br>• 默认：`Ctrl+Shift+X`（聊天）<br>• 可在 `chrome://extensions/` 中自定义 | • `manifest.json` (快捷键定义)<br>• `modules/extension/background/index.js` (事件处理) |
-| 📦 数据管理 | [管理对话会话](./核心功能/管理对话会话.md) | 保存和管理多个对话会话，支持标签分类 | • 创建：会话列表 → 新建会话<br>• 切换：直接点击<br>• 编辑：点击编辑按钮 | • `modules/pet/content/petManager.session.js`<br>• `modules/session/` (会话功能模块)<br>• `core/api/services/SessionService.js` |
-| | [管理和使用 FAQ 知识库](./核心功能/管理和使用 FAQ 知识库.md) | 保存常用问题和答案，快速检索和复用 | • 打开 FAQ 管理器<br>• 点击"添加 FAQ"<br>• 输入问题和答案<br>• 可选添加标签 | • `modules/faq/content/faq.js`<br>• `modules/faq/content/tags.js`<br>• `core/api/services/FaqService.js` |
-| 📊 增强功能 | [渲染 Mermaid 图表](./核心功能/渲染 Mermaid 图表.md) | 支持 Mermaid 语法的图表渲染功能（流程图、时序图、甘特图等） | • 使用三个反引号包裹 Mermaid 代码块发送<br>• 示例：```mermaid graph TD A[开始] --> B``` | • `modules/pet/content/petManager.mermaid.js`<br>• `modules/mermaid/page/load-mermaid.js`<br>• `modules/mermaid/page/render-mermaid.js` |
+| 功能分类 | 功能名称 | 功能说明 | 使用方法 |
+|---------|---------|---------|---------|
+| 🐾 基础功能 | [在网页上展示虚拟宠物](./核心功能/在网页上展示虚拟宠物.md) | 在网页上显示可爱的虚拟宠物，支持拖拽和动画效果 | • 显示/隐藏：`Ctrl+Shift+P`<br>• 移动：按住左键拖动<br>• 位置自动记忆 |
+| | [与 AI 进行智能对话](./核心功能/与 AI 进行智能对话.md) | 流式响应的 AI 对话体验，支持 Markdown 渲染 | • 打开/关闭：`Ctrl+Shift+X`<br>• 发送：Enter 或点击<br>• 插入截图：点击截图按钮 |
+| | [选择不同的宠物角色](./核心功能/选择不同的宠物角色.md) | 提供不同类型的虚拟宠物角色，每个角色有独特的外观和性格特点 | • 打开聊天窗口<br>• 点击角色选择按钮<br>• 选择角色 |
+| 🛠️ 实用工具 | [截取网页区域](./核心功能/截取网页区域.md) | 自由选择截图区域，便捷快速截图 | • 在聊天窗口点击截图按钮<br>• 选择区域<br>• 按 Enter 确认或 Esc 取消 |
+| | [使用键盘快捷键操作](./核心功能/使用键盘快捷键操作.md) | 快捷操作，提高效率 | • 默认：`Ctrl+Shift+P`（显示/隐藏）<br>• 默认：`Ctrl+Shift+X`（聊天）<br>• 可在 `chrome://extensions/` 中自定义 |
+| 📦 数据管理 | [管理对话会话](./核心功能/管理对话会话.md) | 保存和管理多个对话会话，支持标签分类 | • 创建：会话列表 → 新建会话<br>• 切换：直接点击<br>• 编辑：点击编辑按钮 |
+| | [管理和使用 FAQ 知识库](./核心功能/管理和使用 FAQ 知识库.md) | 保存常用问题和答案，快速检索和复用 | • 打开 FAQ 管理器<br>• 点击"添加 FAQ"<br>• 输入问题和答案<br>• 可选添加标签 |
+| 📊 增强功能 | [渲染 Mermaid 图表](./核心功能/渲染 Mermaid 图表.md) | 支持 Mermaid 语法的图表渲染功能（流程图、时序图、甘特图等） | • 使用三个反引号包裹 Mermaid 代码块发送<br>• 示例：```mermaid graph TD A[开始] --> B``` |
 
 ---
 

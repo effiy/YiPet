@@ -2,7 +2,7 @@
 
 > 在浏览器中添加一位温柔体贴的伴侣，陪伴您的浏览时光
 
-[项目概述](#-项目概述) • [技术栈](#-技术栈) • [快速开始](#-快速开始) • [配置指南](./配置指南.md) • [核心功能](./核心功能/) • [架构设计](#-架构设计) • [目录结构](#-目录结构) • [组件库](#-组件库) • [开发规范](#-开发规范)
+[项目概述](#-项目概述) • [技术栈](#-技术栈) • [快速开始](#-快速开始) • [配置指南](./配置指南.md) • [核心功能](./核心功能/) • [架构设计](#-架构设计) • [组件库](#-组件库) • [目录结构](#-目录结构) • [开发规范](#-开发规范)
 
 ---
 
@@ -286,6 +286,30 @@ graph TD
 
 ---
 
+## 🎨 组件库
+
+### Vue 组件 (`modules/pet/components/`)
+
+| 组件分类 | 组件名称 | 功能说明 |
+|---------|---------|---------|
+| 💬 聊天组件 | [ChatWindow](./组件库/聊天组件/ChatWindow.md) | 主聊天界面 |
+| | [ChatInput](./组件库/聊天组件/ChatInput.md) | 聊天输入框 |
+| | [ChatMessage](./组件库/聊天组件/ChatMessage.md) | 聊天消息展示 |
+| 🪟 弹窗组件 | [AiSettingsModal](./组件库/弹窗组件/AiSettingsModal.md) | AI 配置弹窗 |
+| | [TokenSettingsModal](./组件库/弹窗组件/TokenSettingsModal.md) | Token 设置弹窗 |
+| 📦 管理组件 | [FaqManager](./组件库/管理组件/FaqManager.md) | FAQ 管理器 |
+| | [SessionTagManager](./组件库/管理组件/SessionTagManager.md) | 会话标签管理器 |
+| ✏️ 编辑组件 | [SessionInfoEditor](./组件库/编辑组件/SessionInfoEditor.md) | 会话信息编辑器 |
+| 🔧 通用组件 | [LoadingSpinner](./组件库/通用组件/LoadingSpinner.md) | 加载动画 |
+| | [Notification](./组件库/通用组件/Notification.md) | 通知组件 |
+
+### 组件特点
+- 每个组件有独立的目录结构
+- 包含 `.vue` 模板、`.js` 逻辑和 `.css` 样式
+- 支持组件间通信和状态管理
+
+---
+
 ## 📁 目录结构
 
 ```
@@ -332,30 +356,6 @@ graph TD
 目录结构采用清晰的模块化组织方式，将核心系统、功能模块和资源文件分离，便于开发和维护。核心系统 `core/` 提供基础服务，功能模块 `modules/` 按业务逻辑划分，资源文件 `assets/` 和第三方库 `libs/` 独立管理，确保了项目的可扩展性和可维护性。
 
 详细的目录结构说明请参考：[目录结构文档](./目录结构.md)
-
----
-
-## 🎨 组件库
-
-### Vue 组件 (`modules/pet/components/`)
-
-| 组件分类 | 组件名称 | 功能说明 |
-|---------|---------|---------|
-| 💬 聊天组件 | [ChatWindow](./组件库/聊天组件/ChatWindow.md) | 主聊天界面 |
-| | [ChatInput](./组件库/聊天组件/ChatInput.md) | 聊天输入框 |
-| | [ChatMessage](./组件库/聊天组件/ChatMessage.md) | 聊天消息展示 |
-| 🪟 弹窗组件 | [AiSettingsModal](./组件库/弹窗组件/AiSettingsModal.md) | AI 配置弹窗 |
-| | [TokenSettingsModal](./组件库/弹窗组件/TokenSettingsModal.md) | Token 设置弹窗 |
-| 📦 管理组件 | [FaqManager](./组件库/管理组件/FaqManager.md) | FAQ 管理器 |
-| | [SessionTagManager](./组件库/管理组件/SessionTagManager.md) | 会话标签管理器 |
-| ✏️ 编辑组件 | [SessionInfoEditor](./组件库/编辑组件/SessionInfoEditor.md) | 会话信息编辑器 |
-| 🔧 通用组件 | [LoadingSpinner](./组件库/通用组件/LoadingSpinner.md) | 加载动画 |
-| | [Notification](./组件库/通用组件/Notification.md) | 通知组件 |
-
-### 组件特点
-- 每个组件有独立的目录结构
-- 包含 `.vue` 模板、`.js` 逻辑和 `.css` 样式
-- 支持组件间通信和状态管理
 
 ---
 

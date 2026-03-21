@@ -171,8 +171,6 @@
           this.closeChatWindow()
         }
 
-        // 清理截图预览
-        this.closeScreenshotPreview()
 
         console.log('资源清理完成')
       }

@@ -33,7 +33,6 @@
 
     'modules/extension/background/actions/extensionHandler.js',
     'modules/extension/background/actions/petHandler.js',
-    'modules/extension/background/actions/screenshotHandler.js',
     'modules/extension/background/actions/messageForwardHandler.js',
     'modules/extension/background/actions/tabHandler.js',
 

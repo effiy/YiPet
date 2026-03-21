@@ -171,19 +171,6 @@
 
     // 使用箭头函数确保 this 绑定正确
     const handleKeyDown = (e) => {
-      // 检查是否按下了 Ctrl+Shift+S (截图快捷键)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
-        e.preventDefault()
-        e.stopPropagation()
-        e.stopImmediatePropagation()
-        console.log('检测到截图快捷键 Ctrl+Shift+S')
-
-        // 直接进行截图，不需要打开聊天窗口
-        this.takeScreenshot()
-
-        return false
-      }
-
       // 检查是否按下了 Ctrl+Shift+X (切换聊天窗口快捷键)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'x') {
         e.preventDefault()
@@ -226,7 +213,6 @@
     this._keyboardShortcutHandler = handleKeyDown
 
     console.log('键盘快捷键已设置 (petManager.events.js)：')
-    console.log('  - Ctrl+Shift+S：截图')
     console.log('  - Ctrl+Shift+X：切换聊天窗口')
     console.log('  - Ctrl+Shift+P：切换宠物显示/隐藏')
     console.log('  - Esc：关闭聊天窗口')

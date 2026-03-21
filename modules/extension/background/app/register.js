@@ -69,21 +69,6 @@
       PetHandler.handleRemovePet(request, sender, sendResponse)
     })
 
-    router.register(
-      'captureVisibleTab',
-      (request, sender, sendResponse) => {
-        ScreenshotHandler.handleCaptureVisibleTab(sendResponse)
-      },
-      true
-    )
-
-    router.register(
-      'checkPermissions',
-      (request, sender, sendResponse) => {
-        ScreenshotHandler.handleCheckPermissions(sendResponse)
-      },
-      true
-    )
 
     router.register(
       'forwardToContentScript',

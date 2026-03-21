@@ -66,7 +66,6 @@ class InjectionService {
     'modules/pet/content/petManager.events.js',
     'modules/pet/content/petManager.media.js',
     'modules/pet/content/petManager.message.js',
-    'modules/screenshot/content/petManager.screenshot.js',
     'modules/pet/content/petManager.js',
     'core/bootstrap/index.js'
   ]

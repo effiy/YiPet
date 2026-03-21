@@ -9,7 +9,6 @@ This is a Chrome browser extension (Manifest V3) called "温柔陪伴助手" (Ge
 **核心功能 (Key Features):**
 - 虚拟宠物在网页上的展示和拖拽支持
 - AI 聊天界面，支持流式响应
-- 区域截图功能
 - 带有标签管理的 FAQ 系统
 - Mermaid 图表渲染
 - 多种宠物角色（教师、医生、甜品师、警察）
@@ -96,13 +95,12 @@ This is a zero-build extension - files are ready to be loaded directly into Chro
 │   ├── faq/                         # FAQ system module
 │   │   └── content/                 # FAQ implementation (faq.js, tags.js)
 │   ├── session/                     # Session management module
-│   ├── screenshot/                  # Screenshot functionality module
 │   ├── mermaid/                     # Mermaid diagram rendering module
 │   │   └── page/                    # Mermaid scripts (load, preview, render)
 │   └── extension/                   # Chrome extension system
 │       ├── background/              # Background service worker
 │       │   ├── index.js             # Background entry point
-│       │   ├── actions/             # Message handlers (extension, pet, screenshot, tab handlers)
+│       │   ├── actions/             # Message handlers (extension, pet, tab handlers)
 │       │   ├── messaging/           # Message routing (messageRouter.js)
 │       │   ├── services/            # Background services (injection, tabMessaging)
 │       │   ├── app/                 # App registration
@@ -128,12 +126,12 @@ This is a zero-build extension - files are ready to be loaded directly into Chro
 - Main entry: `petManager.js` (lightweight assembly)
 - Core implementation: `core/petManager.core.js`
 - Feature modules: `modules/petManager.*.js` (ai, auth, roles, session, etc.)
-- Feature files: `petManager.*.js` (chat, drag, events, screenshot, ui, state, etc.)
+- Feature files: `petManager.*.js` (chat, drag, events, ui, state, etc.)
 - Vue components in `modules/pet/components/`
 
 **Background Script** (`modules/extension/background/`):
 - Service worker: `index.js`
-- Message handlers: `actions/*.js` (extension, pet, tab, screenshot, messageForward handlers)
+- Message handlers: `actions/*.js` (extension, pet, tab, messageForward handlers)
 - Message router: `messaging/messageRouter.js`
 - Services: `services/` (injectionService, tabMessaging)
 - Integrations: `integrations/wework/` (WeWork integration handler and service)

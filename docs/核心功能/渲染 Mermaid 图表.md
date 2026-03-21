@@ -1,3 +1,5 @@
+[返回 README.md](../README.md)
+
 # 渲染 Mermaid 图表
 
 ## 功能分类

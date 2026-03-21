@@ -1,3 +1,5 @@
+[返回 README.md](../README.md)
+
 # 管理和使用 FAQ 知识库
 
 ## 功能分类

@@ -1,3 +1,5 @@
+[返回 README.md](../README.md)
+
 # 与 AI 进行智能对话
 
 ## 功能分类

@@ -16,39 +16,39 @@
 
 | 组件名称 | 组件文档 | 功能说明 |
 |---------|---------|---------|
-| **ChatWindow** | [ChatWindow](./聊天组件/ChatWindow.md) | 主聊天界面 |
-| **ChatInput** | [ChatInput](./聊天组件/ChatInput.md) | 聊天输入框 |
-| **ChatMessage** | [ChatMessage](./聊天组件/ChatMessage.md) | 聊天消息展示 |
-| **ChatHeader** | [ChatHeader](./聊天组件/ChatHeader.md) | 聊天窗口头部 |
-| **ChatMessages** | [ChatMessages](./聊天组件/ChatMessages.md) | 聊天消息列表 |
+| **ChatWindow** | [聊天窗口](./01_聊天组件/聊天窗口.md) | 主聊天界面 |
+| **ChatInput** | [聊天输入框](./01_聊天组件/聊天输入框.md) | 聊天输入框 |
+| **ChatMessage** | [聊天消息](./01_聊天组件/聊天消息.md) | 聊天消息展示 |
+| **ChatHeader** | [聊天窗口头部](./01_聊天组件/聊天窗口头部.md) | 聊天窗口头部 |
+| **ChatMessages** | [聊天消息列表](./01_聊天组件/聊天消息列表.md) | 聊天消息列表 |
 
 ### 🪟 弹窗组件
 
 | 组件名称 | 组件文档 | 功能说明 |
 |---------|---------|---------|
-| **AiSettingsModal** | [AiSettingsModal](./弹窗组件/AiSettingsModal.md) | AI 配置弹窗 |
-| **TokenSettingsModal** | [TokenSettingsModal](./弹窗组件/TokenSettingsModal.md) | Token 设置弹窗 |
+| **AiSettingsModal** | [AI设置弹窗](./02_弹窗组件/AI设置弹窗.md) | AI 配置弹窗 |
+| **TokenSettingsModal** | [令牌设置弹窗](./02_弹窗组件/令牌设置弹窗.md) | Token 设置弹窗 |
 
 ### 📦 管理组件
 
 | 组件名称 | 组件文档 | 功能说明 |
 |---------|---------|---------|
-| **FaqManager** | [FaqManager](./管理组件/FaqManager.md) | FAQ 管理器 |
-| **SessionTagManager** | [SessionTagManager](./管理组件/SessionTagManager.md) | 会话标签管理器 |
-| **FaqTagManager** | [FaqTagManager](./管理组件/FaqTagManager.md) | FAQ 标签管理器 |
+| **FaqManager** | [FAQ管理器](./03_管理组件/FAQ管理器.md) | FAQ 管理器 |
+| **SessionTagManager** | [会话标签管理器](./03_管理组件/会话标签管理器.md) | 会话标签管理器 |
+| **FaqTagManager** | [FAQ标签管理器](./03_管理组件/FAQ标签管理器.md) | FAQ 标签管理器 |
 
 ### ✏️ 编辑组件
 
 | 组件名称 | 组件文档 | 功能说明 |
 |---------|---------|---------|
-| **SessionInfoEditor** | [SessionInfoEditor](./编辑组件/SessionInfoEditor.md) | 会话信息编辑器 |
+| **SessionInfoEditor** | [会话信息编辑器](./04_编辑组件/会话信息编辑器.md) | 会话信息编辑器 |
 
 ### 🔧 通用组件
 
 | 组件名称 | 组件文档 | 功能说明 |
 |---------|---------|---------|
-| **LoadingSpinner** | [LoadingSpinner](./通用组件/LoadingSpinner.md) | 加载动画 |
-| **Notification** | [Notification](./通用组件/Notification.md) | 通知组件 |
+| **LoadingSpinner** | [加载动画](./05_通用组件/加载动画.md) | 加载动画 |
+| **Notification** | [通知组件](./05_通用组件/通知组件.md) | 通知组件 |
 
 ---
 

@@ -16,9 +16,9 @@
 | | `promptUrl` | `https://api.effiy.cn/prompt/` | 提示接口 |
 | | `yiaiBaseUrl` | `https://api.effiy.cn` | 基础 API 地址 |
 | | `faqApiUrl` | `https://api.effiy.cn` | FAQ API 地址 |
-| 💾 存储配置 | `petGlobalState` | 见下方 | 宠物全局状态（可见性、位置、大小、颜色） |
-| | `petChatWindowState` | 见下方 | 聊天窗口状态（位置、大小） |
-| | `petSettings` | 见下方 | 用户设置（API 令牌、AI 配置、角色） |
+| 💾 存储配置 | `petGlobalState` | `{"visible":false,"position":{"x":20,"y":"20%"}}` | 宠物全局状态（可见性、位置、大小、颜色） |
+| | `petChatWindowState` | `{"position":{"x":"center","y":"12%"}}` | 聊天窗口状态（位置、大小） |
+| | `petSettings` | `{"apiToken":"","aiModel":"gpt-4","autoSave":true}` | 用户设置（API 令牌、AI 配置、角色） |
 | | `petDevMode` | `false` | 开发模式标志 |
 | 🐾 宠物配置 | `defaultSize` | `260` | 默认宠物大小 |
 | | `defaultPosition` | `{ x: 20, y: '20%' }` | 默认宠物位置 |
@@ -29,35 +29,6 @@
 | 🔧 高级配置 | `env.flags.debug` | `false` | 调试模式标志 |
 | | `env.flags.mockApi` | `false` | Mock API 标志 |
 | | `<all_urls>` | 已配置 | 访问所有网站的主机权限 |
-
-**petGlobalState 默认值：**
-```javascript
-{
-  visible: false,
-  position: { x: 20, y: '20%' },
-  size: 260,
-  colorIndex: 0
-}
-```
-
-**petChatWindowState 默认值：**
-```javascript
-{
-  position: { x: 'center', y: '12%' },
-  size: { width: 700, height: 720 }
-}
-```
-
-**petSettings 默认值：**
-```javascript
-{
-  apiToken: '',
-  aiModel: 'gpt-4',
-  aiTemperature: 0.7,
-  currentRole: '教师',
-  autoSave: true
-}
-```
 
 ---
 

@@ -16,11 +16,11 @@
         ...options.clientOptions
       })
 
-      // 错误处理器
-      this.errorHandler = new ErrorHandler(options.errorHandler)
+      // 错误处理器（使用静态工具类）
+      this.errorHandler = ErrorHandler
 
-      // 日志器
-      this.logger = new Logger(options.logger || {})
+      // 日志器（使用 LoggerUtils）
+      this.logger = LoggerUtils.getLogger('api')
 
       // Token管理器
       this.tokenManager = new TokenManager()
@@ -60,12 +60,15 @@
 
       // 日志拦截器
       this.addRequestInterceptor(async (config) => {
-        this.logger.logRequest(config)
+        this.logger.debug('Request:', {
+          url: config.url,
+          method: config.method || 'GET'
+        })
         return config
       })
 
       this.addResponseInterceptor(async (response) => {
-        this.logger.logResponse(response)
+        this.logger.debug('Response received')
         return response
       })
     }
@@ -146,13 +149,9 @@
         this.stats.errorRequests++
 
         // 错误处理
-        const handledError = await this.errorHandler.handle(error, {
-          endpoint,
-          options,
-          retryCount: 0
-        })
+        this.errorHandler.handle(error, { showNotification: false })
 
-        throw handledError
+        throw error
       }
     }
 

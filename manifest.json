@@ -18,8 +18,6 @@
         "core/config.js",
         "libs/md5.js",
         "core/utils/api/token.js",
-        "core/utils/api/logger.js",
-        "core/utils/api/error.js",
         "core/utils/api/request.js",
         "core/utils/media/imageResourceManager.js",
         "core/utils/ui/loadingAnimationMixin.js",

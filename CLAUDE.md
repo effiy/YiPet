@@ -1,200 +1,131 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
-## Project Overview
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-This is a Chrome browser extension (Manifest V3) called "温柔陪伴助手" (Gentle Companionship Assistant) that adds interactive AI-powered virtual pets to web pages.
+## 1. Think Before Coding
 
-**核心功能 (Key Features):**
-- 虚拟宠物在网页上的展示和拖拽支持
-- AI 聊天界面，支持流式响应
-- 带有标签管理的 FAQ 系统
-- Mermaid 图表渲染
-- 多种宠物角色（教师、医生、甜品师、警察）
-- 键盘快捷键（Ctrl+Shift+P 切换宠物显示，Ctrl+Shift+X 打开聊天窗口）
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-**技术栈 (Technology Stack):**
-- 原生 JavaScript（核心扩展无框架）
-- Vue.js 3 用于 UI 组件
-- Chrome Extension API (Manifest V3)
-- 外部库：marked, mermaid, turndown, md5
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
 
-## Development Setup
+## 2. Simplicity First
 
-This is a zero-build extension - files are ready to be loaded directly into Chrome as an unpacked extension.
+**Minimum code that solves the problem. Nothing speculative.**
 
-### Loading the Extension in Chrome:
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top-right)
-3. Click "Load unpacked" and select this repository directory
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
 
-### Environment Configuration:
-- API endpoints are configured in `core/config.js`
-- Default environment: `production` (uses `https://api.effiy.cn`)
-- Set `window.__PET_ENV_MODE__` to `development` or `staging` before loading config to use different endpoints
-- Development mode uses `http://localhost:8000`
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-## Architecture
+## 3. Surgical Changes
 
-### Directory Structure:
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
 ```
-├── manifest.json                    # Extension manifest
-├── assets/                          # Global assets (styles, images, icons)
-│   ├── styles/                      # Stylesheets
-│   │   ├── base/                    # Base styles (animations, theme)
-│   │   ├── content.css              # Content script styles
-│   │   ├── popup.css                # Popup UI styles
-│   │   └── tailwind.css             # Tailwind CSS utilities
-│   ├── images/                      # Pet role images
-│   │   ├── 医生/                    # Doctor role
-│   │   ├── 教师/                    # Teacher role (with run animation)
-│   │   ├── 甜品师/                  # Pastry Chef role
-│   │   └── 警察/                    # Police Officer role
-│   └── icons/                       # Extension icons (16, 32, 48, 128px)
-├── core/                            # Core system modules
-│   ├── config.js                    # Centralized configuration
-│   ├── bootstrap/                   # Bootstrap/init code
-│   ├── constants/                   # Constants (endpoints, etc.)
-│   ├── api/                         # API integration layer
-│   │   ├── core/                    # API manager (ApiManager.js)
-│   │   ├── services/                # API services (SessionService, FaqService)
-│   │   └── utils/                   # API utilities (error, logger, request, token)
-│   └── utils/                       # Global utility modules
-│       ├── api/                     # API-specific utilities
-│       ├── dom/                     # DOM manipulation (domHelper.js)
-│       ├── error/                   # Error handling (errorHandler.js)
-│       ├── logging/                 # Logging utilities (loggerUtils.js)
-│       ├── media/                   # Media handling (imageResourceManager.js)
-│       ├── messaging/               # Chrome messaging (messageHelper.js)
-│       ├── runtime/                 # Runtime utilities (globalAccessor, moduleUtils)
-│       ├── session/                 # Session management (sessionManager.js)
-│       ├── storage/                 # Chrome storage utilities (storageUtils.js)
-│       ├── time/                    # Time utilities (timeUtils.js)
-│       └── ui/                      # UI utilities (loading, notifications)
-├── libs/                            # Third-party libraries
-│   ├── marked.min.js                # Markdown parser
-│   ├── md5.js                       # MD5 hashing
-│   ├── mermaid.min.js               # Mermaid diagram renderer
-│   ├── turndown.js                  # HTML to Markdown converter
-│   └── vue.global.js                # Vue.js 3 runtime
-├── modules/                         # Feature modules (by functionality)
-│   ├── pet/                         # Pet management module
-│   │   ├── components/              # Vue components
-│   │   │   ├── chat/                # Chat components (ChatWindow, ChatHeader, ChatInput, ChatMessages)
-│   │   │   ├── modal/               # Settings modals (AiSettingsModal, TokenSettingsModal)
-│   │   │   ├── manager/             # Managers (FaqManager, FaqTagManager, SessionTagManager)
-│   │   │   └── editor/              # Editor (SessionInfoEditor)
-│   │   ├── content/                 # Core pet manager logic
-│   │   │   ├── core/                # Main pet manager implementation (petManager.core.js)
-│   │   │   ├── modules/             # Feature modules (ai, auth, roles, session, mermaid, etc.)
-│   │   │   ├── components/          # Content script components
-│   │   │   └── petManager.*.js      # Feature files (chat, drag, events, state, ui, etc.)
-│   │   └── styles/                  # Pet-specific styles
-│   ├── chat/                        # Chat functionality module
-│   ├── faq/                         # FAQ system module
-│   │   └── content/                 # FAQ implementation (faq.js, tags.js)
-│   ├── session/                     # Session management module
-│   ├── mermaid/                     # Mermaid diagram rendering module
-│   │   └── page/                    # Mermaid scripts (load, preview, render)
-│   └── extension/                   # Chrome extension system
-│       ├── background/              # Background service worker
-│       │   ├── index.js             # Background entry point
-│       │   ├── actions/             # Message handlers (extension, pet, tab handlers)
-│       │   ├── messaging/           # Message routing (messageRouter.js)
-│       │   ├── services/            # Background services (injection, tabMessaging)
-│       │   ├── app/                 # App registration
-│       │   ├── bootstrap/           # Bootstrap imports
-│       │   └── integrations/        # External integrations (wework)
-│       ├── content-scripts/         # Content scripts
-│       └── popup/                   # Popup UI (index.html, index.js)
-└── docs/                            # Documentation
-    ├── 核心功能/                    # Core feature documentation
-    ├── 组件库/                      # Vue component documentation
-    ├── 开发规范/                    # Development standards
-    ├── devOps/                      # DevOps documentation (needs, plans, specs, tests)
-    ├── 架构设计.md                  # Architecture design
-    ├── 目录结构.md                  # Directory structure (this doc)
-    ├── 配置指南.md                  # Configuration guide
-    ├── API端点.md                   # API endpoints
-    └── README.md                    # Main documentation
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
 ```
 
-### Key Modules:
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-**PetManager** (`modules/pet/content/`):
-- Main entry: `petManager.js` (lightweight assembly)
-- Core implementation: `core/petManager.core.js`
-- Feature modules: `modules/petManager.*.js` (ai, auth, roles, session, etc.)
-- Feature files: `petManager.*.js` (chat, drag, events, ui, state, etc.)
-- Vue components in `modules/pet/components/`
+---
 
-**Background Script** (`modules/extension/background/`):
-- Service worker: `index.js`
-- Message handlers: `actions/*.js` (extension, pet, tab, messageForward handlers)
-- Message router: `messaging/messageRouter.js`
-- Services: `services/` (injectionService, tabMessaging)
-- Integrations: `integrations/wework/` (WeWork integration handler and service)
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
-**API Layer** (`core/api/`):
-- `core/ApiManager.js` - API request management
-- `services/SessionService.js` - Session CRUD operations
-- `services/FaqService.js` - FAQ CRUD operations
-- `utils/` - Token management, logging, error handling, request helpers (under `core/api/utils/`)
+---
 
-**Core Utilities** (`core/utils/`):
-- `dom/` - DOM manipulation helpers
-- `error/` - Global error handling
-- `logging/` - Logging utilities
-- `media/` - Image and resource management
-- `messaging/` - Chrome Runtime messaging helpers
-- `runtime/` - Global accessors and module utilities
-- `session/` - Session storage management
-- `storage/` - Chrome storage wrapper
-- `time/` - Time and date utilities
-- `ui/` - Loading animations and notifications
+## 模块地图
 
-**Vue Components** (`modules/pet/components/`):
-- `chat/ChatWindow/` - Main chat interface
-- `modal/` - Settings modals (AI, token)
-- `manager/` - FAQ and session tag managers
-- `editor/` - Session info editor
+### 模块索引
 
-### Message Flow:
-- Popup ↔ Background ↔ Content Script via Chrome Runtime Messaging
-- Content script uses `window.PetManager` as main entry point
-- Background uses `messageRouter.js` to route actions to handlers
+| 模块名称 | 目录路径 | module.md 路径 | 职责描述 |
+|---------|---------|---------------|---------|
+| core/config | core/ | core/module.md | 全局配置与环境检测 |
+| core/utils | core/utils/ | core/utils/module.md | 通用工具函数集 |
+| core/api | core/api/ | core/api/module.md | API 请求管理与服务 |
+| core/bootstrap | core/bootstrap/ | core/bootstrap/module.md | Content Script 入口与初始化 |
+| modules/pet | modules/pet/ | modules/pet/module.md | 宠物管理核心模块 |
+| modules/chat | modules/chat/ | modules/chat/module.md | 聊天导出功能 |
+| modules/faq | modules/faq/ | modules/faq/module.md | FAQ 管理与标签 |
+| modules/screenshot | modules/screenshot/ | modules/screenshot/module.md | 区域截图功能 |
+| modules/session | modules/session/ | modules/session/module.md | 会话导入导出 |
+| modules/mermaid | modules/mermaid/ | modules/mermaid/module.md | Mermaid 图表渲染 |
+| modules/extension | modules/extension/ | modules/extension/module.md | 扩展系统（background/popup） |
 
-## Common Development Tasks
+### 上下文加载策略
 
-### Adding a New Pet Role:
-1. Add role configuration in `petManager.roles.js`
-2. Add role image assets in `assets/images/{roleName}/`
-3. Update manifest `web_accessible_resources` if needed
+#### 单模块任务
 
-### Modifying API Endpoints:
-- Edit `core/config.js` - endpoints are configured per environment
-- Constants also in `core/constants/endpoints.js`
+当任务仅涉及单个模块时：
+1. 读取项目级 CLAUDE.md，定位目标模块
+2. 读取目标模块的 module.md，获取依赖清单
+3. 仅加载目标模块文件 + 上游依赖的导出接口
+4. 避免加载无关模块的完整代码
 
-### Working with Vue Components:
-- Components are loaded as HTML templates via `web_accessible_resources`
-- Vue 3 is loaded globally from `libs/vue.global.js`
-- Component JS files define Vue apps using `Vue.createApp()`
+#### 跨模块任务
 
-### Debugging:
-- Content script logs: Open web page DevTools → Console
-- Background script logs: `chrome://extensions/` → Inspect views service worker
-- Popup logs: Right-click extension icon → Inspect popup
+当任务涉及多个模块时：
+1. 读取项目级 CLAUDE.md，获取涉及的模块列表
+2. 依次读取各模块的 module.md
+3. 按依赖顺序加载涉及的模块
+4. 验证影响链闭合
 
-## Storage
+---
 
-Chrome `storage.local` is used with keys:
-- `petGlobalState` - Pet visibility, position, size, color
-- `petChatWindowState` - Chat window position and size
-- `petSettings` - User settings (API token, AI config)
-- `petDevMode` - Dev mode flag
+## 项目架构约定
 
-## Keyboard Shortcuts
+### IIFE 命名空间模式
 
-- `Ctrl+Shift+P` (Mac: `Cmd+Shift+P`) - Toggle pet display
-- `Ctrl+Shift+X` (Mac: `Cmd+Shift+X`) - Open chat window
+所有业务模块必须使用 IIFE 封装，挂载到 `window.PetManager` 命名空间：
+
+```javascript
+(function () {
+  'use strict'
+  if (!window.PetManager) window.PetManager = {}
+  if (!window.PetManager.Chat) window.PetManager.Chat = {}
+
+  window.PetManager.Chat.someMethod = function someMethod() {
+    // implementation
+  }
+})()
+```
+
+### Hooks 工厂模式
+
+状态管理使用 hooks 工厂模式（createStore + useComputed + useMethods）。
+
+### manifest.json 注册
+
+新增 content_scripts 条目必须在 manifest.json 中按依赖顺序插入。

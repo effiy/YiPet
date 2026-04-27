@@ -8,7 +8,7 @@
   if (!window.PetManager) window.PetManager = {}
   if (!window.PetManager.Components) window.PetManager.Components = {}
 
-  const CHAT_MESSAGES_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/ChatMessages/index.html'
+  const CHAT_MESSAGES_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/chat-messages/index.html'
   let chatMessagesTemplateCache = ''
 
   async function loadTemplate () {

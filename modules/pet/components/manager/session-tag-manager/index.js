@@ -4,7 +4,7 @@
   if (!window.PetManager) return
   if (!window.PetManager.Components) window.PetManager.Components = {}
 
-  const SESSION_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/manager/SessionTagManager/index.html'
+  const SESSION_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/manager/session-tag-manager/index.html'
   let sessionTagManagerTemplateCache = ''
 
   async function loadTemplate () {

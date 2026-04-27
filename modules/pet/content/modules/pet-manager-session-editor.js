@@ -7,7 +7,7 @@
 
   const proto = window.PetManager.prototype
 
-  const TEMPLATE_RESOURCE_PATH = 'modules/pet/components/editor/SessionInfoEditor/index.html'
+  const TEMPLATE_RESOURCE_PATH = 'modules/pet/components/editor/session-info-editor/index.html'
   let sessionInfoEditorTemplateCache = ''
 
   const ensureMdSuffix = (str) => {

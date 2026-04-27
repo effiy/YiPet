@@ -4,7 +4,7 @@
   if (!window.PetManager) window.PetManager = {}
   if (!window.PetManager.Components) window.PetManager.Components = {}
 
-  const CHAT_HEADER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/ChatHeader/index.html'
+  const CHAT_HEADER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/chat-header/index.html'
   let chatHeaderTemplateCache = ''
 
   function stopEvent (e) {

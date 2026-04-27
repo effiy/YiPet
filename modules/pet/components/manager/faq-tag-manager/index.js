@@ -4,7 +4,7 @@
   if (!window.PetManager) return
   if (!window.PetManager.Components) window.PetManager.Components = {}
 
-  const FAQ_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/manager/FaqTagManager/index.html'
+  const FAQ_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/manager/faq-tag-manager/index.html'
   let faqTagManagerTemplateCache = ''
 
   function canUseVueTemplate (Vue) {

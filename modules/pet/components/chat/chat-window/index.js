@@ -147,7 +147,7 @@
             }
           }
 
-  const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/ChatWindow/index.html'
+  const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/chat-window/index.html'
   let chatWindowTemplatesCache = null
 
   async function loadChatWindowTemplates () {
@@ -316,7 +316,7 @@
       // Initial Theme Setup
       this.updateTheme()
 
-      // Create Header（使用 ChatHeader/index.html 模板内容）
+      // Create Header（使用 chat-header/index.html 模板内容）
       this.header = await this.createHeader()
       if (this.header) this.element.appendChild(this.header)
 

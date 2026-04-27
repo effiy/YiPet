@@ -4,7 +4,7 @@
   if (!window.PetManager) return
   if (!window.PetManager.Components) window.PetManager.Components = {}
 
-  const TEMPLATE_RESOURCE_PATH = 'modules/pet/components/modal/TokenSettingsModal/index.html'
+  const TEMPLATE_RESOURCE_PATH = 'modules/pet/components/modal/token-settings-modal/index.html'
   let templateCache = ''
 
   function canUseVueTemplate (Vue) {

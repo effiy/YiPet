@@ -21,13 +21,13 @@
   [
     'core/config.js',
 
-    'core/utils/logging/loggerUtils.js',
-    'core/utils/error/errorHandler.js',
+    'core/utils/logging/logger-utils.js',
+    'core/utils/error/error-handler.js',
     'core/utils/runtime/moduleUtils.js',
     'core/utils/runtime/globalAccessor.js',
 
     'modules/extension/background/services/tabMessaging.js',
-    'modules/extension/background/services/injectionService.js',
+    'modules/extension/background/services/injection-service.js',
 
     'modules/extension/background/integrations/wework/weworkService.js',
 

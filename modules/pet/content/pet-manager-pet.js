@@ -88,7 +88,7 @@
     if (!this.pet) return
 
     // 根据角色获取对应的图标URL，默认使用教师角色
-    const role = this.role || ((typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS) ? PET_CONFIG.constants.DEFAULTS.PET_ROLE : '教师')
+    const role = this.role || ((typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS) ? PET_CONFIG.constants.DEFAULTS.PET_ROLE : 'teacher')
     const iconUrl = chrome.runtime.getURL(`assets/images/${role}/icon.png`)
 
     // 设置动态属性（位置、大小、显示状态、背景图片、z-index）
@@ -119,7 +119,7 @@
       return
     }
 
-    const role = this.role || '教师'
+    const role = this.role || 'teacher'
 
     // 保存原始背景图片
     if (!this.originalBackgroundImage) {
@@ -242,7 +242,7 @@
   // 设置角色
   proto.setRole = function (role) {
     // 验证角色是否有效（检查 roles 文件夹中是否存在对应的文件夹）
-    const validRoles = ['教师', '医生', '甜品师', '警察']
+    const validRoles = ['teacher', 'doctor', 'chef', 'police']
     if (validRoles.includes(role)) {
       this.role = role
       this.updatePetStyle()
@@ -250,8 +250,8 @@
       this.syncToGlobalState()
       console.log('宠物角色设置为:', this.role)
     } else {
-      console.warn('无效的角色，使用默认角色教师:', role)
-      this.role = '教师'
+      console.warn('无效的角色，使用默认角色teacher:', role)
+      this.role = 'teacher'
       this.updatePetStyle()
     }
   }

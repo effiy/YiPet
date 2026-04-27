@@ -127,7 +127,7 @@ const DEFAULT_CONFIG = {
       NOTIFICATION_INFO: '#3b82f6' /* 信息蓝 */
     },
     DEFAULTS: {
-      PET_ROLE: '教师'
+      PET_ROLE: 'teacher'
     },
     ERROR_MESSAGES: {
       TAB_NOT_FOUND: '无法获取当前标签页',

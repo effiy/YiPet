@@ -172,11 +172,11 @@ class ImageResourceManager {
 
   /**
      * 预加载角色运行动画的所有帧
-     * @param {string} role - 角色名称（如 '教师'）
+     * @param {string} role - 角色名称（如 'teacher'）
      * @param {number} frameCount - 帧数（默认 3）
      * @returns {Promise<Image[]>} 所有帧的 Image 对象数组
      */
-  async preloadRunFrames (role = '教师', frameCount = 3) {
+  async preloadRunFrames (role = 'teacher', frameCount = 3) {
     const promises = []
     for (let frame = 1; frame <= frameCount; frame++) {
       const imagePath = `assets/images/${role}/run/${frame}.png`
@@ -190,7 +190,7 @@ class ImageResourceManager {
      * @param {string} role - 角色名称
      * @returns {Promise<Image>} 图标 Image 对象
      */
-  async loadRoleIcon (role = '教师') {
+  async loadRoleIcon (role = 'teacher') {
     const imagePath = `assets/images/${role}/icon.png`
     return this.loadImage(imagePath)
   }
@@ -223,7 +223,7 @@ class ImageResourceManager {
      * @param {number} frame - 帧数（1-3）
      * @returns {Promise<string>} 图片 URL 或 data URL
      */
-  async getRunFrameUrl (role = '教师', frame = 1) {
+  async getRunFrameUrl (role = 'teacher', frame = 1) {
     const imagePath = `assets/images/${role}/run/${frame}.png`
 
     if (this.imageCache.has(imagePath)) {

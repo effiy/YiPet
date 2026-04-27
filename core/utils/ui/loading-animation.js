@@ -1,6 +1,6 @@
 /**
  * 加载动画组件
- * 使用 src/assets/images/教师/run 下的连续图片生成动画
+ * 使用 src/assets/images/teacher/run 下的连续图片生成动画
  * 优化版：添加图片预加载、错误处理和重试机制
  */
 
@@ -149,7 +149,7 @@ class LoadingAnimation {
     }
 
     try {
-      const role = '教师'
+      const role = 'teacher'
       const promises = []
       for (let frame = 1; frame <= this.totalFrames; frame++) {
         const imagePath = `assets/images/${role}/run/${frame}.png`
@@ -170,7 +170,7 @@ class LoadingAnimation {
      * 加载单张图片（带重试机制，优化版：使用统一的图片资源管理器）
      */
   async loadImage (frame, retries = 3) {
-    const imagePath = `assets/images/教师/run/${frame}.png`
+    const imagePath = `assets/images/teacher/run/${frame}.png`
     if (!window.imageResourceManager) {
       throw new Error('缺少 imageResourceManager')
     }
@@ -194,7 +194,7 @@ class LoadingAnimation {
     }
 
     try {
-      const role = '教师'
+      const role = 'teacher'
       const frameUrl = await window.imageResourceManager.getRunFrameUrl(role, this.currentFrame)
       if (frameUrl && this.animationImg.src !== frameUrl) {
         this.animationImg.src = frameUrl

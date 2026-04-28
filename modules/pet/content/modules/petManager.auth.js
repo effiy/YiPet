@@ -15,8 +15,38 @@
     return 'YiPet.apiToken.v1'
   }
 
+  // 从环境变量获取 Token（优先级最高）
+  proto._getEnvApiToken = function () {
+    try {
+      // 检查 window.__API_X_TOKEN__（content script 环境）
+      if (typeof window !== 'undefined' && window.__API_X_TOKEN__) {
+        const token = String(window.__API_X_TOKEN__).trim()
+        if (token) return token
+      }
+      // 检查 process.env.API_X_TOKEN（Node.js 环境）
+      if (typeof process !== 'undefined' && process.env && process.env.API_X_TOKEN) {
+        const token = String(process.env.API_X_TOKEN).trim()
+        if (token) return token
+      }
+      // 检查 self.__API_X_TOKEN__（Service Worker 环境）
+      if (typeof self !== 'undefined' && self.__API_X_TOKEN__) {
+        const token = String(self.__API_X_TOKEN__).trim()
+        if (token) return token
+      }
+    } catch (e) {
+      console.warn('获取环境变量 Token 失败:', e)
+    }
+    return ''
+  }
+
   // 获取存储的 API Token（同步方式，快速获取）
   proto.getApiToken = function () {
+    // 优先使用环境变量中的 API_X_TOKEN
+    const envToken = this._getEnvApiToken()
+    if (envToken) {
+      return envToken
+    }
+
     if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiTokenSync) {
       return TokenUtils.getApiTokenSync()
     }
@@ -25,6 +55,12 @@
 
   // 获取存储的 API Token（异步方式，从 chrome.storage 获取最新值）
   proto.getApiTokenAsync = async function () {
+    // 优先使用环境变量中的 API_X_TOKEN
+    const envToken = this._getEnvApiToken()
+    if (envToken) {
+      return envToken
+    }
+
     if (typeof TokenUtils !== 'undefined' && TokenUtils.getApiToken) {
       return await TokenUtils.getApiToken()
     }
@@ -166,6 +202,12 @@
 
   // 检查并提示设置 token（如果未设置则自动弹出设置框）
   proto.ensureTokenSet = async function () {
+    // 优先检查环境变量
+    const envToken = this._getEnvApiToken()
+    if (envToken && envToken.trim().length > 0) {
+      return true
+    }
+
     // 使用同步方法快速检查
     let hasToken = false
     if (typeof TokenUtils !== 'undefined' && TokenUtils.hasApiTokenSync) {

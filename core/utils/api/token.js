@@ -17,6 +17,14 @@
      * 初始化缓存
      */
     _initCache () {
+      // 优先使用环境变量中的 API_X_TOKEN
+      const envToken = this._getEnvToken()
+      if (envToken) {
+        this._cachedToken = envToken
+        this._cacheInitialized = true
+        return
+      }
+
       if (!this._isChromeStorageAvailable()) return
 
       try {
@@ -30,6 +38,32 @@
       } catch (e) {
         console.warn('初始化Token缓存失败:', e)
       }
+    }
+
+    /**
+     * 从环境变量获取 Token
+     */
+    _getEnvToken () {
+      try {
+        // 检查 window.__API_X_TOKEN__（content script 环境）
+        if (typeof window !== 'undefined' && window.__API_X_TOKEN__) {
+          const token = String(window.__API_X_TOKEN__).trim()
+          if (token) return token
+        }
+        // 检查 process.env.API_X_TOKEN（Node.js 环境）
+        if (typeof process !== 'undefined' && process.env && process.env.API_X_TOKEN) {
+          const token = String(process.env.API_X_TOKEN).trim()
+          if (token) return token
+        }
+        // 检查 self.__API_X_TOKEN__（Service Worker 环境）
+        if (typeof self !== 'undefined' && self.__API_X_TOKEN__) {
+          const token = String(self.__API_X_TOKEN__).trim()
+          if (token) return token
+        }
+      } catch (e) {
+        console.warn('获取环境变量 Token 失败:', e)
+      }
+      return ''
     }
 
     /**
@@ -51,6 +85,14 @@
      * 从Chrome存储获取Token
      */
     async _getTokenFromChromeStorage () {
+      // 优先使用环境变量中的 API_X_TOKEN
+      const envToken = this._getEnvToken()
+      if (envToken) {
+        this._cachedToken = envToken
+        this._cacheInitialized = true
+        return envToken
+      }
+
       if (!this._isChromeStorageAvailable()) {
         return ''
       }
@@ -106,6 +148,12 @@
      * 获取Token（同步）
      */
     getTokenSync () {
+      // 优先使用环境变量中的 API_X_TOKEN
+      const envToken = this._getEnvToken()
+      if (envToken) {
+        return envToken
+      }
+
       if (!this._cacheInitialized) {
         this._initCache()
       }
@@ -132,6 +180,12 @@
      * 是否有Token（同步）
      */
     hasTokenSync () {
+      // 优先检查环境变量
+      const envToken = this._getEnvToken()
+      if (envToken && envToken.trim().length > 0) {
+        return true
+      }
+
       const token = this.getTokenSync()
       return token && token.trim().length > 0
     }
@@ -140,6 +194,12 @@
      * 是否有Token（异步）
      */
     async hasToken () {
+      // 优先检查环境变量
+      const envToken = this._getEnvToken()
+      if (envToken && envToken.trim().length > 0) {
+        return true
+      }
+
       const token = await this.getToken()
       return token && token.trim().length > 0
     }

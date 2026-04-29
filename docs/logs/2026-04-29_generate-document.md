@@ -142,3 +142,18 @@
 **--case good**
 **--tags generate-document, refactoring, module-split**
 **--lesson 复用前一轮成功的策略可以提高效率和质量**
+### `2026-04-29T04:06:05.489Z` · `skill/generate-document/weekly` · **good case**
+
+**操作场景**：用户发起 /generate-document weekly，生成本周周报并同步
+
+**对话与交互摘要**
+
+> 用户调用 /generate-document weekly，生成本周周报。步骤： 1) 读取周报规范 rules/周报.md 2) 扫描 docs/ 下功能目录，读取三个重构功能的 06_实施总结.md 与 05_动态检查清单.md 3) 读取 git 历史获取本周提交 4) 生成完整周报 docs/周报/2026-04-28~2026-05-04_周报.md 5) 调用 import-docs 同步：创建 3，覆盖 35，失败 0 6) 调用 wework-bot 发送完成通知 KPI：三个功能目录均 100% 交付，P0 100% 通过。
+
+**评测标注**
+- **分级**：good
+- **标签**：`evidence-ok` · `docs-ok` · `import-docs-ok` · `wework-bot-ok`
+- **后续改进**：周报规则执行完整；可考虑自动化跨周对比
+
+---
+

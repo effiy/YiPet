@@ -3,9 +3,10 @@
  *
  * Centralized configuration for Chrome Extension.
  * Handles environment variables and default settings.
+ *
+ * 整合了 endpoints.js 的所有配置，保持向后兼容
  */
 
-// --- Defaults ---
 const DEFAULT_CONFIG = {
   pet: {
     defaultSize: 260,
@@ -13,11 +14,11 @@ const DEFAULT_CONFIG = {
     defaultColorIndex: 0,
     defaultVisible: false,
     colors: [
-      'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)', /* 主色：优雅蓝紫 */
-      'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)', /* 现代靛蓝紫 */
-      'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%)', /* 量子海洋 */
-      'linear-gradient(135deg, #22c55e 0%, #10b981 50%, #059669 100%)', /* 量子森林 */
-      'linear-gradient(135deg, #f59e0b 0%, #ec4899 50%, #a855f7 100%)' /* 量子日落 */
+      'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+      'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
+      'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%)',
+      'linear-gradient(135deg, #22c55e 0%, #10b981 50%, #059669 100%)',
+      'linear-gradient(135deg, #f59e0b 0%, #ec4899 50%, #a855f7 100%)'
     ],
     sizeLimits: { min: 80, max: 400 }
   },
@@ -33,7 +34,7 @@ const DEFAULT_CONFIG = {
     chatWindow: { transitionDuration: 300, scaleEffect: 1.02 }
   },
   storage: {
-    keys: { globalState: 'petGlobalState', chatWindowState: 'petChatWindowState' },
+    keys: { globalState: 'pet_global_state', chatWindowState: 'pet_chat_window_state' },
     syncInterval: 3000
   },
   ui: {
@@ -110,7 +111,7 @@ const DEFAULT_CONFIG = {
       ABOUT_PROTOCOL: 'about:',
       AICR_REVIEW_PAGE: 'https://effiy.cn/src/views/aicr/index.html',
       NEWS_ASSISTANT_PAGE: 'https://effiy.cn/src/views/news/index.html',
-      isSystemPage (url) {
+      isSystemPage: function (url) {
         if (!url || typeof url !== 'string') return false
         return url.startsWith(this.CHROME_PROTOCOL) ||
           url.startsWith(this.CHROME_EXTENSION_PROTOCOL) ||
@@ -120,11 +121,11 @@ const DEFAULT_CONFIG = {
     },
     UI: {
       NOTIFICATION_TOP: 10,
-      STATUS_DOT_ACTIVE: '#22c55e', /* 现代绿 */
-      STATUS_DOT_INACTIVE: '#f59e0b', /* 量子橙 */
-      NOTIFICATION_SUCCESS: '#22c55e', /* 现代绿 */
-      NOTIFICATION_ERROR: '#ef4444', /* 量子红 */
-      NOTIFICATION_INFO: '#3b82f6' /* 信息蓝 */
+      STATUS_DOT_ACTIVE: '#22c55e',
+      STATUS_DOT_INACTIVE: '#f59e0b',
+      NOTIFICATION_SUCCESS: '#22c55e',
+      NOTIFICATION_ERROR: '#ef4444',
+      NOTIFICATION_INFO: '#3b82f6'
     },
     DEFAULTS: {
       PET_ROLE: '教师'
@@ -154,21 +155,105 @@ const DEFAULT_CONFIG = {
       MAX_WEWORK_CONTENT_TRUNCATE_MARGIN: 100
     },
     storageKeys: {
-      devMode: 'petDevMode',
-      globalState: 'petGlobalState',
-      chatWindowState: 'petChatWindowState',
-      settings: 'petSettings'
+      devMode: 'pet_dev_mode',
+      globalState: 'pet_global_state',
+      chatWindowState: 'pet_chat_window_state',
+      settings: 'pet_settings'
     },
     ids: {
-      assistantElement: 'chat-assistant-element'
+      assistantElement: 'chat_assistant_element'
     }
   }
 }
 
-// --- Environment Processing ---
+const ENDPOINTS = {
+  BASE_ENDPOINTS: {
+    API_BASE: '/api',
+    V1_BASE: '/api/v1',
+    V2_BASE: '/api/v2'
+  },
+  AUTH_ENDPOINTS: {
+    LOGIN: '/auth/login',
+    LOGOUT: '/auth/logout',
+    REFRESH: '/auth/refresh',
+    PROFILE: '/auth/profile',
+    VALIDATE: '/auth/validate'
+  },
+  SESSION_ENDPOINTS: {
+    LIST: '/sessions',
+    CREATE: '/sessions',
+    UPDATE: '/sessions/:id',
+    DELETE: '/sessions/:id',
+    BATCH_DELETE: '/sessions/batch',
+    SEARCH: '/sessions/search',
+    FAVORITES: '/sessions/favorites',
+    EXPORT: '/sessions/export',
+    IMPORT: '/sessions/import'
+  },
+  FAQ_ENDPOINTS: {
+    LIST: '/faqs',
+    CREATE: '/faqs',
+    UPDATE: '/faqs/:id',
+    DELETE: '/faqs/:id',
+    BATCH_UPDATE: '/faqs/batch',
+    REORDER: '/faqs/reorder'
+  },
+  CONFIG_ENDPOINTS: {
+    GET: '/config',
+    UPDATE: '/config',
+    RESET: '/config/reset'
+  },
+  DATABASE_ENDPOINTS: {
+    QUERY: '/database/query',
+    CREATE: '/database/create',
+    UPDATE: '/database/update',
+    DELETE: '/database/delete',
+    BATCH: '/database/batch'
+  }
+}
+
+function buildUrl(baseUrl, endpoint, params = {}) {
+  let url = endpoint
+
+  Object.entries(params).forEach(([key, value]) => {
+    url = url.replace(`:${key}`, encodeURIComponent(value))
+  })
+
+  if (!url.startsWith('http') && baseUrl) {
+    url = `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`
+  }
+
+  return url
+}
+
+function buildQueryParams(params = {}) {
+  const searchParams = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      if (typeof value === 'object') {
+        searchParams.append(key, JSON.stringify(value))
+      } else {
+        searchParams.append(key, String(value))
+      }
+    }
+  })
+
+  return searchParams.toString()
+}
+
+function buildDatabaseUrl(baseUrl, methodName, parameters = {}) {
+  const queryParams = new URLSearchParams({
+    module_name: 'services.database.data_service',
+    method_name: methodName,
+    parameters: JSON.stringify(parameters)
+  })
+
+  return `${baseUrl}/?${queryParams.toString()}`
+}
+
 let __ENV_MODE = 'production'
 
-// Detect mode from Window or Process
 if (typeof window !== 'undefined' && window.__PET_ENV_MODE__) {
   __ENV_MODE = String(window.__PET_ENV_MODE__).toLowerCase()
 } else if (typeof process !== 'undefined' && process.env && process.env.PET_ENV_MODE) {
@@ -177,27 +262,27 @@ if (typeof window !== 'undefined' && window.__PET_ENV_MODE__) {
   __ENV_MODE = String(DEFAULT_CONFIG.env.mode).toLowerCase()
 }
 
-// Get Flags and Endpoints
 const __ENV_FLAGS = (DEFAULT_CONFIG.env && DEFAULT_CONFIG.env.flags) || {}
 const __ENV_ENDPOINTS = (DEFAULT_CONFIG.env && DEFAULT_CONFIG.env.endpoints && DEFAULT_CONFIG.env.endpoints[__ENV_MODE])
   ? DEFAULT_CONFIG.env.endpoints[__ENV_MODE]
   : null
 
-// Clone default config to create the final config
 const config = { ...DEFAULT_CONFIG }
 
-// Apply overrides
 if (__ENV_ENDPOINTS) {
   config.api = { ...config.api, ...__ENV_ENDPOINTS }
 }
 
-// Inject environment info
 config.envInfo = {
   mode: __ENV_MODE,
   flags: __ENV_FLAGS
 }
 
-// Expose configuration globally
+config.ENDPOINTS = ENDPOINTS
+config.buildUrl = buildUrl
+config.buildQueryParams = buildQueryParams
+config.buildDatabaseUrl = buildDatabaseUrl
+
 if (typeof self !== 'undefined') {
   self.PET_CONFIG = config
 } else if (typeof window !== 'undefined') {
@@ -207,7 +292,6 @@ if (typeof self !== 'undefined') {
   global.PET_CONFIG = config
 }
 
-// Support CommonJS export
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { config, PET_CONFIG: config }
 }

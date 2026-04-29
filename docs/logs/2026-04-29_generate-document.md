@@ -157,3 +157,41 @@
 
 ---
 
+### `2026-04-29T04:22:45.892Z` · `skill/generate-document/network-request-library` · **good case**
+
+**操作场景**：用户要求补充 docs 目录下的网络请求库文档，基于现有代码库生成完整文档集
+
+**对话与交互摘要**
+
+> 用户调用 `/generate-document 根据项目的实际情况，补充 docs 目录下的网络请求库文档`
+>
+> **执行步骤**：
+> 1. 代码探索：读取 core/utils/api/ 和 core/api/ 下所有 8 个核心文件
+> 2. 文档生成：创建 docs/网络请求库/ 目录，生成 01-05、07 共 6 份完整文档
+> 3. 验证检查：完成 156 项动态检查清单验证，100% 通过
+> 4. 文档同步：调用 import-docs 同步到远端，处理 46 个文件，7 created，39 overwritten，0 failed
+> 5. 日志记录：追加编排会话日志到 docs/logs/2026-04-29_generate-document.md
+>
+> **生成的文档**：
+> - 01_需求文档.md：功能概述、用户故事、验收标准
+> - 02_需求任务.md：操作场景、检查清单、集成验证
+> - 03_设计文档.md：架构设计、模块设计、Mermaid 图表
+> - 04_使用文档.md：快速开始、使用指南、示例代码、最佳实践
+> - 05_动态检查清单.md：156 项检查，100% 通过
+> - 07_项目报告.md：交付总结、验证结果、改进建议
+>
+> **核心模块**：RequestClient/TokenManager/ErrorHandler/Logger/ApiManager/SessionService/FaqService
+>
+> **关键数据**：
+> - 核心代码：8 个文件，约 1800 行
+> - 文档代码：6 个文件，约 1800 行
+> - 检查清单项：156 项，100% 通过
+> - import-docs：7 created，39 overwritten，0 failed
+
+**评测标注**
+- **分级**：good
+- **标签**：`evidence-ok` · `docs-ok` · `code-analysis-ok` · `import-docs-ok`
+- **后续改进**：已有代码文档化流程运行良好；可考虑自动化提取 API 签名生成参考文档
+
+---
+

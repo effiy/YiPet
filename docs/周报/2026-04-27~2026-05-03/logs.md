@@ -72,3 +72,37 @@
 - docs/周报/2026-04-27~2026-05-03/周报.md
 - import-docs 同步 18 个文件
 - wework-bot 通知发送成功
+
+---
+
+## 操作场景 4：周报 v1.1 更新与同步
+
+**对话与交互摘要**:
+- 读取 rules/周报.md 规范
+- 扫描 git log（21 次提交），提取代码重构 3 轮事实（a118b14、27a1764、03398b0）
+- 读取 key-notes.md、messages.md 确认 import-docs/wework-bot 在本周期内已执行成功（3 次推送 200 OK）
+- 读取项目初始化 06_实施总结/07_项目报告、network.md、state-management.md 获取真实 KPI 与待补充项数据
+- 生成更新后周报（v1.1）：补充代码重构规模、修正 import-docs/wework-bot 状态、更新 KPI（规则覆盖率 75%）、优化后期规划
+- 调用 mermaid-expert agent 检查 2 个 Mermaid 图语法，结果：全部正确
+- 执行 import-docs：0 创建，19 覆盖，0 失败
+- 调用 wework-bot 发送完成通知：HTTP 200，消息发送成功
+
+**结果**: 周报 v1.1 落盘并同步完成，与 git 事实和通知日志对齐
+
+---
+
+## 总览（补充）
+
+**技能调用**:
+- generate-document（weekly 更新）
+- import-docs
+- wework-bot
+- mermaid-expert（agent）
+
+**Agent 相关**:
+- 读取了 knowledge.md、quality-tracker.md、mermaid-expert.md 记忆
+
+**关键产出**:
+- docs/周报/2026-04-27~2026-05-03/周报.md（v1.1）
+- import-docs 同步 19 个文件（0 创建，19 覆盖，0 失败）
+- wework-bot 通知发送成功（HTTP 200）

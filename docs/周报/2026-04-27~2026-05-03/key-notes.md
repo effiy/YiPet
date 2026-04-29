@@ -45,3 +45,15 @@ week: 2026-04-27~2026-05-03
 
 ---
 
+### `2026-04-29T16:10:43.123Z` · `notify` · 企业微信推送成功
+
+**关联技能**：`wework-bot`
+
+**说明**
+
+> agent：generate-document
+> robot：general
+> HTTP：200
+
+---
+

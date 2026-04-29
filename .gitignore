@@ -34,3 +34,5 @@ pnpm-debug.log*
 test-results/
 playwright-report/
 *.zip
+
+.claude

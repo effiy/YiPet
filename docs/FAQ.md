@@ -1,173 +1,195 @@
 # 常见问题与故障排查
 
-> 本文档提供开发过程中的常见问题、报错、异常的快速排查方法和修复方案。供 AI 和人工开发者参考，提升故障处理效率。
+> 本文档提供开发过程中的常见问题、报错、异常的快速排查方法和修复方案。
+> 供 AI 和人工开发者参考，提升故障处理效率。
 
 ## 快速排查索引
 
 | 关键词 | 问题分类 | 跳转 |
 |--------|---------|------|
-| 扩展无法加载、manifest.json 错误 | 安装与加载 | [链接](#安装与加载问题) |
-| 宠物不显示、扩展上下文失效 | 运行时问题 | [链接](#运行时问题) |
-| 聊天功能无法使用、API 错误 | 功能问题 | [链接](#功能问题) |
-| 存储配额超出、chrome.storage 错误 | 存储问题 | [链接](#存储问题) |
+| 宠物不显示 | 页面渲染 | [宠物不显示](#宠物不显示) |
+| 聊天窗口打不开 | UI 交互 | [聊天窗口无法打开](#聊天窗口无法打开) |
+| 扩展加载失败 | 扩展安装 | [扩展加载失败](#扩展加载失败) |
+| 配置未定义 | 初始化错误 | [PET_CONFIG 未定义](#pet_config-未定义) |
+| 存储失败 | 数据持久化 | [存储操作失败](#存储操作失败) |
 
-## 安装与加载问题
+## 页面渲染类
 
-### Q: 扩展无法加载到 Chrome 中？
+### 宠物不显示
 
-**症状**：chrome://extensions/ 显示"加载已解压的扩展程序失败"或"清单文件缺失或不可读"。
-
-**原因**：
-- manifest.json 文件有语法错误
-- 目录结构不正确
-- 文件权限问题
-
-**排查步骤**：
-1. 检查 manifest.json 是否存在于根目录：`ls -la /Users/yi/Yi/YiPet/manifest.json`
-2. 使用 JSON 验证工具检查 manifest.json 语法
-3. 确认目录结构完整：所有在 manifest.json 中引用的文件都存在
-
-**修复方案**：
-- 修复 manifest.json 中的语法错误
-- 确保所有引用的文件路径正确
-
-**预防措施**：修改 manifest.json 后先使用 JSON 验证工具检查
-
-### Q: 扩展加载了但在页面中没有反应？
-
-**症状**：chrome://extensions/ 显示扩展已启用，但打开网页没有宠物显示，控制台没有日志。
+**症状**：网页加载后宠物没有出现，或显示空白
 
 **原因**：
-- content script 加载顺序错误
-- 扩展上下文失效（扩展重新加载后页面未刷新）
+- 在 Chrome 内置页面（chrome://、chrome-extension:// 等）
+- Content script 加载顺序问题
+- DOM 注入失败
+- PET_CONFIG 未正确初始化
 
 **排查步骤**：
-1. 检查 manifest.json 中 content_scripts 的 js 加载顺序
-2. 刷新网页，查看是否有变化
-3. 打开网页 DevTools Console 查看是否有错误
+1. 检查当前页面 URL 是否为系统页面：
+   ```javascript
+   // 在 DevTools Console 运行
+   window.location.href
+   ```
+   系统页面（chrome:// 开头）不允许 content script 运行。
+2. 打开 DevTools Console 查看错误日志，搜索 `[PetManager]`
+3. 检查 `#yi-pet-assistant` 元素是否存在于 DOM 中：
+   ```javascript
+   document.getElementById('yi-pet-assistant')
+   ```
+4. 检查 `PET_CONFIG` 是否已定义：
+   ```javascript
+   typeof PET_CONFIG !== 'undefined'
+   ```
 
 **修复方案**：
-- 刷新网页
-- 检查并修复 content_scripts 加载顺序
-- 确保依赖文件在被依赖文件之前加载
+- 在普通网页（如 https://example.com）测试
+- 刷新扩展和网页
+- 检查 manifest.json content_scripts 加载顺序
 
-**预防措施**：在 manifest.json 中严格按照依赖顺序排列 js 文件
+**预防措施**：避免在 chrome:// 页面测试扩展功能。
 
-## 运行时问题
+**来源**：`core/config.js`、`core/bootstrap/bootstrap.js`、`manifest.json`
 
-### Q: 宠物不显示？
+### 聊天窗口无法打开
 
-**症状**：扩展已加载，但网页上没有宠物图标出现。
+**症状**：点击宠物或使用快捷键 `Ctrl+Shift+X` 无反应
 
 **原因**：
-- 浏览器控制台有 JavaScript 错误
-- 在不支持的网站上使用（如 Chrome 内部页面）
-- 扩展权限问题
-- 扩展上下文失效
+- PetManager 未正确初始化
+- 聊天窗口元素创建失败
+- 事件监听器未绑定
+- 快捷键冲突
 
 **排查步骤**：
-1. 打开网页 DevTools 查看 Console 是否有错误
-2. 尝试在普通的 HTTPS 网站上使用（如 https://example.com）
-3. 检查扩展权限是否正确配置
-4. 检查 StorageHelper.isChromeStorageAvailable() 是否返回 true
+1. 检查 `window.PetManager` 是否已定义：
+   ```javascript
+   typeof window.PetManager !== 'undefined'
+   ```
+2. 检查是否有 JavaScript 错误
+3. 尝试直接调用 API：
+   ```javascript
+   window.petManager?.toggleChat?.()
+   ```
 
 **修复方案**：
-- 根据控制台错误修复相应问题
-- 刷新网页重新加载扩展
-- 在 chrome://extensions/ 重新加载扩展后刷新网页
+- 刷新网页重新加载 content script
+- 检查是否有其他扩展占用相同快捷键
 
-**预防措施**：代码中添加扩展上下文失效的检测和处理
+**来源**：`modules/pet/content/petManager.events.js`
 
-### Q: 控制台显示"扩展上下文失效"或"Invocation of form chrome.storage.local.get doesn't match definition"?
+## 初始化错误类
 
-**症状**：StorageHelper 相关操作报错，提示扩展上下文失效。
+### PET_CONFIG 未定义
 
-**原因**：扩展在 chrome://extensions/ 中被重新加载，但网页没有刷新，旧的 content script 仍在运行。
-
-**排查步骤**：
-1. 检查 StorageHelper.isContextInvalidatedError() 是否检测到该错误
-2. 检查 chrome.runtime.id 是否存在
-
-**修复方案**：
-- 刷新网页即可恢复
-- 代码中已有处理逻辑，会检测并跳过操作
-
-**预防措施**：代码中添加了 isChromeStorageAvailable() 和上下文失效检测
-
-## 功能问题
-
-### Q: 聊天功能无法使用？
-
-**症状**：点击宠物或打开聊天窗口，但无法发送消息或没有 AI 回复。
+**症状**：Console 显示 `PET_CONFIG is not defined` 或 `Cannot read properties of undefined`
 
 **原因**：
-- 网络连接问题
-- 未配置有效的 API 令牌
-- API 端点配置错误
+- `core/config.js` 未在 manifest.json 中排在首位
+- config.js 加载失败
+- 命名空间污染
 
 **排查步骤**：
-1. 检查网络连接是否正常
-2. 确认已在设置中配置了有效的 API 令牌
-3. 查看浏览器控制台的错误信息
-4. 检查 core/config.js 中的 API 端点配置
+1. 检查 manifest.json content_scripts 顺序，确保 `core/config.js` 排在第一个
+2. 在 DevTools Console 运行：
+   ```javascript
+   typeof PET_CONFIG !== 'undefined'
+   typeof window.PET_CONFIG !== 'undefined'
+   ```
 
-**修复方案**：
-- 根据错误信息修复相应问题
-- 检查并配置 API 令牌
-- 确认 API 端点配置正确
+**修复方案**：确保 manifest.json 中 content_scripts 按依赖顺序加载，`core/config.js` 必须在第一位。
 
-**预防措施**：添加 API 连接测试功能
+**来源**：`core/config.js`、`manifest.json`
 
-### Q: 快捷键不生效？
+### 存储操作失败
 
-**症状**：按下 Ctrl+Shift+P 或 Ctrl+Shift+X 没有反应。
+**症状**：无法保存会话或设置，Console 显示存储相关错误
 
 **原因**：
-- 快捷键与其他扩展冲突
-- 快捷键与系统快捷键冲突
-- manifest.json 中 commands 配置错误
+- chrome.storage 不可用（非扩展环境）
+- 存储配额超限
+- 扩展上下文失效（context invalidated）
 
 **排查步骤**：
-1. 检查 manifest.json 中 commands 配置
-2. 检查 chrome://extensions/shortcuts 中的快捷键设置
-3. 尝试禁用其他扩展测试是否冲突
+1. 检查是否在扩展环境中运行：
+   ```javascript
+   typeof chrome !== 'undefined' && chrome.storage && chrome.runtime && chrome.runtime.id
+   ```
+2. 检查 StorageHelper 诊断：
+   ```javascript
+   window.StorageHelper?.isChromeStorageAvailable?.()
+   ```
+3. 查看 Console 是否有 `QUOTA_EXCEEDED_ERR` 或 `context invalidated` 错误
 
 **修复方案**：
-- 在 chrome://extensions/shortcuts 中修改快捷键
-- 禁用冲突的扩展
+- 如果是上下文失效：刷新网页
+- 如果是配额超限：清理旧数据
+- 检查代码是否正确处理存储错误
 
-**预防措施**：选择不常用的组合键作为默认快捷键
+**来源**：`core/bootstrap/bootstrap.js`、`modules/pet/content/petManager.state.js`
 
-## 存储问题
+## 扩展安装类
 
-### Q: 控制台显示"存储配额超出"错误？
+### 扩展加载失败
 
-**症状**：保存会话或设置时报错，提示 QUOTA_BYTES 配额超出。
+**症状**：在 `chrome://extensions/` 页面显示错误，无法加载扩展
 
-**原因**：chrome.storage.local 有 5MB 存储限制，数据量过大。
+**原因**：
+- manifest.json 语法错误
+- 引用的文件路径不存在
+- Manifest V3 兼容性问题
 
 **排查步骤**：
-1. 检查 StorageHelper.isQuotaError() 是否检测到该错误
-2. 查看是否有清理旧数据的逻辑
+1. 查看扩展错误详情（点击「错误」按钮）
+2. 验证 manifest.json 语法
+3. 检查所有引用的文件路径是否真实存在
 
-**修复方案**：
-- 代码中已有清理旧数据的逻辑（StorageHelper.cleanupOldData）
-- 手动删除一些旧的会话释放空间
+**修复方案**：根据错误详情修复 manifest.json 或文件路径。
 
-**预防措施**：定期清理旧数据，限制单个会话大小
+**来源**：`manifest.json`
+
+## AI 辅助开发常见问题
+
+### 文件路径虚构
+
+**症状**：代码或文档引用不存在的文件路径
+
+**排查步骤**：
+1. 验证文件是否存在：
+   ```bash
+   ls -la <file-path>
+   ```
+2. 检查路径大小写（macOS 文件系统默认不区分大小写，但 git 区分）
+
+**修复方案**：替换为正确路径或标注「待补充」。
+
+### 防幻觉遗漏
+
+**症状**：文档包含无依据的技术断言或配置
+
+**排查步骤**：交叉验证：
+```bash
+grep -r "<keyword>" <directory>
+```
+
+**修复方案**：标注「待补充（原因：未找到依据）」或补充实际验证。
+
+### 工具限制
+
+**症状**：工具返回不足或被截断
+
+**修复方案**：标注「待补充」或切换工具/方法。
 
 ## 自愈系统参考
 
-> 以下内容由 tool-chain-logger 和 agent 记忆自动补充，记录从实际错误案例中提炼的自愈规则。
+> 以下内容由 `tool-chain-logger` 和 `agent 记忆` 自动补充，记录从实际错误案例中提炼的自愈规则。
 
 | 根因分类 | 典型症状 | 自愈排查命令 | 自愈修复操作 | 案例来源 |
 |---------|---------|-------------|-------------|---------|
-| 路径虚构 | 引用文件不存在 | `ls <路径>` 或 `glob <模式>` | 替换为正确路径或标注"待补充" | 待补充 |
-| 防幻觉遗漏 | 文档包含虚构内容 | 交叉验证：`grep <关键词>` | 标注"待补充（原因：…）" | 待补充 |
-| 归类错误 | 检查项/commit 归类错误 | 检查 rules/<类型>.md 归类规则 | 按规则重新归类 | 待补充 |
-| 工具限制 | 工具返回不足 | 检查工具输出完整性 | 标注"待补充"或切换工具 | 待补充 |
+| 路径虚构 | 引用文件不存在 | `ls -la <path>` 或 `glob <模式>` | 替换为正确路径或标注「待补充」 | 待补充 |
+| 防幻觉遗漏 | 文档包含虚构内容 | 交叉验证：`grep <keyword>` | 标注「待补充（原因：…）」 | 待补充 |
+| 归类错误 | 检查项/commit 归类错误 | 检查 `rules/<类型>.md` 归类规则 | 按规则重新归类 | 待补充 |
+| 工具限制 | 工具返回不足 | 检查工具输出完整性 | 标注「待补充」或切换工具 | 待补充 |
 | 逻辑缺陷 | 推断结果不合理 | 对比实际代码模式 | 增加采样文件数量 | 待补充 |
-| 规则缺失 | 无对应规则约束 | 检查 rules/ 和 checklists/ | 新增/调整规则 | 待补充 |
-| 格式不符 | 输出格式不合规 | 对照 rules/<类型>.md 模板 | 按模板修正格式 | 待补充 |
-| 扩展上下文失效 | chrome.storage 操作报错 | 检查 chrome.runtime.id 是否存在 | 刷新网页或跳过操作 | bootstrap.js StorageHelper |
-| 存储配额超出 | chrome.storage.local.set 失败 | 检查存储使用量 | 清理旧数据并重试 | bootstrap.js StorageHelper |
+| 规则缺失 | 无对应规则约束 | 检查 `rules/` 和 `checklists/` | 新增/调整规则 | 待补充 |
+| 格式不符 | 输出格式不合规 | 对照 `rules/<类型>.md` 模板 | 按模板修正格式 | 待补充 |

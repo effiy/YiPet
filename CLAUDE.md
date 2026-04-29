@@ -5,36 +5,36 @@
 
 ## 技术栈
 
-- Chrome Extension Manifest V3：浏览器扩展标准
-- Vanilla JavaScript：核心逻辑（零构建，直接加载运行）
-- Vue 3 (Global Build)：现代化 UI 组件框架
-- Tailwind CSS：实用优先的 CSS 框架
-- marked：Markdown 解析与渲染
-- turndown：HTML 逆向转换为 Markdown
-- mermaid：图表渲染（流程图、时序图、甘特图等）
-- chrome.storage.local：本地数据持久化
+- Chrome Extension Manifest V3 - 浏览器扩展标准
+- Vanilla JavaScript (ES6+) - 核心扩展逻辑（零构建架构）
+- Vue 3 (Global Build) - 现代化 UI 组件框架
+- Tailwind CSS - 实用优先的 CSS 框架
+- marked - Markdown 解析与渲染
+- turndown - HTML 逆向转换为 Markdown
+- mermaid - 专业图表渲染
+- chrome.storage.local - 本地数据持久化
 
 ## 项目结构
 
-- core/：核心模块
-  - config.js：全局配置与环境检测
-  - utils/：通用工具函数集
-  - api/：API 请求管理与服务
-  - constants/：常量定义
-  - bootstrap/：Content Script 入口与初始化
-  - module.md：模块清单
-- modules/：功能模块
-  - pet/：宠物管理核心模块（UI、聊天、会话等）
-  - faq/：FAQ 管理与标签
-  - mermaid/：Mermaid 图表渲染
-  - extension/：扩展系统（background/popup）
-  - chat/：聊天导出功能
-  - screenshot/：区域截图功能
-  - session/：会话导入导出
-- libs/：第三方库
-- assets/：静态资源（样式、图标、图片）
-- docs/：项目文档
-- manifest.json：扩展配置文件
+- core/ - 核心模块
+  - config.js - 全局配置与环境检测
+  - utils/ - 通用工具函数集
+  - api/ - API 服务与请求管理
+  - constants/ - 常量定义
+  - bootstrap/ - Content Script 入口与初始化
+  - module.md - 模块清单
+- modules/ - 功能模块
+  - pet/ - 宠物管理核心模块（UI、聊天、会话等）
+  - faq/ - FAQ 管理与标签
+  - mermaid/ - Mermaid 图表渲染
+  - extension/ - 扩展系统（background、popup）
+  - chat/ - 聊天导出功能
+  - screenshot/ - 区域截图功能
+  - session/ - 会话导入导出
+- libs/ - 第三方库
+- assets/ - 静态资源（样式、图标、图片）
+- docs/ - 项目文档
+- manifest.json - 扩展配置入口
 
 ## 编码规范
 
@@ -57,21 +57,21 @@
 
 ## 构建与运行
 
-- 安装：无需 npm install（零构建架构，直接加载源代码）
+- 安装：无需 npm install（零构建架构）
 - 开发：在 Chrome 中加载已解压的扩展（chrome://extensions/ -> 开发者模式 -> 加载已解压的扩展）
 - 构建：无需构建步骤（原生 JavaScript，直接运行）
 - 测试：待补充
 
 ## 关键文件
 
-- manifest.json：扩展配置入口
-- core/config.js：全局配置与环境检测
-- core/bootstrap/bootstrap.js：Content Script 初始化
-- modules/pet/content/core/petManager.core.js：PetManager 核心类定义
-- modules/extension/background/index.js：后台脚本入口
+- manifest.json - 扩展配置入口
+- core/config.js - 全局配置与环境检测
+- core/bootstrap/bootstrap.js - Content Script 初始化
+- modules/pet/content/core/petManager.core.js - PetManager 核心类定义
+- modules/extension/background/index.js - 后台脚本入口
 
 ## 文档体系
 
-- /generate-document 功能名-描述：生成功能文档集
-- /generate-document init：初始化项目基础文件
-- /implement-code 功能名：实施代码
+- /generate-document 功能名-描述 - 生成功能文档集
+- /generate-document init - 初始化项目基础文件
+- /implement-code 功能名 - 实施代码

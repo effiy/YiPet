@@ -70,7 +70,7 @@ YiPet/
 │   ├── pet/                 # 宠物管理核心模块
 │   ├── faq/                 # FAQ 管理
 │   ├── mermaid/             # Mermaid 图表渲染
-│   ├── extension/           # 扩展系统（background/popup）
+│   ├── extension/           # 扩展系统（background、popup）
 │   ├── chat/                # 聊天导出
 │   ├── screenshot/          # 区域截图
 │   └── session/             # 会话导入导出

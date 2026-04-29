@@ -1,43 +1,14 @@
 (function (global) {
-  const proto = global.PetManager.prototype
+  'use strict'
 
-  // ========== 常量定义 ==========
-  const EDITOR_PREVIEW_DEBOUNCE = 150 // 编辑器预览防抖时间（毫秒）
-  const MERMAID_RENDER_DEBOUNCE = 150 // Mermaid 渲染防抖时间（毫秒）
-  const MIN_CONTEXT_LENGTH = 50 // 最小上下文内容长度
-  const AD_LINE_MIN_LENGTH = 180 // 广告行最小长度阈值
-
-  const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_')
-  const sanitizePathSegment = (value) => {
-    const s = String(value ?? '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '')
-    return (s && s.length <= 80 ? s : s.slice(0, 80)) || 'page'
+  if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
+    return
   }
 
-  const logger = (typeof global !== 'undefined' && global.LoggerUtils && typeof global.LoggerUtils.getLogger === 'function')
-    ? global.LoggerUtils.getLogger('editor')
-    : console
-
-  const parseImageDataUrl = (dataUrl) => {
-    const raw = String(dataUrl || '')
-    const m = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/i)
-    if (!m) return null
-    const mime = String(m[1] || '').toLowerCase()
-    const base64 = String(m[2] || '').trim()
-    if (!base64) return null
-    const extMap = {
-      'image/png': 'png',
-      'image/jpeg': 'jpg',
-      'image/jpg': 'jpg',
-      'image/gif': 'gif',
-      'image/webp': 'webp',
-      'image/bmp': 'bmp',
-      'image/svg+xml': 'svg'
-    }
-    const ext = extMap[mime] || 'png'
-    return { mime, base64, ext }
-  }
-
-  // ========== 页面上下文编辑器 ==========
+  console.log('[PetManager] petManager.editor.js 兼容层已加载')
+  // 所有方法已在新文件中挂载到原型，无需重复实现
+  // 保持文件存在即可确保兼容性
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : this)))
 
   // 确保上下文编辑器 UI 存在
   proto.ensureContextEditorUi = function () {

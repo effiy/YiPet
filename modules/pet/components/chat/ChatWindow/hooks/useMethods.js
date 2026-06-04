@@ -13,23 +13,6 @@
       e?.preventDefault?.()
     }
 
-    const resolveExternalUrl = (key, fallbackUrl) => {
-      const urls = window.PET_CONFIG?.constants?.URLS
-      const value = urls && typeof urls[key] === 'string' ? urls[key] : ''
-      return String(value || fallbackUrl || '').trim()
-    }
-
-    const openExternal = (url) => {
-      const targetUrl = String(url || '').trim()
-      if (!targetUrl) return
-      const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
-      if (newWindow) {
-        try {
-          newWindow.opener = null
-        } catch (_) {}
-      }
-    }
-
     const createSidebarMethods = () => {
       const sidebarHooks = window.PetManager?.Components?.SessionSidebarHooks || {}
       if (typeof sidebarHooks.useMethods === 'function') {
@@ -87,16 +70,6 @@
       if (typeof manager?.openAuth === 'function') manager.openAuth()
     }
 
-    const onAicrClick = (e) => {
-      stopEvent(e)
-      openExternal(resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html'))
-    }
-
-    const onNewsClick = (e) => {
-      stopEvent(e)
-      openExternal(resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html'))
-    }
-
     const onSidebarToggleClick = (e) => {
       stopEvent(e)
       if (instance.toggleSidebar) instance.toggleSidebar()
@@ -105,8 +78,6 @@
     return {
       ...sidebarMethods,
       onAuthClick,
-      onAicrClick,
-      onNewsClick,
       onSidebarToggleClick
     }
   }
@@ -757,16 +728,6 @@
       const authBtn = rootEl.querySelector('#yi-pet-chat-auth-btn')
       if (authBtn && typeof methods?.onAuthClick === 'function') {
         authBtn.addEventListener('click', (e) => methods.onAuthClick(e))
-      }
-
-      const aicrBtn = rootEl.querySelector('#yi-pet-chat-aicr-btn')
-      if (aicrBtn && typeof methods?.onAicrClick === 'function') {
-        aicrBtn.addEventListener('click', (e) => methods.onAicrClick(e))
-      }
-
-      const newsBtn = rootEl.querySelector('#yi-pet-chat-news-btn')
-      if (newsBtn && typeof methods?.onNewsClick === 'function') {
-        newsBtn.addEventListener('click', (e) => methods.onNewsClick(e))
       }
 
       const sidebarToggleBtn = rootEl.querySelector('#sidebar-toggle-btn')

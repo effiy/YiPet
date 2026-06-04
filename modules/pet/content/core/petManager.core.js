@@ -19,85 +19,117 @@
     class PetManager extends LoadingAnimationMixin {
       constructor () {
         super()
-        this.pet = null
-        this.isVisible = PET_CONFIG.pet.defaultVisible
-        this.colorIndex = PET_CONFIG.pet.defaultColorIndex
-        this.size = PET_CONFIG.pet.defaultSize
-        this.position = getPetDefaultPosition()
-        this.role = '教师' // 默认角色为教师
-        this.chatWindow = null
-        this.isChatOpen = false
-        this.currentModel = (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'
-
-        this.colors = PET_CONFIG.pet.colors
-        this.mermaidLoaded = false
-        this.mermaidLoading = false
-
-        // 会话管理相关属性
-        this.currentSessionId = null
-        this.sessions = {} // 存储所有会话，key为sessionId，value为会话数据
-        this.sessionSidebar = null // 会话侧边栏元素
-        this.isSwitchingSession = false // 是否正在切换会话（防抖标志）
-        this.currentPageUrl = null // 当前页面URL，用于判断是否为新页面
-        this.hasAutoCreatedSessionForPage = false // 当前页面是否已经自动创建了会话
-        this.sessionInitPending = false // 会话初始化是否正在进行中
-        this.sidebarWidth = 320 // 侧边栏宽度（像素）
-        this.isResizingSidebar = false // 是否正在调整侧边栏宽度
-        this.sidebarCollapsed = false // 侧边栏是否折叠
-        this.inputContainerCollapsed = false // 输入框容器是否折叠
-
-        // 会话更新优化相关
-        this.sessionUpdateTimer = null // 会话更新防抖定时器
-        this.pendingSessionUpdate = false // 是否有待处理的会话更新
-        this.lastSessionSaveTime = 0 // 上次保存会话的时间
-        this.SESSION_UPDATE_DEBOUNCE = 300 // 会话更新防抖时间（毫秒）
-        this.SESSION_SAVE_THROTTLE = 1000 // 会话保存节流时间（毫秒）
-
-        // 标签过滤相关
-        this.selectedFilterTags = [] // 选中的过滤标签（会话，默认不选中任何标签）
-        this.tagFilterReverse = false // 是否反向过滤会话
-        this.tagFilterNoTags = false // 是否筛选无标签的会话（默认不选中）
-        this.tagFilterExpanded = false // 标签列表是否展开（会话）
-        this.tagFilterVisibleCount = 8 // 折叠时显示的标签数量（会话）
-        this.tagFilterSearchKeyword = '' // 标签搜索关键词
-        this.tagOrder = null // 标签顺序
-
-        this.sessionTitleFilter = '' // 会话标题搜索过滤关键词
-        this.dateRangeFilter = null // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
-
-        // 批量操作相关
-        this.batchMode = false // 是否处于批量选择模式
-        this.selectedSessionIds = new Set() // 选中的会话ID集合
-
-        // 会话API管理器
-        this.sessionApi = null
-        this.lastSessionListLoadTime = 0
-        this.SESSION_LIST_RELOAD_INTERVAL = 10000 // 会话列表重新加载间隔（10秒）
-        this.isPageFirstLoad = true // 标记是否是页面首次加载/刷新
-        this.skipSessionListRefresh = false // 标记是否跳过会话列表刷新（prompt调用后使用）
-        this.isChatWindowFirstOpen = true // 标记是否是第一次打开聊天窗口
-        this.hasLoadedSessionsForChat = false // 当前聊天周期是否已加载过会话列表
+        this._initPetState()
+        this._initSessionState()
+        this._initSessionUpdateState()
+        this._initFilterState()
+        this._initSessionApiState()
+        this._initStateSaveState()
 
         // FAQ API管理器
         this.faqApi = null
 
-        // 状态保存节流相关
-        this.lastStateSaveTime = 0 // 上次保存状态的时间
-        this.STATE_SAVE_THROTTLE = 2000 // 状态保存节流时间（毫秒），避免写入过于频繁
-        this.stateSaveTimer = null // 状态保存防抖定时器
-        this.pendingStateUpdate = null // 待保存的状态数据
         // 加载动画计数器
         this.activeRequestCount = 0
 
         this.init()
       }
 
+      _initPetState () {
+        this.pet = null
+        this.isVisible = PET_CONFIG.pet.defaultVisible
+        this.colorIndex = PET_CONFIG.pet.defaultColorIndex
+        this.size = PET_CONFIG.pet.defaultSize
+        this.position = getPetDefaultPosition()
+        this.role = PET_CONFIG?.constants?.DEFAULTS?.PET_ROLE || '教师'
+        this.chatWindow = null
+        this.isChatOpen = false
+        this.currentModel = (PET_CONFIG.chatModels?.default) || 'qwen3'
+        this.colors = PET_CONFIG.pet.colors
+        this.mermaidLoaded = false
+        this.mermaidLoading = false
+      }
+
+      _initSessionState () {
+        this.currentSessionId = null
+        this.sessions = {}
+        this.sessionSidebar = null
+        this.isSwitchingSession = false
+        this.currentPageUrl = null
+        this.hasAutoCreatedSessionForPage = false
+        this.sessionInitPending = false
+        this.sidebarWidth = PET_CONFIG?.constants?.UI?.SIDEBAR_DEFAULT_WIDTH || 320
+        this.isResizingSidebar = false
+        this.sidebarCollapsed = false
+        this.inputContainerCollapsed = false
+      }
+
+      _initSessionUpdateState () {
+        this.sessionUpdateTimer = null
+        this.pendingSessionUpdate = false
+        this.lastSessionSaveTime = 0
+        this.SESSION_UPDATE_DEBOUNCE = PET_CONFIG?.constants?.TIMING?.SESSION_UPDATE_DEBOUNCE || 300
+        this.SESSION_SAVE_THROTTLE = PET_CONFIG?.constants?.TIMING?.SESSION_SAVE_THROTTLE || 1000
+      }
+
+      _initFilterState () {
+        this.selectedFilterTags = []
+        this.tagFilterReverse = false
+        this.tagFilterNoTags = false
+        this.tagFilterExpanded = false
+        this.tagFilterVisibleCount = PET_CONFIG?.constants?.UI?.TAG_FILTER_VISIBLE_COUNT || 8
+        this.tagFilterSearchKeyword = ''
+        this.tagOrder = null
+        this.sessionTitleFilter = ''
+        this.dateRangeFilter = null
+        this.batchMode = false
+        this.selectedSessionIds = new Set()
+      }
+
+      _initSessionApiState () {
+        this.sessionApi = null
+        this.lastSessionListLoadTime = 0
+        this.SESSION_LIST_RELOAD_INTERVAL = PET_CONFIG?.constants?.TIMING?.SESSION_LIST_RELOAD_INTERVAL || 10000
+        this.isPageFirstLoad = true
+        this.skipSessionListRefresh = false
+        this.isChatWindowFirstOpen = true
+        this.hasLoadedSessionsForChat = false
+      }
+
+      _initStateSaveState () {
+        this.lastStateSaveTime = 0
+        this.STATE_SAVE_THROTTLE = PET_CONFIG?.constants?.TIMING?.STATE_SAVE_THROTTLE || 2000
+        this.stateSaveTimer = null
+        this.pendingStateUpdate = null
+      }
+
       async init () {
-        // 加载标签顺序
         await this.loadTagOrder()
         console.log('初始化宠物管理器')
+        this._initApis()
+        this.loadState()
+        this.setupMessageListener()
+        this.createPet()
 
-        // 初始化会话API管理器
+        setTimeout(() => {
+          if (this.pet) {
+            console.log('延迟检查：更新宠物样式，可见性:', this.isVisible)
+            this.updatePetStyle()
+            if (!this.pet.parentNode) {
+              console.log('延迟检查：宠物未添加到页面，尝试重新添加')
+              this.addPetToPage()
+            }
+          }
+        }, 500)
+
+        this.startPeriodicSync()
+        this.setupKeyboardShortcuts()
+        this.initSessionWithDelay()
+        this.setupTitleChangeListener()
+        this.setupUrlChangeListener()
+      }
+
+      _initApis () {
         if (typeof SessionService !== 'undefined' && PET_CONFIG.api.syncSessionsToBackend) {
           this.sessionApi = new SessionService(PET_CONFIG.api.yiaiBaseUrl, {
             enabled: PET_CONFIG.api.syncSessionsToBackend
@@ -107,7 +139,6 @@
           console.log('会话API管理器未启用')
         }
 
-        // 初始化FAQ API管理器
         if (typeof FaqService !== 'undefined') {
           const faqApiUrl = PET_CONFIG?.api?.faqApiUrl || 'http://localhost:8000'
           this.faqApi = new FaqService(faqApiUrl, { enabled: true })
@@ -115,38 +146,6 @@
         } else {
           console.log('FAQ API管理器未启用')
         }
-
-        this.loadState() // 加载保存的状态
-        this.setupMessageListener()
-        this.createPet()
-
-        // 延迟检查并更新宠物显示状态，确保状态加载完成后样式正确
-        setTimeout(() => {
-          if (this.pet) {
-            console.log('延迟检查：更新宠物样式，可见性:', this.isVisible)
-            this.updatePetStyle()
-            // 如果宠物已创建但还没有添加到页面，尝试再次添加
-            if (!this.pet.parentNode) {
-              console.log('延迟检查：宠物未添加到页面，尝试重新添加')
-              this.addPetToPage()
-            }
-          }
-        }, 500)
-
-        // 启动定期同步，确保状态一致性
-        this.startPeriodicSync()
-
-        // 添加键盘快捷键支持
-        this.setupKeyboardShortcuts()
-
-        // 初始化会话：等待页面加载完成后1秒再创建新会话
-        this.initSessionWithDelay()
-
-        // 监听页面标题变化，以便在标题改变时更新会话
-        this.setupTitleChangeListener()
-
-        // 监听URL变化，以便在URL改变时创建新会话（支持单页应用）
-        this.setupUrlChangeListener()
       }
 
       // 清理资源

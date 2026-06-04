@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FaqTagManager 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; }
+    .demo-box { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin: 16px 0; }
+    .demo-box h4 { font-size: 0.88rem; font-weight: 600; color: var(--color-accent-2); margin-bottom: 12px; }
+    .output { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 12px 16px; font-family: "SF Mono", monospace; font-size: 0.76rem; color: var(--text-secondary); max-height: 180px; overflow-y: auto; line-height: 1.7; }
+    .output .key { color: var(--color-accent); } .output .val { color: var(--color-accent-2); } .output .log { color: var(--green); }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-2); background: rgba(34,211,238,0.08); color: var(--color-accent-2); transition: all 0.15s; margin-top: 12px; margin-right: 8px; }
+    .btn:hover { background: var(--color-accent-2); color: #1a1a2a; }
+    .tag-panel { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 16px; }
+    .tag-panel .faq-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: var(--color-accent); }
+    .tag-input-row { display: flex; gap: 6px; margin-bottom: 10px; }
+    .tag-input-row input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 10px; color: var(--text-primary); font-size: 0.78rem; font-family: inherit; }
+    .tag-input-row button { padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer; font-size: 0.7rem; font-family: inherit; white-space: nowrap; }
+    .tag-input-row button:hover { background: rgba(255,255,255,0.1); }
+    .quick-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+    .quick-tag { padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.68rem; font-family: inherit; }
+    .quick-tag:hover { border-color: var(--color-accent-2); color: var(--color-accent-2); }
+    .current-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; min-height: 24px; }
+    .current-tag { padding: 2px 8px; border-radius: 4px; background: rgba(168,85,247,0.15); color: var(--color-accent-3); font-size: 0.68rem; display: flex; align-items: center; gap: 4px; }
+    .current-tag .remove { cursor: pointer; opacity: 0.6; } .current-tag .remove:hover { opacity: 1; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html">← 返回 Demo 中心</a>
+  <h1>FaqTagManager 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>FaqTagManager 是 FAQ 标签编辑子弹窗，由 FaqManager.editTags() 触发。支持手动输入添加标签、快速标签一键添加、智能生成标签、保存更新。</p>
+</section>
+
+<section id="store">
+  <h2>状态管理</h2>
+  <div class="card">
+<pre><span class="kw">const</span> store = <span class="fn">reactive</span>({
+  visible: <span class="kw">false</span>,
+  inputValue: <span class="str">''</span>,
+  currentTags: [],      <span class="cm">// 当前 FAQ 项的标签数组</span>
+  faqIndex: <span class="num">-1</span>,          <span class="cm">// 正在编辑的 FAQ 索引</span>
+})
+
+<span class="cm">// 快速标签 — 预定义的常用标签</span>
+<span class="kw">const</span> QUICK_TAGS = [<span class="str">'工具'</span>, <span class="str">'开源项目'</span>, <span class="str">'家庭'</span>, <span class="str">'工作'</span>, <span class="str">'娱乐'</span>, <span class="str">'文档'</span>, <span class="str">'日记'</span>]
+
+<span class="cm">// 方法</span>
+<span class="fn">close</span>()           <span class="cm">// 关闭弹窗</span>
+<span class="fn">addFromInput</span>()    <span class="cm">// 从输入框添加标签（自动 trim + 去重）</span>
+<span class="fn">addQuickTag</span>(tag)   <span class="cm">// 点击快速标签添加</span>
+<span class="fn">removeTag</span>(tag)    <span class="cm">// 移除指定标签</span>
+<span class="fn">save</span>()            <span class="cm">// 保存标签更新到 FAQ 数据源</span>
+<span class="fn">smartGenerate</span>()   <span class="cm">// AI 智能生成标签</span></pre>
+  </div>
+</section>
+
+<section id="methods">
+  <h2>方法详解</h2>
+  <div class="card">
+    <h3>addFromInput — IME 安全 + 去重</h3>
+<pre><span class="fn">addFromInput</span>() {
+  <span class="kw">const</span> value = store.inputValue.<span class="fn">trim</span>()
+  <span class="kw">if</span> (!value) <span class="kw">return</span>
+  <span class="kw">if</span> (store.currentTags.<span class="fn">some</span>(t => t.<span class="fn">toLowerCase</span>() === value.<span class="fn">toLowerCase</span>())) <span class="kw">return</span>
+  store.currentTags.<span class="fn">push</span>(value)
+  store.inputValue = <span class="str">''</span>
+}
+
+<span class="cm">// smartGenerate: 调用 AI 根据 FAQ 内容分析并返回建议标签</span>
+<span class="kw">async</span> <span class="fn">smartGenerate</span>() {
+  <span class="kw">const</span> faq = store.allFaqs?.[store.faqIndex]
+  <span class="kw">const</span> tags = <span class="kw">await</span> manager.<span class="fn">generateTagsForFaq</span>(faq)  <span class="cm">// AI 调用</span>
+  store.currentTags = [...<span class="kw">new</span> <span class="fn">Set</span>([...store.currentTags, ...tags])]
+}</pre>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — FAQ 标签编辑器</h2>
+  <p>模拟编辑 FAQ "如何配置 Webhook？" 的标签。</p>
+  <div class="demo-box">
+    <h4>标签编辑器</h4>
+    <div class="tag-panel">
+      <div class="faq-title">FAQ: 如何配置 Webhook？</div>
+      <div class="current-tags" id="currentTags"></div>
+      <div class="tag-input-row">
+        <input id="tagInput" type="text" placeholder="输入新标签..." onkeydown="if(event.key==='Enter')addFromInput()">
+        <button onclick="addFromInput()">+ 添加</button>
+      </div>
+      <div class="quick-tags" id="quickTags"></div>
+    </div>
+    <div class="output" id="tagLog" style="margin-top:8px;"><span class="log">点击快速标签或输入自定义标签...</span></div>
+    <button class="btn" onclick="doSmartGen()">▶ 智能生成标签</button>
+    <button class="btn" onclick="doSave()">保存</button>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="index.html">Demo 中心</a> · <a href="../docs/index.html">文档中心</a> · <a href="../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+var QUICK_TAGS = ['工具', '开源项目', '家庭', '工作', '娱乐', '文档', '日记'];
+var currentTags = ['API', '开发'];
+
+function renderCurrentTags() {
+  var el = document.getElementById('currentTags');
+  el.innerHTML = currentTags.map(function(t) {
+    return '<span class="current-tag">' + t + '<span class="remove" onclick="removeTag(\'' + t + '\')">×</span></span>';
+  }).join('');
+}
+
+function renderQuickTags() {
+  var el = document.getElementById('quickTags');
+  el.innerHTML = QUICK_TAGS.map(function(t) {
+    var used = currentTags.some(function(ct) { return ct.toLowerCase() === t.toLowerCase(); });
+    return '<button class="quick-tag" ' + (used ? 'disabled style="opacity:0.4;"' : 'onclick="addQuickTag(\'' + t + '\')"') + '>' + t + '</button>';
+  }).join('');
+}
+
+function addFromInput() {
+  var input = document.getElementById('tagInput');
+  var v = input.value.trim();
+  if (!v) return;
+  if (currentTags.some(function(t) { return t.toLowerCase() === v.toLowerCase(); })) {
+    log('addFromInput: "' + v + '" 已存在，跳过 (去重)');
+    input.value = '';
+    return;
+  }
+  currentTags.push(v);
+  input.value = '';
+  log('addFromInput() → currentTags: [' + currentTags.join(', ') + ']');
+  renderAll();
+}
+
+function addQuickTag(tag) {
+  currentTags.push(tag);
+  log('addQuickTag("' + tag + '") → currentTags: [' + currentTags.join(', ') + ']');
+  renderAll();
+}
+
+function removeTag(tag) {
+  currentTags = currentTags.filter(function(t) { return t !== tag; });
+  log('removeTag("' + tag + '") → currentTags: [' + currentTags.join(', ') + ']');
+  renderAll();
+}
+
+function doSmartGen() {
+  var aiTags = ['集成', '配置', 'Webhook', '自动化'];
+  aiTags.forEach(function(t) {
+    if (!currentTags.some(function(ct) { return ct.toLowerCase() === t.toLowerCase(); })) {
+      currentTags.push(t);
+    }
+  });
+  log('smartGenerate() → AI 建议标签: [' + aiTags.join(', ') + '] → 合并后: [' + currentTags.join(', ') + ']');
+  renderAll();
+}
+
+function doSave() {
+  log('save() → 更新 store.allFaqs[faqIndex].tags → FaqTagManager 关闭 → FaqManager 刷新显示');
+}
+
+function log(msg) {
+  document.getElementById('tagLog').innerHTML = '<span class="log">[' + new Date().toLocaleTimeString() + ']</span> ' + msg;
+}
+
+function renderAll() { renderCurrentTags(); renderQuickTags(); }
+
+renderAll();
+</script>
+</body>
+</html>

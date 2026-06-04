@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vitest/coverage-v8 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-3); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; } pre .num { color: var(--amber); }
+    .bar-wrap { margin: 8px 0; display: flex; align-items: center; gap: 10px; }
+    .bar-label { font-size: 0.78rem; color: var(--text-muted); min-width: 100px; text-align: right; }
+    .bar-track { flex: 1; height: 20px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .bar-fill.good { background: var(--green); } .bar-fill.warn { background: var(--amber); } .bar-fill.high { background: var(--green); }
+    .bar-pct { font-size: 0.74rem; color: var(--text-secondary); min-width: 42px; }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-3); background: rgba(168,85,247,0.08); color: var(--color-accent-3); transition: all 0.15s; margin-top: 12px; }
+    .btn:hover { background: var(--color-accent-3); color: #fff; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+    @media (max-width: 768px) { .main { padding: 20px 12px 48px; } pre { font-size: 0.72rem; padding: 10px 12px; } }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html">← 返回 Demo 中心</a>
+  <h1>@vitest/coverage-v8 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>@vitest/coverage-v8 v3.1.1 基于 V8 原生覆盖率引擎。配置 provider: 'v8'，输出 text/json/html 三种报告。</p>
+</section>
+
+<section id="config">
+  <h2>vitest 配置</h2>
+  <div class="card">
+<pre><span class="kw">import</span> { defineConfig } <span class="kw">from</span> <span class="str">'vitest/config'</span>;
+
+<span class="kw">export default</span> <span class="fn">defineConfig</span>({
+  test: {
+    coverage: {
+      provider: <span class="str">'v8'</span>,
+      include: [<span class="str">'core/**/*.js'</span>, <span class="str">'modules/**/*.js'</span>],
+      exclude: [<span class="str">'**/node_modules/**'</span>],
+      reporter: [<span class="str">'text'</span>, <span class="str">'json'</span>, <span class="str">'html'</span>],
+      thresholds: {
+        statements: <span class="num">60</span>,
+        branches: <span class="num">50</span>,
+        functions: <span class="num">55</span>,
+        lines: <span class="num">60</span>,
+      },
+    },
+  },
+});</pre>
+  </div>
+</section>
+
+<section id="reporter">
+  <h2>三种报告格式</h2>
+  <div class="card">
+    <h3>text — 终端输出</h3>
+<pre><span class="cm"># npm run test:coverage</span>
+File                     | % Stmts | % Branch | % Funcs | % Lines
+-------------------------|---------|----------|---------|--------
+All files                |   72.34 |    58.21 |   65.10 |   73.45
+ core/config.js          |   95.00 |    80.00 |  100.00 |   95.00
+ core/utils/api/request  |   68.42 |    45.83 |   55.00 |   70.15
+ modules/pet/content/    |   61.33 |    42.50 |   48.00 |   62.80</pre>
+  </div>
+  <div class="card">
+    <h3>html — 可视化报告</h3>
+    <p style="color:var(--text-muted);font-size:0.82rem;">运行 test:coverage 后，在 coverage/ 目录查看交互式 HTML 报告：行级高亮（绿=覆盖/红=未覆盖）、文件浏览器、覆盖率过滤。</p>
+  </div>
+</section>
+
+<section id="targets">
+  <h2>逐场景覆盖率目标</h2>
+  <p>不同测试场景的覆盖率目标不同，按风险分级。</p>
+  <div class="card">
+    <div id="covBars">
+      <div class="bar-wrap"><span class="bar-label">场景1 核心逻辑</span><div class="bar-track"><div class="bar-fill good" style="width:82%"></div></div><span class="bar-pct">82%</span></div>
+      <div class="bar-wrap"><span class="bar-label">场景2 API 接口</span><div class="bar-track"><div class="bar-fill good" style="width:75%"></div></div><span class="bar-pct">75%</span></div>
+      <div class="bar-wrap"><span class="bar-label">场景3 数据持久化</span><div class="bar-track"><div class="bar-fill high" style="width:100%"></div></div><span class="bar-pct">100%</span></div>
+      <div class="bar-wrap"><span class="bar-label">场景4 异常边界</span><div class="bar-track"><div class="bar-fill high" style="width:91%"></div></div><span class="bar-pct">91%</span></div>
+      <div class="bar-wrap"><span class="bar-label">场景5 集成回归</span><div class="bar-track"><div class="bar-fill warn" style="width:68%"></div></div><span class="bar-pct">68%</span></div>
+    </div>
+    <button class="btn" onclick="animateBars()">▶ 重播动画</button>
+  </div>
+</section>
+
+<section id="ci">
+  <h2>CI/CD 门禁</h2>
+  <div class="card">
+<pre><span class="cm"># package.json</span>
+{
+  <span class="str">"scripts"</span>: {
+    <span class="str">"test"</span>: <span class="str">"vitest run"</span>,
+    <span class="str">"test:coverage"</span>: <span class="str">"vitest run --coverage"</span>
+  }
+}
+
+<span class="cm"># CI 门禁: 覆盖率低于阈值 → 构建失败</span>
+<span class="fn">npx vitest run --coverage</span>
+<span class="cm"># exit code 1 if thresholds not met</span></pre>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="index.html">Demo 中心</a> · <a href="../docs/index.html">文档中心</a> · <a href="../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+function animateBars() {
+  const bars = document.querySelectorAll('#covBars .bar-fill');
+  bars.forEach(b => { b.style.width = '0%'; });
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      bars[0].style.width = '82%';
+      bars[1].style.width = '75%';
+      bars[2].style.width = '100%';
+      bars[3].style.width = '91%';
+      bars[4].style.width = '68%';
+    });
+  });
+}
+</script>
+</body>
+</html>

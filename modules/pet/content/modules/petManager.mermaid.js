@@ -10,4 +10,4 @@
   }
 
   console.log('[PetManager] petManager.mermaid.js 兼容层已加载')
-})()
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))

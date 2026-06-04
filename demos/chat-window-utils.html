@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatWindowUtils 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; } pre .num { color: var(--amber); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .demo-box { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin: 16px 0; }
+    .demo-box h4 { font-size: 0.88rem; font-weight: 600; color: var(--color-accent-2); margin-bottom: 12px; }
+    .output { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 12px 16px; font-family: "SF Mono", monospace; font-size: 0.76rem; color: var(--text-secondary); max-height: 240px; overflow-y: auto; line-height: 1.7; }
+    .output .key { color: var(--color-accent); } .output .val { color: var(--color-accent-2); } .output .warn { color: var(--amber); }
+    .output .pass { color: var(--green); } .output .fail { color: var(--red); }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-2); background: rgba(34,211,238,0.08); color: var(--color-accent-2); transition: all 0.15s; margin-top: 12px; margin-right: 8px; }
+    .btn:hover { background: var(--color-accent-2); color: #1a1a2a; }
+    .color-swatch { display: inline-block; width: 60px; height: 24px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); margin-right: 6px; vertical-align: middle; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .main { padding: 20px 12px 48px; } pre { font-size: 0.72rem; padding: 10px 12px; } }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html">← 返回 Demo 中心</a>
+  <h1>ChatWindowUtils 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>ChatWindowUtils 是 Chat 组件的共享工具函数集，9 个纯函数。提供安全的调用包装、Vue API 检测、组件模块查找、模板加载、颜色计算等跨组件复用能力。</p>
+</section>
+
+<section id="api-list">
+  <h2>全部 9 个工具函数</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>safeCall</h3>
+<pre><span class="kw">function</span> <span class="fn">safeCall</span>(fn, fallbackValue) {
+  <span class="kw">try</span> { <span class="kw">return</span> <span class="fn">fn</span>() }
+  <span class="kw">catch</span> (_) { <span class="kw">return</span> fallbackValue ?? <span class="kw">null</span> }
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">同步安全调用，异常时返回 fallbackValue</p>
+    </div>
+    <div class="card">
+      <h3>safeCallAsync</h3>
+<pre><span class="kw">async function</span> <span class="fn">safeCallAsync</span>(fn, fv) {
+  <span class="kw">try</span> { <span class="kw">return await</span> <span class="fn">fn</span>() }
+  <span class="kw">catch</span> (_) { <span class="kw">return</span> fv ?? <span class="kw">null</span> }
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">异步安全调用，异常时返回 fallbackValue</p>
+    </div>
+    <div class="card">
+      <h3>getVueApi</h3>
+<pre><span class="kw">function</span> <span class="fn">getVueApi</span>(Vue) {
+  <span class="kw">if</span> (!Vue?.createApp || !Vue?.defineComponent
+      || !Vue?.ref || !Vue?.onMounted)
+    <span class="kw">return</span> <span class="kw">null</span>
+  <span class="kw">return</span> { createApp, defineComponent, ref, onMounted }
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">检测 Vue 3 可用性，提取核心 API</p>
+    </div>
+    <div class="card">
+      <h3>canUseVueTemplate</h3>
+<pre><span class="kw">function</span> <span class="fn">canUseVueTemplate</span>(Vue) {
+  <span class="kw">if</span> (<span class="kw">typeof</span> Vue?.compile !== <span class="str">'function'</span>)
+    <span class="kw">return</span> <span class="kw">false</span>
+  <span class="kw">return</span> <span class="fn">safeCall</span>(() => {
+    <span class="fn">Function</span>(<span class="str">'return 1'</span>)(); <span class="kw">return</span> <span class="kw">true</span>
+  }, <span class="kw">false</span>)
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">检测 template 编译 + CSP 是否允许 Function 构造器</p>
+    </div>
+    <div class="card">
+      <h3>getComponentModule</h3>
+<pre><span class="kw">function</span> <span class="fn">getComponentModule</span>(name) {
+  <span class="kw">return</span> window.PetManager?.Components
+    ?.[name] || <span class="kw">null</span>
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">从全局命名空间获取组件模块</p>
+    </div>
+    <div class="card">
+      <h3>loadTemplateIfAvailable</h3>
+<pre><span class="kw">async function</span> <span class="fn">loadTemplateIfAvailable</span>(mod) {
+  <span class="kw">if</span> (!mod?.loadTemplate) <span class="kw">return</span> <span class="str">''</span>
+  <span class="kw">return await</span> <span class="fn">safeCallAsync</span>(
+    () => mod.<span class="fn">loadTemplate</span>(), <span class="str">''</span>)
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">安全加载组件 HTML 模板</p>
+    </div>
+    <div class="card">
+      <h3>toRgbFromHex</h3>
+<pre><span class="kw">function</span> <span class="fn">toRgbFromHex</span>(hex) {
+  <span class="kw">const</span> m = hex.<span class="fn">match</span>(<span class="str">/^#([0-9a-fA-F]{6})$/</span>)
+  <span class="kw">if</span> (!m) <span class="kw">return</span> <span class="kw">null</span>
+  <span class="kw">return</span> { r: parseInt(...), g: ..., b: ... }
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">6 位 hex → { r, g, b } 对象</p>
+    </div>
+    <div class="card">
+      <h3>clampInt</h3>
+<pre><span class="kw">function</span> <span class="fn">clampInt</span>(n, min, max) {
+  <span class="kw">const</span> x = Math.<span class="fn">round</span>(<span class="fn">Number</span>(n))
+  <span class="kw">if</span> (!<span class="fn">Number</span>.<span class="fn">isFinite</span>(x)) <span class="kw">return</span> min
+  <span class="kw">return</span> Math.<span class="fn">min</span>(Math.<span class="fn">max</span>(x, min), max)
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">整数钳制，非数字返回 min</p>
+    </div>
+    <div class="card">
+      <h3>shadeHexColor</h3>
+<pre><span class="kw">function</span> <span class="fn">shadeHexColor</span>(hex, ratio) {
+  <span class="kw">const</span> rgb = <span class="fn">toRgbFromHex</span>(hex)
+  <span class="kw">if</span> (!rgb) <span class="kw">return</span> <span class="kw">null</span>
+  <span class="kw">const</span> t = ratio &lt; <span class="num">0</span> ? <span class="num">0</span> : <span class="num">255</span>
+  <span class="cm">// 线性插值: (t - c) * |ratio| + c</span>
+  <span class="kw">return</span> <span class="str">'#'</span> + [r,g,b].<span class="fn">map</span>(...).<span class="fn">join</span>(<span class="str">''</span>)
+}</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">颜色加深/减淡，ratio &lt; 0 为加深</p>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — 颜色计算</h2>
+  <p>输入 hex 颜色，查看 toRgbFromHex + shadeHexColor 的输出。</p>
+  <div class="demo-box">
+    <h4>颜色工具演示</h4>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <input id="hexInput" type="text" value="#667eea" maxlength="7" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-family:'SF Mono',monospace;font-size:0.85rem;width:100px;">
+      <span class="color-swatch" id="mainSwatch" style="background:#667eea;"></span>
+      <span style="font-size:0.78rem;">加深 8% →</span>
+      <span class="color-swatch" id="darkSwatch" style="background:#5c73d6;"></span>
+      <span style="font-size:0.78rem;">加深 20% →</span>
+      <span class="color-swatch" id="darkerSwatch" style="background:#475cb0;"></span>
+    </div>
+    <div class="output" id="colorOutput" style="margin-top:12px;"></div>
+    <button class="btn" onclick="calcColor()">▶ 计算颜色</button>
+  </div>
+</section>
+
+<section id="usage">
+  <h2>ChatWindow 中的使用</h2>
+  <div class="card">
+<pre><span class="kw">const</span> _u = window.PetManager?.Components?.ChatWindowUtils || {}
+
+<span class="cm">// 所有子组件通过 _u 引用工具函数</span>
+<span class="kw">const</span> safeCall = _u.<span class="fn">safeCall</span> || <span class="kw">function</span>(fn, fv) { ... }
+<span class="kw">const</span> getVueApi = _u.<span class="fn">getVueApi</span> || <span class="kw">null</span>
+<span class="kw">const</span> canUseVueTemplate = _u.<span class="fn">canUseVueTemplate</span> || <span class="kw">function</span>() { ... }
+<span class="kw">const</span> toRgbFromHex = _u.<span class="fn">toRgbFromHex</span> || <span class="kw">function</span>() { ... }
+
+<span class="cm">// 主题更新管线: hex → rgb → shadeHex → CSS vars</span>
+<span class="kw">const</span> mainColor = <span class="kw">this</span>.<span class="fn">getMainColorFromGradient</span>(gradient)
+<span class="kw">const</span> rgb = <span class="fn">toRgbFromHex</span>(mainColor)
+<span class="kw">const</span> hoverColor = <span class="fn">shadeHexColor</span>(mainColor, <span class="num">-0.08</span>)</pre>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="index.html">Demo 中心</a> · <a href="../docs/index.html">文档中心</a> · <a href="../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+function toRgbFromHex(hex) {
+  var m = String(hex || '').trim().match(/^#([0-9a-fA-F]{6})$/);
+  if (!m) return null;
+  var v = m[1];
+  return {
+    r: parseInt(v.slice(0,2), 16),
+    g: parseInt(v.slice(2,4), 16),
+    b: parseInt(v.slice(4,6), 16)
+  };
+}
+
+function clampInt(n, min, max) {
+  var x = Math.round(Number(n));
+  if (!Number.isFinite(x)) return min;
+  return Math.min(Math.max(x, min), max);
+}
+
+function shadeHexColor(hex, ratio) {
+  var rgb = toRgbFromHex(hex);
+  if (!rgb) return null;
+  var t = ratio < 0 ? 0 : 255;
+  var p = Math.abs(Number(ratio));
+  var r = clampInt((t - rgb.r) * p + rgb.r, 0, 255);
+  var g = clampInt((t - rgb.g) * p + rgb.g, 0, 255);
+  var b = clampInt((t - rgb.b) * p + rgb.b, 0, 255);
+  return '#' + [r,g,b].map(function(c) { return c.toString(16).padStart(2,'0'); }).join('');
+}
+
+function calcColor() {
+  var hex = document.getElementById('hexInput').value.trim();
+  var valid = /^#[0-9a-fA-F]{6}$/.test(hex);
+  var rgb = toRgbFromHex(hex || '#000000');
+  var dark08 = shadeHexColor(hex || '#000000', -0.08);
+  var dark20 = shadeHexColor(hex || '#000000', -0.20);
+
+  if (valid) {
+    document.getElementById('mainSwatch').style.background = hex;
+    document.getElementById('darkSwatch').style.background = dark08;
+    document.getElementById('darkerSwatch').style.background = dark20;
+  }
+
+  var out = document.getElementById('colorOutput');
+  if (!valid || !rgb) {
+    out.innerHTML = '<span class="fail">无效的 hex 颜色（需要 #RRGGBB 格式）</span>';
+    return;
+  }
+  out.innerHTML =
+    '<div><span class="key">输入</span> → <span class="val">' + hex + '</span></div>' +
+    '<div><span class="key">toRgbFromHex</span> → <span class="val">{ r: ' + rgb.r + ', g: ' + rgb.g + ', b: ' + rgb.b + ' }</span></div>' +
+    '<div><span class="key">shadeHexColor(-0.08)</span> → <span class="val">' + dark08 + '</span></div>' +
+    '<div><span class="key">shadeHexColor(-0.20)</span> → <span class="val">' + dark20 + '</span></div>' +
+    '<div><span class="key">使用场景</span> → <span class="val">updateTheme() 中计算 --primary-hover 和 --primary-dark CSS 变量</span></div>';
+}
+
+calcColor();
+</script>
+</body>
+</html>

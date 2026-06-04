@@ -10,64 +10,24 @@
   if (!window.PetManager.Components) window.PetManager.Components = {}
 
   const hooks = window.PetManager.Components.ChatWindowHooks || {}
+  const _u = window.PetManager?.Components?.ChatWindowUtils || {}
 
-  const DEFAULT_SIDEBAR_WIDTH = 320
-  const MIN_SIDEBAR_WIDTH = 320
-  const MAX_SIDEBAR_WIDTH = 800
-  const DEFAULT_CHAT_WINDOW_WIDTH = 850
-  const DEFAULT_CHAT_WINDOW_HEIGHT = 720
-  const AUTO_SCROLL_THRESHOLD_PX = 140
+  const DEFAULT_SIDEBAR_WIDTH = (PET_CONFIG?.constants?.UI?.SIDEBAR_DEFAULT_WIDTH) || 320
+  const MIN_SIDEBAR_WIDTH = (PET_CONFIG?.constants?.UI?.SIDEBAR_MIN_WIDTH) || 320
+  const MAX_SIDEBAR_WIDTH = (PET_CONFIG?.constants?.UI?.SIDEBAR_MAX_WIDTH) || 800
+  const DEFAULT_CHAT_WINDOW_WIDTH = (PET_CONFIG?.constants?.UI?.CHAT_WINDOW_DEFAULT_WIDTH) || 850
+  const DEFAULT_CHAT_WINDOW_HEIGHT = (PET_CONFIG?.constants?.UI?.CHAT_WINDOW_DEFAULT_HEIGHT) || 720
+  const AUTO_SCROLL_THRESHOLD_PX = (PET_CONFIG?.constants?.TIMING?.AUTO_SCROLL_THRESHOLD_PX) || 140
 
-  function safeCall (fn, fallbackValue = null) {
-    try {
-      return fn()
-    } catch (_) {
-      return fallbackValue
-    }
-  }
-
-  async function safeCallAsync (fn, fallbackValue = null) {
-    try {
-      return await fn()
-    } catch (_) {
-      return fallbackValue
-    }
-  }
-
-  function getVueApi (Vue) {
-    if (
-      !Vue ||
-            typeof Vue.createApp !== 'function' ||
-            typeof Vue.defineComponent !== 'function' ||
-            typeof Vue.ref !== 'function' ||
-            typeof Vue.onMounted !== 'function'
-    ) {
-      return null
-    }
-    return {
-      createApp: Vue.createApp,
-      defineComponent: Vue.defineComponent,
-      ref: Vue.ref,
-      onMounted: Vue.onMounted
-    }
-  }
-
-  function canUseVueTemplate (Vue) {
-    if (typeof Vue?.compile !== 'function') return false
-    return safeCall(() => {
-      Function('return 1')()
-      return true
-    }, false)
-  }
-
-  function getComponentModule (name) {
-    return window.PetManager?.Components?.[name] || null
-  }
-
-  async function loadTemplateIfAvailable (mod) {
-    if (!mod || typeof mod.loadTemplate !== 'function') return ''
-    return String((await safeCallAsync(() => mod.loadTemplate(), '')) || '')
-  }
+  const safeCall = _u.safeCall || function(fn, fv) { try { return fn() } catch(_) { return fv } }
+  const safeCallAsync = _u.safeCallAsync || async function(fn, fv) { try { return await fn() } catch(_) { return fv } }
+  const getVueApi = _u.getVueApi || null
+  const canUseVueTemplate = _u.canUseVueTemplate || function() { return false }
+  const getComponentModule = _u.getComponentModule || function(n) { return window.PetManager?.Components?.[n] || null }
+  const loadTemplateIfAvailable = _u.loadTemplateIfAvailable || async function() { return '' }
+  const toRgbFromHex = _u.toRgbFromHex || function() { return null }
+  const clampInt = _u.clampInt || function(n, min) { return min }
+  const shadeHexColor = _u.shadeHexColor || function() { return null }
 
   const createStore =
         typeof hooks.createStore === 'function'
@@ -164,36 +124,6 @@
     )
     chatWindowTemplatesCache = { chatWindow: tpl }
     return chatWindowTemplatesCache
-  }
-
-  function toRgbFromHex (hex) {
-    const normalized = String(hex || '').trim()
-    const match = normalized.match(/^#([0-9a-fA-F]{6})$/)
-    if (!match) return null
-    const value = match[1]
-    const r = parseInt(value.slice(0, 2), 16)
-    const g = parseInt(value.slice(2, 4), 16)
-    const b = parseInt(value.slice(4, 6), 16)
-    if (![r, g, b].every((n) => Number.isFinite(n))) return null
-    return { r, g, b }
-  }
-
-  function clampInt (n, min, max) {
-    const x = Math.round(Number(n))
-    if (!Number.isFinite(x)) return min
-    return Math.min(Math.max(x, min), max)
-  }
-
-  function shadeHexColor (hex, ratio) {
-    const rgb = toRgbFromHex(hex)
-    if (!rgb) return null
-    const t = ratio < 0 ? 0 : 255
-    const p = Math.abs(Number(ratio))
-    if (!Number.isFinite(p)) return null
-    const r = clampInt((t - rgb.r) * p + rgb.r, 0, 255)
-    const g = clampInt((t - rgb.g) * p + rgb.g, 0, 255)
-    const b = clampInt((t - rgb.b) * p + rgb.b, 0, 255)
-    return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`
   }
 
   class ChatWindow {
@@ -506,44 +436,11 @@
         e?.preventDefault?.()
       }
 
-      const resolveExternalUrl = (key, fallbackUrl) => {
-        const urls = window.PET_CONFIG?.constants?.URLS
-        const value = urls && typeof urls[key] === 'string' ? urls[key] : ''
-        return String(value || fallbackUrl || '').trim()
-      }
-
-      const openExternal = (url) => {
-        const targetUrl = String(url || '').trim()
-        if (!targetUrl) return
-        const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
-        if (newWindow) {
-          try {
-            newWindow.opener = null
-          } catch (_) {}
-        }
-      }
-
       const authBtn = root.querySelector('#yi-pet-chat-auth-btn')
       if (authBtn) {
         authBtn.addEventListener('click', (e) => {
           stopEvent(e)
           if (typeof manager?.openAuth === 'function') manager.openAuth()
-        })
-      }
-
-      const aicrBtn = root.querySelector('#yi-pet-chat-aicr-btn')
-      if (aicrBtn) {
-        aicrBtn.addEventListener('click', (e) => {
-          stopEvent(e)
-          openExternal(resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html'))
-        })
-      }
-
-      const newsBtn = root.querySelector('#yi-pet-chat-news-btn')
-      if (newsBtn) {
-        newsBtn.addEventListener('click', (e) => {
-          stopEvent(e)
-          openExternal(resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html'))
         })
       }
 

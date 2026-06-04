@@ -1,0 +1,157 @@
+{
+  "version": "2.0.0",
+  "kind": "story-deps",
+  "generatedAt": "2026-06-03T12:00:00.000Z",
+  "projectRoot": "docs/故事任务面板/",
+  "project": {
+    "name": "YiPet",
+    "description": "YiPet Chrome Extension — 故事任务面板跨故事依赖图，统一 系统架构 与 自主测试 两故事的知识图谱",
+    "version": "2.0.0"
+  },
+  "stories": [
+    {
+      "id": "story-arch",
+      "name": "系统架构",
+      "title": "系统架构 — 项目技术架构故事",
+      "version": "v2.0.0",
+      "status": "📄 基线",
+      "type": "技术架构",
+      "directory": "docs/故事任务面板/系统架构/",
+      "entryFile": "docs/故事任务面板/系统架构/故事任务.md",
+      "description": "系统架构知识固化：覆盖 YiPet Chrome Extension 的模块拓扑、数据流追踪、信任边界、依赖变更影响、新人上手指南",
+      "sceneCount": 5,
+      "nodeCount": 41,
+      "edgeCount": 38
+    },
+    {
+      "id": "story-selftest",
+      "name": "自主测试",
+      "title": "自主测试 — 项目自主测试方案",
+      "version": "v1.0.0",
+      "status": "📄 基线",
+      "type": "自动化测试",
+      "directory": "docs/故事任务面板/自主测试/",
+      "entryFile": "docs/故事任务面板/自主测试/故事任务.md",
+      "description": "为 YiPet Chrome Extension 搭建可执行的自动化测试体系，覆盖核心基础设施、API 请求客户端、数据持久化、异常路径与边界、集成回归五个维度",
+      "sceneCount": 5,
+      "nodeCount": 22,
+      "edgeCount": 41
+    }
+  ],
+  "storyEdges": [
+    {
+      "id": "se_arch__selftest",
+      "source": "story-arch",
+      "target": "story-selftest",
+      "type": "validated_by",
+      "label": "架构→测试",
+      "description": "自主测试 验证 系统架构 中定义的核心模块（config/token/request/ApiManager/error/storageUtils/bootstrap/sessionManager），8 个共享源码模块通过 6 个测试文件覆盖",
+      "sharedModules": [
+        { "file": "core/config.js", "archNode": "n_core_config", "testNode": "n_src_config", "testedBy": ["n_test_config", "n_test_integration"] },
+        { "file": "core/utils/api/token.js", "archNode": "n_core_token", "testNode": "n_src_token", "testedBy": ["n_test_token", "n_test_error", "n_test_integration"] },
+        { "file": "core/utils/api/request.js", "archNode": "n_core_request", "testNode": "n_src_request", "testedBy": ["n_test_api", "n_test_error", "n_test_integration"] },
+        { "file": "core/api/core/ApiManager.js", "archNode": "n_core_apimgr", "testNode": "n_src_apimgr", "testedBy": ["n_test_api"] },
+        { "file": "core/utils/api/error.js", "archNode": "n_core_error", "testNode": "n_src_error", "testedBy": ["n_test_error", "n_test_integration"] },
+        { "file": "core/utils/storage/storageUtils.js", "archNode": "n_core_storage", "testNode": "n_src_storage", "testedBy": ["n_test_storage", "n_test_integration"] },
+        { "file": "core/bootstrap/bootstrap.js", "archNode": "n_core_bootstrap", "testNode": "n_src_bootstrap", "testedBy": ["n_test_storage"] },
+        { "file": "core/utils/session/sessionManager.js", "archNode": "n_core_sessionmgr", "testNode": "n_src_sessionmgr", "testedBy": ["n_test_storage", "n_test_integration"] }
+      ],
+      "direction": "forward",
+      "weight": 0.9
+    }
+  ],
+  "knowledgeGraph": {
+    "nodes": [
+      { "data": { "id": "n_story_arch", "type": "story", "label": "系统架构", "storyId": "story-arch", "keyContent": "`模块拓扑` `数据流` `安全边界` `依赖影响`", "summary": "YiPet Chrome Extension 系统架构知识固化，5 场景覆盖模块→数据流→安全→依赖→上手全维度", "risk": null, "tags": ["story", "tier-story"], "complexity": "complex", "description": "系统架构知识固化：覆盖 YiPet Chrome Extension 的模块拓扑、数据流追踪、信任边界、依赖变更影响、新人上手指南", "layer": "故事层", "entryFile": "docs/故事任务面板/系统架构/故事任务.md" }, "classes": "story tier-story" },
+      { "data": { "id": "n_story_selftest", "type": "story", "label": "自主测试", "storyId": "story-selftest", "keyContent": "`自动化测试` `vitest` `jsdom`", "summary": "YiPet Chrome Extension 自动化测试套件，5 场景覆盖核心→API→存储→异常→集成全维度", "risk": null, "tags": ["story", "tier-story", "test"], "complexity": "complex", "description": "项目自主测试方案：为 YiPet Chrome Extension 搭建可执行的自动化测试体系，覆盖核心基础设施、API 请求客户端、数据持久化、异常路径与边界、集成回归五个维度", "layer": "故事层", "entryFile": "docs/故事任务面板/自主测试/故事任务.md" }, "classes": "story tier-story" },
+
+      { "data": { "id": "n_s1_module", "type": "scene", "label": "场景1: 模块地图与拓扑", "storyId": "story-arch", "keyContent": "`模块识别` `依赖图` `入口验证`", "summary": "全量模块识别 + 依赖图构建 + manifest 加载顺序验证", "risk": "🟡", "tags": ["scene", "tier-scene", "topology"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-1-模块拓扑.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s2_dataflow", "type": "scene", "label": "场景2: 数据流与追踪", "storyId": "story-arch", "keyContent": "`请求链路` `事件流` `存储路径`", "summary": "关键数据流可追踪到端点：AI 聊天流 + 会话 CRUD 流 + storage 读写流", "risk": "🟡", "tags": ["scene", "tier-scene", "dataflow"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-2-数据流追踪.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s3_security", "type": "scene", "label": "场景3: 信任边界与安全面", "storyId": "story-arch", "keyContent": "`auth` `token` `输入验证` `权限`", "summary": "五面安全审查：认证·传输·输入·存储·权限，安全面全量覆盖无绕过", "risk": "🔴", "tags": ["scene", "tier-scene", "security"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-3-安全边界.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s4_dependency", "type": "scene", "label": "场景4: 依赖关系与变更影响", "storyId": "story-arch", "keyContent": "`依赖图` `影响分析` `爆炸半径`", "summary": "外部依赖 + manifest 加载顺序 + 内部模块依赖，量化失效爆炸半径", "risk": "🟡", "tags": ["scene", "tier-scene", "dependency"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-4-依赖影响.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s5_onboarding", "type": "scene", "label": "场景5: 新人上手与开发指南", "storyId": "story-arch", "keyContent": "`环境搭建` `调试` `代码模式`", "summary": "环境搭建 3 步 + 3 种 DevTools 调试入口 + IIFE/Vue Options API 代码模式", "risk": null, "tags": ["scene", "tier-scene", "onboarding"], "complexity": "simple", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-5-上手指南.md" }, "classes": "scene tier-scene" },
+
+      { "data": { "id": "n_s1_core", "type": "scene", "label": "场景1: 核心逻辑测试", "storyId": "story-selftest", "keyContent": "`config.js` `token.js` `storageUtils.js`", "summary": "验证配置中心、Token 管理器、存储工具的核心逻辑正确性，覆盖率 ≥80%", "risk": "🟡", "tags": ["scene", "tier-scene", "unit-test", "core"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/自主测试/场景-1-核心逻辑.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s2_api", "type": "scene", "label": "场景2: API 接口测试", "storyId": "story-selftest", "keyContent": "`RequestClient` `fetch mock` `重试` `超时`", "summary": "验证 HTTP 请求客户端的请求构造、重试、超时、中止、响应解析全路径，覆盖率 ≥80%", "risk": "🟡", "tags": ["scene", "tier-scene", "unit-test", "api"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/自主测试/场景-2-接口测试.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s3_storage", "type": "scene", "label": "场景3: 数据持久化测试", "storyId": "story-selftest", "keyContent": "`chrome.storage` `CRUD` `配额` `SessionManager`", "summary": "验证 chrome.storage.local CRUD、配额管理、会话持久化的正确性与容错性，正确率 100%", "risk": "🔴", "tags": ["scene", "tier-scene", "unit-test", "storage"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/自主测试/场景-3-存储测试.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s4_error", "type": "scene", "label": "场景4: 异常路径与边界", "storyId": "story-selftest", "keyContent": "`APIError` `ErrorHandler` `6 类错误` `上下文失效`", "summary": "验证错误分类层次、错误处理、上下文失效检测、Token 缺失等异常路径，覆盖率 ≥90%", "risk": "🔴", "tags": ["scene", "tier-scene", "unit-test", "error"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/自主测试/场景-4-错误边界.md" }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s5_integration", "type": "scene", "label": "场景5: 集成与回归", "storyId": "story-selftest", "keyContent": "`端到端` `模块联调` `快照` `全生命周期`", "summary": "验证配置→Token→请求链路的端到端正确性，关键路径通过率 100%", "risk": "🔴", "tags": ["scene", "tier-scene", "integration-test", "e2e"], "complexity": "complex", "layer": "场景层", "entryFile": "docs/故事任务面板/自主测试/场景-5-集成测试.md" }, "classes": "scene tier-scene" }
+    ],
+    "edges": [
+      { "data": { "id": "e_n_story_arch__n_s1_module", "source": "n_story_arch", "target": "n_s1_module", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景1：模块地图与拓扑", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s2_dataflow", "source": "n_story_arch", "target": "n_s2_dataflow", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景2：数据流与追踪", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s3_security", "source": "n_story_arch", "target": "n_s3_security", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景3：信任边界与安全面", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s4_dependency", "source": "n_story_arch", "target": "n_s4_dependency", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景4：依赖关系与变更影响", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s5_onboarding", "source": "n_story_arch", "target": "n_s5_onboarding", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景5：新人上手与开发指南", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+
+      { "data": { "id": "e_n_story_selftest__n_s1_core", "source": "n_story_selftest", "target": "n_s1_core", "type": "contains", "label": "包含场景", "description": "自主测试 故事包含场景1：核心逻辑测试", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_selftest__n_s2_api", "source": "n_story_selftest", "target": "n_s2_api", "type": "contains", "label": "包含场景", "description": "自主测试 故事包含场景2：API 接口测试", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_selftest__n_s3_storage", "source": "n_story_selftest", "target": "n_s3_storage", "type": "contains", "label": "包含场景", "description": "自主测试 故事包含场景3：数据持久化测试", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_selftest__n_s4_error", "source": "n_story_selftest", "target": "n_s4_error", "type": "contains", "label": "包含场景", "description": "自主测试 故事包含场景4：异常路径与边界", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+      { "data": { "id": "e_n_story_selftest__n_s5_integration", "source": "n_story_selftest", "target": "n_s5_integration", "type": "contains", "label": "包含场景", "description": "自主测试 故事包含场景5：集成与回归", "direction": "forward", "weight": 0.9 }, "classes": "contains" },
+
+      { "data": { "id": "e_n_story_arch__n_story_selftest", "source": "n_story_arch", "target": "n_story_selftest", "type": "validated_by", "label": "架构→测试", "description": "系统架构 定义的模块由 自主测试 验证：8 个共享源码模块（config/token/request/ApiManager/error/storageUtils/bootstrap/sessionManager）通过 6 个测试文件覆盖", "direction": "forward", "weight": 0.9 }, "classes": "validated_by" },
+
+      { "data": { "id": "e_n_s1_module__n_s1_core", "source": "n_s1_module", "target": "n_s1_core", "type": "cross_story", "label": "架构→测试", "description": "场景1 模块拓扑识别的 config/token/storage 核心模块由 自主测试 场景1 验证核心逻辑", "direction": "forward", "weight": 0.7 }, "classes": "cross_story" },
+      { "data": { "id": "e_n_s2_dataflow__n_s2_api", "source": "n_s2_dataflow", "target": "n_s2_api", "type": "cross_story", "label": "数据流→API测试", "description": "场景2 数据流追踪的请求链路由 自主测试 场景2 验证 API 请求构造/重试/超时", "direction": "forward", "weight": 0.7 }, "classes": "cross_story" },
+      { "data": { "id": "e_n_s2_dataflow__n_s3_storage", "source": "n_s2_dataflow", "target": "n_s3_storage", "type": "cross_story", "label": "数据流→存储测试", "description": "场景2 数据流追踪的存储路径由 自主测试 场景3 验证数据持久化正确性", "direction": "forward", "weight": 0.7 }, "classes": "cross_story" },
+      { "data": { "id": "e_n_s3_security__n_s4_error", "source": "n_s3_security", "target": "n_s4_error", "type": "cross_story", "label": "安全→异常测试", "description": "场景3 信任边界的 Token/上下文失效防护由 自主测试 场景4 验证异常路径覆盖率", "direction": "forward", "weight": 0.8 }, "classes": "cross_story" },
+      { "data": { "id": "e_n_s4_dependency__n_s5_integration", "source": "n_s4_dependency", "target": "n_s5_integration", "type": "cross_story", "label": "依赖→集成测试", "description": "场景4 依赖分析的模块依赖关系由 自主测试 场景5 验证端到端集成正确性", "direction": "forward", "weight": 0.7 }, "classes": "cross_story" }
+    ]
+  },
+  "dependencyMatrix": {
+    "description": "自主测试 test 文件 → 系统架构 source 模块的验证覆盖矩阵",
+    "rows": [
+      { "testFile": "tests/unit/config.test.mjs", "testNode": "n_test_config", "targets": [{ "file": "core/config.js", "archNode": "n_core_config", "relationship": "validates", "description": "验证 DEFAULT_CONFIG 结构 + buildUrl 参数替换 + 环境检测" }] },
+      { "testFile": "tests/unit/token.test.mjs", "testNode": "n_test_token", "targets": [{ "file": "core/utils/api/token.js", "archNode": "n_core_token", "relationship": "validates", "description": "验证 TokenManager 构造参数 + getToken 三级回退 + validateToken 格式校验" }] },
+      { "testFile": "tests/unit/api.test.mjs", "testNode": "n_test_api", "targets": [
+        { "file": "core/utils/api/request.js", "archNode": "n_core_request", "relationship": "validates", "description": "验证 RequestClient 请求构造 + 重试逻辑 + 超时控制 + 响应解析" },
+        { "file": "core/api/core/ApiManager.js", "archNode": "n_core_apimgr", "relationship": "validates", "description": "验证 ApiManager 拦截器链 + X-Token 注入 + 请求/响应处理" }
+      ]},
+      { "testFile": "tests/unit/storage.test.mjs", "testNode": "n_test_storage", "targets": [
+        { "file": "core/utils/storage/storageUtils.js", "archNode": "n_core_storage", "relationship": "validates", "description": "验证 chrome.storage 读写 + 配额处理 + 上下文失效" },
+        { "file": "core/bootstrap/bootstrap.js", "archNode": "n_core_bootstrap", "relationship": "validates", "description": "验证 StorageHelper.cleanupOldData LRU 淘汰" },
+        { "file": "core/utils/session/sessionManager.js", "archNode": "n_core_sessionmgr", "relationship": "validates", "description": "验证 SessionManager 全生命周期 CRUD" }
+      ]},
+      { "testFile": "tests/unit/error.test.mjs", "testNode": "n_test_error", "targets": [
+        { "file": "core/utils/api/error.js", "archNode": "n_core_error", "relationship": "validates", "description": "验证 6 类错误构造 + ErrorHandler.categorize + formatError + isContextInvalidated" },
+        { "file": "core/utils/api/request.js", "archNode": "n_core_request", "relationship": "validates", "description": "验证网络错误重试 + 超时 AbortController" },
+        { "file": "core/utils/api/token.js", "archNode": "n_core_token", "relationship": "validates", "description": "验证 Token 缺失场景 + 三级降级回退" }
+      ]},
+      { "testFile": "tests/integration/pipeline.test.mjs", "testNode": "n_test_integration", "targets": [
+        { "file": "core/config.js", "archNode": "n_core_config", "relationship": "validates", "description": "端到端验证配置加载 + PET_CONFIG 全局导出" },
+        { "file": "core/utils/api/token.js", "archNode": "n_core_token", "relationship": "validates", "description": "端到端验证 Token 获取→注入请求链路" },
+        { "file": "core/utils/api/request.js", "archNode": "n_core_request", "relationship": "validates", "description": "端到端验证 GET 请求→fetch mock→响应解析" },
+        { "file": "core/utils/session/sessionManager.js", "archNode": "n_core_sessionmgr", "relationship": "validates", "description": "端到端验证会话创建→保存→列表→删除 全生命周期" },
+        { "file": "core/utils/api/error.js", "archNode": "n_core_error", "relationship": "validates", "description": "端到端验证网络错误→ErrorHandler.categorize→formatError 链路" },
+        { "file": "core/utils/storage/storageUtils.js", "archNode": "n_core_storage", "relationship": "validates", "description": "端到端验证会话持久化→读取→清理链路" }
+      ]}
+    ],
+    "summary": {
+      "totalTestFiles": 6,
+      "totalTargetModules": 8,
+      "totalValidatesEdges": 16,
+      "coverageByModule": {
+        "core/config.js": { "testedBy": ["config.test.mjs", "pipeline.test.mjs"], "edgeCount": 2 },
+        "core/utils/api/token.js": { "testedBy": ["token.test.mjs", "error.test.mjs", "pipeline.test.mjs"], "edgeCount": 3 },
+        "core/utils/api/request.js": { "testedBy": ["api.test.mjs", "error.test.mjs", "pipeline.test.mjs"], "edgeCount": 3 },
+        "core/api/core/ApiManager.js": { "testedBy": ["api.test.mjs"], "edgeCount": 1 },
+        "core/utils/api/error.js": { "testedBy": ["error.test.mjs", "pipeline.test.mjs"], "edgeCount": 2 },
+        "core/utils/storage/storageUtils.js": { "testedBy": ["storage.test.mjs", "pipeline.test.mjs"], "edgeCount": 2 },
+        "core/bootstrap/bootstrap.js": { "testedBy": ["storage.test.mjs"], "edgeCount": 1 },
+        "core/utils/session/sessionManager.js": { "testedBy": ["storage.test.mjs", "pipeline.test.mjs"], "edgeCount": 2 }
+      }
+    }
+  },
+  "stats": {
+    "storyCount": 2,
+    "totalScenes": 10,
+    "totalUnifiedNodes": 12,
+    "totalUnifiedEdges": 17,
+    "crossStoryEdges": 6,
+    "sharedSourceModules": 8,
+    "testFiles": 6,
+    "architectureSourceModules": 8,
+    "totalDependencyEdges": 16
+  }
+}

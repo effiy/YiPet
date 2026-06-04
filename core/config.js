@@ -93,7 +93,13 @@ const DEFAULT_CONFIG = {
       REQUEST_CLEANUP_INTERVAL: 30000,
       REQUEST_CLEANUP_TIMEOUT: 60000,
       STORAGE_CLEANUP_INTERVAL: 86400000,
-      STORAGE_CLEANUP_AGE: 604800000
+      STORAGE_CLEANUP_AGE: 604800000,
+      SESSION_UPDATE_DEBOUNCE: 300,
+      SESSION_SAVE_THROTTLE: 1000,
+      SESSION_LIST_RELOAD_INTERVAL: 10000,
+      STATE_SAVE_THROTTLE: 2000,
+      AUTO_SCROLL_THRESHOLD_PX: 140,
+      CHAT_BUBBLE_UPDATE_INTERVAL: 1500
     },
     RETRY: {
       MAX_RETRIES: 3,
@@ -109,8 +115,6 @@ const DEFAULT_CONFIG = {
       CHROME_EXTENSION_PROTOCOL: 'chrome-extension://',
       MOZ_EXTENSION_PROTOCOL: 'moz-extension://',
       ABOUT_PROTOCOL: 'about:',
-      AICR_REVIEW_PAGE: 'https://effiy.cn/src/views/aicr/index.html',
-      NEWS_ASSISTANT_PAGE: 'https://effiy.cn/src/views/news/index.html',
       isSystemPage: function (url) {
         if (!url || typeof url !== 'string') return false
         return url.startsWith(this.CHROME_PROTOCOL) ||
@@ -125,7 +129,35 @@ const DEFAULT_CONFIG = {
       STATUS_DOT_INACTIVE: '#f59e0b',
       NOTIFICATION_SUCCESS: '#22c55e',
       NOTIFICATION_ERROR: '#ef4444',
-      NOTIFICATION_INFO: '#3b82f6'
+      NOTIFICATION_INFO: '#3b82f6',
+      SIDEBAR_DEFAULT_WIDTH: 320,
+      SIDEBAR_MIN_WIDTH: 320,
+      SIDEBAR_MAX_WIDTH: 800,
+      CHAT_WINDOW_DEFAULT_WIDTH: 850,
+      CHAT_WINDOW_DEFAULT_HEIGHT: 720,
+      TAG_FILTER_VISIBLE_COUNT: 8
+    },
+    ANIMATION: {
+      THINKING_ANIMATIONS: [
+        'petThinking 0.8s ease-in-out infinite',
+        'petThinkingBounce 1.2s ease-in-out infinite',
+        'petThinkingPulse 1s ease-in-out infinite'
+      ],
+      THINKING_BUBBLE_TEXTS: [
+        '🤔 让我想想...',
+        '💭 思考中...',
+        '✨ 灵感涌现',
+        '🌟 整理思路',
+        '🎯 深度分析',
+        '🔍 搜索答案',
+        '💡 想法来了',
+        '🌊 头脑风暴',
+        '📝 组织语言',
+        '🎨 酝酿回复',
+        '⚡ 快想好了',
+        '🌈 无限接近',
+        '🚀 马上就来'
+      ]
     },
     DEFAULTS: {
       PET_ROLE: '教师'

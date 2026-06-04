@@ -12,23 +12,6 @@
     e?.preventDefault?.()
   }
 
-  function resolveExternalUrl (key, fallbackUrl) {
-    const urls = window.PET_CONFIG?.constants?.URLS
-    const value = urls && typeof urls[key] === 'string' ? urls[key] : ''
-    return String(value || fallbackUrl || '').trim()
-  }
-
-  function openExternal (url) {
-    const targetUrl = String(url || '').trim()
-    if (!targetUrl) return
-    const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
-    if (newWindow) {
-      try {
-        newWindow.opener = null
-      } catch (_) {}
-    }
-  }
-
   async function loadTemplate () {
     if (chatHeaderTemplateCache) return chatHeaderTemplateCache
     const DomHelper = window.DomHelper
@@ -79,21 +62,7 @@
           }
         }
 
-        const onAicrClick = (e) => {
-          stopEvent(e)
-          openExternal(
-            resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html')
-          )
-        }
-
-        const onNewsClick = (e) => {
-          stopEvent(e)
-          openExternal(
-            resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html')
-          )
-        }
-
-        return { onAuthClick, onCloseClick, onAicrClick, onNewsClick }
+        return { onAuthClick, onCloseClick }
       },
       template: resolvedTemplate
     })

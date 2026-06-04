@@ -1,0 +1,377 @@
+{
+  "version": "2.0.0",
+  "kind": "knowledge-graph",
+  "generatedAt": "2026-06-02T12:00:00.000Z",
+  "projectRoot": "docs/故事任务面板/系统架构/",
+  "project": {
+    "name": "系统架构",
+    "description": "YiPet Chrome Extension 系统架构知识固化：模块拓扑、数据流追踪、信任边界、依赖变更影响、新人上手指南",
+    "analyzedAt": "2026-06-02T12:00:00.000Z",
+    "version": "2.0.0"
+  },
+  "story": {
+    "name": "系统架构",
+    "description": "YiPet 项目技术架构故事，覆盖 5 个架构维度",
+    "scenarios": [
+      {
+        "name": "场景1 · 模块地图与拓扑",
+        "description": "① 识别全量模块文件 → ② 构建模块拓扑依赖图 → ③ 验证 IIFE 全局命名空间模式 → ④ 确认入口文件与加载顺序",
+        "sourceFiles": [
+          { "type": "file", "file": "core/config.js", "keyContent": "`PET_CONFIG` `ENDPOINTS` `buildUrl`", "description": "配置中心：端点定义、环境检测、全局导出。所有模块的前置依赖", "risk": "🔴" },
+          { "type": "file", "file": "core/utils/api/token.js", "keyContent": "`TokenManager` `TokenUtils` `getToken`", "description": "Token 管理器：三级降级获取（环境变量→storage→空），X-Token 注入", "risk": "🔴" },
+          { "type": "file", "file": "core/utils/api/request.js", "keyContent": "`RequestClient` `createRequestClient` `_fetchWithRetry`", "description": "HTTP 请求客户端：fetch 封装 + 指数退避重试 + 超时控制", "risk": "🟡" },
+          { "type": "file", "file": "core/api/core/ApiManager.js", "keyContent": "`ApiManager` `拦截器链` `X-Token 注入`", "description": "API 管理器：拦截器链模式，统一请求/响应处理", "risk": "🟡" },
+          { "type": "file", "file": "core/utils/api/error.js", "keyContent": "`APIError` `NetworkError` `ErrorHandler` `isContextInvalidated`", "description": "错误处理：6 类错误层次 + 上下文失效检测 + 全局错误处理器", "risk": "🔴" },
+          { "type": "file", "file": "core/utils/api/logger.js", "keyContent": "`Logger`", "description": "日志器：统一日志输出", "risk": null },
+          { "type": "file", "file": "core/utils/storage/storageUtils.js", "keyContent": "`StorageUtils` `saveToChromeStorage` `loadFromChromeStorage`", "description": "存储工具：chrome.storage.local 读写封装 + 配额处理", "risk": "🟡" },
+          { "type": "file", "file": "core/bootstrap/bootstrap.js", "keyContent": "`StorageHelper` `位置计算`", "description": "启动辅助：StorageHelper 清理降级 + 宠物位置计算", "risk": "🟡" },
+          { "type": "file", "file": "core/api/services/SessionService.js", "keyContent": "`SessionService` `会话 CRUD`", "description": "会话 API 服务：后端会话 CRUD 操作封装", "risk": null },
+          { "type": "file", "file": "core/api/services/FaqService.js", "keyContent": "`FaqService` `FAQ CRUD`", "description": "FAQ API 服务：后端 FAQ CRUD 操作封装", "risk": null },
+          { "type": "file", "file": "core/utils/session/sessionManager.js", "keyContent": "`SessionManager` `createSession` `activateSession`", "description": "前端会话管理器：会话生命周期 + 搜索 + 批量操作", "risk": null },
+          { "type": "file", "file": "modules/pet/content/core/petManager.core.js", "keyContent": "`PetManager` `800+ 行`", "description": "PetManager 核心类定义：状态初始化、原型链挂载所有子模块", "risk": "🔴" },
+          { "type": "file", "file": "modules/pet/content/petManager.chat.js", "keyContent": "`聊天开关` `窗口定位`", "description": "聊天逻辑：消息发送/接收控制 + 聊天窗口定位", "risk": null },
+          { "type": "file", "file": "modules/pet/content/petManager.chatUi.js", "keyContent": "`聊天 UI 渲染`", "description": "聊天 UI：Vue 组件挂载 + 界面渲染调度", "risk": null },
+          { "type": "file", "file": "modules/pet/content/petManager.ui.js", "keyContent": "`宠物 DOM 渲染`", "description": "宠物 UI：宠物图标 DOM 创建 + 样式注入", "risk": null },
+          { "type": "file", "file": "modules/pet/content/petManager.drag.js", "keyContent": "`拖拽交互`", "description": "拖拽：宠物图标拖拽定位 + 边界检测", "risk": null },
+          { "type": "file", "file": "modules/pet/content/petManager.state.js", "keyContent": "`状态持久化`", "description": "状态管理：chrome.storage.local 状态读写 + 变更监听", "risk": "🟡" },
+          { "type": "file", "file": "modules/pet/content/ai/petManager.ai.api.js", "keyContent": "`流式 API 调用`", "description": "AI API：流式聊天请求 + SSE 解析", "risk": "🟡" },
+          { "type": "file", "file": "modules/pet/content/ai/petManager.ai.prompt.js", "keyContent": "`Prompt 构建`", "description": "Prompt 构建：上下文组装 + 系统提示词 + 历史消息注入", "risk": null },
+          { "type": "file", "file": "modules/pet/content/session/petManager.session.crud.js", "keyContent": "`CRUD 操作`", "description": "会话 CRUD：创建/读取/更新/删除会话", "risk": null },
+          { "type": "file", "file": "modules/pet/content/editor/petManager.editor.core.js", "keyContent": "`编辑器核心`", "description": "编辑器核心：Markdown 编辑 + 预览切换", "risk": null },
+          { "type": "file", "file": "modules/pet/content/mermaid/petManager.mermaid.renderer.js", "keyContent": "`Mermaid 渲染`", "description": "Mermaid 渲染：图表代码解析 + SVG 生成（懒加载）", "risk": null },
+          { "type": "file", "file": "modules/extension/background/index.js", "keyContent": "`Service Worker 入口`", "description": "SW 入口：消息路由注册 + 存储监听 + 生命周期管理", "risk": "🔴" },
+          { "type": "file", "file": "modules/extension/background/messaging/messageRouter.js", "keyContent": "`MessageRouter` `action → handler`", "description": "消息路由器：action 到 handler 的映射分发", "risk": "🟡" },
+          { "type": "file", "file": "modules/extension/background/actions/petHandler.js", "keyContent": "`injectPet` `removePet`", "description": "宠物处理器：content script 注入/移除控制", "risk": null },
+          { "type": "file", "file": "modules/extension/background/integrations/wework/weworkHandler.js", "keyContent": "`sendToWeWorkRobot`", "description": "企微消息处理器：消息发送到企微机器人", "risk": null },
+          { "type": "file", "file": "modules/extension/popup/index.js", "keyContent": "`PopupController`", "description": "Popup 控制面板：chrome.runtime.sendMessage 通信", "risk": null },
+          { "type": "file", "file": "modules/faq/content/faq.js", "keyContent": "`FAQ 数据管理` `规范化`", "description": "FAQ 管理：数据规范化 + CRUD + 搜索", "risk": null },
+          { "type": "file", "file": "modules/pet/components/chat/ChatWindow/index.js", "keyContent": "`ChatWindow` `Vue Options API`", "description": "聊天窗口主组件：store + computed + methods 分离", "risk": "🟡" },
+          { "type": "file", "file": "modules/pet/components/chat/ChatInput/index.js", "keyContent": "`ChatInput` `消息发送`", "description": "聊天输入组件：文本输入 + 发送按钮 + 快捷键", "risk": null },
+          { "type": "file", "file": "modules/pet/components/chat/ChatMessages/index.js", "keyContent": "`ChatMessages` `消息渲染`", "description": "消息列表组件：Markdown 渲染 + Mermaid 图表 + 滚动", "risk": null },
+          { "type": "file", "file": "modules/pet/components/TokenSettingsModal/index.js", "keyContent": "`TokenSettingsModal`", "description": "Token 设置弹窗：输入 + 校验 + 保存", "risk": null },
+          { "type": "file", "file": "libs/vue.global.js", "keyContent": "`Vue 3` `globalThis.Vue`", "description": "Vue 3 CDN 运行时：所有 Vue 组件的前置依赖，🔴 失效影响全部 UI", "risk": "🔴" },
+          { "type": "file", "file": "libs/marked.min.js", "keyContent": "`marked` `Markdown 解析`", "description": "marked.js：Markdown → HTML 解析，🟡 失效影响聊天窗口和编辑器预览", "risk": "🟡" },
+          { "type": "file", "file": "libs/turndown.js", "keyContent": "`turndown` `HTML → Markdown`", "description": "turndown.js：HTML → Markdown 转换，🟡 失效影响编辑器粘贴和页面抓取", "risk": "🟡" },
+          { "type": "file", "file": "libs/md5.js", "keyContent": "`md5` `哈希工具`", "description": "md5.js：哈希计算工具，🟢 失效影响少量辅助功能", "risk": null },
+          { "type": "file", "file": "libs/mermaid.min.js", "keyContent": "`mermaid` `图表渲染`", "description": "Mermaid：图表渲染引擎（懒加载），🟢 失效仅影响图表区域", "risk": null },
+          { "type": "file", "file": "manifest.json", "keyContent": "`content_scripts` `background` `permissions`", "description": "Manifest V3 配置：content-script 注入声明 + SW 注册 + 权限 `<all_urls>`", "risk": "🔴" },
+          { "type": "file", "file": "assets/styles/tailwind.css", "keyContent": "`Tailwind CSS`", "description": "Tailwind CSS 样式文件：🟡 失效导致全 UI 样式退化", "risk": "🟡" }
+        ],
+        "graphNodes": [
+          "n_core_config", "n_core_token", "n_core_request", "n_core_apimgr", "n_core_error",
+          "n_core_logger", "n_core_storage", "n_core_bootstrap", "n_core_sessionsvc", "n_core_faqsvc",
+          "n_core_sessionmgr", "n_pet_core", "n_pet_chat", "n_pet_chatui", "n_pet_ui", "n_pet_drag",
+          "n_pet_state", "n_pet_ai_api", "n_pet_ai_prompt", "n_pet_session_crud", "n_pet_editor_core",
+          "n_pet_mermaid_render", "n_ext_sw", "n_ext_router", "n_ext_pethandler", "n_ext_wework",
+          "n_ext_popup", "n_faq_main", "n_vue_chatwindow", "n_vue_chatinput", "n_vue_chatmessages",
+          "n_vue_tokensettings", "n_lib_vue", "n_lib_marked", "n_lib_turndown", "n_lib_md5",
+          "n_lib_mermaid", "n_manifest", "n_assets_tailwind"
+        ]
+      },
+      {
+        "name": "场景2 · 数据流与追踪",
+        "description": "① 追踪用户输入→API 端点 → ② 追踪 chrome.storage 读写路径 → ③ Service Worker 消息路由 → ④ 跨组件事件流",
+        "sourceFiles": [
+          { "type": "file", "file": "core/config.js", "keyContent": "`ENDPOINTS` `streamPromptUrl`", "description": "API 端点定义：数据流的远端目标配置", "risk": null },
+          { "type": "file", "file": "core/utils/api/token.js", "keyContent": "`getToken` `X-Token 注入`", "description": "认证数据流：三级回退获取 Token → 注入请求头", "risk": "🔴" },
+          { "type": "file", "file": "core/utils/api/request.js", "keyContent": "`_fetchWithRetry` `_buildFetchOptions` `_parseResponse`", "description": "网络数据流：fetch → 重试 → 响应解析全链路", "risk": "🟡" },
+          { "type": "file", "file": "core/api/core/ApiManager.js", "keyContent": "`拦截器链` `请求/响应拦截`", "description": "API 数据流枢纽：拦截器链串联 token→request→response", "risk": "🟡" },
+          { "type": "file", "file": "core/utils/storage/storageUtils.js", "keyContent": "`saveToChromeStorage` `loadFromChromeStorage`", "description": "存储数据流：chrome.storage.local 读写路径", "risk": null },
+          { "type": "file", "file": "modules/pet/content/ai/petManager.ai.api.js", "keyContent": "`streamChat` `SSE 解析`", "description": "AI 流式数据流：SSE 事件解析 → 逐 token 回调", "risk": "🟡" },
+          { "type": "file", "file": "modules/pet/content/ai/petManager.ai.prompt.js", "keyContent": "`buildPrompt` `上下文组装`", "description": "Prompt 数据流：历史消息 + 系统提示词 + 用户输入 → 完整 prompt", "risk": null },
+          { "type": "file", "file": "modules/extension/background/app/register.js", "keyContent": "`消息路由注册` `storage.onChanged`", "description": "SW 事件流：storage.onChanged → 消息路由注册 → content script 通知", "risk": "🟡" },
+          { "type": "file", "file": "modules/extension/background/messaging/messageRouter.js", "keyContent": "`route` `action → handler`", "description": "消息路由数据流：action 解析 → handler 分发 → 响应回传", "risk": null },
+          { "type": "file", "file": "modules/extension/background/services/tabMessaging.js", "keyContent": "`sendToTab` `chrome.tabs.sendMessage`", "description": "跨 Tab 消息流：SW → Content Script 消息发送", "risk": null },
+          { "type": "file", "file": "modules/faq/content/faq.js", "keyContent": "`FAQ 查询` `FaqService`", "description": "FAQ 数据流：本地缓存 → FaqService → API 查询", "risk": null }
+        ],
+        "graphNodes": [
+          "n_core_config", "n_core_token", "n_core_request", "n_core_apimgr", "n_core_storage",
+          "n_pet_ai_api", "n_pet_ai_prompt", "n_ext_register", "n_ext_router", "n_ext_tabmsg",
+          "n_faq_main"
+        ]
+      },
+      {
+        "name": "场景3 · 信任边界与安全面",
+        "description": "① 识别外部不可信域 → ② 认证面 TokenManager 三级降级 → ③ 传输面 fetch CORS + X-Token → ④ 存储面 chrome.storage.local 配额保护 → ⑤ 权限面 `<all_urls>` 注入控制",
+        "sourceFiles": [
+          { "type": "file", "file": "core/utils/api/token.js", "keyContent": "`TokenManager` `validateToken` `三级降级`", "description": "认证面核心：环境变量→storage→空 三级回退，Token 格式校验", "risk": "🔴" },
+          { "type": "file", "file": "core/utils/api/error.js", "keyContent": "`isContextInvalidated` `isChromeStorageAvailable`", "description": "安全守卫：扩展上下文失效检测 + chrome.storage 可用性预检", "risk": "🔴" },
+          { "type": "file", "file": "core/utils/api/request.js", "keyContent": "`CORS` `X-Token 头` `超时控制`", "description": "传输面：fetch CORS 模式 + X-Token 认证头注入 + 30s 超时", "risk": "🟡" },
+          { "type": "file", "file": "core/bootstrap/bootstrap.js", "keyContent": "`StorageHelper.cleanupOldData` `配额保护`", "description": "存储面：LRU 淘汰 + 可重建数据优先清理 + 配额超限降级", "risk": "🟡" },
+          { "type": "file", "file": "manifest.json", "keyContent": "`<all_urls>` `permissions` `content_scripts`", "description": "权限面：全站注入声明 + 系统页面跳过检测（chrome://、chrome-extension://）", "risk": "🔴" },
+          { "type": "file", "file": "modules/pet/content/core/petManager.core.js", "keyContent": "`isContextInvalidated` 守卫", "description": "运行时守卫：所有 chrome API 调用前预检上下文有效性", "risk": "🔴" },
+          { "type": "file", "file": "modules/extension/background/index.js", "keyContent": "`Service Worker` `生命周期`", "description": "SW 安全：后台消息路由认证 + 扩展重载状态恢复", "risk": "🟡" }
+        ],
+        "graphNodes": [
+          "n_core_token", "n_core_error", "n_core_request", "n_core_bootstrap", "n_manifest",
+          "n_pet_core", "n_ext_sw"
+        ]
+      },
+      {
+        "name": "场景4 · 依赖关系与变更影响",
+        "description": "① 识别全部外部依赖（CDN + 库文件）→ ② 分析 manifest.json 加载顺序依赖 → ③ 内部模块依赖图 → ④ 量化每个依赖失效的爆炸半径",
+        "sourceFiles": [
+          { "type": "file", "file": "manifest.json", "keyContent": "`content_scripts.js` 加载顺序", "description": "加载顺序 = 依赖顺序：config → token → request → ApiManager → Vue → bootstrap → PetManager", "risk": "🔴" },
+          { "type": "file", "file": "libs/vue.global.js", "keyContent": "`Vue 3` `globalThis.Vue`", "description": "🔴 P0 外部依赖：失效影响 9 个 Vue 组件 + Popup，全部 UI 不可渲染", "risk": "🔴" },
+          { "type": "file", "file": "libs/marked.min.js", "keyContent": "`marked`", "description": "🟡 P1 外部依赖：失效导致 AI 回复显示原始 Markdown，影响聊天窗口 + 编辑器预览", "risk": "🟡" },
+          { "type": "file", "file": "libs/turndown.js", "keyContent": "`turndown`", "description": "🟡 P1 外部依赖：失效导致 HTML→Markdown 转换失败，影响编辑器粘贴 + 页面抓取", "risk": "🟡" },
+          { "type": "file", "file": "libs/mermaid.min.js", "keyContent": "`mermaid`", "description": "🟢 P2 外部依赖：懒加载非核心，失效仅图表区域空白", "risk": null },
+          { "type": "file", "file": "libs/md5.js", "keyContent": "`md5`", "description": "🟢 P2 外部依赖：失效影响少量辅助哈希功能", "risk": null },
+          { "type": "file", "file": "assets/styles/tailwind.css", "keyContent": "`Tailwind CSS`", "description": "🟡 P1 外部依赖：失效导致全 UI 样式退化到无样式状态", "risk": "🟡" },
+          { "type": "file", "file": "modules/pet/content/core/petManager.core.js", "keyContent": "`PetManager` `≈ 32 子模块`", "description": "内部枢纽节点：PetManager 通过 prototype 挂载所有子模块，变更影响全宠物功能", "risk": "🔴" },
+          { "type": "file", "file": "core/api/core/ApiManager.js", "keyContent": "`ApiManager` `拦截器链`", "description": "内部枢纽节点：所有 API 请求经过 ApiManager，变更影响全 API 通信", "risk": "🔴" },
+          { "type": "file", "file": "modules/extension/background/messaging/messageRouter.js", "keyContent": "`MessageRouter`", "description": "内部枢纽节点：所有 SW 消息经 MessageRouter 分发，变更影响全后台通信", "risk": "🟡" }
+        ],
+        "graphNodes": [
+          "n_manifest", "n_lib_vue", "n_lib_marked", "n_lib_turndown", "n_lib_mermaid",
+          "n_lib_md5", "n_assets_tailwind", "n_pet_core", "n_core_apimgr", "n_ext_router"
+        ]
+      },
+      {
+        "name": "场景5 · 新人上手与开发指南",
+        "description": "① 环境搭建 3 步 → ② 架构概览阅读路径 → ③ 3 种 DevTools 调试入口 → ④ IIFE + Vue Options API 代码模式 → ⑤ 完成首修",
+        "sourceFiles": [
+          { "type": "file", "file": "CLAUDE.md", "keyContent": "`项目画像` `模块地图` `数据流`", "description": "项目入口文档：架构全景 + 技术栈 + 模块地图 + 引导链接", "risk": null },
+          { "type": "file", "file": "README.md", "keyContent": "`系统视图` `命令流` `快速开始`", "description": "项目 README：系统全景 + 快速开始指南", "risk": null },
+          { "type": "file", "file": "manifest.json", "keyContent": "`manifest_version 3`", "description": "Manifest V3 配置：无需构建工具，直接加载源码目录", "risk": null },
+          { "type": "file", "file": "modules/pet/content/core/petManager.core.js", "keyContent": "`PetManager` 类", "description": "核心入口类：理解 IIFE + prototype 挂载模式的最佳起点", "risk": null }
+        ],
+        "graphNodes": [
+          "n_claude_md", "n_readme_md", "n_manifest", "n_pet_core"
+        ]
+      }
+    ]
+  },
+  "scenes": {
+    "s1-module-topology": {
+      "name": "模块地图与拓扑",
+      "description": "全量模块拓扑识别、依赖关系、IIFE 全局命名空间模式验证",
+      "nodes": [
+        "n_core_config", "n_core_token", "n_core_request", "n_core_apimgr", "n_core_error",
+        "n_core_logger", "n_core_storage", "n_core_bootstrap", "n_core_sessionsvc", "n_core_faqsvc",
+        "n_core_sessionmgr", "n_pet_core", "n_pet_chat", "n_pet_chatui", "n_pet_ui", "n_pet_drag",
+        "n_pet_state", "n_pet_ai_api", "n_pet_ai_prompt", "n_pet_session_crud", "n_pet_editor_core",
+        "n_pet_mermaid_render", "n_ext_sw", "n_ext_router", "n_ext_pethandler", "n_ext_wework",
+        "n_ext_popup", "n_faq_main", "n_vue_chatwindow", "n_vue_chatinput", "n_vue_chatmessages",
+        "n_vue_tokensettings", "n_lib_vue", "n_lib_marked", "n_lib_turndown", "n_lib_md5",
+        "n_lib_mermaid", "n_manifest", "n_assets_tailwind"
+      ]
+    },
+    "s2-data-flow": {
+      "name": "数据流与追踪",
+      "description": "用户输入→API 端点、chrome.storage 读写、SW 消息路由等关键数据流追踪",
+      "nodes": [
+        "n_core_config", "n_core_token", "n_core_request", "n_core_apimgr", "n_core_storage",
+        "n_pet_ai_api", "n_pet_ai_prompt", "n_ext_register", "n_ext_router", "n_ext_tabmsg",
+        "n_faq_main"
+      ]
+    },
+    "s3-security": {
+      "name": "信任边界与安全面",
+      "description": "认证/传输/输入验证/存储/权限五面安全覆盖",
+      "nodes": [
+        "n_core_token", "n_core_error", "n_core_request", "n_core_bootstrap", "n_manifest",
+        "n_pet_core", "n_ext_sw"
+      ]
+    },
+    "s4-dependency": {
+      "name": "依赖关系与变更影响",
+      "description": "外部依赖 + manifest 加载顺序 + 内部模块依赖 + 失效爆炸半径量化",
+      "nodes": [
+        "n_manifest", "n_lib_vue", "n_lib_marked", "n_lib_turndown", "n_lib_mermaid",
+        "n_lib_md5", "n_assets_tailwind", "n_pet_core", "n_core_apimgr", "n_ext_router"
+      ]
+    },
+    "s5-onboarding": {
+      "name": "新人上手与开发指南",
+      "description": "环境搭建 + 调试方法 + 代码模式 + 首修路径",
+      "nodes": [
+        "n_claude_md", "n_readme_md", "n_manifest", "n_pet_core"
+      ]
+    }
+  },
+  "graph": {
+    "nodes": [
+      { "data": { "id": "n_story_arch", "type": "story", "label": "系统架构", "keyContent": "`技术架构` `知识固化`", "summary": "YiPet Chrome Extension 系统架构知识固化故事，5 场景覆盖全架构维度", "risk": null, "tags": ["story", "tier-story", "arch"], "complexity": "complex", "description": "系统架构知识固化故事：模块拓扑、数据流追踪、信任边界、依赖变更影响、新人上手指南 5 个架构维度。场景文档由 coder/tester 协作生成，§0 技术评审 + §1 测试设计全覆盖", "layer": "故事层", "entryFile": "docs/故事任务面板/系统架构/故事任务.md", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology", "s2-data-flow", "s3-security", "s4-dependency", "s5-onboarding"], "mdFiles": [{"scenario": "场景1 · 模块地图与拓扑", "scenarioIndex": 0, "section": "§0 技术评审", "file": "场景-1-模块拓扑.md"}], "relatedNodes": [] }, "classes": "story tier-story" },
+
+      { "data": { "id": "n_s1_module", "type": "scene", "label": "场景1: 模块地图与拓扑", "keyContent": "`模块拓扑` `IIFE` `全局命名空间`", "summary": "全量模块识别、依赖关系图、IIFE 全局命名空间模式验证", "risk": null, "tags": ["scene", "tier-scene", "topology"], "complexity": "complex", "description": "识别 YiPet 全部 60+ 模块文件，构建 core/→pet/→ext/→faq/ 四层模块拓扑图，验证 IIFE 全局命名空间模式和 manifest.json 加载顺序", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-1-模块拓扑.md", "consumers": [], "storyRef": [{"story": "系统架构", "fp": "FP1"}], "scenarioRef": ["s1-module-topology"], "mdFiles": [{"scenario": "场景1 · 模块地图与拓扑", "scenarioIndex": 0, "section": "§0 技术评审", "file": "场景-1-模块拓扑.md"}], "relatedNodes": ["n_core_config", "n_pet_core", "n_ext_sw", "n_manifest"] }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s2_dataflow", "type": "scene", "label": "场景2: 数据流与追踪", "keyContent": "`数据流` `请求链路` `事件流`", "summary": "用户输入→API 端点完整链路追踪，chrome.storage 读写路径，SW 消息路由", "risk": null, "tags": ["scene", "tier-scene", "dataflow"], "complexity": "complex", "description": "追踪聊天请求完整链路（User→ChatInput→PetManager→ApiManager→RequestClient→fetch→api.effiy.cn）、chrome.storage.local 读写路径、Service Worker 消息路由分发", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-2-数据流追踪.md", "consumers": [], "storyRef": [{"story": "系统架构", "fp": "FP2"}], "scenarioRef": ["s2-data-flow"], "mdFiles": [{"scenario": "场景2 · 数据流与追踪", "scenarioIndex": 1, "section": "§0 技术评审", "file": "场景-2-数据流追踪.md"}], "relatedNodes": ["n_core_apimgr", "n_core_request", "n_core_token", "n_pet_ai_api"] }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s3_security", "type": "scene", "label": "场景3: 信任边界与安全面", "keyContent": "`信任边界` `认证` `传输` `存储`", "summary": "识别全量信任边界，覆盖认证/传输/输入验证/存储/权限五面安全", "risk": "🔴", "tags": ["scene", "tier-scene", "security"], "complexity": "complex", "description": "识别外部不可信域（用户输入/任意网页/API响应/CDN）与内部可信域（CS/SW/Popup/storage）之间的五层信任边界：输入校验（⚠️ 无 XSS 过滤）、认证（TokenManager 三级降级）、传输（fetch CORS + X-Token）、存储（配额保护）、权限（系统页面跳过）", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-3-安全边界.md", "consumers": [], "storyRef": [{"story": "系统架构", "fp": "FP3"}], "scenarioRef": ["s3-security"], "mdFiles": [{"scenario": "场景3 · 信任边界与安全面", "scenarioIndex": 2, "section": "§0 技术评审", "file": "场景-3-安全边界.md"}], "relatedNodes": ["n_core_token", "n_core_error", "n_core_request", "n_manifest"] }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s4_dependency", "type": "scene", "label": "场景4: 依赖关系与变更影响", "keyContent": "`依赖图` `影响分析` `爆炸半径`", "summary": "外部依赖 + manifest 加载顺序 + 内部模块依赖，量化失效爆炸半径", "risk": "🟡", "tags": ["scene", "tier-scene", "dependency"], "complexity": "complex", "description": "识别全部外部依赖（Vue/marked/turndown/Mermaid/md5/Tailwind）及其失效影响等级（P0/P1/P2），分析 manifest.json 加载顺序依赖链，构建内部模块依赖图（PetManager 32 子模块、Vue 9 组件、SW 消息路由），量化每个依赖的爆炸半径和降级行为", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-4-依赖影响.md", "consumers": [], "storyRef": [{"story": "系统架构", "fp": "FP4"}], "scenarioRef": ["s4-dependency"], "mdFiles": [{"scenario": "场景4 · 依赖关系与变更影响", "scenarioIndex": 3, "section": "§0 技术评审", "file": "场景-4-依赖影响.md"}], "relatedNodes": ["n_lib_vue", "n_manifest", "n_pet_core", "n_core_apimgr"] }, "classes": "scene tier-scene" },
+      { "data": { "id": "n_s5_onboarding", "type": "scene", "label": "场景5: 新人上手与开发指南", "keyContent": "`环境搭建` `调试` `代码模式`", "summary": "环境搭建 3 步 + 3 种 DevTools 调试入口 + IIFE/Vue Options API 代码模式", "risk": null, "tags": ["scene", "tier-scene", "onboarding"], "complexity": "simple", "description": "新人学习路径：环境搭建（克隆→加载扩展→验证）→架构概览（CLAUDE.md + 场景 1-4）→3 种调试入口（Content Script/SW/Popup DevTools）→代码模式（IIFE + Vue Options API + Manifest 顺序）→首修任务", "layer": "场景层", "entryFile": "docs/故事任务面板/系统架构/场景-5-上手指南.md", "consumers": [], "storyRef": [{"story": "系统架构", "fp": "FP5"}], "scenarioRef": ["s5-onboarding"], "mdFiles": [{"scenario": "场景5 · 新人上手与开发指南", "scenarioIndex": 4, "section": "§0 技术评审", "file": "场景-5-上手指南.md"}], "relatedNodes": ["n_claude_md", "n_readme_md", "n_pet_core"] }, "classes": "scene tier-scene" },
+
+      { "data": { "id": "n_core_config", "type": "source", "label": "config.js", "keyContent": "`PET_CONFIG` `ENDPOINTS` `buildUrl`", "summary": "配置中心：端点定义、环境检测、全局导出。所有模块的前置依赖", "risk": "🔴", "tags": ["source", "tier-source", "config", "core"], "complexity": "moderate", "description": "配置中心模块：定义 DEFAULT_CONFIG（pet 行为参数、constants 常量、ENDPOINTS 端点）、环境模式检测（window.__PET_ENV_MODE__ → process.env → 默认 dev）、端点覆盖合并、PET_CONFIG 多通道全局导出（self/window/global/module.exports）。所有模块的前置依赖，manifest.json 中首个加载", "layer": "core/ 共享基础设施", "entryFile": "core/config.js", "consumers": ["PetManager", "ApiManager", "TokenManager"], "storyRef": [{"story": "系统架构", "fp": "FP1"}], "scenarioRef": ["s1-module-topology", "s2-data-flow"], "mdFiles": [{"scenario": "场景1 · 模块地图与拓扑", "scenarioIndex": 0, "section": "§0 技术评审", "file": "场景-1-模块拓扑.md"}], "relatedNodes": ["n_core_token", "n_core_apimgr", "n_pet_core"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_token", "type": "source", "label": "token.js", "keyContent": "`TokenManager` `TokenUtils` `三级降级`", "summary": "Token 管理器：三级降级获取（环境变量→storage→空），X-Token 认证头注入", "risk": "🔴", "tags": ["source", "tier-source", "auth", "core"], "complexity": "moderate", "description": "认证核心模块：TokenManager 类实现三级降级获取（window.__API_X_TOKEN__ / process.env.API_X_TOKEN → chrome.storage.local YiPet.apiToken.v1 → 空 token）、validateToken 格式校验、saveToken/clearToken 持久化、TokenUtils 便利方法。所有 API 请求的认证依赖，🔴 安全关键节点", "layer": "core/ 共享基础设施", "entryFile": "core/utils/api/token.js", "consumers": ["ApiManager", "RequestClient"], "storyRef": [{"story": "系统架构", "fp": "FP3"}], "scenarioRef": ["s1-module-topology", "s2-data-flow", "s3-security"], "mdFiles": [{"scenario": "场景3 · 信任边界与安全面", "scenarioIndex": 2, "section": "§0 技术评审", "file": "场景-3-安全边界.md"}], "relatedNodes": ["n_core_config", "n_core_apimgr", "n_core_request"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_request", "type": "source", "label": "request.js", "keyContent": "`RequestClient` `_fetchWithRetry` `指数退避`", "summary": "HTTP 请求客户端：fetch 封装 + 指数退避重试（最多 3 次）+ 30s 超时控制", "risk": "🟡", "tags": ["source", "tier-source", "network", "core"], "complexity": "moderate", "description": "网络请求客户端：RequestClient 类封装 fetch API，支持 GET/POST/PUT/DELETE + 自定义请求选项、指数退避重试（1s×2^retryCount，最多 3 次）、AbortController 超时控制（默认 30s）、JSON/文本/Blob 响应解析、业务码检查", "layer": "core/ 共享基础设施", "entryFile": "core/utils/api/request.js", "consumers": ["ApiManager"], "storyRef": [{"story": "系统架构", "fp": "FP2"}], "scenarioRef": ["s1-module-topology", "s2-data-flow", "s3-security"], "mdFiles": [{"scenario": "场景2 · 数据流与追踪", "scenarioIndex": 1, "section": "§0 技术评审", "file": "场景-2-数据流追踪.md"}], "relatedNodes": ["n_core_token", "n_core_apimgr", "n_core_error"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_apimgr", "type": "source", "label": "ApiManager.js", "keyContent": "`ApiManager` `拦截器链` `X-Token 注入`", "summary": "API 管理器：拦截器链模式串联 token→request→response，所有 API 请求枢纽", "risk": "🔴", "tags": ["source", "tier-source", "api", "core"], "complexity": "complex", "description": "API 管理核心：拦截器链模式统一请求/响应处理，依赖 TokenManager 注入 X-Token、依赖 RequestClient 发送请求。所有业务 API（SessionService/FaqService/AI API）经此枢纽。🔴 数据流关键节点，变更影响全 API 通信", "layer": "core/ 共享基础设施", "entryFile": "core/api/core/ApiManager.js", "consumers": ["SessionService", "FaqService", "petManager.ai.api"], "storyRef": [{"story": "系统架构", "fp": "FP2"}], "scenarioRef": ["s1-module-topology", "s2-data-flow", "s4-dependency"], "mdFiles": [{"scenario": "场景4 · 依赖关系与变更影响", "scenarioIndex": 3, "section": "§0 技术评审", "file": "场景-4-依赖影响.md"}], "relatedNodes": ["n_core_token", "n_core_request", "n_core_sessionsvc", "n_core_faqsvc", "n_pet_ai_api"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_error", "type": "source", "label": "error.js", "keyContent": "`APIError` `ErrorHandler` `isContextInvalidated`", "summary": "错误处理：6 类错误层次 + 上下文失效检测 + 全局错误处理器", "risk": "🔴", "tags": ["source", "tier-source", "error", "core"], "complexity": "moderate", "description": "错误处理模块：APIError → NetworkError/TimeoutError/AuthError/ValidationError/RateLimitError 六类错误层次、ErrorHandler.categorize 分类检查链、isChromeStorageAvailable + isContextInvalidated 全局守卫、formatError 格式化、全局错误处理器注册。🔴 安全关键节点：上下文失效检测是扩展重载后的唯一防线", "layer": "core/ 共享基础设施", "entryFile": "core/utils/api/error.js", "consumers": ["RequestClient", "StorageUtils", "PetManager"], "storyRef": [{"story": "系统架构", "fp": "FP3"}], "scenarioRef": ["s1-module-topology", "s3-security"], "mdFiles": [{"scenario": "场景3 · 信任边界与安全面", "scenarioIndex": 2, "section": "§0 技术评审", "file": "场景-3-安全边界.md"}], "relatedNodes": ["n_core_request", "n_core_storage", "n_pet_core"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_logger", "type": "source", "label": "logger.js", "keyContent": "`Logger` `日志输出`", "summary": "日志器：统一日志输出接口", "risk": null, "tags": ["source", "tier-source", "util", "core"], "complexity": "simple", "description": "统一日志输出模块：Logger 类提供分级日志接口，供所有模块使用", "layer": "core/ 共享基础设施", "entryFile": "core/utils/api/logger.js", "consumers": ["所有模块"], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": [] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_storage", "type": "source", "label": "storageUtils.js", "keyContent": "`StorageUtils` `saveToChromeStorage` `loadFromChromeStorage`", "summary": "存储工具：chrome.storage.local 读写封装 + 配额处理", "risk": "🟡", "tags": ["source", "tier-source", "storage", "core"], "complexity": "moderate", "description": "chrome.storage.local 操作封装：get/set/remove 异步操作 + lastError 处理 + 配额超限检测 + normalizeState 默认值合并。所有持久化操作的底层依赖", "layer": "core/ 共享基础设施", "entryFile": "core/utils/storage/storageUtils.js", "consumers": ["PetManager", "SessionManager", "StorageHelper"], "storyRef": [{"story": "系统架构", "fp": "FP2"}], "scenarioRef": ["s1-module-topology", "s2-data-flow"], "mdFiles": [], "relatedNodes": ["n_core_bootstrap", "n_core_sessionmgr", "n_pet_state"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_bootstrap", "type": "source", "label": "bootstrap.js", "keyContent": "`StorageHelper` `cleanupOldData` `位置计算`", "summary": "启动辅助：StorageHelper 清理降级 + 宠物位置计算", "risk": "🟡", "tags": ["source", "tier-source", "bootstrap", "core"], "complexity": "moderate", "description": "启动辅助模块：StorageHelper 提供配额超限时的 LRU 淘汰清理（优先清理 petOssFiles 等可重建数据）、宠物图标初始位置计算与边界检测", "layer": "core/ 共享基础设施", "entryFile": "core/bootstrap/bootstrap.js", "consumers": ["PetManager"], "storyRef": [{"story": "系统架构", "fp": "FP3"}], "scenarioRef": ["s1-module-topology", "s3-security"], "mdFiles": [{"scenario": "场景3 · 信任边界与安全面", "scenarioIndex": 2, "section": "§0 技术评审", "file": "场景-3-安全边界.md"}], "relatedNodes": ["n_core_storage", "n_pet_core"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_sessionsvc", "type": "source", "label": "SessionService.js", "keyContent": "`SessionService` `会话 CRUD`", "summary": "会话 API 服务：后端会话 CRUD 操作封装", "risk": null, "tags": ["source", "tier-source", "api", "core"], "complexity": "moderate", "description": "会话后端 API 服务：封装会话的创建/查询/更新/删除 API 调用，依赖 ApiManager 发送请求", "layer": "core/ 共享基础设施", "entryFile": "core/api/services/SessionService.js", "consumers": ["petManager.session.crud"], "storyRef": [], "scenarioRef": ["s1-module-topology", "s2-data-flow"], "mdFiles": [], "relatedNodes": ["n_core_apimgr"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_faqsvc", "type": "source", "label": "FaqService.js", "keyContent": "`FaqService` `FAQ CRUD`", "summary": "FAQ API 服务：后端 FAQ CRUD 操作封装", "risk": null, "tags": ["source", "tier-source", "api", "core"], "complexity": "simple", "description": "FAQ 后端 API 服务：封装 FAQ 的创建/查询/更新/删除 API 调用，依赖 ApiManager 发送请求", "layer": "core/ 共享基础设施", "entryFile": "core/api/services/FaqService.js", "consumers": ["faq.js"], "storyRef": [], "scenarioRef": ["s1-module-topology", "s2-data-flow"], "mdFiles": [], "relatedNodes": ["n_core_apimgr"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_core_sessionmgr", "type": "source", "label": "sessionManager.js", "keyContent": "`SessionManager` `createSession` `activateSession` `UUID`", "summary": "前端会话管理器：会话生命周期 + 搜索 + 批量操作", "risk": null, "tags": ["source", "tier-source", "session", "core"], "complexity": "complex", "description": "前端会话管理器：initialize/createSession/saveSession/getSession/getAllSessions/activateSession/deleteSession/duplicateSession/searchSessions 完整会话生命周期管理，支持 UUID 生成、去重、排序、批量操作", "layer": "core/ 共享基础设施", "entryFile": "core/utils/session/sessionManager.js", "consumers": ["petManager.session.crud"], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_core_storage", "n_core_sessionsvc"] }, "classes": "source tier-source" },
+
+      { "data": { "id": "n_pet_core", "type": "source", "label": "petManager.core.js", "keyContent": "`PetManager` `800+ 行` `prototype 挂载`", "summary": "PetManager 核心类定义：状态初始化、原型链挂载所有 32 个子模块", "risk": "🔴", "tags": ["source", "tier-source", "core", "pet"], "complexity": "complex", "description": "PetManager 核心类（800+ 行）：定义 PetManager 构造函数、状态初始化、通过 prototype 挂载所有子模块（chat/ui/drag/state/ai/session/editor/mermaid/auth/roles 等 32 个模块）。🔴 宠物主模块枢纽节点，变更影响全部宠物功能。所有 chrome API 调用前执行 isContextInvalidated 守卫", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/core/petManager.core.js", "consumers": ["petManager.js 入口"], "storyRef": [{"story": "系统架构", "fp": "FP1"}], "scenarioRef": ["s1-module-topology", "s3-security", "s4-dependency"], "mdFiles": [{"scenario": "场景1 · 模块地图与拓扑", "scenarioIndex": 0, "section": "§0 技术评审", "file": "场景-1-模块拓扑.md"}], "relatedNodes": ["n_core_config", "n_pet_chat", "n_pet_state", "n_pet_ai_api", "n_vue_chatwindow"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_chat", "type": "source", "label": "petManager.chat.js", "keyContent": "`聊天开关` `窗口定位`", "summary": "聊天逻辑：消息发送/接收控制 + 聊天窗口定位计算", "risk": null, "tags": ["source", "tier-source", "chat", "pet"], "complexity": "moderate", "description": "聊天控制逻辑：聊天窗口打开/关闭/切换、窗口位置计算与定位、消息发送入口", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/petManager.chat.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_pet_core", "n_pet_chatui", "n_vue_chatwindow"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_chatui", "type": "source", "label": "petManager.chatUi.js", "keyContent": "`聊天 UI 渲染`", "summary": "聊天 UI：Vue 组件挂载 + 界面渲染调度", "risk": null, "tags": ["source", "tier-source", "chat", "pet"], "complexity": "moderate", "description": "聊天 UI 渲染：ChatWindow Vue 组件创建与挂载、DOM 容器管理、渲染生命周期调度", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/petManager.chatUi.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_pet_chat", "n_vue_chatwindow", "n_lib_vue"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_ui", "type": "source", "label": "petManager.ui.js", "keyContent": "`宠物 DOM 渲染` `样式注入`", "summary": "宠物 UI：宠物图标 DOM 创建 + 样式注入", "risk": null, "tags": ["source", "tier-source", "ui", "pet"], "complexity": "simple", "description": "宠物图标 UI 渲染：创建宠物 DOM 元素、注入样式、管理宠物外观显示", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/petManager.ui.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_pet_core", "n_pet_drag"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_drag", "type": "source", "label": "petManager.drag.js", "keyContent": "`拖拽交互` `边界检测`", "summary": "拖拽：宠物图标拖拽定位 + 边界检测", "risk": null, "tags": ["source", "tier-source", "ui", "pet"], "complexity": "simple", "description": "拖拽交互：mousedown/mousemove/mouseup 事件处理、位置计算、屏幕边界检测与约束", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/petManager.drag.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_pet_ui"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_state", "type": "source", "label": "petManager.state.js", "keyContent": "`状态持久化` `storage.onChanged`", "summary": "状态管理：chrome.storage.local 状态读写 + 变更监听", "risk": "🟡", "tags": ["source", "tier-source", "state", "pet"], "complexity": "moderate", "description": "状态持久化管理：pet_global_state/pet_chat_window_state 读写、storage.onChanged 监听与状态同步、状态初始化与默认值合并", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/petManager.state.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_core_storage", "n_pet_core"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_ai_api", "type": "source", "label": "petManager.ai.api.js", "keyContent": "`streamChat` `SSE 解析` `流式调用`", "summary": "AI API：流式聊天请求 + SSE 事件解析", "risk": "🟡", "tags": ["source", "tier-source", "ai", "pet"], "complexity": "moderate", "description": "AI 流式 API 调用：构建聊天请求 → 调用 ApiManager → 解析 SSE (Server-Sent Events) 流 → 逐 token 回调更新 UI", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/ai/petManager.ai.api.js", "consumers": [], "storyRef": [{"story": "系统架构", "fp": "FP2"}], "scenarioRef": ["s1-module-topology", "s2-data-flow"], "mdFiles": [{"scenario": "场景2 · 数据流与追踪", "scenarioIndex": 1, "section": "§0 技术评审", "file": "场景-2-数据流追踪.md"}], "relatedNodes": ["n_core_apimgr", "n_pet_ai_prompt"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_ai_prompt", "type": "source", "label": "petManager.ai.prompt.js", "keyContent": "`buildPrompt` `上下文组装` `系统提示词`", "summary": "Prompt 构建：上下文组装 + 系统提示词 + 历史消息注入", "risk": null, "tags": ["source", "tier-source", "ai", "pet"], "complexity": "moderate", "description": "Prompt 构建器：组装系统提示词 + 历史消息上下文 + 用户输入 → 完整 prompt，注入角色设定和对话规则", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/ai/petManager.ai.prompt.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology", "s2-data-flow"], "mdFiles": [], "relatedNodes": ["n_pet_ai_api"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_session_crud", "type": "source", "label": "petManager.session.crud.js", "keyContent": "`CRUD 操作` `会话管理`", "summary": "会话 CRUD：创建/读取/更新/删除会话操作", "risk": null, "tags": ["source", "tier-source", "session", "pet"], "complexity": "moderate", "description": "会话 CRUD 操作：调用 SessionManager + SessionService 完成会话创建/读取/更新/删除，支持标签和批量操作", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/session/petManager.session.crud.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_core_sessionmgr", "n_core_sessionsvc"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_editor_core", "type": "source", "label": "petManager.editor.core.js", "keyContent": "`编辑器核心` `Markdown 编辑`", "summary": "编辑器核心：Markdown 编辑 + 预览切换", "risk": null, "tags": ["source", "tier-source", "editor", "pet"], "complexity": "moderate", "description": "编辑器核心：Markdown 源码编辑、实时预览切换、turndown HTML→Markdown 转换、marked 渲染", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/editor/petManager.editor.core.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_lib_marked", "n_lib_turndown"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_pet_mermaid_render", "type": "source", "label": "petManager.mermaid.renderer.js", "keyContent": "`Mermaid 渲染` `懒加载`", "summary": "Mermaid 渲染：图表代码解析 + SVG 生成（懒加载）", "risk": null, "tags": ["source", "tier-source", "mermaid", "pet"], "complexity": "moderate", "description": "Mermaid 图表渲染器：懒加载 mermaid.min.js → 解析图表代码 → 生成 SVG → 注入 DOM。非核心功能，加载失败仅图表区域空白", "layer": "modules/pet/ 宠物主模块", "entryFile": "modules/pet/content/mermaid/petManager.mermaid.renderer.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_lib_mermaid"] }, "classes": "source tier-source" },
+
+      { "data": { "id": "n_ext_sw", "type": "source", "label": "background/index.js", "keyContent": "`Service Worker` `生命周期` `消息注册`", "summary": "SW 入口：消息路由注册 + 存储监听 + 生命周期管理", "risk": "🔴", "tags": ["source", "tier-source", "sw", "extension"], "complexity": "complex", "description": "Service Worker 入口：install/activate 生命周期管理、消息路由注册（MessageRouter）、chrome.storage.onChanged 监听、跨 Tab 消息协调。🔴 扩展后台核心节点", "layer": "modules/extension/ 扩展后台", "entryFile": "modules/extension/background/index.js", "consumers": [], "storyRef": [{"story": "系统架构", "fp": "FP1"}], "scenarioRef": ["s1-module-topology", "s3-security"], "mdFiles": [{"scenario": "场景1 · 模块地图与拓扑", "scenarioIndex": 0, "section": "§0 技术评审", "file": "场景-1-模块拓扑.md"}], "relatedNodes": ["n_ext_router", "n_ext_register", "n_ext_tabmsg"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_ext_register", "type": "source", "label": "app/register.js", "keyContent": "`消息路由注册` `storage.onChanged`", "summary": "消息路由注册：action→handler 映射 + storage 变更监听注册", "risk": "🟡", "tags": ["source", "tier-source", "sw", "extension"], "complexity": "moderate", "description": "SW 注册模块：MessageRouter action→handler 映射注册、chrome.storage.onChanged 监听器注册、消息转发规则配置", "layer": "modules/extension/ 扩展后台", "entryFile": "modules/extension/background/app/register.js", "consumers": [], "storyRef": [], "scenarioRef": ["s2-data-flow"], "mdFiles": [], "relatedNodes": ["n_ext_sw", "n_ext_router"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_ext_router", "type": "source", "label": "messageRouter.js", "keyContent": "`MessageRouter` `action → handler` `分发`", "summary": "消息路由器：action 到 handler 的映射分发", "risk": "🟡", "tags": ["source", "tier-source", "sw", "extension"], "complexity": "moderate", "description": "消息路由核心：MessageRouter 类解析 action → 匹配 handler → 分发执行 → 响应回传。支持 injectPet/forwardToContentScript/sendToWeWorkRobot 等 action", "layer": "modules/extension/ 扩展后台", "entryFile": "modules/extension/background/messaging/messageRouter.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology", "s2-data-flow", "s4-dependency"], "mdFiles": [], "relatedNodes": ["n_ext_pethandler", "n_ext_wework", "n_ext_tabmsg"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_ext_tabmsg", "type": "source", "label": "tabMessaging.js", "keyContent": "`sendToTab` `chrome.tabs.sendMessage`", "summary": "跨 Tab 消息发送：SW → Content Script 消息通道", "risk": null, "tags": ["source", "tier-source", "sw", "extension"], "complexity": "simple", "description": "跨 Tab 消息服务：chrome.tabs.sendMessage 封装，SW → Content Script 单向消息通道", "layer": "modules/extension/ 扩展后台", "entryFile": "modules/extension/background/services/tabMessaging.js", "consumers": [], "storyRef": [], "scenarioRef": ["s2-data-flow"], "mdFiles": [], "relatedNodes": ["n_ext_router"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_ext_pethandler", "type": "source", "label": "petHandler.js", "keyContent": "`injectPet` `removePet`", "summary": "宠物处理器：content script 注入/移除控制", "risk": null, "tags": ["source", "tier-source", "sw", "extension"], "complexity": "simple", "description": "宠物注入处理器：injectPet（触发 content script 注入）、removePet（移除宠物图标）、系统页面跳过检测", "layer": "modules/extension/ 扩展后台", "entryFile": "modules/extension/background/actions/petHandler.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_ext_router"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_ext_wework", "type": "source", "label": "weworkHandler.js", "keyContent": "`sendToWeWorkRobot` `企微消息`", "summary": "企微消息处理器：消息发送到企微机器人 webhook", "risk": null, "tags": ["source", "tier-source", "integration", "extension"], "complexity": "simple", "description": "企微集成：weworkHandler 处理 sendToWeWorkRobot action，调用 weworkService 发送消息到企微机器人 webhook", "layer": "modules/extension/ 扩展后台", "entryFile": "modules/extension/background/integrations/wework/weworkHandler.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_ext_router"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_ext_popup", "type": "source", "label": "popup/index.js", "keyContent": "`PopupController` `chrome.runtime.sendMessage`", "summary": "Popup 控制面板：chrome.runtime.sendMessage 与 SW 通信", "risk": null, "tags": ["source", "tier-source", "popup", "extension"], "complexity": "simple", "description": "Popup 控制面板：PopupController 类管理弹出窗口 UI，通过 chrome.runtime.sendMessage 与 Service Worker 通信", "layer": "modules/extension/ 扩展后台", "entryFile": "modules/extension/popup/index.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_ext_sw"] }, "classes": "source tier-source" },
+
+      { "data": { "id": "n_faq_main", "type": "source", "label": "faq.js", "keyContent": "`FAQ 数据管理` `规范化` `CRUD`", "summary": "FAQ 管理：数据规范化 + CRUD + 搜索", "risk": null, "tags": ["source", "tier-source", "faq"], "complexity": "moderate", "description": "FAQ 数据管理模块：FAQ 数据规范化处理、本地 CRUD 操作、搜索过滤、FaqService 后端同步", "layer": "modules/faq/ FAQ 模块", "entryFile": "modules/faq/content/faq.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology", "s2-data-flow"], "mdFiles": [], "relatedNodes": ["n_core_faqsvc"] }, "classes": "source tier-source" },
+
+      { "data": { "id": "n_vue_chatwindow", "type": "source", "label": "ChatWindow", "keyContent": "`ChatWindow` `Vue Options API` `store`", "summary": "聊天窗口主组件：store + computed + methods 分离架构", "risk": "🟡", "tags": ["source", "tier-source", "vue", "component"], "complexity": "complex", "description": "聊天窗口 Vue 3 主组件：Options API 架构，store.js 状态管理 + useComputed.js 计算属性 + useMethods.js 方法 + utils.js 工具函数分离。🟡 组件失效影响全部聊天 UI", "layer": "modules/pet/components/ Vue 组件", "entryFile": "modules/pet/components/chat/ChatWindow/index.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_vue_chatinput", "n_vue_chatmessages", "n_lib_vue"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_vue_chatinput", "type": "source", "label": "ChatInput", "keyContent": "`ChatInput` `消息发送` `快捷键`", "summary": "聊天输入组件：文本输入 + 发送按钮 + 快捷键", "risk": null, "tags": ["source", "tier-source", "vue", "component"], "complexity": "simple", "description": "聊天输入 Vue 组件：textarea 文本输入、发送按钮、Enter 快捷键提交", "layer": "modules/pet/components/ Vue 组件", "entryFile": "modules/pet/components/chat/ChatInput/index.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_vue_chatwindow"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_vue_chatmessages", "type": "source", "label": "ChatMessages", "keyContent": "`ChatMessages` `Markdown 渲染` `Mermaid`", "summary": "消息列表组件：Markdown 渲染 + Mermaid 图表 + 滚动", "risk": null, "tags": ["source", "tier-source", "vue", "component"], "complexity": "moderate", "description": "消息列表 Vue 组件：消息渲染（Markdown via marked.js）、Mermaid 图表内嵌渲染、自动滚动到底部", "layer": "modules/pet/components/ Vue 组件", "entryFile": "modules/pet/components/chat/ChatMessages/index.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_vue_chatwindow", "n_lib_marked", "n_lib_mermaid"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_vue_tokensettings", "type": "source", "label": "TokenSettingsModal", "keyContent": "`TokenSettingsModal` `Token 设置`", "summary": "Token 设置弹窗：输入 + 校验 + 保存", "risk": null, "tags": ["source", "tier-source", "vue", "component"], "complexity": "simple", "description": "Token 设置 Vue 弹窗组件：Token 输入框、格式校验、保存到 chrome.storage.local", "layer": "modules/pet/components/ Vue 组件", "entryFile": "modules/pet/components/TokenSettingsModal/index.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology"], "mdFiles": [], "relatedNodes": ["n_core_token"] }, "classes": "source tier-source" },
+
+      { "data": { "id": "n_lib_vue", "type": "source", "label": "vue.global.js", "keyContent": "`Vue 3` `globalThis.Vue` `CDN`", "summary": "Vue 3 CDN 运行时：所有 Vue 组件的前置依赖，🔴 P0 失效影响全部 UI", "risk": "🔴", "tags": ["source", "tier-source", "lib", "external"], "complexity": "simple", "description": "Vue 3 全局运行时（CDN 加载）：提供 globalThis.Vue，9 个 Vue 组件 + Popup 的前置依赖。🔴 P0 外部依赖：失效导致全部 UI 不可渲染", "layer": "libs/ 第三方库", "entryFile": "libs/vue.global.js", "consumers": ["所有 Vue 组件", "Popup"], "storyRef": [{"story": "系统架构", "fp": "FP4"}], "scenarioRef": ["s1-module-topology", "s4-dependency"], "mdFiles": [{"scenario": "场景4 · 依赖关系与变更影响", "scenarioIndex": 3, "section": "§0 技术评审", "file": "场景-4-依赖影响.md"}], "relatedNodes": ["n_vue_chatwindow", "n_manifest"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_lib_marked", "type": "source", "label": "marked.min.js", "keyContent": "`marked` `Markdown → HTML`", "summary": "marked.js：Markdown 解析器，🟡 P1 失效影响聊天窗口和编辑器预览", "risk": "🟡", "tags": ["source", "tier-source", "lib", "external"], "complexity": "simple", "description": "marked.js Markdown 解析库：Markdown → HTML 转换。🟡 P1 外部依赖：失效导致 AI 回复显示原始 Markdown，影响聊天窗口 + 编辑器预览", "layer": "libs/ 第三方库", "entryFile": "libs/marked.min.js", "consumers": ["ChatMessages", "petManager.editor.core"], "storyRef": [{"story": "系统架构", "fp": "FP4"}], "scenarioRef": ["s1-module-topology", "s4-dependency"], "mdFiles": [], "relatedNodes": ["n_vue_chatmessages", "n_pet_editor_core"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_lib_turndown", "type": "source", "label": "turndown.js", "keyContent": "`turndown` `HTML → Markdown`", "summary": "turndown.js：HTML→Markdown 转换，🟡 P1 失效影响编辑器粘贴和页面抓取", "risk": "🟡", "tags": ["source", "tier-source", "lib", "external"], "complexity": "simple", "description": "turndown.js HTML→Markdown 转换库。🟡 P1 外部依赖：失效导致 HTML→Markdown 转换失败，影响编辑器粘贴 + 页面抓取", "layer": "libs/ 第三方库", "entryFile": "libs/turndown.js", "consumers": ["petManager.editor.core"], "storyRef": [{"story": "系统架构", "fp": "FP4"}], "scenarioRef": ["s1-module-topology", "s4-dependency"], "mdFiles": [], "relatedNodes": ["n_pet_editor_core"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_lib_md5", "type": "source", "label": "md5.js", "keyContent": "`md5` `哈希`", "summary": "md5.js：哈希计算工具，🟢 P2 失效影响少量辅助功能", "risk": null, "tags": ["source", "tier-source", "lib", "external"], "complexity": "simple", "description": "md5.js 哈希计算库。🟢 P2 外部依赖：失效仅影响少量辅助哈希功能", "layer": "libs/ 第三方库", "entryFile": "libs/md5.js", "consumers": [], "storyRef": [], "scenarioRef": ["s1-module-topology", "s4-dependency"], "mdFiles": [], "relatedNodes": [] }, "classes": "source tier-source" },
+      { "data": { "id": "n_lib_mermaid", "type": "source", "label": "mermaid.min.js", "keyContent": "`mermaid` `图表渲染` `懒加载`", "summary": "Mermaid：图表渲染引擎（懒加载），🟢 P2 失效仅图表区域空白", "risk": null, "tags": ["source", "tier-source", "lib", "external"], "complexity": "simple", "description": "Mermaid 图表渲染库（懒加载）。🟢 P2 外部依赖：非核心功能，懒加载失败仅图表区域显示空白", "layer": "libs/ 第三方库", "entryFile": "libs/mermaid.min.js", "consumers": ["petManager.mermaid.renderer", "ChatMessages"], "storyRef": [], "scenarioRef": ["s1-module-topology", "s4-dependency"], "mdFiles": [], "relatedNodes": ["n_pet_mermaid_render", "n_vue_chatmessages"] }, "classes": "source tier-source" },
+
+      { "data": { "id": "n_manifest", "type": "source", "label": "manifest.json", "keyContent": "`Manifest V3` `<all_urls>` `content_scripts`", "summary": "Manifest V3 配置：content-script 注入声明 + SW 注册 + 全站权限", "risk": "🔴", "tags": ["source", "tier-source", "config", "manifest"], "complexity": "moderate", "description": "Chrome Extension Manifest V3 配置文件：content_scripts 注入声明（加载顺序 = 依赖顺序）、background service_worker 注册、permissions 声明（storage/tabs/scripting/webRequest + <all_urls> 全站注入）。🔴 安全关键节点：权限范围直接影响攻击面", "layer": "项目根配置", "entryFile": "manifest.json", "consumers": ["所有模块"], "storyRef": [{"story": "系统架构", "fp": "FP3"}], "scenarioRef": ["s1-module-topology", "s3-security", "s4-dependency", "s5-onboarding"], "mdFiles": [{"scenario": "场景3 · 信任边界与安全面", "scenarioIndex": 2, "section": "§0 技术评审", "file": "场景-3-安全边界.md"}], "relatedNodes": ["n_core_config", "n_lib_vue", "n_ext_sw"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_assets_tailwind", "type": "source", "label": "tailwind.css", "keyContent": "`Tailwind CSS` `样式`", "summary": "Tailwind CSS 样式文件：🟡 P1 失效导致全 UI 样式退化", "risk": "🟡", "tags": ["source", "tier-source", "style", "assets"], "complexity": "simple", "description": "Tailwind CSS 样式文件。🟡 P1 外部依赖：失效导致全部 UI 组件样式退化到无样式状态", "layer": "assets/ 静态资源", "entryFile": "assets/styles/tailwind.css", "consumers": ["所有 UI 组件"], "storyRef": [], "scenarioRef": ["s1-module-topology", "s4-dependency"], "mdFiles": [], "relatedNodes": [] }, "classes": "source tier-source" },
+
+      { "data": { "id": "n_claude_md", "type": "source", "label": "CLAUDE.md", "keyContent": "`项目画像` `模块地图` `数据流`", "summary": "项目入口文档：架构全景 + 技术栈 + 模块地图 + 引导链接", "risk": null, "tags": ["source", "tier-source", "doc", "root"], "complexity": "simple", "description": "CLAUDE.md 项目入口文档：项目画像、技术栈、模块地图（mermaid）、数据流全景、安全面、退化对策、引导链接", "layer": "项目根文档", "entryFile": "CLAUDE.md", "consumers": ["开发者"], "storyRef": [], "scenarioRef": ["s5-onboarding"], "mdFiles": [], "relatedNodes": ["n_readme_md"] }, "classes": "source tier-source" },
+      { "data": { "id": "n_readme_md", "type": "source", "label": "README.md", "keyContent": "`系统视图` `命令流` `快速开始`", "summary": "项目 README：系统全景 + 快速开始指南", "risk": null, "tags": ["source", "tier-source", "doc", "root"], "complexity": "simple", "description": "README.md 项目说明文档：系统视图、命令流、快速开始、项目结构、领域语言定义", "layer": "项目根文档", "entryFile": "README.md", "consumers": ["开发者"], "storyRef": [], "scenarioRef": ["s5-onboarding"], "mdFiles": [], "relatedNodes": ["n_claude_md"] }, "classes": "source tier-source" }
+    ],
+    "edges": [
+      { "data": { "id": "e_n_story_arch__n_s1_module", "source": "n_story_arch", "target": "n_s1_module", "from": "n_story_arch", "to": "n_s1_module", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景1：模块地图与拓扑，覆盖全量模块识别和依赖关系验证", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s2_dataflow", "source": "n_story_arch", "target": "n_s2_dataflow", "from": "n_story_arch", "to": "n_s2_dataflow", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景2：数据流与追踪，覆盖请求链路和存储路径追踪", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s3_security", "source": "n_story_arch", "target": "n_s3_security", "from": "n_story_arch", "to": "n_s3_security", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景3：信任边界与安全面，覆盖五面安全审查", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s4_dependency", "source": "n_story_arch", "target": "n_s4_dependency", "from": "n_story_arch", "to": "n_s4_dependency", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景4：依赖关系与变更影响，量化依赖失效爆炸半径", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_story_arch__n_s5_onboarding", "source": "n_story_arch", "target": "n_s5_onboarding", "from": "n_story_arch", "to": "n_s5_onboarding", "type": "contains", "label": "包含场景", "description": "系统架构 故事包含场景5：新人上手与开发指南，覆盖环境搭建到首修路径", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+
+      { "data": { "id": "e_n_s1_module__n_core_config", "source": "n_s1_module", "target": "n_core_config", "from": "n_s1_module", "to": "n_core_config", "type": "references", "label": "覆盖", "description": "场景1 模块拓扑：config.js 为配置中心，所有模块的前置依赖，manifest.json 中首个加载", "direction": "forward", "weight": 0.8, "storyRef": [{"story": "系统架构", "fp": "FP1"}] }, "classes": "references" },
+      { "data": { "id": "e_n_s1_module__n_pet_core", "source": "n_s1_module", "target": "n_pet_core", "from": "n_s1_module", "to": "n_pet_core", "type": "references", "label": "核心覆盖", "description": "场景1 模块拓扑：PetManager 核心类为宠物主模块枢纽，prototype 挂载 32 个子模块", "direction": "forward", "weight": 0.9, "storyRef": [{"story": "系统架构", "fp": "FP1"}] }, "classes": "references" },
+      { "data": { "id": "e_n_s1_module__n_ext_sw", "source": "n_s1_module", "target": "n_ext_sw", "from": "n_s1_module", "to": "n_ext_sw", "type": "references", "label": "覆盖", "description": "场景1 模块拓扑：Service Worker 入口为扩展后台核心节点，管理消息路由和生命周期", "direction": "forward", "weight": 0.8, "storyRef": [{"story": "系统架构", "fp": "FP1"}] }, "classes": "references" },
+      { "data": { "id": "e_n_s2_dataflow__n_core_apimgr", "source": "n_s2_dataflow", "target": "n_core_apimgr", "from": "n_s2_dataflow", "to": "n_core_apimgr", "type": "references", "label": "数据流枢纽", "description": "场景2 数据流追踪：ApiManager 拦截器链为所有 API 请求的数据流枢纽", "direction": "forward", "weight": 0.9, "storyRef": [{"story": "系统架构", "fp": "FP2"}] }, "classes": "references" },
+      { "data": { "id": "e_n_s3_security__n_core_token", "source": "n_s3_security", "target": "n_core_token", "from": "n_s3_security", "to": "n_core_token", "type": "references", "label": "认证面核心", "description": "场景3 信任边界：TokenManager 三级降级为认证面核心防线", "direction": "forward", "weight": 0.9, "storyRef": [{"story": "系统架构", "fp": "FP3"}] }, "classes": "references" },
+      { "data": { "id": "e_n_s4_dependency__n_lib_vue", "source": "n_s4_dependency", "target": "n_lib_vue", "from": "n_s4_dependency", "to": "n_lib_vue", "type": "references", "label": "P0 依赖", "description": "场景4 依赖影响：Vue 3 CDN 为 P0 外部依赖，失效影响全部 9 个 Vue 组件 + Popup", "direction": "forward", "weight": 0.9, "storyRef": [{"story": "系统架构", "fp": "FP4"}] }, "classes": "references" },
+      { "data": { "id": "e_n_s5_onboarding__n_claude_md", "source": "n_s5_onboarding", "target": "n_claude_md", "from": "n_s5_onboarding", "to": "n_claude_md", "type": "references", "label": "入口文档", "description": "场景5 新人上手：CLAUDE.md 为项目入口文档，含架构全景和引导链接", "direction": "forward", "weight": 0.8, "storyRef": [{"story": "系统架构", "fp": "FP5"}] }, "classes": "references" },
+
+      { "data": { "id": "e_n_core_config__n_core_token", "source": "n_core_config", "target": "n_core_token", "from": "n_core_config", "to": "n_core_token", "type": "depends_on", "label": "配置依赖", "description": "config.js 为 token.js 提供存储键名和端点配置", "direction": "forward", "weight": 0.6, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_config__n_core_apimgr", "source": "n_core_config", "target": "n_core_apimgr", "from": "n_core_config", "to": "n_core_apimgr", "type": "depends_on", "label": "端点配置", "description": "config.js 提供 ENDPOINTS 端点定义，ApiManager 依赖此配置构造请求 URL", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_config__n_pet_core", "source": "n_core_config", "target": "n_pet_core", "from": "n_core_config", "to": "n_pet_core", "type": "depends_on", "label": "全局配置", "description": "config.js 导出 PET_CONFIG，PetManager 依赖此全局配置初始化", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_token__n_core_apimgr", "source": "n_core_token", "target": "n_core_apimgr", "from": "n_core_token", "to": "n_core_apimgr", "type": "depends_on", "label": "Token 注入", "description": "TokenManager 提供 X-Token，ApiManager 拦截器链注入认证头", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_request__n_core_apimgr", "source": "n_core_request", "target": "n_core_apimgr", "from": "n_core_request", "to": "n_core_apimgr", "type": "depends_on", "label": "请求客户端", "description": "RequestClient 为 ApiManager 提供底层 fetch 封装和重试机制", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_apimgr__n_core_sessionsvc", "source": "n_core_apimgr", "target": "n_core_sessionsvc", "from": "n_core_apimgr", "to": "n_core_sessionsvc", "type": "depends_on", "label": "API 服务依赖", "description": "SessionService 通过 ApiManager 发送会话 CRUD 请求", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_apimgr__n_core_faqsvc", "source": "n_core_apimgr", "target": "n_core_faqsvc", "from": "n_core_apimgr", "to": "n_core_faqsvc", "type": "depends_on", "label": "API 服务依赖", "description": "FaqService 通过 ApiManager 发送 FAQ CRUD 请求", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_apimgr__n_pet_ai_api", "source": "n_core_apimgr", "target": "n_pet_ai_api", "from": "n_core_apimgr", "to": "n_pet_ai_api", "type": "depends_on", "label": "AI API 依赖", "description": "petManager.ai.api.js 通过 ApiManager 发送流式聊天请求", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_error__n_core_request", "source": "n_core_error", "target": "n_core_request", "from": "n_core_error", "to": "n_core_request", "type": "constrained_by", "label": "错误分类", "description": "ErrorHandler 对 RequestClient 抛出的错误进行分类和格式化", "direction": "forward", "weight": 0.6, "storyRef": [] }, "classes": "constrained_by" },
+      { "data": { "id": "e_n_core_storage__n_core_bootstrap", "source": "n_core_storage", "target": "n_core_bootstrap", "from": "n_core_storage", "to": "n_core_bootstrap", "type": "depends_on", "label": "存储依赖", "description": "StorageHelper 依赖 StorageUtils 进行配额检测和清理操作", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_core_bootstrap__n_pet_core", "source": "n_core_bootstrap", "target": "n_pet_core", "from": "n_core_bootstrap", "to": "n_pet_core", "type": "depends_on", "label": "启动依赖", "description": "PetManager 依赖 StorageHelper 进行位置计算和存储清理", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_pet_core__n_pet_chat", "source": "n_pet_core", "target": "n_pet_chat", "from": "n_pet_core", "to": "n_pet_chat", "type": "contains", "label": "prototype 挂载", "description": "PetManager 通过 prototype 挂载 petManager.chat.js 聊天逻辑", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_pet_core__n_pet_state", "source": "n_pet_core", "target": "n_pet_state", "from": "n_pet_core", "to": "n_pet_state", "type": "contains", "label": "prototype 挂载", "description": "PetManager 通过 prototype 挂载 petManager.state.js 状态管理", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_pet_core__n_pet_ai_api", "source": "n_pet_core", "target": "n_pet_ai_api", "from": "n_pet_core", "to": "n_pet_ai_api", "type": "contains", "label": "prototype 挂载", "description": "PetManager 通过 prototype 挂载 petManager.ai.api.js AI 流式调用", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_pet_chat__n_pet_chatui", "source": "n_pet_chat", "target": "n_pet_chatui", "from": "n_pet_chat", "to": "n_pet_chatui", "type": "depends_on", "label": "UI 渲染", "description": "聊天逻辑调用聊天 UI 渲染模块创建 Vue 组件", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_pet_chatui__n_vue_chatwindow", "source": "n_pet_chatui", "target": "n_vue_chatwindow", "from": "n_pet_chatui", "to": "n_vue_chatwindow", "type": "depends_on", "label": "组件挂载", "description": "聊天 UI 渲染模块创建并挂载 ChatWindow Vue 组件", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_vue_chatwindow__n_vue_chatinput", "source": "n_vue_chatwindow", "target": "n_vue_chatinput", "from": "n_vue_chatwindow", "to": "n_vue_chatinput", "type": "contains", "label": "子组件", "description": "ChatWindow 包含 ChatInput 子组件用于消息输入", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_vue_chatwindow__n_vue_chatmessages", "source": "n_vue_chatwindow", "target": "n_vue_chatmessages", "from": "n_vue_chatwindow", "to": "n_vue_chatmessages", "type": "contains", "label": "子组件", "description": "ChatWindow 包含 ChatMessages 子组件用于消息列表渲染", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_vue_chatwindow__n_lib_vue", "source": "n_vue_chatwindow", "target": "n_lib_vue", "from": "n_vue_chatwindow", "to": "n_lib_vue", "type": "depends_on", "label": "Vue 依赖", "description": "ChatWindow 为 Vue 3 Options API 组件，依赖 globalThis.Vue 运行时", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_vue_chatmessages__n_lib_marked", "source": "n_vue_chatmessages", "target": "n_lib_marked", "from": "n_vue_chatmessages", "to": "n_lib_marked", "type": "depends_on", "label": "Markdown 渲染", "description": "ChatMessages 依赖 marked.js 将 AI 回复 Markdown 渲染为 HTML", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_ext_sw__n_ext_router", "source": "n_ext_sw", "target": "n_ext_router", "from": "n_ext_sw", "to": "n_ext_router", "type": "contains", "label": "消息路由", "description": "Service Worker 入口注册 MessageRouter 进行 action→handler 分发", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "contains" },
+      { "data": { "id": "e_n_ext_sw__n_ext_register", "source": "n_ext_sw", "target": "n_ext_register", "from": "n_ext_sw", "to": "n_ext_register", "type": "depends_on", "label": "注册模块", "description": "Service Worker 入口调用 register.js 注册消息路由和存储监听", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "depends_on" },
+      { "data": { "id": "e_n_ext_router__n_ext_pethandler", "source": "n_ext_router", "target": "n_ext_pethandler", "from": "n_ext_router", "to": "n_ext_pethandler", "type": "delegates", "label": "分发 injectPet", "description": "MessageRouter 将 injectPet action 分发给 PetHandler 处理", "direction": "forward", "weight": 0.8, "storyRef": [] }, "classes": "delegates" },
+      { "data": { "id": "e_n_ext_router__n_ext_wework", "source": "n_ext_router", "target": "n_ext_wework", "from": "n_ext_router", "to": "n_ext_wework", "type": "delegates", "label": "分发企微", "description": "MessageRouter 将 sendToWeWorkRobot action 分发给 WeWorkHandler 处理", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "delegates" },
+      { "data": { "id": "e_n_ext_router__n_ext_tabmsg", "source": "n_ext_router", "target": "n_ext_tabmsg", "from": "n_ext_router", "to": "n_ext_tabmsg", "type": "delegates", "label": "跨 Tab 消息", "description": "MessageRouter 将 forwardToContentScript action 分发给 tabMessaging 处理", "direction": "forward", "weight": 0.7, "storyRef": [] }, "classes": "delegates" },
+      { "data": { "id": "e_n_manifest__n_core_config", "source": "n_manifest", "target": "n_core_config", "from": "n_manifest", "to": "n_core_config", "type": "defines", "label": "加载顺序 1", "description": "manifest.json content_scripts 数组中 config.js 为首个加载文件，定义全局 PET_CONFIG", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "defines" },
+      { "data": { "id": "e_n_manifest__n_lib_vue", "source": "n_manifest", "target": "n_lib_vue", "from": "n_manifest", "to": "n_lib_vue", "type": "defines", "label": "加载顺序 5", "description": "manifest.json content_scripts 数组中 vue.global.js 为第 5 个加载文件，所有 Vue 组件的前置依赖", "direction": "forward", "weight": 0.9, "storyRef": [] }, "classes": "defines" },
+
+      { "data": { "id": "e_n_s1_module__n_s2_dataflow", "source": "n_s1_module", "target": "n_s2_dataflow", "from": "n_s1_module", "to": "n_s2_dataflow", "type": "references", "label": "拓扑→数据流", "description": "场景1 模块拓扑为场景2 数据流追踪提供模块依赖基线", "direction": "forward", "weight": 0.5, "storyRef": [] }, "classes": "references" },
+      { "data": { "id": "e_n_s2_dataflow__n_s3_security", "source": "n_s2_dataflow", "target": "n_s3_security", "from": "n_s2_dataflow", "to": "n_s3_security", "type": "references", "label": "数据流→安全", "description": "场景2 数据流追踪为场景3 信任边界识别提供数据流路径基线", "direction": "forward", "weight": 0.5, "storyRef": [] }, "classes": "references" },
+      { "data": { "id": "e_n_s3_security__n_s4_dependency", "source": "n_s3_security", "target": "n_s4_dependency", "from": "n_s3_security", "to": "n_s4_dependency", "type": "references", "label": "安全→依赖", "description": "场景3 信任边界为场景4 依赖影响分析提供安全关键节点标注", "direction": "forward", "weight": 0.5, "storyRef": [] }, "classes": "references" },
+      { "data": { "id": "e_n_s4_dependency__n_s5_onboarding", "source": "n_s4_dependency", "target": "n_s5_onboarding", "from": "n_s4_dependency", "to": "n_s5_onboarding", "type": "references", "label": "依赖→上手", "description": "场景4 依赖分析为场景5 新人上手提供环境搭建依赖清单", "direction": "forward", "weight": 0.5, "storyRef": [] }, "classes": "references" }
+    ]
+  },
+  "layers": [
+    { "id": "layer-story", "name": "故事层", "description": "故事级抽象概念和治理原则", "nodeIds": ["n_story_arch"] },
+    { "id": "layer-scene", "name": "场景层", "description": "场景文档节点，关联场景-N-xxx.md", "nodeIds": ["n_s1_module", "n_s2_dataflow", "n_s3_security", "n_s4_dependency", "n_s5_onboarding"] },
+    { "id": "layer-core", "name": "core/ 共享基础设施", "description": "配置、Token、请求客户端、API 管理器、错误处理、存储等 14 个文件", "nodeIds": ["n_core_config", "n_core_token", "n_core_request", "n_core_apimgr", "n_core_error", "n_core_logger", "n_core_storage", "n_core_bootstrap", "n_core_sessionsvc", "n_core_faqsvc", "n_core_sessionmgr"] },
+    { "id": "layer-pet", "name": "modules/pet/ 宠物主模块", "description": "PetManager 类 + 32 子模块 + 9 个 Vue 组件", "nodeIds": ["n_pet_core", "n_pet_chat", "n_pet_chatui", "n_pet_ui", "n_pet_drag", "n_pet_state", "n_pet_ai_api", "n_pet_ai_prompt", "n_pet_session_crud", "n_pet_editor_core", "n_pet_mermaid_render"] },
+    { "id": "layer-extension", "name": "modules/extension/ 扩展后台", "description": "Service Worker + 消息路由 + Popup 控制面板", "nodeIds": ["n_ext_sw", "n_ext_register", "n_ext_router", "n_ext_tabmsg", "n_ext_pethandler", "n_ext_wework", "n_ext_popup"] },
+    { "id": "layer-faq", "name": "modules/faq/ FAQ 模块", "description": "FAQ 数据管理与标签", "nodeIds": ["n_faq_main"] },
+    { "id": "layer-components", "name": "modules/pet/components/ Vue 组件", "description": "聊天窗口、输入框、消息列表、设置弹窗等 9 个组件", "nodeIds": ["n_vue_chatwindow", "n_vue_chatinput", "n_vue_chatmessages", "n_vue_tokensettings"] },
+    { "id": "layer-libs", "name": "libs/ 第三方库", "description": "Vue 3 / marked / turndown / md5 / Mermaid CDN 运行时", "nodeIds": ["n_lib_vue", "n_lib_marked", "n_lib_turndown", "n_lib_md5", "n_lib_mermaid"] },
+    { "id": "layer-root", "name": "项目根配置与文档", "description": "manifest.json + CLAUDE.md + README.md + assets/", "nodeIds": ["n_manifest", "n_claude_md", "n_readme_md", "n_assets_tailwind"] }
+  ],
+  "architectureLayers": ["故事层", "场景层", "core/ 共享基础设施", "modules/pet/ 宠物主模块", "modules/extension/ 扩展后台", "modules/faq/ FAQ 模块", "modules/pet/components/ Vue 组件", "libs/ 第三方库", "项目根配置与文档"],
+  "layerTiers": {
+    "tiers": [
+      { "id": "tier-story", "name": "故事层", "order": 0, "description": "故事级抽象概念和治理原则" },
+      { "id": "tier-scene", "name": "场景层", "order": 1, "description": "场景文档节点，关联场景-N-xxx.md" },
+      { "id": "tier-source", "name": "源码层", "order": 2, "description": "可执行源码文件节点" },
+      { "id": "tier-concept", "name": "概念层", "order": 3, "description": "抽象概念和治理原则" }
+    ],
+    "layerToTier": {
+      "故事层": "tier-story",
+      "场景层": "tier-scene",
+      "core/ 共享基础设施": "tier-source",
+      "modules/pet/ 宠物主模块": "tier-source",
+      "modules/extension/ 扩展后台": "tier-source",
+      "modules/faq/ FAQ 模块": "tier-source",
+      "modules/pet/components/ Vue 组件": "tier-source",
+      "libs/ 第三方库": "tier-source",
+      "项目根配置与文档": "tier-source"
+    }
+  },
+  "storyValidation": {
+    "sourceFile": "故事任务.md",
+    "expectedNodeCount": 41,
+    "expectedEdgeCount": 38,
+    "storyCoverage": {
+      "FP1": { "covered": true, "nodeCount": 38 },
+      "FP2": { "covered": true, "nodeCount": 11 },
+      "FP3": { "covered": true, "nodeCount": 7 },
+      "FP4": { "covered": true, "nodeCount": 10 },
+      "FP5": { "covered": true, "nodeCount": 4 }
+    }
+  },
+  "crossReferences": {},
+  "stats": {
+    "nodeCount": 41,
+    "edgeCount": 38,
+    "layerCount": 9,
+    "sceneCount": 5,
+    "storyCount": 1
+  },
+  "nodeTypes": {
+    "story": { "label": "故事抽象概念", "color": "#EC4899", "description": "故事级抽象概念和治理原则" },
+    "scene": { "label": "场景文档节点", "color": "#8B5CF6", "description": "场景文档节点，关联场景-N-xxx.md" },
+    "source": { "label": "源码文件节点", "color": "#3B82F6", "description": "可执行源码文件节点" }
+  },
+  "edgeTypes": {
+    "orchestrates": { "label": "编排调度", "color": "#1E40AF", "description": "顶层调度关系" },
+    "delegates": { "label": "委派任务", "color": "#166534", "description": "任务分发与委派" },
+    "assigns": { "label": "分配工作", "color": "#854D0E", "description": "工作分配关系" },
+    "hands_off": { "label": "产出交接", "color": "#9A3412", "description": "阶段产出交接" },
+    "feedback": { "label": "反馈回路", "color": "#9D174D", "description": "反馈与修正回路" },
+    "constrained_by": { "label": "规则约束", "color": "#7E22CE", "description": "规则与约束关系" },
+    "depends_on": { "label": "依赖", "color": "#64748B", "description": "模块间依赖关系" },
+    "notifies": { "label": "通知", "color": "#0D9488", "description": "事件通知关系" },
+    "defines": { "label": "定义", "color": "#475569", "description": "定义与声明关系" },
+    "governs": { "label": "治理约束", "color": "#B91C1C", "description": "治理与合规约束" },
+    "validates": { "label": "验证", "color": "#22C55E", "description": "验证与检查关系" },
+    "contains": { "label": "包含定义", "color": "#8B5CF6", "description": "包含与组成关系" },
+    "references": { "label": "引用来源", "color": "#64748B", "description": "文档引用与溯源" },
+    "forbidden": { "label": "架构违规", "color": "#EF4444", "description": "禁止的架构违规关系" },
+    "imports": { "label": "文件间导入", "color": "#64748B", "description": "文件导入依赖" },
+    "shares": { "label": "共享依赖", "color": "#0EA5E9", "description": "共享模块/资源依赖" }
+  }
+}

@@ -802,4 +802,4 @@ ${originalText}
 
     return finalBasePrompt + conversationContext + pageContext
   }
-})()
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))

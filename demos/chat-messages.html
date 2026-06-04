@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatMessages 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; }
+    .demo-box { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin: 16px 0; }
+    .demo-box h4 { font-size: 0.88rem; font-weight: 600; color: var(--color-accent-2); margin-bottom: 12px; }
+    .msg-panel { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; min-height: 160px; max-height: 280px; overflow-y: auto; padding: 12px; font-size: 0.78rem; }
+    .msg-panel .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+    .msg-panel .empty-state .icon { font-size: 2rem; margin-bottom: 8px; }
+    .msg-panel .loading-state { text-align: center; padding: 30px 20px; color: var(--text-muted); }
+    .msg-panel .loading-state .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--color-accent-2); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .msg-panel .error-state { text-align: center; padding: 30px 20px; color: var(--red); }
+    .msg-panel .msg-row { display: flex; margin: 4px 0; }
+    .msg-panel .msg-row.user { justify-content: flex-end; }
+    .msg-panel .msg-bubble { padding: 6px 12px; border-radius: 8px; max-width: 80%; }
+    .msg-panel .msg-row.user .msg-bubble { background: rgba(34,211,238,0.12); }
+    .msg-panel .msg-row.pet .msg-bubble { background: rgba(255,193,7,0.08); }
+    .msg-panel .msg-row.streaming .msg-bubble { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-2); background: rgba(34,211,238,0.08); color: var(--color-accent-2); transition: all 0.15s; margin-top: 12px; margin-right: 8px; }
+    .btn:hover { background: var(--color-accent-2); color: #1a1a2a; }
+    .btn.danger { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.08); }
+    .btn.danger:hover { background: var(--red); color: #1a1a2a; }
+    .state-indicator { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
+    .state-indicator.messages { background: rgba(52,211,153,0.15); color: var(--green); }
+    .state-indicator.empty { background: rgba(160,160,164,0.15); color: var(--text-muted); }
+    .state-indicator.loading { background: rgba(96,165,250,0.15); color: var(--blue); }
+    .state-indicator.error { background: rgba(248,113,113,0.15); color: var(--red); }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+    @media (max-width: 768px) { .main { padding: 20px 12px 48px; } pre { font-size: 0.72rem; padding: 10px 12px; } }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html">← 返回 Demo 中心</a>
+  <h1>ChatMessages 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>ChatMessages 管理消息列表的渲染。支持四种视图状态 (loading/error/empty/messages)、用户消息与宠物消息差异化渲染、流式输出动画、消息操作按钮注入、Mermaid 图表渲染。</p>
+</section>
+
+<section id="states">
+  <h2>视图状态管理</h2>
+  <div class="card">
+    <h3>四种状态 · 通过 instance._setMessagesViewState 切换</h3>
+<pre><span class="cm">// ChatWindow 通过以下方法控制 ChatMessages 状态</span>
+inst.<span class="fn">_setMessagesViewState</span> = (state, payload) => {
+  viewState.value = state          <span class="cm">// 'loading' | 'error' | 'empty' | 'messages'</span>
+  viewStatePayload.value = payload <span class="cm">// 附加数据</span>
+}
+
+<span class="cm">// 消息列表操作</span>
+inst.<span class="fn">_messagesSet</span>(list)              <span class="cm">// 全量设置消息列表</span>
+inst.<span class="fn">_messagesAppend</span>(msg)            <span class="cm">// 追加一条消息</span>
+inst.<span class="fn">_messagesUpdateContent</span>(idx, content)  <span class="cm">// 更新指定消息内容（流式）</span>
+inst.<span class="fn">_messagesSetStreaming</span>(idx, streaming) <span class="cm">// 设置流式状态</span>
+inst.<span class="fn">_messagesClear</span>()                <span class="cm">// 清空所有消息</span>
+inst.<span class="fn">_getMessagesList</span>() → Array      <span class="cm">// 获取当前消息列表</span></pre>
+  </div>
+</section>
+
+<section id="message-types">
+  <h2>消息类型与渲染</h2>
+  <div class="card">
+    <h3>消息对象结构</h3>
+<pre><span class="kw">const</span> userMsg = {
+  type: <span class="str">'user'</span>,           <span class="cm">// 'user' | 'pet'</span>
+  content: <span class="str">'你好'</span>,        <span class="cm">// 消息正文（支持 Markdown HTML）</span>
+  timestamp: <span class="num">1717500000000</span>,  <span class="cm">// Unix 毫秒时间戳</span>
+  imageDataUrl: <span class="kw">null</span>,     <span class="cm">// 可选：图片 dataURL</span>
+  streaming: <span class="kw">false</span>,       <span class="cm">// 是否流式输出中</span>
+  error: <span class="kw">false</span>,           <span class="cm">// 是否错误消息</span>
+  aborted: <span class="kw">false</span>          <span class="cm">// 是否已中止</span>
+}
+
+<span class="cm">// CSS class 自动计算: is-user | is-pet | is-streaming | is-error | is-aborted</span>
+<span class="fn">messageClass</span>(msg) → string</pre>
+  </div>
+</section>
+
+<section id="post-render">
+  <h2>渲染后处理</h2>
+  <div class="card">
+<pre><span class="cm">// onMounted + onUpdated 后自动执行</span>
+<span class="kw">const</span> messageEls = container.<span class="fn">querySelectorAll</span>(<span class="str">'.pet-chat-message'</span>)
+
+<span class="cm">// 1. 注入消息操作按钮（复制/编辑/重新发送/上下移/删除/企微发送）</span>
+instance.<span class="fn">addActionButtonsToMessage</span>(el)
+
+<span class="cm">// 2. 渲染 Mermaid 图表（仅宠物消息）</span>
+manager.<span class="fn">processMermaidBlocks</span>(contentDiv)
+
+<span class="cm">// 3. 处理 Tab 切换（仅宠物消息）</span>
+manager.<span class="fn">processTabs</span>(contentDiv)</pre>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — 视图状态切换</h2>
+  <p>切换四种视图状态，观察 ChatMessages 渲染效果。</p>
+  <div class="demo-box">
+    <h4>消息面板 <span id="stateBadge" class="state-indicator empty">empty</span></h4>
+    <div class="msg-panel" id="msgPanel">
+      <div class="empty-state"><div class="icon">💬</div><div>未选择会话</div><div style="font-size:0.7rem;color:var(--text-muted);">从左侧会话列表选择一个会话开始聊天</div></div>
+    </div>
+    <button class="btn" onclick="setState('loading')">◉ Loading</button>
+    <button class="btn" onclick="setState('error')">✕ Error</button>
+    <button class="btn" onclick="setState('empty')">⊘ Empty</button>
+    <button class="btn" onclick="setState('messages')">≡ Messages</button>
+    <button class="btn danger" onclick="addStreamMsg()">+ 流式消息</button>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="index.html">Demo 中心</a> · <a href="../docs/index.html">文档中心</a> · <a href="../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+var currentState = 'empty';
+var msgIdx = 0;
+
+function setBadge(state) {
+  var b = document.getElementById('stateBadge');
+  b.textContent = state;
+  b.className = 'state-indicator ' + state;
+}
+
+function setState(state) {
+  currentState = state;
+  setBadge(state);
+  var panel = document.getElementById('msgPanel');
+  switch (state) {
+    case 'loading':
+      panel.innerHTML = '<div class="loading-state"><div class="spinner"></div><div style="margin-top:8px;">正在加载会话...</div></div>';
+      break;
+    case 'error':
+      panel.innerHTML = '<div class="error-state">⚠️ 发生错误<br><span style="font-size:0.7rem;">无法加载会话消息</span></div>';
+      break;
+    case 'empty':
+      panel.innerHTML = '<div class="empty-state"><div class="icon">💬</div><div>未选择会话</div><div style="font-size:0.7rem;color:var(--text-muted);">从左侧会话列表选择一个会话开始聊天</div></div>';
+      break;
+    case 'messages':
+      panel.innerHTML =
+        '<div class="msg-row user"><div class="msg-bubble">你好，今天天气怎么样？</div></div>' +
+        '<div class="msg-row pet"><div class="msg-bubble">今天天气不错，适合出去走走！</div></div>' +
+        '<div class="msg-row user"><div class="msg-bubble">帮我写段代码</div></div>' +
+        '<div class="msg-row pet"><div class="msg-bubble">function greet(name) { return `Hello, ${name}!`; }</div></div>';
+      msgIdx = 4;
+      break;
+  }
+}
+
+function addStreamMsg() {
+  if (currentState !== 'messages') setState('messages');
+  setBadge('messages');
+  var panel = document.getElementById('msgPanel');
+  var div = document.createElement('div');
+  div.className = 'msg-row pet streaming';
+  div.innerHTML = '<div class="msg-bubble">正在生成回复...</div>';
+  div.id = 'stream-' + msgIdx;
+  panel.appendChild(div);
+  panel.scrollTop = panel.scrollHeight;
+
+  var texts = ['正在分析问题...', '正在查找相关资料...', '正在组织回答...', '这是最终的回复内容。'];
+  var i = 0;
+  var timer = setInterval(function() {
+    if (i >= texts.length) {
+      clearInterval(timer);
+      var el = document.getElementById('stream-' + msgIdx);
+      if (el) { el.classList.remove('streaming'); el.querySelector('.msg-bubble').textContent = '这是最终的回复内容。'; }
+      msgIdx++;
+      return;
+    }
+    var el = document.getElementById('stream-' + msgIdx);
+    if (el) el.querySelector('.msg-bubble').textContent = texts[i];
+    panel.scrollTop = panel.scrollHeight;
+    i++;
+  }, 600);
+}
+</script>
+</body>
+</html>

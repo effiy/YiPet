@@ -748,4 +748,4 @@
 
     return formatted
   }
-})()
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))

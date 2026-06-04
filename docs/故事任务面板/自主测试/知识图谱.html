@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知识图谱 — 自主测试方案</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { margin-bottom: 1.5rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #34d399; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    .toolbar { display: flex; gap: 0.5rem; margin-left: auto; flex-shrink: 0; align-items: center; }
+    .toolbar-toggle { background: transparent; border: none; color: #475569; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0.25rem 0.5rem; border-radius: 0.375rem; transition: color 0.2s, background 0.2s; }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
+    .toolbar-actions { display: none; gap: 0.5rem; }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button { background: rgba(30, 41, 59, 0.8); border: 1px solid #334155; color: #94a3b8; padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-family: inherit; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .toolbar-actions button:hover { background: rgba(51, 65, 85, 0.8); color: white; border-color: #475569; }
+    .graph-container { background: rgba(15, 23, 42, 0.5); border-radius: 1rem; border: 1px solid #1e293b; padding: 1rem; margin-bottom: 1.5rem; }
+    #cy { width: 100%; height: 700px; border-radius: 0.5rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .card { background: rgba(15, 23, 42, 0.5); border-radius: 0.75rem; border: 1px solid #1e293b; padding: 1.25rem; }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.story { background: #EC4899; }
+    .card-dot.scene { background: #8B5CF6; }
+    .card-dot.src { background: #3B82F6; }
+    .card-dot.test { background: #34d399; }
+    .card-dot.fw { background: #fbbf24; }
+    .card h3 { font-size: 0.875rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
+    .card li { margin-bottom: 0.375rem; }
+    .legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.75rem; padding: 0.75rem; background: rgba(15, 23, 42, 0.5); border-radius: 0.5rem; border: 1px solid #1e293b; font-size: 0.75rem; color: #94a3b8; }
+    .legend-item { display: flex; align-items: center; gap: 0.375rem; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; }
+    .legend-dot.story { background: rgba(236, 72, 153, 0.3); border-color: #EC4899; }
+    .legend-dot.scene { background: rgba(139, 92, 246, 0.3); border-color: #8B5CF6; }
+    .legend-dot.src { background: rgba(59, 130, 246, 0.3); border-color: #3B82F6; }
+    .legend-dot.test { background: rgba(52, 211, 153, 0.3); border-color: #34d399; }
+    .legend-dot.fw { background: rgba(251, 191, 36, 0.3); border-color: #fbbf24; }
+    .legend-dot.fw2 { background: rgba(167, 139, 250, 0.3); border-color: #a78bfa; }
+    .footer { text-align: center; color: #475569; font-size: 0.75rem; margin-top: 1rem; }
+    @media print { body { background: #020617; padding: 1rem; } .toolbar { display: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>知识图谱 · 自主测试</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export" aria-label="Export">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">yipet-self-test v1.0.0 · 5 场景 · 13 测试文件 · 250 用例 · 三层测试体系</p>
+    </div>
+
+    <div class="legend">
+      <span style="color:#94a3b8;font-weight:600;">节点类型:</span>
+      <span class="legend-item"><span class="legend-dot story"></span> 故事</span>
+      <span class="legend-item"><span class="legend-dot scene"></span> 场景</span>
+      <span class="legend-item"><span class="legend-dot src"></span> 被测源码</span>
+      <span class="legend-item"><span class="legend-dot test"></span> 测试文件</span>
+      <span class="legend-item"><span class="legend-dot fw"></span> 测试框架 (L1)</span>
+      <span class="legend-item"><span class="legend-dot fw2"></span> 基础设施 (setup)</span>
+      <span style="margin-left:1rem;color:#94a3b8;font-weight:600;">操作:</span>
+      <span class="legend-item" style="color:#64748b;">🖱 拖拽移动 · 滚轮缩放 · 点击高亮邻节点</span>
+    </div>
+
+    <div class="graph-container">
+      <div id="cy"></div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-header"><div class="card-dot story"></div><h3>Story Hub</h3></div>
+        <ul>
+          <li>yipet-self-test — 自动化测试体系基线</li>
+          <li>vitest + jsdom + @vitest/coverage-v8 技术栈</li>
+          <li>3 层架构: L1 框架 → L2 场景 → L3 源文件</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot test"></div><h3>Test Coverage</h3></div>
+        <ul>
+          <li>场景-1 核心逻辑: 2 文件 89 用例 — config + token</li>
+          <li>场景-2 API 接口: 2 文件 30 用例 — request + ApiManager</li>
+          <li>场景-3 数据持久化: 2 文件 79 用例 — storage + session</li>
+          <li>场景-4 异常边界: 1 文件 33 用例 — error</li>
+          <li>场景-5 集成回归: 3 文件 56 用例 — pipeline + sw + Vue</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot fw"></div><h3>Framework Stack</h3></div>
+        <ul>
+          <li>vitest ^3.1.1 — 运行器 + 断言 + vi.fn() mock</li>
+          <li>jsdom ^26.0.0 — 浏览器环境模拟</li>
+          <li>@vitest/coverage-v8 — 代码覆盖率</li>
+          <li>setup.mjs — chrome API mock + loadModule + fetch mock</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">YiPet v1.1.1 · 自主测试方案 · 知识图谱 v2.0.0</p>
+  </div>
+
+  <script>
+    const cy = cytoscape({
+      container: document.getElementById('cy'),
+      style: [
+        { selector: 'node', style: {
+          'label': 'data(label)',
+          'font-family': 'JetBrains Mono, monospace',
+          'font-size': '9px',
+          'color': '#e2e8f0',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '110px',
+          'border-width': 2,
+          'width': 52, 'height': 52,
+          'background-opacity': 0.9,
+          'transition-property': 'background-color, border-color, width, height',
+          'transition-duration': '0.2s'
+        }},
+        { selector: 'node[type="story"]', style: {
+          'background-color': 'rgba(236, 72, 153, 0.35)',
+          'border-color': '#EC4899',
+          'width': 74, 'height': 74,
+          'font-size': '10px', 'font-weight': '700',
+          'shape': 'rectangle'
+        }},
+        { selector: 'node[type="scene"]', style: {
+          'background-color': 'rgba(139, 92, 246, 0.35)',
+          'border-color': '#8B5CF6',
+          'width': 64, 'height': 64,
+          'font-size': '9px', 'font-weight': '600',
+          'shape': 'round-rectangle'
+        }},
+        // L1 test framework
+        { selector: 'node[layer="framework"]', style: {
+          'background-color': 'rgba(251, 191, 36, 0.3)',
+          'border-color': '#fbbf24',
+          'width': 54, 'height': 54,
+          'font-size': '9px', 'font-weight': '600'
+        }},
+        // L1 infrastructure
+        { selector: 'node[layer="infra"]', style: {
+          'background-color': 'rgba(167, 139, 250, 0.35)',
+          'border-color': '#a78bfa',
+          'width': 50, 'height': 50,
+          'font-size': '9px'
+        }},
+        // L2 test files
+        { selector: 'node[layer="test"]', style: {
+          'background-color': 'rgba(52, 211, 153, 0.35)',
+          'border-color': '#34d399',
+          'width': 54, 'height': 54,
+          'font-size': '8px', 'font-weight': '600'
+        }},
+        // L3 source files
+        { selector: 'node[layer="source"]', style: {
+          'background-color': 'rgba(59, 130, 246, 0.35)',
+          'border-color': '#3B82F6',
+          'width': 50, 'height': 50,
+          'font-size': '8px'
+        }},
+        { selector: 'node[complexity="complex"]', style: {
+          'width': 60, 'height': 60,
+          'font-size': '9px',
+          'border-width': 3
+        }},
+        { selector: 'edge', style: {
+          'width': 1.2,
+          'line-color': '#334155',
+          'target-arrow-color': '#334155',
+          'target-arrow-shape': 'triangle',
+          'arrow-scale': 0.8,
+          'curve-style': 'bezier',
+          'opacity': 0.6
+        }},
+        { selector: 'edge[type="contains"]', style: {
+          'line-color': '#8B5CF6', 'target-arrow-color': '#8B5CF6',
+          'width': 1.5, 'opacity': 0.7, 'line-style': 'solid'
+        }},
+        { selector: 'edge[type="tests"]', style: {
+          'line-color': '#34d399', 'target-arrow-color': '#34d399',
+          'width': 1.5, 'opacity': 0.7
+        }},
+        { selector: 'edge[type="depends_on"]', style: {
+          'line-color': '#3B82F6', 'target-arrow-color': '#3B82F6',
+          'width': 1, 'opacity': 0.5, 'line-style': 'dashed'
+        }},
+        { selector: 'edge[type="uses"]', style: {
+          'line-color': '#fbbf24', 'target-arrow-color': '#fbbf24',
+          'width': 1, 'opacity': 0.5, 'line-style': 'dashed'
+        }},
+        { selector: 'node:selected', style: {
+          'border-width': 3, 'border-color': '#fff',
+          'width': '70px', 'height': '70px',
+          'font-size': '10px', 'z-index': 999
+        }},
+        { selector: 'edge:selected', style: {
+          'width': 3, 'line-color': '#fff', 'target-arrow-color': '#fff',
+          'opacity': 1, 'z-index': 999
+        }}
+      ],
+      elements: {
+        nodes: [
+          // Story
+          { data: { id: 'story', label: 'yipet-self-test\n自主测试', type: 'story' } },
+          // Scenes (L2)
+          { data: { id: 's1', label: '场景-1\n核心逻辑', type: 'scene' } },
+          { data: { id: 's2', label: '场景-2\nAPI 接口', type: 'scene' } },
+          { data: { id: 's3', label: '场景-3\n数据持久化', type: 'scene' } },
+          { data: { id: 's4', label: '场景-4\n异常边界', type: 'scene' } },
+          { data: { id: 's5', label: '场景-5\n集成回归', type: 'scene' } },
+          // L1 framework
+          { data: { id: 'vitest', label: 'vitest\n^3.1.1', type: 'source', layer: 'framework' } },
+          { data: { id: 'jsdom', label: 'jsdom\n^26.0.0', type: 'source', layer: 'framework' } },
+          { data: { id: 'coverage', label: 'coverage-v8\n^3.1.1', type: 'source', layer: 'framework' } },
+          // L1 infrastructure
+          { data: { id: 'setup', label: 'setup.mjs', type: 'source', layer: 'infra' } },
+          { data: { id: 'vitestcfg', label: 'vitest.config', type: 'source', layer: 'infra' } },
+          // L2 test files
+          { data: { id: 't-config', label: 'config.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-token', label: 'token.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-api', label: 'api.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-apimgr', label: 'ApiManager\n.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-storage', label: 'storage.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-storage2', label: 'storageUtils\n.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-error', label: 'error.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-pipeline', label: 'pipeline.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-sw', label: 'sw.test', type: 'source', layer: 'test' } },
+          { data: { id: 't-vue', label: 'ChatWindow\n.test', type: 'source', layer: 'test' } },
+          // L3 source files
+          { data: { id: 'config', label: 'config.js', type: 'source', layer: 'source' } },
+          { data: { id: 'token', label: 'token.js', type: 'source', layer: 'source' } },
+          { data: { id: 'request', label: 'request.js', type: 'source', layer: 'source' } },
+          { data: { id: 'apimgr', label: 'ApiManager', type: 'source', layer: 'source' } },
+          { data: { id: 'storage', label: 'storageUtils', type: 'source', layer: 'source' } },
+          { data: { id: 'bootstrap', label: 'bootstrap', type: 'source', layer: 'source' } },
+          { data: { id: 'sessmgr', label: 'sessionMgr', type: 'source', layer: 'source' } },
+          { data: { id: 'error', label: 'error.js', type: 'source', layer: 'source' } },
+          { data: { id: 'sessvc', label: 'SessionSvc', type: 'source', layer: 'source', complexity: 'complex' } },
+          { data: { id: 'faqsvc', label: 'FaqService', type: 'source', layer: 'source', complexity: 'complex' } },
+          { data: { id: 'sw', label: 'SW index', type: 'source', layer: 'source' } },
+          { data: { id: 'chatwin', label: 'ChatWindow', type: 'source', layer: 'source' } },
+          { data: { id: 'chatinput', label: 'ChatInput', type: 'source', layer: 'source' } }
+        ],
+        edges: [
+          // Story → Scenes
+          { data: { id: 'e-story-s1', source: 'story', target: 's1', type: 'contains' } },
+          { data: { id: 'e-story-s2', source: 'story', target: 's2', type: 'contains' } },
+          { data: { id: 'e-story-s3', source: 'story', target: 's3', type: 'contains' } },
+          { data: { id: 'e-story-s4', source: 'story', target: 's4', type: 'contains' } },
+          { data: { id: 'e-story-s5', source: 'story', target: 's5', type: 'contains' } },
+          // Framework ← scenes depend on
+          { data: { id: 'e-s1-vitest', source: 's1', target: 'vitest', type: 'uses' } },
+          { data: { id: 'e-s1-jsdom', source: 's1', target: 'jsdom', type: 'uses' } },
+          { data: { id: 'e-s1-setup', source: 's1', target: 'setup', type: 'uses' } },
+          { data: { id: 'e-s2-vitest', source: 's2', target: 'vitest', type: 'uses' } },
+          { data: { id: 'e-s2-jsdom', source: 's2', target: 'jsdom', type: 'uses' } },
+          { data: { id: 'e-s2-setup', source: 's2', target: 'setup', type: 'uses' } },
+          { data: { id: 'e-s3-vitest', source: 's3', target: 'vitest', type: 'uses' } },
+          { data: { id: 'e-s3-jsdom', source: 's3', target: 'jsdom', type: 'uses' } },
+          { data: { id: 'e-s3-setup', source: 's3', target: 'setup', type: 'uses' } },
+          { data: { id: 'e-s4-vitest', source: 's4', target: 'vitest', type: 'uses' } },
+          { data: { id: 'e-s4-jsdom', source: 's4', target: 'jsdom', type: 'uses' } },
+          { data: { id: 'e-s4-setup', source: 's4', target: 'setup', type: 'uses' } },
+          { data: { id: 'e-s5-vitest', source: 's5', target: 'vitest', type: 'uses' } },
+          { data: { id: 'e-s5-jsdom', source: 's5', target: 'jsdom', type: 'uses' } },
+          { data: { id: 'e-s5-setup', source: 's5', target: 'setup', type: 'uses' } },
+          { data: { id: 'e-s5-coverage', source: 's5', target: 'coverage', type: 'uses' } },
+          // Infra deps
+          { data: { id: 'e-setup-vitest', source: 'setup', target: 'vitest', type: 'depends_on' } },
+          { data: { id: 'e-setup-jsdom', source: 'setup', target: 'jsdom', type: 'depends_on' } },
+          { data: { id: 'e-vitestcfg-vitest', source: 'vitestcfg', target: 'vitest', type: 'depends_on' } },
+          { data: { id: 'e-vitestcfg-jsdom', source: 'vitestcfg', target: 'jsdom', type: 'depends_on' } },
+          { data: { id: 'e-vitestcfg-coverage', source: 'vitestcfg', target: 'coverage', type: 'depends_on' } },
+          { data: { id: 'e-vitestcfg-setup', source: 'vitestcfg', target: 'setup', type: 'depends_on' } },
+          // Scene 1 → test files → sources
+          { data: { id: 'e-s1-t-config', source: 's1', target: 't-config', type: 'tests' } },
+          { data: { id: 'e-s1-t-token', source: 's1', target: 't-token', type: 'tests' } },
+          { data: { id: 'e-t-config-src', source: 't-config', target: 'config', type: 'tests' } },
+          { data: { id: 'e-t-token-src', source: 't-token', target: 'token', type: 'tests' } },
+          // Scene 2 → test files → sources
+          { data: { id: 'e-s2-t-api', source: 's2', target: 't-api', type: 'tests' } },
+          { data: { id: 'e-s2-t-apimgr', source: 's2', target: 't-apimgr', type: 'tests' } },
+          { data: { id: 'e-t-api-request', source: 't-api', target: 'request', type: 'tests' } },
+          { data: { id: 'e-t-apimgr-src', source: 't-apimgr', target: 'apimgr', type: 'tests' } },
+          // Scene 3 → test files → sources
+          { data: { id: 'e-s3-t-storage', source: 's3', target: 't-storage', type: 'tests' } },
+          { data: { id: 'e-s3-t-storage2', source: 's3', target: 't-storage2', type: 'tests' } },
+          { data: { id: 'e-t-storage-src', source: 't-storage', target: 'storage', type: 'tests' } },
+          { data: { id: 'e-t-storage2-src', source: 't-storage2', target: 'storage', type: 'tests' } },
+          { data: { id: 'e-t-storage2-bootstrap', source: 't-storage2', target: 'bootstrap', type: 'tests' } },
+          { data: { id: 'e-t-storage2-sessmgr', source: 't-storage2', target: 'sessmgr', type: 'tests' } },
+          // Scene 4 → test files → sources
+          { data: { id: 'e-s4-t-error', source: 's4', target: 't-error', type: 'tests' } },
+          { data: { id: 'e-t-error-src', source: 't-error', target: 'error', type: 'tests' } },
+          // Scene 5 → test files → sources
+          { data: { id: 'e-s5-t-pipeline', source: 's5', target: 't-pipeline', type: 'tests' } },
+          { data: { id: 'e-s5-t-sw', source: 's5', target: 't-sw', type: 'tests' } },
+          { data: { id: 'e-s5-t-vue', source: 's5', target: 't-vue', type: 'tests' } },
+          { data: { id: 'e-t-pipeline-sessvc', source: 't-pipeline', target: 'sessvc', type: 'tests' } },
+          { data: { id: 'e-t-pipeline-faqsvc', source: 't-pipeline', target: 'faqsvc', type: 'tests' } },
+          { data: { id: 'e-t-sw-src', source: 't-sw', target: 'sw', type: 'tests' } },
+          { data: { id: 'e-t-vue-chatwin', source: 't-vue', target: 'chatwin', type: 'tests' } },
+          { data: { id: 'e-t-vue-chatinput', source: 't-vue', target: 'chatinput', type: 'tests' } },
+          // Cross-source deps (for integration context)
+          { data: { id: 'e-config-token-dep', source: 'config', target: 'token', type: 'depends_on' } },
+          { data: { id: 'e-token-request-dep', source: 'token', target: 'request', type: 'depends_on' } },
+          { data: { id: 'e-request-apimgr-dep', source: 'request', target: 'apimgr', type: 'depends_on' } },
+          { data: { id: 'e-apimgr-sessvc-dep', source: 'apimgr', target: 'sessvc', type: 'depends_on' } },
+          { data: { id: 'e-apimgr-faqsvc-dep', source: 'apimgr', target: 'faqsvc', type: 'depends_on' } },
+          { data: { id: 'e-apimgr-error-dep', source: 'apimgr', target: 'error', type: 'depends_on' } }
+        ]
+      },
+      layout: {
+        name: 'breadthfirst',
+        directed: true,
+        spacingFactor: 1.3,
+        padding: 30,
+        avoidOverlap: true,
+        nodeDimensionsIncludeLabels: true
+      },
+      wheelSensitivity: 0.3,
+      minZoom: 0.3,
+      maxZoom: 3
+    });
+
+    // Click to highlight neighbors
+    cy.on('tap', 'node', function(evt) {
+      const node = evt.target;
+      const hood = node.closedNeighborhood();
+      cy.elements().style('opacity', 0.12);
+      hood.style('opacity', 1);
+      node.style('opacity', 1);
+    });
+    cy.on('tap', function(evt) {
+      if (evt.target === cy) {
+        cy.elements().style('opacity', 0.85);
+      }
+    });
+
+    // Export helpers
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) { btn.textContent = '✗ Failed'; }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+    async function downloadPNG(btn) {
+      const orig = btn.textContent; btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'knowledge-graph-test.png'; link.href = canvas.toDataURL('image/png'); link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) { btn.textContent = '✗ Failed'; }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+    async function downloadPDF(btn) {
+      const orig = btn.textContent; btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('knowledge-graph-test.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) { btn.textContent = '✗ Failed'; }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>

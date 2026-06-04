@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AiSettingsModal 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; }
+    .demo-box { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin: 16px 0; }
+    .demo-box h4 { font-size: 0.88rem; font-weight: 600; color: var(--color-accent-2); margin-bottom: 12px; }
+    .output { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 12px 16px; font-family: "SF Mono", monospace; font-size: 0.76rem; color: var(--text-secondary); max-height: 160px; overflow-y: auto; line-height: 1.7; }
+    .output .key { color: var(--color-accent); } .output .val { color: var(--color-accent-2); } .output .log { color: var(--green); }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-2); background: rgba(34,211,238,0.08); color: var(--color-accent-2); transition: all 0.15s; margin-top: 12px; margin-right: 8px; }
+    .btn:hover { background: var(--color-accent-2); color: #1a1a2a; }
+    .modal-preview { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; max-width: 420px; margin: 0 auto; }
+    .modal-header { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); font-weight: 600; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 16px; }
+    .modal-body label { display: block; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px; }
+    .modal-body input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: var(--text-primary); font-size: 0.82rem; font-family: inherit; }
+    .modal-body input:focus { border-color: var(--color-accent-2); outline: none; }
+    .modal-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: flex-end; gap: 8px; }
+    .modal-btn { padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.76rem; font-family: inherit; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+    .modal-btn:hover { background: rgba(255,255,255,0.1); }
+    .modal-btn.primary { background: var(--color-accent-2); color: #1a1a2a; border-color: var(--color-accent-2); }
+    .modal-btn.primary:hover { opacity: 0.9; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html">← 返回 Demo 中心</a>
+  <h1>AiSettingsModal 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>AiSettingsModal 是 AI 模型选择弹窗，极简设计仅 107 行代码。提供模型名称输入、Token 设置入口、取消/保存操作。支持模板和 h() 双模式渲染。</p>
+</section>
+
+<section id="store">
+  <h2>状态管理</h2>
+  <div class="card">
+<pre><span class="kw">const</span> store = <span class="fn">reactive</span>({
+  selectedModel: <span class="str">''</span>,   <span class="cm">// 当前输入的模型名称</span>
+})
+
+<span class="cm">// 生命周期: 打开弹窗时从 manager.currentModel 初始化</span>
+store.selectedModel = manager.currentModel || <span class="str">''</span>
+
+<span class="cm">// 三个方法</span>
+<span class="fn">openToken</span>()   <span class="cm">// manager.openAuth() — 打开 Token 设置弹窗</span>
+<span class="fn">cancel</span>()      <span class="cm">// 关闭弹窗，恢复原模型值</span>
+<span class="fn">save</span>()        <span class="cm">// manager.currentModel = selectedModel → saveState → close</span></pre>
+  </div>
+</section>
+
+<section id="rendering">
+  <h2>渲染模式</h2>
+  <div class="card">
+    <h3>双模式：模板 + h() 降级</h3>
+<pre><span class="kw">export</span> <span class="kw">function</span> <span class="fn">openAiSettingsModal</span>(manager) {
+  <span class="kw">const</span> store = <span class="fn">reactive</span>({ selectedModel: manager.currentModel || <span class="str">''</span> })
+
+  <span class="kw">const</span> component = {
+    template: <span class="str">'#yi-pet-ai-settings-template'</span>,  <span class="cm">// 模板模式</span>
+    <span class="cm">// 或 render() { return h('div', ...) }          // 降级模式</span>
+    methods: { openToken, cancel, save }
+  }
+
+  <span class="kw">const</span> app = <span class="fn">createApp</span>(component)
+  app.<span class="fn">mount</span>(container)
+}</pre>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — AI 模型设置</h2>
+  <p>模拟 AiSettingsModal 的模型选择和保存流程。</p>
+  <div class="demo-box">
+    <h4>AI 模型设置弹窗</h4>
+    <div class="modal-preview">
+      <div class="modal-header">
+        <span>AI 模型设置</span>
+        <span style="cursor:pointer;color:var(--text-muted);" onclick="doCancel()">✕</span>
+      </div>
+      <div class="modal-body">
+        <label for="modelInput">模型名称</label>
+        <input id="modelInput" type="text" placeholder="输入模型名称..." value="gpt-4o">
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn" onclick="doOpenToken()">设置 Token</button>
+        <button class="modal-btn" onclick="doCancel()">取消</button>
+        <button class="modal-btn primary" onclick="doSave()">保存</button>
+      </div>
+    </div>
+    <div class="output" id="modalLog" style="margin-top:12px;"><span class="log">点击按钮查看 AiSettingsModal 的行为日志...</span></div>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="index.html">Demo 中心</a> · <a href="../docs/index.html">文档中心</a> · <a href="../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+function doOpenToken() {
+  log('openToken() → manager.openAuth() → 关闭 AiSettingsModal → 打开 TokenSettingsModal');
+}
+
+function doCancel() {
+  log('cancel() → store.selectedModel 恢复为 manager.currentModel → 关闭弹窗 (不保存)');
+}
+
+function doSave() {
+  var v = document.getElementById('modelInput').value.trim();
+  if (!v) {
+    log('<span style="color:var(--red)">save() → 模型名称为空，未保存</span>');
+    return;
+  }
+  log('save() → manager.currentModel = "' + v + '" → manager.saveState() → 关闭弹窗 → ' +
+    '下次请求使用新模型: { model: "' + v + '" }');
+}
+
+function log(msg) {
+  document.getElementById('modalLog').innerHTML = '<span class="log">[' + new Date().toLocaleTimeString() + ']</span> ' + msg;
+}
+</script>
+</body>
+</html>

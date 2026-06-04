@@ -1600,7 +1600,7 @@
     this.pet.style.animation = 'none'
     setTimeout(() => {
       // 随机选择不同的动画效果
-      const animations = [
+      const animations = (PET_CONFIG?.constants?.ANIMATION?.THINKING_ANIMATIONS) || [
         'petThinking 0.8s ease-in-out infinite',
         'petThinkingBounce 1.2s ease-in-out infinite',
         'petThinkingPulse 1s ease-in-out infinite'
@@ -1622,7 +1622,7 @@
     bubble.className = 'pet-chat-bubble'
 
     // 随机选择思考文本（更有趣的提示语）
-    const thinkingTexts = [
+    const thinkingTexts = (PET_CONFIG?.constants?.ANIMATION?.THINKING_BUBBLE_TEXTS) || [
       '🤔 让我想想...',
       '💭 思考中...',
       '✨ 灵感涌现',
@@ -1655,7 +1655,7 @@
       } else {
         clearInterval(updateBubbleInterval)
       }
-    }, 1500)
+    }, (PET_CONFIG?.constants?.TIMING?.CHAT_BUBBLE_UPDATE_INTERVAL) || 1500)
 
     // 保存interval以便后续清理
     this.chatBubbleInterval = updateBubbleInterval

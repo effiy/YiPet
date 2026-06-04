@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知识图谱 — 系统架构知识固化</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { margin-bottom: 1.5rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    .toolbar { display: flex; gap: 0.5rem; margin-left: auto; flex-shrink: 0; align-items: center; }
+    .toolbar-toggle { background: transparent; border: none; color: #475569; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0.25rem 0.5rem; border-radius: 0.375rem; transition: color 0.2s, background 0.2s; }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
+    .toolbar-actions { display: none; gap: 0.5rem; }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button { background: rgba(30, 41, 59, 0.8); border: 1px solid #334155; color: #94a3b8; padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-family: inherit; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .toolbar-actions button:hover { background: rgba(51, 65, 85, 0.8); color: white; border-color: #475569; }
+    .graph-container { background: rgba(15, 23, 42, 0.5); border-radius: 1rem; border: 1px solid #1e293b; padding: 1rem; margin-bottom: 1.5rem; }
+    #cy { width: 100%; height: 700px; border-radius: 0.5rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .card { background: rgba(15, 23, 42, 0.5); border-radius: 0.75rem; border: 1px solid #1e293b; padding: 1.25rem; }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.story { background: #EC4899; }
+    .card-dot.scene { background: #8B5CF6; }
+    .card-dot.source { background: #3B82F6; }
+    .card-dot.libs { background: #fbbf24; }
+    .card h3 { font-size: 0.875rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
+    .card li { margin-bottom: 0.375rem; }
+    .legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.75rem; padding: 0.75rem; background: rgba(15, 23, 42, 0.5); border-radius: 0.5rem; border: 1px solid #1e293b; font-size: 0.75rem; color: #94a3b8; }
+    .legend-item { display: flex; align-items: center; gap: 0.375rem; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; }
+    .legend-dot.story { background: rgba(236, 72, 153, 0.3); border-color: #EC4899; }
+    .legend-dot.scene { background: rgba(139, 92, 246, 0.3); border-color: #8B5CF6; }
+    .legend-dot.source { background: rgba(59, 130, 246, 0.3); border-color: #3B82F6; }
+    .legend-dot.libs { background: rgba(251, 191, 36, 0.3); border-color: #fbbf24; }
+    .legend-dot.ext { background: rgba(251, 113, 133, 0.3); border-color: #fb7185; }
+    .legend-dot.faq { background: rgba(148, 163, 184, 0.3); border-color: #94a3b8; }
+    .footer { text-align: center; color: #475569; font-size: 0.75rem; margin-top: 1rem; }
+    @media print { body { background: #020617; padding: 1rem; } .toolbar { display: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>知识图谱 · 系统架构</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export" aria-label="Export">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">yipet-arch v2.0.0 · 5 场景 · 45+ 模块节点 · 模块拓扑 × 数据流 × 安全边界 × 依赖影响</p>
+    </div>
+
+    <div class="legend">
+      <span style="color:#94a3b8;font-weight:600;">节点类型:</span>
+      <span class="legend-item"><span class="legend-dot story"></span> 故事</span>
+      <span class="legend-item"><span class="legend-dot scene"></span> 场景</span>
+      <span class="legend-item"><span class="legend-dot source"></span> 源码 (core/)</span>
+      <span class="legend-item"><span class="legend-dot libs"></span> 第三方库 (libs/)</span>
+      <span class="legend-item"><span class="legend-dot ext"></span> Extension</span>
+      <span class="legend-item"><span class="legend-dot faq"></span> FAQ</span>
+      <span style="margin-left:1rem;color:#94a3b8;font-weight:600;">操作:</span>
+      <span class="legend-item" style="color:#64748b;">🖱 拖拽移动 · 滚轮缩放 · 点击高亮邻节点</span>
+    </div>
+
+    <div class="graph-container">
+      <div id="cy"></div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-header"><div class="card-dot story"></div><h3>Story Hub</h3></div>
+        <ul>
+          <li>yipet-arch — 系统架构知识固化基线</li>
+          <li>5 场景覆盖模块拓扑→数据流→安全→依赖→上手</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot source"></div><h3>Core Infrastructure</h3></div>
+        <ul>
+          <li>core/ — 10 文件: config · token · request · ApiManager · error · storage · session · bootstrap · SessionService · FaqService</li>
+          <li>libs/ — 5 第三方库 (CDN + 本地)</li>
+          <li>cdn/ — 4 自托管 CDN 文件</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot scene"></div><h3>Module Map</h3></div>
+        <ul>
+          <li>modules/pet/ — PetManager 800+ 行核心 + 32 子模块</li>
+          <li>modules/extension/ — Service Worker + 8 处理器</li>
+          <li>modules/faq/ — FAQ 管理模块</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">YiPet v1.1.1 · Chrome Extension Manifest V3 · 知识图谱 v2.0.0</p>
+  </div>
+
+  <script>
+    const cy = cytoscape({
+      container: document.getElementById('cy'),
+      style: [
+        { selector: 'node', style: {
+          'label': 'data(label)',
+          'font-family': 'JetBrains Mono, monospace',
+          'font-size': '9px',
+          'color': '#e2e8f0',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '100px',
+          'border-width': 2,
+          'width': 50, 'height': 50,
+          'background-opacity': 0.9,
+          'transition-property': 'background-color, border-color, width, height',
+          'transition-duration': '0.2s'
+        }},
+        { selector: 'node[type="story"]', style: {
+          'background-color': 'rgba(236, 72, 153, 0.35)',
+          'border-color': '#EC4899',
+          'width': 70, 'height': 70,
+          'font-size': '10px', 'font-weight': '700',
+          'shape': 'rectangle'
+        }},
+        { selector: 'node[type="scene"]', style: {
+          'background-color': 'rgba(139, 92, 246, 0.35)',
+          'border-color': '#8B5CF6',
+          'width': 62, 'height': 62,
+          'font-size': '9px', 'font-weight': '600',
+          'shape': 'round-rectangle'
+        }},
+        { selector: 'node[layer="core"]', style: {
+          'background-color': 'rgba(59, 130, 246, 0.35)',
+          'border-color': '#3B82F6',
+          'width': 52, 'height': 52
+        }},
+        { selector: 'node[layer="libs"]', style: {
+          'background-color': 'rgba(251, 191, 36, 0.3)',
+          'border-color': '#fbbf24',
+          'width': 48, 'height': 48
+        }},
+        { selector: 'node[layer="cdn"]', style: {
+          'background-color': 'rgba(167, 139, 250, 0.35)',
+          'border-color': '#a78bfa',
+          'width': 48, 'height': 48
+        }},
+        { selector: 'node[layer="pet"]', style: {
+          'background-color': 'rgba(52, 211, 153, 0.35)',
+          'border-color': '#34d399',
+          'width': 50, 'height': 50
+        }},
+        { selector: 'node[layer="extension"]', style: {
+          'background-color': 'rgba(251, 113, 133, 0.35)',
+          'border-color': '#fb7185',
+          'width': 50, 'height': 50
+        }},
+        { selector: 'node[layer="faq"]', style: {
+          'background-color': 'rgba(148, 163, 184, 0.35)',
+          'border-color': '#94a3b8',
+          'width': 46, 'height': 46
+        }},
+        { selector: 'edge', style: {
+          'width': 1.2,
+          'line-color': '#334155',
+          'target-arrow-color': '#334155',
+          'target-arrow-shape': 'triangle',
+          'arrow-scale': 0.8,
+          'curve-style': 'bezier',
+          'opacity': 0.6
+        }},
+        { selector: 'edge[type="contains"]', style: {
+          'line-color': '#8B5CF6', 'target-arrow-color': '#8B5CF6',
+          'width': 1.5, 'opacity': 0.7,
+          'line-style': 'solid'
+        }},
+        { selector: 'edge[type="depends_on"]', style: {
+          'line-color': '#3B82F6', 'target-arrow-color': '#3B82F6',
+          'width': 1.5, 'opacity': 0.7
+        }},
+        { selector: 'edge[type="imports"]', style: {
+          'line-color': '#22d3ee', 'target-arrow-color': '#22d3ee',
+          'width': 1, 'opacity': 0.5,
+          'line-style': 'dashed'
+        }},
+        { selector: 'edge[type="shares"]', style: {
+          'line-color': '#fbbf24', 'target-arrow-color': '#fbbf24',
+          'width': 1, 'opacity': 0.5,
+          'line-style': 'dashed'
+        }},
+        { selector: 'node:selected', style: {
+          'border-width': 3, 'border-color': '#fff',
+          'width': '70px', 'height': '70px',
+          'font-size': '10px', 'z-index': 999
+        }},
+        { selector: 'edge:selected', style: {
+          'width': 3, 'line-color': '#fff', 'target-arrow-color': '#fff',
+          'opacity': 1, 'z-index': 999
+        }}
+      ],
+      elements: {
+        nodes: [
+          // Story
+          { data: { id: 'story', label: 'yipet-arch\n系统架构', type: 'story' } },
+          // Scenes
+          { data: { id: 's1', label: '场景-1\n模块拓扑', type: 'scene' } },
+          { data: { id: 's2', label: '场景-2\n数据流追踪', type: 'scene' } },
+          { data: { id: 's3', label: '场景-3\n安全边界', type: 'scene' } },
+          { data: { id: 's4', label: '场景-4\n依赖影响', type: 'scene' } },
+          { data: { id: 's5', label: '场景-5\n上手指南', type: 'scene' } },
+          // core/
+          { data: { id: 'config', label: 'config.js', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'token', label: 'token.js', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'request', label: 'request.js', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'apimgr', label: 'ApiManager', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'error', label: 'error.js', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'storage', label: 'storageUtils', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'sessmgr', label: 'sessionMgr', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'bootstrap', label: 'bootstrap', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'sessvc', label: 'SessionSvc', type: 'source', layer: 'core', parent: 'core-group' } },
+          { data: { id: 'faqsvc', label: 'FaqService', type: 'source', layer: 'core', parent: 'core-group' } },
+          // libs/
+          { data: { id: 'vue', label: 'vue.global', type: 'source', layer: 'libs' } },
+          { data: { id: 'marked', label: 'marked', type: 'source', layer: 'libs' } },
+          { data: { id: 'turndown', label: 'turndown', type: 'source', layer: 'libs' } },
+          { data: { id: 'md5', label: 'md5.js', type: 'source', layer: 'libs' } },
+          { data: { id: 'mermaid', label: 'mermaid', type: 'source', layer: 'libs' } },
+          // cdn/
+          { data: { id: 'cdn-md', label: 'markdown.js', type: 'source', layer: 'cdn' } },
+          { data: { id: 'cdn-mm', label: 'mermaid.js', type: 'source', layer: 'cdn' } },
+          { data: { id: 'cdn-load', label: 'mmd-pg-load', type: 'source', layer: 'cdn' } },
+          { data: { id: 'cdn-render', label: 'mmd-pg-render', type: 'source', layer: 'cdn' } },
+          // modules/pet/
+          { data: { id: 'petmgr', label: 'PetManager', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-chat', label: 'chat.js', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-ui', label: 'ui.js', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-drag', label: 'drag.js', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-state', label: 'state.js', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-ai-api', label: 'ai.api.js', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-ai-prompt', label: 'ai.prompt.js', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-session', label: 'session/', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-editor', label: 'editor/', type: 'source', layer: 'pet' } },
+          { data: { id: 'pet-mermaid', label: 'mermaid/', type: 'source', layer: 'pet' } },
+          { data: { id: 'chatwin', label: 'ChatWindow', type: 'source', layer: 'pet' } },
+          { data: { id: 'chatinput', label: 'ChatInput', type: 'source', layer: 'pet' } },
+          // modules/extension/
+          { data: { id: 'sw', label: 'SW index.js', type: 'source', layer: 'extension' } },
+          { data: { id: 'msgrouter', label: 'MsgRouter', type: 'source', layer: 'extension' } },
+          { data: { id: 'pethdlr', label: 'PetHandler', type: 'source', layer: 'extension' } },
+          { data: { id: 'tabhdlr', label: 'TabHandler', type: 'source', layer: 'extension' } },
+          { data: { id: 'wework', label: 'WeWorkHdlr', type: 'source', layer: 'extension' } },
+          { data: { id: 'popup', label: 'PopupCtrl', type: 'source', layer: 'extension' } },
+          // modules/faq/
+          { data: { id: 'faq', label: 'faq.js', type: 'source', layer: 'faq' } },
+          { data: { id: 'faq-tags', label: 'tags.js', type: 'source', layer: 'faq' } }
+        ],
+        edges: [
+          // Story → Scenes
+          { data: { id: 'e-story-s1', source: 'story', target: 's1', type: 'contains' } },
+          { data: { id: 'e-story-s2', source: 'story', target: 's2', type: 'contains' } },
+          { data: { id: 'e-story-s3', source: 'story', target: 's3', type: 'contains' } },
+          { data: { id: 'e-story-s4', source: 'story', target: 's4', type: 'contains' } },
+          { data: { id: 'e-story-s5', source: 'story', target: 's5', type: 'contains' } },
+          // Scene 1 → ALL modules (topology)
+          { data: { id: 'e-s1-config', source: 's1', target: 'config', type: 'depends_on' } },
+          { data: { id: 'e-s1-petmgr', source: 's1', target: 'petmgr', type: 'depends_on' } },
+          { data: { id: 'e-s1-sw', source: 's1', target: 'sw', type: 'depends_on' } },
+          { data: { id: 'e-s1-faq', source: 's1', target: 'faq', type: 'depends_on' } },
+          // Scene 2 → data flow chain
+          { data: { id: 'e-s2-config', source: 's2', target: 'config', type: 'depends_on' } },
+          { data: { id: 'e-s2-token', source: 's2', target: 'token', type: 'depends_on' } },
+          { data: { id: 'e-s2-request', source: 's2', target: 'request', type: 'depends_on' } },
+          { data: { id: 'e-s2-apimgr', source: 's2', target: 'apimgr', type: 'depends_on' } },
+          { data: { id: 'e-s2-petmgr', source: 's2', target: 'petmgr', type: 'depends_on' } },
+          // Scene 3 → security boundary
+          { data: { id: 'e-s3-token', source: 's3', target: 'token', type: 'depends_on' } },
+          { data: { id: 'e-s3-apimgr', source: 's3', target: 'apimgr', type: 'depends_on' } },
+          { data: { id: 'e-s3-error', source: 's3', target: 'error', type: 'depends_on' } },
+          { data: { id: 'e-s3-storage', source: 's3', target: 'storage', type: 'depends_on' } },
+          // Scene 4 → dependency impact
+          { data: { id: 'e-s4-config', source: 's4', target: 'config', type: 'depends_on' } },
+          { data: { id: 'e-s4-vue', source: 's4', target: 'vue', type: 'depends_on' } },
+          { data: { id: 'e-s4-sw', source: 's4', target: 'sw', type: 'depends_on' } },
+          // Scene 5 → onboarding (less source-focused, links to key entry points)
+          { data: { id: 'e-s5-bootstrap', source: 's5', target: 'bootstrap', type: 'depends_on' } },
+          { data: { id: 'e-s5-petmgr', source: 's5', target: 'petmgr', type: 'depends_on' } },
+          // Core dependency chain
+          { data: { id: 'e-config-token', source: 'config', target: 'token', type: 'imports' } },
+          { data: { id: 'e-token-request', source: 'token', target: 'request', type: 'imports' } },
+          { data: { id: 'e-request-apimgr', source: 'request', target: 'apimgr', type: 'imports' } },
+          { data: { id: 'e-apimgr-error', source: 'apimgr', target: 'error', type: 'imports' } },
+          { data: { id: 'e-storage-sessmgr', source: 'storage', target: 'sessmgr', type: 'imports' } },
+          { data: { id: 'e-apimgr-sessvc', source: 'apimgr', target: 'sessvc', type: 'imports' } },
+          { data: { id: 'e-apimgr-faqsvc', source: 'apimgr', target: 'faqsvc', type: 'imports' } },
+          // Pet module deps
+          { data: { id: 'e-petmgr-chat', source: 'petmgr', target: 'pet-chat', type: 'imports' } },
+          { data: { id: 'e-petmgr-ui', source: 'petmgr', target: 'pet-ui', type: 'imports' } },
+          { data: { id: 'e-petmgr-drag', source: 'petmgr', target: 'pet-drag', type: 'imports' } },
+          { data: { id: 'e-petmgr-state', source: 'petmgr', target: 'pet-state', type: 'imports' } },
+          { data: { id: 'e-petmgr-ai', source: 'petmgr', target: 'pet-ai-api', type: 'imports' } },
+          { data: { id: 'e-petmgr-session', source: 'petmgr', target: 'pet-session', type: 'imports' } },
+          { data: { id: 'e-pet-chatui', source: 'pet-chat', target: 'chatwin', type: 'imports' } },
+          // Extension deps
+          { data: { id: 'e-sw-msgrouter', source: 'sw', target: 'msgrouter', type: 'imports' } },
+          { data: { id: 'e-msgrouter-pethdlr', source: 'msgrouter', target: 'pethdlr', type: 'imports' } },
+          { data: { id: 'e-msgrouter-tabhdlr', source: 'msgrouter', target: 'tabhdlr', type: 'imports' } },
+          { data: { id: 'e-msgrouter-wework', source: 'msgrouter', target: 'wework', type: 'imports' } },
+          { data: { id: 'e-sw-popup', source: 'sw', target: 'popup', type: 'imports' } },
+          // Cross-module deps
+          { data: { id: 'e-sw-petmgr', source: 'sw', target: 'petmgr', type: 'depends_on' } },
+          { data: { id: 'e-vue-petmgr', source: 'vue', target: 'petmgr', type: 'shares' } },
+          { data: { id: 'e-marked-pet', source: 'marked', target: 'pet-chat', type: 'shares' } },
+          { data: { id: 'e-mermaid-pet', source: 'mermaid', target: 'pet-mermaid', type: 'shares' } },
+          // FAQ
+          { data: { id: 'e-faq-tags', source: 'faq', target: 'faq-tags', type: 'imports' } },
+          { data: { id: 'e-apimgr-faq', source: 'apimgr', target: 'faq', type: 'imports' } }
+        ]
+      },
+      layout: {
+        name: 'breadthfirst',
+        directed: true,
+        spacingFactor: 1.4,
+        padding: 30,
+        avoidOverlap: true,
+        nodeDimensionsIncludeLabels: true
+      },
+      wheelSensitivity: 0.3,
+      minZoom: 0.3,
+      maxZoom: 3
+    });
+
+    // Click to highlight neighbors
+    cy.on('tap', 'node', function(evt) {
+      const node = evt.target;
+      const hood = node.closedNeighborhood();
+      cy.elements().style('opacity', 0.15);
+      hood.style('opacity', 1);
+      node.style('opacity', 1);
+    });
+    cy.on('tap', function(evt) {
+      if (evt.target === cy) {
+        cy.elements().style('opacity', 0.85);
+      }
+    });
+
+    // Export helpers
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) { btn.textContent = '✗ Failed'; }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+    async function downloadPNG(btn) {
+      const orig = btn.textContent; btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'knowledge-graph-arch.png'; link.href = canvas.toDataURL('image/png'); link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) { btn.textContent = '✗ Failed'; }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+    async function downloadPDF(btn) {
+      const orig = btn.textContent; btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('knowledge-graph-arch.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) { btn.textContent = '✗ Failed'; }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>

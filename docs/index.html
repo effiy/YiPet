@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YiPet 文档中心</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --bg-card-flat: rgba(34,34,46,1);
+      --color-accent: #FFC107;
+      --color-accent-2: #22d3ee;
+      --text-primary: rgba(250,250,252,1);
+      --text-secondary: rgba(160,160,164,1);
+      --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3);
+      --shadow-hover: 0 12px 32px rgba(0,0,0,0.45);
+      --radius-card: 12px;
+      --border-subtle: 1px solid rgba(255,255,255,0.06);
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+    .header { text-align: center; margin-bottom: 32px; animation: fadeInDown 0.5s ease both; }
+    .header h1 { font-size: 2.2rem; font-weight: 700; }
+    .header h1 .accent { color: var(--color-accent); }
+    .header p { color: var(--text-secondary); margin-top: 8px; font-size: 0.92rem; }
+
+    .stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap; animation: fadeInDown 0.5s 0.1s ease both; }
+    .stat {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: var(--radius-card); padding: 16px 24px; text-align: center;
+      box-shadow: var(--shadow-card); min-width: 100px;
+      text-decoration: none; color: inherit; display: block;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      cursor: pointer;
+    }
+    a.stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.35); }
+    .stat .num { font-size: 1.7rem; font-weight: 700; color: var(--color-accent); }
+    .stat .num.green { color: var(--color-accent-2); }
+    .stat .label { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Cross-panel navigation ──────────────── */
+    .cross-nav {
+      display: flex; gap: 10px; justify-content: center; margin-bottom: 36px;
+      flex-wrap: wrap; align-items: stretch;
+      animation: fadeInDown 0.5s 0.15s ease both;
+    }
+    .cross-nav .cross-card {
+      background: var(--bg-card); border: 1px solid rgba(255,193,7,0.15);
+      border-radius: 10px; padding: 12px 18px; box-shadow: var(--shadow-card);
+      text-decoration: none; color: inherit; display: flex; gap: 10px; align-items: center;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      min-width: 180px;
+    }
+    .cross-nav .cross-card:hover {
+      transform: translateY(-2px); box-shadow: var(--shadow-hover);
+      border-color: rgba(255,193,7,0.35);
+    }
+    .cross-nav .cross-card .cross-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .cross-nav .cross-card .cross-info { flex: 1; min-width: 0; }
+    .cross-nav .cross-card .cross-info .cross-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+    .cross-nav .cross-card .cross-info .cross-stats { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+    .cross-nav .cross-card .cross-arrow { color: var(--color-accent); font-size: 0.85rem; flex-shrink: 0; opacity: 0.6; transition: opacity 0.15s; }
+    .cross-nav .cross-card:hover .cross-arrow { opacity: 1; }
+
+    .layer { margin-bottom: 36px; }
+    .layer-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+      padding-bottom: 8px; border-bottom: 2px solid var(--color-accent);
+    }
+    .layer-header .layer-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--color-accent); color: #1a1a2a;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+    }
+    .layer-header h2 { font-size: 1.2rem; margin: 0; flex: 1; }
+    .layer-header .layer-stats { font-size: 0.78rem; color: var(--text-muted); }
+
+    .sub-title {
+      font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);
+      margin: 16px 0 10px; padding-left: 10px; border-left: 3px solid rgba(255,193,7,0.4);
+    }
+    .sub-title .accent { color: var(--color-accent); }
+
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 10px; margin-bottom: 10px; }
+    .item-card {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 10px; padding: 13px 16px; box-shadow: var(--shadow-card);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      display: flex; gap: 10px; align-items: flex-start;
+      animation: fadeInUp 0.4s ease both;
+    }
+    .item-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .item-card .icon {
+      width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 0.75rem;
+    }
+    .item-card .icon.js { background: rgba(255,193,7,0.15); color: var(--color-accent); }
+    .item-card .icon.css { background: rgba(100,149,237,0.18); color: #6495ED; }
+    .item-card .icon.build { background: rgba(144,238,144,0.15); color: #90EE90; }
+    .item-card .icon.html { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .item-card .icon.test { background: rgba(100,220,180,0.15); color: #64DCB4; }
+    .item-card .icon.story { background: rgba(255,193,7,0.12); color: var(--color-accent); }
+    .item-card .icon.mod { background: rgba(192,132,252,0.15); color: #c084fc; }
+    .item-card .icon.src { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .item-card .body { flex: 1; min-width: 0; }
+    .item-card .body .name { color: var(--text-primary); font-weight: 600; font-size: 0.9rem; }
+    .item-card .body .name a { color: inherit; text-decoration: none; }
+    .item-card .body .name a:hover { color: var(--color-accent); }
+    .item-card .body .desc { color: var(--text-muted); font-size: 0.74rem; margin-top: 2px; }
+    .item-card .body .meta { color: var(--text-muted); font-size: 0.7rem; margin-top: 3px; }
+    .item-card .body .meta .accent { color: var(--color-accent); }
+    .item-card .body .meta .demo-link {
+      color: var(--color-accent-2); text-decoration: none;
+      font-weight: 500; margin-left: 4px;
+    }
+    .item-card .body .meta .demo-link:hover { text-decoration: underline; }
+
+    /* ── Scene cards ─────────────────────────── */
+    .scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin-bottom: 10px; }
+    .scene-card {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow-card);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    }
+    .scene-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .scene-card .scene-num {
+      font-size: 0.7rem; color: var(--color-accent); font-weight: 600; margin-bottom: 4px;
+    }
+    .scene-card .scene-name { font-size: 0.88rem; font-weight: 600; }
+    .scene-card .scene-name a { color: inherit; text-decoration: none; }
+    .scene-card .scene-name a:hover { color: var(--color-accent); }
+    .scene-card .scene-desc { color: var(--text-muted); font-size: 0.74rem; margin-top: 4px; }
+    .scene-card .scene-meta {
+      padding-top: 8px; margin-top: 8px; border-top: var(--border-subtle);
+    }
+    .scene-card .scene-meta a {
+      font-size: 0.78rem; color: var(--color-accent); text-decoration: none;
+    }
+    .scene-card .scene-meta a:hover { text-decoration: underline; }
+
+    /* ── Story cards (compact, for L2) ───────── */
+    .story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; margin-bottom: 10px; }
+    .story-card {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: var(--radius-card); padding: 20px 22px; box-shadow: var(--shadow-card);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    }
+    .story-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .story-card .story-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .story-card .story-head .story-icon {
+      width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+      background: rgba(255,193,7,0.12); color: var(--color-accent);
+      display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+    }
+    .story-card .story-head .story-name { font-size: 1rem; font-weight: 700; flex: 1; }
+    .story-card .story-head .story-badge {
+      font-size: 0.68rem; color: var(--color-accent);
+      border: 1px solid var(--color-accent); border-radius: 4px; padding: 1px 8px;
+    }
+    .story-card .story-desc { color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 12px; line-height: 1.5; }
+    .story-card .story-scenes { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    .story-card .story-scenes .scene-tag {
+      font-size: 0.7rem; color: var(--text-muted); text-decoration: none;
+      background: rgba(255,255,255,0.04); border-radius: 4px; padding: 2px 8px;
+      transition: all 0.15s ease;
+    }
+    .story-card .story-scenes .scene-tag:hover {
+      color: var(--color-accent); background: rgba(255,255,255,0.08);
+    }
+    .story-card .story-foot {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      padding-top: 10px; border-top: var(--border-subtle);
+    }
+    .story-card .story-foot a {
+      font-size: 0.78rem; color: var(--color-accent); text-decoration: none;
+    }
+    .story-card .story-foot a:hover { text-decoration: underline; }
+    .story-card .story-foot .story-meta-text { font-size: 0.72rem; color: var(--text-muted); }
+
+    hr { border-color: rgba(255,255,255,0.08); margin: 8px 0 24px; }
+    .footer-note { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 8px; padding-bottom: 20px; }
+    .footer-note a { color: var(--color-accent); text-decoration: none; }
+    .footer-note a:hover { text-decoration: underline; }
+
+    /* ── Back to top ───────────────────────── */
+    .back-top {
+      position: fixed; bottom: 28px; right: 28px;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--bg-card-flat); border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text-secondary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; box-shadow: var(--shadow-card);
+      transition: all 0.2s ease;
+      opacity: 0; pointer-events: none; z-index: 100;
+    }
+    .back-top.visible { opacity: 1; pointer-events: auto; }
+    .back-top:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+    /* ── Responsive ────────────────────────── */
+    @media (max-width: 768px) {
+      .container { padding: 24px 12px 12px; }
+      .header h1 { font-size: 1.5rem; }
+      .card-grid { grid-template-columns: 1fr; }
+      .scene-grid { grid-template-columns: 1fr; }
+      .story-grid { grid-template-columns: 1fr; }
+      .stats { gap: 8px; }
+      .stat { padding: 10px 14px; min-width: 70px; }
+      .stat .num { font-size: 1.3rem; }
+      .cross-nav { flex-direction: column; align-items: center; }
+      .back-top { bottom: 16px; right: 16px; width: 36px; height: 36px; }
+    }
+    @media (max-width: 480px) {
+      .header h1 { font-size: 1.3rem; }
+      .item-card { padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><span class="accent">&#11088;</span> YiPet 文档中心</h1>
+      <p>Chrome 浏览器扩展 — AI 陪伴伴侣 · 五层结构：第三方依赖/框架 → 故事 → 场景 → 主要源代码（业务模块·内部组件·工具库·测试用例）→ 交互事例</p>
+    </div>
+
+    <div class="stats">
+      <a class="stat" href="#layer-deps"><div class="num">10</div><div class="label">第三方依赖/框架</div></a>
+      <a class="stat" href="#layer-story"><div class="num">2</div><div class="label">故事</div></a>
+      <a class="stat" href="#layer-scene"><div class="num green">10</div><div class="label">场景</div></a>
+      <a class="stat" href="#layer-source-modules"><div class="num">12</div><div class="label">业务模块</div></a>
+      <a class="stat" href="#layer-source-tests"><div class="num green">14</div><div class="label">测试用例</div></a>
+      <a class="stat" href="#layer-demo"><div class="num green">15</div><div class="label">交互事例</div></a>
+    </div>
+
+    <!-- Cross-panel navigation -->
+    <div class="cross-nav">
+      <a href="../demos/index.html" class="cross-card" target="_blank">
+        <span class="cross-icon">&#127918;</span>
+        <span class="cross-info">
+          <span class="cross-name">Demo 中心</span>
+          <span class="cross-stats">三方库示例 · 交互式演示</span>
+        </span>
+        <span class="cross-arrow">&rarr;</span>
+      </a>
+      <a href="../tests/index.html" class="cross-card" target="_blank">
+        <span class="cross-icon">&#129514;</span>
+        <span class="cross-info">
+          <span class="cross-name">测试套件</span>
+          <span class="cross-stats">vitest + jsdom · 13 测试文件</span>
+        </span>
+        <span class="cross-arrow">&rarr;</span>
+      </a>
+    </div>
+
+    <!-- ===== Layer 1: 第三方依赖/框架 ===== -->
+    <div class="layer" id="layer-deps">
+      <div class="layer-header">
+        <span class="layer-num">1</span>
+        <h2>第三方依赖/框架</h2>
+        <span class="layer-stats">6 运行时 · 4 开发依赖</span>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#127760;</span> 运行时依赖 (6)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon js">V</span>
+          <div class="body">
+            <div class="name"><a href="https://vuejs.org/" target="_blank" rel="noopener">Vue 3 &#8599;</a></div>
+            <div class="desc">渐进式前端框架，CDN 运行时加载 (vue.global.js)</div>
+            <div class="meta"><span class="accent">核心框架</span> · Options API</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon css">T</span>
+          <div class="body">
+            <div class="name"><a href="https://tailwindcss.com/" target="_blank" rel="noopener">Tailwind CSS &#8599;</a></div>
+            <div class="desc">原子化 CSS 框架，CDN 加载</div>
+            <div class="meta">^3.x · 组件样式补充</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">M</span>
+          <div class="body">
+            <div class="name"><a href="https://marked.js.org/" target="_blank" rel="noopener">marked.js &#8599;</a></div>
+            <div class="desc">Markdown 解析器，AI 消息渲染</div>
+            <div class="meta">CDN · 轻量低至 30KB</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">T</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/mixmark-io/turndown" target="_blank" rel="noopener">turndown.js &#8599;</a></div>
+            <div class="desc">HTML 转 Markdown 转换器，编辑器与页面信息提取</div>
+            <div class="meta">本地库 · libs/turndown.js</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">D</span>
+          <div class="body">
+            <div class="name"><a href="https://mermaid.js.org/" target="_blank" rel="noopener">Mermaid &#8599;</a></div>
+            <div class="desc">图表渲染引擎，CDN 懒加载</div>
+            <div class="meta">CDN · 聊天中图表展示</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">L</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/blueimp/JavaScript-MD5" target="_blank" rel="noopener">md5.js &#8599;</a></div>
+            <div class="desc">MD5 哈希算法，本地加密</div>
+            <div class="meta">本地库 · Token 指纹</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title" style="margin-top:18px;"><span class="accent">&#128736;</span> 开发依赖 (4)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon build">V</span>
+          <div class="body">
+            <div class="name"><a href="https://vitest.dev/" target="_blank" rel="noopener">vitest &#8599;</a></div>
+            <div class="desc">Vite 原生测试框架，13 文件 250+ 用例</div>
+            <div class="meta">^1.x · describe/it/expect · vi.fn() mock</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">J</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/jsdom/jsdom" target="_blank" rel="noopener">jsdom &#8599;</a></div>
+            <div class="desc">Node.js 浏览器环境模拟，Vue 3 组件挂载测试</div>
+            <div class="meta">window/document/navigator · DOM 事件</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">C</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/vitest-dev/vitest/tree/main/packages/coverage-v8" target="_blank" rel="noopener">@vitest/coverage-v8 &#8599;</a></div>
+            <div class="desc">V8 原生覆盖率引擎，逐场景覆盖率目标</div>
+            <div class="meta">text/json/html 报告 · CI/CD 门禁</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">N</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/node-fetch/node-fetch" target="_blank" rel="noopener">node-fetch &#8599;</a></div>
+            <div class="desc">Node.js fetch API 实现，API 测试参考</div>
+            <div class="meta">Response 接口规范 · mock 工厂</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ===== Layer 2: 故事 ===== -->
+    <div class="layer" id="layer-story">
+      <div class="layer-header">
+        <span class="layer-num">2</span>
+        <h2>故事</h2>
+        <span class="layer-stats">2 故事 · 业务需求与任务追踪</span>
+      </div>
+
+      <div class="story-grid">
+        <div class="story-card">
+          <div class="story-head">
+            <span class="story-icon">&#128451;</span>
+            <span class="story-name">系统架构知识固化</span>
+            <span class="story-badge">v2.0.0</span>
+          </div>
+          <div class="story-desc">YiPet Chrome Extension 架构全景分析，固化模块拓扑、数据流、安全边界、依赖变更影响。覆盖 content-script + service-worker + popup 三层架构。</div>
+          <div class="story-scenes">
+            <a target="_blank" class="scene-tag" href="故事任务面板/系统架构/场景-1-模块拓扑.md">1. 模块地图与拓扑</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/系统架构/场景-2-数据流追踪.md">2. 数据流与追踪</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/系统架构/场景-3-安全边界.md">3. 信任边界与安全面</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/系统架构/场景-4-依赖影响.md">4. 依赖关系与变更影响</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/系统架构/场景-5-上手指南.md">5. 新人上手与开发指南</a>
+          </div>
+          <div class="story-foot">
+            <a target="_blank" href="故事任务面板/系统架构/场景-1-模块拓扑.html">架构图 &rarr;</a>
+            <a target="_blank" href="故事任务面板/系统架构/知识图谱.html">知识图谱 &rarr;</a>
+            <span class="story-meta-text">5 场景 · 风险: 中等–高</span>
+          </div>
+        </div>
+
+        <div class="story-card">
+          <div class="story-head">
+            <span class="story-icon">&#129514;</span>
+            <span class="story-name">自主测试方案</span>
+            <span class="story-badge">v1.0.0</span>
+          </div>
+          <div class="story-desc">vitest + jsdom 自动化测试体系。13 个测试文件覆盖核心基础设施、API 请求客户端、数据持久化、异常路径与边界、集成回归五个维度。</div>
+          <div class="story-scenes">
+            <a target="_blank" class="scene-tag" href="故事任务面板/自主测试/场景-1-核心逻辑.md">1. 核心逻辑测试</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/自主测试/场景-2-接口测试.md">2. API 接口测试</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/自主测试/场景-3-存储测试.md">3. 数据持久化测试</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/自主测试/场景-4-错误边界.md">4. 异常路径与边界</a>
+            <a target="_blank" class="scene-tag" href="故事任务面板/自主测试/场景-5-集成测试.md">5. 集成与回归</a>
+          </div>
+          <div class="story-foot">
+            <a target="_blank" href="故事任务面板/自主测试/场景-1-核心逻辑.html">架构图 &rarr;</a>
+            <a target="_blank" href="故事任务面板/自主测试/知识图谱.html">知识图谱 &rarr;</a>
+            <span class="story-meta-text">5 场景 · 13 测试文件 · 250+ 用例</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ===== Layer 3: 场景 ===== -->
+    <div class="layer" id="layer-scene">
+      <div class="layer-header">
+        <span class="layer-num">3</span>
+        <h2>场景</h2>
+        <span class="layer-stats">2 故事 · 10 场景</span>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#128451;</span> 系统架构知识固化 — 5 场景</div>
+      <div class="scene-grid">
+        <div class="scene-card">
+          <div class="scene-num">场景 1</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/系统架构/场景-1-模块拓扑.md">模块地图与拓扑</a></div>
+          <div class="scene-desc">模块识别 · 依赖图 · 入口验证，全部模块依赖关系正确可遍历</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/系统架构/场景-1-模块拓扑.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 2</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/系统架构/场景-2-数据流追踪.md">数据流与追踪</a></div>
+          <div class="scene-desc">请求链路 · 事件流 · 存储路径，关键数据流可追踪到端点</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/系统架构/场景-2-数据流追踪.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 3</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/系统架构/场景-3-安全边界.md">信任边界与安全面</a></div>
+          <div class="scene-desc">auth · token · 输入验证 · 权限，安全面全量覆盖无绕过</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/系统架构/场景-3-安全边界.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 4</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/系统架构/场景-4-依赖影响.md">依赖关系与变更影响</a></div>
+          <div class="scene-desc">依赖图 · 影响分析 · 破坏性变更检测，变更影响可量化可追溯</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/系统架构/场景-4-依赖影响.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 5</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/系统架构/场景-5-上手指南.md">新人上手与开发指南</a></div>
+          <div class="scene-desc">环境搭建 · 调试方法 · 常见任务，新人可独立完成首修</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/系统架构/场景-5-上手指南.html">架构图 &rarr;</a></div>
+        </div>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#129514;</span> 自主测试方案 — 5 场景</div>
+      <div class="scene-grid">
+        <div class="scene-card">
+          <div class="scene-num">场景 1</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自主测试/场景-1-核心逻辑.md">核心逻辑测试</a></div>
+          <div class="scene-desc">Token 管理 · 存储封装 · 时间工具，核心基础设施可测可验</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/自主测试/场景-1-核心逻辑.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 2</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自主测试/场景-2-接口测试.md">API 接口测试</a></div>
+          <div class="scene-desc">请求客户端 · Mock 工厂 · 响应处理，API 层全路径覆盖</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/自主测试/场景-2-接口测试.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 3</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自主测试/场景-3-存储测试.md">数据持久化测试</a></div>
+          <div class="scene-desc">chrome.storage 读写 · 配额管理 · LRU 淘汰，存储层正确性验证</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/自主测试/场景-3-存储测试.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 4</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自主测试/场景-4-错误边界.md">异常路径与边界</a></div>
+          <div class="scene-desc">上下文失效 · 网络异常 · 空状态，异常路径全覆盖</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/自主测试/场景-4-错误边界.html">架构图 &rarr;</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 5</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自主测试/场景-5-集成测试.md">集成与回归</a></div>
+          <div class="scene-desc">模块联动 · 全链路验证 · 回归门禁，集成正确性保障</div>
+          <div class="scene-meta"><a target="_blank" href="故事任务面板/自主测试/场景-5-集成测试.html">架构图 &rarr;</a></div>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ===== Layer 4: 主要源代码 ===== -->
+    <div class="layer" id="layer-source">
+      <div class="layer-header">
+        <span class="layer-num">4</span>
+        <h2>主要源代码</h2>
+        <span class="layer-stats">12 业务模块 · 10 内部组件 · 12 工具库 · 14 测试文件</span>
+      </div>
+
+      <div class="sub-title" id="layer-source-modules"><span class="accent">&#128450;</span> 业务模块 (12)</div>
+      <div class="sub-title"><span class="accent">&#128054;</span> pet 宠物主模块 (6)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">P</span>
+          <div class="body">
+            <div class="name">PetManager 核心</div>
+            <div class="desc">状态管理 · 宠物渲染 · 拖拽定位 · 事件系统 · 媒体处理 · UI 控制</div>
+            <div class="meta"><span class="accent">9 文件</span> · petManager.{core,state,pet,ui,drag,events,media}.js</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">A</span>
+          <div class="body">
+            <div class="name">AI 聊天</div>
+            <div class="desc">消息收发 · API 调用 · Prompt 构建 · 流式响应处理</div>
+            <div class="meta"><span class="accent">4 文件</span> · petManager.{chat,chatUi,message}.js + ai/</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">S</span>
+          <div class="body">
+            <div class="name">会话管理</div>
+            <div class="desc">会话 CRUD · 搜索筛选 · 标签关联 · 批量操作 · 数据同步</div>
+            <div class="meta"><span class="accent">4 文件</span> · session/{crud,filter,tag,batch}.js</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">E</span>
+          <div class="body">
+            <div class="name">内容编辑器</div>
+            <div class="desc">Markdown 编辑器核心 · UI 组件 · 快捷键绑定</div>
+            <div class="meta"><span class="accent">2 文件</span> · editor/{core,ui}.js</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">M</span>
+          <div class="body">
+            <div class="name">Mermaid 图表渲染</div>
+            <div class="desc">Mermaid CDN 懒加载 · 图表渲染引擎 · 渲染结果展示</div>
+            <div class="meta"><span class="accent">2 文件</span> · mermaid/{renderer,ui}.js</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">V</span>
+          <div class="body">
+            <div class="name">Vue 组件系统</div>
+            <div class="desc">ChatWindow · ChatHeader · ChatInput · ChatMessages · FaqManager · FaqTagManager · SessionTagManager · AiSettingsModal · TokenSettingsModal</div>
+            <div class="meta"><span class="accent">10 文件</span> · components/{chat,editor,manager,modal}/</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#9881;</span> extension 扩展后台 (4)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">B</span>
+          <div class="body">
+            <div class="name">Service Worker 入口</div>
+            <div class="desc">扩展生命周期管理 · 安装/更新事件 · 全局状态初始化</div>
+            <div class="meta"><span class="accent">1 文件</span> · background/index.js</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">R</span>
+          <div class="body">
+            <div class="name">消息路由与通信</div>
+            <div class="desc">runtime.sendMessage · Tab 通信 · Content-Script ↔ Background 桥接</div>
+            <div class="meta"><span class="accent">4 文件</span> · background/messaging/ · actions/</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">W</span>
+          <div class="body">
+            <div class="name">企微集成</div>
+            <div class="desc">企业微信 Webhook · 消息推送 · 通知回调</div>
+            <div class="meta"><span class="accent">2 文件</span> · background/integrations/wework/</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">U</span>
+          <div class="body">
+            <div class="name">Popup 控制面板</div>
+            <div class="desc">扩展弹窗 UI · 设置页面 · 状态显示</div>
+            <div class="meta"><span class="accent">2 文件</span> · popup/{index.js,index.html}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#128161;</span> faq FAQ 模块 (2)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">C</span>
+          <div class="body">
+            <div class="name">FAQ 内容管理</div>
+            <div class="desc">FAQ 条目 CRUD · 搜索过滤 · 标签筛选 · 排序 · 批量操作</div>
+            <div class="meta"><span class="accent">1 文件</span> · modules/faq/content/faq.js</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">T</span>
+          <div class="body">
+            <div class="name">FAQ 标签系统</div>
+            <div class="desc">标签创建 · 分类关联 · 标签搜索 · 输入法兼容</div>
+            <div class="meta"><span class="accent">1 文件</span> · modules/faq/content/tags.js</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title" style="margin-top:18px;"><span class="accent">&#128450;</span> 内部通用组件 — Vue 3 Options API (10)</div>
+      <div class="sub-title"><span class="accent">&#128172;</span> Chat 聊天组件 (5)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">W</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/chat/ChatWindow/index.js">ChatWindow</a></div>
+            <div class="desc">聊天主窗口容器：三栏布局 · 拖拽调整大小 · Hooks 模式扩展 · chrome.storage 持久化</div>
+            <div class="meta"><span class="accent">Vue 3</span> · hooks: store · useMethods · useComputed · utils · <a class="demo-link" target="_blank" href="../demos/chat-window.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">H</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/chat/ChatHeader/index.js">ChatHeader</a></div>
+            <div class="desc">聊天头部栏：会话标题 · 认证按钮 · 关闭按钮 · 拖拽手柄</div>
+            <div class="meta"><span class="accent">Vue 3</span> · 会话管理入口 · <a class="demo-link" target="_blank" href="../demos/chat-header.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">I</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/chat/ChatInput/index.js">ChatInput</a></div>
+            <div class="desc">消息输入框组件：自适应 textarea · CJK 输入法兼容 · 图片粘贴/预览/移除 · 7 按钮工具栏</div>
+            <div class="meta"><span class="accent">Vue 3</span> · textarea 自适应 · <a class="demo-link" target="_blank" href="../demos/chat-input.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">M</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/chat/ChatMessages/index.js">ChatMessages</a></div>
+            <div class="desc">消息列表渲染：四视图状态 · 7 步渲染管线 · marked.js + Mermaid 集成 · 智能滚动</div>
+            <div class="meta"><span class="accent">Vue 3</span> · 流式渲染 · <a class="demo-link" target="_blank" href="../demos/chat-messages.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">U</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/chat/ChatWindow/utils.js">ChatWindowUtils</a></div>
+            <div class="desc">ChatWindow 工具函数：safeCall 错误隔离 · Vue 运行时检测 · 视口约束 · 存储键名约定</div>
+            <div class="meta">工具模块 · 9 纯函数 · <a class="demo-link" target="_blank" href="../demos/chat-window-utils.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#9881;</span> Manager 管理组件 (3)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">F</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/manager/FaqManager/index.js">FaqManager</a></div>
+            <div class="desc">FAQ 管理面板：组件树 · 简介卡片 · 内容列表 · 工具栏 · CRUD 操作 · 6 视图状态 · 标签管理入口</div>
+            <div class="meta"><span class="accent">Vue 3</span> · FAQ 内容管理中心 · <a class="demo-link" target="_blank" href="../demos/faq-manager.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">T</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/manager/FaqTagManager/index.js">FaqTagManager</a></div>
+            <div class="desc">FAQ 标签编辑子弹窗：手动输入添加 · 快速标签一键添加 · AI 智能生成标签 · 保存更新</div>
+            <div class="meta"><span class="accent">Vue 3</span> · 快速标签 + 已有标签选取 · <a class="demo-link" target="_blank" href="../demos/faq-tag-manager.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">S</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/manager/SessionTagManager/index.js">SessionTagManager</a></div>
+            <div class="desc">会话标签管理弹窗：拖拽排序 · 快速标签 · 手动输入添加 · IME 输入安全 · 保存更新会话标签</div>
+            <div class="meta"><span class="accent">Vue 3</span> · 拖拽排序 + 标签管理 · <a class="demo-link" target="_blank" href="../demos/session-tag-manager.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#9881;</span> Modal 模态框组件 (2)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">A</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/modal/AiSettingsModal/index.js">AiSettingsModal</a></div>
+            <div class="desc">AI 模型选择弹窗：模型名称输入 · Token 设置入口 · 取消/保存操作 · 双模式渲染 · 极简 107 行</div>
+            <div class="meta"><span class="accent">Vue 3</span> · API 配置入口 · <a class="demo-link" target="_blank" href="../demos/ai-settings-modal.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">K</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../modules/pet/components/modal/TokenSettingsModal/index.js">TokenSettingsModal</a></div>
+            <div class="desc">Token 认证设置弹窗：Token 输入(密码模式) · 模型下拉选择 · 输入验证 · Enter/Escape 快捷键 · 三级降级存储</div>
+            <div class="meta"><span class="accent">Vue 3</span> · 认证配置入口 · <a class="demo-link" target="_blank" href="../demos/token-settings-modal.html">交互事例 &rarr;</a></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title" style="margin-top:18px;"><span class="accent">&#128295;</span> 内部工具库 — Core + Utils (12)</div>
+
+      <div class="sub-title"><span class="accent">&#128295;</span> Core 核心工具 (4)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon src">C</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/config.js">config.js</a></div>
+            <div class="desc">全局配置中心：端点定义 · 默认参数 · UI 常量 · 存储键名</div>
+            <div class="meta"><span class="accent">统一入口</span> · ENDPOINTS + DEFAULT_CONFIG</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon src">A</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/api/core/ApiManager.js">ApiManager</a></div>
+            <div class="desc">API 管理器基类：请求封装 · 错误处理 · 重试机制 · Token 注入</div>
+            <div class="meta"><span class="accent">请求客户端</span> · RequestClient 封装</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon src">S</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/api/services/SessionService.js">SessionService</a></div>
+            <div class="desc">会话服务层：CRUD · 筛选 · 标签 · 批量操作</div>
+            <div class="meta">extends ApiManager · 会话存储同步</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon src">F</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/api/services/FaqService.js">FaqService</a></div>
+            <div class="desc">FAQ 服务层：条目管理 · 标签关联 · 搜索过滤</div>
+            <div class="meta">extends ApiManager · FAQ 存储同步</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#128218;</span> Utils 工具库 (8)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon js">R</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/api/request.js">request.js</a></div>
+            <div class="desc">HTTP 请求客户端：fetch 封装 · 超时控制 · 响应拦截</div>
+            <div class="meta">RequestClient 类 · API 层基础</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">T</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/api/token.js">token.js</a></div>
+            <div class="desc">Token 管理器：三级降级（环境变量 → storage → 空）· 加密指纹</div>
+            <div class="meta"><span class="accent">安全核心</span> · TokenManager</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">S</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/storage/storageUtils.js">storageUtils.js</a></div>
+            <div class="desc">chrome.storage 封装：读写 · 配额检测 · LRU 淘汰 · 批量操作</div>
+            <div class="meta">StorageHelper · 存储配额保护</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">E</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/error/errorHandler.js">errorHandler.js</a></div>
+            <div class="desc">全局错误处理：上下文失效检测 · 降级策略 · 日志记录</div>
+            <div class="meta"><span class="accent">退化防御</span> · isContextInvalidated</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">D</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/dom/domHelper.js">domHelper.js</a></div>
+            <div class="desc">DOM 操作工具：元素创建 · 样式注入 · 位置计算 · 事件委托</div>
+            <div class="meta">DomHelper · content-script 注入辅助</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">M</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/messaging/messageHelper.js">messageHelper.js</a></div>
+            <div class="desc">Chrome 扩展消息通信：runtime.sendMessage · tab 通信 · 消息路由</div>
+            <div class="meta">MessageHelper · content ↔ background</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">L</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/logging/loggerUtils.js">loggerUtils.js</a></div>
+            <div class="desc">日志工具：分级输出 · 格式化 · 调试开关</div>
+            <div class="meta">LoggerUtils · 开发调试辅助</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">U</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/time/timeUtils.js">timeUtils.js</a></div>
+            <div class="desc">时间工具：格式化 · 相对时间 · 时区处理</div>
+            <div class="meta">TimeUtils · 消息时间戳</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-title" style="margin-top:18px;" id="layer-source-tests"><span class="accent">&#129514;</span> 测试用例 (14)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon test">U</span>
+          <div class="body">
+            <div class="name">单元测试 (8)</div>
+            <div class="desc">API 请求 · Token 管理 · 配置 · 错误处理 · 存储 · 组件</div>
+            <div class="meta"><span class="accent">tests/unit/</span> · vitest + jsdom</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon test">I</span>
+          <div class="body">
+            <div class="name">集成测试 (1)</div>
+            <div class="desc">全链路管线验证</div>
+            <div class="meta"><span class="accent">tests/integration/</span> · pipeline.test.mjs</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon test">M</span>
+          <div class="body">
+            <div class="name">Mock + 辅助 (5)</div>
+            <div class="desc">chrome API mock · 模块加载器 · 全局 setup</div>
+            <div class="meta"><span class="accent">tests/mocks/ · helpers/ · setup.mjs</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Layer 5: 交互事例 ===== -->
+    <div class="layer" id="layer-demo">
+      <div class="layer-header">
+        <span class="layer-num">5</span>
+        <h2>交互事例</h2>
+        <span class="layer-stats">5 事例</span>
+      </div>
+
+      <div class="sub-title"><span class="accent">&#128214;</span> 三方库使用事例 (5)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon build">V</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../demos/vitest.html">vitest 使用事例</a></div>
+            <div class="desc">YiPet 测试框架核心运行器 · 13 文件 250+ 用例 · describe/it/expect · vi.fn() mock · fakeTimers</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">J</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../demos/jsdom.html">jsdom 使用事例</a></div>
+            <div class="desc">YiPet 测试浏览器环境 · window/document/navigator · Vue 3 组件挂载 · DOM 事件模拟</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">C</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../demos/coverage.html">@vitest/coverage-v8 使用事例</a></div>
+            <div class="desc">YiPet 测试覆盖率 · V8 原生引擎 · 逐场景覆盖率目标 · text/json/html 报告 · CI/CD 门禁</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">N</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../demos/node-fetch.html">node-fetch 使用事例</a></div>
+            <div class="desc">YiPet API 测试参考 · Response 接口规范 · mock 工厂函数 · 请求验证模式</div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">S</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../demos/setup.html">setup.mjs 使用事例</a></div>
+            <div class="desc">YiPet 测试全局初始化 · chrome API mock · IIFE 模块加载器 · 状态重置 · 生命周期钩子</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      YiPet · Chrome Extension Manifest V3 · <a target="_blank" href="../demos/index.html">Demo 中心</a> · <a target="_blank" href="../tests/index.html">测试套件</a> · <a target="_blank" href="../CLAUDE.md">CLAUDE.md</a> · <a target="_blank" href="../README.md">README.md</a> · <a target="_blank" href="故事任务面板/通知日志.md">通知日志</a>
+    </div>
+  </div>
+
+  <!-- Back to top button -->
+  <button class="back-top" id="backTop" title="回到顶部" aria-label="回到顶部">&uarr;</button>
+
+  <script>
+    /* Staggered card animations */
+    document.querySelectorAll('.card-grid .item-card').forEach((card, i) => {
+      card.style.animationDelay = `${0.01 + (i % 20) * 0.012}s`;
+    });
+
+    /* Back to top */
+    const backTop = document.getElementById('backTop');
+    function toggleBackTop() {
+      backTop.classList.toggle('visible', window.scrollY > 400);
+    }
+    window.addEventListener('scroll', toggleBackTop, { passive: true });
+    backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  </script>
+</body>
+</html>

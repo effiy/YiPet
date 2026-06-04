@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SessionTagManager 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .demo-box { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin: 16px 0; }
+    .demo-box h4 { font-size: 0.88rem; font-weight: 600; color: var(--color-accent-2); margin-bottom: 12px; }
+    .output { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 12px 16px; font-family: "SF Mono", monospace; font-size: 0.76rem; color: var(--text-secondary); max-height: 180px; overflow-y: auto; line-height: 1.7; }
+    .output .key { color: var(--color-accent); } .output .val { color: var(--color-accent-2); } .output .log { color: var(--green); }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-2); background: rgba(34,211,238,0.08); color: var(--color-accent-2); transition: all 0.15s; margin-top: 12px; margin-right: 8px; }
+    .btn:hover { background: var(--color-accent-2); color: #1a1a2a; }
+    .tag-panel { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 16px; }
+    .tag-input-row { display: flex; gap: 6px; margin-bottom: 10px; }
+    .tag-input-row input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 10px; color: var(--text-primary); font-size: 0.78rem; font-family: inherit; }
+    .tag-input-row button { padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer; font-size: 0.7rem; font-family: inherit; white-space: nowrap; }
+    .tag-input-row button:hover { background: rgba(255,255,255,0.1); }
+    .quick-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+    .quick-tag { padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.68rem; font-family: inherit; }
+    .quick-tag:hover { border-color: var(--color-accent-2); color: var(--color-accent-2); }
+    .tag-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+    .tag-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 4px; background: rgba(168,85,247,0.08); border: 1px solid transparent; cursor: grab; font-size: 0.76rem; transition: all 0.15s; }
+    .tag-row:hover { border-color: rgba(168,85,247,0.3); }
+    .tag-row.dragging { opacity: 0.5; border-color: var(--color-accent-2); }
+    .tag-row.drag-over { border-color: var(--color-accent-2); background: rgba(34,211,238,0.06); }
+    .tag-row .drag-handle { color: var(--text-muted); font-size: 0.65rem; cursor: grab; }
+    .tag-row .tag-name { flex: 1; color: var(--color-accent-3); }
+    .tag-row .tag-remove { color: var(--text-muted); cursor: pointer; font-size: 0.7rem; padding: 0 4px; }
+    .tag-row .tag-remove:hover { color: var(--red); }
+    .tag-row .drag-pos { font-size: 0.6rem; color: var(--text-muted); }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .main { padding: 20px 12px 48px; } pre { font-size: 0.72rem; padding: 10px 12px; } }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html">← 返回 Demo 中心</a>
+  <h1>SessionTagManager 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>SessionTagManager 是会话标签管理弹窗，支持拖拽排序、快速标签、手动输入添加、IME 输入安全、保存更新会话标签。</p>
+</section>
+
+<section id="store">
+  <h2>状态管理</h2>
+  <div class="card">
+    <h3>Store + 拖拽状态</h3>
+<pre><span class="kw">const</span> store = <span class="fn">reactive</span>({
+  sessionId: <span class="kw">null</span>,
+  currentTags: [],         <span class="cm">// 当前会话的标签数组</span>
+  quickTags: [],           <span class="cm">// 从 manager.getAllTags() 获取的全局标签</span>
+  draggingIndex: <span class="num">-1</span>,       <span class="cm">// 正在拖拽的标签索引</span>
+  dragOverIndex: <span class="num">-1</span>,      <span class="cm">// 拖拽悬停的标签索引</span>
+  dragOverPosition: <span class="str">'before'</span> <span class="cm">// 悬停位置: 'before' | 'after'</span>
+})
+
+<span class="cm">// 方法</span>
+<span class="fn">close</span>() · <span class="fn">addFromInput</span>() · <span class="fn">addQuickTag</span>(tag) · <span class="fn">removeTag</span>(tag) · <span class="fn">save</span>()
+<span class="fn">reorderTag</span>(fromIndex, toIndex)  <span class="cm">// 拖拽后重新排序</span>
+
+<span class="cm">// 拖拽事件 (HTML5 Drag API)</span>
+<span class="fn">onDragStart</span>(index, e) · <span class="fn">onDragEnd</span>(e)
+<span class="fn">onDragOver</span>(index, e) · <span class="fn">onDragLeave</span>(e) · <span class="fn">onDrop</span>(index, e)</pre>
+  </div>
+</section>
+
+<section id="drag-reorder">
+  <h2>拖拽排序算法</h2>
+  <div class="card">
+<pre><span class="fn">onDrop</span>(targetIndex, e) {
+  <span class="kw">const</span> from = store.draggingIndex
+  <span class="kw">const</span> rect = e.target.<span class="fn">getBoundingClientRect</span>()
+  <span class="kw">const</span> midY = rect.top + rect.height / <span class="num">2</span>
+
+  <span class="cm">// 判断插入位置: 上半部 → before, 下半部 → after</span>
+  <span class="kw">const</span> insertPos = e.clientY &lt; midY ? <span class="str">'before'</span> : <span class="str">'after'</span>
+  <span class="kw">const</span> to = insertPos === <span class="str">'before'</span> ? targetIndex : targetIndex + <span class="num">1</span>
+
+  <span class="cm">// 实际插入位置需要调整 (移除原位置后的偏移)</span>
+  <span class="kw">const</span> actualTo = from &lt; to ? to - <span class="num">1</span> : to
+  <span class="fn">reorderTag</span>(from, actualTo)
+}</pre>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — 会话标签管理</h2>
+  <p>拖拽标签排序，或通过输入/快速标签添加新标签。</p>
+  <div class="demo-box">
+    <h4>会话标签编辑器</h4>
+    <div class="tag-panel">
+      <div class="tag-input-row">
+        <input id="tagInput" type="text" placeholder="输入新标签..." onkeydown="if(event.key==='Enter')addFromInput()">
+        <button onclick="addFromInput()">+ 添加</button>
+      </div>
+      <div class="quick-tags" id="quickTags"></div>
+      <div class="tag-list" id="tagList"></div>
+    </div>
+    <div class="output" id="tagLog" style="margin-top:8px;"><span class="log">拖拽标签排序，或添加新标签...</span></div>
+    <button class="btn" onclick="doSave()">保存标签</button>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="index.html">Demo 中心</a> · <a href="../docs/index.html">文档中心</a> · <a href="../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+var currentTags = ['React', '前端开发', '组件设计'];
+var QUICK_TAGS = ['工作', '学习', '个人', '项目A', '项目B', '技术讨论', '代码审查'];
+var draggingIdx = -1;
+
+function renderQuickTags() {
+  var el = document.getElementById('quickTags');
+  el.innerHTML = QUICK_TAGS.map(function(t) {
+    var used = currentTags.some(function(ct) { return ct.toLowerCase() === t.toLowerCase(); });
+    return '<button class="quick-tag" ' + (used ? 'disabled style="opacity:0.4;"' : 'onclick="addQuickTag(\'' + t + '\')"') + '>' + t + '</button>';
+  }).join('');
+}
+
+function renderTagList() {
+  var el = document.getElementById('tagList');
+  el.innerHTML = currentTags.map(function(t, i) {
+    return '<div class="tag-row' + (i === draggingIdx ? ' dragging' : '') +
+      '" draggable="true"' +
+      ' ondragstart="onDragStart(' + i + ', event)"' +
+      ' ondragend="onDragEnd(event)"' +
+      ' ondragover="onDragOver(' + i + ', event)"' +
+      ' ondragleave="onDragLeave(event)"' +
+      ' ondrop="onDrop(' + i + ', event)">' +
+      '<span class="drag-handle">⠿</span>' +
+      '<span class="tag-name">' + t + '</span>' +
+      '<span class="drag-pos">#' + (i+1) + '</span>' +
+      '<span class="tag-remove" onclick="removeTag(\'' + t + '\')">×</span></div>';
+  }).join('');
+}
+
+function addFromInput() {
+  var input = document.getElementById('tagInput');
+  var v = input.value.trim();
+  if (!v) return;
+  if (currentTags.some(function(t) { return t.toLowerCase() === v.toLowerCase(); })) {
+    log('addFromInput: "' + v + '" 已存在，跳过 (去重)');
+    input.value = '';
+    return;
+  }
+  currentTags.push(v);
+  input.value = '';
+  log('addFromInput() → currentTags: [' + currentTags.join(', ') + ']');
+  renderAll();
+}
+
+function addQuickTag(tag) {
+  currentTags.push(tag);
+  log('addQuickTag("' + tag + '") → currentTags: [' + currentTags.join(', ') + ']');
+  renderAll();
+}
+
+function removeTag(tag) {
+  currentTags = currentTags.filter(function(t) { return t !== tag; });
+  log('removeTag("' + tag + '") → currentTags: [' + currentTags.join(', ') + ']');
+  renderAll();
+}
+
+function onDragStart(idx, e) {
+  draggingIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  renderAll();
+  log('onDragStart(' + idx + ') — 开始拖拽 "' + currentTags[idx] + '"');
+}
+
+function onDragEnd(e) {
+  draggingIdx = -1;
+  document.querySelectorAll('.tag-row').forEach(function(r) { r.classList.remove('drag-over'); });
+  renderAll();
+}
+
+function onDragOver(idx, e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.tag-row').forEach(function(r) { r.classList.remove('drag-over'); });
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onDrop(targetIdx, e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (draggingIdx < 0 || draggingIdx === targetIdx) { draggingIdx = -1; renderAll(); return; }
+
+  var rect = e.currentTarget.getBoundingClientRect();
+  var midY = rect.top + rect.height / 2;
+  var to = e.clientY < midY ? targetIdx : targetIdx + 1;
+  var actualTo = draggingIdx < to ? to - 1 : to;
+
+  var tag = currentTags.splice(draggingIdx, 1)[0];
+  currentTags.splice(actualTo, 0, tag);
+  log('reorderTag(' + draggingIdx + ' → ' + actualTo + ') — 拖拽排序完成: [' + currentTags.join(', ') + ']');
+  draggingIdx = -1;
+  renderAll();
+}
+
+function doSave() {
+  log('save() → manager.sessions[sessionId].tags = currentTags → chrome.storage 持久化 → SessionTagManager 关闭');
+}
+
+function log(msg) {
+  document.getElementById('tagLog').innerHTML = '<span class="log">[' + new Date().toLocaleTimeString() + ']</span> ' + msg;
+}
+
+function renderAll() { renderQuickTags(); renderTagList(); }
+
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YiPet Error Boundary Test Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      background: #22d3ee;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-left: 1.75rem;
+    }
+
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    svg {
+      width: 100%;
+      min-width: 900px;
+      display: block;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+
+    .card h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .card ul {
+      list-style: none;
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+
+    .card li {
+      margin-bottom: 0.375rem;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #475569;
+      font-size: 0.75rem;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin-left: auto;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .toolbar-toggle {
+      background: transparent;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      transition: color 0.2s, background 0.2s;
+    }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
+    .toolbar-actions {
+      display: none;
+      gap: 0.5rem;
+    }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .toolbar-actions button:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: white;
+      border-color: #475569;
+    }
+
+    @media print {
+      body { background: #020617; padding: 1rem; }
+      .toolbar { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>YiPet Error Boundary Test Architecture</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">6 类错误 · ErrorHandler 分类链 · 重试决策 · 上下文失效 · 覆盖率 ≥90%</p>
+    </div>
+
+    <!-- Main Diagram -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 780">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrowhead-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb7185" />
+          </marker>
+          <marker id="arrowhead-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
+          </marker>
+          <marker id="arrowhead-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- =================================================================
+             ARROWS
+             ================================================================= -->
+
+        <!-- Hierarchy connection lines -->
+        <line x1="110" y1="80" x2="110" y2="103" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+        <line x1="80" y1="143" x2="80" y2="166" stroke="#fb7185" stroke-width="1"/>
+        <line x1="140" y1="143" x2="140" y2="166" stroke="#fb7185" stroke-width="1"/>
+        <line x1="80" y1="226" x2="80" y2="249" stroke="#fb7185" stroke-width="1"/>
+        <line x1="140" y1="226" x2="140" y2="249" stroke="#fb7185" stroke-width="1"/>
+        <line x1="200" y1="226" x2="200" y2="249" stroke="#fb7185" stroke-width="1"/>
+
+        <!-- Hierarchy to ErrorHandler flow -->
+        <line x1="110" y1="350" x2="320" y2="130" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrowhead-rose)"/>
+        <text x="200" y="245" fill="#fb7185" font-size="8">input</text>
+
+        <!-- ErrorHandler decision flow arrows -->
+        <line x1="420" y1="170" x2="420" y2="208" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <line x1="420" y1="248" x2="420" y2="286" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <line x1="420" y1="326" x2="420" y2="364" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <line x1="420" y1="404" x2="420" y2="442" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <line x1="420" y1="482" x2="420" y2="520" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <line x1="420" y1="560" x2="420" y2="598" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+
+        <!-- ErrorHandler to Test Coverage -->
+        <line x1="530" y1="350" x2="630" y2="630" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrowhead-amber)"/>
+
+        <!-- =================================================================
+             LEFT: Error Class Hierarchy (rose)
+             ================================================================= -->
+        <rect x="20" y="20" width="230" height="390" rx="10" fill="rgba(251, 113, 133, 0.05)" stroke="#fb7185" stroke-width="1"/>
+        <text x="40" y="42" fill="#fb7185" font-size="10" font-weight="600">Error Class Hierarchy</text>
+
+        <!-- Error (built-in) -->
+        <rect x="60" y="58" width="150" height="35" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="135" y="80" fill="white" font-size="11" font-weight="600" text-anchor="middle">Error (built-in)</text>
+
+        <!-- APIError -->
+        <rect x="60" y="105" width="150" height="35" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="135" y="122" fill="white" font-size="11" font-weight="600" text-anchor="middle">APIError</text>
+        <text x="135" y="136" fill="#94a3b8" font-size="7" text-anchor="middle">code, details, timestamp</text>
+
+        <!-- Leaf classes -->
+        <rect x="40" y="168" width="80" height="55" rx="5" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1"/>
+        <text x="80" y="185" fill="white" font-size="9" font-weight="600" text-anchor="middle">NetworkError</text>
+        <text x="80" y="200" fill="#94a3b8" font-size="7" text-anchor="middle">NETWORK_</text>
+        <text x="80" y="212" fill="#94a3b8" font-size="7" text-anchor="middle">ERROR</text>
+
+        <rect x="130" y="168" width="80" height="55" rx="5" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1"/>
+        <text x="170" y="185" fill="white" font-size="9" font-weight="600" text-anchor="middle">TimeoutError</text>
+        <text x="170" y="200" fill="#94a3b8" font-size="7" text-anchor="middle">TIMEOUT_</text>
+        <text x="170" y="212" fill="#94a3b8" font-size="7" text-anchor="middle">ERROR, timeout</text>
+
+        <rect x="40" y="250" width="80" height="55" rx="5" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1"/>
+        <text x="80" y="267" fill="white" font-size="9" font-weight="600" text-anchor="middle">AuthError</text>
+        <text x="80" y="282" fill="#94a3b8" font-size="7" text-anchor="middle">AUTH_</text>
+        <text x="80" y="294" fill="#94a3b8" font-size="7" text-anchor="middle">ERROR</text>
+
+        <rect x="130" y="250" width="80" height="55" rx="5" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1"/>
+        <text x="170" y="267" fill="white" font-size="9" font-weight="600" text-anchor="middle">Validation</text>
+        <text x="170" y="282" fill="white" font-size="9" font-weight="600" text-anchor="middle">Error</text>
+        <text x="170" y="297" fill="#94a3b8" font-size="7" text-anchor="middle">VALIDATION_, fields</text>
+
+        <rect x="86" y="310" width="80" height="55" rx="5" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1"/>
+        <text x="126" y="327" fill="white" font-size="9" font-weight="600" text-anchor="middle">RateLimit</text>
+        <text x="126" y="342" fill="white" font-size="9" font-weight="600" text-anchor="middle">Error</text>
+        <text x="126" y="358" fill="#94a3b8" font-size="7" text-anchor="middle">RATE_LIMIT_, retryAfter</text>
+
+        <!-- =================================================================
+             CENTER: ErrorHandler.categorize() Decision Flow (amber)
+             ================================================================= -->
+        <rect x="280" y="20" width="280" height="670" rx="10" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="300" y="42" fill="#fbbf24" font-size="10" font-weight="600">ErrorHandler.categorize()</text>
+
+        <!-- Input -->
+        <rect x="310" y="130" width="220" height="35" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="420" y="147" fill="white" font-size="10" font-weight="600" text-anchor="middle">Input: error object</text>
+        <text x="420" y="161" fill="#94a3b8" font-size="7" text-anchor="middle">from try/catch or fetch catch</text>
+
+        <!-- Decision 1 -->
+        <rect x="320" y="210" width="200" height="35" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="420" y="227" fill="white" font-size="9" font-weight="600" text-anchor="middle">1. instanceof APIError?</text>
+        <text x="420" y="241" fill="#34d399" font-size="7" text-anchor="middle">yes → return original</text>
+
+        <!-- Decision 2 -->
+        <rect x="320" y="290" width="200" height="35" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="420" y="307" fill="white" font-size="9" font-weight="600" text-anchor="middle">2. isNetworkError?</text>
+        <text x="420" y="321" fill="#34d399" font-size="7" text-anchor="middle">yes → new NetworkError</text>
+
+        <!-- Decision 3 -->
+        <rect x="320" y="370" width="200" height="35" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="420" y="387" fill="white" font-size="9" font-weight="600" text-anchor="middle">3. isTimeoutError?</text>
+        <text x="420" y="401" fill="#34d399" font-size="7" text-anchor="middle">yes → new TimeoutError</text>
+
+        <!-- Decision 4 -->
+        <rect x="320" y="450" width="200" height="35" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="420" y="467" fill="white" font-size="9" font-weight="600" text-anchor="middle">4. isAuthError?</text>
+        <text x="420" y="481" fill="#34d399" font-size="7" text-anchor="middle">yes → new AuthError</text>
+
+        <!-- Decision 5 -->
+        <rect x="320" y="530" width="200" height="35" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="420" y="547" fill="white" font-size="9" font-weight="600" text-anchor="middle">5. isValidationError?</text>
+        <text x="420" y="561" fill="#34d399" font-size="7" text-anchor="middle">yes → new ValidationError</text>
+
+        <!-- Decision 6 -->
+        <rect x="320" y="610" width="200" height="35" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="420" y="627" fill="white" font-size="9" font-weight="600" text-anchor="middle">6. isRateLimitError?</text>
+        <text x="420" y="641" fill="#34d399" font-size="7" text-anchor="middle">yes → new RateLimitError</text>
+
+        <!-- Default -->
+        <rect x="350" y="660" width="140" height="25" rx="5" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1"/>
+        <text x="420" y="677" fill="#fb7185" font-size="8" font-weight="600" text-anchor="middle">default: UNKNOWN_ERROR</text>
+
+        <!-- =================================================================
+             RIGHT: Test Coverage Areas (3 boxes)
+             ================================================================= -->
+        <rect x="590" y="20" width="480" height="290" rx="10" fill="rgba(34, 211, 238, 0.04)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="610" y="42" fill="#22d3ee" font-size="10" font-weight="600">Test Coverage Areas</text>
+
+        <rect x="610" y="55" width="440" height="75" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="830" y="75" fill="white" font-size="11" font-weight="600" text-anchor="middle">1. Error Construction Tests</text>
+        <text x="630" y="94" fill="#94a3b8" font-size="8">• Each error type with custom message/code/context</text>
+        <text x="630" y="109" fill="#94a3b8" font-size="8">• instanceof checks · error serialization · stack trace</text>
+        <text x="630" y="124" fill="#22d3ee" font-size="7">verify: constructor params → correct instance</text>
+
+        <rect x="610" y="142" width="440" height="105" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="830" y="162" fill="white" font-size="11" font-weight="600" text-anchor="middle">2. ErrorHandler Tests</text>
+        <text x="630" y="181" fill="#94a3b8" font-size="8">• categorize() 7-step classification chain</text>
+        <text x="630" y="198" fill="#94a3b8" font-size="8">• formatError() formatted output</text>
+        <text x="630" y="215" fill="#94a3b8" font-size="8">• setGlobalErrorHandler / getGlobalErrorHandler</text>
+        <text x="630" y="232" fill="#94a3b8" font-size="8">• isContextInvalidated() detection</text>
+        <text x="630" y="247" fill="#fbbf24" font-size="7">verify: correct classification output</text>
+
+        <rect x="610" y="258" width="440" height="45" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="830" y="275" fill="white" font-size="11" font-weight="600" text-anchor="middle">3. Integration Error Tests</text>
+        <text x="630" y="292" fill="#94a3b8" font-size="8">• Token missing → AuthError · Network failure → retry → NetworkError · AbortController timeout → TimeoutError</text>
+
+        <!-- =================================================================
+             BOTTOM: Test File (rose)
+             ================================================================= -->
+        <rect x="590" y="340" width="480" height="120" rx="10" fill="rgba(251, 113, 133, 0.06)" stroke="#fb7185" stroke-width="1"/>
+        <text x="610" y="362" fill="#fb7185" font-size="10" font-weight="600">Test File</text>
+
+        <rect x="610" y="375" width="440" height="72" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="830" y="395" fill="white" font-size="12" font-weight="600" text-anchor="middle">error.test.mjs</text>
+        <text x="830" y="412" fill="#fb7185" font-size="9" text-anchor="middle">33 cases covering all 6 error classes</text>
+        <text x="630" y="430" fill="#94a3b8" font-size="8">• 6 error class constructors · ErrorHandler categorize/formatter · global handler · context invalidation</text>
+        <text x="630" y="445" fill="#fb7185" font-size="7">target: core/utils/error/ + core/utils/error/ErrorHandler.js</text>
+
+        <!-- =================================================================
+             LEGEND
+             ================================================================= -->
+        <text x="600" y="495" fill="white" font-size="10" font-weight="600">Legend</text>
+
+        <rect x="600" y="507" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="622" y="515" fill="#94a3b8" font-size="8">Error Classes</text>
+
+        <rect x="700" y="507" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="722" y="515" fill="#94a3b8" font-size="8">ErrorHandler Logic</text>
+
+        <rect x="600" y="523" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="622" y="531" fill="#94a3b8" font-size="8">Test Coverage</text>
+
+        <rect x="700" y="523" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="722" y="531" fill="#94a3b8" font-size="8">Test File</text>
+
+        <line x1="600" y1="543" x2="616" y2="543" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="4,4"/>
+        <text x="622" y="546" fill="#94a3b8" font-size="8">extends / input flow</text>
+      </svg>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>Error Classification</h3>
+        </div>
+        <ul>
+          <li>• 6 类错误层次 (APIError 基类)</li>
+          <li>• 每类含 code/details/timestamp</li>
+          <li>• instanceof 类型守卫</li>
+          <li>• 分类链按优先级排序</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>ErrorHandler</h3>
+        </div>
+        <ul>
+          <li>• categorize() 7 步分类链</li>
+          <li>• formatError() 格式化输出</li>
+          <li>• 全局错误处理器设置/获取</li>
+          <li>• isContextInvalidated 上下文检测</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>Test Coverage</h3>
+        </div>
+        <ul>
+          <li>• 33 用例覆盖 6 类错误</li>
+          <li>• 构造参数验证 + 分类链 + 格式化</li>
+          <li>• Token 缺失/网络故障/超时集成</li>
+          <li>• 覆盖率目标 ≥90%</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="footer">
+      YiPet v1.1.1 · 自主测试 · 场景 4: 异常路径与边界 · 33 用例 · vitest + jsdom
+    </p>
+  </div>
+
+  <script>
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPNG(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'diagram.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPDF(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('diagram.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>

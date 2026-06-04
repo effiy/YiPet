@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YiPet Core Logic Test Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      background: #22d3ee;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-left: 1.75rem;
+    }
+
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    svg {
+      width: 100%;
+      min-width: 900px;
+      display: block;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+
+    .card h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .card ul {
+      list-style: none;
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+
+    .card li {
+      margin-bottom: 0.375rem;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #475569;
+      font-size: 0.75rem;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin-left: auto;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .toolbar-toggle {
+      background: transparent;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      transition: color 0.2s, background 0.2s;
+    }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
+    .toolbar-actions {
+      display: none;
+      gap: 0.5rem;
+    }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .toolbar-actions button:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: white;
+      border-color: #475569;
+    }
+
+    @media print {
+      body { background: #020617; padding: 1rem; }
+      .toolbar { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>YiPet Core Logic Test Architecture</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">配置中心 · Token 管理器 · 存储工具 · 覆盖率 ≥80%</p>
+    </div>
+
+    <!-- Main Diagram -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 750">
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrowhead-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
+          </marker>
+          <marker id="arrowhead-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
+          </marker>
+          <marker id="arrowhead-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <marker id="arrowhead-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- =================================================================
+             ARROWS (before components for proper z-ordering)
+             ================================================================= -->
+
+        <!-- Horizontal arrows from infrastructure to modules -->
+        <line x1="260" y1="150" x2="40" y2="210" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-emerald)" stroke-dasharray="4,4"/>
+        <line x1="380" y1="150" x2="240" y2="315" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-cyan)" stroke-dasharray="4,4"/>
+        <line x1="520" y1="150" x2="530" y2="235" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-violet)" stroke-dasharray="4,4"/>
+
+        <!-- Vertical arrows from test files to modules -->
+        <line x1="190" y1="480" x2="190" y2="400" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+        <text x="215" y="445" fill="#34d399" font-size="9">verify</text>
+
+        <line x1="510" y1="480" x2="510" y2="400" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+        <text x="535" y="445" fill="#22d3ee" font-size="9">verify</text>
+
+        <line x1="830" y1="480" x2="830" y2="400" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead-violet)"/>
+        <text x="855" y="445" fill="#a78bfa" font-size="9">verify</text>
+
+        <!-- =================================================================
+             TIER 1: Test Infrastructure (amber)
+             ================================================================= -->
+        <rect x="30" y="30" width="1040" height="130" rx="10" fill="rgba(120, 53, 15, 0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="50" y="50" fill="#fbbf24" font-size="10" font-weight="600">Tier 1: Test Infrastructure</text>
+
+        <!-- vitest -->
+        <rect x="60" y="65" width="200" height="40" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="160" y="85" fill="white" font-size="11" font-weight="600" text-anchor="middle">vitest</text>
+        <text x="160" y="98" fill="#94a3b8" font-size="8" text-anchor="middle">runner + assertions + mock</text>
+
+        <!-- jsdom -->
+        <rect x="280" y="65" width="180" height="40" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="370" y="85" fill="white" font-size="11" font-weight="600" text-anchor="middle">jsdom</text>
+        <text x="370" y="98" fill="#94a3b8" font-size="8" text-anchor="middle">DOM environment</text>
+
+        <!-- @vitest/coverage-v8 -->
+        <rect x="480" y="65" width="220" height="40" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="590" y="85" fill="white" font-size="11" font-weight="600" text-anchor="middle">@vitest/coverage-v8</text>
+        <text x="590" y="98" fill="#94a3b8" font-size="8" text-anchor="middle">code coverage</text>
+
+        <!-- setup.mjs -->
+        <rect x="720" y="60" width="240" height="90" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="840" y="80" fill="white" font-size="11" font-weight="600" text-anchor="middle">setup.mjs</text>
+        <text x="840" y="96" fill="#94a3b8" font-size="8" text-anchor="middle">chrome.storage.local Map mock</text>
+        <text x="840" y="110" fill="#94a3b8" font-size="8" text-anchor="middle">chrome.runtime global mock</text>
+        <text x="840" y="124" fill="#94a3b8" font-size="8" text-anchor="middle">loadModule helper (ESM import)</text>
+        <text x="840" y="142" fill="#fbbf24" font-size="7" text-anchor="middle">beforeEach() state reset</text>
+
+        <!-- =================================================================
+             TIER 2: Modules Under Test (3 columns)
+             ================================================================= -->
+        <rect x="30" y="180" width="1040" height="240" rx="10" fill="rgba(34, 211, 238, 0.04)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="50" y="200" fill="#22d3ee" font-size="10" font-weight="600">Tier 2: Modules Under Test</text>
+
+        <!-- config.js (emerald) -->
+        <rect x="50" y="215" width="300" height="190" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <rect x="50" y="215" width="300" height="24" rx="6" fill="rgba(6, 78, 59, 0.6)"/>
+        <text x="200" y="233" fill="white" font-size="12" font-weight="600" text-anchor="middle">config.js</text>
+        <text x="70" y="258" fill="#94a3b8" font-size="9">• DEFAULT_CONFIG 结构</text>
+        <text x="70" y="278" fill="#94a3b8" font-size="9">• buildUrl 参数替换</text>
+        <text x="70" y="298" fill="#94a3b8" font-size="9">• buildQueryParams (URLSearchParams)</text>
+        <text x="70" y="318" fill="#94a3b8" font-size="9">• 环境检测窗口 (window/process/default)</text>
+        <text x="70" y="348" fill="#34d399" font-size="8">EXPORT: PET_CONFIG</text>
+
+        <!-- token.js (cyan) -->
+        <rect x="390" y="215" width="300" height="190" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <rect x="390" y="215" width="300" height="24" rx="6" fill="rgba(8, 51, 68, 0.6)"/>
+        <text x="540" y="233" fill="white" font-size="12" font-weight="600" text-anchor="middle">token.js</text>
+        <text x="410" y="258" fill="#94a3b8" font-size="9">• TokenManager 类</text>
+        <text x="410" y="278" fill="#94a3b8" font-size="9">• getToken 三级回退</text>
+        <text x="420" y="293" fill="#64748b" font-size="8">env → storage → empty</text>
+        <text x="410" y="318" fill="#94a3b8" font-size="9">• saveToken / clearToken</text>
+        <text x="410" y="338" fill="#94a3b8" font-size="9">• validateToken 格式检查</text>
+        <text x="410" y="368" fill="#22d3ee" font-size="8">EXPORT: TokenUtils</text>
+
+        <!-- storageUtils.js (violet) -->
+        <rect x="730" y="215" width="300" height="190" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <rect x="730" y="215" width="300" height="24" rx="6" fill="rgba(76, 29, 149, 0.6)"/>
+        <text x="880" y="233" fill="white" font-size="12" font-weight="600" text-anchor="middle">storageUtils.js</text>
+        <text x="750" y="258" fill="#94a3b8" font-size="9">• StorageUtils 类</text>
+        <text x="750" y="278" fill="#94a3b8" font-size="9">• loadFromChromeStorage</text>
+        <text x="750" y="298" fill="#94a3b8" font-size="9">• saveToChromeStorage</text>
+        <text x="750" y="318" fill="#94a3b8" font-size="9">• normalizeState 默认值</text>
+        <text x="750" y="338" fill="#94a3b8" font-size="9">• quota handling (配额处理)</text>
+        <text x="750" y="358" fill="#94a3b8" font-size="9">• context invalidation detection</text>
+        <text x="750" y="388" fill="#a78bfa" font-size="8">EXPORT: StorageUtils</text>
+
+        <!-- =================================================================
+             TIER 3: Test Files (rose)
+             ================================================================= -->
+        <rect x="30" y="440" width="1040" height="150" rx="10" fill="rgba(251, 113, 133, 0.06)" stroke="#fb7185" stroke-width="1"/>
+        <text x="50" y="460" fill="#fb7185" font-size="10" font-weight="600">Tier 3: Test Files</text>
+
+        <!-- config.test.mjs -->
+        <rect x="50" y="475" width="300" height="100" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="200" y="498" fill="white" font-size="11" font-weight="600" text-anchor="middle">config.test.mjs</text>
+        <text x="70" y="520" fill="#94a3b8" font-size="8">▶ verify DEFAULT_CONFIG + buildUrl</text>
+        <text x="70" y="538" fill="#94a3b8" font-size="8">▶ verify env detection (window/process/default)</text>
+        <text x="70" y="558" fill="#94a3b8" font-size="8">▶ verify PET_CONFIG export structure</text>
+        <text x="70" y="574" fill="#fb7185" font-size="7">config.js target</text>
+
+        <!-- token.test.mjs -->
+        <rect x="390" y="475" width="300" height="100" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="540" y="498" fill="white" font-size="11" font-weight="600" text-anchor="middle">token.test.mjs</text>
+        <text x="410" y="520" fill="#94a3b8" font-size="8">▶ verify constructor params</text>
+        <text x="410" y="538" fill="#94a3b8" font-size="8">▶ verify getToken 3 levels + validateToken edges</text>
+        <text x="410" y="558" fill="#94a3b8" font-size="8">▶ verify TokenUtils convenience methods</text>
+        <text x="410" y="574" fill="#fb7185" font-size="7">token.js target</text>
+
+        <!-- storage.test.mjs -->
+        <rect x="730" y="475" width="300" height="100" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="880" y="498" fill="white" font-size="11" font-weight="600" text-anchor="middle">storage.test.mjs</text>
+        <text x="750" y="520" fill="#94a3b8" font-size="8">▶ verify chrome.storage mock get/set</text>
+        <text x="750" y="538" fill="#94a3b8" font-size="8">▶ verify quota simulation + cleanup</text>
+        <text x="750" y="558" fill="#94a3b8" font-size="8">▶ verify normalizeState defaults</text>
+        <text x="750" y="574" fill="#fb7185" font-size="7">storageUtils.js target</text>
+
+        <!-- =================================================================
+             LEGEND
+             ================================================================= -->
+        <text x="900" y="650" fill="white" font-size="10" font-weight="600">Legend</text>
+
+        <rect x="900" y="662" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="922" y="670" fill="#94a3b8" font-size="8">Infrastructure</text>
+
+        <rect x="900" y="678" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="922" y="686" fill="#94a3b8" font-size="8">Config Module</text>
+
+        <rect x="900" y="694" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="922" y="702" fill="#94a3b8" font-size="8">Token Module</text>
+
+        <rect x="900" y="710" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="922" y="718" fill="#94a3b8" font-size="8">Storage Module</text>
+
+        <rect x="900" y="726" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="922" y="734" fill="#94a3b8" font-size="8">Test File</text>
+      </svg>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>config.test.mjs</h3>
+        </div>
+        <ul>
+          <li>• DEFAULT_CONFIG 结构完整性</li>
+          <li>• buildUrl 参数替换验证</li>
+          <li>• buildQueryParams 查询串构造</li>
+          <li>• 环境检测开关(window/process/默认)</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>token.test.mjs</h3>
+        </div>
+        <ul>
+          <li>• TokenManager 构造参数自定义</li>
+          <li>• getToken 三级回退链验证</li>
+          <li>• validateToken 格式与边界测试</li>
+          <li>• TokenUtils 便利方法覆盖</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>storage.test.mjs</h3>
+        </div>
+        <ul>
+          <li>• chrome.storage mock get/set/remove</li>
+          <li>• 配额超限清理重试</li>
+          <li>• 上下文失效优雅降级</li>
+          <li>• normalizeState 默认值合并</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="footer">
+      YiPet v1.1.1 · 自主测试 · 场景 1: 核心逻辑测试 · 89 用例 · vitest + jsdom
+    </p>
+  </div>
+
+  <script>
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPNG(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'diagram.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPDF(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('diagram.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>

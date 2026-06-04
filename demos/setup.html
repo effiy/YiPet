@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>setup.mjs 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; } pre .num { color: var(--amber); }
+    .output { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 12px 16px; font-family: "SF Mono", monospace; font-size: 0.76rem; color: var(--text-secondary); max-height: 180px; overflow-y: auto; line-height: 1.7; }
+    .output .key { color: var(--color-accent); } .output .val { color: var(--color-accent-2); }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent); background: rgba(255,193,7,0.08); color: var(--color-accent); transition: all 0.15s; margin-top: 12px; }
+    .btn:hover { background: var(--color-accent); color: #1a1a2a; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+    @media (max-width: 768px) { .main { padding: 20px 12px 48px; } pre { font-size: 0.72rem; padding: 10px 12px; } }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html">← 返回 Demo 中心</a>
+  <h1>setup.mjs 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>setup.mjs 是 vitest 全局初始化文件（setupFiles），在所有测试前执行。提供 chrome API mock、IIFE 模块加载器、状态重置、生命周期钩子。</p>
+</section>
+
+<section id="structure">
+  <h2>setup.mjs 结构</h2>
+  <div class="card">
+<pre><span class="cm">// tests/setup.mjs — vitest setupFiles</span>
+<span class="kw">import</span> { beforeEach, afterEach, vi } <span class="kw">from</span> <span class="str">'vitest'</span>;
+
+<span class="cm">// 1. chrome.storage.local Map mock</span>
+<span class="kw">const</span> storage = <span class="kw">new</span> <span class="fn">Map</span>();
+globalThis.chrome = {
+  storage: {
+    local: {
+      <span class="fn">get</span>(keys) { ... },
+      <span class="fn">set</span>(items) { ... },
+      <span class="fn">remove</span>(keys) { ... },
+      <span class="fn">clear</span>() { storage.<span class="fn">clear</span>(); },
+    }
+  },
+  runtime: { <span class="fn">getURL</span>(p) { <span class="kw">return</span> <span class="str">'chrome-extension://id/'</span> + p; } }
+};
+
+<span class="cm">// 2. fetch mock</span>
+globalThis.fetch = <span class="fn">vi.fn</span>();
+
+<span class="cm">// 3. loadModule — IIFE 模块加载器</span>
+globalThis.<span class="fn">loadModule</span> = <span class="kw">async</span> (path) => { ... };
+
+<span class="cm">// 4. 生命周期 — 状态重置</span>
+<span class="fn">beforeEach</span>(() => {
+  storage.<span class="fn">clear</span>();
+  globalThis.fetch.<span class="fn">mockReset</span>();
+});
+
+<span class="fn">afterEach</span>(() => {
+  <span class="fn">vi.restoreAllMocks</span>();
+});</pre>
+  </div>
+</section>
+
+<section id="chrome-mock">
+  <h2>chrome API Mock</h2>
+  <p>Map 实现 chrome.storage.local 完整接口。</p>
+  <div class="card">
+    <h3>chrome.storage.local 模拟</h3>
+<pre><span class="cm">// get — 支持单键、数组键、null(取全部)</span>
+<span class="kw">async function</span> <span class="fn">get</span>(keys) {
+  <span class="kw">const</span> result = {};
+  <span class="kw">if</span> (keys === <span class="kw">null</span>) { storage.<span class="fn">forEach</span>((v,k) => result[k] = v); }
+  <span class="kw">else if</span> (<span class="fn">Array</span>.<span class="fn">isArray</span>(keys)) { keys.<span class="fn">forEach</span>(k => { <span class="kw">if</span> (storage.<span class="fn">has</span>(k)) result[k] = storage.<span class="fn">get</span>(k); }); }
+  <span class="kw">else</span> <span class="kw">if</span> (storage.<span class="fn">has</span>(keys)) { result[keys] = storage.<span class="fn">get</span>(keys); }
+  <span class="kw">return</span> result;
+}</pre>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — 状态重置</h2>
+  <p>模拟 setup.mjs 的 beforeEach 状态重置。</p>
+  <div class="card">
+    <div class="output" id="stateOutput">
+      <div><span class="key">storage</span> → <span class="val">空 (已重置)</span></div>
+      <div><span class="key">fetch.mock.calls</span> → <span class="val">[] (已清空)</span></div>
+    </div>
+    <button class="btn" onclick="addState()">写入状态</button>
+    <button class="btn" onclick="resetState()" style="margin-left:8px;">beforeEach 重置</button>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="index.html">Demo 中心</a> · <a href="../docs/index.html">文档中心</a> · <a href="../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+var mockStorage = new Map();
+var mockFetchCalls = [];
+
+function renderState() {
+  var out = document.getElementById('stateOutput');
+  out.innerHTML =
+    '<div><span class="key">storage.size</span> → <span class="val">' + mockStorage.size + ' 条</span></div>' +
+    '<div><span class="key">fetch.mock.calls</span> → <span class="val">' + mockFetchCalls.length + ' 次调用</span></div>' +
+    (mockStorage.size ? '<div style="margin-top:6px;">Keys: ' + JSON.stringify(Array.from(mockStorage.keys())) + '</div>' : '');
+}
+
+function addState() {
+  mockStorage.set('petConfig', { version: '1.1.1' });
+  mockStorage.set('token', 'test-token-xxx');
+  mockFetchCalls.push(['https://api.effiy.cn/sessions', { method: 'GET' }]);
+  renderState();
+}
+
+function resetState() {
+  mockStorage.clear();
+  mockFetchCalls = [];
+  renderState();
+}
+</script>
+</body>
+</html>

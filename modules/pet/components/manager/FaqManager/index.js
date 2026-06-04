@@ -8,6 +8,8 @@
   let faqManagerTemplateCache = ''
 
   function canUseVueTemplate (Vue) {
+    const _u = window.PetManager?.Components?.ChatWindowUtils
+    if (_u && typeof _u.canUseVueTemplate === 'function') return _u.canUseVueTemplate(Vue)
     if (typeof Vue?.compile !== 'function') return false
     try {
       Function('return 1')()

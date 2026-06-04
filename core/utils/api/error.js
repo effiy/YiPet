@@ -149,7 +149,7 @@
 
       // 默认API错误
       return new APIError(
-        error.message || '未知错误',
+        (error && error.message) || '未知错误',
         'UNKNOWN_ERROR',
         { originalError: error }
       )

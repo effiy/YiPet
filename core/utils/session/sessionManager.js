@@ -846,16 +846,12 @@ class SessionManager {
 
     // 从本地删除
     delete this.sessions[sessionId]
-    // 如果 unifiedSessionId 不同，也删除那个键
-    if (unifiedSessionId !== sessionId && this.sessions[unifiedSessionId]) {
-      delete this.sessions[unifiedSessionId]
-    }
 
     // 从后端删除
     if (this.sessionApi && this.enableBackendSync) {
       try {
-        await this.sessionApi.deleteSession(unifiedSessionId)
-        console.log('会话已从后端删除:', unifiedSessionId)
+        await this.sessionApi.deleteSession(sessionId)
+        console.log('会话已从后端删除:', sessionId)
       } catch (error) {
         console.warn('从后端删除会话失败:', error)
         // 即使后端删除失败，也返回成功，因为本地已删除

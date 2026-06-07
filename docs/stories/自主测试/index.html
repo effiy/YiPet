@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../../shared/doc.css">
+  <title>自主测试方案 — YiPet 故事任务</title>
+  <style>
+    :root { --bg-content: rgba(22,22,32,1); --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%); --bg-card-flat: rgba(34,34,46,1); --color-accent: #FFC107; --color-accent-2: #22d3ee; --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1); --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --shadow-hover: 0 12px 32px rgba(0,0,0,0.45); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06); }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    * { box-sizing: border-box; margin: 0; padding: 0; } html { scroll-behavior: smooth; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; }
+    .container { max-width: 1060px; margin: 0 auto; padding: 40px 20px; }
+    .breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; font-size: 0.78rem; animation: fadeInDown 0.4s ease both; }
+    .breadcrumb a { color: var(--color-accent-2); text-decoration: none; } .breadcrumb a:hover { color: var(--color-accent); text-decoration: underline; }
+    .breadcrumb .sep { color: var(--text-muted); opacity: 0.5; } .breadcrumb .current { color: var(--text-secondary); font-weight: 500; }
+    .header { text-align: center; margin-bottom: 28px; animation: fadeInDown 0.5s ease both; }
+    .header h1 { font-size: 2rem; font-weight: 700; } .header h1 .accent { color: var(--color-accent); }
+    .header p { color: var(--text-secondary); margin-top: 8px; font-size: 0.92rem; }
+    .meta-bar { display: flex; gap: 14px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; animation: fadeInDown 0.5s 0.1s ease both; }
+    .meta-badge { background: var(--bg-card); border: var(--border-subtle); border-radius: 8px; padding: 8px 18px; font-size: 0.78rem; box-shadow: var(--shadow-card); color: var(--text-secondary); }
+    .meta-badge .val { color: var(--color-accent); font-weight: 600; }
+    .cross-nav { display: flex; gap: 8px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; animation: fadeInDown 0.5s 0.15s ease both; }
+    .cross-nav a { background: var(--bg-card); border: 1px solid rgba(255,193,7,0.15); border-radius: 10px; padding: 10px 16px; box-shadow: var(--shadow-card); text-decoration: none; color: inherit; display: flex; gap: 8px; align-items: center; font-size: 0.8rem; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+    .cross-nav a:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.35); }
+    .cross-nav a .nav-arrow { color: var(--color-accent); font-size: 0.85rem; opacity: 0.6; } .cross-nav a:hover .nav-arrow { opacity: 1; }
+
+    .section { margin-bottom: 32px; }
+    .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--color-accent); }
+    .section-header h2 { font-size: 1.1rem; } .section-header .count { font-size: 0.78rem; color: var(--text-muted); }
+
+    .scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-bottom: 10px; }
+    .scene-card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 22px; box-shadow: var(--shadow-card); transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; animation: fadeInUp 0.4s ease both; position: relative; overflow: hidden; }
+    .scene-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .scene-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; border-radius: 0 3px 3px 0; transition: background 0.2s; }
+    .scene-card:hover::before { background: var(--color-accent); }
+    .scene-card .scene-num { font-size: 0.7rem; color: var(--color-accent); font-weight: 600; margin-bottom: 4px; }
+    .scene-card .scene-name { font-size: 0.95rem; font-weight: 600; margin-bottom: 3px; }
+    .scene-card .scene-name a { color: var(--text-primary); text-decoration: none; transition: color 0.15s; }
+    .scene-card .scene-name a:hover { color: var(--color-accent); }
+    .scene-card .scene-role { color: var(--text-muted); font-size: 0.74rem; margin-bottom: 6px; }
+    .scene-card .scene-desc { color: var(--text-secondary); font-size: 0.76rem; line-height: 1.5; margin-bottom: 10px; }
+
+    .checklist-row { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 10px; border-top: var(--border-subtle); }
+    .checklist-row a { font-size: 0.66rem; color: var(--text-muted); text-decoration: none; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.03); border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; }
+    .checklist-row a:hover { color: var(--color-accent-2); background: rgba(34,211,238,0.06); border-color: rgba(34,211,238,0.15); }
+    .checklist-row a.cl-primary { color: var(--color-accent); background: rgba(255,193,7,0.06); border-color: rgba(255,193,7,0.1); }
+    .checklist-row a.cl-primary:hover { color: var(--color-accent); background: rgba(255,193,7,0.12); border-color: rgba(255,193,7,0.25); }
+    .checklist-row .cl-sep { color: var(--text-muted); opacity: 0.25; font-size: 0.5rem; align-self: center; user-select: none; }
+
+    .extra-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+    .extra-card { background: var(--bg-card); border: var(--border-subtle); border-radius: 10px; padding: 14px 18px; box-shadow: var(--shadow-card); transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; animation: fadeInUp 0.4s ease both; }
+    .extra-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .extra-card .extra-name { font-size: 0.88rem; font-weight: 600; }
+    .extra-card .extra-name a { color: inherit; text-decoration: none; } .extra-card .extra-name a:hover { color: var(--color-accent); }
+    .extra-card .extra-desc { color: var(--text-muted); font-size: 0.74rem; margin-top: 2px; }
+
+    .dim-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .dim-card { background: var(--bg-card); border: var(--border-subtle); border-radius: 8px; padding: 14px 16px; text-align: center; box-shadow: var(--shadow-card); transition: transform 0.15s, box-shadow 0.15s; text-decoration: none; color: inherit; display: block; }
+    .dim-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .dim-card .dim-icon { font-size: 1.3rem; margin-bottom: 4px; }
+    .dim-card .dim-label { font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; }
+    .dim-card .dim-count { font-size: 0.64rem; color: var(--text-muted); margin-top: 2px; }
+
+    hr { border-color: rgba(255,255,255,0.08); margin: 8px 0 24px; }
+    .footer-note { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 8px; padding-bottom: 20px; }
+    .footer-note a { color: var(--color-accent); text-decoration: none; } .footer-note a:hover { text-decoration: underline; }
+    a[target="_blank"]::after{content:" ↗";font-size:.7em;opacity:.5}
+    @media (max-width: 768px) { .container { padding: 24px 12px; } .header h1 { font-size: 1.5rem; } .scene-grid { grid-template-columns: 1fr; } .extra-grid { grid-template-columns: 1fr; } .cross-nav { flex-direction: column; align-items: center; } .dim-summary { grid-template-columns: repeat(3, 1fr); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="breadcrumb">
+      <a href="../../index.html">&#127968; 文档中心</a><span class="sep">›</span>
+      <span class="current">&#129514; 自主测试方案</span>
+    </nav>
+
+    <div class="header">
+      <h1><span class="accent">&#129514;</span> 自主测试方案</h1>
+      <p>vitest + jsdom 自动化测试体系 — 核心逻辑 · API 接口 · 数据持久化 · 异常边界 · 集成回归</p>
+    </div>
+
+    <div class="meta-bar">
+      <span class="meta-badge">版本 <span class="val">v1.0.0</span></span>
+      <span class="meta-badge">状态 <span class="val">基线</span></span>
+      <span class="meta-badge">类型 <span class="val">自动化测试</span></span>
+      <span class="meta-badge">场景 <span class="val">5</span></span>
+      <span class="meta-badge">测试文件 <span class="val">14</span></span>
+      <span class="meta-badge">用例 <span class="val">250+</span></span>
+    </div>
+
+    <!-- Cross-nav -->
+    <div class="cross-nav">
+      <a href="../../index.html"><span>&#127968;</span> 文档中心<span class="nav-arrow">&larr;</span></a>
+      <a href="../../demos/index.html"><span>&#127918;</span> Demo 中心<span class="nav-arrow">&rarr;</span></a>
+      <a href="../../tests/index.html"><span>&#129514;</span> 测试套件<span class="nav-arrow">&rarr;</span></a>
+      <a href="../系统架构/index.html"><span>&#128451;</span> 系统架构<span class="nav-arrow">&rarr;</span></a>
+      <a href="./知识图谱.html"><span>&#128279;</span> 知识图谱<span class="nav-arrow">&rarr;</span></a>
+    </div>
+
+    <!-- Six-dimension overview -->
+    <div class="section">
+      <div class="section-header"><h2>&#128203; 六维清单总览</h2><span class="count">5 场景 × 6 维度 = 30 项可追溯资产</span></div>
+      <div class="dim-summary">
+        <a class="dim-card" href="#scenes"><span class="dim-icon">&#128203;</span><div class="dim-label">📋清单</div><div class="dim-count">5 场景仪表盘</div></a>
+        <a class="dim-card" href="#scenes"><span class="dim-icon">&#128451;</span><div class="dim-label">📐架构</div><div class="dim-count">5 测试设计文档</div></a>
+        <a class="dim-card" href="./知识图谱.html"><span class="dim-icon">&#128279;</span><div class="dim-label">🔗图谱</div><div class="dim-count">Cytoscape.js 交互图</div></a>
+        <a class="dim-card" href="../../tests/index.html"><span class="dim-icon">&#129514;</span><div class="dim-label">🧪测试</div><div class="dim-count">14 文件 250+ 用例</div></a>
+        <a class="dim-card" href="../../demos/index.html"><span class="dim-icon">&#127918;</span><div class="dim-label">💡演示</div><div class="dim-count">5 第三方工具事例</div></a>
+        <a class="dim-card" href="#scenes"><span class="dim-icon">&#128221;</span><div class="dim-label">📝审查</div><div class="dim-count">5 场景 §0 审查结论</div></a>
+      </div>
+    </div>
+
+    <!-- Story baseline -->
+    <div class="section">
+      <div class="section-header"><h2>&#128196; 故事基线</h2></div>
+      <div class="extra-grid">
+        <div class="extra-card">
+          <div class="extra-name"><a href="./故事任务.md">故事任务.md</a></div>
+          <div class="extra-desc">故事基线文档 — 测试框架栈 · 场景功能点表 · Story · AC · 风险 · 六维映射</div>
+        </div>
+        <div class="extra-card">
+          <div class="extra-name"><a href="./知识图谱.html">知识图谱.html</a></div>
+          <div class="extra-desc">Cytoscape.js 交互式知识图谱 — 测试文件与源文件映射 · 覆盖率热力图 · 用例分布</div>
+        </div>
+        <div class="extra-card">
+          <div class="extra-name"><a href="./知识图谱.json">知识图谱.json</a></div>
+          <div class="extra-desc">Cytoscape.js 兼容格式 — typed nodes + edges + layers + stats + crossReferences</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene cards with 6-dim checklist -->
+    <div class="section" id="scenes">
+      <div class="section-header"><h2>&#128203; 场景文档 (5)</h2><span class="count">§0 技术评审 · §1 测试设计 · §2 实施报告 · §3 测试报告 · §4 自改进</span></div>
+      <div class="scene-grid">
+
+        <!-- Scene 1 -->
+        <div class="scene-card" style="animation-delay:0.01s">
+          <div class="scene-num">场景 1</div>
+          <div class="scene-name"><a href="./场景-1-核心逻辑.html">核心逻辑测试</a></div>
+          <div class="scene-role">&#129514; 测试工程师 · P0</div>
+          <div class="scene-desc">验证配置中心、Token 管理器、存储工具的核心逻辑正确性 — 核心基础设施可测可验</div>
+          <div class="checklist-row">
+            <a class="cl-primary" href="./场景-1-核心逻辑.html">&#128203;清单</a><span class="cl-sep">·</span>
+            <a href="./场景-1-核心逻辑.md">&#128451;架构</a><span class="cl-sep">·</span>
+            <a href="./知识图谱.html">&#128279;图谱</a><span class="cl-sep">·</span>
+            <a href="../../tests/unit/config.test.mjs">&#129514;测试</a><span class="cl-sep">·</span>
+            <a href="../../demos/third-party/vitest.html">&#127918;演示</a><span class="cl-sep">·</span>
+            <a href="./场景-1-核心逻辑.md#sec0">&#128221;审查</a>
+          </div>
+        </div>
+
+        <!-- Scene 2 -->
+        <div class="scene-card" style="animation-delay:0.05s">
+          <div class="scene-num">场景 2</div>
+          <div class="scene-name"><a href="./场景-2-接口测试.html">API 接口测试</a></div>
+          <div class="scene-role">&#129514; 测试工程师 · P0</div>
+          <div class="scene-desc">验证 HTTP 请求客户端的请求构造、重试、超时、中止、响应解析全路径 — API 层全路径覆盖</div>
+          <div class="checklist-row">
+            <a class="cl-primary" href="./场景-2-接口测试.html">&#128203;清单</a><span class="cl-sep">·</span>
+            <a href="./场景-2-接口测试.md">&#128451;架构</a><span class="cl-sep">·</span>
+            <a href="./知识图谱.html">&#128279;图谱</a><span class="cl-sep">·</span>
+            <a href="../../tests/unit/request.test.mjs">&#129514;测试</a><span class="cl-sep">·</span>
+            <a href="../../demos/third-party/node-fetch.html">&#127918;演示</a><span class="cl-sep">·</span>
+            <a href="./场景-2-接口测试.md#sec0">&#128221;审查</a>
+          </div>
+        </div>
+
+        <!-- Scene 3 -->
+        <div class="scene-card" style="animation-delay:0.09s">
+          <div class="scene-num">场景 3</div>
+          <div class="scene-name"><a href="./场景-3-存储测试.html">数据持久化测试</a></div>
+          <div class="scene-role">&#129514; 测试工程师 · P0</div>
+          <div class="scene-desc">验证 chrome.storage.local CRUD 操作、配额管理、会话持久化的正确性与容错性 — 存储层正确性验证</div>
+          <div class="checklist-row">
+            <a class="cl-primary" href="./场景-3-存储测试.html">&#128203;清单</a><span class="cl-sep">·</span>
+            <a href="./场景-3-存储测试.md">&#128451;架构</a><span class="cl-sep">·</span>
+            <a href="./知识图谱.html">&#128279;图谱</a><span class="cl-sep">·</span>
+            <a href="../../tests/unit/storage.test.mjs">&#129514;测试</a><span class="cl-sep">·</span>
+            <a href="../../demos/third-party/setup.html">&#127918;演示</a><span class="cl-sep">·</span>
+            <a href="./场景-3-存储测试.md#sec0">&#128221;审查</a>
+          </div>
+        </div>
+
+        <!-- Scene 4 -->
+        <div class="scene-card" style="animation-delay:0.13s">
+          <div class="scene-num">场景 4</div>
+          <div class="scene-name"><a href="./场景-4-错误边界.html">异常路径与边界</a></div>
+          <div class="scene-role">&#129514; 测试工程师 · P0</div>
+          <div class="scene-desc">验证错误分类、错误处理、上下文失效检测、Token 缺失等异常路径的覆盖率 — 异常路径全覆盖</div>
+          <div class="checklist-row">
+            <a class="cl-primary" href="./场景-4-错误边界.html">&#128203;清单</a><span class="cl-sep">·</span>
+            <a href="./场景-4-错误边界.md">&#128451;架构</a><span class="cl-sep">·</span>
+            <a href="./知识图谱.html">&#128279;图谱</a><span class="cl-sep">·</span>
+            <a href="../../tests/unit/error.test.mjs">&#129514;测试</a><span class="cl-sep">·</span>
+            <a href="../../demos/third-party/coverage.html">&#127918;演示</a><span class="cl-sep">·</span>
+            <a href="./场景-4-错误边界.md#sec0">&#128221;审查</a>
+          </div>
+        </div>
+
+        <!-- Scene 5 -->
+        <div class="scene-card" style="animation-delay:0.17s">
+          <div class="scene-num">场景 5</div>
+          <div class="scene-name"><a href="./场景-5-集成测试.html">集成与回归</a></div>
+          <div class="scene-role">&#129514; 测试工程师 · P0</div>
+          <div class="scene-desc">验证配置→Token→请求链路的端到端正确性，以及会话创建→保存→列表→删除的全生命周期 — 集成正确性保障</div>
+          <div class="checklist-row">
+            <a class="cl-primary" href="./场景-5-集成测试.html">&#128203;清单</a><span class="cl-sep">·</span>
+            <a href="./场景-5-集成测试.md">&#128451;架构</a><span class="cl-sep">·</span>
+            <a href="./知识图谱.html">&#128279;图谱</a><span class="cl-sep">·</span>
+            <a href="../../tests/integration/pipeline.test.mjs">&#129514;测试</a><span class="cl-sep">·</span>
+            <a href="../../demos/third-party/vitest.html">&#127918;演示</a><span class="cl-sep">·</span>
+            <a href="./场景-5-集成测试.md#sec0">&#128221;审查</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- Knowledge assets -->
+    <div class="section">
+      <div class="section-header"><h2>&#128202; 知识资产</h2></div>
+      <div class="extra-grid">
+        <div class="extra-card">
+          <div class="extra-name"><a href="./知识图谱.json">知识图谱.json</a></div>
+          <div class="extra-desc">Cytoscape.js 兼容格式 — 测试-源码映射 · 覆盖率矩阵 · 用例分布统计</div>
+        </div>
+        <div class="extra-card">
+          <div class="extra-name"><a href="../../CLAUDE.md">CLAUDE.md</a></div>
+          <div class="extra-desc">项目画像 · 技术栈 · 模块地图 · 测试框架信息 — 项目唯一事实参照</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <a href="../../index.html">文档中心</a> · <a href="../../demos/index.html">Demo 中心</a> · <a href="../../tests/index.html">测试套件</a> · <a href="../通知日志.md">通知日志</a>
+    </div>
+  </div>
+</body>
+</html>

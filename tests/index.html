@@ -1,837 +1,434 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YiPet 测试套件</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>YiPet 测试套件 · 自检中心</title>
   <style>
-    :root {
-      --bg-content: rgba(22,22,32,1);
-      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
-      --color-accent: #6366f1;
-      --color-accent-2: #22d3ee;
-      --color-pass: rgba(100,220,180,1);
-      --color-fail: rgba(255,100,100,1);
-      --text-primary: rgba(250,250,252,1);
-      --text-secondary: rgba(160,160,164,1);
-      --text-muted: rgba(110,110,114,1);
-      --shadow-card: 0 4px 20px rgba(0,0,0,0.3);
-      --shadow-hover: 0 12px 32px rgba(0,0,0,0.45);
-      --radius-card: 12px;
-      --border-subtle: 1px solid rgba(255,255,255,0.06);
+    :root { --bg:rgba(22,22,32,1); --bg-card:linear-gradient(159deg,rgba(38,38,52,1) 0%,rgba(34,34,46,1) 100%); --bg-flat:rgba(34,34,46,1); --bg-raised:rgba(42,42,56,1); --accent:#FFC107; --cyan:#22d3ee; --pass:#22c55e; --fail:#ef4444; --warn:#f59e0b; --skip:#6b7280; --text:rgba(250,250,252,1); --text2:rgba(160,160,164,1); --text3:rgba(110,110,114,1); --shadow:0 4px 20px rgba(0,0,0,0.3); --shadow-lg:0 12px 32px rgba(0,0,0,0.45); --radius:12px; --border:1px solid rgba(255,255,255,0.06); }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeInDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    @keyframes modalIn { from{opacity:0;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
+    @keyframes slideDown { from{opacity:0;max-height:0} to{opacity:1;max-height:2000px} }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,193,7,.4)} 50%{box-shadow:0 0 0 6px rgba(255,193,7,0)} }
+    @keyframes checkBounce { 0%{transform:scale(.9)} 60%{transform:scale(1.05)} 100%{transform:scale(1)} }
+    * { box-sizing:border-box;margin:0;padding:0 }
+    html { scroll-behavior:smooth }
+    body { background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;line-height:1.6;min-height:100vh }
+    .container { max-width:1120px;margin:0 auto;padding:48px 24px 80px }
+    .header { text-align:center;margin-bottom:28px;animation:fadeInDown .5s ease both }
+    .header h1 { font-size:2.1rem;font-weight:700 } .header h1 .accent { color:var(--accent) }
+    .header .sub { color:var(--text2);font-size:.9rem;margin-top:4px }
+
+    /* ── Breadcrumb ─────────────────────────── */
+    .breadcrumb {
+      display:flex;align-items:center;flex-wrap:wrap;gap:6px;
+      margin-bottom:16px;font-size:.78rem;animation:fadeInDown .4s ease both;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+    .breadcrumb a { color:var(--cyan);text-decoration:none;transition:color .15s }
+    .breadcrumb a:hover { color:var(--accent);text-decoration:underline }
+    .breadcrumb .sep { color:var(--text3);opacity:.4;user-select:none }
+    .breadcrumb .current { color:var(--text2);font-weight:500 }
 
-    .container { max-width: 1060px; margin: 0 auto; padding: 40px 20px; }
+    .cross-nav { display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:32px;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both }
+    .cross-link { color:var(--cyan);text-decoration:none;font-size:.74rem;padding:3px 10px;border-radius:4px;transition:color .15s,background .15s }
+    .cross-link:hover { color:var(--accent);background:rgba(255,193,7,.06);text-decoration:underline }
+    .cross-link.on { color:var(--accent);font-weight:600 }
+    .cross-sep { color:var(--text3);font-size:.5rem;opacity:.35;user-select:none }
 
-    /* Header */
-    .header { text-align: center; margin-bottom: 24px; }
-    .header h1 { font-size: 2.2rem; font-weight: 700; }
-    .header h1 .accent { color: var(--color-accent); }
-    .header .subtitle { color: var(--text-secondary); margin-top: 8px; font-size: 0.9rem; }
+    .stats-grid { display:flex;gap:14px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;animation:fadeInDown .5s .1s ease both }
+    .stat-card { background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:18px 22px;text-align:center;box-shadow:var(--shadow);min-width:90px;transition:transform .15s,box-shadow .15s;cursor:pointer;position:relative }
+    .stat-card:hover { transform:translateY(-2px);box-shadow:var(--shadow-lg) }
+    .stat-card .val { font-size:1.8rem;font-weight:700;line-height:1.1 }
+    .stat-card .val.t { color:var(--text) } .stat-card .val.p { color:var(--pass) } .stat-card .val.f { color:var(--fail) } .stat-card .val.s { color:var(--skip) } .stat-card .val.d { color:var(--cyan);font-size:1.25rem }
+    .stat-card .lbl { font-size:.72rem;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px }
+    .stat-card.active-filter { border-color:rgba(255,193,7,.4);animation:pulse 2s infinite }
 
-    /* Stats */
-    .stats { display: flex; gap: 12px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
-    .stat {
-      background: var(--bg-card); border: var(--border-subtle);
-      border-radius: var(--radius-card); padding: 14px 20px; text-align: center;
-      box-shadow: var(--shadow-card); min-width: 90px; cursor: default;
-      transition: transform 0.15s, border-color 0.15s;
-    }
-    .stat:hover { transform: translateY(-1px); border-color: rgba(99,102,241,0.2); }
-    .stat .num { font-size: 1.6rem; font-weight: 700; color: var(--color-accent); }
-    .stat .num.pass { color: var(--color-pass); }
-    .stat .label { font-size: 0.73rem; color: var(--text-muted); margin-top: 2px; }
+    .bar-wrap { margin-bottom:32px;animation:fadeInDown .5s .12s ease both }
+    .bar-outer { height:8px;border-radius:4px;overflow:hidden;display:flex;background:rgba(255,255,255,.04);cursor:pointer }
+    .bar-outer .seg { height:100%;transition:width .5s ease;min-width:2px }
+    .bar-outer .seg.p { background:var(--pass) } .bar-outer .seg.f { background:var(--fail) } .bar-outer .seg.s { background:var(--skip) }
 
-    /* ── Cross-panel navigation ──────────────── */
-    .cross-nav {
-      display: flex; gap: 10px; justify-content: center; margin-bottom: 28px;
-      flex-wrap: wrap; align-items: stretch;
-    }
-    .cross-nav .cross-card {
-      background: var(--bg-card); border: 1px solid rgba(99,102,241,0.15);
-      border-radius: 10px; padding: 12px 18px; box-shadow: var(--shadow-card);
-      text-decoration: none; color: inherit; display: flex; gap: 10px; align-items: center;
-      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-      min-width: 180px;
-    }
-    .cross-nav .cross-card:hover {
-      transform: translateY(-2px); box-shadow: var(--shadow-hover);
-      border-color: rgba(99,102,241,0.35);
-    }
-    .cross-nav .cross-card .cross-icon { font-size: 1.3rem; flex-shrink: 0; }
-    .cross-nav .cross-card .cross-info { flex: 1; min-width: 0; }
-    .cross-nav .cross-card .cross-info .cross-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
-    .cross-nav .cross-card .cross-info .cross-stats { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
-    .cross-nav .cross-card .cross-arrow { color: var(--color-accent); font-size: 0.85rem; flex-shrink: 0; opacity: 0.6; transition: opacity 0.15s; }
-    .cross-nav .cross-card:hover .cross-arrow { opacity: 1; }
+    .tabs { display:flex;gap:0;border-bottom:var(--border);margin-bottom:0;animation:fadeInDown .5s .15s ease both }
+    .tab { padding:10px 20px;cursor:pointer;font-size:.84rem;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s;user-select:none;position:relative }
+    .tab:hover { color:var(--text2) } .tab.on { color:var(--accent);border-bottom-color:var(--accent) }
+    .tab .tab-badge { font-size:.6rem;background:var(--fail);color:#fff;border-radius:8px;padding:1px 6px;position:absolute;top:4px;right:-4px }
 
-    /* Progress bar */
-    .global-bar-wrap { max-width: 400px; margin: 0 auto 28px; }
-    .global-bar-wrap .bar-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
-    .global-bar-wrap .bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
-    .global-bar-wrap .bar-fill { height: 100%; background: var(--color-pass); border-radius: 2px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+    .panel { display:none;animation:fadeInUp .4s ease both;padding-top:28px }
+    .panel.on { display:block }
 
-    /* Section title */
-    .section-title {
-      font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);
-      margin-bottom: 10px; padding-bottom: 8px; padding-left: 10px;
-      border-left: 3px solid rgba(99,102,241,0.4); border-bottom: var(--border-subtle);
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .section-title .accent { color: var(--color-accent); }
+    .toolbar { display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;animation:fadeInDown .5s .18s ease both }
+    .btn { background:var(--bg-flat);border:var(--border);border-radius:8px;color:var(--text2);padding:7px 14px;cursor:pointer;font-size:.8rem;transition:all .15s;display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;font-family:inherit }
+    .btn:hover { border-color:rgba(255,255,255,.15);color:var(--text);transform:translateY(-1px);box-shadow:var(--shadow) }
+    .btn.primary { border-color:rgba(255,193,7,.3);color:var(--accent) }
+    .btn.on { background:rgba(255,193,7,.12);border-color:rgba(255,193,7,.4);color:var(--accent) }
+    .search-wrap { position:relative;flex:1;min-width:180px;max-width:320px }
+    .search-wrap input { width:100%;background:var(--bg-flat);border:var(--border);border-radius:20px;color:var(--text);padding:7px 14px 7px 34px;font-size:.82rem;outline:none;transition:border-color .15s;font-family:inherit }
+    .search-wrap input:focus { border-color:rgba(255,193,7,.4) } .search-wrap input::placeholder { color:var(--text3) }
+    .search-wrap .si { position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.8rem;color:var(--text3);pointer-events:none }
+    .kbd-hint { font-size:.64rem;color:var(--text3);background:rgba(255,255,255,.04);border-radius:3px;padding:1px 5px;margin-left:4px }
 
-    /* Infrastructure cards */
-    .infra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-    .setup-card {
-      background: var(--bg-card); border: var(--border-subtle);
-      border-radius: var(--radius-card); padding: 16px 18px;
-      box-shadow: var(--shadow-card);
-    }
-    .setup-card h4 { font-size: 0.9rem; margin-bottom: 6px; }
-    .setup-card h4 .accent { color: var(--color-accent); }
-    .setup-card .fn-list { list-style: none; padding: 0; margin: 0; display: flex; gap: 14px; flex-wrap: wrap; }
-    .setup-card .fn-item { font-size: 0.74rem; color: var(--text-muted); font-family: "SF Mono", ui-monospace, monospace; }
-    .setup-card .fn-item .sig { color: var(--color-accent); }
-    .setup-card .info-text { color: var(--text-secondary); font-size: 0.82rem; margin: 6px 0 0; }
+    .layer { margin-bottom:44px }
+    .layer-head { display:flex;align-items:center;gap:10px;margin-bottom:16px }
+    .layer-head .ln { width:28px;height:28px;border-radius:50%;background:rgba(255,193,7,.12);color:var(--accent);font-size:.8rem;font-weight:700;display:flex;align-items:center;justify-content:center }
+    .layer-head h2 { font-size:1.15rem;font-weight:700 } .layer-head .ls { font-size:.78rem;color:var(--text3) }
 
-    /* Test cards */
-    .test-card {
-      background: var(--bg-card); border: var(--border-subtle);
-      border-radius: var(--radius-card); padding: 18px 20px; margin-bottom: 12px;
-      box-shadow: var(--shadow-card); transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-      cursor: pointer;
-    }
-    .test-card:hover { border-color: rgba(99,102,241,0.2); }
-    .test-card.expanded { border-color: rgba(99,102,241,0.3); }
+    .file-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px }
+    .file-card { background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;display:flex;align-items:flex-start;gap:12px }
+    .file-card:hover { transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:rgba(255,255,255,.1) }
+    .file-card.focused { border-color:rgba(255,193,7,.4) }
+    .file-card .fc-icon { font-size:1.2rem;flex-shrink:0;margin-top:2px }
+    .file-card .fc-body { flex:1;min-width:0 }
+    .file-card .fc-name { font-weight:600;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+    .file-card .fc-path { font-size:.7rem;color:var(--text3);font-family:monospace;margin-top:1px }
+    .file-card .fc-desc { font-size:.74rem;color:var(--text2);margin-top:4px;line-height:1.4 }
+    .file-card .fc-meta { display:flex;gap:12px;margin-top:6px;font-size:.7rem;color:var(--text3);flex-wrap:wrap }
+    .file-card .fc-badge { font-size:.68rem;padding:2px 8px;border-radius:10px;font-weight:600 }
+    .file-card .fc-badge.pass { background:rgba(34,197,94,.12);color:var(--pass) }
+    .file-card .fc-badge.fail { background:rgba(239,68,68,.12);color:var(--fail) }
+    .file-card .fc-badge.none { background:rgba(255,255,255,.04);color:var(--text3) }
 
-    .test-card .card-header-row { display: flex; align-items: center; gap: 12px; }
-    .test-card .card-icon {
-      width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 1rem;
-      background: rgba(99,102,241,0.12); color: var(--color-accent);
-    }
-    .test-card .card-icon.auth { background: rgba(99,102,241,0.15); color: var(--color-accent); }
-    .test-card .card-icon.http { background: rgba(34,211,238,0.15); color: var(--color-accent-2); }
-    .test-card .card-icon.storage { background: rgba(251,146,60,0.15); color: #fb923c; }
-    .test-card .card-icon.config { background: rgba(168,85,247,0.15); color: #a855f7; }
-    .test-card .card-icon.error { background: rgba(244,114,182,0.15); color: #f472b6; }
-    .test-card .card-icon.integration { background: rgba(52,211,153,0.15); color: #34d399; }
-    .test-card .card-icon.component { background: rgba(250,204,21,0.15); color: #facc15; }
-    .test-card .card-icon.infra { background: rgba(255,255,255,0.08); color: #999; }
+    .suite { background:var(--bg-card);border:var(--border);border-radius:var(--radius);margin-bottom:8px;box-shadow:var(--shadow);overflow:hidden;transition:border-color .2s }
+    .suite.open { border-color:rgba(255,255,255,.08) }
+    .suite.focused { border-color:rgba(255,193,7,.4) }
+    .s-head { display:flex;align-items:center;gap:10px;padding:12px 18px;cursor:pointer;user-select:none;transition:background .12s }
+    .s-head:hover { background:rgba(255,255,255,.02) }
+    .s-head .s-arrow { font-size:.6rem;color:var(--text3);transition:transform .2s;width:12px;text-align:center }
+    .suite.open .s-head .s-arrow { transform:rotate(90deg) }
+    .s-head .s-name { flex:1;font-weight:600;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+    .s-head .s-meta { display:flex;gap:8px;font-size:.72rem }
+    .s-head .s-meta .sm.p { color:var(--pass) } .s-head .s-meta .sm.f { color:var(--fail) }
+    .s-body { display:none;border-top:var(--border);animation:slideDown .25s ease }
+    .suite.open .s-body { display:block }
+    .t-row { display:flex;align-items:center;gap:10px;padding:7px 18px 7px 36px;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.015);transition:background .08s;cursor:pointer }
+    .t-row:hover { background:rgba(255,255,255,.02) }
+    .t-row.fail { background:rgba(239,68,68,.04) }
+    .t-row.focused { background:rgba(255,193,7,.06) }
+    .t-row .t-icon { width:16px;text-align:center;flex-shrink:0;font-size:.7rem }
+    .t-row .t-name { flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+    .t-row .t-err { font-size:.7rem;color:var(--fail);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+    .t-row .t-dur { font-size:.68rem;color:var(--text3);min-width:38px;text-align:right;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:4px }
+    .t-row .t-dur .td-bar { width:30px;height:3px;border-radius:2px;background:rgba(255,255,255,.04);overflow:hidden;flex-shrink:0 }
+    .t-row .t-dur .td-bar-inner { height:100%;border-radius:2px;background:var(--cyan);transition:width .3s }
+    .t-row .t-dur.slow .td-bar-inner { background:var(--warn) }
+    .t-row .t-dur.very-slow .td-bar-inner { background:var(--fail) }
 
-    .test-card h3 { font-size: 1rem; margin: 0; flex: 1; }
-    .test-card .badge {
-      font-size: 0.7rem; padding: 2px 10px; border-radius: 10px; white-space: nowrap; font-weight: 600;
-    }
-    .test-card .badge-tests { background: rgba(99,102,241,0.15); color: var(--color-accent); }
-    .test-card .badge-pass { background: rgba(100,220,180,0.12); color: var(--color-pass); }
+    .sort-indicator { font-size:.6rem;color:var(--accent);margin-left:2px }
 
-    .test-card .meta { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 6px; }
-    .test-card .meta-item { font-size: 0.76rem; color: var(--text-muted); }
-    .test-card .meta-item strong { color: var(--text-secondary); font-weight: 500; }
+    .modal-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:20px }
+    .modal-overlay.show { display:flex }
+    .modal { background:var(--bg-raised);border:var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);width:100%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;animation:modalIn .2s ease }
+    .modal .m-head { display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:var(--border);flex-shrink:0 }
+    .modal .m-head .m-title { flex:1;font-weight:600;font-size:.92rem;font-family:monospace }
+    .modal .m-head .m-close { background:none;border:none;color:var(--text3);font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:4px }
+    .modal .m-head .m-close:hover { color:var(--text) }
+    .modal .m-body { flex:1;overflow:auto;padding:0 }
+    .modal .m-body pre { margin:0;padding:16px 20px;font-family:'SF Mono','Fira Code',monospace;font-size:.78rem;line-height:1.55;color:var(--text2);white-space:pre-wrap;word-break:break-all }
+    .modal .m-body pre .ln { display:inline-block;width:36px;text-align:right;margin-right:12px;color:var(--text3);font-size:.7rem;user-select:none }
 
-    .test-card .desc { color: var(--text-secondary); font-size: 0.83rem; margin-bottom: 8px; line-height: 1.5; }
+    .state-msg { text-align:center;padding:72px 20px;animation:fadeInUp .5s ease both }
+    .state-msg .icon { font-size:3rem;margin-bottom:10px }
+    .state-msg h3 { font-size:1.05rem;color:var(--text2) } .state-msg p { font-size:.82rem;color:var(--text3);margin:4px 0 }
+    .state-msg code { background:var(--bg-flat);padding:5px 10px;border-radius:6px;font-size:.78rem;color:var(--cyan);margin-top:6px;display:inline-block }
+    .skeleton { background:linear-gradient(90deg,var(--bg-flat) 25%,rgba(255,255,255,.03) 50%,var(--bg-flat) 75%);background-size:800px 100%;animation:shimmer 1.5s infinite linear;border-radius:4px }
+    .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-raised);border:1px solid rgba(255,193,7,.3);border-radius:8px;color:var(--text);padding:10px 20px;font-size:.82rem;z-index:300;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s;pointer-events:none }
+    .toast.show { opacity:1 }
+    .slow-warn { font-size:.64rem;color:var(--warn);margin-left:4px }
 
-    .test-card .covers { display: flex; gap: 5px; flex-wrap: wrap; }
-    .test-card .cover-tag {
-      font-size: 0.68rem; background: rgba(255,255,255,0.05); color: var(--text-muted);
-      padding: 2px 8px; border-radius: 4px; user-select: none;
-    }
+    /* ── Run card ──────────────────────────── */
+    .run-card { background:var(--bg-card);border:1px solid rgba(255,193,7,.2);border-radius:var(--radius);padding:20px;margin-top:24px;text-align:center;box-shadow:var(--shadow) }
+    .run-card .run-title { font-size:.95rem;margin-bottom:10px } .run-card .run-title .accent { color:var(--accent) }
+    .run-card code { background:rgba(0,0,0,.3);color:var(--accent);padding:4px 10px;border-radius:4px;font-size:.88rem;cursor:pointer;transition:background .15s;font-family:"SF Mono",monospace;display:inline-block;margin:2px 4px }
+    .run-card code:hover { background:rgba(255,193,7,.15) }
+    .run-card .tip { color:var(--text2);font-size:.8rem;margin-top:8px }
 
-    .card-bar-wrap { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; margin-top: 6px; overflow: hidden; }
-    .card-bar-wrap .card-bar-fill { height: 100%; background: var(--color-accent); border-radius: 2px; transition: width 0.6s; }
+    @media (max-width:640px) { .container { padding:24px 12px 60px } .header h1 { font-size:1.5rem } .file-grid { grid-template-columns:1fr } .stats-grid { gap:6px } .stat-card { padding:12px 14px;min-width:65px } .stat-card .val { font-size:1.3rem } .toolbar { flex-direction:column } .search-wrap { max-width:100% } }
 
-    .test-card .expand-hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; transition: color 0.15s; }
-    .test-card:hover .expand-hint { color: var(--color-accent); }
-
-    /* Expanded detail */
-    .test-detail { display: none; margin-top: 14px; padding-top: 14px; border-top: var(--border-subtle); }
-    .test-card.expanded .test-detail { display: block; }
-    .test-detail .suite { margin-bottom: 10px; }
-    .test-detail .suite-name {
-      font-size: 0.8rem; font-weight: 600; color: var(--color-accent); margin-bottom: 4px;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .test-detail .suite-name .suite-count { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; }
-    .test-detail .case {
-      font-size: 0.74rem; color: var(--text-secondary); padding: 2px 0 2px 16px;
-      display: flex; align-items: flex-start; gap: 6px;
-    }
-    .test-detail .case::before { content: "✓"; color: rgba(100,220,180,0.6); font-size: 0.68rem; flex-shrink: 0; margin-top: 1px; }
-
-    /* Run card */
-    .run-card {
-      background: var(--bg-card); border: 1px solid rgba(99,102,241,0.3);
-      border-radius: var(--radius-card); padding: 20px; margin-top: 24px; text-align: center;
-      box-shadow: var(--shadow-card);
-    }
-    .run-card .run-title { font-size: 0.95rem; margin-bottom: 10px; }
-    .run-card .run-title .accent { color: var(--color-accent); }
-    .run-card code {
-      background: rgba(0,0,0,0.3); color: var(--color-accent); padding: 4px 10px; border-radius: 4px;
-      font-size: 0.88rem; cursor: pointer; transition: background 0.15s; font-family: "SF Mono", ui-monospace, monospace;
-      display: inline-block; margin: 2px 4px;
-    }
-    .run-card code:hover { background: rgba(99,102,241,0.15); }
-    .run-card .tip { color: var(--text-secondary); font-size: 0.8rem; margin-top: 8px; }
-    .run-card .copied { color: var(--color-pass); font-size: 0.75rem; display: none; margin-top: 4px; }
-    .run-card .copied.show { display: block; }
-
-    hr { border-color: rgba(255,255,255,0.08); margin: 8px 0 20px; }
-
-    .footer-note { text-align: center; color: var(--text-muted); font-size: 0.76rem; margin-top: 8px; padding-bottom: 20px; }
-    .footer-note a { color: var(--color-accent); text-decoration: none; }
-    .footer-note a:hover { text-decoration: underline; }
-
-    @media (max-width: 640px) {
-      .infra-grid { grid-template-columns: 1fr; }
-      .stats { gap: 8px; }
-      .stat { padding: 12px 14px; min-width: 70px; }
-      .stat .num { font-size: 1.3rem; }
-    }
+    a[target="_blank"]::after{content:" ↗";font-size:.7em;opacity:.5}
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <h1><span class="accent">🧪</span> YiPet 测试套件</h1>
-      <p class="subtitle">Vitest + jsdom 自动化测试 — 13 个测试文件，250 个测试用例，覆盖 Token 认证、HTTP 客户端、存储持久化、配置管理、错误处理、服务集成与 UI 组件</p>
-    </div>
+<div class="container">
+  <!-- ── Breadcrumb ──────────────────────────── -->
+  <nav class="breadcrumb">
+    <a href="../docs/index.html">&#128451; 文档中心</a>
+    <span class="sep">/</span>
+    <span class="current">&#129514; 自检中心</span>
+  </nav>
 
-    <!-- Global pass bar -->
-    <div class="global-bar-wrap">
-      <div class="bar-label"><span>通过率</span><span id="passRateText">100%</span></div>
-      <div class="bar-track"><div class="bar-fill" id="globalBar" style="width:0%"></div></div>
-    </div>
+  <div class="header"><h1>&#129514; YiPet <span class="accent">自检中心</span></h1><p class="sub">测试文件浏览 · 结果面板 · 源码查看 — 联动 docs + demos · 14 测试文件 · 250+ 断言</p></div>
 
-    <!-- Stats -->
-    <div class="stats" id="stats">
-      <div class="stat"><div class="num" data-target="13">0</div><div class="label">测试文件</div></div>
-      <div class="stat"><div class="num pass" data-target="250">0</div><div class="label">测试用例</div></div>
-      <div class="stat"><div class="num" data-target="2763">0</div><div class="label">总行数</div></div>
-      <div class="stat"><div class="num" data-target="52">0</div><div class="label">测试套件</div></div>
-      <div class="stat"><div class="num" data-target="4">0</div><div class="label">dev 依赖</div></div>
-      <div class="stat"><div class="num" data-target="2">0</div><div class="label">运行模式</div></div>
-    </div>
+  <div class="stats-grid" id="statsRow"></div>
+  <div class="bar-wrap"><div class="bar-outer" id="bar" title="点击进度条筛选状态"></div></div>
 
-    <!-- Cross-panel navigation -->
-    <div class="cross-nav">
-      <a href="../docs/index.html" class="cross-card">
-        <span class="cross-icon">📖</span>
-        <span class="cross-info">
-          <span class="cross-name">文档中心</span>
-          <span class="cross-stats">架构 · 契约 · 改进提案</span>
-        </span>
-        <span class="cross-arrow">→</span>
-      </a>
-      <a href="../demos/" class="cross-card">
-        <span class="cross-icon">🎮</span>
-        <span class="cross-info">
-          <span class="cross-name">Demo 中心</span>
-          <span class="cross-stats">三方库事例 · 交互展示</span>
-        </span>
-        <span class="cross-arrow">→</span>
-      </a>
-    </div>
-
-    <!-- Infrastructure -->
-    <div class="section-title"><span class="accent">⚙</span> 测试基础设施</div>
-    <div class="infra-grid">
-      <div class="setup-card">
-        <h4><span class="accent">vitest.config.js</span> <span style="font-weight:400;color:var(--text-muted);font-size:0.74rem;">jsdom · globals · setupFiles</span></h4>
-        <ul class="fn-list">
-          <li class="fn-item"><span class="sig">environment</span>: jsdom</li>
-          <li class="fn-item"><span class="sig">globals</span>: true</li>
-          <li class="fn-item"><span class="sig">include</span>: tests/**/*.test.mjs</li>
-          <li class="fn-item"><span class="sig">setupFiles</span>: ./tests/setup.mjs</li>
-        </ul>
-      </div>
-      <div class="setup-card">
-        <h4><span class="accent">测试依赖</span> <span style="font-weight:400;color:var(--text-muted);font-size:0.74rem;">devDependencies</span></h4>
-        <ul class="fn-list">
-          <li class="fn-item"><span class="sig">vitest</span> ^3.1.1</li>
-          <li class="fn-item"><span class="sig">jsdom</span> ^26.0.0</li>
-          <li class="fn-item"><span class="sig">@vitest/coverage-v8</span> ^3.1.1</li>
-          <li class="fn-item"><span class="sig">node-fetch</span> ^3.3.2</li>
-        </ul>
-        <p class="info-text">零构建 ESM 测试 — IIFE 模块通过 loadModule 加载到 jsdom，jest 风格全局 API（describe/it/expect），chrome API 由 tests/mocks/chrome.mjs 完整模拟。</p>
-      </div>
-    </div>
-
-    <!-- Test file list -->
-    <div class="section-title">
-      <span><span class="accent">📋</span> 测试文件</span>
-      <span style="font-size:0.73rem;color:var(--text-muted);" id="expandedCount"></span>
-    </div>
-    <div id="testList"></div>
-
-    <!-- Run card -->
-    <div class="run-card">
-      <p class="run-title"><span class="accent">▶</span> 运行测试</p>
-      <code id="cmdTest" title="点击复制">npm test</code>
-      <span style="color:var(--text-muted);margin:0 6px;">·</span>
-      <code id="cmdWatch" title="点击复制">npm run test:watch</code>
-      <span style="color:var(--text-muted);margin:0 6px;">·</span>
-      <code id="cmdCoverage" title="点击复制">npm run test:coverage</code>
-      <span style="color:var(--text-muted);margin:0 6px;">·</span>
-      <code id="cmdVitest" title="点击复制">npx vitest run</code>
-      <span style="color:var(--text-muted);margin:0 6px;">·</span>
-      <code id="cmdFile" title="点击复制">npx vitest run tests/unit/token.test.mjs</code>
-      <p class="tip">依赖: Node.js · vitest ^3.1.1 · jsdom ^26.0.0 · 全量耗时 &lt;3s</p>
-      <p class="copied" id="copiedMsg">✓ 已复制到剪贴板</p>
-    </div>
-
-    <hr>
-    <p class="footer-note">
-      YiPet 测试套件 · 测试文件位于 <strong>tests/</strong> 目录 · jsdom 模拟完整 Chrome Extension 环境 ·
-      <a href="../CLAUDE.md">CLAUDE.md</a> ·
-      <a href="../docs/故事任务面板/自主测试/故事任务.md">测试方案文档</a>
-    </p>
+  <div class="cross-nav">
+    <a class="cross-link" href="../docs/index.html">&#128451; 文档中心</a>
+    <span class="cross-sep">·</span>
+    <a class="cross-link" href="../demos/index.html">&#127918; Demo 中心</a>
+    <span class="cross-sep">·</span>
+    <span class="cross-link on" id="navStatus">&#129514; 自检中心</span>
   </div>
 
-  <script>
-  (function() {
-    'use strict';
+  <div class="tabs">
+    <span class="tab on" data-panel="files">&#128193; 测试文件</span>
+    <span class="tab" data-panel="results">&#128202; 执行结果</span>
+    <span class="tab" data-panel="slow">&#128034; 慢测试</span>
+  </div>
 
-    // ===== Test Data =====
-    var testData = [
-      {
-        id: 'token',
-        icon: '🔑',
-        iconClass: 'auth',
-        title: 'Token 认证测试',
-        files: ['tests/unit/token.test.mjs', 'tests/core/utils/token.test.mjs'],
-        lines: 247,
-        size: '8.3 KB',
-        framework: 'Vitest + jsdom',
-        tests: 27,
-        suites: [
-          { name: 'TokenManager 构造与校验 (unit)', count: 8, cases: [
-            '创建实例使用默认 storageKey',
-            '接受自定义 storageKey',
-            'rejects null/undefined token',
-            'rejects 非字符串类型',
-            'rejects 空字符串',
-            'rejects 短 token (< 10 chars)',
-            'accepts 有效 token (>= 10 chars, alphanumeric + _ -)',
-            'rejects 含无效字符的 token'
-          ]},
-          { name: '三级降级回退 (unit)', count: 4, cases: [
-            'getTokenSync 返回环境变量 token',
-            'getTokenSync 无 token 时返回空',
-            'getToken 从 chrome.storage 读取',
-            'getToken storage 为空时返回空'
-          ]},
-          { name: 'save / clear (unit)', count: 4, cases: [
-            'saveToken 存储并缓存 token',
-            'clearToken 从缓存和 storage 中清除',
-            'hasTokenSync 有 token 时返回 true',
-            'hasTokenSync 无 token 时返回 false'
-          ]},
-          { name: '三级降级回退 (core)', count: 4, cases: [
-            'TC1: 返回 window.__API_X_TOKEN__',
-            'TC2: 回退到 chrome.storage.local',
-            'TC3: 无 token 返回空字符串',
-            'TC4: getToken 总是从 storage 读取而非缓存'
-          ]},
-          { name: 'validate / save / clear (core)', count: 5, cases: [
-            'TC5: 有效 token 返回 true',
-            'TC6: 空白 token 返回 false',
-            'TC7: saveToken 写入 chrome.storage.local',
-            'TC8: clearToken 清除 storage 中的 token',
-            'TC9: storage API 故障时返回空字符串'
-          ]}
-        ],
-        desc: '验证 Token 三级降级策略（环境变量 → chrome.storage → 空 token）、格式校验、持久化与清除，覆盖正常路径和 storage API 故障场景。',
-        tags: ['Token', '认证', '降级', 'chrome.storage']
-      },
-      {
-        id: 'http',
-        icon: '🌐',
-        iconClass: 'http',
-        title: 'HTTP 客户端与 API 测试',
-        files: ['tests/unit/api.test.mjs', 'tests/unit/request.test.mjs', 'tests/core/utils/request.test.mjs'],
-        lines: 793,
-        size: '29.9 KB',
-        framework: 'Vitest + jsdom',
-        tests: 64,
-        suites: [
-          { name: 'HTTP 方法 (api + request + core)', count: 14, cases: [
-            'GET 返回 JSON 解析数据',
-            'GET 处理业务 code 0 响应',
-            'GET 业务错误码抛出异常',
-            'GET 返回 text 响应',
-            'GET 返回 blob 响应',
-            'POST 发送 JSON body',
-            'POST FormData 不设 Content-Type',
-            'POST string body 原样发送',
-            'PUT 使用 PUT 方法',
-            'DELETE 无 body',
-            'GET 便捷方法',
-            'POST 便捷方法',
-            'PUT 便捷方法',
-            'DELETE 便捷方法'
-          ]},
-          { name: '请求头处理', count: 4, cases: [
-            'POST 默认 Content-Type application/json',
-            '合并自定义 headers 与默认值',
-            '请求级 headers 覆盖默认值',
-            '设置 X-Token 认证头'
-          ]},
-          { name: '超时与重试', count: 7, cases: [
-            '超时后 reject timeout 错误',
-            '首次网络失败后重试成功',
-            '最多重试 3 次后 reject',
-            '仅网络错误重试（非 HTTP 错误）',
-            'AbortError 触发重试',
-            '指数退避间隔',
-            'NON_RETRY_ERROR_CODES 不重试'
-          ]},
-          { name: 'AbortController', count: 5, cases: [
-            'abortKey 中断请求并 reject',
-            '不存在 key 的 abort 无操作',
-            '无 key 时 abort 无操作',
-            'TC19: abortKey 中断请求',
-            'destroy 清除所有 abort controllers'
-          ]},
-          { name: 'URL 构建与参数', count: 5, cases: [
-            'query params 构建 URL',
-            '过滤 null/undefined 值',
-            '无 params 返回原 URL',
-            'appends params as query string',
-            'TC20: 构建带 query params 的 URL'
-          ]},
-          { name: '响应解析', count: 4, cases: [
-            'data 字段存在时返回 data',
-            '无 data 字段返回完整 body',
-            '业务错误码抛出',
-            'text/* 返回 text'
-          ]},
-          { name: '构造与工厂', count: 5, cases: [
-            '默认选项初始化',
-            '自定义 timeout 和 headers',
-            '导出便捷创建器',
-            'default requestClient 在 globalThis 可用',
-            'createRequestClient 工厂返回新实例'
-          ]}
-        ],
-        desc: '验证 RequestClient 的 HTTP 方法、请求头、超时重试（3 次 + 指数退避）、AbortController 中断、URL 构建、响应解析和工厂创建，覆盖 44 个 HTTP 用例 + 20 个核心用例。',
-        tags: ['HTTP', '重试', '超时', 'AbortController', 'JSON', 'fetch']
-      },
-      {
-        id: 'storage',
-        icon: '💾',
-        iconClass: 'storage',
-        title: '存储与状态管理测试',
-        files: ['tests/unit/storage.test.mjs', 'tests/core/utils/storage.test.mjs'],
-        lines: 488,
-        size: '17.0 KB',
-        framework: 'Vitest + jsdom',
-        tests: 46,
-        suites: [
-          { name: 'chrome.storage mock', count: 5, cases: [
-            '存储和检索值',
-            '缺失 key 返回 undefined',
-            '移除 key',
-            '清除所有数据',
-            '模拟 lastError'
-          ]},
-          { name: 'StorageUtils', count: 14, cases: [
-            'isChromeStorageAvailable: storage 可用返回 true',
-            'isChromeStorageAvailable: 上下文失效返回 false',
-            'normalizeState: 填充缺失字段默认值',
-            'normalizeState: 保留已有值',
-            'normalizeState: null state 返回 null',
-            'loadFromChromeStorage: 按 key 加载',
-            'loadFromChromeStorage: 缺失 key 返回 null',
-            'loadFromChromeStorage: storage 不可用返回 null',
-            'saveToChromeStorage: 保存成功返回 true',
-            'saveToChromeStorage: storage 不可用返回 false',
-            'loadGlobalState: 加载并规范化全局状态',
-            'saveGlobalState: 保存带时间戳的规范化状态'
-          ]},
-          { name: 'StorageHelper', count: 7, cases: [
-            'isChromeStorageAvailable: runtime.id 存在返回 true',
-            'isChromeStorageAvailable: 上下文失效返回 false',
-            'set 和 get 正常读写',
-            'storage 不可用返回 contextInvalidated',
-            'get 缺失 key 返回 null',
-            'cleanupOldData: 移除 petOssFiles',
-            'cleanupOldData: 上下文失效优雅降级'
-          ]},
-          { name: 'Position helpers', count: 3, cases: [
-            'getPetDefaultPosition 返回默认位置',
-            'getChatWindowDefaultPosition 返回右上位置',
-            'getCenterPosition 居中元素'
-          ]},
-          { name: 'SessionManager', count: 12, cases: [
-            'constructor 默认选项初始化',
-            'createSession 生成 UUID key',
-            'saveSession 保存到内存',
-            'saveSession 不存在的 session 返回 false',
-            'activateSession 设置 currentSessionId',
-            'activateSession 不存在返回 false',
-            'deleteSession 从 store 移除',
-            'deleteSession 删除活跃 session 时清除 currentSessionId',
-            'getAllSessions 返回排序列表',
-            'searchSessions 按标题匹配',
-            'searchSessions 无匹配返回空',
-            'searchSessions 空查询返回空'
-          ]}
-        ],
-        desc: '验证 chrome.storage mock、StorageUtils 持久化、StorageHelper 配额清理、位置计算和 SessionManager 会话生命周期，覆盖 46 个存储与状态管理用例。',
-        tags: ['chrome.storage', 'SessionManager', '持久化', '配额', '位置']
-      },
-      {
-        id: 'config',
-        icon: '⚡',
-        iconClass: 'config',
-        title: '配置与环境管理测试',
-        files: ['tests/unit/config.test.mjs'],
-        lines: 150,
-        size: '5.2 KB',
-        framework: 'Vitest + jsdom',
-        tests: 20,
-        suites: [
-          { name: 'DEFAULT_CONFIG 结构', count: 5, cases: [
-            '包含所有顶层配置节',
-            'pet 节包含必填字段',
-            'chatWindow 节包含必填字段',
-            'constants 包含必要子节',
-            'PET_CONFIG 包含 ENDPOINTS'
-          ]},
-          { name: 'buildUrl', count: 6, cases: [
-            '替换 endpoint 中的 :id 占位符',
-            '替换多个占位符',
-            '去除 baseUrl 末尾斜杠',
-            '组合时去除 endpoint 前导斜杠',
-            'endpoint 以 http 开头时返回完整 URL',
-            '处理空 params'
-          ]},
-          { name: 'buildQueryParams', count: 4, cases: [
-            '从 params 构建 query string',
-            '过滤 null 和 undefined 值',
-            'JSON 序列化对象值',
-            '空 params 返回空字符串'
-          ]},
-          { name: '环境检测', count: 5, cases: [
-            'buildDatabaseUrl 构建数据库查询 URL',
-            'buildDatabaseUrl 处理空参数',
-            '默认 production 模式',
-            'window.__PET_ENV_MODE__ 覆盖环境',
-            'endpoints 随环境模式切换'
-          ]}
-        ],
-        desc: '验证 DEFAULT_CONFIG 结构完整性、buildUrl/buildQueryParams 工具函数和环境检测切换，确保配置层正确驱动 API 端点。',
-        tags: ['配置', '环境', 'URL', 'endpoint', 'buildUrl']
-      },
-      {
-        id: 'error',
-        icon: '🛡',
-        iconClass: 'error',
-        title: '错误处理测试',
-        files: ['tests/unit/error.test.mjs'],
-        lines: 224,
-        size: '7.8 KB',
-        framework: 'Vitest + jsdom',
-        tests: 33,
-        suites: [
-          { name: 'Error 类体系', count: 7, cases: [
-            'APIError 默认值正确',
-            'APIError 接受自定义 code 和 details',
-            'NetworkError 使用 NETWORK_ERROR 码',
-            'TimeoutError 存储 timeout 值',
-            'AuthError 使用 AUTH_ERROR 码',
-            'ValidationError 存储 fields',
-            'RateLimitError 存储 retryAfter'
-          ]},
-          { name: 'ErrorHandler.categorize', count: 9, cases: [
-            '已有 APIError 原样返回',
-            '"Failed to fetch" TypeError → NetworkError',
-            'AbortError → TimeoutError',
-            'status 401 → AuthError',
-            'status 403 → AuthError',
-            'status 400 → ValidationError',
-            'status 422 → ValidationError',
-            'status 429 → RateLimitError',
-            '未知错误 → APIError UNKNOWN_ERROR'
-          ]},
-          { name: '检测方法', count: 10, cases: [
-            'isNetworkError: "Failed to fetch" TypeError → true',
-            'isNetworkError: ECONNREFUSED → true',
-            'isNetworkError: 普通错误 → false',
-            'isTimeoutError: name=AbortError → true',
-            'isTimeoutError: message 含 timeout → true',
-            'isAuthError: status 401 → true',
-            'isAuthError: "Unauthorized" message → true',
-            'isValidationError: status 400 → true',
-            'isRateLimitError: status 429 → true',
-            'null/undefined 安全处理'
-          ]},
-          { name: '重试判定', count: 3, cases: [
-            'NetworkError 未达上限时重试',
-            'retryCount == maxRetries 时不重试',
-            'RateLimitError retryAfter > 0 时重试'
-          ]},
-          { name: '辅助函数', count: 4, cases: [
-            'createError 返回 APIError',
-            'formatError 格式化 APIError 所有字段',
-            'formatError 处理普通 Error',
-            'set/get global error handler'
-          ]}
-        ],
-        desc: '验证 7 种 Error 子类、ErrorHandler.categorize 自动分类、10 个检测方法和重试判定逻辑，确保错误处理层覆盖所有异常路径。',
-        tags: ['Error', '分类', 'NetworkError', 'AuthError', '重试']
-      },
-      {
-        id: 'integration',
-        icon: '🔗',
-        iconClass: 'integration',
-        title: '服务集成测试',
-        files: ['tests/integration/pipeline.test.mjs'],
-        lines: 458,
-        size: '15.0 KB',
-        framework: 'Vitest + jsdom',
-        tests: 42,
-        suites: [
-          { name: 'SessionService — 会话 CRUD', count: 17, cases: [
-            'getSessionsList 从 API 返回会话列表',
-            'API 无 list 时返回空数组',
-            'fetch 错误时返回空数组',
-            'getSession 按 key 返回会话',
-            '缺失 key 返回 null',
-            'falsy key 返回 null',
-            'fetch 错误返回 null',
-            'createSession 创建并返回成功',
-            '无效 session data 抛出异常',
-            'saveSession 新建不存在的会话',
-            'saveSession 更新已有会话',
-            'sessionData 无 key 时抛出',
-            'deleteSession 按 key 删除',
-            '空 key 抛出异常',
-            'deleteSessions 批量删除',
-            '空数组抛出异常',
-            '非数组输入抛出异常'
-          ]},
-          { name: 'SessionService — 搜索与队列', count: 6, cases: [
-            'searchSessions 按查询搜索',
-            '空查询返回空',
-            'fetch 错误返回空',
-            'queueSave 入队会话',
-            'flushSaveQueue 批量刷新',
-            '队列去重逻辑'
-          ]},
-          { name: 'FaqService — FAQ CRUD', count: 12, cases: [
-            'getFaqs 返回规范化 FAQ 列表',
-            'response 无 list 返回空数组',
-            'fetch 错误返回空数组',
-            'createFaq 创建并返回规范化结果',
-            'null data 抛出异常',
-            '无 title/prompt/text 抛出',
-            'updateFaq 按 key 更新',
-            '空 key 抛出异常',
-            '非 object patch 抛出',
-            'deleteFaq 按 key 删除',
-            '空 key 抛出异常',
-            'saveFaqs 批量 POST 保存'
-          ]},
-          { name: 'FaqService — 搜索与标签', count: 7, cases: [
-            'searchFaqs 按查询搜索',
-            '空查询返回空',
-            'fetch 错误返回空',
-            'getFaqsByTags 按标签过滤',
-            '空 tags 数组返回空',
-            'fetch 错误返回空',
-            'getAllTags 收集所有唯一标签'
-          ]}
-        ],
-        desc: '端到端验证 SessionService（CRUD + 搜索 + 保存队列）和 FaqService（CRUD + 搜索 + 标签），确保 API → Service 集成链路正确。',
-        tags: ['集成', 'Session', 'FAQ', 'CRUD', '端到端']
-      },
-      {
-        id: 'components',
-        icon: '🧩',
-        iconClass: 'component',
-        title: 'UI 组件测试',
-        files: ['tests/modules/pet/components/ChatWindow.test.mjs', 'tests/modules/extension/sw.test.mjs'],
-        lines: 347,
-        size: '10.8 KB',
-        framework: 'Vitest + jsdom',
-        tests: 14,
-        suites: [
-          { name: 'ChatWindow 组件', count: 3, cases: [
-            'TC34: 挂载并渲染 ChatWindow 结构',
-            'TC35: 初始消息列表为空',
-            'TC36: 接收数据后渲染消息'
-          ]},
-          { name: 'ChatInput 组件', count: 3, cases: [
-            'TC37: v-model 绑定输入值到组件 data',
-            'TC38: Enter 键 emit send 事件携带输入值',
-            'TC39: 空消息不触发 send'
-          ]},
-          { name: 'Service Worker 消息路由', count: 8, cases: [
-            'TC26: getToken 返回存储的 token',
-            'TC27: setToken 保存 token',
-            'TC28: getSessions 返回会话数组',
-            'TC29: createSession 创建并返回新会话',
-            'TC30: getFaqs 返回 FAQ 列表',
-            'TC31: updateFaq 更新已有 FAQ',
-            'TC32: 未知 action 返回错误',
-            'TC33: handler 异常不崩溃返回错误'
-          ]}
-        ],
-        desc: '验证 ChatWindow/ChatInput Vue 3 组件挂载与交互，以及 Service Worker messageRouter 的 action 路由和异常处理。',
-        tags: ['Vue 3', 'ChatWindow', 'Service Worker', '组件']
-      },
-      {
-        id: 'infra',
-        icon: '🧱',
-        iconClass: 'infra',
-        title: '测试基础设施验证',
-        files: ['tests/mocks/chrome.test.mjs', 'tests/setup.mjs', 'tests/mocks/chrome.mjs', 'tests/helpers/load-module.mjs'],
-        lines: 56,
-        size: '1.8 KB',
-        framework: 'Vitest + jsdom',
-        tests: 4,
-        suites: [
-          { name: 'Chrome API Mock 自验证', count: 4, cases: [
-            'TC40: storage.local.get 返回预设 mock 数据',
-            'TC41: storage.local.set 持久化到内存并可检索',
-            'TC42: runtime.onMessage listener 被 sendMessage 触发',
-            'TC43: runtime.sendMessage 返回 listener 响应'
-          ]}
-        ],
-        desc: '验证测试基础设施本身正确性：chrome API mock（Map storage + EventEmitter）、setup.mjs 全局初始化、load-module.mjs IIFE 加载器。',
-        tags: ['mock', 'chrome API', 'setup', 'loadModule', '基础设施']
-      }
-    ];
+  <div class="panel on" id="panelFiles">
+    <div class="toolbar">
+      <div class="search-wrap"><span class="si">&#128269;</span><input type="text" id="searchFiles" placeholder="搜索文件…" autocomplete="off"></div>
+      <button class="btn" onclick="expandAllFiles()">&#8862; 展开</button>
+      <button class="btn" onclick="collapseAllFiles()">&#8863; 收起</button>
+      <button class="btn" onclick="copyFileList()">&#128203; 复制清单</button>
+      <a class="btn" href="manifest.json" target="_blank">&#128196; JSON</a>
+      <span class="kbd-hint">Ctrl+F 搜索</span>
+    </div>
+    <div id="filesContent"></div>
+  </div>
 
-    // ===== State =====
-    var expandedCards = {};
+  <div class="panel" id="panelResults">
+    <div class="toolbar">
+      <div class="search-wrap"><span class="si">&#128269;</span><input type="text" id="searchResults" placeholder="搜索测试名称…" autocomplete="off"></div>
+      <button class="btn" id="btnSortDur" onclick="toggleSort()">&#9201; 耗时排序</button>
+      <button class="btn" onclick="expandAllSuites()">&#8862; 展开全部</button>
+      <button class="btn" onclick="collapseAllSuites()">&#8863; 收起全部</button>
+      <button class="btn" id="btnAutoRefresh" onclick="toggleAutoRefresh()">&#128259; 自动刷新</button>
+      <button class="btn" onclick="copyResultsMd()">&#128203; 复制 MD</button>
+      <span class="kbd-hint">j/k 导航 · Enter 展开 · Esc 关闭</span>
+    </div>
+    <div id="resultsContent"></div>
+  </div>
 
-    // ===== DOM refs =====
-    var testList = document.getElementById('testList');
-    var copiedMsg = document.getElementById('copiedMsg');
-    var expandedCount = document.getElementById('expandedCount');
-    var globalBar = document.getElementById('globalBar');
-    var passRateText = document.getElementById('passRateText');
+  <div class="panel" id="panelSlow">
+    <div class="toolbar"><span style="color:var(--text3);font-size:.82rem">超过 100ms 的测试（按耗时降序）</span></div>
+    <div id="slowContent"></div>
+  </div>
 
-    // ===== Animate stats =====
-    function animateStats() {
-      var nums = document.querySelectorAll('#stats .num[data-target]');
-      nums.forEach(function(el) {
-        var target = parseInt(el.getAttribute('data-target'));
-        var duration = 1000;
-        var start = performance.now();
-        function step(ts) {
-          var progress = Math.min((ts - start) / duration, 1);
-          var eased = 1 - Math.pow(1 - progress, 3);
-          el.textContent = Math.floor(eased * target);
-          if (progress < 1) requestAnimationFrame(step);
-          else el.textContent = target;
-        }
-        requestAnimationFrame(step);
-      });
-    }
+  <!-- ── Run card ──────────────────────────────── -->
+  <div class="run-card">
+    <p class="run-title"><span class="accent">&#9654;</span> 运行测试</p>
+    <code onclick="copyCmd(this,'npm test')" title="点击复制">npm test</code>
+    <span style="color:var(--text3);margin:0 6px">·</span>
+    <code onclick="copyCmd(this,'npm run test:watch')" title="点击复制">npm run test:watch</code>
+    <span style="color:var(--text3);margin:0 6px">·</span>
+    <code onclick="copyCmd(this,'npm run test:coverage')" title="点击复制">npm run test:coverage</code>
+    <span style="color:var(--text3);margin:0 6px">·</span>
+    <code onclick="copyCmd(this,'npx vitest run')" title="点击复制">npx vitest run</code>
+    <p class="tip">依赖: Node.js · vitest ^3.1.1 · jsdom ^26.0.0 · 全量耗时 &lt;3s</p>
+  </div>
+</div>
 
-    // Animate global bar
-    function animateGlobalBar() {
-      var start = performance.now();
-      function step(ts) {
-        var progress = Math.min((ts - start) / 1200, 1);
-        var eased = 1 - Math.pow(1 - progress, 3);
-        globalBar.style.width = (eased * 100) + '%';
-        if (progress >= 1) { globalBar.style.width = '100%'; passRateText.textContent = '100%'; }
-      }
-      requestAnimationFrame(function tick(ts) {
-        step(ts);
-        if ((ts - start) < 1200) requestAnimationFrame(tick);
-      });
-    }
+<div class="modal-overlay" id="modalOverlay"><div class="modal"><div class="m-head"><span class="m-title" id="modalTitle"></span><button class="m-close" onclick="closeModal()">&#10005;</button></div><div class="m-body" id="modalBody"></div></div></div>
+<div class="toast" id="toast"></div>
 
-    // ===== Render test cards =====
-    function renderCards() {
-      var totalTests = testData.reduce(function(s, t) { return s + t.tests; }, 0);
-      var expIds = Object.keys(expandedCards).length;
-      expandedCount.textContent = expIds > 0 ? expIds + ' 个已展开' : '';
+<script>
+let manifest=null,results=null,activePanel='files',fileQuery='',resultQuery='',sortByDur=false,autoRefreshId=null,focusIdx=-1;
+const CAT_ICONS={unit:'⚙️',integration:'🔗',modules:'🧩',lib:'📦'};
+const CAT_LABELS={unit:'Unit',integration:'Integration',modules:'Modules',lib:'Library'};
+const SLOW_THRESHOLD=100;
 
-      testList.innerHTML = testData.map(function(t) {
-        var isExpanded = expandedCards[t.id];
-        var suiteTotal = 0;
-        t.suites.forEach(function(s) { suiteTotal += s.count; });
-        var pct = Math.round(t.tests / totalTests * 100);
+async function loadData(){
+  const[m,r]=await Promise.allSettled([fetch('manifest.json'),fetch('results.json')]);
+  if(m.status==='fulfilled'&&m.value.ok)manifest=await m.value.json();
+  if(r.status==='fulfilled'&&r.value.ok)results=await r.value.json();
+  render();
+}
 
-        var suitesHtml = t.suites.map(function(s) {
-          return '<div class="suite">' +
-            '<div class="suite-name">' + s.name + ' <span class="suite-count">' + s.count + ' 条</span></div>' +
-            s.cases.map(function(c) { return '<div class="case">' + c + '</div>'; }).join('') +
-          '</div>';
-        }).join('');
+function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fmtDur(ms){if(ms==null)return'';if(ms<1)return'<1ms';if(ms<1000)return Math.round(ms)+'ms';return(ms/1000).toFixed(1)+'s'}
+function fmtTs(iso){if(!iso)return'';try{return new Date(iso).toLocaleString('zh-CN')}catch{return iso}}
 
-        var filesDisplay = Array.isArray(t.files) ? t.files.join(', ') : t.files;
+function fileToResultKey(name){
+  const m={'token.test.mjs':'Token 认证测试','api.test.mjs':'API 接口测试','request.test.mjs':'HTTP 客户端测试','storage.test.mjs':'存储与状态管理测试','config.test.mjs':'配置与环境管理测试','error.test.mjs':'错误处理测试','pipeline.test.mjs':'服务集成测试','ChatWindow.test.mjs':'UI 组件测试','sw.test.mjs':'Service Worker 测试'};
+  return m[name]||null;
+}
 
-        return '<div class="test-card' + (isExpanded ? ' expanded' : '') + '" data-id="' + t.id + '">' +
-          '<div class="card-header-row">' +
-            '<span class="card-icon ' + t.iconClass + '">' + t.icon + '</span>' +
-            '<h3>' + t.title + '</h3>' +
-            '<span class="badge badge-pass">✓ ' + t.tests + ' 通过</span>' +
-          '</div>' +
-          '<div class="meta">' +
-            '<span class="meta-item">📄 ' + filesDisplay + '</span>' +
-            '<span class="meta-item">📏 ' + t.lines + ' 行 · ' + t.size + '</span>' +
-            '<span class="meta-item">📂 ' + t.suites.length + ' 套件</span>' +
-            '<span class="meta-item">📊 ' + pct + '% 占比</span>' +
-          '</div>' +
-          '<p class="desc">' + t.desc + '</p>' +
-          '<div class="card-bar-wrap"><div class="card-bar-fill" style="width:' + pct + '%"></div></div>' +
-          '<div class="covers" style="margin-top:8px;">' +
-            t.tags.map(function(tag) {
-              return '<span class="cover-tag">' + tag + '</span>';
-            }).join('') +
-          '</div>' +
-          '<div class="expand-hint">' + (isExpanded ? '▲ 收起' : '▼ 展开') + ' — ' + t.suites.length + ' 个测试套件，共 ' + suiteTotal + ' 条用例</div>' +
-          '<div class="test-detail">' + suitesHtml + '</div>' +
-        '</div>';
-      }).join('');
-    }
+function isTopMarker(name){const n=name.toLowerCase();return n.includes('测试')||n.includes('test')}
+function classifySuiteName(name){const n=name.toLowerCase();if(n.includes('token'))return'unit';if(n.includes('api')||n.includes('http'))return'unit';if(n.includes('存储')||n.includes('storage'))return'unit';if(n.includes('配置')||n.includes('config'))return'unit';if(n.includes('错误')||n.includes('error'))return'unit';if(n.includes('集成')||n.includes('pipeline'))return'integration';if(n.includes('ui')||n.includes('service'))return'modules';return'other'}
 
-    // ===== Event: card click =====
-    testList.addEventListener('click', function(e) {
-      var card = e.target.closest('.test-card');
-      if (!card) return;
-      var id = card.getAttribute('data-id');
-      if (expandedCards[id]) { delete expandedCards[id]; }
-      else { expandedCards[id] = true; }
-      renderCards();
-    });
+function buildResultMap(){
+  if(!results||!results.suites)return{};
+  const map={};let current=null;
+  for(const s of results.suites){
+    const tests=(s.tests||[]).filter(t=>t.name);
+    if(s.name!=='(standalone)'&&isTopMarker(s.name)){current=s.name;if(!map[current])map[current]={passed:0,failed:0,skipped:0,total:0,tests:[]}}
+    if(s.name==='(standalone)'&&current&&tests.length>0){map[current].tests.push(...tests);for(const t of tests){map[current].total++;if(t.status==='passed')map[current].passed++;else if(t.status==='failed')map[current].failed++;else if(t.status==='skipped')map[current].skipped++}}
+  }
+  return map;
+}
 
-    // ===== Event: copy commands =====
-    ['cmdTest', 'cmdWatch', 'cmdCoverage', 'cmdVitest', 'cmdFile'].forEach(function(id) {
-      document.getElementById(id).addEventListener('click', function(e) {
-        e.stopPropagation();
-        var text = this.textContent;
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(text).then(function() {
-            copiedMsg.classList.add('show');
-            setTimeout(function() { copiedMsg.classList.remove('show'); }, 1500);
-          });
-        }
-      });
-    });
+function getAllTests(){const rm=buildResultMap();const all=[];for(const[,r] of Object.entries(rm))all.push(...r.tests);return all}
 
-    // ===== Keyboard shortcut: Escape to collapse all =====
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { expandedCards = {}; renderCards(); }
-    });
+// ═══ Stats ═══
+function renderStats(){
+  const s=results?.summary||{};const t=s.total||0,p=s.passed||0,f=s.failed||0,sk=s.skipped||0;
+  const dur=results?.durationMs?fmtDur(results.durationMs):'--';
+  const passPct=t>0?(p/t*100).toFixed(1):'0';
+  document.getElementById('statsRow').innerHTML=
+    '<div class="stat-card" onclick="filterByStatus(\'all\')" id="statAll"><div class="val t">'+t+'</div><div class="lbl">总计断言</div></div>'+
+    '<div class="stat-card" onclick="filterByStatus(\'passed\')" id="statPassed"><div class="val p">'+p+'</div><div class="lbl">✅ 通过 · '+passPct+'%</div></div>'+
+    '<div class="stat-card" onclick="filterByStatus(\'failed\')" id="statFailed"><div class="val f">'+f+'</div><div class="lbl">❌ 失败</div></div>'+
+    '<div class="stat-card" onclick="filterByStatus(\'skipped\')" id="statSkipped"><div class="val s">'+sk+'</div><div class="lbl">⏭️ 跳过</div></div>'+
+    '<div class="stat-card"><div class="val d">'+dur+'</div><div class="lbl">⏱ 耗时</div></div>';
+  const pp=t>0?(p/t*100):0,fp=t>0?(f/t*100):0,sp=t>0?(sk/t*100):0;
+  document.getElementById('bar').innerHTML='<div class="seg p" style="width:'+pp+'%"></div><div class="seg f" style="width:'+fp+'%"></div><div class="seg s" style="width:'+sp+'%"></div>';
+  document.getElementById('navStatus').textContent=results?'🧪 自检中心 · '+p+'/'+t+' 通过':'🧪 自检中心';
+}
 
-    // ===== Init =====
-    renderCards();
-    animateStats();
-    setTimeout(animateGlobalBar, 300);
-  })();
-  </script>
+// ═══ Files panel ═══
+function renderFiles(){
+  const container=document.getElementById('filesContent');
+  if(!manifest||!manifest.files){container.innerHTML='<div class="state-msg"><div class="icon">📁</div><h3>文件清单不可用</h3><p>运行 <code>node tests/run.mjs --json</code></p></div>';return}
+  const resultMap=buildResultMap();
+  const testFiles=manifest.files.filter(f=>f.name.endsWith('.test.mjs')||f.name==='setup.mjs'||(f.dir==='lib'&&f.name.endsWith('.mjs')));
+  const groups={};for(const f of testFiles){const cat=f.dir==='lib'?'lib':f.dir;if(!groups[cat])groups[cat]=[];groups[cat].push(f)}
+  const order=['unit','integration','modules','lib'];let html='';
+  for(const cat of order){const files=groups[cat];if(!files||!files.length)continue;
+    html+='<div class="layer"><div class="layer-head"><span class="ln">'+files.length+'</span><h2>'+(CAT_ICONS[cat]||'')+' '+CAT_LABELS[cat]+'</h2><span class="ls">'+files.length+' 文件</span></div><div class="file-grid">';
+    for(const f of files){if(fileQuery&&!f.name.toLowerCase().includes(fileQuery)&&!f.path.toLowerCase().includes(fileQuery)&&!(f.desc&&f.desc.toLowerCase().includes(fileQuery)))continue;
+      const rKey=fileToResultKey(f.name);const r=rKey?resultMap[rKey]:null;
+      let badge='';if(r&&r.total>0)badge=r.failed>0?'<span class="fc-badge fail">❌ '+r.failed+'/'+r.total+'</span>':'<span class="fc-badge pass">✅ '+r.passed+'/'+r.total+'</span>';else if(f.name.endsWith('.test.mjs'))badge='<span class="fc-badge none">未执行</span>';
+      html+='<div class="file-card" onclick="viewSource(\''+esc(f.path)+'\')" title="点击查看源码 · 右键复制路径"><span class="fc-icon">'+(f.dir==='lib'?'📦':'📄')+'</span><div class="fc-body"><div class="fc-name">'+esc(f.name)+' '+badge+'</div><div class="fc-path">'+esc(f.path)+'</div>'+(f.desc?'<div class="fc-desc">'+esc(f.desc)+'</div>':'')+'<div class="fc-meta"><span>📏 '+f.lines+' 行</span><span>📦 '+(f.size/1024).toFixed(1)+'KB</span>'+(r?'<span>🧪 '+r.total+' 断言</span>':'')+'</div></div></div>'}
+    html+='</div></div>'}
+  container.innerHTML=html||'<div class="state-msg"><div class="icon">🔍</div><h3>无匹配文件</h3></div>';
+}
+
+// ═══ Results panel ═══
+function renderResults(){
+  const container=document.getElementById('resultsContent');
+  if(!results||!results.suites){container.innerHTML='<div class="state-msg"><div class="icon">📊</div><h3>暂无测试结果</h3><p>运行 <code>node tests/run.mjs --json</code></p></div>';return}
+  const resultMap=buildResultMap();const entries=Object.entries(resultMap);
+  if(!entries.length){container.innerHTML='<div class="state-msg"><div class="icon">📊</div><h3>无结果数据</h3></div>';return}
+  const order={unit:1,integration:2,modules:3};entries.sort((a,b)=>(order[classifySuiteName(a[0])]||5)-(order[classifySuiteName(b[0])]||5));
+  let html='';focusIdx=-1;
+  for(const[name,r]of entries){
+    if(resultQuery){const mn=name.toLowerCase().includes(resultQuery);const mt=r.tests.some(t=>t.name.toLowerCase().includes(resultQuery)||(t.error&&t.error.toLowerCase().includes(resultQuery)));if(!mn&&!mt)continue}
+    const cat=classifySuiteName(name);const icon=CAT_ICONS[cat]||'📦';const hasFail=r.failed>0;
+    let tests=r.tests;if(sortByDur)tests=[...tests].sort((a,b)=>(b.duration||0)-(a.duration||0));
+    const maxDur=Math.max(...tests.map(t=>t.duration||0),1);
+    html+='<div class="suite'+(hasFail?' open':'')+'" data-cat="'+cat+'" data-name="'+esc(name)+'"><div class="s-head" data-action="toggle"><span class="s-arrow">▶</span><span class="s-name">'+icon+' '+esc(name)+'</span><span class="s-meta">'+(r.passed>0?'<span class="sm p">✅ '+r.passed+'</span>':'')+(r.failed>0?'<span class="sm f">❌ '+r.failed+'</span>':'')+(r.skipped>0?'<span class="sm" style="color:var(--skip)">⏭️ '+r.skipped+'</span>':'')+'</span></div><div class="s-body">';
+    for(const t of tests){if(resultQuery&&!t.name.toLowerCase().includes(resultQuery)&&!(t.error&&t.error.toLowerCase().includes(resultQuery)))continue;
+      const durMs=t.duration||0;const barPct=maxDur>0?Math.round(durMs/maxDur*100):0;
+      const durClass=durMs>500?'very-slow':durMs>SLOW_THRESHOLD?'slow':'';
+      html+='<div class="t-row'+(t.status==='failed'?' fail':'')+'" data-test="'+esc(t.name)+'" onclick="copyTestName(\''+esc(t.name)+'\')" title="点击复制测试名"><span class="t-icon">'+(t.status==='passed'?'✅':t.status==='failed'?'❌':t.status==='skipped'?'⏭️':'⬜')+'</span><span class="t-name">'+esc(t.name)+'</span>'+(t.error?'<span class="t-err" title="'+esc(t.error)+'">'+esc(t.error)+'</span>':'')+'<span class="t-dur '+durClass+'"><div class="td-bar"><div class="td-bar-inner" style="width:'+barPct+'%"></div></div>'+fmtDur(t.duration)+(durMs>SLOW_THRESHOLD?'<span class="slow-warn">🐢</span>':'')+'</span></div>'}
+    html+='</div></div>'}
+  container.innerHTML=html||'<div class="state-msg"><div class="icon">🔍</div><h3>无匹配结果</h3></div>';
+}
+
+// ═══ Slow tests panel ═══
+function renderSlow(){
+  const container=document.getElementById('slowContent');
+  const all=getAllTests();const slow=all.filter(t=>(t.duration||0)>SLOW_THRESHOLD).sort((a,b)=>(b.duration||0)-(a.duration||0));
+  if(!slow.length){container.innerHTML='<div class="state-msg"><div class="icon">⚡</div><h3>所有测试都在 '+SLOW_THRESHOLD+'ms 以内</h3></div>';return}
+  let html='';
+  for(const t of slow){html+='<div class="t-row'+(t.status==='failed'?' fail':'')+'" style="padding-left:18px" onclick="copyTestName(\''+esc(t.name)+'\')" title="点击复制测试名"><span class="t-icon">'+(t.status==='passed'?'✅':'❌')+'</span><span class="t-name">'+esc(t.name)+'</span><span class="t-dur very-slow">'+fmtDur(t.duration)+'</span></div>'}
+  container.innerHTML=html;
+}
+
+// ═══ Source modal ═══
+async function viewSource(relPath){
+  const overlay=document.getElementById('modalOverlay');
+  document.getElementById('modalTitle').textContent=relPath;
+  document.getElementById('modalBody').innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">加载中…</div>';
+  overlay.classList.add('show');
+  try{
+    const resp=await fetch(relPath);
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const text=await resp.text();
+    const lines=text.split('\n');
+    document.getElementById('modalBody').innerHTML='<pre>'+lines.map((l,i)=>'<span class="ln">'+(i+1)+'</span>'+esc(l)).join('\n')+'</pre>';
+  }catch(e){document.getElementById('modalBody').innerHTML='<div style="padding:40px;text-align:center;color:var(--fail)">无法加载: '+esc(e.message)+'</div>'}
+}
+
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show')}
+
+// ═══ Actions ═══
+function expandAllFiles(){document.querySelectorAll('#filesContent .file-card').forEach(c=>c.style.display='')}
+function collapseAllFiles(){}
+function expandAllSuites(){document.querySelectorAll('#resultsContent .suite').forEach(c=>c.classList.add('open'))}
+function collapseAllSuites(){document.querySelectorAll('#resultsContent .suite').forEach(c=>c.classList.remove('open'))}
+function toggleSort(){sortByDur=!sortByDur;document.getElementById('btnSortDur').classList.toggle('on',sortByDur);renderResults()}
+function toggleAutoRefresh(){
+  if(autoRefreshId){clearInterval(autoRefreshId);autoRefreshId=null;document.getElementById('btnAutoRefresh').classList.remove('on');toast('自动刷新已关闭')}
+  else{autoRefreshId=setInterval(async()=>{try{const r=await fetch('results.json');if(r.ok){results=await r.json();render()}}catch{}},10000);document.getElementById('btnAutoRefresh').classList.add('on');toast('每 10 秒自动刷新')}
+}
+
+function copyTestName(name){navigator.clipboard.writeText(name).then(()=>toast('已复制: '+name)).catch(()=>{})}
+function copyCmd(btn,text){
+  if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>{
+    const orig=btn.textContent;btn.textContent='✅ 已复制';btn.style.animation='checkBounce .3s ease';
+    setTimeout(()=>{btn.textContent=orig;btn.style.animation=''},1500);
+  })}
+}
+
+async function copyResultsMd(){
+  if(!results)return;const s=results.summary||{};
+  let md='## YiPet 自检结果\n\n| 指标 | 值 |\n|------|----|\n| 总计 | '+(s.total||0)+' |\n| ✅ 通过 | '+(s.passed||0)+' |\n| ❌ 失败 | '+(s.failed||0)+' |\n| ⏱ 耗时 | '+fmtDur(results.durationMs)+' |\n| 🕐 时间 | '+fmtTs(results.timestamp)+' |\n';
+  const rm=buildResultMap();for(const[name,r] of Object.entries(rm)){const icon=r.failed>0?'❌':'✅';md+='\n### '+icon+' '+name+'\n| 通过 | 失败 | 跳过 | 总计 |\n|------|------|------|------|\n| '+r.passed+' | '+r.failed+' | '+r.skipped+' | '+r.total+' |\n'}
+  try{await navigator.clipboard.writeText(md);toast('已复制为 Markdown')}catch{toast('复制失败')}
+}
+
+async function copyFileList(){
+  if(!manifest)return;const list=manifest.files.map(f=>f.path).join('\n');
+  try{await navigator.clipboard.writeText(list);toast('已复制文件清单')}catch{toast('复制失败')}
+}
+
+function filterByStatus(status){
+  resultQuery=status==='all'?'':status==='passed'?'✅':status==='failed'?'❌':'';
+  document.querySelectorAll('.stat-card').forEach(c=>c.classList.remove('active-filter'));
+  const el=document.getElementById(status==='all'?'statAll':status==='passed'?'statPassed':status==='failed'?'statFailed':status==='skipped'?'statSkipped':'statAll');
+  if(el)el.classList.add('active-filter');
+  switchPanel('results');renderResults();
+}
+
+function switchPanel(name){
+  activePanel=name;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.panel===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='panel'+(name==='files'?'Files':name==='results'?'Results':name==='slow'?'Slow':'')));
+  if(name==='files')renderFiles();
+  else if(name==='results')renderResults();
+  else if(name==='slow')renderSlow();
+}
+
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),1800)}
+
+// ═══ Keyboard navigation ═══
+document.addEventListener('keydown',e=>{
+  if(document.activeElement.tagName==='INPUT')return;
+  if(e.key==='Escape'){closeModal();}
+  if(e.key==='j'||e.key==='ArrowDown'){e.preventDefault();focusIdx++;navigateResults();}
+  if(e.key==='k'||e.key==='ArrowUp'){e.preventDefault();focusIdx=Math.max(-1,focusIdx-1);navigateResults();}
+  if(e.key==='Enter'&&activePanel==='results'){const focused=document.querySelector('.suite.focused');if(focused){focused.classList.toggle('open');}}
+  if(e.key==='Enter'&&activePanel==='files'){const focused=document.querySelector('.file-card.focused');if(focused)focused.click();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();const inp=document.getElementById(activePanel==='files'?'searchFiles':'searchResults');if(inp)inp.focus();}
+  if(e.key==='1')switchPanel('files');
+  if(e.key==='2')switchPanel('results');
+  if(e.key==='3')switchPanel('slow');
+});
+
+function navigateResults(){
+  document.querySelectorAll('.suite.focused,.t-row.focused,.file-card.focused').forEach(e=>e.classList.remove('focused'));
+  const suites=document.querySelectorAll('#resultsContent .suite');
+  if(suites.length===0)return;
+  if(focusIdx<0)return;
+  if(focusIdx>=suites.length)focusIdx=suites.length-1;
+  suites[focusIdx].classList.add('focused');
+  suites[focusIdx].scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ═══ Event delegation ═══
+document.querySelector('.tabs').addEventListener('click',e=>{const tab=e.target.closest('.tab');if(!tab)return;switchPanel(tab.dataset.panel)});
+document.getElementById('searchFiles').addEventListener('input',function(){fileQuery=this.value.toLowerCase().trim();renderFiles()});
+document.getElementById('searchResults').addEventListener('input',function(){resultQuery=this.value.toLowerCase().trim();renderResults()});
+document.getElementById('resultsContent').addEventListener('click',e=>{const head=e.target.closest('.s-head');if(head){const suite=head.closest('.suite');suite.classList.toggle('open')}});
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+document.getElementById('bar').addEventListener('click',function(e){const rect=this.getBoundingClientRect();const pct=(e.clientX-rect.left)/rect.width;if(pct<.33)filterByStatus('passed');else if(pct<.66)filterByStatus('failed');else filterByStatus('skipped')});
+
+// ═══ Render ═══
+function render(){renderStats();if(activePanel==='files')renderFiles();else if(activePanel==='results')renderResults();else if(activePanel==='slow')renderSlow()}
+loadData();
+</script>
 </body>
 </html>

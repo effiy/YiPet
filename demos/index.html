@@ -1,668 +1,559 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YiPet Demo 中心</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>YiPet · Demo 中心</title>
+  <link rel="stylesheet" href="shared/demo.css">
   <style>
     :root {
       --bg-content: rgba(22,22,32,1);
       --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
-      --bg-card-flat: rgba(34,34,46,1);
-      --color-accent: #FFC107;
-      --color-accent-2: #22d3ee;
-      --color-accent-3: #a855f7;
-      --color-accent-4: #f59e0b;
-      --color-accent-5: #10b981;
-      --text-primary: rgba(250,250,252,1);
-      --text-secondary: rgba(160,160,164,1);
-      --text-muted: rgba(110,110,114,1);
-      --shadow-card: 0 4px 20px rgba(0,0,0,0.3);
-      --shadow-hover: 0 12px 32px rgba(0,0,0,0.45);
-      --radius-card: 12px;
-      --radius-sm: 6px;
-      --border-subtle: 1px solid rgba(255,255,255,0.06);
-      --transition-fast: 0.15s ease;
-      --transition-smooth: 0.2s ease;
+      --bg-flat: rgba(34,34,46,1); --bg-raised: rgba(42,42,56,1);
+      --accent: #FFC107; --cyan: #22d3ee; --purple: #a855f7;
+      --pass: #22c55e; --fail: #ef4444; --warn: #f59e0b;
+      --text: rgba(250,250,252,1); --text2: rgba(160,160,164,1); --text3: rgba(110,110,114,1);
+      --shadow: 0 4px 20px rgba(0,0,0,0.3); --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+      --radius: 12px; --border: 1px solid rgba(255,255,255,0.06);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg-content);
-      color: var(--text-primary);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", system-ui, sans-serif;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeInDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideDown { from{opacity:0;max-height:0} to{opacity:1;max-height:600px} }
+    @keyframes checkBounce { 0%{transform:scale(.9)} 60%{transform:scale(1.05)} 100%{transform:scale(1)} }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,193,7,.4)} 50%{box-shadow:0 0 0 6px rgba(255,193,7,0)} }
 
-    .demo-container { max-width: 1160px; margin: 0 auto; padding: 40px 20px 20px; }
+    * { box-sizing:border-box;margin:0;padding:0 }
+    html { scroll-behavior:smooth }
+    body { background:var(--bg-content);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased }
+    .container { max-width:1120px;margin:0 auto;padding:48px 24px 80px }
 
-    /* ── Header ─────────────────────────────── */
-    .demo-header { text-align: center; margin-bottom: 20px; animation: fadeInDown 0.5s ease both; }
-    .demo-header h1 { font-size: 2.3rem; font-weight: 700; letter-spacing: -0.02em; }
-    .demo-header h1 .accent {
-      background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .demo-header .subtitle {
-      color: var(--text-secondary); margin-top: 8px; font-size: 0.92rem;
-      max-width: 640px; margin-left: auto; margin-right: auto;
-    }
-    .demo-header .subtitle code {
-      background: rgba(255,193,7,0.12); color: var(--color-accent);
-      padding: 1px 6px; border-radius: 3px; font-size: 0.88em;
-    }
+    /* ── Breadcrumb ─────────────────────────── */
+    .breadcrumb { display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:16px;font-size:.78rem;animation:fadeInDown .4s ease both }
+    .breadcrumb a { color:var(--cyan);text-decoration:none;transition:color .15s }
+    .breadcrumb a:hover { color:var(--accent);text-decoration:underline }
+    .breadcrumb .sep { color:var(--text3);opacity:.4;user-select:none }
+    .breadcrumb .current { color:var(--text2);font-weight:500 }
 
-    /* ── Quick-nav ribbon ──────────────────── */
-    .quick-nav {
-      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
-      margin-bottom: 24px; animation: fadeInDown 0.5s 0.1s ease both;
-    }
-    .quick-nav a {
-      font-size: 0.78rem; color: var(--text-muted); text-decoration: none;
-      padding: 4px 14px; border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.08);
-      transition: all var(--transition-fast);
-    }
-    .quick-nav a:hover {
-      border-color: var(--color-accent); color: var(--color-accent);
-      background: rgba(255,193,7,0.08);
-    }
+    .header { text-align:center;margin-bottom:24px;animation:fadeInDown .5s ease both }
+    .header h1 { font-size:2.1rem;font-weight:700 } .header h1 .accent { color:var(--accent) }
+    .header .sub { color:var(--text2);font-size:.9rem;margin-top:4px }
+    .header .sub code { background:rgba(255,193,7,.12);color:var(--accent);padding:1px 6px;border-radius:3px;font-size:.88em }
 
-    /* ── Stats ─────────────────────────────── */
-    .demo-stats {
-      display: flex; gap: 14px; justify-content: center; margin-bottom: 36px;
-      flex-wrap: wrap; animation: fadeInDown 0.5s 0.15s ease both;
-    }
-    .demo-stat {
-      background: var(--bg-card); border: var(--border-subtle);
-      border-radius: var(--radius-card); padding: 14px 22px; text-align: center;
-      box-shadow: var(--shadow-card); min-width: 88px;
-      transition: transform var(--transition-smooth);
-    }
-    .demo-stat:hover { transform: translateY(-2px); }
-    .demo-stat .num { font-size: 1.7rem; font-weight: 700; color: var(--color-accent); }
-    .demo-stat .num.green { color: var(--color-accent-2); }
-    .demo-stat .num.purple { color: var(--color-accent-3); }
-    .demo-stat .num.amber { color: var(--color-accent-4); }
-    .demo-stat .label { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+    .cross-nav { display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:32px;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both }
+    .cross-link { color:var(--cyan);text-decoration:none;font-size:.74rem;padding:3px 10px;border-radius:4px;transition:color .15s,background .15s }
+    .cross-link:hover { color:var(--accent);background:rgba(255,193,7,.06);text-decoration:underline }
+    .cross-link.on { color:var(--accent);font-weight:600 }
+    .cross-sep { color:var(--text3);font-size:.5rem;opacity:.35;user-select:none }
 
-    /* ── Cross-panel navigation ──────────────── */
-    .cross-nav {
-      display: flex; gap: 10px; justify-content: center; margin-bottom: 32px;
-      flex-wrap: wrap; align-items: stretch;
-      animation: fadeInDown 0.5s 0.18s ease both;
-    }
-    .cross-nav .cross-card {
-      background: var(--bg-card); border: 1px solid rgba(255,193,7,0.15);
-      border-radius: 10px; padding: 12px 18px; box-shadow: var(--shadow-card);
-      text-decoration: none; color: inherit; display: flex; gap: 10px; align-items: center;
-      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-      min-width: 180px;
-    }
-    .cross-nav .cross-card:hover {
-      transform: translateY(-2px); box-shadow: var(--shadow-hover);
-      border-color: rgba(255,193,7,0.35);
-    }
-    .cross-nav .cross-card .cross-icon { font-size: 1.3rem; flex-shrink: 0; }
-    .cross-nav .cross-card .cross-info { flex: 1; min-width: 0; }
-    .cross-nav .cross-card .cross-info .cross-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
-    .cross-nav .cross-card .cross-info .cross-stats { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
-    .cross-nav .cross-card .cross-arrow { color: var(--color-accent); font-size: 0.85rem; flex-shrink: 0; opacity: 0.6; transition: opacity 0.15s; }
-    .cross-nav .cross-card:hover .cross-arrow { opacity: 1; }
+    /* ── Pipeline flow ──────────────────────── */
+    .flow-row { display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;margin-bottom:24px;animation:fadeInDown .5s .18s ease both }
+    .flow-chip { background:var(--bg-flat);border:var(--border);border-radius:20px;padding:8px 16px;font-size:.82rem;transition:all .15s }
+    .flow-chip a { color:var(--accent);text-decoration:none;font-weight:700 }
+    .flow-chip a:hover { text-decoration:underline }
+    .flow-chip:hover { border-color:rgba(255,193,7,.3);transform:translateY(-1px) }
+    .flow-arrow { color:var(--text3);font-size:.9rem;padding:0 4px }
 
-    /* ── Section title ─────────────────────── */
-    .section-title {
-      font-size: 1.05rem; font-weight: 600; color: var(--text-secondary);
-      margin-bottom: 16px; padding-left: 10px; border-left: 3px solid rgba(255,193,7,0.4);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .section-title .accent { color: var(--color-accent); }
-    .section-title .count {
-      font-size: 0.72rem; color: var(--text-muted); font-weight: 400;
-      background: rgba(255,255,255,0.04); padding: 2px 10px; border-radius: 10px;
-    }
+    /* ── Search ────────────────────────────── */
+    .search-wrap { position:relative;max-width:400px;margin:0 auto 24px;animation:fadeInDown .5s .18s ease both }
+    .search-wrap input { width:100%;background:var(--bg-flat);border:var(--border);border-radius:20px;color:var(--text);padding:9px 16px 9px 38px;font-size:.84rem;outline:none;transition:border-color .15s;font-family:inherit }
+    .search-wrap input:focus { border-color:rgba(255,193,7,.4) } .search-wrap input::placeholder { color:var(--text3) }
+    .search-wrap .si { position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:.85rem;color:var(--text3);pointer-events:none }
+    .kbd-bar { text-align:center;margin-bottom:20px;font-size:.68rem;color:var(--text3) }
+    .kbd-bar span { background:var(--bg-flat);border:var(--border);border-radius:3px;padding:2px 6px;margin:0 2px;font-family:monospace }
 
-    /* ── Card grid ─────────────────────────── */
-    .demo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .section { margin-bottom:44px;animation:fadeInUp .5s ease both }
+    .sec-head { display:flex;align-items:center;gap:12px;margin-bottom:20px }
+    .sec-head .sn { width:32px;height:32px;border-radius:50%;background:rgba(255,193,7,.12);color:var(--accent);font-size:.85rem;font-weight:700;display:flex;align-items:center;justify-content:center }
+    .sec-head h2 { font-size:1.2rem;font-weight:700 } .sec-head .ss { font-size:.78rem;color:var(--text3) }
 
-    .demo-card {
-      background: var(--bg-card); border: var(--border-subtle);
-      border-radius: var(--radius-card); padding: 20px 22px; box-shadow: var(--shadow-card);
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-      display: flex; flex-direction: column;
-      animation: fadeInUp 0.4s ease both;
-      text-decoration: none; color: inherit;
-    }
-    .demo-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
-      border-color: rgba(255,193,7,0.25);
-    }
+    .grid-2 { display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px }
+    .grid-3 { display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px }
 
-    .demo-card .card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
-    .demo-card .card-icon {
-      width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700;
+    .card {
+      background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:20px;
+      box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s,border-color .15s;
+      text-decoration:none;color:inherit;display:block;cursor:pointer;position:relative
     }
-    .demo-card .card-icon.lib    { background: rgba(255,193,7,0.15); color: var(--color-accent); }
-    .demo-card .card-icon.chat   { background: rgba(34,211,238,0.15); color: var(--color-accent-2); }
-    .demo-card .card-icon.manager{ background: rgba(168,85,247,0.15); color: var(--color-accent-3); }
+    .card:hover { transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:rgba(255,193,7,.2) }
+    .card .c-icon { font-size:1.5rem;margin-bottom:8px;display:block }
+    .card .c-title { font-weight:700;font-size:.95rem;margin-bottom:4px }
+    .card .c-desc { font-size:.8rem;color:var(--text2);line-height:1.5 }
+    .card .c-meta { margin-top:10px;display:flex;gap:8px;flex-wrap:wrap }
+    .card .c-tag { background:rgba(255,193,7,.1);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:.68rem }
+    .card .c-tag.cyan { background:rgba(34,211,238,.1);color:var(--cyan) }
+    .card .c-tag.purple { background:rgba(168,85,247,.1);color:var(--purple) }
+    .card .c-tag.green { background:rgba(34,197,94,.1);color:var(--pass) }
+    .card .c-links { display:flex;gap:6px;margin-top:10px;flex-wrap:wrap }
+    .card .c-links a { font-size:.68rem;color:var(--cyan);text-decoration:none;background:var(--bg-flat);border:1px solid rgba(34,211,238,.15);border-radius:4px;padding:3px 8px;transition:all .15s }
+    .card .c-links a:hover { border-color:rgba(255,193,7,.35);color:var(--accent) }
+    .card .preview-panel { display:none;margin-top:14px;border-top:var(--border);padding-top:14px;animation:slideDown .3s ease }
+    .card.expanded .preview-panel { display:block }
+    .card .expand-hint { position:absolute;top:12px;right:16px;font-size:.6rem;color:var(--text3);opacity:0;transition:opacity .2s }
+    .card:hover .expand-hint { opacity:1 }
+    .card .file-stats { display:flex;flex-direction:column;gap:3px;margin-bottom:8px;font-size:.68rem }
+    .card .file-stats .fs-row { display:flex;align-items:flex-start;gap:6px;font-family:"SF Mono",monospace;color:var(--text3);line-height:1.4 }
+    .card .file-stats .fs-row .fs-label { flex-shrink:0;font-size:.66rem;padding:0 3px;border-radius:2px }
+    .card .file-stats .fs-row .fs-label.src { background:rgba(34,211,238,.12);color:var(--cyan) }
+    .card .file-stats .fs-row .fs-label.test { background:rgba(245,158,11,.12);color:var(--warn) }
+    .card .file-stats .fs-row .fs-paths { word-break:break-all }
+    .card .file-stats .fs-row .fs-none { color:rgba(110,110,114,.5);font-style:italic }
 
-    .demo-card .card-title-area { flex: 1; }
-    .demo-card .card-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
-    .demo-card .card-path { font-size: 0.72rem; color: var(--text-muted); font-family: "SF Mono", "Courier Prime", ui-monospace, monospace; margin-top: 2px; }
+    pre { background:rgba(0,0,0,.3);border-radius:8px;padding:12px 40px 12px 16px;font-size:.74rem;color:var(--cyan);overflow-x:auto;font-family:'SF Mono',monospace;position:relative;cursor:pointer;transition:background .15s;margin-top:4px }
+    pre:hover { background:rgba(0,0,0,.4) }
+    pre .copy-btn { position:absolute;top:6px;right:6px;background:var(--bg-flat);border:var(--border);border-radius:4px;color:var(--text3);font-size:.62rem;padding:2px 8px;cursor:pointer;opacity:0;transition:opacity .15s;font-family:inherit }
+    pre:hover .copy-btn { opacity:1 }
+    pre .copy-btn.copied { color:var(--pass);border-color:rgba(34,197,94,.4);animation:checkBounce .3s ease }
 
-    .demo-card .card-desc { color: var(--text-secondary); font-size: 0.83rem; margin-bottom: 12px; line-height: 1.55; flex: 1; }
+    .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-raised);border:1px solid rgba(255,193,7,.3);border-radius:8px;color:var(--text);padding:10px 20px;font-size:.82rem;z-index:300;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s;pointer-events:none }
+    .toast.show { opacity:1 }
 
-    .demo-card .card-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .demo-card .btn-demo {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 0.8rem; color: var(--color-accent); text-decoration: none;
-      border: 1px solid var(--color-accent); border-radius: 6px;
-      padding: 5px 14px; transition: background 0.15s, color 0.15s;
-    }
-    .demo-card .btn-demo:hover { background: var(--color-accent); color: #1a1a2a; }
+    .footer-note { text-align:center;color:var(--text3);font-size:.78rem;margin-top:8px;padding-bottom:20px }
+    .footer-note a { color:var(--accent);text-decoration:none }
+    .footer-note a:hover { text-decoration:underline }
 
-    .demo-card .demo-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
-    .demo-card .demo-tags .tag {
-      font-size: 0.66rem; color: var(--text-muted);
-      background: rgba(255,255,255,0.04); border-radius: 4px; padding: 2px 7px;
-    }
+    .back-top { position:fixed;bottom:28px;right:28px;width:42px;height:42px;border-radius:50%;background:var(--bg-flat);border:1px solid rgba(255,255,255,.1);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:var(--shadow);transition:all .2s;opacity:0;pointer-events:none;z-index:100 }
+    .back-top.visible { opacity:1;pointer-events:auto }
+    .back-top:hover { border-color:var(--accent);color:var(--accent) }
 
-    .demo-card .card-file-stats {
-      display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px;
-      font-size: 0.68rem;
-    }
-    .demo-card .card-file-stats .files-row {
-      display: flex; align-items: flex-start; gap: 6px;
-      font-family: "SF Mono", "Courier Prime", ui-monospace, monospace;
-      color: var(--text-muted); line-height: 1.4;
-    }
-    .demo-card .card-file-stats .files-row .label {
-      flex-shrink: 0; font-family: inherit; font-size: 0.66rem;
-      padding: 0 3px; border-radius: 2px;
-    }
-    .demo-card .card-file-stats .files-row .label.src { background: rgba(34,211,238,0.12); color: var(--color-accent-2); }
-    .demo-card .card-file-stats .files-row .label.test { background: rgba(245,158,11,0.12); color: var(--color-accent-4); }
-    .demo-card .card-file-stats .files-row .paths { word-break: break-all; }
-    .demo-card .card-file-stats .files-row .no-files { color: rgba(110,110,114,0.5); font-style: italic; }
+    @media (max-width:640px) { .grid-2,.grid-3 { grid-template-columns:1fr } .container { padding:24px 12px 60px } .header h1 { font-size:1.5rem } }
 
-    /* ── Footer ────────────────────────────── */
-    .footer-note { text-align: center; color: var(--text-muted); font-size: 0.76rem; margin-top: 8px; padding-bottom: 24px; line-height: 1.8; }
-    .footer-note a { color: var(--color-accent); text-decoration: none; transition: color var(--transition-fast); }
-    .footer-note a:hover { text-decoration: underline; color: var(--color-accent-2); }
-
-    /* ── Back to top ───────────────────────── */
-    .back-top {
-      position: fixed; bottom: 28px; right: 28px;
-      width: 42px; height: 42px; border-radius: 50%;
-      background: var(--bg-card-flat); border: 1px solid rgba(255,255,255,0.1);
-      color: var(--text-secondary); cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.1rem; box-shadow: var(--shadow-card);
-      transition: all var(--transition-smooth);
-      opacity: 0; pointer-events: none; z-index: 100;
-    }
-    .back-top.visible { opacity: 1; pointer-events: auto; }
-    .back-top:hover { border-color: var(--color-accent); color: var(--color-accent); transform: translateY(-2px); }
-
-    /* ── Animations ────────────────────────── */
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeInDown {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── Responsive ────────────────────────── */
-    @media (max-width: 768px) {
-      .demo-container { padding: 24px 12px 12px; }
-      .demo-header h1 { font-size: 1.5rem; }
-      .demo-header .subtitle { font-size: 0.82rem; }
-      .demo-grid { grid-template-columns: 1fr; gap: 12px; }
-      .demo-stats { gap: 8px; }
-      .demo-stat { padding: 10px 14px; min-width: 70px; }
-      .demo-stat .num { font-size: 1.3rem; }
-      .back-top { bottom: 16px; right: 16px; width: 36px; height: 36px; }
-    }
-    @media (max-width: 480px) {
-      .demo-card { padding: 14px 16px; }
-      .demo-card .card-name { font-size: 0.9rem; }
-    }
+    a[target="_blank"]::after{content:" ↗";font-size:.7em;opacity:.5}
   </style>
 </head>
 <body>
-  <div class="demo-container">
+<div class="container">
+  <!-- ── Breadcrumb ──────────────────────────── -->
+  <nav class="breadcrumb">
+    <a href="../docs/index.html">&#128451; 文档中心</a>
+    <span class="sep">/</span>
+    <span class="current">&#127918; Demo 中心</span>
+  </nav>
 
-    <!-- ═══════ Header ═══════ -->
-    <header class="demo-header">
-      <h1><span class="accent">⬡</span> YiPet Demo 中心</h1>
-      <p class="subtitle">
-        第三方库使用事例 · 内部组件交互演示 ·
-        <code>Vue 3 CDN</code> · <code>vitest</code> · <code>250 用例</code>
-      </p>
-    </header>
-
-    <!-- ═══════ Quick-nav ═══════ -->
-    <nav class="quick-nav" aria-label="页面导航">
-      <a href="#libs">三方库事例</a>
-      <a href="#chat">Chat 聊天组件</a>
-      <a href="#manager">Manager + Modal</a>
-    </nav>
-
-    <!-- ═══════ Stats ═══════ -->
-    <div class="demo-stats" aria-label="统计概览">
-      <div class="demo-stat">
-        <div class="num">5</div>
-        <div class="label">三方库实例</div>
-      </div>
-      <div class="demo-stat">
-        <div class="num green">5</div>
-        <div class="label">Chat 组件实例</div>
-      </div>
-      <div class="demo-stat">
-        <div class="num purple">5</div>
-        <div class="label">Manager / Modal</div>
-      </div>
-      <div class="demo-stat">
-        <div class="num amber">15</div>
-        <div class="label">Demo 总计</div>
-      </div>
-    </div>
-
-    <!-- ═══════ Cross-panel navigation ═══════ -->
-    <div class="cross-nav">
-      <a href="../docs/index.html" class="cross-card">
-        <span class="cross-icon">📖</span>
-        <span class="cross-info">
-          <span class="cross-name">文档中心</span>
-          <span class="cross-stats">5 层架构 · 2 故事 · 15 组件事例</span>
-        </span>
-        <span class="cross-arrow">→</span>
-      </a>
-      <a href="../tests/index.html" class="cross-card">
-        <span class="cross-icon">🧪</span>
-        <span class="cross-info">
-          <span class="cross-name">测试套件</span>
-          <span class="cross-stats">13 测试文件 · 250 用例 · &lt;3s 全量</span>
-        </span>
-        <span class="cross-arrow">→</span>
-      </a>
-    </div>
-
-    <!-- ═══════ Section 1: 三方库使用事例 ═══════ -->
-    <div class="section-title" id="libs">
-      <span class="accent">📦</span> 三方库使用事例
-      <span class="count">5 个交互式演示</span>
-    </div>
-    <div class="demo-grid">
-
-      <a href="vitest.html" class="demo-card" style="animation-delay: 0.02s">
-        <div class="card-head">
-          <span class="card-icon lib">⚡</span>
-          <div class="card-title-area">
-            <div class="card-name">vitest</div>
-            <div class="card-path">v3.1.1 · 运行器 + 断言 + Mock</div>
-          </div>
-        </div>
-        <p class="card-desc">describe/it/expect 用例组织、vi.fn() mock 工厂、useFakeTimers 时间控制、mockResolvedValue 异步注入。全部 250 用例基于此运行器。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发</span><span class="no-files">— 三方库，无项目源文件</span></div>
-          <div class="files-row"><span class="label test">测试</span><span class="no-files">— 三方库，无项目测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">describe/it</span><span class="tag">vi.fn()</span><span class="tag">fakeTimers</span><span class="tag">断言</span>
-        </div>
-      </a>
-
-      <a href="jsdom.html" class="demo-card" style="animation-delay: 0.06s">
-        <div class="card-head">
-          <span class="card-icon lib">🖥️</span>
-          <div class="card-title-area">
-            <div class="card-name">jsdom</div>
-            <div class="card-path">v26.0.0 · 浏览器环境模拟</div>
-          </div>
-        </div>
-        <p class="card-desc">提供 window/document/navigator/AbortController，支持 Vue 3 组件挂载和 DOM 事件模拟。无需真实 Chrome 即可运行全部测试。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发</span><span class="no-files">— 三方库，无项目源文件</span></div>
-          <div class="files-row"><span class="label test">测试</span><span class="no-files">— 三方库，无项目测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">Vue 3 mount</span><span class="tag">DOM Events</span><span class="tag">AbortController</span>
-        </div>
-      </a>
-
-      <a href="coverage.html" class="demo-card" style="animation-delay: 0.10s">
-        <div class="card-head">
-          <span class="card-icon lib">📊</span>
-          <div class="card-title-area">
-            <div class="card-name">@vitest/coverage-v8</div>
-            <div class="card-path">v3.1.1 · V8 原生覆盖率</div>
-          </div>
-        </div>
-        <p class="card-desc">provider: 'v8' 配置，text/json/html 三种报告格式。逐场景覆盖率目标：核心逻辑 ≥80%，错误边界 ≥90%，持久化 100%。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发</span><span class="no-files">— 三方库，无项目源文件</span></div>
-          <div class="files-row"><span class="label test">测试</span><span class="no-files">— 三方库，无项目测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">text reporter</span><span class="tag">html 可视化</span><span class="tag">CI/CD 门禁</span>
-        </div>
-      </a>
-
-      <a href="node-fetch.html" class="demo-card" style="animation-delay: 0.14s">
-        <div class="card-head">
-          <span class="card-icon lib">🌐</span>
-          <div class="card-title-area">
-            <div class="card-name">node-fetch</div>
-            <div class="card-path">v3.3.2 · HTTP 行为参考</div>
-          </div>
-        </div>
-        <p class="card-desc">不直接 import，仅作为 Response 接口规范参考。mock 工厂函数（makeApiResponse/makeApiError/mockFetchError）遵循其形状。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发</span><span class="no-files">— 三方库，无项目源文件</span></div>
-          <div class="files-row"><span class="label test">测试</span><span class="no-files">— 三方库，无项目测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">Response 接口</span><span class="tag">mock 工厂</span><span class="tag">请求验证</span>
-        </div>
-      </a>
-
-      <a href="setup.html" class="demo-card" style="animation-delay: 0.18s">
-        <div class="card-head">
-          <span class="card-icon lib">🔧</span>
-          <div class="card-title-area">
-            <div class="card-name">setup.mjs</div>
-            <div class="card-path">全局初始化 · 基础设施</div>
-          </div>
-        </div>
-        <p class="card-desc">chrome.storage.local Map mock、chrome.runtime mock、loadModule 模块加载器、fetch mock、beforeEach/afterEach 生命周期钩子。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发</span><span class="no-files">— 测试基础设施，非业务源文件</span></div>
-          <div class="files-row"><span class="label test">测试</span><span class="paths">tests/setup.mjs</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">chrome API mock</span><span class="tag">IIFE 加载</span><span class="tag">状态重置</span>
-        </div>
-      </a>
-
-    </div>
-
-    <!-- ═══════ Section 2: Chat 聊天组件事例 ═══════ -->
-    <div class="section-title" id="chat">
-      <span class="accent">💬</span> Chat 聊天组件事例
-      <span class="count">5 个交互式演示</span>
-    </div>
-    <div class="demo-grid">
-
-      <a href="chat-window.html" class="demo-card" style="animation-delay: 0.02s">
-        <div class="card-head">
-          <span class="card-icon chat">🖥️</span>
-          <div class="card-title-area">
-            <div class="card-name">ChatWindow</div>
-            <div class="card-path">Vue 3 Options API · 聊天主窗口</div>
-          </div>
-        </div>
-        <p class="card-desc">聊天主窗口容器：侧边栏 · 消息区 · 输入框三栏布局。支持拖拽调整大小、Hooks 模式扩展、chrome.storage 持久化布局。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 6</span><span class="paths">modules/pet/components/chat/ChatWindow/ → index.js · index.html · utils.js · hooks/store.js · hooks/useComputed.js · hooks/useMethods.js</span></div>
-          <div class="files-row"><span class="label test">测试 1</span><span class="paths">tests/modules/pet/components/ChatWindow.test.mjs</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">layout</span><span class="tag">hooks</span><span class="tag">resize</span><span class="tag">persist</span>
-        </div>
-      </a>
-
-      <a href="chat-header.html" class="demo-card" style="animation-delay: 0.06s">
-        <div class="card-head">
-          <span class="card-icon chat">📄</span>
-          <div class="card-title-area">
-            <div class="card-name">ChatHeader</div>
-            <div class="card-path">Vue 3 Options API · 聊天头部栏</div>
-          </div>
-        </div>
-        <p class="card-desc">会话标题展示、AI 模式切换指示器、拖拽手柄、外部链接跳转。通过 PET_CONFIG.constants.URLS 解析外部资源地址。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/chat/ChatHeader/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">drag handle</span><span class="tag">mode switch</span><span class="tag">external links</span>
-        </div>
-      </a>
-
-      <a href="chat-input.html" class="demo-card" style="animation-delay: 0.10s">
-        <div class="card-head">
-          <span class="card-icon chat">✍️</span>
-          <div class="card-title-area">
-            <div class="card-name">ChatInput</div>
-            <div class="card-path">Vue 3 Options API · 消息输入框</div>
-          </div>
-        </div>
-        <p class="card-desc">自动高度 textarea、回车发送、7 按钮工具栏。CJK 输入法兼容（compositionstart/end）、图片粘贴/预览/移除管线。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/chat/ChatInput/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">IME safety</span><span class="tag">image paste</span><span class="tag">toolbar</span><span class="tag">auto-resize</span>
-        </div>
-      </a>
-
-      <a href="chat-messages.html" class="demo-card" style="animation-delay: 0.14s">
-        <div class="card-head">
-          <span class="card-icon chat">💬</span>
-          <div class="card-title-area">
-            <div class="card-name">ChatMessages</div>
-            <div class="card-path">Vue 3 Options API · 消息列表渲染</div>
-          </div>
-        </div>
-        <p class="card-desc">四视图状态（loading/error/empty/messages）、7 步渲染管线、marked.js + Mermaid 集成、智能滚动策略。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/chat/ChatMessages/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">markdown</span><span class="tag">mermaid</span><span class="tag">scroll</span><span class="tag">4-state view</span>
-        </div>
-      </a>
-
-      <a href="chat-window-utils.html" class="demo-card" style="animation-delay: 0.18s">
-        <div class="card-head">
-          <span class="card-icon chat">🔧</span>
-          <div class="card-title-area">
-            <div class="card-name">ChatWindowUtils</div>
-            <div class="card-path">工具模块 · 辅助函数集</div>
-          </div>
-        </div>
-        <p class="card-desc">safeCall/safeCallAsync 错误隔离、Vue 运行时检测（模板编译 + API 可用性）、位置/视口约束、颜色工具、存储键名约定。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 1</span><span class="paths">modules/pet/components/chat/ChatWindow/utils.js</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">error boundary</span><span class="tag">Vue detect</span><span class="tag">color</span><span class="tag">viewport</span>
-        </div>
-      </a>
-
-    </div>
-
-    <!-- ═══════ Section 3: Manager + Modal 组件事例 ═══════ -->
-    <div class="section-title" id="manager">
-      <span class="accent">⚙️</span> Manager + Modal 组件事例
-      <span class="count">5 个交互式演示</span>
-    </div>
-    <div class="demo-grid">
-
-      <a href="faq-manager.html" class="demo-card" style="animation-delay: 0.02s">
-        <div class="card-head">
-          <span class="card-icon manager">💡</span>
-          <div class="card-title-area">
-            <div class="card-name">FaqManager</div>
-            <div class="card-path">Vue 3 Options API · FAQ 管理面板</div>
-          </div>
-        </div>
-        <p class="card-desc">FAQ 条目的增删改查、4 步筛选管道（搜索→无标签→标签→反选）、一键插入/发送/复制、标签管理面板入口。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/manager/FaqManager/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">CRUD</span><span class="tag">filter pipeline</span><span class="tag">shortcuts</span><span class="tag">4-step</span>
-        </div>
-      </a>
-
-      <a href="faq-tag-manager.html" class="demo-card" style="animation-delay: 0.06s">
-        <div class="card-head">
-          <span class="card-icon manager">🏷️</span>
-          <div class="card-title-area">
-            <div class="card-name">FaqTagManager</div>
-            <div class="card-path">Vue 3 Options API · FAQ 标签管理</div>
-          </div>
-        </div>
-        <p class="card-desc">7 个快速标签一键添加、输入法安全的标签输入、从已有标签列表选取。自动创建不存在的快速标签后关联。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/manager/FaqTagManager/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">quick tags</span><span class="tag">IME safety</span><span class="tag">autocomplete</span><span class="tag">7 presets</span>
-        </div>
-      </a>
-
-      <a href="session-tag-manager.html" class="demo-card" style="animation-delay: 0.10s">
-        <div class="card-head">
-          <span class="card-icon manager">🎨</span>
-          <div class="card-title-area">
-            <div class="card-name">SessionTagManager</div>
-            <div class="card-path">Vue 3 Options API · 会话标签管理</div>
-          </div>
-        </div>
-        <p class="card-desc">为会话关联标签并设置颜色。9 色预设 + 自定义颜色、会话级颜色优先于全局颜色、chrome.storage 持久化。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/manager/SessionTagManager/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">color picker</span><span class="tag">9 presets</span><span class="tag">session-level</span><span class="tag">persist</span>
-        </div>
-      </a>
-
-      <a href="ai-settings-modal.html" class="demo-card" style="animation-delay: 0.14s">
-        <div class="card-head">
-          <span class="card-icon manager">⚙️</span>
-          <div class="card-title-area">
-            <div class="card-name">AiSettingsModal</div>
-            <div class="card-path">Vue 3 Options API · AI 设置模态框</div>
-          </div>
-        </div>
-        <p class="card-desc">模型选择（动态 API 获取）、模型卡片含能力标签、高级参数配置、Token 用量展示与入口。选中模型持久化到 storage。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/modal/AiSettingsModal/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">model select</span><span class="tag">API-driven</span><span class="tag">persist</span><span class="tag">capability tags</span>
-        </div>
-      </a>
-
-      <a href="token-settings-modal.html" class="demo-card" style="animation-delay: 0.18s">
-        <div class="card-head">
-          <span class="card-icon manager">🔑</span>
-          <div class="card-title-area">
-            <div class="card-name">TokenSettingsModal</div>
-            <div class="card-path">Vue 3 Options API · Token 设置模态框</div>
-          </div>
-        </div>
-        <p class="card-desc">X-Token 输入与验证、默认模型选择下拉菜单、三级认证降级（环境变量→storage→空）、保存后自动刷新数据。</p>
-        <div class="card-file-stats">
-          <div class="files-row"><span class="label src">开发 2</span><span class="paths">modules/pet/components/modal/TokenSettingsModal/ → index.js · index.html</span></div>
-          <div class="files-row"><span class="label test">测试 0</span><span class="no-files">— 暂无测试文件</span></div>
-        </div>
-        <div class="card-actions">
-          <span class="btn-demo">▶ 查看 Demo</span>
-        </div>
-        <div class="demo-tags">
-          <span class="tag">auth</span><span class="tag">validation</span><span class="tag">degradation</span><span class="tag">3-level fallback</span>
-        </div>
-      </a>
-
-    </div>
-
-    <!-- ═══════ Footer ═══════ -->
-    <div class="footer-note">
-      YiPet · Chrome Extension Manifest V3 ·
-      <a href="../docs/index.html">文档中心</a> ·
-      <a href="../tests/index.html">测试套件</a> ·
-      <a href="../CLAUDE.md">CLAUDE.md</a> ·
-      <a href="../README.md">README.md</a>
-    </div>
-
+  <div class="header">
+    <h1>&#127918; YiPet <span class="accent">Demo 中心</span></h1>
+    <p class="sub">第三方库使用事例 · 内部组件交互演示 · <code>Vue 3 CDN</code> · <code>vitest</code> · <code>15 个 Demo</code></p>
   </div>
 
-  <!-- Back to top -->
-  <button class="back-top" id="backTop" title="回到顶部" aria-label="回到顶部">↑</button>
+  <div class="cross-nav">
+    <a class="cross-link" href="../docs/index.html">&#128451; 文档中心</a>
+    <span class="cross-sep">·</span>
+    <a class="cross-link" href="../tests/index.html" id="testNav">&#129514; 自检中心</a>
+    <span class="cross-sep">·</span>
+    <span class="cross-link on">&#127918; Demo 中心</span>
+  </div>
 
-  <script>
-    /* Staggered card animations */
-    document.querySelectorAll('.demo-grid .demo-card').forEach((card, i) => {
-      card.style.animationDelay = `${0.01 + (i % 5) * 0.04}s`;
+  <!-- ── Pipeline ─────────────────────────────── -->
+  <div class="flow-row">
+    <div class="flow-chip"><span style="color:var(--text2)">🔍</span> 查看文档</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-chip"><a href="../docs/index.html">📚 docs</a></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-chip"><a href="../tests/index.html">🧪 tests</a></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-chip"><a href="#libs">📦 demos</a></div>
+  </div>
+
+  <div class="kbd-bar"><span>点击卡片</span> 内联预览 · <span>双击卡片</span> 全屏演示 · <span>悬停代码</span> 复制 · <span>1-4</span> 快速导航 · <span>Ctrl+F</span> 搜索</div>
+
+  <!-- ── Section 1: 第三方库 ──────────────────── -->
+  <div class="section" id="libs">
+    <div class="sec-head"><span class="sn">1</span><h2>第三方库使用事例</h2><span class="ss">5 个交互式演示</span></div>
+    <div class="search-wrap"><span class="si">🔍</span><input type="text" id="demoSearch" placeholder="搜索 Demo…" autocomplete="off"></div>
+    <div class="grid-2" id="demoGrid">
+
+      <!-- vitest -->
+      <div class="card" data-skill="vitest" data-keywords="vitest 测试 框架 运行器 describe it expect mock fakeTimers" data-url="third-party/vitest.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">⚡</span><div class="c-title">vitest · 测试运行器</div>
+        <div class="c-desc">describe/it/expect 用例组织、vi.fn() mock 工厂、useFakeTimers 时间控制。全部 250 用例基于此运行器。</div>
+        <div class="c-meta"><span class="c-tag">v3.1.1</span><span class="c-tag cyan">运行器</span><span class="c-tag green">250 用例</span></div>
+        <div class="preview-panel">
+          <pre>import { describe, it, expect, vi } from 'vitest';
+describe('TokenManager', () => {
+  it('should reject empty token', () =&gt; {
+    expect(() => new TokenManager('')).toThrow();
+  });
+});<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="third-party/vitest.html">🎬 全屏演示</a><a href="https://vitest.dev/" target="_blank">📄 官方文档</a></div>
+        </div>
+      </div>
+
+      <!-- jsdom -->
+      <div class="card" data-skill="jsdom" data-keywords="jsdom 浏览器 环境 模拟 window document navigator vue mount dom" data-url="third-party/jsdom.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🖥️</span><div class="c-title">jsdom · 浏览器环境模拟</div>
+        <div class="c-desc">提供 window/document/navigator/AbortController，支持 Vue 3 组件挂载和 DOM 事件模拟。</div>
+        <div class="c-meta"><span class="c-tag">v26.0.0</span><span class="c-tag cyan">环境模拟</span></div>
+        <div class="preview-panel">
+          <pre>const app = Vue.createApp(MyComponent);
+const vm = app.mount(document.createElement('div'));
+expect(vm.$el.querySelector('.chat')).toBeTruthy();<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="third-party/jsdom.html">🎬 全屏演示</a><a href="https://github.com/jsdom/jsdom" target="_blank">📄 GitHub</a></div>
+        </div>
+      </div>
+
+      <!-- coverage -->
+      <div class="card" data-skill="coverage" data-keywords="coverage v8 覆盖率 vitest 报告 text json html 门禁" data-url="third-party/coverage.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">📊</span><div class="c-title">@vitest/coverage-v8 · 覆盖率</div>
+        <div class="c-desc">V8 原生覆盖率引擎。逐场景目标：核心 ≥80%，边界 ≥90%，持久化 100%。text/json/html 三种报告。</div>
+        <div class="c-meta"><span class="c-tag">v3.1.1</span><span class="c-tag cyan">覆盖率</span></div>
+        <div class="preview-panel">
+          <pre>npx vitest run --coverage
+# text / json / html 三种报告格式
+# 支持 CI/CD 门禁阈值配置<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="third-party/coverage.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <!-- node-fetch -->
+      <div class="card" data-skill="node-fetch" data-keywords="node-fetch http api response mock 工厂 请求 参考" data-url="third-party/node-fetch.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🌐</span><div class="c-title">node-fetch · HTTP 参考</div>
+        <div class="c-desc">不直接 import，作为 Response 接口规范参考。mock 工厂遵循其形状：makeApiResponse / makeApiError / mockFetchError。</div>
+        <div class="c-meta"><span class="c-tag">v3.3.2</span><span class="c-tag cyan">接口参考</span></div>
+        <div class="preview-panel">
+          <pre>const res = makeApiResponse({ id: 1, title: 'test' });
+expect(res.ok).toBe(true);
+expect(await res.json()).toEqual({ code: 0, data: {...} });<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="third-party/node-fetch.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <!-- setup -->
+      <div class="card" data-skill="setup" data-keywords="setup 全局 初始化 测试 chrome mock iife 模块 加载 生命周期" data-url="third-party/setup.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🔧</span><div class="c-title">setup.mjs · 测试初始化</div>
+        <div class="c-desc">chrome.storage.local Map mock、chrome.runtime mock、IIFE 模块加载器、fetch mock、beforeEach/afterEach 钩子。</div>
+        <div class="c-meta"><span class="c-tag cyan">基础设施</span><span class="c-tag green">5 模块</span></div>
+        <div class="preview-panel">
+          <pre>// tests/setup.mjs
+setupChromeMock();       // Map-based storage
+createMockFetch();        // fetch mock
+globalThis.loadModule = loadModule; // IIFE loader<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="third-party/setup.html">🎬 全屏演示</a><a href="../tests/setup.mjs">📄 源文件</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: Vue 组件 ──────────────────── -->
+  <div class="section" id="chat">
+    <div class="sec-head"><span class="sn">2</span><h2>Chat 聊天组件演示</h2><span class="ss">5 个交互式演示</span></div>
+    <div class="grid-2" id="chatGrid">
+
+      <div class="card" data-skill="chatwindow" data-keywords="chatwindow 聊天 窗口 容器 三栏 布局 hooks 拖拽 resize persist" data-url="components/chat-window.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🖥️</span><div class="c-title">ChatWindow · 主窗口容器</div>
+        <div class="c-desc">聊天主窗口：侧边栏 · 消息区 · 输入框三栏布局。拖拽调整大小、Hooks 模式扩展、chrome.storage 持久化。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">Options API</span><span class="c-tag green">6 源文件</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 6</span><span class="fs-paths">ChatWindow/index.js · index.html · utils.js · hooks/store.js · hooks/useComputed.js · hooks/useMethods.js</span></div>
+          <div class="fs-row"><span class="fs-label test">test 1</span><span class="fs-paths">tests/modules/pet/components/ChatWindow.test.mjs</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// Hooks 模式扩展
+const chatWindow = Vue.createApp(ChatWindow);
+chatWindow.use(storeHook, { storageKey });
+chatWindow.use(useMethodsHook);
+chatWindow.use(useComputedHook);<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/chat-window.html">🎬 全屏演示</a><a href="../modules/pet/components/chat/ChatWindow/index.js">📄 源码</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="chatheader" data-keywords="chatheader 聊天 头部 标题 认证 关闭 拖拽 手柄" data-url="components/chat-header.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">📄</span><div class="c-title">ChatHeader · 头部栏</div>
+        <div class="c-desc">会话标题展示、AI 模式切换指示器、拖拽手柄、外部链接跳转。通过 PET_CONFIG.constants.URLS 解析外部资源。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag">2 源文件</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">ChatHeader/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// emits: close, open-auth, toggle-mode
+&lt;chat-header :title="session.title" @close="onClose" /&gt;<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/chat-header.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="chatinput" data-keywords="chatinput 消息 输入 textarea 自适应 回车 cjk 输入法 图片 粘贴 工具栏" data-url="components/chat-input.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">✍️</span><div class="c-title">ChatInput · 消息输入</div>
+        <div class="c-desc">自动高度 textarea、回车发送、7 按钮工具栏。CJK 输入法兼容（compositionstart/end）、图片粘贴/预览/移除管线。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">IME 安全</span><span class="c-tag">7 按钮</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">ChatInput/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// CJK 输入法安全
+onCompositionStart() { this.isComposing = true; }
+onCompositionEnd(e) {
+  this.isComposing = false;
+  this.handleInput(e.target.value);
+}<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/chat-input.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="chatmessages" data-keywords="chatmessages 消息 列表 渲染 四状态 loading error empty messages marked mermaid 滚动" data-url="components/chat-messages.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">💬</span><div class="c-title">ChatMessages · 消息渲染</div>
+        <div class="c-desc">四视图状态（loading/error/empty/messages）、7 步渲染管线、marked.js + Mermaid 集成、智能滚动策略。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">流式渲染</span><span class="c-tag">4 状态</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">ChatMessages/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// 7 步渲染管线
+parseMarkdown → highlightCode → renderMermaid
+→ sanitizeHTML → applyStyles → scrollToBottom<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/chat-messages.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="chatwindowutils" data-keywords="chatwindowutils 工具 safeCall 错误 隔离 vue 检测 视口 颜色 存储 key" data-url="components/chat-window-utils.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🔧</span><div class="c-title">ChatWindowUtils · 辅助函数</div>
+        <div class="c-desc">safeCall/safeCallAsync 错误隔离、Vue 运行时检测、位置/视口约束、颜色工具、存储键名约定。9 个纯函数。</div>
+        <div class="c-meta"><span class="c-tag purple">工具模块</span><span class="c-tag cyan">9 函数</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 1</span><span class="fs-paths">ChatWindow/utils.js</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>function safeCall(fn, fallback) {
+  try { return fn(); }
+  catch (e) { console.warn(e); return fallback; }
+}<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/chat-window-utils.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Manager + Modal ────────────── -->
+  <div class="section" id="manager">
+    <div class="sec-head"><span class="sn">3</span><h2>Manager + Modal 组件演示</h2><span class="ss">5 个交互式演示</span></div>
+    <div class="grid-2" id="mgrGrid">
+
+      <div class="card" data-skill="faqmanager" data-keywords="faqmanager faq 管理 面板 crud 筛选 管道 插入 发送 复制 标签" data-url="components/faq-manager.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">💡</span><div class="c-title">FaqManager · FAQ 管理</div>
+        <div class="c-desc">FAQ 条目增删改查、4 步筛选管道（搜索→无标签→标签→反选）、一键插入/发送/复制、标签管理入口。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">4 步筛选</span><span class="c-tag">CRUD</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">FaqManager/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// 4 步筛选管道
+filter(searchQuery)
+  → filter(untagged)
+  → filter(selectedTags)
+  → filter(excludedTags)<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/faq-manager.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="faqtagmanager" data-keywords="faqtagmanager faq 标签 编辑 快速 标签 输入法 安全 选取" data-url="components/faq-tag-manager.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🏷️</span><div class="c-title">FaqTagManager · 标签管理</div>
+        <div class="c-desc">7 个快速标签一键添加、IME 安全的标签输入、从已有标签列表选取。自动创建不存在的快速标签后关联。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">7 快速标签</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">FaqTagManager/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// IME 安全的标签输入
+&lt;input @compositionstart=&quot;onCompStart&quot;
+       @compositionend=&quot;onCompEnd&quot;
+       @keydown.enter=&quot;addTag&quot; /&gt;<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/faq-tag-manager.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="sessiontagmanager" data-keywords="sessiontagmanager 会话 标签 颜色 9色 preset 拖拽 排序 persist" data-url="components/session-tag-manager.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🎨</span><div class="c-title">SessionTagManager · 会话标签</div>
+        <div class="c-desc">为会话关联标签并设置颜色。9 色预设 + 自定义颜色、会话级颜色优先于全局颜色、chrome.storage 持久化。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">9 色预设</span><span class="c-tag">拖拽排序</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">SessionTagManager/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// 9 色预设 + 自定义
+const PRESET_COLORS = ['#ef4444','#f97316','#eab308',
+  '#22c55e','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#6b7280'];'<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/session-tag-manager.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="aisettings" data-keywords="aisettings ai 模型 选择 动态 api 获取 卡片 能力 标签 高级 参数 token" data-url="components/ai-settings-modal.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">⚙️</span><div class="c-title">AiSettingsModal · AI 设置</div>
+        <div class="c-desc">模型选择（动态 API 获取）、模型卡片含能力标签、高级参数配置、Token 用量展示与入口。选中模型持久化到 storage。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">API 驱动</span><span class="c-tag">持久化</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">AiSettingsModal/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// 动态获取可用模型
+const models = await fetchModels();
+// 模型卡片含能力标签
+// 选中模型 → chrome.storage.local<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/ai-settings-modal.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+
+      <div class="card" data-skill="tokensettings" data-keywords="tokensettings token 认证 设置 输入 验证 三级 降级 环境变量 storage 空" data-url="components/token-settings-modal.html">
+        <span class="expand-hint">点击展开/收起</span>
+        <span class="c-icon">🔑</span><div class="c-title">TokenSettingsModal · 认证</div>
+        <div class="c-desc">X-Token 输入与验证、默认模型选择、三级认证降级（环境变量 → storage → 空）、保存后自动刷新数据。</div>
+        <div class="c-meta"><span class="c-tag purple">Vue 3</span><span class="c-tag cyan">3 级降级</span><span class="c-tag green">安全</span></div>
+        <div class="file-stats">
+          <div class="fs-row"><span class="fs-label src">src 2</span><span class="fs-paths">TokenSettingsModal/index.js · index.html</span></div>
+          <div class="fs-row"><span class="fs-label test">test 0</span><span class="fs-none">暂无测试</span></div>
+        </div>
+        <div class="preview-panel">
+          <pre>// 三级认证降级
+// L1: window.__API_X_TOKEN__
+// L2: chrome.storage.local
+// L3: 空 token → 提示用户设置<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋 复制</span></pre>
+          <div class="c-links"><a href="components/token-settings-modal.html">🎬 全屏演示</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: 快速体验 ──────────────────── -->
+  <div class="section" id="quick">
+    <div class="sec-head"><span class="sn">4</span><h2>快速体验</h2><span class="ss">悬停代码块点击复制</span></div>
+    <div class="grid-3">
+      <div class="card" style="cursor:default">
+        <div class="c-title">🏗️ 运行全部测试</div><div class="c-desc">全量 250+ 断言，&lt;3s 完成</div>
+        <pre style="margin-top:8px">npm test<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋</span></pre>
+      </div>
+      <div class="card" style="cursor:default">
+        <div class="c-title">📊 生成覆盖率报告</div><div class="c-desc">text/json/html 三种格式</div>
+        <pre style="margin-top:8px">npm run test:coverage<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋</span></pre>
+      </div>
+      <div class="card" style="cursor:default">
+        <div class="c-title">🔍 运行单个测试文件</div><div class="c-desc">指定文件快速验证</div>
+        <pre style="margin-top:8px">npx vitest run tests/unit/token.test.mjs<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋</span></pre>
+      </div>
+      <div class="card" style="cursor:default">
+        <div class="c-title">👀 监听模式</div><div class="c-desc">文件变更自动重跑</div>
+        <pre style="margin-top:8px">npm run test:watch<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋</span></pre>
+      </div>
+      <div class="card" style="cursor:default">
+        <div class="c-title">🧪 查看测试面板</div><div class="c-desc">交互式浏览测试文件与结果</div>
+        <pre style="margin-top:8px">open tests/index.html<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋</span></pre>
+      </div>
+      <div class="card" style="cursor:default">
+        <div class="c-title">📚 浏览文档</div><div class="c-desc">五层架构文档中心</div>
+        <pre style="margin-top:8px">open docs/index.html<span class="copy-btn" onclick="event.stopPropagation();copyCmd(this)">📋</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    YiPet v1.1.1 · Chrome Extension Manifest V3 ·
+    <a href="../docs/index.html">文档中心</a> ·
+    <a href="../tests/index.html">自检中心</a> ·
+    <a href="../CLAUDE.md">CLAUDE.md</a> ·
+    <a href="../README.md">README.md</a>
+  </div>
+</div>
+
+<!-- Back to top -->
+<button class="back-top" id="backTop" title="回到顶部" aria-label="回到顶部">↑</button>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── Staggered animations ───────────────────── */
+document.querySelectorAll('.grid-2 .card,.grid-3 .card').forEach((card,i)=>{
+  card.style.animationDelay = (0.01 + (i%5)*0.04)+'s';
+});
+
+/* ── Copy command ───────────────────────────── */
+function copyCmd(btn){
+  const pre = btn.closest('pre');
+  const text = pre ? pre.textContent.replace(/📋.*$/,'').trim() : '';
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>{
+      btn.textContent='✅ 已复制';btn.classList.add('copied');
+      setTimeout(()=>{btn.textContent='📋 复制';btn.classList.remove('copied')},1500);
     });
+  } else {
+    toast('复制功能不可用');
+  }
+}
 
-    /* Back to top */
-    const backTop = document.getElementById('backTop');
-    function toggleBackTop() {
-      backTop.classList.toggle('visible', window.scrollY > 400);
-    }
-    window.addEventListener('scroll', toggleBackTop, { passive: true });
-    backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-  </script>
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+/* ── Card expand/collapse & double-click ───── */
+function handleCardClick(gridId){
+  const grid = document.getElementById(gridId);
+  if(!grid) return;
+  grid.addEventListener('click', e => {
+    if(e.target.closest('a')||e.target.closest('.copy-btn')||e.target.closest('pre'))return;
+    const card = e.target.closest('.card');
+    if(!card||!card.dataset.skill)return;
+    card.classList.toggle('expanded');
+  });
+  grid.addEventListener('dblclick', e => {
+    if(e.target.closest('a')||e.target.closest('.copy-btn')||e.target.closest('pre'))return;
+    const card = e.target.closest('.card');
+    if(!card||!card.dataset.url)return;
+    window.open(card.dataset.url, '_blank');
+  });
+}
+handleCardClick('demoGrid');
+handleCardClick('chatGrid');
+handleCardClick('mgrGrid');
+
+/* ── Search filter ──────────────────────────── */
+document.getElementById('demoSearch').addEventListener('input', function(){
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('#demoGrid .card,#chatGrid .card,#mgrGrid .card').forEach(card=>{
+    const kw = (card.dataset.keywords||'')+' '+(card.querySelector('.c-title')?.textContent||'')+' '+(card.querySelector('.c-desc')?.textContent||'');
+    card.style.display = (!q || kw.toLowerCase().includes(q)) ? '' : 'none';
+  });
+});
+
+/* ── Keyboard shortcuts ─────────────────────── */
+document.addEventListener('keydown', e => {
+  if(document.activeElement.tagName==='INPUT')return;
+  if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();document.getElementById('demoSearch').focus();}
+  const n = parseInt(e.key);
+  if(n===1) document.getElementById('libs').scrollIntoView({behavior:'smooth'});
+  if(n===2) document.getElementById('chat').scrollIntoView({behavior:'smooth'});
+  if(n===3) document.getElementById('manager').scrollIntoView({behavior:'smooth'});
+  if(n===4) document.getElementById('quick').scrollIntoView({behavior:'smooth'});
+});
+
+/* ── Back to top ────────────────────────────── */
+const backTop = document.getElementById('backTop');
+window.addEventListener('scroll', ()=>{backTop.classList.toggle('visible',window.scrollY>400);},{passive:true});
+backTop.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+
+/* ── Live test status ───────────────────────── */
+(async()=>{
+  try{
+    const r = await(await fetch('../tests/results.json')).json();
+    const s = r.summary||{};
+    document.getElementById('testNav').textContent = '🧪 自检中心 · '+(s.passed||0)+'/'+(s.total||0)+' 通过';
+  }catch(e){ /* results.json not available yet */ }
+})();
+</script>
 </body>
 </html>

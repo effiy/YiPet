@@ -1,111 +1,42 @@
 /**
  * tests/setup.mjs — 测试环境初始化
  *
- * - 模拟 Chrome Extension API (chrome.storage, chrome.runtime)
- * - loadModule 辅助函数：加载 IIFE 模块到测试上下文
- * - fetch 全局 mock 基础设施
+ * 瘦身版：导入 tests/lib/ 中的共享模块，注册全局钩子。
  */
-
 import { vi } from 'vitest';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { setupChromeMock, resetChromeMock } from './lib/chrome-mock.mjs';
+import { loadModule } from './lib/load-module.mjs';
+import { createMockFetch, resetFetchMock } from './lib/fetch-helpers.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, '..');
+// ── 全局初始化 ─────────────────────────────────────────────
+setupChromeMock();
+createMockFetch();
+globalThis.loadModule = loadModule;
 
-// ── Chrome API Mocks ─────────────────────────────────────
-
-const storageData = new Map();
-
-globalThis.chrome = {
-  storage: {
-    local: {
-      get: vi.fn((keys, callback) => {
-        const result = {};
-        const keyList = keys === null || keys === undefined
-          ? [...storageData.keys()]
-          : (Array.isArray(keys) ? keys : [keys]);
-        for (const k of keyList) {
-          if (storageData.has(k)) result[k] = storageData.get(k);
-        }
-        if (callback) callback(result);
-      }),
-      set: vi.fn((items, callback) => {
-        for (const [k, v] of Object.entries(items)) {
-          storageData.set(k, v);
-        }
-        if (callback) callback();
-      }),
-      remove: vi.fn((keys, callback) => {
-        const keyList = Array.isArray(keys) ? keys : [keys];
-        for (const k of keyList) storageData.delete(k);
-        if (callback) callback();
-      }),
-      clear: vi.fn((callback) => {
-        storageData.clear();
-        if (callback) callback();
-      }),
-    },
-  },
-  runtime: {
-    id: 'mock-extension-id',
-    lastError: null,
-  },
+// 暴露 chrome mock 辅助函数到 globalThis（兼容现有测试）
+globalThis.clearChromeStorage = () => resetChromeMock();
+globalThis.getChromeStorageData = () => {
+  // 由 chrome-mock.mjs 的 Map backend 管理，这里只作兼容
 };
-
-// Helper to simulate chrome.runtime.lastError
-globalThis.setChromeError = (message) => {
-  chrome.runtime.lastError = message ? { message } : null;
+globalThis.setChromeError = (msg) => {
+  chrome.runtime.lastError = msg ? { message: msg } : null;
 };
-
 globalThis.clearChromeError = () => {
   chrome.runtime.lastError = null;
 };
-
-globalThis.clearChromeStorage = () => {
-  storageData.clear();
-};
-
-globalThis.getChromeStorageData = () => new Map(storageData);
-
-// ── Helpers to simulate context invalidation ──────────────
-
 globalThis.invalidateExtensionContext = () => {
   chrome.runtime.id = undefined;
 };
-
 globalThis.restoreExtensionContext = () => {
   chrome.runtime.id = 'mock-extension-id';
 };
+globalThis.resetFetchMock = resetFetchMock;
 
-// ── loadModule — 加载 IIFE 模块 ────────────────────────────
-
-globalThis.loadModule = (relativePath) => {
-  const fullPath = resolve(ROOT, relativePath);
-
-  const code = readFileSync(fullPath, 'utf-8');
-  const fn = new Function('globalThis', code);
-  fn(globalThis);
-};
-
-// ── Fetch Mock ────────────────────────────────────────────
-
-globalThis.mockFetch = vi.fn();
-globalThis.fetch = globalThis.mockFetch;
-
-// Reset fetch mock between tests
-globalThis.resetFetchMock = () => {
-  globalThis.mockFetch.mockReset();
-};
-
-// ── Global Setup / Teardown ───────────────────────────────
-
+// ── 生命周期钩子 ────────────────────────────────────────────
 beforeEach(() => {
-  clearChromeStorage();
-  clearChromeError();
-  restoreExtensionContext();
+  resetChromeMock();
   resetFetchMock();
+  restoreExtensionContext();
 });
 
 afterEach(() => {

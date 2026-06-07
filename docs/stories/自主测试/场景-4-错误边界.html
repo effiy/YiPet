@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../../shared/doc.css">
+  <title>场景 4: 异常路径与边界 — 自主测试方案 | YiPet</title>
+  <style>
+    :root { --bg-content: rgba(22,22,32,1); --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%); --bg-card-flat: rgba(34,34,46,1); --color-accent: #FFC107; --color-accent-2: #22d3ee; --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1); --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --shadow-hover: 0 12px 32px rgba(0,0,0,0.45); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06); }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    * { box-sizing: border-box; margin: 0; padding: 0; } html { scroll-behavior: smooth; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; }
+    .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+    .breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; font-size: 0.78rem; animation: fadeInDown 0.4s ease both; }
+    .breadcrumb a { color: var(--color-accent-2); text-decoration: none; } .breadcrumb a:hover { color: var(--color-accent); text-decoration: underline; }
+    .breadcrumb .sep { color: var(--text-muted); opacity: 0.5; } .breadcrumb .current { color: var(--text-secondary); font-weight: 500; }
+    .header { text-align: center; margin-bottom: 28px; animation: fadeInDown 0.5s ease both; } .header h1 { font-size: 2rem; font-weight: 700; } .header h1 .accent { color: var(--color-accent); } .header p { color: var(--text-secondary); margin-top: 8px; font-size: 0.92rem; }
+    .meta-bar { display: flex; gap: 14px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; animation: fadeInDown 0.5s 0.1s ease both; }
+    .meta-badge { background: var(--bg-card); border: var(--border-subtle); border-radius: 8px; padding: 8px 18px; font-size: 0.78rem; box-shadow: var(--shadow-card); color: var(--text-secondary); } .meta-badge .val { color: var(--color-accent); font-weight: 600; }
+    .cross-nav { display: flex; gap: 8px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; animation: fadeInDown 0.5s 0.15s ease both; }
+    .cross-nav a { background: var(--bg-card); border: 1px solid rgba(255,193,7,0.15); border-radius: 10px; padding: 10px 16px; box-shadow: var(--shadow-card); text-decoration: none; color: inherit; display: flex; gap: 8px; align-items: center; font-size: 0.8rem; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+    .cross-nav a:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.35); }
+    .cross-nav a .nav-arrow { color: var(--color-accent); font-size: 0.85rem; opacity: 0.6; } .cross-nav a:hover .nav-arrow { opacity: 1; }
+    .section { margin-bottom: 32px; } .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--color-accent); } .section-header h2 { font-size: 1.1rem; }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .dash-card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px; box-shadow: var(--shadow-card); transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; text-decoration: none; color: inherit; display: flex; gap: 14px; align-items: flex-start; animation: fadeInUp 0.4s ease both; position: relative; overflow: hidden; cursor: pointer; }
+    .dash-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .dash-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; border-radius: 0 3px 3px 0; transition: background 0.2s; } .dash-card:hover::before { background: var(--color-accent); }
+    .dash-card .dc-icon { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .dash-card .dc-icon.checklist { background: rgba(255,193,7,0.12); } .dash-card .dc-icon.arch { background: rgba(192,132,252,0.12); } .dash-card .dc-icon.graph { background: rgba(34,211,238,0.12); } .dash-card .dc-icon.test { background: rgba(100,220,180,0.12); } .dash-card .dc-icon.demo { background: rgba(255,193,7,0.1); } .dash-card .dc-icon.review { background: rgba(148,163,184,0.12); }
+    .dash-card .dc-body { flex: 1; min-width: 0; } .dash-card .dc-body .dc-title { font-weight: 600; font-size: 0.92rem; color: var(--text-primary); } .dash-card .dc-body .dc-desc { font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+    .dash-card .dc-body .dc-links { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .dash-card .dc-body .dc-links .dc-link { font-size: 0.68rem; color: var(--color-accent-2); text-decoration: none; padding: 2px 8px; border-radius: 4px; background: rgba(34,211,238,0.06); transition: all 0.15s; }
+    .dash-card .dc-body .dc-links .dc-link:hover { color: var(--color-accent); background: rgba(255,193,7,0.08); text-decoration: underline; }
+    .dash-card .dc-body .dc-links .dc-link.primary { color: var(--color-accent); background: rgba(255,193,7,0.08); border: 1px solid rgba(255,193,7,0.12); }
+    hr { border-color: rgba(255,255,255,0.08); margin: 8px 0 24px; } .footer-note { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 8px; padding-bottom: 20px; } .footer-note a { color: var(--color-accent); text-decoration: none; } .footer-note a:hover { text-decoration: underline; }
+    a[target="_blank"]::after{content:" ↗";font-size:.7em;opacity:.5}
+    @media (max-width: 768px) { .container { padding: 24px 12px; } .header h1 { font-size: 1.5rem; } .dash-grid { grid-template-columns: 1fr; } .cross-nav { flex-direction: column; align-items: center; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="breadcrumb"><a href="../../index.html">&#127968; 文档中心</a><span class="sep">›</span><a href="./index.html">&#129514; 自主测试方案</a><span class="sep">›</span><span class="current">场景 4: 异常路径与边界</span></nav>
+    <div class="header"><h1><span class="accent">&#129514;</span> 场景 4: 异常路径与边界</h1><p>验证错误分类、错误处理、上下文失效检测、Token 缺失等异常路径的覆盖率 — 异常路径全覆盖</p></div>
+    <div class="meta-bar"><span class="meta-badge">版本 <span class="val">v1.0.0</span></span><span class="meta-badge">优先级 <span class="val">P0</span></span><span class="meta-badge">角色 <span class="val">测试工程师</span></span><span class="meta-badge">框架 <span class="val">vitest + jsdom</span></span></div>
+    <div class="cross-nav">
+      <a href="./场景-3-存储测试.html"><span>&#9664;</span> 场景 3: 存储测试<span class="nav-arrow">&larr;</span></a>
+      <a href="./index.html"><span>&#129514;</span> 故事首页<span class="nav-arrow">&larr;</span></a>
+      <a href="../../demos/index.html"><span>&#127918;</span> Demo 中心<span class="nav-arrow">&rarr;</span></a>
+      <a href="../../tests/index.html"><span>&#129514;</span> 测试套件<span class="nav-arrow">&rarr;</span></a>
+      <a href="./场景-5-集成测试.html">场景 5: 集成测试<span class="nav-arrow">&rarr;</span></a>
+    </div>
+    <div class="section"><div class="section-header"><h2>&#128203; 场景清单仪表盘</h2></div>
+      <div class="dash-grid">
+        <a class="dash-card" href="./场景-4-错误边界.md" target="_blank" style="animation-delay:0.01s"><span class="dc-icon checklist">&#128451;</span><div class="dc-body"><div class="dc-title">&#128203; 清单</div><div class="dc-desc">场景完整清单文档 — 概述 · §0 技术评审 · §1 测试设计 · §2 实施报告 · §3 测试报告 · §4 自改进</div><div class="dc-links"><span class="dc-link primary">场景-4-错误边界.md &rarr;</span></div></div></a>
+        <a class="dash-card" href="./场景-4-错误边界.md#sec0" target="_blank" style="animation-delay:0.03s"><span class="dc-icon arch">&#128736;</span><div class="dc-body"><div class="dc-title">&#128451; 架构</div><div class="dc-desc">异常测试架构 — 错误分类策略 · 上下文失效检测 (isContextInvalidated) · Token 三级降级 · 网络异常模拟</div><div class="dc-links"><span class="dc-link">§0 技术评审 &rarr;</span><span class="dc-link" href="./知识图谱.html" target="_blank">知识图谱 &rarr;</span></div></div></a>
+        <a class="dash-card" href="./知识图谱.html" target="_blank" style="animation-delay:0.05s"><span class="dc-icon graph">&#128279;</span><div class="dc-body"><div class="dc-title">&#128279; 图谱</div><div class="dc-desc">Cytoscape.js 交互式知识图谱 — 错误传播路径 · 降级策略节点 · 异常覆盖率热力图</div><div class="dc-links"><span class="dc-link primary">知识图谱.html &rarr;</span><span class="dc-link" href="./知识图谱.json" target="_blank">JSON 数据 &rarr;</span></div></div></a>
+        <a class="dash-card" href="../../tests/index.html" target="_blank" style="animation-delay:0.07s"><span class="dc-icon test">&#129514;</span><div class="dc-body"><div class="dc-title">&#129514; 测试</div><div class="dc-desc">error.test.mjs — 错误分类 · 上下文失效检测 · Token 缺失降级 · 网络异常 · 空状态覆盖</div><div class="dc-links"><span class="dc-link primary">测试套件 &rarr;</span><span class="dc-link" href="../../tests/unit/error.test.mjs" target="_blank">error.test &rarr;</span><span class="dc-link" href="../../tests/unit/token.test.mjs" target="_blank">token.test &rarr;</span></div></div></a>
+        <a class="dash-card" href="../../demos/index.html" target="_blank" style="animation-delay:0.09s"><span class="dc-icon demo">&#127918;</span><div class="dc-body"><div class="dc-title">&#127918; 演示</div><div class="dc-desc">coverage 使用事例 — V8 覆盖率引擎 · 逐场景覆盖率目标 · 异常路径覆盖热力图</div><div class="dc-links"><span class="dc-link primary">Demo 中心 &rarr;</span><span class="dc-link" href="../../demos/third-party/coverage.html" target="_blank">coverage &rarr;</span></div></div></a>
+        <a class="dash-card" href="./场景-4-错误边界.md#sec0" target="_blank" style="animation-delay:0.11s"><span class="dc-icon review">&#128221;</span><div class="dc-body"><div class="dc-title">&#128221; 审查</div><div class="dc-desc">§0 技术评审 — 异常路径覆盖率完整性审查 · L1/L2/L3 防御层验证 · 上下文失效降级正确性</div><div class="dc-links"><span class="dc-link primary">§0 技术评审 &rarr;</span><span class="dc-link" href="./场景-4-错误边界.md#sec4" target="_blank">§4 自改进 &rarr;</span></div></div></a>
+      </div>
+    </div>
+    <hr>
+    <div class="footer-note"><a href="../../index.html">文档中心</a> · <a href="./index.html">自主测试方案</a> · <a href="../../demos/index.html">Demo 中心</a> · <a href="../../tests/index.html">测试套件</a> · <a href="./故事任务.md">故事任务</a></div>
+  </div>
+</body>
+</html>

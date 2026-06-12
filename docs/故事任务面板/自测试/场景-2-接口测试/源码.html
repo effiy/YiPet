@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>接口测试 · 源码</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.stat .val.c{color:var(--cyan)}.stat .val.a{color:var(--accent)}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin:12px 0}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.04)}
+th{color:var(--text3);font-weight:600;font-size:.74rem;text-transform:uppercase}
+td{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 2 · 接口测试</span><span class="bc-sep">/</span><span class="bc-current">📄 源码</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><span class="cross-link on">📄 源码</span><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>📄 <span class="accent">API 接口测试</span> · 源码</h1>
+  <p class="sub">场景 2 · 版本 vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">—</div><div class="lbl">产物文件</div></div>
+        <div class="stat"><div class="val a">2</div><div class="lbl">场景</div></div>
+        <div class="stat"><div class="val">vv2.0.0</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="files">📁 文件清单</span>
+  <span class="tab" data-panel="structure">🗂 目录浏览</span>
+  <span class="tab" data-panel="topology">🔗 模块拓扑</span>
+</div>
+
+<div class="panel on" id="panelFiles">
+  <div class="section">
+    <h2><span class="dot"></span>产物文件</h2>
+    <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>测试文件清单</h3><table><thead><tr><th>测试文件</th><th>覆盖模块</th><th>测试类型</th></tr></thead><tbody><tr><td><code>tests/unit/api.test.mjs</code></td><td><code>core/utils/api/request.js</code> · <code>core/api/core/ApiManager.js</code></td><td>单元测试 · HTTP 方法 · 超时 · 重试 · 中断</td></tr><tr><td><code>tests/unit/request.test.mjs</code></td><td><code>core/utils/api/request.js</code></td><td>单元测试 · RequestClient · fetch mock</td></tr><tr><td><code>tests/lib/fetch-helpers.mjs</code></td><td>fetch mock 辅助</td><td>测试基础设施 · API 响应构造</td></tr></tbody></table><h3>测试覆盖的接口</h3><table><thead><tr><th>接口/功能</th><th>测试文件</th><th>覆盖场景</th></tr></thead><tbody><tr><td>RequestClient.get/post/put/delete</td><td><code>api.test.mjs</code></td><td>HTTP 方法 · URL 参数 · 请求体</td></tr><tr><td>请求超时</td><td><code>api.test.mjs</code></td><td>AbortController · 超时阈值</td></tr><tr><td>请求重试</td><td><code>api.test.mjs</code> · <code>request.test.mjs</code></td><td>网络错误重试 · 状态码重试 · 最大重试次数</td></tr><tr><td>请求中断</td><td><code>api.test.mjs</code></td><td>AbortSignal · 并发中断</td></tr><tr><td>ApiManager 拦截器</td><td><code>api.test.mjs</code></td><td>X-Token 注入 · 请求拦截 · 响应拦截</td></tr><tr><td>响应解析</td><td><code>api.test.mjs</code> · <code>request.test.mjs</code></td><td>JSON 解析 · 错误状态码处理</td></tr></tbody></table><h3>接口测试依赖链</h3><p><pre class="mermaid">flowchart LR
+    FETCH[&quot;fetch mock&quot;] --&gt; REQ[&quot;RequestClient&quot;]
+    REQ --&gt; API[&quot;ApiManager&quot;]
+    API --&gt; SESS[&quot;SessionService&quot;]
+    API --&gt; FAQ[&quot;FaqService&quot;]
+    FETCH --&gt; ASSERT[&quot;vitest expect&quot;]
+    REQ --&gt; ASSERT
+    API --&gt; ASSERT</pre></p><p>---</p><p><a id="sec3"></a></p>
+  </div>
+</div>
+
+<div class="panel" id="panelStructure">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;修改 RequestClient 重试策略&quot;]:::risk --&gt; TEST[&quot;npx vitest run&lt;br/&gt;tests/unit/api.test.mjs&quot;]:::exec
+    TEST --&gt; CHECK{&quot;3次重试+退避&lt;br/&gt;是否正确?&quot;}
+    CHECK --&gt;|&quot;✅&quot;| CONF[&quot;提交变更&quot;]:::goal
+    CHECK --&gt;|&quot;❌&quot;| FIX[&quot;检查重试次数和间隔&quot;]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>请求客户端架构</h3><p><pre class="mermaid">flowchart TB
+    subgraph client[&quot;RequestClient&quot;]
+        BUILD[&quot;_buildUrlWithParams(url, params)&quot;]:::exec
+        OPTIONS[&quot;_buildFetchOptions(data, method)&quot;]:::exec
+        FETCH[&quot;_fetchWithRetry(url, options, retries)&quot;]:::exec
+        PARSE[&quot;_parseResponse(response)&quot;]:::exec
+    end
+
+    subgraph config[&quot;请求配置&quot;]
+        URL[&quot;url: string&quot;]:::note
+        METHOD[&quot;method: GET/POST/PUT/DELETE&quot;]:::note
+        DATA[&quot;data: object (for POST/PUT)&quot;]:::note
+        PARAMS[&quot;params: object (for GET)&quot;]:::note
+        TIMEOUT[&quot;timeout: number (default 30s)&quot;]:::note
+    end
+
+    subgraph behavior[&quot;运行时行为&quot;]
+        RETRY[&quot;重试: 最多 3 次&quot;]:::core
+        BACKOFF[&quot;退避: 指数增长 (1s→2s→4s)&quot;]:::core
+        ABORT[&quot;超时: AbortController + setTimeout&quot;]:::core
+        DEDUP[&quot;去重: 5s 窗口内相同请求合并&quot;]:::core
+    end
+
+    config --&gt; client --&gt; behavior
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre></p><h3>被测模块覆盖</h3><table><thead><tr><th>源文件</th><th>关键方法</th><th>测试覆盖点</th></tr></thead><tbody><tr><td>core/utils/api/request.js</td><td>RequestClient.request()</td><td>GET/POST/PUT/DELETE · URL 拼接 · 参数序列化 · 请求头 · 超时 · 重试 · 去重</td></tr><tr><td>core/api/core/ApiManager.js</td><td>ApiManager.request()</td><td>Token 拦截器注入 · 日志拦截器 · 响应拦截器 · 错误透传</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>请求方法全覆盖（GET/POST/PUT/DELETE）</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>重试策略包含次数限制和退避间隔验证</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>超时控制使用 AbortController</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>mock fetch 可精确验证请求构造</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelTopology">
+  <pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV["修改 RequestClient 重试策略"]:::risk --&gt; TEST["npx vitest run&lt;br/&gt;tests/unit/api.test.mjs"]:::exec
+    TEST --&gt; CHECK{"3次重试+退避&lt;br/&gt;是否正确?"}
+    CHECK --&gt;|"✅"| CONF["提交变更"]:::goal
+    CHECK --&gt;|"❌"| FIX["检查重试次数和间隔"]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph client["RequestClient"]
+        BUILD["_buildUrlWithParams(url, params)"]:::exec
+        OPTIONS["_buildFetchOptions(data, method)"]:::exec
+        FETCH["_fetchWithRetry(url, options, retries)"]:::exec
+        PARSE["_parseResponse(response)"]:::exec
+    end
+
+    subgraph config["请求配置"]
+        URL["url: string"]:::note
+        METHOD["method: GET/POST/PUT/DELETE"]:::note
+        DATA["data: object (for POST/PUT)"]:::note
+        PARAMS["params: object (for GET)"]:::note
+        TIMEOUT["timeout: number (default 30s)"]:::note
+    end
+
+    subgraph behavior["运行时行为"]
+        RETRY["重试: 最多 3 次"]:::core
+        BACKOFF["退避: 指数增长 (1s→2s→4s)"]:::core
+        ABORT["超时: AbortController + setTimeout"]:::core
+        DEDUP["去重: 5s 窗口内相同请求合并"]:::core
+    end
+
+    config --&gt; client --&gt; behavior
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre>
+<pre class="mermaid">flowchart LR
+    FETCH["fetch mock"] --&gt; REQ["RequestClient"]
+    REQ --&gt; API["ApiManager"]
+    API --&gt; SESS["SessionService"]
+    API --&gt; FAQ["FaqService"]
+    FETCH --&gt; ASSERT["vitest expect"]
+    REQ --&gt; ASSERT
+    API --&gt; ASSERT</pre>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

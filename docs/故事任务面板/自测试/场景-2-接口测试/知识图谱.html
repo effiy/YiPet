@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>接口测试 · 知识图谱</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/fonts.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme-mono.css">
+<style>body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}</style>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}
+.container{max-width:1400px;margin:0 auto}
+.header{margin-bottom:1.5rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#22d3ee;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+h1{font-size:1.5rem;font-weight:700}
+.subtitle{color:#94a3b8;font-size:.875rem;margin-left:1.75rem}
+.toolbar{display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#475569;cursor:pointer;font-size:1.25rem;padding:.25rem .5rem;border-radius:.375rem}
+.toolbar-toggle:hover{color:#94a3b8;background:rgba(30,41,59,.5)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+.toolbar-actions button{background:rgba(30,41,59,.8);border:1px solid #334155;color:#94a3b8;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.toolbar-actions button:hover{background:rgba(51,65,85,.8);color:white;border-color:#475569}
+.graph-container{background:rgba(15,23,42,.5);border-radius:1rem;border:1px solid #1e293b;padding:1rem;margin-bottom:1.5rem}
+#cy{width:100%;height:550px;border-radius:.5rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.scene{background:#8B5CF6}.card-dot.check{background:#EC4899}.card-dot.source{background:#3B82F6}.card-dot.domain{background:#22d3ee}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#94a3b8;font-size:.75rem}
+.card li{margin-bottom:.375rem}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:.75rem;padding:.75rem;background:rgba(15,23,42,.5);border-radius:.5rem;border:1px solid #1e293b;font-size:.75rem;color:#94a3b8}
+.legend-item{display:flex;align-items:center;gap:.375rem}
+.legend-dot{width:12px;height:12px;border-radius:50%;border:2px solid}
+.legend-dot.scene{background:rgba(139,92,246,.3);border-color:#8B5CF6}
+.legend-dot.check{background:rgba(236,72,153,.3);border-color:#EC4899}
+.legend-dot.source{background:rgba(59,130,246,.3);border-color:#3B82F6}
+.legend-dot.domain{background:rgba(34,211,238,.3);border-color:#22d3ee}
+.breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;font-size:0.76rem}
+.breadcrumb a{color:#7aa2f7;text-decoration:none}
+.breadcrumb a:hover{color:#fbbf24}
+.breadcrumb .bc-sep{color:#53576c;opacity:0.5;user-select:none}
+.breadcrumb .bc-current{color:#94a3b8;font-weight:500}
+.cross-nav{display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both}
+.cross-link{color:#7aa2f7;text-decoration:none;font-size:0.76rem;padding:3px 10px;border-radius:4px}
+.cross-link:hover{color:#fbbf24;background:rgba(251,191,36,0.06)}
+.cross-link.on{color:#fbbf24;font-weight:600;cursor:default}
+.cross-sep{color:#475569;font-size:0.5rem;opacity:0.35;user-select:none}
+.footer{text-align:center;color:#475569;font-size:.75rem;margin-top:1rem}
+@media print{body{background:#020617;padding:1rem}.toolbar{display:none!important}}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 2 · 接口测试</span><span class="bc-sep">/</span><span class="bc-current">🔗 知识图谱</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><span class="cross-link on">🔗 图谱</span><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <div class="header-row">
+    <div class="pulse-dot"></div>
+    <h1>🔗 API 接口测试 · 知识图谱</h1>
+    <div class="toolbar">
+      <div class="toolbar-actions">
+        <button onclick="copyAsImage(this)">📋 Copy</button>
+        <button onclick="downloadPNG(this)">🖼 PNG</button>
+        <button onclick="downloadPDF(this)">📄 PDF</button>
+      </div>
+      <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')">⋯</button>
+    </div>
+  </div>
+  <p class="subtitle">yipet-self-test · 场景 2 · vv2.0.0</p>
+</div>
+
+<div class="legend">
+  <span style="color:#94a3b8;font-weight:600;">节点:</span>
+  <span class="legend-item"><span class="legend-dot scene"></span>场景</span>
+  <span class="legend-item"><span class="legend-dot check"></span>检查/功能</span>
+  <span class="legend-item"><span class="legend-dot source"></span>源文件</span>
+  <span class="legend-item"><span class="legend-dot domain"></span>概念域</span>
+  <span style="margin-left:1rem;color:#94a3b8;font-weight:600;">操作:</span>
+  <span style="color:#64748b;">🖱 拖拽 · 滚轮缩放 · 点击节点高亮邻域</span>
+</div>
+
+<div class="graph-container"><div id="cy"></div></div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-header"><div class="card-dot scene"></div><h3>场景</h3></div>
+    <ul><li><b>API 接口测试</b> — 场景 2</li></ul>
+  </div>
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;修改 RequestClient 重试策略&quot;]:::risk --&gt; TEST[&quot;npx vitest run&lt;br/&gt;tests/unit/api.test.mjs&quot;]:::exec
+    TEST --&gt; CHECK{&quot;3次重试+退避&lt;br/&gt;是否正确?&quot;}
+    CHECK --&gt;|&quot;✅&quot;| CONF[&quot;提交变更&quot;]:::goal
+    CHECK --&gt;|&quot;❌&quot;| FIX[&quot;检查重试次数和间隔&quot;]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>请求客户端架构</h3><p><pre class="mermaid">flowchart TB
+    subgraph client[&quot;RequestClient&quot;]
+        BUILD[&quot;_buildUrlWithParams(url, params)&quot;]:::exec
+        OPTIONS[&quot;_buildFetchOptions(data, method)&quot;]:::exec
+        FETCH[&quot;_fetchWithRetry(url, options, retries)&quot;]:::exec
+        PARSE[&quot;_parseResponse(response)&quot;]:::exec
+    end
+
+    subgraph config[&quot;请求配置&quot;]
+        URL[&quot;url: string&quot;]:::note
+        METHOD[&quot;method: GET/POST/PUT/DELETE&quot;]:::note
+        DATA[&quot;data: object (for POST/PUT)&quot;]:::note
+        PARAMS[&quot;params: object (for GET)&quot;]:::note
+        TIMEOUT[&quot;timeout: number (default 30s)&quot;]:::note
+    end
+
+    subgraph behavior[&quot;运行时行为&quot;]
+        RETRY[&quot;重试: 最多 3 次&quot;]:::core
+        BACKOFF[&quot;退避: 指数增长 (1s→2s→4s)&quot;]:::core
+        ABORT[&quot;超时: AbortController + setTimeout&quot;]:::core
+        DEDUP[&quot;去重: 5s 窗口内相同请求合并&quot;]:::core
+    end
+
+    config --&gt; client --&gt; behavior
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre></p><h3>被测模块覆盖</h3><table><thead><tr><th>源文件</th><th>关键方法</th><th>测试覆盖点</th></tr></thead><tbody><tr><td>core/utils/api/request.js</td><td>RequestClient.request()</td><td>GET/POST/PUT/DELETE · URL 拼接 · 参数序列化 · 请求头 · 超时 · 重试 · 去重</td></tr><tr><td>core/api/core/ApiManager.js</td><td>ApiManager.request()</td><td>Token 拦截器注入 · 日志拦截器 · 响应拦截器 · 错误透传</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>请求方法全覆盖（GET/POST/PUT/DELETE）</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>重试策略包含次数限制和退避间隔验证</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>超时控制使用 AbortController</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>mock fetch 可精确验证请求构造</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+(function(){
+  if(typeof cytoscape==='undefined'){document.getElementById('cy').innerHTML='<p style="color:#475569;text-align:center;padding:2rem;">Cytoscape.js 未加载</p>';return}
+  var kgPath='../../../../docs/故事任务面板/yipet-self-test/知识图谱.json';
+  fetch(kgPath).then(function(r){return r.json()}).then(function(kg){
+    var elements=[];
+    var domains=(kg.nodes&&kg.nodes.domains)||[];
+    var scenes=(kg.nodes&&kg.nodes.scenes)||[];
+    var sources=(kg.nodes&&kg.nodes.sources)||[];
+    domains.forEach(function(d){elements.push({data:{id:d.id,label:d.name,type:'domain'}})});
+    scenes.forEach(function(s){elements.push({data:{id:s.id,label:s.name||s.id,type:'scene'}})});
+    sources.forEach(function(s){elements.push({data:{id:s.id,label:s.name||s.id,type:'source'}})});
+    var edges=kg.edges||[];
+    edges.forEach(function(e){elements.push({data:{source:e.source,target:e.target,label:e.type||''}})});
+    if(elements.length===0){elements.push({data:{id:'empty',label:'暂无图谱数据'}})}
+    window._cy=cytoscape({container:document.getElementById('cy'),style:[
+      {selector:'node',style:{label:'data(label)',color:'white','font-size':'10px','font-family':'JetBrains Mono,monospace','text-valign':'center','text-halign':'center','background-color':'#1e293b','border-width':'2px','border-color':'#475569'}},
+      {selector:'node[type="domain"]',style:{'background-color':'#1b1e2e','border-color':'#7aa2f7','border-width':'3px'}},
+      {selector:'node[type="scene"]',style:{'background-color':'#1a2a1a','border-color':'#34d399'}},
+      {selector:'node[type="source"]',style:{'background-color':'#21232f','border-color':'#565f89'}},
+      {selector:'edge',style:{'line-color':'#3d59a1','target-arrow-color':'#3d59a1','target-arrow-shape':'triangle','curve-style':'bezier',width:1.5}}
+    ],elements:elements,layout:{name:'cose',idealEdgeLength:100,nodeOverlap:20}});
+  }).catch(function(){
+    window._cy=cytoscape({container:document.getElementById('cy'),style:[{selector:'node',style:{label:'data(label)',color:'white','font-size':'10px','text-valign':'center','text-halign':'center','background-color':'#1e293b','border-width':'2px','border-color':'#475569'}}],elements:{nodes:[{data:{id:'err',label:'图谱加载失败'}}],edges:[]},layout:{name:'grid'}});
+  });
+  var btns=document.querySelectorAll('.toolbar-actions button');
+  if(btns[0])btns[0].onclick=function(){var c=window._cy;if(c)navigator.clipboard.writeText(JSON.stringify(c.json()))};
+  if(btns[1])btns[1].onclick=function(){if(typeof html2canvas==='undefined')return;html2canvas(document.getElementById('cy'),{backgroundColor:'#020617'}).then(function(c){var a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='yipet-self-test-scene2-kg.png';a.click()})};
+})();
+</script>
+</body>
+</html>

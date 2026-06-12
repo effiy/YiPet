@@ -2,7 +2,7 @@
  * PetManager - 聊天窗口相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -10,7 +10,7 @@
 
   const proto = window.PetManager.prototype
 
-  function computeDockedChatWindowRect (widthRatio) {
+  function computeDockedChatWindowRect(widthRatio) {
     const ratio = Number(widthRatio)
     const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0
     const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0
@@ -83,7 +83,9 @@
           const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages')
           if (messagesContainer) {
             await this.loadMermaid()
-            const unrenderedMermaid = messagesContainer.querySelectorAll('div.mermaid:not([data-mermaid-rendered="true"]), code.language-mermaid:not(.mermaid-processed)')
+            const unrenderedMermaid = messagesContainer.querySelectorAll(
+              'div.mermaid:not([data-mermaid-rendered="true"]), code.language-mermaid:not(.mermaid-processed)',
+            )
             if (unrenderedMermaid.length > 0) {
               console.log(`窗口显示后，发现 ${unrenderedMermaid.length} 个未渲染的 Mermaid 图表，开始处理...`)
               await this.processMermaidBlocks(messagesContainer)
@@ -168,7 +170,7 @@
         const sessionIdToScroll = matchedSessionId || this.currentSessionId
         if (sessionIdToScroll && typeof this.scrollToSessionItem === 'function') {
           // 等待侧边栏完全渲染后再滚动
-          await new Promise(resolve => setTimeout(resolve, 100))
+          await new Promise((resolve) => setTimeout(resolve, 100))
           await this.scrollToSessionItem(sessionIdToScroll)
         }
       }
@@ -211,7 +213,7 @@
       dragStart: { x: 0, y: 0 },
       resizeStart: { x: 0, y: 0, width: 0, height: 0 },
       isFullscreen: false,
-      originalState: null // 保存全屏前的原始状态
+      originalState: null, // 保存全屏前的原始状态
     }
 
     // 尝试加载保存的聊天窗口状态（会覆盖默认值）
@@ -248,7 +250,7 @@
         const sessionIdToScroll = matchedSessionId || this.currentSessionId
         if (sessionIdToScroll && typeof this.scrollToSessionItem === 'function') {
           // 等待侧边栏完全渲染后再滚动
-          await new Promise(resolve => setTimeout(resolve, 300))
+          await new Promise((resolve) => setTimeout(resolve, 300))
           await this.scrollToSessionItem(sessionIdToScroll)
         }
       }
@@ -327,7 +329,7 @@
     if (smooth) {
       messagesContainer.scrollTo({
         top: messagesContainer.scrollHeight,
-        behavior: 'smooth'
+        behavior: 'smooth',
       })
     } else {
       // 使用 requestAnimationFrame 优化性能
@@ -434,10 +436,10 @@
 
     const colors = Array.isArray(this.colors) ? this.colors : []
     const currentColor =
-            colors.length > 0
-              ? colors[Number(this.colorIndex) || 0]
-              : (PET_CONFIG?.pet?.colors?.[PET_CONFIG?.pet?.defaultColorIndex ?? 0] ||
-                  'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)')
+      colors.length > 0
+        ? colors[Number(this.colorIndex) || 0]
+        : PET_CONFIG?.pet?.colors?.[PET_CONFIG?.pet?.defaultColorIndex ?? 0] ||
+          'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
     const mainColor = this.getMainColorFromGradient(currentColor)
     const rgb = toRgbFromHex(mainColor) || { r: 102, g: 126, b: 234 }
     const rgbText = `${rgb.r}, ${rgb.g}, ${rgb.b}`
@@ -477,7 +479,7 @@
         y: this.chatWindowState.y,
         width: this.chatWindowState.width,
         height: this.chatWindowState.height,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       // 保存到chrome.storage.local避免写入配额限制
@@ -560,12 +562,16 @@
         pageInfo = {
           title: session.title || document.title || '当前页面',
           url: sessionUrl || window.location.href,
-          description: session.pageDescription || ''
+          description: session.pageDescription || '',
         }
         if (!sessionUrl) pageInfo.url = ''
       } else {
         const currentPageInfo = this.getPageInfo()
-        pageInfo = { title: currentPageInfo.title, url: currentPageInfo.url, description: currentPageInfo.description || '' }
+        pageInfo = {
+          title: currentPageInfo.title,
+          url: currentPageInfo.url,
+          description: currentPageInfo.description || '',
+        }
       }
       pageInfo.iconUrl = this.getPageIconUrl()
       const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session)
@@ -575,7 +581,7 @@
         isWelcome: true,
         welcomeHtml: pageInfoHtml,
         welcomeModel: pageInfoModel,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       const list = [welcomeItem]
@@ -585,7 +591,9 @@
           const messageType = msg.type === 'pet' ? 'pet' : 'user'
           const messageContent = msg.content || msg.message || ''
           const messageTimestamp = msg.timestamp || Date.now()
-          const messageImage = msg.imageDataUrl || (Array.isArray(msg.imageDataUrls) && msg.imageDataUrls.length > 0 ? msg.imageDataUrls[0] : null)
+          const messageImage =
+            msg.imageDataUrl ||
+            (Array.isArray(msg.imageDataUrls) && msg.imageDataUrls.length > 0 ? msg.imageDataUrls[0] : null)
           if (!messageContent.trim() && !messageImage) continue
           list.push({
             type: messageType,
@@ -594,7 +602,7 @@
             imageDataUrl: messageImage || null,
             error: !!msg.error,
             aborted: !!msg.aborted,
-            streaming: false
+            streaming: false,
           })
         }
       }
@@ -642,12 +650,14 @@
         const messageType = msg.type === 'pet' ? 'pet' : 'user'
         const messageContent = msg.content || msg.message || ''
         const messageTimestamp = msg.timestamp || Date.now()
-        const messageImage = msg.imageDataUrl || (Array.isArray(msg.imageDataUrls) && msg.imageDataUrls.length > 0 ? msg.imageDataUrls : null)
+        const messageImage =
+          msg.imageDataUrl ||
+          (Array.isArray(msg.imageDataUrls) && msg.imageDataUrls.length > 0 ? msg.imageDataUrls : null)
         const messageOptions = {
           error: !!msg.error,
           aborted: !!msg.aborted,
           // 如果需要支持流式状态，可以在这里添加判断逻辑
-          streaming: false
+          streaming: false,
         }
 
         // 跳过空消息
@@ -662,7 +672,7 @@
             messageType,
             messageImage,
             messageTimestamp,
-            messageOptions
+            messageOptions,
           )
 
           // 设置消息索引
@@ -698,7 +708,9 @@
       try {
         await this.loadMermaid()
         // 查找所有消息容器中的 mermaid 元素（包括未渲染的 div.mermaid）
-        const allMermaidElements = messagesContainer.querySelectorAll('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid:not([data-mermaid-rendered="true"])')
+        const allMermaidElements = messagesContainer.querySelectorAll(
+          'code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid:not([data-mermaid-rendered="true"])',
+        )
         if (allMermaidElements.length > 0) {
           console.log(`发现 ${allMermaidElements.length} 个 Mermaid 图表，开始批量渲染...`)
           await this.processMermaidBlocks(messagesContainer)
@@ -716,7 +728,7 @@
 
     // 复制功能
     const copyButtons = container.querySelectorAll('[data-copy-target], [data-copy-text]')
-    copyButtons.forEach(btn => {
+    copyButtons.forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -763,7 +775,7 @@
 
     // 展开/折叠功能
     const toggleButtons = container.querySelectorAll('.welcome-card-toggle-btn')
-    toggleButtons.forEach(btn => {
+    toggleButtons.forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -810,7 +822,7 @@
     }
 
     // 获取会话信息（如果有）
-    const sessionTags = session && Array.isArray(session.tags) ? session.tags.filter(t => t && t.trim()) : []
+    const sessionTags = session && Array.isArray(session.tags) ? session.tags.filter((t) => t && t.trim()) : []
     const sessionMessages = session && Array.isArray(session.messages) ? session.messages : []
     const sessionCreatedAt = session && session.createdAt ? session.createdAt : null
     const sessionUpdatedAt = session && session.updatedAt ? session.updatedAt : null
@@ -822,11 +834,11 @@
         currentSessionId: this.currentSessionId,
         sessionId: session ? session.key : null,
         messagesCount: sessionMessages.length,
-        messages: sessionMessages.slice(0, 3).map(m => ({
+        messages: sessionMessages.slice(0, 3).map((m) => ({
           type: m.type,
           role: m.role,
-          hasContent: !!(m.content || m.message)
-        }))
+          hasContent: !!(m.content || m.message),
+        })),
       })
     }
 
@@ -889,10 +901,12 @@
 
     // 标签（如果有）
     if (sessionTags.length > 0) {
-      const tagsHtml = sessionTags.map(tag => {
-        const escapedTag = this.escapeHtml(tag)
-        return `<span class="welcome-card-tag">${escapedTag}</span>`
-      }).join('')
+      const tagsHtml = sessionTags
+        .map((tag) => {
+          const escapedTag = this.escapeHtml(tag)
+          return `<span class="welcome-card-tag">${escapedTag}</span>`
+        })
+        .join('')
       pageInfoHtml += `
                 <div class="welcome-card-row welcome-card-row--multiline">
                     <div class="welcome-card-label">标签</div>
@@ -903,14 +917,14 @@
 
     const footerMetaItems = []
     if (sessionMessages.length > 0) {
-      const userMessages = sessionMessages.filter(m => {
+      const userMessages = sessionMessages.filter((m) => {
         if (!m || typeof m !== 'object') return false
         const role = m.role || (m.type === 'user' ? 'user' : null)
         return role === 'user'
       }).length
-      const assistantMessages = sessionMessages.filter(m => {
+      const assistantMessages = sessionMessages.filter((m) => {
         if (!m || typeof m !== 'object') return false
-        const role = m.role || (m.type === 'pet' ? 'pet' : (m.type === 'assistant' ? 'assistant' : null))
+        const role = m.role || (m.type === 'pet' ? 'pet' : m.type === 'assistant' ? 'assistant' : null)
         return role === 'assistant' || role === 'pet'
       }).length
 
@@ -926,8 +940,8 @@
       const updatedDate = sessionUpdatedAt ? new Date(sessionUpdatedAt) : null
       const hasValidCreated = createdDate && !isNaN(createdDate.getTime())
       const hasValidUpdated = updatedDate && !isNaN(updatedDate.getTime())
-      const isSameTime = hasValidCreated && hasValidUpdated &&
-                Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000
+      const isSameTime =
+        hasValidCreated && hasValidUpdated && Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000
 
       if (hasValidCreated) {
         footerMetaItems.push(`<span>创建 ${this.escapeHtml(this.formatDate(createdDate))}</span>`)
@@ -956,7 +970,7 @@
       session = this.sessions[this.currentSessionId]
     }
 
-    const sessionTags = session && Array.isArray(session.tags) ? session.tags.filter(t => t && t.trim()) : []
+    const sessionTags = session && Array.isArray(session.tags) ? session.tags.filter((t) => t && t.trim()) : []
     const sessionMessages = session && Array.isArray(session.messages) ? session.messages : []
     const sessionCreatedAt = session && session.createdAt ? session.createdAt : null
     const sessionUpdatedAt = session && session.updatedAt ? session.updatedAt : null
@@ -968,19 +982,20 @@
     const shouldShowUrl = !session || hasSessionUrl
     const url = shouldShowUrl && pageInfo && pageInfo.url && pageInfo.url.trim() ? pageInfo.url.trim() : ''
 
-    const descriptionText = pageInfo && pageInfo.description && pageInfo.description.trim() ? pageInfo.description.trim() : ''
-    const descriptionHtml = descriptionText ? (this.renderMarkdown(descriptionText) || '') : ''
+    const descriptionText =
+      pageInfo && pageInfo.description && pageInfo.description.trim() ? pageInfo.description.trim() : ''
+    const descriptionHtml = descriptionText ? this.renderMarkdown(descriptionText) || '' : ''
 
     const metaParts = []
     if (sessionMessages.length > 0) {
-      const userMessages = sessionMessages.filter(m => {
+      const userMessages = sessionMessages.filter((m) => {
         if (!m || typeof m !== 'object') return false
         const role = m.role || (m.type === 'user' ? 'user' : null)
         return role === 'user'
       }).length
-      const assistantMessages = sessionMessages.filter(m => {
+      const assistantMessages = sessionMessages.filter((m) => {
         if (!m || typeof m !== 'object') return false
-        const role = m.role || (m.type === 'pet' ? 'pet' : (m.type === 'assistant' ? 'assistant' : null))
+        const role = m.role || (m.type === 'pet' ? 'pet' : m.type === 'assistant' ? 'assistant' : null)
         return role === 'assistant' || role === 'pet'
       }).length
 
@@ -996,8 +1011,8 @@
       const updatedDate = sessionUpdatedAt ? new Date(sessionUpdatedAt) : null
       const hasValidCreated = createdDate && !isNaN(createdDate.getTime())
       const hasValidUpdated = updatedDate && !isNaN(updatedDate.getTime())
-      const isSameTime = hasValidCreated && hasValidUpdated &&
-                Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000
+      const isSameTime =
+        hasValidCreated && hasValidUpdated && Math.abs(createdDate.getTime() - updatedDate.getTime()) < 60000
 
       if (hasValidCreated) {
         metaParts.push(`创建 ${this.formatDate(createdDate)}`)
@@ -1014,7 +1029,7 @@
       descriptionText,
       descriptionHtml,
       tags: sessionTags,
-      metaParts
+      metaParts,
     }
   }
 
@@ -1031,7 +1046,7 @@
       console.log('[createWelcomeMessage] 创建欢迎消息:', {
         currentSessionId: this.currentSessionId,
         hasSession: !!session,
-        messagesCount: session && session.messages ? session.messages.length : 0
+        messagesCount: session && session.messages ? session.messages.length : 0,
       })
     }
 
@@ -1053,7 +1068,7 @@
         pageInfo = {
           title: session.title || document.title || '当前页面',
           url: sessionUrl || window.location.href,
-          description: session.pageDescription || ''
+          description: session.pageDescription || '',
         }
         // 如果会话没有有效的 url，将 url 设置为空字符串，这样 buildWelcomeCardHtml 就不会显示网址
         if (!sessionUrl) {
@@ -1065,7 +1080,7 @@
         pageInfo = {
           title: currentPageInfo.title,
           url: currentPageInfo.url,
-          description: currentPageInfo.description || ''
+          description: currentPageInfo.description || '',
         }
       }
     }
@@ -1118,7 +1133,7 @@
       const pageInfo = {
         title: session.title || document.title || '当前页面',
         url: session.url || window.location.href,
-        description: session.pageDescription || ''
+        description: session.pageDescription || '',
       }
       pageInfo.iconUrl = this.getPageIconUrl()
       const pageInfoHtml = this.buildWelcomeCardHtml(pageInfo, session)
@@ -1152,7 +1167,7 @@
     const pageInfo = {
       title: session.title || document.title || '当前页面',
       url: session.url || window.location.href,
-      description: session.pageDescription || ''
+      description: session.pageDescription || '',
     }
 
     // 获取页面图标
@@ -1180,10 +1195,10 @@
   }
 
   /**
-     * 自动处理会话：根据URL查找或创建会话，并自动选中和锚定位置
-     * 这个方法确保在创建欢迎消息时，会话已正确初始化并选中
-     * @param {string} url - 页面URL
-     */
+   * 自动处理会话：根据URL查找或创建会话，并自动选中和锚定位置
+   * 这个方法确保在创建欢迎消息时，会话已正确初始化并选中
+   * @param {string} url - 页面URL
+   */
   proto.autoHandleSessionForUrl = async function (url) {
     if (!url) {
       console.warn('URL为空，跳过自动处理会话')
@@ -1212,10 +1227,10 @@
   }
 
   /**
-     * 通过会话对象查找对应的 sessionId（辅助函数）
-     * @param {Object} targetSession - 目标会话对象
-     * @returns {string|null} 对应的 sessionId，如果未找到则返回 null
-     */
+   * 通过会话对象查找对应的 sessionId（辅助函数）
+   * @param {Object} targetSession - 目标会话对象
+   * @returns {string|null} 对应的 sessionId，如果未找到则返回 null
+   */
   proto._findSessionIdBySession = function (targetSession) {
     if (!targetSession) return null
 
@@ -1230,12 +1245,12 @@
   }
 
   /**
-     * 处理基于 URL 的会话：检查当前页面 URL 是否在会话列表中
-     * 如果不在，则立即自动新建会话并保存后刷新会话列表
-     * 如果存在，则自动选中该会话并锚定到对应会话的位置
-     *
-     * 重新设计：直接基于 URL 查找会话，不依赖 sessionId 进行查找
-     */
+   * 处理基于 URL 的会话：检查当前页面 URL 是否在会话列表中
+   * 如果不在，则立即自动新建会话并保存后刷新会话列表
+   * 如果存在，则自动选中该会话并锚定到对应会话的位置
+   *
+   * 重新设计：直接基于 URL 查找会话，不依赖 sessionId 进行查找
+   */
   proto.handleUrlBasedSession = async function () {
     try {
       // 确保会话列表已加载（如果使用后端同步）
@@ -1289,7 +1304,7 @@
             await this.activateSession(matchedSessionKey, {
               saveCurrent: false,
               updateConsistency: true,
-              updateUI: true
+              updateUI: true,
             })
           }
 
@@ -1298,7 +1313,7 @@
           // 但如果侧边栏已经存在，也可以立即滚动
           if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
             // 等待侧边栏更新完成
-            await new Promise(resolve => setTimeout(resolve, 100))
+            await new Promise((resolve) => setTimeout(resolve, 100))
             await this.scrollToSessionItem(matchedSessionKey)
           }
 
@@ -1334,7 +1349,7 @@
             tags: sessionData.tags || [],
             createdAt: sessionData.createdAt || now,
             updatedAt: now,
-            lastAccessTime: now
+            lastAccessTime: now,
           }
 
           // 如果启用了后端同步，调用后端 API 创建会话
@@ -1345,14 +1360,14 @@
               method_name: 'create_document',
               parameters: {
                 cname: 'sessions',
-                data: sessionDataToSave
-              }
+                data: sessionDataToSave,
+              },
             }
 
             const url = `${this.sessionApi.baseUrl}/`
             const response = await this.sessionApi._request(url, {
               method: 'POST',
-              body: JSON.stringify(payload)
+              body: JSON.stringify(payload),
             })
 
             if (response) {
@@ -1365,7 +1380,7 @@
                 // 创建完整的会话对象
                 const newSession = {
                   ...sessionDataToSave,
-                  key: sessionKey
+                  key: sessionKey,
                 }
 
                 // 使用 key 作为 sessionId 存储到本地
@@ -1388,7 +1403,7 @@
                   await this.activateSession(sessionId, {
                     saveCurrent: false,
                     updateConsistency: true,
-                    updateUI: true
+                    updateUI: true,
                   })
                 }
 
@@ -1397,7 +1412,7 @@
                 // 但如果侧边栏已经存在，也可以立即滚动
                 if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
                   // 等待侧边栏更新完成
-                  await new Promise(resolve => setTimeout(resolve, 100))
+                  await new Promise((resolve) => setTimeout(resolve, 100))
                   await this.scrollToSessionItem(sessionId)
                 }
 
@@ -1429,7 +1444,7 @@
               await this.activateSession(sessionId, {
                 saveCurrent: false,
                 updateConsistency: true,
-                updateUI: true
+                updateUI: true,
               })
             }
 
@@ -1438,7 +1453,7 @@
             // 但如果侧边栏已经存在，也可以立即滚动
             if (this.sessionSidebar && typeof this.scrollToSessionItem === 'function') {
               // 等待侧边栏更新完成
-              await new Promise(resolve => setTimeout(resolve, 100))
+              await new Promise((resolve) => setTimeout(resolve, 100))
               await this.scrollToSessionItem(sessionId)
             }
 
@@ -1458,16 +1473,16 @@
   }
 
   /**
-     * 滚动到指定的会话项位置（锚定）
-     * @param {string} sessionId - 会话ID
-     */
+   * 滚动到指定的会话项位置（锚定）
+   * @param {string} sessionId - 会话ID
+   */
   proto.scrollToSessionItem = async function (sessionId) {
     if (!this.sessionSidebar || !sessionId) {
       return
     }
 
     // 等待DOM更新
-    await new Promise(resolve => setTimeout(resolve, 200))
+    await new Promise((resolve) => setTimeout(resolve, 200))
 
     // 查找会话项（只使用 key）
     // 首先尝试直接使用 sessionId 查找（如果 sessionId 就是 key）
@@ -1488,7 +1503,7 @@
       if (typeof this.updateSessionSidebar === 'function') {
         await this.updateSessionSidebar()
         // 再次等待DOM更新
-        await new Promise(resolve => setTimeout(resolve, 300))
+        await new Promise((resolve) => setTimeout(resolve, 300))
 
         // 再次尝试查找
         sessionItem = this.sessionSidebar.querySelector(`[data-session-id="${sessionId}"]`)
@@ -1514,9 +1529,9 @@
   }
 
   /**
-     * 滚动到指定元素（内部方法）
-     * @param {HTMLElement} element - 要滚动到的元素
-     */
+   * 滚动到指定元素（内部方法）
+   * @param {HTMLElement} element - 要滚动到的元素
+   */
   proto._scrollToElement = function (element) {
     if (!element) return
 
@@ -1535,12 +1550,12 @@
     const containerHeight = containerRect.height
 
     // 计算目标滚动位置（让元素居中显示）
-    const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2)
+    const targetScrollTop = elementTop - containerHeight / 2 + elementHeight / 2
 
     // 平滑滚动
     scrollableContainer.scrollTo({
       top: Math.max(0, targetScrollTop),
-      behavior: 'smooth'
+      behavior: 'smooth',
     })
 
     // 添加高亮效果
@@ -1600,10 +1615,10 @@
     this.pet.style.animation = 'none'
     setTimeout(() => {
       // 随机选择不同的动画效果
-      const animations = [
+      const animations = PET_CONFIG?.constants?.ANIMATION?.THINKING_ANIMATIONS || [
         'petThinking 0.8s ease-in-out infinite',
         'petThinkingBounce 1.2s ease-in-out infinite',
-        'petThinkingPulse 1s ease-in-out infinite'
+        'petThinkingPulse 1s ease-in-out infinite',
       ]
       const selectedAnimation = animations[Math.floor(Math.random() * animations.length)]
       this.pet.style.animation = selectedAnimation
@@ -1622,7 +1637,7 @@
     bubble.className = 'pet-chat-bubble'
 
     // 随机选择思考文本（更有趣的提示语）
-    const thinkingTexts = [
+    const thinkingTexts = PET_CONFIG?.constants?.ANIMATION?.THINKING_BUBBLE_TEXTS || [
       '🤔 让我想想...',
       '💭 思考中...',
       '✨ 灵感涌现',
@@ -1635,7 +1650,7 @@
       '🎨 酝酿回复',
       '⚡ 快想好了',
       '🌈 无限接近',
-      '🚀 马上就来'
+      '🚀 马上就来',
     ]
     bubble.textContent = thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)]
 
@@ -1655,7 +1670,7 @@
       } else {
         clearInterval(updateBubbleInterval)
       }
-    }, 1500)
+    }, PET_CONFIG?.constants?.TIMING?.CHAT_BUBBLE_UPDATE_INTERVAL || 1500)
 
     // 保存interval以便后续清理
     this.chatBubbleInterval = updateBubbleInterval

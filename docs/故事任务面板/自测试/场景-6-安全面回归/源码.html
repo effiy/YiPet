@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>安全面回归 · 源码</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.stat .val.c{color:var(--cyan)}.stat .val.a{color:var(--accent)}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin:12px 0}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.04)}
+th{color:var(--text3);font-weight:600;font-size:.74rem;text-transform:uppercase}
+td{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 6 · 安全面回归</span><span class="bc-sep">/</span><span class="bc-current">📄 源码</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><span class="cross-link on">📄 源码</span><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>📄 <span class="accent">安全面回归自检</span> · 源码</h1>
+  <p class="sub">场景 6 · 版本 vv1.1.2 · 2026-06-10</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">—</div><div class="lbl">产物文件</div></div>
+        <div class="stat"><div class="val a">6</div><div class="lbl">场景</div></div>
+        <div class="stat"><div class="val">vv1.1.2</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="files">📁 文件清单</span>
+  <span class="tab" data-panel="structure">🗂 目录浏览</span>
+  <span class="tab" data-panel="topology">🔗 模块拓扑</span>
+</div>
+
+<div class="panel on" id="panelFiles">
+  <div class="section">
+    <h2><span class="dot"></span>产物文件</h2>
+    <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>安全回归测试文件</h3><table><thead><tr><th>测试/检查文件</th><th>覆盖安全面</th><th>测试类型</th></tr></thead><tbody><tr><td><code>tests/unit/token.test.mjs</code></td><td>Token 三级降级 · 不落盘</td><td>单元测试</td></tr><tr><td><code>tests/unit/storage.test.mjs</code></td><td>存储配额保护 · 上下文失效检测</td><td>单元测试</td></tr><tr><td><code>tests/unit/error.test.mjs</code></td><td>错误信息不泄露敏感数据</td><td>单元测试</td></tr><tr><td><code>core/utils/api/token.js</code></td><td>Token 环境变量 → storage → 空降级</td><td>源码审计</td></tr><tr><td><code>core/bootstrap/bootstrap.js</code></td><td>StorageHelper.cleanupOldData · 配额清理</td><td>源码审计</td></tr><tr><td><code>core/config.js</code></td><td>系统页面跳过列表（chrome:// · chrome-extension://）</td><td>源码审计</td></tr><tr><td><code>modules/extension/background/services/injectionService.js</code></td><td>Content Script 注入安全 · 系统页面过滤</td><td>源码审计</td></tr><tr><td><code>manifest.json</code></td><td>权限声明最小化 · host_permissions 范围</td><td>配置审计</td></tr></tbody></table><h3>安全检查矩阵</h3><table><thead><tr><th>安全面</th><th>检查项</th><th>验证方式</th></tr></thead><tbody><tr><td>Token 不落盘</td><td>Token 仅存于 chrome.storage.local 或环境变量</td><td>代码审计 + token.test.mjs</td></tr><tr><td>系统页面跳过</td><td>chrome:// · chrome-extension:// 不注入</td><td>config.js 配置 + injectionService.js 过滤</td></tr><tr><td>存储配额保护</td><td>超限时 LRU 清理 petOssFiles</td><td>storage.test.mjs · StorageHelper.cleanupOldData</td></tr><tr><td>上下文失效检测</td><td>isContextInvalidated 全局守卫</td><td>storage.test.mjs</td></tr><tr><td>输入校验</td><td>用户消息直接发送 API · 无 XSS 过滤（待改进）</td><td>代码审计</td></tr><tr><td>权限最小化</td><td><code><all_urls></code> + storage/tabs/scripting/webRequest</td><td>manifest.json 审计</td></tr></tbody></table><p>---</p><p><a id="sec3"></a></p>
+  </div>
+</div>
+
+<div class="panel" id="panelStructure">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>安全面全景</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart TB
+    subgraph surfaces[&quot;四大安全面&quot;]
+        direction LR
+        S1[&quot;Token 存储&lt;br/&gt;三级降级&lt;br/&gt;不落地明文&quot;]:::core
+        S2[&quot;XSS 防护&lt;br/&gt;innerHTML 净化&lt;br/&gt;renderMarkdown 审查&quot;]:::risk
+        S3[&quot;注入安全&lt;br/&gt;all_urls 跳过&lt;br/&gt;系统页面检测&quot;]:::risk
+        S4[&quot;存储配额&lt;br/&gt;LRU 淘汰&lt;br/&gt;cleanupOldData&quot;]:::milestone
+    end
+
+    subgraph verify[&quot;回归验证链&quot;]
+        direction LR
+        V1[&quot;密钥检测&lt;br/&gt;grep 扫描&quot;]:::exec
+        V2[&quot;innerHTML&lt;br/&gt;调用审计&quot;]:::exec
+        V3[&quot;manifest&lt;br/&gt;权限审查&quot;]:::exec
+        V4[&quot;配额清理&lt;br/&gt;降级测试&quot;]:::exec
+    end
+
+    surfaces --&gt; verify
+
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre></p><h3>Token 三级降级链</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    L1[&quot;L1 环境变量&lt;br/&gt;API_X_TOKEN&lt;br/&gt;进程内存&quot;]:::good --&gt;|&quot;未设置&quot;| L2[&quot;L2 chrome.storage&lt;br/&gt;.local 加密存储&lt;br/&gt;运行时读取&quot;]:::exec
+    L2 --&gt;|&quot;不可达&quot;| L3[&quot;L3 空 Token&lt;br/&gt;提示用户设置&lt;br/&gt;安全降级&quot;]:::milestone
+
+    classDef good fill:#1a2a1a,stroke:#34d399,color:#34d399
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24</pre></p><table><thead><tr><th>安全面</th><th>威胁</th><th>信任边界</th><th>缓解措施</th><th>风险等级</th></tr></thead><tbody><tr><td>Token 存储</td><td>明文落盘、日志泄露</td><td>chrome.storage.local 边界</td><td>三级降级链、Token 不落盘到文件系统、日志脱敏</td><td>低</td></tr><tr><td>innerHTML / XSS</td><td>用户消息注入恶意脚本</td><td>聊天消息渲染边界</td><td>renderMarkdown 由 marked.js 处理、DOMPurify 可选</td><td>中</td></tr><tr><td><code><all_urls></code> 注入</td><td>系统页面被注入脚本、CSRF</td><td>manifest content_scripts 匹配规则</td><td>跳过 chrome:// / chrome-extension:// / edge:// 等系统页面</td><td>中</td></tr><tr><td>存储配额</td><td>chrome.storage.local 超限致功能崩溃</td><td>QUOTA_BYTES_PER_ITEM / QUOTA_BYTES</td><td>cleanupOldData() LRU 淘汰、petOssFiles 可重建数据优先清理</td><td>低</td></tr></tbody></table><h3>被测模块覆盖</h3><table><thead><tr><th>源文件</th><th>安全关注点</th><th>关键导出/调用</th></tr></thead><tbody><tr><td><code>core/utils/api/token.js</code></td><td>Token 三级降级、_isChromeStorageAvailable 预检</td><td>TokenManager.getToken() / _getEnvToken()</td></tr><tr><td><code>core/utils/storage/storageUtils.js</code></td><td>配额错误处理、cleanupOldData</td><td>StorageUtils.saveGlobalState() / cleanupOldData()</td></tr><tr><td><code>core/bootstrap/bootstrap.js</code></td><td>系统页面跳过逻辑、注入守卫</td><td>isSystemPage() / 注入前置判断</td></tr><tr><td><code>core/utils/dom/domHelper.js</code></td><td>DOM 操作安全检查</td><td>DomHelper.setText() / getElement()</td></tr><tr><td><code>modules/pet/content/core/petManager.core.js</code></td><td>innerHTML 使用、renderMarkdown 调用</td><td>contentDiv.innerHTML = displayText</td></tr><tr><td><code>manifest.json</code></td><td><code><all_urls></code> 权限声明、content_scripts 匹配</td><td>host_permissions / content_scripts.matches</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>Token 不以明文出现在源码或日志中</td><td>--</td></tr><tr><td>2</td><td>innerHTML 赋值来源均为受控内容（硬编码字符串或 renderMarkdown 输出）</td><td>--</td></tr><tr><td>3</td><td><code><all_urls></code> 注入前过滤系统页面（chrome:// / chrome-extension://）</td><td>--</td></tr><tr><td>4</td><td>chrome.storage 配额超限有清理降级机制</td><td>--</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelTopology">
+  <pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart TB
+    subgraph surfaces["四大安全面"]
+        direction LR
+        S1["Token 存储&lt;br/&gt;三级降级&lt;br/&gt;不落地明文"]:::core
+        S2["XSS 防护&lt;br/&gt;innerHTML 净化&lt;br/&gt;renderMarkdown 审查"]:::risk
+        S3["注入安全&lt;br/&gt;all_urls 跳过&lt;br/&gt;系统页面检测"]:::risk
+        S4["存储配额&lt;br/&gt;LRU 淘汰&lt;br/&gt;cleanupOldData"]:::milestone
+    end
+
+    subgraph verify["回归验证链"]
+        direction LR
+        V1["密钥检测&lt;br/&gt;grep 扫描"]:::exec
+        V2["innerHTML&lt;br/&gt;调用审计"]:::exec
+        V3["manifest&lt;br/&gt;权限审查"]:::exec
+        V4["配额清理&lt;br/&gt;降级测试"]:::exec
+    end
+
+    surfaces --&gt; verify
+
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre>
+<pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    L1["L1 环境变量&lt;br/&gt;API_X_TOKEN&lt;br/&gt;进程内存"]:::good --&gt;|"未设置"| L2["L2 chrome.storage&lt;br/&gt;.local 加密存储&lt;br/&gt;运行时读取"]:::exec
+    L2 --&gt;|"不可达"| L3["L3 空 Token&lt;br/&gt;提示用户设置&lt;br/&gt;安全降级"]:::milestone
+
+    classDef good fill:#1a2a1a,stroke:#34d399,color:#34d399
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24</pre>
+</div>
+
+<div class="footer">YrY vv1.1.2 · 2026-06-10 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

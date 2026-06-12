@@ -1,5 +1,5 @@
 // 防止重复声明 PetManager
-(function () {
+;(function () {
   'use strict'
   try {
     if (typeof window.PetManager !== 'undefined') {
@@ -17,115 +17,104 @@
     }
 
     class PetManager extends LoadingAnimationMixin {
-      constructor () {
+      constructor() {
         super()
-        this.pet = null
-        this.isVisible = PET_CONFIG.pet.defaultVisible
-        this.colorIndex = PET_CONFIG.pet.defaultColorIndex
-        this.size = PET_CONFIG.pet.defaultSize
-        this.position = getPetDefaultPosition()
-        this.role = '教师' // 默认角色为教师
-        this.chatWindow = null
-        this.isChatOpen = false
-        this.currentModel = (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'
-
-        this.colors = PET_CONFIG.pet.colors
-        this.mermaidLoaded = false
-        this.mermaidLoading = false
-
-        // 会话管理相关属性
-        this.currentSessionId = null
-        this.sessions = {} // 存储所有会话，key为sessionId，value为会话数据
-        this.sessionSidebar = null // 会话侧边栏元素
-        this.isSwitchingSession = false // 是否正在切换会话（防抖标志）
-        this.currentPageUrl = null // 当前页面URL，用于判断是否为新页面
-        this.hasAutoCreatedSessionForPage = false // 当前页面是否已经自动创建了会话
-        this.sessionInitPending = false // 会话初始化是否正在进行中
-        this.sidebarWidth = 320 // 侧边栏宽度（像素）
-        this.isResizingSidebar = false // 是否正在调整侧边栏宽度
-        this.sidebarCollapsed = false // 侧边栏是否折叠
-        this.inputContainerCollapsed = false // 输入框容器是否折叠
-
-        // 会话更新优化相关
-        this.sessionUpdateTimer = null // 会话更新防抖定时器
-        this.pendingSessionUpdate = false // 是否有待处理的会话更新
-        this.lastSessionSaveTime = 0 // 上次保存会话的时间
-        this.SESSION_UPDATE_DEBOUNCE = 300 // 会话更新防抖时间（毫秒）
-        this.SESSION_SAVE_THROTTLE = 1000 // 会话保存节流时间（毫秒）
-
-        // 标签过滤相关
-        this.selectedFilterTags = [] // 选中的过滤标签（会话，默认不选中任何标签）
-        this.tagFilterReverse = false // 是否反向过滤会话
-        this.tagFilterNoTags = false // 是否筛选无标签的会话（默认不选中）
-        this.tagFilterExpanded = false // 标签列表是否展开（会话）
-        this.tagFilterVisibleCount = 8 // 折叠时显示的标签数量（会话）
-        this.tagFilterSearchKeyword = '' // 标签搜索关键词
-        this.tagOrder = null // 标签顺序
-
-        this.sessionTitleFilter = '' // 会话标题搜索过滤关键词
-        this.dateRangeFilter = null // 日期区间过滤 { startDate: Date, endDate: Date } 或 null，支持只选择结束日期来筛选结束日期之前的记录
-
-        // 批量操作相关
-        this.batchMode = false // 是否处于批量选择模式
-        this.selectedSessionIds = new Set() // 选中的会话ID集合
-
-        // 会话API管理器
-        this.sessionApi = null
-        this.lastSessionListLoadTime = 0
-        this.SESSION_LIST_RELOAD_INTERVAL = 10000 // 会话列表重新加载间隔（10秒）
-        this.isPageFirstLoad = true // 标记是否是页面首次加载/刷新
-        this.skipSessionListRefresh = false // 标记是否跳过会话列表刷新（prompt调用后使用）
-        this.isChatWindowFirstOpen = true // 标记是否是第一次打开聊天窗口
-        this.hasLoadedSessionsForChat = false // 当前聊天周期是否已加载过会话列表
+        this._initPetState()
+        this._initSessionState()
+        this._initSessionUpdateState()
+        this._initFilterState()
+        this._initSessionApiState()
+        this._initStateSaveState()
 
         // FAQ API管理器
         this.faqApi = null
 
-        // 状态保存节流相关
-        this.lastStateSaveTime = 0 // 上次保存状态的时间
-        this.STATE_SAVE_THROTTLE = 2000 // 状态保存节流时间（毫秒），避免写入过于频繁
-        this.stateSaveTimer = null // 状态保存防抖定时器
-        this.pendingStateUpdate = null // 待保存的状态数据
         // 加载动画计数器
         this.activeRequestCount = 0
 
         this.init()
       }
 
-      async init () {
-        // 加载标签顺序
+      _initPetState() {
+        this.pet = null
+        this.isVisible = PET_CONFIG.pet.defaultVisible
+        this.colorIndex = PET_CONFIG.pet.defaultColorIndex
+        this.size = PET_CONFIG.pet.defaultSize
+        this.position = getPetDefaultPosition()
+        this.role = PET_CONFIG?.constants?.DEFAULTS?.PET_ROLE || '教师'
+        this.chatWindow = null
+        this.isChatOpen = false
+        this.currentModel = PET_CONFIG.chatModels?.default || 'qwen3'
+        this.colors = PET_CONFIG.pet.colors
+        this.mermaidLoaded = false
+        this.mermaidLoading = false
+      }
+
+      _initSessionState() {
+        this.currentSessionId = null
+        this.sessions = {}
+        this.sessionSidebar = null
+        this.isSwitchingSession = false
+        this.currentPageUrl = null
+        this.hasAutoCreatedSessionForPage = false
+        this.sessionInitPending = false
+        this.sidebarWidth = PET_CONFIG?.constants?.UI?.SIDEBAR_DEFAULT_WIDTH || 320
+        this.isResizingSidebar = false
+        this.sidebarCollapsed = false
+        this.inputContainerCollapsed = false
+      }
+
+      _initSessionUpdateState() {
+        this.sessionUpdateTimer = null
+        this.pendingSessionUpdate = false
+        this.lastSessionSaveTime = 0
+        this.SESSION_UPDATE_DEBOUNCE = PET_CONFIG?.constants?.TIMING?.SESSION_UPDATE_DEBOUNCE || 300
+        this.SESSION_SAVE_THROTTLE = PET_CONFIG?.constants?.TIMING?.SESSION_SAVE_THROTTLE || 1000
+      }
+
+      _initFilterState() {
+        this.selectedFilterTags = []
+        this.tagFilterReverse = false
+        this.tagFilterNoTags = false
+        this.tagFilterExpanded = false
+        this.tagFilterVisibleCount = PET_CONFIG?.constants?.UI?.TAG_FILTER_VISIBLE_COUNT || 8
+        this.tagFilterSearchKeyword = ''
+        this.tagOrder = null
+        this.sessionTitleFilter = ''
+        this.dateRangeFilter = null
+        this.batchMode = false
+        this.selectedSessionIds = new Set()
+      }
+
+      _initSessionApiState() {
+        this.sessionApi = null
+        this.lastSessionListLoadTime = 0
+        this.SESSION_LIST_RELOAD_INTERVAL = PET_CONFIG?.constants?.TIMING?.SESSION_LIST_RELOAD_INTERVAL || 10000
+        this.isPageFirstLoad = true
+        this.skipSessionListRefresh = false
+        this.isChatWindowFirstOpen = true
+        this.hasLoadedSessionsForChat = false
+      }
+
+      _initStateSaveState() {
+        this.lastStateSaveTime = 0
+        this.STATE_SAVE_THROTTLE = PET_CONFIG?.constants?.TIMING?.STATE_SAVE_THROTTLE || 2000
+        this.stateSaveTimer = null
+        this.pendingStateUpdate = null
+      }
+
+      async init() {
         await this.loadTagOrder()
         console.log('初始化宠物管理器')
-
-        // 初始化会话API管理器
-        if (typeof SessionService !== 'undefined' && PET_CONFIG.api.syncSessionsToBackend) {
-          this.sessionApi = new SessionService(PET_CONFIG.api.yiaiBaseUrl, {
-            enabled: PET_CONFIG.api.syncSessionsToBackend
-          })
-          console.log('会话API管理器已初始化')
-        } else {
-          console.log('会话API管理器未启用')
-        }
-
-        // 初始化FAQ API管理器
-        if (typeof FaqService !== 'undefined') {
-          const faqApiUrl = PET_CONFIG?.api?.faqApiUrl || 'http://localhost:8000'
-          this.faqApi = new FaqService(faqApiUrl, { enabled: true })
-          console.log('FAQ API管理器已初始化，URL:', faqApiUrl)
-        } else {
-          console.log('FAQ API管理器未启用')
-        }
-
-        this.loadState() // 加载保存的状态
+        this._initApis()
+        this.loadState()
         this.setupMessageListener()
         this.createPet()
 
-        // 延迟检查并更新宠物显示状态，确保状态加载完成后样式正确
         setTimeout(() => {
           if (this.pet) {
             console.log('延迟检查：更新宠物样式，可见性:', this.isVisible)
             this.updatePetStyle()
-            // 如果宠物已创建但还没有添加到页面，尝试再次添加
             if (!this.pet.parentNode) {
               console.log('延迟检查：宠物未添加到页面，尝试重新添加')
               this.addPetToPage()
@@ -133,24 +122,34 @@
           }
         }, 500)
 
-        // 启动定期同步，确保状态一致性
         this.startPeriodicSync()
-
-        // 添加键盘快捷键支持
         this.setupKeyboardShortcuts()
-
-        // 初始化会话：等待页面加载完成后1秒再创建新会话
         this.initSessionWithDelay()
-
-        // 监听页面标题变化，以便在标题改变时更新会话
         this.setupTitleChangeListener()
-
-        // 监听URL变化，以便在URL改变时创建新会话（支持单页应用）
         this.setupUrlChangeListener()
       }
 
+      _initApis() {
+        if (typeof SessionService !== 'undefined' && PET_CONFIG.api.syncSessionsToBackend) {
+          this.sessionApi = new SessionService(PET_CONFIG.api.yiaiBaseUrl, {
+            enabled: PET_CONFIG.api.syncSessionsToBackend,
+          })
+          console.log('会话API管理器已初始化')
+        } else {
+          console.log('会话API管理器未启用')
+        }
+
+        if (typeof FaqService !== 'undefined') {
+          const faqApiUrl = PET_CONFIG?.api?.faqApiUrl || 'http://localhost:8000'
+          this.faqApi = new FaqService(faqApiUrl, { enabled: true })
+          console.log('FAQ API管理器已初始化，URL:', faqApiUrl)
+        } else {
+          console.log('FAQ API管理器未启用')
+        }
+      }
+
       // 清理资源
-      cleanup () {
+      cleanup() {
         console.log('清理宠物管理器资源...')
 
         // 停止定期同步
@@ -171,33 +170,32 @@
           this.closeChatWindow()
         }
 
-
         console.log('资源清理完成')
       }
 
       // 更新接口请求列表侧边栏
       /**
-             * 获取过滤后的接口请求列表（统一过滤逻辑）
-             * @returns {Array} 过滤后的请求列表
-             */
+       * 获取过滤后的接口请求列表（统一过滤逻辑）
+       * @returns {Array} 过滤后的请求列表
+       */
       /**
-             * 获取请求的唯一标识（使用 key 字段）
-             * @param {Object} req - 请求对象
-             * @returns {string|null} 唯一标识（key 字段）
-             */
+       * 获取请求的唯一标识（使用 key 字段）
+       * @param {Object} req - 请求对象
+       * @returns {string|null} 唯一标识（key 字段）
+       */
 
       // 优化页面上下文内容
       /**
-             * 清理和优化文本内容
-             * 去除HTML标签、无意义内容，保留核心信息
-             * @param {string} text - 待清理的文本
-             * @returns {string} 清理后的文本
-             */
+       * 清理和优化文本内容
+       * 去除HTML标签、无意义内容，保留核心信息
+       * @param {string} text - 待清理的文本
+       * @returns {string} 清理后的文本
+       */
 
       // 根据标签名称生成颜色（确保相同标签颜色一致）
 
       // 清除所有选中状态（切换视图时调用）
-      clearAllSelections () {
+      clearAllSelections() {
         // 清除当前选中的会话
         this.currentSessionId = null
 
@@ -213,7 +211,7 @@
         if (this.sessionSidebar) {
           // 清除会话项的 active 状态
           const activeSessionItems = this.sessionSidebar.querySelectorAll('.session-item.active')
-          activeSessionItems.forEach(item => {
+          activeSessionItems.forEach((item) => {
             item.classList.remove('active')
           })
         }
@@ -222,7 +220,7 @@
       }
 
       // 清空聊天会话内容
-      clearChatMessages () {
+      clearChatMessages() {
         if (!this.chatWindow || !this.isChatOpen) {
           return
         }
@@ -235,7 +233,7 @@
       }
 
       // 设置视图模式（会话列表）
-      async setViewMode (mode) {
+      async setViewMode(_mode) {
         // 强制使用会话视图，忽略传入的 mode 参数
 
         // 切换视图前，清除所有选中状态
@@ -253,7 +251,7 @@
       // 应用视图模式样式（参考上下文弹框的applyContextPreviewMode）
 
       // 进入批量选择模式
-      enterBatchMode () {
+      enterBatchMode() {
         this.batchMode = true
         if (this.selectedSessionIds) this.selectedSessionIds.clear()
 
@@ -289,7 +287,7 @@
       }
 
       // 退出批量选择模式
-      exitBatchMode () {
+      exitBatchMode() {
         this.batchMode = false
         if (this.selectedSessionIds) this.selectedSessionIds.clear()
         if (this.selectedApiRequestIds) this.selectedApiRequestIds.clear()
@@ -322,7 +320,7 @@
       // 更新批量操作工具栏
 
       // 删除会话
-      async deleteSession (sessionId, skipConfirm = false) {
+      async deleteSession(sessionId, skipConfirm = false) {
         if (!sessionId || !this.sessions[sessionId]) return
 
         // 获取会话标题用于提示
@@ -395,7 +393,7 @@
             await this.activateSession(latestSession.id, {
               saveCurrent: false, // 已经在前面保存了
               updateUI: true,
-              syncToBackend: false // 删除会话后的自动切换不调用 session/save 接口
+              syncToBackend: false, // 删除会话后的自动切换不调用 session/save 接口
             })
           } else {
             // 没有其他会话，清空当前会话
@@ -419,7 +417,7 @@
       }
 
       // 处理 Markdown 中的 Mermaid 代码块
-      createMessageElement (text, sender, imageDataUrl = null, timestamp = null, options = {}) {
+      createMessageElement(text, sender, imageDataUrl = null, timestamp = null, options = {}) {
         // 与 YiWeb 保持完全一致的消息结构
         const messageDiv = document.createElement('div')
         messageDiv.className = 'pet-chat-message'
@@ -517,7 +515,9 @@
               try {
                 await this.loadMermaid()
                 // 检查 mermaid 代码块（code.language-mermaid）和已转换的 div.mermaid
-                const hasMermaidCode = contentDiv.querySelector('code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid')
+                const hasMermaidCode = contentDiv.querySelector(
+                  'code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid',
+                )
                 if (hasMermaidCode) {
                   await this.processMermaidBlocks(contentDiv)
                 }
@@ -579,7 +579,7 @@
       // 此方法已删除，请使用 chatWindowComponent.addActionButtonsToMessage
 
       // 删除消息（与 YiWeb 一致）
-      async deleteMessage (messageDiv) {
+      async deleteMessage(messageDiv) {
         if (!messageDiv || !this.currentSessionId) return
 
         const session = this.sessions[this.currentSessionId]
@@ -588,15 +588,15 @@
         const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages')
         if (!messagesContainer) return
 
-        const allMessages = Array.from(messagesContainer.children).filter(div => {
-          return !div.hasAttribute('data-welcome-message') &&
-                        (div.querySelector('[data-message-type="user-bubble"]') ||
-                            div.querySelector('[data-message-type="pet-bubble"]'))
+        const allMessages = Array.from(messagesContainer.children).filter((div) => {
+          return (
+            !div.hasAttribute('data-welcome-message') &&
+            (div.querySelector('[data-message-type="user-bubble"]') ||
+              div.querySelector('[data-message-type="pet-bubble"]'))
+          )
         })
 
-        let index = typeof this.findMessageIndexByDiv === 'function'
-          ? this.findMessageIndexByDiv(messageDiv)
-          : -1
+        let index = typeof this.findMessageIndexByDiv === 'function' ? this.findMessageIndexByDiv(messageDiv) : -1
         if (index < 0) {
           index = allMessages.indexOf(messageDiv)
         }
@@ -634,21 +634,23 @@
             nextMessageDiv.remove()
           }
           // 保存会话
-          this.saveCurrentSession().then(() => {
-            if (this.syncSessionToBackend) {
-              this.syncSessionToBackend(this.currentSessionId, true).catch(err => {
-                console.error('删除消息后同步到后端失败:', err)
-              })
-            }
-          }).catch(err => {
-            console.error('删除消息后保存会话失败:', err)
-          })
+          this.saveCurrentSession()
+            .then(() => {
+              if (this.syncSessionToBackend) {
+                this.syncSessionToBackend(this.currentSessionId, true).catch((err) => {
+                  console.error('删除消息后同步到后端失败:', err)
+                })
+              }
+            })
+            .catch((err) => {
+              console.error('删除消息后保存会话失败:', err)
+            })
         }, 300)
       }
 
       // 重新发送消息（仅用户消息）
       // 滚动到指定索引的消息（与 YiWeb 保持一致，使用 ChatWindow 的方法）
-      _scrollToMessageIndex (idx) {
+      _scrollToMessageIndex(idx) {
         const i = Number(idx)
         if (!Number.isFinite(i) || i < 0) return
         if (this.chatWindowComponent && typeof this.chatWindowComponent.scrollToIndex === 'function') {
@@ -657,7 +659,7 @@
       }
 
       // 重新发送消息（与 YiWeb 保持一致，使用索引）
-      async resendMessageAt (idx) {
+      async resendMessageAt(idx) {
         if (!this.currentSessionId) return
 
         const session = this.sessions[this.currentSessionId]
@@ -686,20 +688,22 @@
         const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages')
         if (messagesContainer) {
           if (Number.isFinite(userTimestamp) && userTimestamp > 0) {
-            const target = messagesContainer.querySelector(`[data-chat-timestamp="${userTimestamp}"][data-chat-type="user"]`)
+            const target = messagesContainer.querySelector(
+              `[data-chat-timestamp="${userTimestamp}"][data-chat-type="user"]`,
+            )
             if (target) {
               target.remove()
             } else {
-              const allMessages = Array.from(messagesContainer.children).filter(msg =>
-                !msg.hasAttribute('data-welcome-message')
+              const allMessages = Array.from(messagesContainer.children).filter(
+                (msg) => !msg.hasAttribute('data-welcome-message'),
               )
               if (i < allMessages.length) {
                 allMessages[i].remove()
               }
             }
           } else {
-            const allMessages = Array.from(messagesContainer.children).filter(msg =>
-              !msg.hasAttribute('data-welcome-message')
+            const allMessages = Array.from(messagesContainer.children).filter(
+              (msg) => !msg.hasAttribute('data-welcome-message'),
             )
             if (i < allMessages.length) {
               allMessages[i].remove()
@@ -740,7 +744,7 @@
       }
 
       // 重新生成消息（仅宠物消息）
-      async regenerateMessage (messageDiv) {
+      async regenerateMessage(messageDiv) {
         if (!messageDiv || !this.currentSessionId) return
 
         const session = this.sessions[this.currentSessionId]
@@ -749,12 +753,10 @@
         const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages')
         if (!messagesContainer) return
 
-        let index = typeof this.findMessageIndexByDiv === 'function'
-          ? this.findMessageIndexByDiv(messageDiv)
-          : -1
+        let index = typeof this.findMessageIndexByDiv === 'function' ? this.findMessageIndexByDiv(messageDiv) : -1
         if (index < 0) {
-          const allMessages = Array.from(messagesContainer.children).filter(msg =>
-            !msg.hasAttribute('data-welcome-message')
+          const allMessages = Array.from(messagesContainer.children).filter(
+            (msg) => !msg.hasAttribute('data-welcome-message'),
           )
           index = allMessages.indexOf(messageDiv)
         }
@@ -784,7 +786,7 @@
       }
 
       // 创建打字指示器（有趣的等待动画）
-      createTypingIndicator () {
+      createTypingIndicator() {
         const currentColor = this.colors[this.colorIndex]
 
         // 获取第一个聊天下面第一个按钮的图标
@@ -833,7 +835,7 @@
 
       // 上移消息
       // 移动消息
-      async _moveMessageBlock (idx, direction) {
+      async _moveMessageBlock(idx, direction) {
         if (!this.currentSessionId) return
 
         const session = this.sessions[this.currentSessionId]
@@ -866,8 +868,8 @@
           // 更新 DOM
           const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages')
           if (messagesContainer) {
-            const allMessages = Array.from(messagesContainer.children).filter(msg =>
-              !msg.hasAttribute('data-welcome-message')
+            const allMessages = Array.from(messagesContainer.children).filter(
+              (msg) => !msg.hasAttribute('data-welcome-message'),
             )
             if (i >= 0 && i < allMessages.length) {
               const currentMsg = allMessages[i]
@@ -882,7 +884,7 @@
 
               // 更新 data-chat-idx 属性
               Array.from(messagesContainer.children)
-                .filter(msg => !msg.hasAttribute('data-welcome-message'))
+                .filter((msg) => !msg.hasAttribute('data-welcome-message'))
                 .forEach((msg, idx) => {
                   msg.setAttribute('data-chat-idx', idx.toString())
                 })
@@ -924,8 +926,8 @@
           // 更新 DOM
           const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages')
           if (messagesContainer) {
-            const allMessages = Array.from(messagesContainer.children).filter(msg =>
-              !msg.hasAttribute('data-welcome-message')
+            const allMessages = Array.from(messagesContainer.children).filter(
+              (msg) => !msg.hasAttribute('data-welcome-message'),
             )
             if (i >= 0 && i < allMessages.length) {
               const currentMsg = allMessages[i]
@@ -949,7 +951,7 @@
 
               // 更新 data-chat-idx 属性
               Array.from(messagesContainer.children)
-                .filter(msg => !msg.hasAttribute('data-welcome-message'))
+                .filter((msg) => !msg.hasAttribute('data-welcome-message'))
                 .forEach((msg, idx) => {
                   msg.setAttribute('data-chat-idx', idx.toString())
                 })
@@ -968,26 +970,26 @@
       }
 
       // 上移消息（与 YiWeb 保持一致，使用索引）
-      async moveMessageUpAt (idx) {
+      async moveMessageUpAt(idx) {
         await this._moveMessageBlock(idx, 'up')
       }
 
       // 下移消息（与 YiWeb 保持一致，使用索引）
-      async moveMessageDownAt (idx) {
+      async moveMessageDownAt(idx) {
         await this._moveMessageBlock(idx, 'down')
       }
 
       // 更新所有消息的排序按钮状态
-      updateAllSortButtons () {
+      updateAllSortButtons() {
         const messagesContainer = this.chatWindow?.querySelector('#yi-pet-chat-messages')
         if (!messagesContainer) return
 
         // 获取所有消息元素（排除欢迎消息）
-        const allMessages = Array.from(messagesContainer.children).filter(msg =>
-          !msg.hasAttribute('data-welcome-message')
+        const allMessages = Array.from(messagesContainer.children).filter(
+          (msg) => !msg.hasAttribute('data-welcome-message'),
         )
 
-        allMessages.forEach((messageDiv, index) => {
+        allMessages.forEach((messageDiv, _index) => {
           const copyButtonContainer = messageDiv.querySelector('[data-copy-button-container]')
           if (!copyButtonContainer) return
 
@@ -1008,7 +1010,7 @@
 
       // 获取当前时间
       // 获取页面图标URL（辅助方法）
-      getPageIconUrl () {
+      getPageIconUrl() {
         let iconUrl = ''
         const linkTags = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]')
         if (linkTags.length > 0) {

@@ -2,18 +2,21 @@
  * AI 提示词管理模块
  * 负责角色配置、系统提示词、UI 交互
  */
-(function (global) {
+;(function (global) {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
   }
 
   const proto = global.PetManager.prototype
-  const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
-    ? window.LoggerUtils.getLogger('ai')
-    : console
+  const logger =
+    typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function'
+      ? window.LoggerUtils.getLogger('ai')
+      : console
 
-  const DEFAULT_SYSTEM_PROMPT = '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。'
+  // eslint-disable-next-line no-unused-vars -- DEFAULT_SYSTEM_PROMPT may be referenced by other modules via global
+  const DEFAULT_SYSTEM_PROMPT =
+    '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。'
 
   proto.showSettingsModal = function () {
     if (!this.chatWindow) return
@@ -23,9 +26,15 @@
     const store = overlay._store
     if (!store) return
 
-    const models = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && Array.isArray(PET_CONFIG.chatModels.models)) ? PET_CONFIG.chatModels.models : []
+    const models =
+      typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && Array.isArray(PET_CONFIG.chatModels.models)
+        ? PET_CONFIG.chatModels.models
+        : []
     store.models = models
-    store.selectedModel = this.currentModel || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
+    store.selectedModel =
+      this.currentModel ||
+      (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) ||
+      ''
     if (typeof this.lockSidebarToggle === 'function') {
       this.lockSidebarToggle('ai-settings')
     }
@@ -66,7 +75,7 @@
 
     const store = reactive({
       selectedModel: '',
-      models: []
+      models: [],
     })
     overlay._store = store
 
@@ -151,26 +160,33 @@ ${originalText}
       parameters: {
         system: oldPayload.fromSystem,
         user: oldPayload.fromUser,
-        stream: false
-      }
+        stream: false,
+      },
     }
     if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
       payload.parameters.images = oldPayload.images
     }
-    const selectedModel = model || this.currentModel || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
+    const selectedModel =
+      model ||
+      this.currentModel ||
+      (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) ||
+      ''
     if (selectedModel) payload.parameters.model = selectedModel
     if (oldPayload.conversation_id) {
       payload.parameters.conversation_id = oldPayload.conversation_id
     }
 
-    const apiUrl = typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl ? PET_CONFIG.api.yiaiBaseUrl : ''
+    const apiUrl =
+      typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl
+        ? PET_CONFIG.api.yiaiBaseUrl
+        : ''
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+        ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     })
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
@@ -186,12 +202,15 @@ ${originalText}
 
     const data = result.data || {}
     let improved =
-              (typeof data.message === 'string' ? data.message : '') ||
-              (typeof data.content === 'string' ? data.content : '') ||
-              (typeof result.content === 'string' ? result.content : '')
+      (typeof data.message === 'string' ? data.message : '') ||
+      (typeof data.content === 'string' ? data.content : '') ||
+      (typeof result.content === 'string' ? result.content : '')
 
     improved = this.stripThinkContent ? this.stripThinkContent(improved) : improved
-    improved = String(improved || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
+    improved = String(improved || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim()
 
     const quotePairs = [
       ['"', '"'],
@@ -200,7 +219,7 @@ ${originalText}
       ["'", "'"],
       ['`', '`'],
       ['「', '」'],
-      ['『', '』']
+      ['『', '』'],
     ]
     for (const [startQuote, endQuote] of quotePairs) {
       if (improved.startsWith(startQuote) && improved.endsWith(endQuote)) {
@@ -234,11 +253,12 @@ ${originalText}
       if (this._showLoadingAnimation) this._showLoadingAnimation()
 
       const formattedText = this._formatMarkdownLossless ? this._formatMarkdownLossless(originalText) : originalText
-      const normalizeForCompare = (value) => String(value || '')
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
-        .replace(/ /g, ' ')
-        .replace(/\s+/g, '')
+      const normalizeForCompare = (value) =>
+        String(value || '')
+          .replace(/\r\n/g, '\n')
+          .replace(/\r/g, '\n')
+          .replace(/\u00A0/g, ' ')
+          .replace(/\s+/g, '')
       const isSubsequence = (needle, haystack) => {
         let i = 0
         for (let j = 0; j < haystack.length && i < needle.length; j++) {
@@ -246,7 +266,7 @@ ${originalText}
         }
         return i === needle.length
       }
-      const extractUrls = (text) => (String(text || '').match(/https?:\/\/[^\s)\]>"]+/g) || [])
+      const extractUrls = (text) => String(text || '').match(/https?:\/\/[^\s)\]>"]+/g) || []
       const originalUrls = extractUrls(originalText)
 
       const originalNorm = normalizeForCompare(originalText)
@@ -287,9 +307,8 @@ ${originalText}
 
       const charCount = finalText.length
       const originalCharCount = originalText.length
-      const changeInfo = charCount !== originalCharCount
-        ? `（${originalCharCount}字 → ${charCount}字）`
-        : `（${charCount}字）`
+      const changeInfo =
+        charCount !== originalCharCount ? `（${originalCharCount}字 → ${charCount}字）` : `（${charCount}字）`
       if (this.showNotification) this.showNotification(`格式化完成 ${changeInfo}`, 'success')
 
       if (optimizeBtn) {
@@ -371,10 +390,7 @@ ${originalText}
 
 请直接返回优化后的Markdown内容，不要包含任何说明文字、引号或其他格式标记。`
 
-      const oldPayload = this.buildPromptPayload(
-        systemPrompt,
-        userPrompt
-      )
+      const oldPayload = this.buildPromptPayload(systemPrompt, userPrompt)
 
       const payload = {
         module_name: 'services.ai.chat_service',
@@ -382,13 +398,16 @@ ${originalText}
         parameters: {
           system: oldPayload.fromSystem,
           user: oldPayload.fromUser,
-          stream: false
-        }
+          stream: false,
+        },
       }
       if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
         payload.parameters.images = oldPayload.images
       }
-      const selectedModel = this.currentModel || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
+      const selectedModel =
+        this.currentModel ||
+        (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) ||
+        ''
       if (selectedModel) payload.parameters.model = selectedModel
       if (oldPayload.conversation_id) {
         payload.parameters.conversation_id = oldPayload.conversation_id
@@ -396,14 +415,17 @@ ${originalText}
 
       if (this._showLoadingAnimation) this._showLoadingAnimation()
 
-      const apiUrl = typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl ? PET_CONFIG.api.yiaiBaseUrl : ''
+      const apiUrl =
+        typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl
+          ? PET_CONFIG.api.yiaiBaseUrl
+          : ''
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+          ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -422,9 +444,9 @@ ${originalText}
 
       const data = result.data || {}
       let optimizedText =
-                (typeof data.message === 'string' ? data.message : '') ||
-                (typeof data.content === 'string' ? data.content : '') ||
-                (typeof result.content === 'string' ? result.content : '')
+        (typeof data.message === 'string' ? data.message : '') ||
+        (typeof data.content === 'string' ? data.content : '') ||
+        (typeof result.content === 'string' ? result.content : '')
 
       optimizedText = this.stripThinkContent ? this.stripThinkContent(optimizedText) : optimizedText
       optimizedText = optimizedText.trim()
@@ -436,7 +458,7 @@ ${originalText}
         ["'", "'"],
         ['`', '`'],
         ['「', '」'],
-        ['『', '』']
+        ['『', '』'],
       ]
 
       for (const [startQuote, endQuote] of quotePairs) {
@@ -449,7 +471,7 @@ ${originalText}
         /^优化后的消息：?\s*/i,
         /^以下是优化后的消息：?\s*/i,
         /^优化结果：?\s*/i,
-        /^优化后的文本：?\s*/i
+        /^优化后的文本：?\s*/i,
       ]
 
       for (const prefix of prefixes) {
@@ -472,9 +494,8 @@ ${originalText}
 
       const charCount = optimizedText.length
       const originalCharCount = originalText.length
-      const changeInfo = charCount !== originalCharCount
-        ? `（${originalCharCount}字 → ${charCount}字）`
-        : `（${charCount}字）`
+      const changeInfo =
+        charCount !== originalCharCount ? `（${originalCharCount}字 → ${charCount}字）` : `（${charCount}字）`
       if (this.showNotification) this.showNotification(`优化完成 ${changeInfo}`, 'success')
 
       if (optimizeBtn) {
@@ -566,10 +587,7 @@ ${originalText}
 
 请直接返回翻译后的${targetLanguage}内容，不要包含任何说明文字、引号或其他格式标记。`
 
-      const oldPayload = this.buildPromptPayload(
-        systemPrompt,
-        userPrompt
-      )
+      const oldPayload = this.buildPromptPayload(systemPrompt, userPrompt)
 
       const payload = {
         module_name: 'services.ai.chat_service',
@@ -577,13 +595,16 @@ ${originalText}
         parameters: {
           system: oldPayload.fromSystem,
           user: oldPayload.fromUser,
-          stream: false
-        }
+          stream: false,
+        },
       }
       if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
         payload.parameters.images = oldPayload.images
       }
-      const selectedModel = this.currentModel || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
+      const selectedModel =
+        this.currentModel ||
+        (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) ||
+        ''
       if (selectedModel) payload.parameters.model = selectedModel
       if (oldPayload.conversation_id) {
         payload.parameters.conversation_id = oldPayload.conversation_id
@@ -591,14 +612,17 @@ ${originalText}
 
       if (this._showLoadingAnimation) this._showLoadingAnimation()
 
-      const apiUrl = typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl ? PET_CONFIG.api.yiaiBaseUrl : ''
+      const apiUrl =
+        typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl
+          ? PET_CONFIG.api.yiaiBaseUrl
+          : ''
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+          ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -617,9 +641,9 @@ ${originalText}
 
       const data = result.data || {}
       let translatedText =
-                (typeof data.message === 'string' ? data.message : '') ||
-                (typeof data.content === 'string' ? data.content : '') ||
-                (typeof result.content === 'string' ? result.content : '')
+        (typeof data.message === 'string' ? data.message : '') ||
+        (typeof data.content === 'string' ? data.content : '') ||
+        (typeof result.content === 'string' ? result.content : '')
 
       translatedText = this.stripThinkContent ? this.stripThinkContent(translatedText) : translatedText
       translatedText = translatedText.trim()
@@ -631,7 +655,7 @@ ${originalText}
         ["'", "'"],
         ['`', '`'],
         ['「', '」'],
-        ['『', '』']
+        ['『', '』'],
       ]
 
       for (const [startQuote, endQuote] of quotePairs) {
@@ -647,7 +671,7 @@ ${originalText}
         /^翻译后的文本：?\s*/i,
         /^翻译后的[内容上下文]如下：?\s*/i,
         /^[内容上下文]翻译如下：?\s*/i,
-        /^以下是翻译成[中文英文]的[内容上下文]：?\s*/i
+        /^以下是翻译成[中文英文]的[内容上下文]：?\s*/i,
       ]
 
       for (const prefix of prefixes) {
@@ -672,9 +696,8 @@ ${originalText}
 
       const charCount = translatedText.length
       const originalCharCount = originalText.length
-      const changeInfo = charCount !== originalCharCount
-        ? `（${originalCharCount}字 → ${charCount}字）`
-        : `（${charCount}字）`
+      const changeInfo =
+        charCount !== originalCharCount ? `（${originalCharCount}字 → ${charCount}字）` : `（${charCount}字）`
       if (this.showNotification) this.showNotification(`翻译完成 ${changeInfo}`, 'success')
     } catch (error) {
       if (this._hideLoadingAnimation) this._hideLoadingAnimation()
@@ -712,14 +735,14 @@ ${originalText}
     const context = {
       messages: [],
       pageContent: '',
-      hasHistory: false
+      hasHistory: false,
     }
 
     if (this.currentSessionId && this.sessions && this.sessions[this.currentSessionId]) {
       const session = this.sessions[this.currentSessionId]
 
       if (session.messages && Array.isArray(session.messages) && session.messages.length > 0) {
-        context.messages = session.messages.filter(msg => {
+        context.messages = session.messages.filter((msg) => {
           return msg.type === 'user' || msg.type === 'pet'
         })
         context.hasHistory = context.messages.length > 0
@@ -733,7 +756,7 @@ ${originalText}
     return context
   }
 
-  proto.buildFromUserWithContext = function (baseUserPrompt, roleLabel) {
+  proto.buildFromUserWithContext = function (baseUserPrompt, _roleLabel) {
     const _truncateText = (v, maxLen) => {
       const s = String(v ?? '')
       const limit = Math.max(0, Number(maxLen) || 0)
@@ -757,20 +780,20 @@ ${originalText}
         if (pageContentMatch) {
           finalBasePrompt = baseUserPrompt.replace(
             /页面内容（Markdown 格式）：\s*\n[\s\S]*?(?=\n\n|$)/,
-                      `页面内容（Markdown 格式）：\n${pageContent}`
+            `页面内容（Markdown 格式）：\n${pageContent}`,
           )
         }
       } else if (!includeContext) {
         finalBasePrompt = baseUserPrompt.replace(
           /页面内容（Markdown 格式）：\s*\n[\s\S]*?(?=\n\n|$)/,
-          '页面内容（Markdown 格式）：\n无内容（页面上下文已关闭）'
+          '页面内容（Markdown 格式）：\n无内容（页面上下文已关闭）',
         )
       }
     }
 
     if (!context.hasHistory) {
       if (includeContext && pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
-        const pageContext = '\n\n## 页面内容：\n\n' + pageContent
+        const pageContext = `\n\n## 页面内容：\n\n${pageContent}`
         return finalBasePrompt + pageContext
       }
       return finalBasePrompt
@@ -779,12 +802,14 @@ ${originalText}
     let conversationContext = ''
     if (context.messages.length > 0) {
       conversationContext = '\n\n## 会话历史：\n\n'
-      context.messages.slice(-30).forEach((msg, index) => {
+      context.messages.slice(-30).forEach((msg, _index) => {
         const role = msg.type === 'user' ? '用户' : '助手'
         const contentText = _truncateText(String(msg?.content || '').trim(), 12000)
         const imageList = Array.isArray(msg?.imageDataUrls)
           ? msg.imageDataUrls
-          : (typeof msg?.imageDataUrl === 'string' && msg.imageDataUrl.trim() ? [msg.imageDataUrl.trim()] : [])
+          : typeof msg?.imageDataUrl === 'string' && msg.imageDataUrl.trim()
+            ? [msg.imageDataUrl.trim()]
+            : []
         const content = (() => {
           if (contentText) return contentText
           if (imageList.length > 0) return imageList.length === 1 ? '[图片]' : `[图片 x${imageList.length}]`
@@ -797,9 +822,9 @@ ${originalText}
 
     let pageContext = ''
     if (includeContext && pageContent && !finalBasePrompt.includes('页面内容（Markdown 格式）：')) {
-      pageContext = '\n\n## 页面内容：\n\n' + pageContent
+      pageContext = `\n\n## 页面内容：\n\n${pageContent}`
     }
 
     return finalBasePrompt + conversationContext + pageContext
   }
-})()
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

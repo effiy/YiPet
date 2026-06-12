@@ -1,0 +1,51 @@
+# PR auto-label rules
+# https://github.com/actions/labeler
+
+"core infrastructure":
+  - changed-files:
+      - any-glob-to-any-file:
+          - core/**/*
+          - '*.json'
+          - scripts/**/*
+
+"pet module":
+  - changed-files:
+      - any-glob-to-any-file:
+          - modules/pet/**/*
+
+"extension module":
+  - changed-files:
+      - any-glob-to-any-file:
+          - modules/extension/**/*
+
+"faq module":
+  - changed-files:
+      - any-glob-to-any-file:
+          - modules/faq/**/*
+
+"assets & styles":
+  - changed-files:
+      - any-glob-to-any-file:
+          - assets/**/*
+          - '*.css'
+
+"docs & meta":
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**/*
+          - '*.md'
+
+"ci/cd":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**/*
+
+"tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - tests/**/*
+
+"dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - package-lock.json

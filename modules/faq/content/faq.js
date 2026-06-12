@@ -56,7 +56,7 @@
       text: text || (title && prompt ? `${title}\n\n${prompt}` : title),
       tags: _normalizeFaqTags(doc?.tags),
       order: Number.isFinite(Number(doc?.order)) ? Number(doc.order) : 0,
-      updatedTime: doc?.updatedTime
+      updatedTime: doc?.updatedTime,
     }
   }
 
@@ -81,7 +81,7 @@
       error: '',
       newFaqText: '',
       deletingFaqKeys: Object.create(null),
-      reorderingFaqKeys: Object.create(null)
+      reorderingFaqKeys: Object.create(null),
     })
 
     this._faqManagerStore = store
@@ -292,7 +292,9 @@
 
     let out = Array.isArray(store.allFaqs) ? store.allFaqs : []
 
-    const searchKw = String(store.searchFilter || '').trim().toLowerCase()
+    const searchKw = String(store.searchFilter || '')
+      .trim()
+      .toLowerCase()
     if (searchKw) {
       out = out.filter((faq) => {
         const hay = `${String(faq?.title || '')}\n${String(faq?.prompt || '')}`.toLowerCase()
@@ -334,14 +336,14 @@
       }
 
       for (const faq of affected) {
-        const tags = _normalizeFaqTags(faq?.tags || []).map(t => (t === oldTag ? newTag : t))
+        const tags = _normalizeFaqTags(faq?.tags || []).map((t) => (t === oldTag ? newTag : t))
         const key = faq.key
         if (!key) {
           console.warn('跳过缺少标识符的常见问题:', faq)
           continue
         }
         await this.faqApi.updateFaq(key, {
-          tags
+          tags,
         })
       }
       if (this.faqApi.clearGetCache) {
@@ -351,7 +353,7 @@
       this.showNotification('已重命名标签', 'success')
     } catch (e) {
       console.error('重命名标签失败:', e)
-      this.showNotification('重命名标签失败: ' + (e?.message || '未知错误'), 'error')
+      this.showNotification(`重命名标签失败: ${e?.message || '未知错误'}`, 'error')
     }
   }
 
@@ -371,14 +373,14 @@
       }
 
       for (const faq of affected) {
-        const tags = _normalizeFaqTags(faq?.tags || []).filter(t => t !== target)
+        const tags = _normalizeFaqTags(faq?.tags || []).filter((t) => t !== target)
         const key = faq.key
         if (!key) {
           console.warn('跳过缺少标识符的常见问题:', faq)
           continue
         }
         await this.faqApi.updateFaq(key, {
-          tags
+          tags,
         })
       }
       if (this.faqApi.clearGetCache) {
@@ -391,7 +393,7 @@
       this.showNotification('已删除标签', 'success')
     } catch (e) {
       console.error('删除标签失败:', e)
-      this.showNotification('删除标签失败: ' + (e?.message || '未知错误'), 'error')
+      this.showNotification(`删除标签失败: ${e?.message || '未知错误'}`, 'error')
     }
   }
 
@@ -411,7 +413,7 @@
       }
 
       const faqs = await this.faqApi.getFaqs()
-      const normalized = faqs.map(_normalizeFaqDoc).filter(i => i.key && (i.prompt || i.title))
+      const normalized = faqs.map(_normalizeFaqDoc).filter((i) => i.key && (i.prompt || i.title))
       store.allFaqs = normalized
     } catch (err) {
       console.error('加载常见问题失败:', err)
@@ -449,9 +451,9 @@
     const decorated = currentRaw.map((faq, index) => ({
       faq,
       index,
-      order: Number.isFinite(Number(faq?.order)) ? Number(faq.order) : 0
+      order: Number.isFinite(Number(faq?.order)) ? Number(faq.order) : 0,
     }))
-    decorated.sort((a, b) => (a.order - b.order) || (a.index - b.index))
+    decorated.sort((a, b) => a.order - b.order || a.index - b.index)
     const list = decorated.map((d) => d.faq)
     if (list.length < 2) return
 
@@ -495,7 +497,7 @@
     } catch (e) {
       store.allFaqs = beforeSnapshot
       if (typeof this.showNotification === 'function') {
-        this.showNotification('更新排序失败: ' + (e?.message || '未知错误'), 'error')
+        this.showNotification(`更新排序失败: ${e?.message || '未知错误'}`, 'error')
       }
     } finally {
       store.reorderingFaqKeys[faqKey] = false
@@ -508,7 +510,7 @@
     const prompt = String(faq?.prompt || '').trim()
 
     // 组合文本：如果有标题和正文，用两个换行符分隔；否则使用正文或标题
-    const text = title && prompt ? `${title}\n\n${prompt}` : (prompt || title)
+    const text = title && prompt ? `${title}\n\n${prompt}` : prompt || title
     if (!text) return
 
     const chatInput = this.chatWindowComponent?.messageInput
@@ -549,7 +551,7 @@
           throw new Error('无法确定常见问题的标识符')
         }
         await this.faqApi.updateFaq(key, {
-          tags: nextTags
+          tags: nextTags,
         })
         if (this.faqApi.clearGetCache) {
           this.faqApi.clearGetCache()
@@ -561,7 +563,7 @@
       }
     } catch (e) {
       console.error('更新标签失败:', e)
-      this.showNotification('更新标签失败: ' + (e?.message || '未知错误'), 'error')
+      this.showNotification(`更新标签失败: ${e?.message || '未知错误'}`, 'error')
     }
   }
 
@@ -581,7 +583,7 @@
         const data = {
           title,
           prompt,
-          tags: []
+          tags: [],
         }
         await this.faqApi.createFaq(data)
         if (this.faqApi.clearGetCache) {
@@ -595,7 +597,7 @@
       }
     } catch (err) {
       console.error('添加常见问题失败:', err)
-      this.showNotification('添加失败: ' + (err.message || '未知错误'), 'error')
+      this.showNotification(`添加失败: ${err.message || '未知错误'}`, 'error')
     }
   }
 
@@ -630,7 +632,7 @@
     } catch (err) {
       console.error('删除常见问题失败:', err)
       if (typeof this.showNotification === 'function') {
-        this.showNotification('删除失败: ' + (err.message || '未知错误'), 'error')
+        this.showNotification(`删除失败: ${err.message || '未知错误'}`, 'error')
       }
     } finally {
       if (store && store.deletingFaqKeys) {

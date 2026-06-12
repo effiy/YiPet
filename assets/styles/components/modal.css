@@ -1,0 +1,511 @@
+/* Modal styles */
+
+#token-settings-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  animation: fadeIn 0.3s ease-out !important;
+}
+
+#token-settings-modal .token-settings-container {
+  background: #1e293b !important;
+  border-radius: 16px !important;
+  padding: 30px !important;
+  max-width: 500px !important;
+  width: 90% !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+  position: relative !important;
+  animation: scaleIn 0.3s ease-out !important;
+}
+
+#pet-context-editor[data-mode='preview'] #pet-context-preview {
+  width: 100% !important;
+}
+
+#pet-message-editor {
+  position: absolute !important;
+  top: var(--pet-message-editor-top, 0px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
+  backdrop-filter: blur(2px) !important;
+  z-index: 1000 !important;
+  display: none !important;
+  flex-direction: column !important;
+  animation: fadeIn 0.2s ease !important;
+}
+
+#pet-message-editor.js-visible {
+  display: flex !important;
+}
+
+#pet-message-editor .context-editor-modal {
+  flex: 1 !important;
+  background: var(--bg-secondary, #1e293b) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+#pet-message-editor .context-editor-header {
+  padding: 16px !important;
+  border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  background: var(--bg-tertiary, #334155) !important;
+}
+
+#pet-message-editor .context-editor-title {
+  color: var(--text-primary, #f8fafc) !important;
+  font-weight: 500 !important;
+  font-size: 15px !important;
+}
+
+#pet-message-editor #pet-message-close-btn {
+  color: rgba(226, 232, 240, 0.65) !important;
+  cursor: pointer !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  font-size: 14px !important;
+}
+
+#pet-message-editor #pet-message-close-btn:hover {
+  color: rgba(226, 232, 240, 0.9) !important;
+}
+
+#pet-message-editor .editor-header-btns {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+
+#pet-message-editor .chat-toolbar-btn {
+  width: 30px !important;
+  height: 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  font-size: 14px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #e5e7eb !important;
+  cursor: pointer !important;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease,
+    opacity 0.12s ease !important;
+  outline: none !important;
+  line-height: 1 !important;
+}
+
+#pet-message-editor .chat-toolbar-btn:hover:not([data-saving]):not([data-optimizing]) {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+#pet-message-editor .chat-toolbar-btn[data-saving],
+#pet-message-editor .chat-toolbar-btn[data-optimizing] {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+#pet-message-editor #pet-message-optimize-btn {
+  border-color: rgba(76, 175, 80, 0.3) !important;
+  background: rgba(76, 175, 80, 0.15) !important;
+  color: #22c55e !important;
+}
+
+#pet-message-editor #pet-message-optimize-btn:hover:not([data-optimizing]) {
+  filter: brightness(1.05) !important;
+}
+
+#pet-message-editor .chat-toolbar-btn[data-status='success'] {
+  background: rgba(76, 175, 80, 0.2) !important;
+  color: #22c55e !important;
+  border-color: rgba(76, 175, 80, 0.4) !important;
+}
+
+#pet-message-editor .chat-toolbar-btn[data-status='error'] {
+  background: rgba(244, 67, 54, 0.2) !important;
+  color: #ef4444 !important;
+  border-color: rgba(244, 67, 54, 0.4) !important;
+}
+
+#pet-message-editor .context-editor-content {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+}
+
+#pet-message-editor .context-editor-body {
+  flex: 1 !important;
+  display: flex !important;
+  gap: 10px !important;
+  min-height: 0 !important;
+}
+
+#pet-message-editor #pet-message-editor-textarea {
+  flex: 1 !important;
+  width: 50% !important;
+  height: 100% !important;
+  background: #121212 !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  outline: none !important;
+  resize: none !important;
+  white-space: pre-wrap !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  display: block !important;
+}
+
+#pet-message-editor #pet-message-preview {
+  flex: 1 !important;
+  width: 50% !important;
+  height: 100% !important;
+  background: #0e0e0e !important;
+  color: #e5e7eb !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  pointer-events: auto !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  display: block !important;
+}
+
+.pet-clipboard-temp {
+  position: fixed !important;
+  opacity: 0 !important;
+  left: -9999px !important;
+  top: 0 !important;
+}
+
+#pet-chat-window.context-editor-open #sidebar-toggle-btn,
+#pet-chat-window.context-editor-open #input-container-toggle-btn {
+  display: none !important;
+}
+
+.pet-notification {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  color: white !important;
+  padding: 12px 20px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  z-index: 2147483650 !important;
+  animation: slideInRight 0.3s ease-out !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.pet-notification.success {
+  background: #22c55e !important;
+}
+
+.pet-notification.info {
+  background: #3b82f6 !important;
+}
+
+.pet-notification.error {
+  background: #ef4444 !important;
+}
+
+.pet-notification.is-closing {
+  animation: slideInRight 0.3s ease-out reverse !important;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   图片预览模态框样式 - 从 petManager.media.js 提取
+   ============================================ */
+
+.image-preview-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.95) !important;
+  z-index: 2147483650 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+}
+
+.image-preview-modal .image-preview-container {
+  position: relative !important;
+  max-width: 95% !important;
+  max-height: 90% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.image-preview-modal .image-preview-loading {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 40px !important;
+  height: 40px !important;
+  border: 3px solid rgba(255, 255, 255, 0.3) !important;
+  border-top-color: #fff !important;
+  border-radius: 50% !important;
+  animation: spin 1s linear infinite !important;
+}
+
+.image-preview-modal .image-preview-loading.js-hidden {
+  display: none !important;
+}
+
+.image-preview-modal img {
+  max-width: 100% !important;
+  max-height: 85vh !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  opacity: 0 !important;
+  transition: opacity 0.3s ease !important;
+  object-fit: contain !important;
+}
+
+.image-preview-modal img.js-loaded {
+  opacity: 1 !important;
+}
+
+.image-preview-modal .image-preview-error {
+  color: white !important;
+  font-size: 14px !important;
+  text-align: center !important;
+  padding: 20px !important;
+}
+
+.image-preview-modal .image-preview-title-bar {
+  position: absolute !important;
+  top: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: white !important;
+  padding: 8px 16px !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+  max-width: 80% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.image-preview-modal .image-preview-button-container {
+  position: absolute !important;
+  top: 20px !important;
+  right: 20px !important;
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.image-preview-modal .image-preview-download-btn,
+.image-preview-modal .image-preview-close-btn {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  border: none !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+  line-height: 1 !important;
+}
+
+.image-preview-modal .image-preview-download-btn {
+  font-size: 20px !important;
+}
+
+.image-preview-modal .image-preview-close-btn {
+  font-size: 24px !important;
+}
+
+.image-preview-modal .image-preview-download-btn:hover,
+.image-preview-modal .image-preview-close-btn:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  transform: scale(1.1) !important;
+}
+
+@keyframes spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* ============================================
+   AI 设置模态框样式 (从 petManager.ai.js 提取)
+   ============================================ */
+#pet-ai-settings {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: var(--modal-z-index, 10000) !important;
+}
+
+#pet-ai-settings > div {
+  background: #1e293b !important; /* 量子灰 */
+  border-radius: 12px !important;
+  padding: 20px !important;
+  width: 90% !important;
+  max-width: 520px !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+#pet-ai-settings .pet-ai-settings-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  margin-bottom: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: #1f2937 !important;
+}
+
+#pet-ai-settings .pet-ai-settings-row {
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+  margin-bottom: 16px !important;
+}
+
+#pet-ai-settings .pet-ai-settings-label {
+  min-width: 48px !important;
+  color: #374151 !important;
+}
+
+#pet-ai-settings .pet-ai-settings-select,
+#pet-ai-settings .pet-ai-settings-input {
+  flex: 1 !important;
+  padding: 8px 10px !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  outline: none !important;
+}
+
+#pet-ai-settings .pet-ai-settings-buttons {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+}
+
+#pet-ai-settings .pet-ai-settings-token-btn {
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #334155 !important; /* 中量子灰 */
+  color: #f8fafc !important; /* 量子白 */
+  cursor: pointer !important;
+}
+
+#pet-ai-settings .pet-ai-settings-save-btn {
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid #3b82f6 !important;
+  background: #3b82f6 !important;
+  color: #fff !important;
+  cursor: pointer !important;
+}
+
+#pet-ai-settings .pet-ai-settings-cancel-btn {
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #1e293b !important; /* 量子灰 */
+  color: #f8fafc !important; /* 量子白 */
+  cursor: pointer !important;
+}

@@ -1,0 +1,337 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   YrY Checklist CSS — 计划清单页面专用组件样式
+   适用: 所有场景的计划清单.html
+   依赖: shared.css · theme.css (需先加载，提供 --yry-* 变量)
+
+   使用方式:
+     <link rel="stylesheet" href="../../../../cdn/shared.css">
+     <link rel="stylesheet" href="../../../../cdn/theme.css">
+     <link rel="stylesheet" href="../../../../cdn/yry-checklist.css">
+
+   对应场景文档:
+     - docs/故事任务面板/yry-arch/
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── CSS Variables alias (bridge: old --var names → --yry-* from theme.css) ─ */
+:root {
+  --bg: var(--yry-bg, rgba(22,22,32,1));
+  --bg-card: var(--yry-bg-card, linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%));
+  --bg-flat: var(--yry-bg-flat, rgba(34,34,46,1));
+  --bg-raised: var(--yry-bg-raised, rgba(42,42,56,1));
+  --accent: var(--yry-accent, #FFC107);
+  --cyan: var(--yry-cyan, #22d3ee);
+  --pass: var(--yry-pass, #22c55e);
+  --fail: var(--yry-fail, #ef4444);
+  --warn: var(--yry-warn, #f59e0b);
+  --info: var(--yry-info, #6b7280);
+  --skip: var(--yry-skip, #6b7280);
+  --text: var(--yry-text, rgba(250,250,252,1));
+  --text2: var(--yry-text2, rgba(160,160,164,1));
+  --text3: var(--yry-text3, rgba(110,110,114,1));
+  --shadow: var(--yry-shadow, 0 4px 20px rgba(0,0,0,0.3));
+  --shadow-lg: var(--yry-shadow-lg, 0 12px 32px rgba(0,0,0,0.45));
+  --radius: var(--yry-radius, 12px);
+  --border: var(--yry-border, 1px solid rgba(255,255,255,0.06));
+}
+
+/* ── Body & Container (delegates to theme.css classes when used) ────────── */
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6; min-height: 100vh;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.header { text-align: center; margin-bottom: 28px; animation: yry-fadeInDown .5s ease both; }
+.header h1 { font-size: 1.8rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; margin-top: 4px; }
+.header .meta { color: var(--text3); font-size: .75rem; margin-top: 6px; }
+
+/* ── Stats ──────────────────────────────────────────────────────────────── */
+.stats-grid {
+  display: flex; gap: 12px; justify-content: center; margin-bottom: 20px;
+  flex-wrap: wrap; animation: yry-fadeInDown .5s .1s ease both;
+}
+.stat-card {
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius);
+  padding: 16px 20px; text-align: center; box-shadow: var(--shadow); min-width: 80px;
+  transition: transform .15s, box-shadow .15s; cursor: pointer;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.stat-card .val { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+.stat-card .val.health { color: var(--pass); }
+.stat-card .val.warn-h { color: var(--warn); }
+.stat-card .lbl { font-size: .68rem; color: var(--text3); margin-top: 2px; letter-spacing: .5px; }
+
+/* ── Health Bar ─────────────────────────────────────────────────────────── */
+.bar-wrap { margin-bottom: 28px; animation: yry-fadeInDown .5s .12s ease both; }
+.bar-outer {
+  height: 10px; border-radius: 5px; overflow: hidden; display: flex;
+  background: rgba(255,255,255,.04);
+}
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 3px; }
+.bar-outer .seg.strength   { background: var(--pass); }
+.bar-outer .seg.gap        { background: var(--fail); }
+.bar-outer .seg.suggestion { background: var(--warn); }
+.bar-outer .seg.neutral    { background: var(--info); }
+
+/* ── Progress ───────────────────────────────────────────────────────────── */
+.progress-wrap { margin-bottom: 20px; animation: yry-fadeInDown .5s .14s ease both; }
+.progress-label {
+  display: flex; justify-content: space-between; font-size: 0.78rem;
+  margin-bottom: 6px; color: var(--text2);
+}
+.progress-bar { width: 100%; height: 6px; background: var(--bg-flat); border-radius: 3px; overflow: hidden; }
+.progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #3d59a1, var(--accent));
+  transition: width 0.4s ease;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 24px;
+  animation: yry-fadeInDown .5s .18s ease both;
+}
+.tab {
+  padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3);
+  border-bottom: 2px solid transparent; transition: all .15s; user-select: none;
+}
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+.panel { display: none; animation: yry-fadeInUp .4s ease both; padding-top: 8px; }
+.panel.on { display: block; }
+
+/* ── Section ────────────────────────────────────────────────────────────── */
+.section { margin-bottom: 28px; }
+.section h2 {
+  font-size: .95rem; color: var(--accent); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section h2 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.section h2 .s-done { color: var(--text3); font-size: .72rem; font-weight: 400; margin-left: 2px; }
+
+/* ── Step Card ──────────────────────────────────────────────────────────── */
+.step {
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius);
+  margin: 10px 0; overflow: hidden; box-shadow: var(--shadow);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  animation: yry-stepIn .3s ease both;
+}
+.step:nth-child(1) { animation-delay: .02s; }
+.step:nth-child(2) { animation-delay: .06s; }
+.step:nth-child(3) { animation-delay: .10s; }
+.step:nth-child(4) { animation-delay: .14s; }
+.step:nth-child(5) { animation-delay: .18s; }
+.step:hover { border-color: rgba(255,193,7,0.12); }
+.step-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; cursor: pointer; user-select: none;
+  transition: background 0.12s;
+}
+.step-header:hover { background: rgba(255,193,7,0.04); }
+.step-checkbox {
+  width: 18px; height: 18px; accent-color: var(--accent);
+  cursor: pointer; flex-shrink: 0;
+}
+.step-num { font-weight: 700; color: var(--accent); min-width: 26px; font-size: .88rem; }
+.step-title { flex: 1; font-size: .92rem; }
+.step-status {
+  font-size: .72rem; padding: 3px 12px; border-radius: 12px;
+  flex-shrink: 0; white-space: nowrap; font-weight: 500;
+}
+.status-done    { background: rgba(34,197,94,0.12);  color: var(--pass); }
+.status-pending { background: rgba(110,110,114,0.18); color: var(--text3); }
+.status-active  { background: rgba(245,158,11,0.12);  color: var(--warn); }
+
+/* ── Step Body ──────────────────────────────────────────────────────────── */
+.step-body {
+  display: none; padding: 0 18px 18px 54px;
+  font-size: .84rem; border-top: var(--border);
+}
+.step-body.open { display: block; }
+.step-body p { color: var(--text2); margin: 6px 0; }
+
+/* ── Skill Hint ─────────────────────────────────────────────────────────── */
+.skill-hint {
+  background: rgba(255,193,7,0.06); border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0; padding: 8px 14px; margin: 10px 0;
+  font-size: .82rem; color: var(--text); display: flex; align-items: flex-start; gap: 6px;
+}
+.skill-hint .hint-icon { color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.skill-hint code {
+  background: rgba(0,0,0,0.3); color: var(--cyan);
+  padding: 2px 6px; border-radius: 4px;
+  font-size: .78rem; font-family: 'SF Mono','Fira Code',monospace;
+}
+
+/* ── Dependency Badges ──────────────────────────────────────────────────── */
+.step-deps {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);
+}
+.step-deps .dep-label { font-size: .7rem; color: var(--text3); margin-right: 2px; }
+.dep-badge {
+  font-size: .7rem; color: var(--cyan); text-decoration: none;
+  background: var(--bg-flat); border: 1px solid rgba(34,211,238,0.12);
+  border-radius: 12px; padding: 3px 10px; transition: all .15s;
+}
+.dep-badge:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+
+/* ── Code Block ─────────────────────────────────────────────────────────── */
+.code-block {
+  background: rgba(0,0,0,0.3); border: var(--border);
+  border-radius: 6px; padding: 10px 14px; margin: 8px 0;
+  font-size: .76rem; overflow-x: auto; white-space: pre-wrap;
+  font-family: 'SF Mono','Fira Code',monospace; color: var(--cyan);
+}
+
+/* ── Verify Command / Expected ──────────────────────────────────────────── */
+.verify-cmd {
+  background: rgba(34,197,94,0.06); border-left: 3px solid var(--pass);
+  border-radius: 0 4px 4px 0; padding: 6px 10px; margin: 6px 0; font-size: .8rem;
+}
+.verify-cmd::before { content: "▶ 验证: "; color: var(--pass); font-weight: 600; }
+.expected { color: var(--text3); font-size: .78rem; margin: 2px 0; }
+.expected::before { content: "✓ 期望: "; color: var(--accent); font-weight: 600; }
+
+/* ── Log Entry ──────────────────────────────────────────────────────────── */
+.log-entry {
+  font-size: .74rem; color: var(--text3);
+  border-left: 2px solid var(--border); padding-left: 8px; margin: 4px 0;
+}
+.log-time { color: #7aa2f7; }
+
+/* ── Tab 2: Overview Stats ──────────────────────────────────────────────── */
+.stat-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.stat-mini {
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius);
+  padding: 14px 18px; text-align: center; box-shadow: var(--shadow);
+  min-width: 80px; flex: 1;
+}
+.stat-mini .sv { font-size: 1.4rem; font-weight: 700; }
+.stat-mini .sv.g { color: var(--pass); }
+.stat-mini .sv.y { color: var(--accent); }
+.stat-mini .sv.c { color: var(--cyan); }
+.stat-mini .sl {
+  font-size: .64rem; color: var(--text3); margin-top: 2px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.section-stat {
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius);
+  padding: 12px 16px; margin: 8px 0; box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 12px;
+}
+.section-stat .ss-label { font-size: .82rem; font-weight: 600; min-width: 100px; }
+.section-stat .ss-bar-wrap { flex: 1; height: 6px; background: var(--bg-flat); border-radius: 3px; overflow: hidden; }
+.section-stat .ss-bar { height: 100%; border-radius: 3px; transition: width .4s; }
+.section-stat .ss-pct { font-size: .76rem; color: var(--text2); min-width: 44px; text-align: right; }
+
+/* ── Tab 3: Command Grid ────────────────────────────────────────────────── */
+.cmd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.cmd-card {
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+  transition: transform .15s, box-shadow .15s;
+}
+.cmd-card:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+.cmd-card .c-stage { font-size: .64rem; color: var(--text3); margin-bottom: 4px; }
+.cmd-card .c-name { font-weight: 700; font-size: .84rem; color: var(--accent); font-family: monospace; margin-bottom: 2px; }
+.cmd-card .c-desc { font-size: .74rem; color: var(--text2); line-height: 1.5; }
+.cmd-card pre {
+  background: rgba(0,0,0,0.3); border-radius: 6px;
+  padding: 8px 36px 8px 12px; margin-top: 8px;
+  font-size: .74rem; color: var(--cyan);
+  overflow-x: auto; font-family: 'SF Mono',monospace;
+  cursor: pointer; position: relative;
+}
+
+/* ── Copy Button ────────────────────────────────────────────────────────── */
+.cb {
+  position: absolute; top: 4px; right: 6px;
+  background: var(--bg-flat); border: var(--border); border-radius: 4px;
+  color: var(--text3); font-size: .6rem; padding: 1px 6px;
+  cursor: pointer; opacity: 0; transition: opacity .15s; font-family: inherit;
+}
+pre:hover .cb { opacity: 1; }
+
+/* ── Tab 4: Related Pages ───────────────────────────────────────────────── */
+.link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.link-card {
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow); text-decoration: none; color: inherit;
+  display: block; transition: transform .15s, border-color .15s;
+}
+.link-card:hover { transform: translateY(-2px); border-color: rgba(255,193,7,0.25); }
+.link-card .lc-icon { font-size: 1.2rem; margin-bottom: 6px; }
+.link-card .lc-name { font-weight: 700; font-size: .88rem; color: var(--accent); }
+.link-card .lc-desc { font-size: .74rem; color: var(--text2); margin-top: 4px; line-height: 1.5; }
+
+/* ── Tab 5: Verify ──────────────────────────────────────────────────────── */
+.verify-list { display: flex; flex-direction: column; gap: 10px; }
+.verify-item {
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius);
+  padding: 14px 18px; box-shadow: var(--shadow);
+}
+.verify-item .vi-label { font-size: .78rem; color: var(--text2); margin-bottom: 6px; }
+.verify-item pre {
+  background: rgba(0,0,0,0.3); border-radius: 6px;
+  padding: 8px 36px 8px 12px; font-size: .76rem;
+  color: var(--cyan); overflow-x: auto;
+  font-family: 'SF Mono',monospace; cursor: pointer; position: relative;
+}
+.verify-item .vi-expect { font-size: .74rem; color: var(--text3); margin-top: 4px; }
+.verify-item .vi-expect::before { content: "✓ "; color: var(--accent); }
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-raised); border: 1px solid rgba(255,193,7,0.3);
+  border-radius: 8px; color: var(--text); padding: 10px 20px;
+  font-size: .82rem; z-index: 300; box-shadow: var(--shadow-lg);
+  opacity: 0; transition: opacity .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+.footer {
+  margin-top: 40px; padding-top: 16px; border-top: var(--border);
+  color: var(--text3); font-size: .72rem; text-align: center;
+}
+
+/* ── Cross-Nav (uses shared.css animations) ─────────────────────────────── */
+.cross-nav {
+  display: flex; gap: 4px; justify-content: center; align-items: center;
+  margin-bottom: 32px; flex-wrap: wrap;
+  animation: yry-fadeInDown .5s .15s ease both;
+}
+.cross-link {
+  color: var(--cyan); text-decoration: none; font-size: .74rem;
+  padding: 3px 10px; border-radius: 4px; transition: color .15s, background .15s;
+}
+.cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); text-decoration: underline; }
+.cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+/* ── Breadcrumb ─────────────────────────────────────────────────────────── */
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: .76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; transition: color .15s; }
+.breadcrumb a:hover { color: #fbbf24; text-decoration: underline; }
+.breadcrumb .bc-sep { color: #53576c; opacity: .5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+/* ── External link ──────────────────────────────────────────────────────── */
+a[target="_blank"]::after { content: " ↗"; font-size: .7em; opacity: .5; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .container { padding: 20px 12px 60px; }
+  .header h1 { font-size: 1.3rem; }
+  .step-body { padding: 0 10px 14px 40px; }
+  .cmd-grid, .link-grid { grid-template-columns: 1fr; }
+  .stat-grid { flex-direction: column; }
+}

@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) window.PetManager = {}
@@ -7,41 +7,24 @@
   const CHAT_HEADER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/ChatHeader/index.html'
   let chatHeaderTemplateCache = ''
 
-  function stopEvent (e) {
+  function stopEvent(e) {
     e?.stopPropagation?.()
     e?.preventDefault?.()
   }
 
-  function resolveExternalUrl (key, fallbackUrl) {
-    const urls = window.PET_CONFIG?.constants?.URLS
-    const value = urls && typeof urls[key] === 'string' ? urls[key] : ''
-    return String(value || fallbackUrl || '').trim()
-  }
-
-  function openExternal (url) {
-    const targetUrl = String(url || '').trim()
-    if (!targetUrl) return
-    const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
-    if (newWindow) {
-      try {
-        newWindow.opener = null
-      } catch (_) {}
-    }
-  }
-
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (chatHeaderTemplateCache) return chatHeaderTemplateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     chatHeaderTemplateCache = await DomHelper.loadHtmlTemplate(
       CHAT_HEADER_TEMPLATES_RESOURCE_PATH,
       '#yi-pet-chat-header-template',
-      'Failed to load ChatHeader template'
+      'Failed to load ChatHeader template',
     )
     return chatHeaderTemplateCache
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const manager = params?.manager
     const template = params?.template
     const Vue = window.Vue || {}
@@ -54,9 +37,9 @@
     return defineComponent({
       name: 'YiPetChatHeader',
       props: {
-        uiTick: { type: Number, required: true }
+        uiTick: { type: Number, required: true },
       },
-      setup () {
+      setup() {
         const onAuthClick = (e) => {
           stopEvent(e)
           if (typeof manager?.openAuth === 'function') manager.openAuth()
@@ -79,28 +62,14 @@
           }
         }
 
-        const onAicrClick = (e) => {
-          stopEvent(e)
-          openExternal(
-            resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html')
-          )
-        }
-
-        const onNewsClick = (e) => {
-          stopEvent(e)
-          openExternal(
-            resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html')
-          )
-        }
-
-        return { onAuthClick, onCloseClick, onAicrClick, onNewsClick }
+        return { onAuthClick, onCloseClick }
       },
-      template: resolvedTemplate
+      template: resolvedTemplate,
     })
   }
 
   window.PetManager.Components.ChatHeader = {
     loadTemplate,
-    createComponent
+    createComponent,
   }
 })()

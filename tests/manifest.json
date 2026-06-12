@@ -1,0 +1,116 @@
+{
+  "files": [
+    {
+      "name": "token.test.mjs",
+      "path": "tests/unit/token.test.mjs",
+      "dir": "unit",
+      "lines": 141,
+      "size": 4792,
+      "desc": "Token 三级降级验证 — 构造/校验/5 套件 27 断言"
+    },
+    {
+      "name": "api.test.mjs",
+      "path": "tests/unit/api.test.mjs",
+      "dir": "unit",
+      "lines": 301,
+      "size": 12051,
+      "desc": "HTTP 客户端全路径 — 方法/头/超时重试/Abort/响应解析 7 套件 34 断言"
+    },
+    {
+      "name": "request.test.mjs",
+      "path": "tests/unit/request.test.mjs",
+      "dir": "unit",
+      "lines": 298,
+      "size": 10914,
+      "desc": "RequestClient 核心 — 方法/头/超时重试/中断/URL 构建/工厂 7 套件 30 断言"
+    },
+    {
+      "name": "storage.test.mjs",
+      "path": "tests/unit/storage.test.mjs",
+      "dir": "unit",
+      "lines": 397,
+      "size": 14283,
+      "desc": "chrome.storage mock + StorageUtils + StorageHelper + SessionManager 5 套件 46 断言"
+    },
+    {
+      "name": "config.test.mjs",
+      "path": "tests/unit/config.test.mjs",
+      "dir": "unit",
+      "lines": 150,
+      "size": 5351,
+      "desc": "DEFAULT_CONFIG 结构/buildUrl/buildQueryParams/环境检测 4 套件 20 断言"
+    },
+    {
+      "name": "error.test.mjs",
+      "path": "tests/unit/error.test.mjs",
+      "dir": "unit",
+      "lines": 224,
+      "size": 7985,
+      "desc": "7 种 Error 子类/ErrorHandler 分类/检测/重试判定/辅助函数 5 套件 33 断言"
+    },
+    {
+      "name": "pipeline.test.mjs",
+      "path": "tests/integration/pipeline.test.mjs",
+      "dir": "integration",
+      "lines": 458,
+      "size": 15572,
+      "desc": "SessionService + FaqService 端到端集成 — CRUD/搜索/队列/标签 4 套件 42 断言"
+    },
+    {
+      "name": "ChatWindow.test.mjs",
+      "path": "tests/modules/pet/components/ChatWindow.test.mjs",
+      "dir": "modules",
+      "lines": 163,
+      "size": 4897,
+      "desc": "ChatWindow/ChatInput Vue 3 组件挂载与交互 2 套件 6 断言"
+    },
+    {
+      "name": "sw.test.mjs",
+      "path": "tests/modules/extension/sw.test.mjs",
+      "dir": "modules",
+      "lines": 184,
+      "size": 6115,
+      "desc": "Service Worker messageRouter action 路由与异常处理 1 套件 8 断言"
+    },
+    {
+      "name": "chrome-mock.mjs",
+      "path": "tests/lib/chrome-mock.mjs",
+      "dir": "lib",
+      "lines": 144,
+      "size": 4739,
+      "desc": "chrome.storage.local/runtime mock — Map 后端 + EventEmitter"
+    },
+    {
+      "name": "load-module.mjs",
+      "path": "tests/lib/load-module.mjs",
+      "dir": "lib",
+      "lines": 50,
+      "size": 1546,
+      "desc": "IIFE 模块加载器 — 将全局 IIFE 模块注入 jsdom 作用域"
+    },
+    {
+      "name": "fetch-helpers.mjs",
+      "path": "tests/lib/fetch-helpers.mjs",
+      "dir": "lib",
+      "lines": 64,
+      "size": 1570,
+      "desc": "fetch mock 工厂 — makeApiResponse/makeApiError/mockFetchError"
+    },
+    {
+      "name": "test-utils.mjs",
+      "path": "tests/lib/test-utils.mjs",
+      "dir": "lib",
+      "lines": 32,
+      "size": 771,
+      "desc": "测试辅助工具 — 共享断言和工具函数"
+    },
+    {
+      "name": "setup.mjs",
+      "path": "tests/setup.mjs",
+      "dir": "lib",
+      "lines": 44,
+      "size": 1542,
+      "desc": "全局测试初始化 — chrome mock · loadModule · fetch mock · beforeEach/afterEach"
+    }
+  ]
+}

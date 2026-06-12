@@ -2,7 +2,7 @@
  * ChatWindow Component
  * Handles the creation and management of the chat window UI.
  */
-(function () {
+;(function () {
   'use strict'
 
   // Ensure namespace exists
@@ -10,147 +10,151 @@
   if (!window.PetManager.Components) window.PetManager.Components = {}
 
   const hooks = window.PetManager.Components.ChatWindowHooks || {}
+  const _u = window.PetManager?.Components?.ChatWindowUtils || {}
 
-  const DEFAULT_SIDEBAR_WIDTH = 320
-  const MIN_SIDEBAR_WIDTH = 320
-  const MAX_SIDEBAR_WIDTH = 800
-  const DEFAULT_CHAT_WINDOW_WIDTH = 850
-  const DEFAULT_CHAT_WINDOW_HEIGHT = 720
-  const AUTO_SCROLL_THRESHOLD_PX = 140
+  const DEFAULT_SIDEBAR_WIDTH = PET_CONFIG?.constants?.UI?.SIDEBAR_DEFAULT_WIDTH || 320
+  const MIN_SIDEBAR_WIDTH = PET_CONFIG?.constants?.UI?.SIDEBAR_MIN_WIDTH || 320
+  const MAX_SIDEBAR_WIDTH = PET_CONFIG?.constants?.UI?.SIDEBAR_MAX_WIDTH || 800
+  const DEFAULT_CHAT_WINDOW_WIDTH = PET_CONFIG?.constants?.UI?.CHAT_WINDOW_DEFAULT_WIDTH || 850
+  const DEFAULT_CHAT_WINDOW_HEIGHT = PET_CONFIG?.constants?.UI?.CHAT_WINDOW_DEFAULT_HEIGHT || 720
+  const AUTO_SCROLL_THRESHOLD_PX = PET_CONFIG?.constants?.TIMING?.AUTO_SCROLL_THRESHOLD_PX || 140
 
-  function safeCall (fn, fallbackValue = null) {
-    try {
-      return fn()
-    } catch (_) {
-      return fallbackValue
+  const safeCall =
+    _u.safeCall ||
+    function (fn, fv) {
+      try {
+        return fn()
+      } catch (_) {
+        return fv
+      }
     }
-  }
-
-  async function safeCallAsync (fn, fallbackValue = null) {
-    try {
-      return await fn()
-    } catch (_) {
-      return fallbackValue
+  const safeCallAsync =
+    _u.safeCallAsync ||
+    async function (fn, fv) {
+      try {
+        return await fn()
+      } catch (_) {
+        return fv
+      }
     }
-  }
-
-  function getVueApi (Vue) {
-    if (
-      !Vue ||
-            typeof Vue.createApp !== 'function' ||
-            typeof Vue.defineComponent !== 'function' ||
-            typeof Vue.ref !== 'function' ||
-            typeof Vue.onMounted !== 'function'
-    ) {
+  const getVueApi = _u.getVueApi || null
+  const canUseVueTemplate =
+    _u.canUseVueTemplate ||
+    function () {
+      return false
+    }
+  const getComponentModule =
+    _u.getComponentModule ||
+    function (n) {
+      return window.PetManager?.Components?.[n] || null
+    }
+  const loadTemplateIfAvailable =
+    _u.loadTemplateIfAvailable ||
+    async function () {
+      return ''
+    }
+  const toRgbFromHex =
+    _u.toRgbFromHex ||
+    function () {
       return null
     }
-    return {
-      createApp: Vue.createApp,
-      defineComponent: Vue.defineComponent,
-      ref: Vue.ref,
-      onMounted: Vue.onMounted
+  // eslint-disable-next-line no-unused-vars -- clampInt defined as fallback from ChatWindow.utils
+  const clampInt =
+    _u.clampInt ||
+    function (n, min) {
+      return min
     }
-  }
+  const shadeHexColor =
+    _u.shadeHexColor ||
+    function () {
+      return null
+    }
 
-  function canUseVueTemplate (Vue) {
-    if (typeof Vue?.compile !== 'function') return false
-    return safeCall(() => {
-      Function('return 1')()
-      return true
-    }, false)
-  }
-
-  function getComponentModule (name) {
-    return window.PetManager?.Components?.[name] || null
-  }
-
-  async function loadTemplateIfAvailable (mod) {
-    if (!mod || typeof mod.loadTemplate !== 'function') return ''
-    return String((await safeCallAsync(() => mod.loadTemplate(), '')) || '')
-  }
-
+  // eslint-disable-next-line no-unused-vars -- createStore defined as fallback from hooks
   const createStore =
-        typeof hooks.createStore === 'function'
-          ? hooks.createStore
-          : (manager) => ({ searchValue: { value: manager?.sessionTitleFilter || '' } })
+    typeof hooks.createStore === 'function'
+      ? hooks.createStore
+      : (manager) => ({ searchValue: { value: manager?.sessionTitleFilter || '' } })
 
+  // eslint-disable-next-line no-unused-vars -- useComputed defined as fallback from hooks
   const useComputed =
-        typeof hooks.useComputed === 'function'
-          ? hooks.useComputed
-          : (store) => ({
-              clearVisible: {
-                get value () {
-                  return !!String(store?.searchValue?.value || '').trim()
-                }
-              }
-            })
+    typeof hooks.useComputed === 'function'
+      ? hooks.useComputed
+      : (store) => ({
+          clearVisible: {
+            get value() {
+              return !!String(store?.searchValue?.value || '').trim()
+            },
+          },
+        })
 
+  // eslint-disable-next-line no-unused-vars -- useMethods defined as fallback from hooks
   const useMethods =
-        typeof hooks.useMethods === 'function'
-          ? hooks.useMethods
-          : function useMethods (params) {
-            const { manager, instance, store } = params
-            let timer = null
+    typeof hooks.useMethods === 'function'
+      ? hooks.useMethods
+      : function useMethods(params) {
+          const { manager, instance, store } = params
+          let timer = null
 
-            const clearSearch = () => {
-              if (store?.searchValue) store.searchValue.value = ''
-              manager.sessionTitleFilter = ''
+          const clearSearch = () => {
+            if (store?.searchValue) store.searchValue.value = ''
+            manager.sessionTitleFilter = ''
+            if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar()
+          }
+
+          const onSearchInput = (e) => {
+            const value = e?.target?.value ?? ''
+            if (store?.searchValue) store.searchValue.value = value
+            manager.sessionTitleFilter = String(value || '').trim()
+            if (timer) clearTimeout(timer)
+            timer = setTimeout(() => {
               if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar()
-            }
+            }, 300)
+          }
 
-            const onSearchInput = (e) => {
-              const value = e?.target?.value ?? ''
-              if (store?.searchValue) store.searchValue.value = value
-              manager.sessionTitleFilter = String(value || '').trim()
-              if (timer) clearTimeout(timer)
-              timer = setTimeout(() => {
-                if (typeof manager.updateSessionSidebar === 'function') manager.updateSessionSidebar()
-              }, 300)
-            }
+          const onSearchKeydown = (e) => {
+            if (e?.key === 'Escape') clearSearch()
+          }
 
-            const onSearchKeydown = (e) => {
-              if (e?.key === 'Escape') clearSearch()
-            }
-
-            const onBatchToggleClick = () => {
-              if (manager.batchMode) {
-                if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode()
-              } else {
-                if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode()
-              }
-            }
-
-            const onAddClick = () => {
-              if (typeof manager.createBlankSession === 'function') manager.createBlankSession()
-            }
-
-            const onAuthClick = (e) => {
-              e?.stopPropagation?.()
-              e?.preventDefault?.()
-              manager.openAuth()
-            }
-
-            const onSidebarToggleClick = (e) => {
-              e?.stopPropagation?.()
-              e?.preventDefault?.()
-              if (instance.toggleSidebar) instance.toggleSidebar()
-            }
-
-            return {
-              clearSearch,
-              onSearchInput,
-              onSearchKeydown,
-              onBatchToggleClick,
-              onAddClick,
-              onAuthClick,
-              onSidebarToggleClick
+          const onBatchToggleClick = () => {
+            if (manager.batchMode) {
+              if (typeof manager.exitBatchMode === 'function') manager.exitBatchMode()
+            } else {
+              if (typeof manager.enterBatchMode === 'function') manager.enterBatchMode()
             }
           }
+
+          const onAddClick = () => {
+            if (typeof manager.createBlankSession === 'function') manager.createBlankSession()
+          }
+
+          const onAuthClick = (e) => {
+            e?.stopPropagation?.()
+            e?.preventDefault?.()
+            manager.openAuth()
+          }
+
+          const onSidebarToggleClick = (e) => {
+            e?.stopPropagation?.()
+            e?.preventDefault?.()
+            if (instance.toggleSidebar) instance.toggleSidebar()
+          }
+
+          return {
+            clearSearch,
+            onSearchInput,
+            onSearchKeydown,
+            onBatchToggleClick,
+            onAddClick,
+            onAuthClick,
+            onSidebarToggleClick,
+          }
+        }
 
   const CHAT_WINDOW_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/ChatWindow/index.html'
   let chatWindowTemplatesCache = null
 
-  async function loadChatWindowTemplates () {
+  async function loadChatWindowTemplates() {
     if (chatWindowTemplatesCache) return chatWindowTemplatesCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') {
@@ -160,44 +164,14 @@
     const tpl = await DomHelper.loadHtmlTemplate(
       CHAT_WINDOW_TEMPLATES_RESOURCE_PATH,
       '#yi-pet-chat-window-template',
-      'Failed to load templates'
+      'Failed to load templates',
     )
     chatWindowTemplatesCache = { chatWindow: tpl }
     return chatWindowTemplatesCache
   }
 
-  function toRgbFromHex (hex) {
-    const normalized = String(hex || '').trim()
-    const match = normalized.match(/^#([0-9a-fA-F]{6})$/)
-    if (!match) return null
-    const value = match[1]
-    const r = parseInt(value.slice(0, 2), 16)
-    const g = parseInt(value.slice(2, 4), 16)
-    const b = parseInt(value.slice(4, 6), 16)
-    if (![r, g, b].every((n) => Number.isFinite(n))) return null
-    return { r, g, b }
-  }
-
-  function clampInt (n, min, max) {
-    const x = Math.round(Number(n))
-    if (!Number.isFinite(x)) return min
-    return Math.min(Math.max(x, min), max)
-  }
-
-  function shadeHexColor (hex, ratio) {
-    const rgb = toRgbFromHex(hex)
-    if (!rgb) return null
-    const t = ratio < 0 ? 0 : 255
-    const p = Math.abs(Number(ratio))
-    if (!Number.isFinite(p)) return null
-    const r = clampInt((t - rgb.r) * p + rgb.r, 0, 255)
-    const g = clampInt((t - rgb.g) * p + rgb.g, 0, 255)
-    const b = clampInt((t - rgb.b) * p + rgb.b, 0, 255)
-    return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`
-  }
-
   class ChatWindow {
-    constructor (manager) {
+    constructor(manager) {
       this.manager = manager
       this.element = null
       this._vueApp = null
@@ -244,26 +218,26 @@
       this.isProcessing = false
     }
 
-    _clampSidebarWidth (width) {
+    _clampSidebarWidth(width) {
       const n = Number(width)
       if (!Number.isFinite(n)) return DEFAULT_SIDEBAR_WIDTH
       return Math.min(Math.max(MIN_SIDEBAR_WIDTH, n), MAX_SIDEBAR_WIDTH)
     }
 
-    _persistSidebarWidth (width) {
+    _persistSidebarWidth(width) {
       if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
         chrome.storage.local.set({ sidebarWidth: width })
       }
     }
 
-    _syncSidebarToggleButtonLeft (width) {
+    _syncSidebarToggleButtonLeft(width) {
       const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn')
       if (!toggleBtn) return
       if (this.manager?.sidebarCollapsed) return
       toggleBtn.style.left = `${width}px`
     }
 
-    _applySidebarWidth (sidebar, width, { persist = false } = {}) {
+    _applySidebarWidth(sidebar, width, { persist = false } = {}) {
       if (!sidebar) return
       const clamped = this._clampSidebarWidth(width)
       sidebar.style.setProperty('width', `${clamped}px`, 'important')
@@ -272,7 +246,7 @@
       if (persist) this._persistSidebarWidth(clamped)
     }
 
-    _resetComposerAfterSend (textarea, clearTextarea) {
+    _resetComposerAfterSend(textarea, clearTextarea) {
       if (clearTextarea && textarea) {
         textarea.value = ''
         textarea.style.height = '60px'
@@ -285,7 +259,7 @@
       if (typeof this.updateDraftImagesDisplay === 'function') this.updateDraftImagesDisplay()
     }
 
-    async _persistChatMessages ({ messageText, images, finalContent, userTimestamp, petTimestamp }) {
+    async _persistChatMessages({ messageText, images, finalContent, userTimestamp, petTimestamp }) {
       const manager = this.manager
       if (!manager?.currentSessionId || typeof manager.callUpdateDocument !== 'function') return
 
@@ -299,13 +273,13 @@
       }
     }
 
-    getMainColorFromGradient (gradient) {
+    getMainColorFromGradient(gradient) {
       if (!gradient) return '#3b82f6'
       const match = gradient.match(/#[0-9a-fA-F]{6}/)
       return match ? match[0] : '#3b82f6'
     }
 
-    async createFallbackDom () {
+    async createFallbackDom() {
       const manager = this.manager
 
       // Create chat window container
@@ -356,7 +330,7 @@
       return this.element
     }
 
-    async create () {
+    async create() {
       const manager = this.manager
 
       this.element = document.createElement('div')
@@ -397,7 +371,7 @@
         if (!mod || typeof mod.createComponent !== 'function') return null
         if (opts.requireTemplateLoader && typeof mod.loadTemplate !== 'function') return null
         const template = opts.includeTemplate ? await loadTemplateIfAvailable(mod) : ''
-        const payload = opts.includeTemplate ? { ...(args || {}), template } : (args || {})
+        const payload = opts.includeTemplate ? { ...(args || {}), template } : args || {}
         return safeCall(() => mod.createComponent(payload), null)
       }
 
@@ -412,13 +386,24 @@
         } catch (_) {}
       }
 
-      const ChatHeader = await loadComponent('ChatHeader', { manager }, { includeTemplate: true, requireTemplateLoader: false })
-      const ChatInput = await loadComponent('ChatInput', { manager, instance }, { includeTemplate: true, requireTemplateLoader: false })
+      const ChatHeader = await loadComponent(
+        'ChatHeader',
+        { manager },
+        { includeTemplate: true, requireTemplateLoader: false },
+      )
+      const ChatInput = await loadComponent(
+        'ChatInput',
+        { manager, instance },
+        { includeTemplate: true, requireTemplateLoader: false },
+      )
       if (!ChatHeader || !ChatInput) {
         return this.createFallbackDom()
       }
 
-      const ChatMessages = await loadComponent('ChatMessages', null, { includeTemplate: true, requireTemplateLoader: true })
+      const ChatMessages = await loadComponent('ChatMessages', null, {
+        includeTemplate: true,
+        requireTemplateLoader: true,
+      })
       if (!ChatMessages) {
         return this.createFallbackDom()
       }
@@ -426,12 +411,12 @@
       const FaqManager = await loadComponent(
         'FaqManager',
         { manager, store: manager?._faqManagerStore },
-        { includeTemplate: true, requireTemplateLoader: true }
+        { includeTemplate: true, requireTemplateLoader: true },
       )
       const FaqTagManager = await loadComponent(
         'FaqTagManager',
         { manager, store: manager?._faqTagManagerStore },
-        { includeTemplate: true, requireTemplateLoader: true }
+        { includeTemplate: true, requireTemplateLoader: true },
       )
       if (!FaqManager || !FaqTagManager) {
         return this.createFallbackDom()
@@ -443,13 +428,13 @@
 
       const templates = await safeCallAsync(() => loadChatWindowTemplates(), null)
       const resolvedTemplate =
-                String(templates?.chatWindow || '').trim() ||
-                '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div><FaqManager /><FaqTagManager /></div>'
+        String(templates?.chatWindow || '').trim() ||
+        '<div><ChatHeader ref="headerEl" :uiTick="uiTick" /><div class="yi-pet-chat-content-container"><div class="yi-pet-chat-right-panel" ref="mainEl" aria-label="会话聊天面板"><div id="yi-pet-chat-messages" ref="messagesEl" class="yi-pet-chat-messages" role="log" aria-live="polite"><ChatMessages :instance="instance" :manager="manager" /></div><ChatInput :uiTick="uiTick" /></div></div><FaqManager /><FaqTagManager /></div>'
 
       const Root = defineComponent({
         name: 'YiPetChatWindow',
         components: { ChatHeader, ChatInput, ChatMessages, FaqManager, FaqTagManager },
-        setup () {
+        setup() {
           const headerEl = ref(null)
           const mainEl = ref(null)
           const messagesEl = ref(null)
@@ -470,10 +455,10 @@
             manager,
             headerEl,
             mainEl,
-            messagesEl
+            messagesEl,
           }
         },
-        template: resolvedTemplate
+        template: resolvedTemplate,
       })
 
       this._vueApp = createApp(Root)
@@ -486,13 +471,13 @@
       return this.element
     }
 
-    async createHeader () {
+    async createHeader() {
       const manager = this.manager
       const ChatHeaderModule = window.PetManager?.Components?.ChatHeader
       const template =
-                ChatHeaderModule && typeof ChatHeaderModule.loadTemplate === 'function'
-                  ? await ChatHeaderModule.loadTemplate()
-                  : ''
+        ChatHeaderModule && typeof ChatHeaderModule.loadTemplate === 'function'
+          ? await ChatHeaderModule.loadTemplate()
+          : ''
       const resolvedTemplate = String(template || '').trim()
       if (!resolvedTemplate) return null
 
@@ -506,44 +491,11 @@
         e?.preventDefault?.()
       }
 
-      const resolveExternalUrl = (key, fallbackUrl) => {
-        const urls = window.PET_CONFIG?.constants?.URLS
-        const value = urls && typeof urls[key] === 'string' ? urls[key] : ''
-        return String(value || fallbackUrl || '').trim()
-      }
-
-      const openExternal = (url) => {
-        const targetUrl = String(url || '').trim()
-        if (!targetUrl) return
-        const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
-        if (newWindow) {
-          try {
-            newWindow.opener = null
-          } catch (_) {}
-        }
-      }
-
       const authBtn = root.querySelector('#yi-pet-chat-auth-btn')
       if (authBtn) {
         authBtn.addEventListener('click', (e) => {
           stopEvent(e)
           if (typeof manager?.openAuth === 'function') manager.openAuth()
-        })
-      }
-
-      const aicrBtn = root.querySelector('#yi-pet-chat-aicr-btn')
-      if (aicrBtn) {
-        aicrBtn.addEventListener('click', (e) => {
-          stopEvent(e)
-          openExternal(resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html'))
-        })
-      }
-
-      const newsBtn = root.querySelector('#yi-pet-chat-news-btn')
-      if (newsBtn) {
-        newsBtn.addEventListener('click', (e) => {
-          stopEvent(e)
-          openExternal(resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html'))
         })
       }
 
@@ -585,13 +537,13 @@
       return root
     }
 
-    createSidebar () {
+    createSidebar() {
       const manager = this.manager
       const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar
       const sidebar =
-                SessionSidebarModule && typeof SessionSidebarModule.createSidebarElement === 'function'
-                  ? SessionSidebarModule.createSidebarElement(manager)
-                  : document.createElement('div')
+        SessionSidebarModule && typeof SessionSidebarModule.createSidebarElement === 'function'
+          ? SessionSidebarModule.createSidebarElement(manager)
+          : document.createElement('div')
       if (!sidebar.classList.contains('session-sidebar')) sidebar.className = 'session-sidebar'
 
       if (typeof this._setupSidebarAfterRender === 'function') {
@@ -614,7 +566,7 @@
       return sidebar
     }
 
-    createSidebarResizer (sidebar) {
+    createSidebarResizer(sidebar) {
       const resizer = document.createElement('div')
       resizer.className = 'sidebar-resizer'
 
@@ -647,7 +599,7 @@
       sidebar.appendChild(resizer)
     }
 
-    initSidebarResize (e, sidebar, resizer) {
+    initSidebarResize(e, sidebar, resizer) {
       e.preventDefault()
       e.stopPropagation()
       this.isResizingSidebar = true
@@ -708,7 +660,7 @@
       document.addEventListener('mouseup', onMouseUp)
     }
 
-    createInputContainer () {
+    createInputContainer() {
       const ChatInputModule = window.PetManager?.Components?.ChatInput
       if (ChatInputModule && typeof ChatInputModule.createInputContainerElement === 'function') {
         return ChatInputModule.createInputContainerElement(this.manager, this)
@@ -716,7 +668,7 @@
       return null
     }
 
-    async _ensureCurrentSession () {
+    async _ensureCurrentSession() {
       const manager = this.manager
       if (!manager) return
       if (manager.currentSessionId) return
@@ -725,25 +677,25 @@
       }
     }
 
-    _beginMessageRequest (abortController) {
+    _beginMessageRequest(abortController) {
       this.isProcessing = true
       this._currentAbortController = abortController
       this._updateRequestStatus('loading', abortController)
     }
 
-    _endMessageRequest () {
+    _endMessageRequest() {
       this.isProcessing = false
       this._currentAbortController = null
       this._updateRequestStatus('idle')
     }
 
-    async _sendMessageWithVue ({ manager, messageText, images, textarea, clearTextarea, abortController }) {
+    async _sendMessageWithVue({ manager, messageText, images, textarea, clearTextarea, abortController }) {
       const userTimestamp = Date.now()
       const userMsg = {
         type: 'user',
         content: messageText,
         timestamp: userTimestamp,
-        imageDataUrl: images.length > 0 ? images[0] : null
+        imageDataUrl: images.length > 0 ? images[0] : null,
       }
       this._messagesAppend(userMsg)
 
@@ -755,7 +707,7 @@
         type: 'pet',
         content: `${waitingIcon} 正在思考...`,
         timestamp: petTimestamp,
-        streaming: true
+        streaming: true,
       }
       this._messagesAppend(petMsg)
       const list = this._getMessagesList && this._getMessagesList()
@@ -775,7 +727,9 @@
       onStreamContent.getFullContent = () => streamedContent
 
       const imagesForApi = images.length > 0 ? images : null
-      const reply = await manager.generatePetResponseStream(messageText, onStreamContent, abortController, { images: imagesForApi })
+      const reply = await manager.generatePetResponseStream(messageText, onStreamContent, abortController, {
+        images: imagesForApi,
+      })
 
       const finalContent = String(streamedContent || reply || '').trim() || '请继续。'
       if (typeof this._messagesSetStreaming === 'function') this._messagesSetStreaming(petIdx, false)
@@ -785,18 +739,28 @@
       this.scrollToBottom()
     }
 
-    async _sendMessageWithDom ({ manager, messageText, images, textarea, clearTextarea, abortController, messagesContainer }) {
+    async _sendMessageWithDom({
+      manager,
+      messageText,
+      images,
+      textarea,
+      clearTextarea,
+      abortController,
+      messagesContainer,
+    }) {
       const userTimestamp = Date.now()
       const userMessageElement = manager.createMessageElement(
         messageText,
         'user',
         images.length > 0 ? images[0] : null,
         userTimestamp,
-        {}
+        {},
       )
       userMessageElement.setAttribute('data-chat-timestamp', userTimestamp.toString())
       userMessageElement.setAttribute('data-chat-type', 'user')
-      const allMessages = Array.from(messagesContainer.children).filter((msg) => !msg.hasAttribute('data-welcome-message'))
+      const allMessages = Array.from(messagesContainer.children).filter(
+        (msg) => !msg.hasAttribute('data-welcome-message'),
+      )
       userMessageElement.setAttribute('data-chat-idx', allMessages.length.toString())
       messagesContainer.appendChild(userMessageElement)
 
@@ -810,13 +774,9 @@
 
       const waitingIcon = this._getWaitingIcon()
       const petTimestamp = Date.now()
-      const petMessageElement = manager.createMessageElement(
-                `${waitingIcon} 正在思考...`,
-                'pet',
-                null,
-                petTimestamp,
-                { streaming: true }
-      )
+      const petMessageElement = manager.createMessageElement(`${waitingIcon} 正在思考...`, 'pet', null, petTimestamp, {
+        streaming: true,
+      })
       petMessageElement.classList.add('is-streaming')
       petMessageElement.setAttribute('data-chat-timestamp', petTimestamp.toString())
       petMessageElement.setAttribute('data-chat-type', 'pet')
@@ -838,10 +798,12 @@
       const onStreamContent = this._createStreamContentCallback(messageBubble, messagesContainer, petMessageElement)
 
       const imagesForApi = images.length > 0 ? images : null
-      const reply = await manager.generatePetResponseStream(messageText, onStreamContent, abortController, { images: imagesForApi })
+      const reply = await manager.generatePetResponseStream(messageText, onStreamContent, abortController, {
+        images: imagesForApi,
+      })
 
       const streamedReply =
-                onStreamContent && typeof onStreamContent.getFullContent === 'function' ? onStreamContent.getFullContent() : ''
+        onStreamContent && typeof onStreamContent.getFullContent === 'function' ? onStreamContent.getFullContent() : ''
 
       let domContent = ''
       if (!streamedReply && messageBubble) {
@@ -875,7 +837,7 @@
       this.scrollToBottom()
     }
 
-    async sendMessage (userContent = null, userImageDataUrl = null) {
+    async sendMessage(userContent = null, userImageDataUrl = null) {
       const manager = this.manager
       if (!manager) {
         console.error('[消息发送] Manager 未初始化')
@@ -891,7 +853,7 @@
 
       // 使用传入的内容，或从输入框获取
       const messageText = userContent !== null ? String(userContent).trim() : textarea.value.trim()
-      const images = userImageDataUrl ? [userImageDataUrl] : (this.draftImages || [])
+      const images = userImageDataUrl ? [userImageDataUrl] : this.draftImages || []
 
       // 检查是否有内容
       if (!messageText && images.length === 0) {
@@ -929,7 +891,7 @@
             images,
             textarea,
             clearTextarea: userContent === null,
-            abortController
+            abortController,
           })
           return
         }
@@ -941,7 +903,7 @@
           textarea,
           clearTextarea: userContent === null,
           abortController,
-          messagesContainer
+          messagesContainer,
         })
       } catch (error) {
         console.error('[消息发送] 发送消息时出错:', error)
@@ -988,9 +950,9 @@
     }
 
     /**
-         * 更新聊天窗口标题（显示当前会话名称）
-         */
-    updateChatHeaderTitle () {
+     * 更新聊天窗口标题（显示当前会话名称）
+     */
+    updateChatHeaderTitle() {
       if (!this.element) return
 
       const titleTextEl = this.element.querySelector('#yi-pet-chat-header-title-text')
@@ -1022,18 +984,18 @@
     }
 
     /**
-         * 更新聊天窗口主题颜色
-         */
-    updateTheme () {
+     * 更新聊天窗口主题颜色
+     */
+    updateTheme() {
       if (!this.element) return
       const manager = this.manager
 
       const colors = Array.isArray(manager?.colors) ? manager.colors : []
       const currentColor =
-                colors.length > 0
-                  ? colors[Number(manager?.colorIndex) || 0]
-                  : (window.PET_CONFIG?.pet?.colors?.[window.PET_CONFIG?.pet?.defaultColorIndex ?? 0] ||
-                      'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)')
+        colors.length > 0
+          ? colors[Number(manager?.colorIndex) || 0]
+          : window.PET_CONFIG?.pet?.colors?.[window.PET_CONFIG?.pet?.defaultColorIndex ?? 0] ||
+            'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
       const mainColor = this.getMainColorFromGradient(currentColor)
       const rgb = toRgbFromHex(mainColor) || { r: 102, g: 126, b: 234 }
       const rgbText = `${rgb.r}, ${rgb.g}, ${rgb.b}`
@@ -1055,7 +1017,7 @@
       this.element.style.setProperty('--primary-color-alpha', primaryAlpha, 'important')
     }
 
-    updateChatWindowStyle () {
+    updateChatWindowStyle() {
       if (!this.element) return
 
       const state = this.manager.chatWindowState || {}
@@ -1096,10 +1058,10 @@
     }
 
     /**
-         * 判断是否应该自动滚动到底部
-         * @returns {boolean} 如果距离底部小于 140px 则返回 true
-         */
-    shouldAutoScroll () {
+     * 判断是否应该自动滚动到底部
+     * @returns {boolean} 如果距离底部小于 140px 则返回 true
+     */
+    shouldAutoScroll() {
       try {
         const el = this.messagesContainer || document.getElementById('pet-chat-messages')
         if (!el) return true
@@ -1111,10 +1073,10 @@
     }
 
     /**
-         * 滚动到指定索引的消息
-         * @param {number} targetIdx - 目标消息索引
-         */
-    scrollToIndex (targetIdx) {
+     * 滚动到指定索引的消息
+     * @param {number} targetIdx - 目标消息索引
+     */
+    scrollToIndex(targetIdx) {
       try {
         const el = document.querySelector(`[data-chat-idx="${targetIdx}"]`)
         if (el && typeof el.scrollIntoView === 'function') {
@@ -1123,14 +1085,14 @@
         }
         const container = this.messagesContainer || document.getElementById('pet-chat-messages')
         if (container) container.scrollTop = container.scrollHeight
-      } catch (_) { }
+      } catch (_) {}
     }
 
     /**
-         * 滚动到底部 - 智能判断是否需要滚动
-         * @param {boolean} force - 是否强制滚动
-         */
-    scrollToBottom (force = false) {
+     * 滚动到底部 - 智能判断是否需要滚动
+     * @param {boolean} force - 是否强制滚动
+     */
+    scrollToBottom(force = false) {
       if (!force && !this.shouldAutoScroll()) {
         return
       }
@@ -1139,10 +1101,10 @@
         if (container) {
           container.scrollTop = container.scrollHeight
         }
-      } catch (_) { }
+      } catch (_) {}
     }
 
-    initializeChatScroll () {
+    initializeChatScroll() {
       // Wait for messages to be populated
       setTimeout(() => {
         this.scrollToBottom(true)
@@ -1150,9 +1112,9 @@
     }
 
     /**
-         * 显示加载状态
-         */
-    showLoadingState (message = '正在加载会话...') {
+     * 显示加载状态
+     */
+    showLoadingState(message = '正在加载会话...') {
       if (this._vueApp && typeof this._setMessagesViewState === 'function') {
         this._setMessagesViewState('loading', message)
         return
@@ -1171,9 +1133,9 @@
     }
 
     /**
-         * 显示错误状态
-         */
-    showErrorState (errorMessage) {
+     * 显示错误状态
+     */
+    showErrorState(errorMessage) {
       if (this._vueApp && typeof this._setMessagesViewState === 'function') {
         this._setMessagesViewState('error', errorMessage || '发生错误')
         return
@@ -1191,9 +1153,13 @@
     }
 
     /**
-         * 显示空状态 - 与 YiWeb 完全一致
-         */
-    showEmptyState (title = '未选择会话', subtitle = '从左侧会话列表选择一个会话开始聊天', hint = '也可以在左侧搜索框输入关键词快速定位') {
+     * 显示空状态 - 与 YiWeb 完全一致
+     */
+    showEmptyState(
+      title = '未选择会话',
+      subtitle = '从左侧会话列表选择一个会话开始聊天',
+      hint = '也可以在左侧搜索框输入关键词快速定位',
+    ) {
       if (this._vueApp && typeof this._setMessagesViewState === 'function') {
         this._setMessagesViewState('empty', { title, subtitle, hint })
         return
@@ -1217,9 +1183,9 @@
     }
 
     /**
-         * 清空消息容器（保留容器本身）
-         */
-    clearMessagesContainer () {
+     * 清空消息容器（保留容器本身）
+     */
+    clearMessagesContainer() {
       if (this._vueApp && typeof this._messagesClear === 'function') {
         this._messagesClear()
         if (typeof this._setMessagesViewState === 'function') this._setMessagesViewState('empty', null)
@@ -1231,23 +1197,23 @@
       }
     }
 
-    _getMessageText (messageBubble) {
+    _getMessageText(messageBubble) {
       return String(
         messageBubble?.getAttribute?.('data-original-text') ||
-                    messageBubble?.textContent ||
-                    messageBubble?.innerText ||
-                    ''
+          messageBubble?.textContent ||
+          messageBubble?.innerText ||
+          '',
       ).trim()
     }
 
-    _getMessageIndex (messageDiv, messagesContainer) {
+    _getMessageIndex(messageDiv, messagesContainer) {
       const container = messagesContainer || (this.element ? this.element.querySelector('#yi-pet-chat-messages') : null)
       if (!container) return -1
       const allMessages = Array.from(container.children).filter((msg) => !msg.hasAttribute('data-welcome-message'))
       return allMessages.indexOf(messageDiv)
     }
 
-    _createMetaButton (metaActions, options) {
+    _createMetaButton(metaActions, options) {
       const { text, title, ariaLabel, disabled, attrs, onClick } = options || {}
       const btn = document.createElement('button')
       btn.type = 'button'
@@ -1273,18 +1239,22 @@
       return btn
     }
 
-    _canRegenerateAt (idx) {
-      if (!this.manager || !this.manager.currentSessionId || !this.manager.sessions?.[this.manager.currentSessionId]) return false
+    _canRegenerateAt(idx) {
+      if (!this.manager || !this.manager.currentSessionId || !this.manager.sessions?.[this.manager.currentSessionId]) {
+        return false
+      }
       const session = this.manager.sessions[this.manager.currentSessionId]
-      if (!session?.messages || !Array.isArray(session.messages) || idx <= 0 || idx >= session.messages.length) return false
+      if (!session?.messages || !Array.isArray(session.messages) || idx <= 0 || idx >= session.messages.length) {
+        return false
+      }
 
       for (let i = idx - 1; i >= 0; i--) {
         const prevMsg = session.messages[i]
         if (!prevMsg || prevMsg.type === 'pet') continue
         const text = String(prevMsg.content ?? prevMsg.message ?? '').trim()
         const hasImages =
-                    (Array.isArray(prevMsg.imageDataUrls) && prevMsg.imageDataUrls.some(Boolean)) ||
-                    !!String(prevMsg.imageDataUrl || '').trim()
+          (Array.isArray(prevMsg.imageDataUrls) && prevMsg.imageDataUrls.some(Boolean)) ||
+          !!String(prevMsg.imageDataUrl || '').trim()
         if (text || hasImages) return true
       }
 
@@ -1292,7 +1262,7 @@
     }
 
     // 为消息添加动作按钮（复制欢迎消息的按钮，设置按钮已移动到 chat-request-status-button 后面）
-    async addActionButtonsToMessage (messageDiv, forceRefresh = false) {
+    async addActionButtonsToMessage(messageDiv, forceRefresh = false) {
       // 检查是否是欢迎消息，如果是则不添加（因为它已经有按钮了）
       const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null
       if (!messagesContainer) return
@@ -1326,7 +1296,7 @@
       // 如果强制刷新，先移除现有的标准按钮（保留角色按钮）
       if (forceRefresh) {
         const standardButtons = metaActions.querySelectorAll('button[data-standard-button="true"]')
-        standardButtons.forEach(btn => btn.remove())
+        standardButtons.forEach((btn) => btn.remove())
       }
 
       // 检查是否已经有标准按钮
@@ -1340,12 +1310,12 @@
     }
 
     /**
-         * 添加标准消息按钮（与 YiWeb 一致）
-         * @param {HTMLElement} metaActions - pet-chat-meta-actions 容器
-         * @param {HTMLElement} messageDiv - 消息元素
-         * @param {boolean} isUserMessage - 是否是用户消息
-         */
-    async _addStandardMessageButtons (metaActions, messageDiv, isUserMessage) {
+     * 添加标准消息按钮（与 YiWeb 一致）
+     * @param {HTMLElement} metaActions - pet-chat-meta-actions 容器
+     * @param {HTMLElement} messageDiv - 消息元素
+     * @param {boolean} isUserMessage - 是否是用户消息
+     */
+    async _addStandardMessageButtons(metaActions, messageDiv, isUserMessage) {
       const messagesContainer = this.element ? this.element.querySelector('#yi-pet-chat-messages') : null
       if (!messagesContainer) return
 
@@ -1354,12 +1324,14 @@
       if (idx < 0) return
 
       // 获取消息内容
-      const messageBubble = messageDiv.querySelector(isUserMessage ? '[data-message-type="user-bubble"]' : '[data-message-type="pet-bubble"]')
-      const hasContent = messageBubble && (
-        (messageBubble.getAttribute('data-original-text') || '').trim() ||
-                messageBubble.textContent?.trim() ||
-                messageBubble.innerText?.trim()
+      const messageBubble = messageDiv.querySelector(
+        isUserMessage ? '[data-message-type="user-bubble"]' : '[data-message-type="pet-bubble"]',
       )
+      const hasContent =
+        messageBubble &&
+        ((messageBubble.getAttribute('data-original-text') || '').trim() ||
+          messageBubble.textContent?.trim() ||
+          messageBubble.innerText?.trim())
 
       // 1. 复制按钮（如果有内容）
       if (hasContent) {
@@ -1380,7 +1352,7 @@
                 console.error('复制失败:', err)
               }
             }
-          }
+          },
         })
       }
 
@@ -1393,7 +1365,7 @@
             if (this.manager && typeof this.manager.openMessageEditor === 'function') {
               this.manager.openMessageEditor(messageDiv)
             }
-          }
+          },
         })
       }
 
@@ -1403,7 +1375,7 @@
           const robotConfigs = Array.isArray(configsRaw) ? configsRaw : []
           for (const robotConfig of robotConfigs) {
             if (!robotConfig || !robotConfig.webhookUrl) continue
-            const enabled = (typeof robotConfig.enabled === 'boolean') ? robotConfig.enabled : true
+            const enabled = typeof robotConfig.enabled === 'boolean' ? robotConfig.enabled : true
             if (!enabled) continue
 
             const robotName = String(robotConfig.name || '').trim() || '机器人'
@@ -1429,8 +1401,8 @@
                   let finalContent = rawContent
                   if (
                     this.manager &&
-                                        typeof this.manager.isMarkdownFormat === 'function' &&
-                                        typeof this.manager.convertToMarkdown === 'function'
+                    typeof this.manager.isMarkdownFormat === 'function' &&
+                    typeof this.manager.convertToMarkdown === 'function'
                   ) {
                     if (!this.manager.isMarkdownFormat(finalContent)) {
                       finalContent = await this.manager.convertToMarkdown(finalContent)
@@ -1457,10 +1429,10 @@
                     btn.disabled = false
                   }, 1200)
                 }
-              }
+              },
             })
           }
-        } catch (_) { }
+        } catch (_) {}
       }
 
       // 3. 重新发送按钮（仅用户消息）
@@ -1474,7 +1446,7 @@
             if (this.manager && typeof this.manager.resendMessageAt === 'function') {
               await this.manager.resendMessageAt(idx)
             }
-          }
+          },
         })
       }
 
@@ -1487,7 +1459,7 @@
           if (this.manager && typeof this.manager.moveMessageUpAt === 'function') {
             await this.manager.moveMessageUpAt(idx)
           }
-        }
+        },
       })
 
       // 5. 下移按钮
@@ -1499,7 +1471,7 @@
           if (this.manager && typeof this.manager.moveMessageDownAt === 'function') {
             await this.manager.moveMessageDownAt(idx)
           }
-        }
+        },
       })
 
       // 6. 重新生成按钮（仅宠物消息，且可以重新生成）
@@ -1514,7 +1486,7 @@
               if (this.manager && typeof this.manager.regenerateMessage === 'function') {
                 await this.manager.regenerateMessage(messageDiv)
               }
-            }
+            },
           })
         }
       }
@@ -1531,16 +1503,16 @@
               await this.manager.deleteMessage(messageDiv)
             }
           }
-        }
+        },
       })
     }
 
     /**
-         * 为宠物消息添加重新生成按钮
-         * @param {HTMLElement} container - 按钮容器
-         * @param {HTMLElement} messageDiv - 宠物消息元素
-         */
-    addTryAgainButton (container, messageDiv) {
+     * 为宠物消息添加重新生成按钮
+     * @param {HTMLElement} container - 按钮容器
+     * @param {HTMLElement} messageDiv - 宠物消息元素
+     */
+    addTryAgainButton(container, messageDiv) {
       // 如果已经添加过，就不再添加
       if (container.querySelector('.try-again-button')) {
         return
@@ -1589,13 +1561,12 @@
 
             const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]')
             if (messageBubble) {
-              const originalText = messageBubble.getAttribute('data-original-text') ||
-                                messageBubble.textContent ||
-                                '此消息无法重新生成'
+              const originalText =
+                messageBubble.getAttribute('data-original-text') || messageBubble.textContent || '此消息无法重新生成'
               const contentDiv = this._getOrCreateMessageContentDiv(messageBubble)
               if (contentDiv) {
                 contentDiv.innerHTML = this.manager.renderMarkdown(
-                                    `${originalText}\n\n💡 **提示**：此消息可能是通过按钮操作生成的，无法重新生成。`
+                  `${originalText}\n\n💡 **提示**：此消息可能是通过按钮操作生成的，无法重新生成。`,
                 )
                 if (typeof this.manager.processTabs === 'function') this.manager.processTabs(contentDiv)
               }
@@ -1642,7 +1613,7 @@
     }
 
     // 设置侧边栏折叠状态
-    setSidebarCollapsed (collapsed) {
+    setSidebarCollapsed(collapsed) {
       if (!this.sidebar) return
       if (collapsed) {
         this.sidebar.classList.add('collapsed')
@@ -1658,17 +1629,19 @@
     }
 
     // 更新侧边栏折叠按钮
-    updateSidebarToggleButton (collapsed) {
+    updateSidebarToggleButton(collapsed) {
       const toggleBtn = this.element?.querySelector('#sidebar-toggle-btn')
       if (!toggleBtn) return
 
       if (collapsed) {
         // 侧边栏已折叠，显示展开图标（向右箭头）
-        toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>'
+        toggleBtn.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>'
         toggleBtn.setAttribute('title', '展开会话列表')
       } else {
         // 侧边栏已展开，显示折叠图标（三条横线）
-        toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>'
+        toggleBtn.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>'
         toggleBtn.setAttribute('title', '折叠会话列表')
         // 按钮位置由 CSS 控制，始终在 title 左边，不再需要根据侧边栏宽度设置
       }
@@ -1678,7 +1651,7 @@
     }
 
     // 切换侧边栏折叠状态
-    toggleSidebar () {
+    toggleSidebar() {
       if (!this.sidebar) return
       const isCollapsed = this.sidebar.classList.contains('collapsed')
       this.setSidebarCollapsed(!isCollapsed)
@@ -1690,7 +1663,7 @@
     }
 
     // 设置输入容器折叠状态
-    setInputContainerCollapsed (collapsed) {
+    setInputContainerCollapsed(collapsed) {
       if (!this.inputContainer) return
       if (collapsed) {
         this.inputContainer.classList.add('collapsed')
@@ -1700,7 +1673,7 @@
     }
 
     // 切换输入容器折叠状态
-    toggleInputContainer () {
+    toggleInputContainer() {
       if (!this.inputContainer) return
       const isCollapsed = this.inputContainer.classList.contains('collapsed')
       this.setInputContainerCollapsed(!isCollapsed)
@@ -1713,7 +1686,7 @@
       }
     }
 
-    isVisible () {
+    isVisible() {
       const el = this.element || this.manager?.chatWindow
       if (!el) return false
       if (el.hasAttribute('hidden')) return false
@@ -1721,7 +1694,7 @@
       return true
     }
 
-    focusInput () {
+    focusInput() {
       const root = this.element || this.manager?.chatWindow
       if (!root) return false
       const textarea = root.querySelector('#yi-pet-chat-input')
@@ -1732,7 +1705,7 @@
       return false
     }
 
-    setVisible (visible, options) {
+    setVisible(visible, options) {
       const opts = options && typeof options === 'object' ? options : {}
       const focus = opts.focus !== false
       const el = this.element || this.manager?.chatWindow
@@ -1755,7 +1728,7 @@
       if (this.manager) this.manager.isChatOpen = false
     }
 
-    toggleVisible (options) {
+    toggleVisible(options) {
       const visible = this.isVisible()
       this.setVisible(!visible, options)
     }

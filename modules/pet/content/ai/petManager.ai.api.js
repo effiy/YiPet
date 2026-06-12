@@ -2,21 +2,26 @@
  * AI API 封装模块
  * 负责 API 调用、请求重试、流式响应处理
  */
-(function (global) {
+;(function (global) {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
   }
 
   const proto = global.PetManager.prototype
-  const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
-    ? window.LoggerUtils.getLogger('ai')
-    : console
+  const logger =
+    typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function'
+      ? window.LoggerUtils.getLogger('ai')
+      : console
 
-  const DEFAULT_SYSTEM_PROMPT = '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。'
+  const DEFAULT_SYSTEM_PROMPT =
+    '你是一个俏皮活泼、古灵精怪的小女友，聪明有趣，时而调侃时而贴心。语气活泼可爱，会开小玩笑，但也会关心用户。'
 
   // 工具函数
-  const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_')
+  const normalizeNameSpaces = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '_')
   const ensureMdSuffix = (str) => {
     if (!str || !String(str).trim()) return ''
     const s = String(str).trim()
@@ -24,12 +29,14 @@
   }
   const isDefaultSessionTitle = (title) => {
     const currentTitle = String(title ?? '')
-    return !currentTitle ||
-            currentTitle.trim() === '' ||
-            currentTitle === '未命名会话' ||
-            currentTitle === '新会话' ||
-            currentTitle === '未命名页面' ||
-            currentTitle === '当前页面'
+    return (
+      !currentTitle ||
+      currentTitle.trim() === '' ||
+      currentTitle === '未命名会话' ||
+      currentTitle === '新会话' ||
+      currentTitle === '未命名页面' ||
+      currentTitle === '当前页面'
+    )
   }
   const extractSseText = (chunk) => {
     if (!chunk) return null
@@ -76,11 +83,13 @@
   proto.buildPromptPayload = function (fromSystem, fromUser, options = {}) {
     const payload = {
       fromSystem: fromSystem || DEFAULT_SYSTEM_PROMPT,
-      fromUser
+      fromUser,
     }
 
     if (fromUser && typeof fromUser === 'string') {
-      const { images, videos, cleanedText } = this.extractMediaUrls ? this.extractMediaUrls(fromUser) : { images: [], videos: [], cleanedText: fromUser }
+      const { images, videos, cleanedText } = this.extractMediaUrls
+        ? this.extractMediaUrls(fromUser)
+        : { images: [], videos: [], cleanedText: fromUser }
 
       payload.fromUser = cleanedText || ''
 
@@ -95,7 +104,7 @@
         const userBubble = options.messageDiv.querySelector('[data-message-type="user-bubble"]')
         if (userBubble) {
           const imgElements = userBubble.querySelectorAll('img')
-          imgElements.forEach(img => {
+          imgElements.forEach((img) => {
             if (img.src && !imageDataUrls.includes(img.src)) {
               imageDataUrls.push(img.src)
             }
@@ -115,14 +124,14 @@
         }
       }
 
-      imageDataUrls.forEach(imgUrl => {
+      imageDataUrls.forEach((imgUrl) => {
         if (imgUrl && typeof imgUrl === 'string' && !allImages.includes(imgUrl)) {
           allImages.push(imgUrl)
         }
       })
 
       if (options.images && Array.isArray(options.images)) {
-        options.images.forEach(img => {
+        options.images.forEach((img) => {
           if (!allImages.includes(img)) {
             allImages.push(img)
           }
@@ -134,7 +143,7 @@
 
       const allVideos = [...videos]
       if (options.videos && Array.isArray(options.videos)) {
-        options.videos.forEach(video => {
+        options.videos.forEach((video) => {
           if (!allVideos.includes(video)) {
             allVideos.push(video)
           }
@@ -229,7 +238,13 @@
       }
     }
 
-    if (this.currentSessionId && this.sessionApi && typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.syncSessionsToBackend) {
+    if (
+      this.currentSessionId &&
+      this.sessionApi &&
+      typeof PET_CONFIG !== 'undefined' &&
+      PET_CONFIG.api &&
+      PET_CONFIG.api.syncSessionsToBackend
+    ) {
       try {
         if (this.saveCurrentSession) await this.saveCurrentSession(false, false)
         if (this.syncSessionToBackend) await this.syncSessionToBackend(this.currentSessionId, true)
@@ -245,7 +260,7 @@
   // 生成宠物响应（流式版本）
   proto.generatePetResponseStream = async function (message, onContent, abortController = null, options = {}) {
     if (this.showLoadingAnimation) {
-      this.showLoadingAnimation().catch(err => {
+      this.showLoadingAnimation().catch((err) => {
         logger.warn('显示加载动画失败:', err)
       })
     }
@@ -270,9 +285,7 @@
       if (this.currentSessionId && this.sessions && this.sessions[this.currentSessionId]) {
         const session = this.sessions[this.currentSessionId]
 
-        const isBlankSession = session._isBlankSession ||
-                    !session.url ||
-                    session.url.startsWith('blank-session://')
+        const isBlankSession = session._isBlankSession || !session.url || session.url.startsWith('blank-session://')
 
         if (session.pageContent && session.pageContent.trim() !== '') {
           fullPageMarkdown = session.pageContent
@@ -298,9 +311,7 @@
         }
       }
 
-      const images = Array.isArray(options?.images)
-        ? options.images.filter(Boolean).slice(0, 4)
-        : []
+      const images = Array.isArray(options?.images) ? options.images.filter(Boolean).slice(0, 4) : []
       const baseText = (() => {
         const t = String(message ?? '').trim()
         if (t) return t
@@ -315,17 +326,16 @@
         userPrompt = `【当前页面上下文】\n页面标题：${contextTitle}\n页面内容（Markdown 格式）：\n${pageMd}\n\n【用户问题】\n${currentText}`
       }
 
-      const apiUrl = typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl ? PET_CONFIG.api.yiaiBaseUrl : ''
+      const apiUrl =
+        typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl
+          ? PET_CONFIG.api.yiaiBaseUrl
+          : ''
 
       if (typeof this.buildFromUserWithContext === 'function') {
         userPrompt = this.buildFromUserWithContext(userPrompt)
       }
 
-      const oldPayload = this.buildPromptPayload(
-        DEFAULT_SYSTEM_PROMPT,
-        userPrompt,
-        { images }
-      )
+      const oldPayload = this.buildPromptPayload(DEFAULT_SYSTEM_PROMPT, userPrompt, { images })
 
       const payload = {
         module_name: 'services.ai.chat_service',
@@ -333,13 +343,16 @@
         parameters: {
           system: oldPayload.fromSystem,
           user: oldPayload.fromUser,
-          stream: true
-        }
+          stream: true,
+        },
       }
       if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
         payload.parameters.images = oldPayload.images
       }
-      const selectedModel = this.currentModel || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
+      const selectedModel =
+        this.currentModel ||
+        (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) ||
+        ''
       if (selectedModel) payload.parameters.model = selectedModel
       if (oldPayload.conversation_id) {
         payload.parameters.conversation_id = oldPayload.conversation_id
@@ -349,9 +362,9 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+          ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       }
 
       if (abortController) {
@@ -450,7 +463,7 @@
   // 生成宠物响应
   proto.generatePetResponse = async function (message) {
     if (this.showLoadingAnimation) {
-      this.showLoadingAnimation().catch(err => {
+      this.showLoadingAnimation().catch((err) => {
         logger.warn('显示加载动画失败:', err)
       })
     }
@@ -468,9 +481,7 @@
       if (this.currentSessionId && this.sessions && this.sessions[this.currentSessionId]) {
         const session = this.sessions[this.currentSessionId]
 
-        const isBlankSession = session._isBlankSession ||
-                    !session.url ||
-                    session.url.startsWith('blank-session://')
+        const isBlankSession = session._isBlankSession || !session.url || session.url.startsWith('blank-session://')
 
         if (session.pageContent && session.pageContent.trim() !== '') {
           fullPageMarkdown = session.pageContent
@@ -501,10 +512,7 @@
         userPrompt = `【当前页面上下文】\n页面标题：${contextTitle}\n页面内容（Markdown 格式）：\n${fullPageMarkdown}\n\n【用户问题】\n${message}`
       }
 
-      const oldPayload = this.buildPromptPayload(
-        DEFAULT_SYSTEM_PROMPT,
-        userPrompt
-      )
+      const oldPayload = this.buildPromptPayload(DEFAULT_SYSTEM_PROMPT, userPrompt)
 
       const payload = {
         module_name: 'services.ai.chat_service',
@@ -512,13 +520,16 @@
         parameters: {
           system: oldPayload.fromSystem,
           user: oldPayload.fromUser,
-          stream: false
-        }
+          stream: false,
+        },
       }
       if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
         payload.parameters.images = oldPayload.images
       }
-      const selectedModel = this.currentModel || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
+      const selectedModel =
+        this.currentModel ||
+        (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) ||
+        ''
       if (selectedModel) payload.parameters.model = selectedModel
       if (oldPayload.conversation_id) {
         payload.parameters.conversation_id = oldPayload.conversation_id
@@ -526,16 +537,19 @@
 
       if (this._showLoadingAnimation) this._showLoadingAnimation()
 
-      const apiUrl = typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl ? PET_CONFIG.api.yiaiBaseUrl : ''
+      const apiUrl =
+        typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl
+          ? PET_CONFIG.api.yiaiBaseUrl
+          : ''
       let response, result
       try {
         response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+            ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         })
 
         if (!response.ok) {
@@ -565,7 +579,13 @@
 
       responseContent = this.stripThinkContent(responseContent)
 
-      if (this.currentSessionId && this.sessionApi && typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.syncSessionsToBackend) {
+      if (
+        this.currentSessionId &&
+        this.sessionApi &&
+        typeof PET_CONFIG !== 'undefined' &&
+        PET_CONFIG.api &&
+        PET_CONFIG.api.syncSessionsToBackend
+      ) {
         try {
           if (this.saveCurrentSession) await this.saveCurrentSession(false, false)
           if (this.syncSessionToBackend) await this.syncSessionToBackend(this.currentSessionId, true)
@@ -592,14 +612,11 @@
   }
 
   // 通用的流式生成函数，支持动态 systemPrompt 和 userPrompt
-  proto.generateContentStream = async function (systemPrompt, userPrompt, onContent, loadingText = '正在处理...') {
+  proto.generateContentStream = async function (systemPrompt, userPrompt, onContent, _loadingText = '正在处理...') {
     try {
       logger.debug('调用大模型生成内容，systemPrompt 长度:', systemPrompt ? systemPrompt.length : 0)
 
-      const oldPayload = this.buildPromptPayload(
-        systemPrompt,
-        userPrompt
-      )
+      const oldPayload = this.buildPromptPayload(systemPrompt, userPrompt)
 
       const payload = {
         module_name: 'services.ai.chat_service',
@@ -607,26 +624,32 @@
         parameters: {
           system: oldPayload.fromSystem,
           user: oldPayload.fromUser,
-          stream: true
-        }
+          stream: true,
+        },
       }
       if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
         payload.parameters.images = oldPayload.images
       }
-      const selectedModel = this.currentModel || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
+      const selectedModel =
+        this.currentModel ||
+        (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) ||
+        ''
       if (selectedModel) payload.parameters.model = selectedModel
       if (oldPayload.conversation_id) {
         payload.parameters.conversation_id = oldPayload.conversation_id
       }
 
-      const apiUrl = typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl ? PET_CONFIG.api.yiaiBaseUrl : ''
+      const apiUrl =
+        typeof PET_CONFIG !== 'undefined' && PET_CONFIG.api && PET_CONFIG.api.yiaiBaseUrl
+          ? PET_CONFIG.api.yiaiBaseUrl
+          : ''
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+          ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       return await this.processStreamingResponse(response, onContent)
@@ -709,7 +732,7 @@
     if (text == null) return ''
     let formatted = String(text)
     formatted = formatted.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-    formatted = formatted.replace(/ /g, ' ')
+    formatted = formatted.replace(/\u00A0/g, ' ')
 
     const placeholders = []
     const protect = (regex) => {
@@ -737,10 +760,13 @@
     formatted = formatted.replace(/([^\n])\n(\d{1,2}\.\s)/g, '$1\n\n$2')
     formatted = formatted.replace(/^(\s*来源:\s*`https?:\/\/[^\s)`]+`\s*)$/gm, '> $1')
 
-    formatted = formatted.replace(/(你的命令：)\s*(!\s*[\s\S]*?)(?=(这会立即执行|没有模型处理延迟|不消耗 Token|一天用上|$))/g, (m, lead, cmds, stop) => {
-      const normalizedCmds = String(cmds).replace(/(\S)(!\s+)/g, '$1\n$2')
-      return `${lead}\n\n\`\`\`bash\n${normalizedCmds.trim()}\n\`\`\`\n${stop || ''}`
-    })
+    formatted = formatted.replace(
+      /(你的命令：)\s*(!\s*[\s\S]*?)(?=(这会立即执行|没有模型处理延迟|不消耗 Token|一天用上|$))/g,
+      (m, lead, cmds, stop) => {
+        const normalizedCmds = String(cmds).replace(/(\S)(!\s+)/g, '$1\n$2')
+        return `${lead}\n\n\`\`\`bash\n${normalizedCmds.trim()}\n\`\`\`\n${stop || ''}`
+      },
+    )
 
     placeholders.forEach((value, index) => {
       formatted = formatted.replaceAll(`__PET_FORMAT_PROTECTED_${index}__`, value)
@@ -748,4 +774,4 @@
 
     return formatted
   }
-})()
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

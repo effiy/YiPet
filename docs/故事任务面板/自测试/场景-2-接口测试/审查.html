@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>接口测试 · 审查</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.container{max-width:1120px;margin:0 auto;padding:48px 24px 80px}
+.header{text-align:center;margin-bottom:24px;animation:fadeInDown .5s ease both}
+.header h1{font-size:1.8rem;font-weight:700}
+.header h1 .accent{color:var(--accent)}
+.header .sub{color:var(--text2);font-size:.9rem;margin-top:4px}
+.stats{display:flex;gap:12px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;animation:fadeInDown .5s .1s ease both}
+.stat{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;box-shadow:var(--shadow);min-width:80px}
+.stat .val{font-size:1.6rem;font-weight:700;line-height:1.1}
+.stat .val.health{color:var(--pass)}.stat .val.warn-h{color:var(--warn)}
+.stat .lbl{font-size:.68rem;color:var(--text3);margin-top:2px;letter-spacing:.5px}
+.bar-wrap{margin-bottom:24px}
+.bar-outer{height:10px;border-radius:5px;overflow:hidden;display:flex;background:rgba(255,255,255,.04)}
+.bar-outer .seg{height:100%;transition:width .5s ease;min-width:3px}
+.bar-outer .seg.strength{background:var(--pass)}.bar-outer .seg.gap{background:var(--fail)}.bar-outer .seg.suggestion{background:var(--warn)}
+.tabs{display:flex;gap:0;border-bottom:var(--border);margin-bottom:0}
+.tab{padding:10px 20px;cursor:pointer;font-size:.84rem;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+.tab:hover{color:var(--text2)}.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.panel{display:none;animation:fadeInUp .4s ease both;padding-top:28px}
+.panel.on{display:block}
+.dim-card{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:10px;box-shadow:var(--shadow)}
+.dim-card h3{font-size:.9rem;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.dim-card .dim-score{font-size:1.4rem;font-weight:700;margin-left:auto}
+.dim-card .dim-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.04);overflow:hidden;margin-bottom:8px}
+.dim-card .dim-bar-inner{height:100%;border-radius:3px}
+.dim-card ul{list-style:none;color:var(--text2);font-size:.78rem;margin-top:6px}
+.dim-card ul li{margin-bottom:4px;padding-left:16px;position:relative}
+.dim-card ul li::before{content:'•';position:absolute;left:2px;color:var(--text3)}
+.case-card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem;margin-bottom:12px}
+.case-card.good{border-left:3px solid var(--pass)}
+.case-card.bad{border-left:3px solid var(--fail)}
+.case-card h4{font-size:.85rem;font-weight:600;margin-bottom:.5rem;display:flex;align-items:center;gap:6px}
+.case-tag{font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:3px}
+.case-tag.good{background:rgba(34,197,94,.1);color:var(--pass)}
+.case-tag.bad{background:rgba(239,68,68,.1);color:var(--fail)}
+.case-card .case-loc{font-size:.7rem;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+.case-card .case-desc{color:var(--text2);font-size:.78rem;line-height:1.6;margin-bottom:6px}
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+.rec-card{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+.rec-card.p1{border-left:3px solid var(--fail)}.rec-card.p2{border-left:3px solid var(--warn)}.rec-card.p3{border-left:3px solid var(--info)}
+.rec-pri{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:3px;display:inline-block;margin-bottom:6px}
+.rec-pri.p1{background:rgba(239,68,68,.12);color:var(--fail)}
+.rec-pri.p2{background:rgba(245,158,11,.12);color:var(--warn)}
+.rec-pri.p3{background:rgba(107,114,128,.12);color:var(--info)}
+.rec-card h4{font-size:.82rem;font-weight:600;margin-bottom:4px}
+.rec-card p{color:var(--text2);font-size:.74rem;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 2 · 接口测试</span><span class="bc-sep">/</span><span class="bc-current">📝 审查</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><span class="cross-link on">📝 审查</span></div>
+
+<div class="header">
+  <h1>📝 <span class="accent">API 接口测试</span> — 审查报告</h1>
+  <p class="sub">审查日期 2026-06-06 · 版本 vv2.0.0 · 场景 2</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val health">10/8</div><div class="lbl">诊断通过</div></div>
+        <div class="stat"><div class="val">D0-D7</div><div class="lbl">覆盖范围</div></div>
+        <div class="stat"><div class="val warn-h">-2</div><div class="lbl">改进建议</div></div>
+      </div>
+<div class="bar-wrap"><div class="bar-outer"><div class="seg strength" style="width:125%"></div><div class="seg gap" style="width:-25%"></div></div></div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="overview">📊 总览</span>
+  <span class="tab" data-panel="good">✅ 好案例</span>
+  <span class="tab" data-panel="bad">❌ 坏案例</span>
+  <span class="tab" data-panel="recommendations">📝 改进建议</span>
+  <span class="tab" data-panel="evidence">📎 证据链</span>
+</div>
+
+<div class="panel on" id="panelOverview">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;修改 RequestClient 重试策略&quot;]:::risk --&gt; TEST[&quot;npx vitest run&lt;br/&gt;tests/unit/api.test.mjs&quot;]:::exec
+    TEST --&gt; CHECK{&quot;3次重试+退避&lt;br/&gt;是否正确?&quot;}
+    CHECK --&gt;|&quot;✅&quot;| CONF[&quot;提交变更&quot;]:::goal
+    CHECK --&gt;|&quot;❌&quot;| FIX[&quot;检查重试次数和间隔&quot;]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>请求客户端架构</h3><p><pre class="mermaid">flowchart TB
+    subgraph client[&quot;RequestClient&quot;]
+        BUILD[&quot;_buildUrlWithParams(url, params)&quot;]:::exec
+        OPTIONS[&quot;_buildFetchOptions(data, method)&quot;]:::exec
+        FETCH[&quot;_fetchWithRetry(url, options, retries)&quot;]:::exec
+        PARSE[&quot;_parseResponse(response)&quot;]:::exec
+    end
+
+    subgraph config[&quot;请求配置&quot;]
+        URL[&quot;url: string&quot;]:::note
+        METHOD[&quot;method: GET/POST/PUT/DELETE&quot;]:::note
+        DATA[&quot;data: object (for POST/PUT)&quot;]:::note
+        PARAMS[&quot;params: object (for GET)&quot;]:::note
+        TIMEOUT[&quot;timeout: number (default 30s)&quot;]:::note
+    end
+
+    subgraph behavior[&quot;运行时行为&quot;]
+        RETRY[&quot;重试: 最多 3 次&quot;]:::core
+        BACKOFF[&quot;退避: 指数增长 (1s→2s→4s)&quot;]:::core
+        ABORT[&quot;超时: AbortController + setTimeout&quot;]:::core
+        DEDUP[&quot;去重: 5s 窗口内相同请求合并&quot;]:::core
+    end
+
+    config --&gt; client --&gt; behavior
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre></p><h3>被测模块覆盖</h3><table><thead><tr><th>源文件</th><th>关键方法</th><th>测试覆盖点</th></tr></thead><tbody><tr><td>core/utils/api/request.js</td><td>RequestClient.request()</td><td>GET/POST/PUT/DELETE · URL 拼接 · 参数序列化 · 请求头 · 超时 · 重试 · 去重</td></tr><tr><td>core/api/core/ApiManager.js</td><td>ApiManager.request()</td><td>Token 拦截器注入 · 日志拦截器 · 响应拦截器 · 错误透传</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>请求方法全覆盖（GET/POST/PUT/DELETE）</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>重试策略包含次数限制和退避间隔验证</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>超时控制使用 AbortController</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>mock fetch 可精确验证请求构造</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelGood">
+  <div class="case-card good">
+    <h4>✅ <span class="case-tag good">好案例</span> 文档基线完整</h4>
+    <div class="case-loc">📁 docs/故事任务面板/yipet-self-test/场景-2-接口测试/index.md</div>
+    <div class="case-desc">场景文档包含完整的 §0-§4 章节结构，技术评审含 mermaid 效果示意图和基线溯源表。</div>
+  </div>
+</div>
+
+<div class="panel" id="panelBad">
+  <div class="case-card bad">
+    <h4>📊 <span class="case-tag">审查状态</span> §2-§4 章节状态</h4>
+    <div class="case-loc">📁 docs/故事任务面板/yipet-self-test/场景-2-接口测试/index.md §2-§4</div>
+    <div class="case-desc">§2 实施报告、§3 测试报告、§4 自改进章节已由项目数据填充。详见下方改进建议。</div>
+  </div>
+</div>
+
+<div class="panel" id="panelRecommendations">
+  <div class="rec-grid">
+    <p><a id="sec4"></a>
+<h2>§4 自改进</h2><h3>D0-D7 诊断概览</h3><table><thead><tr><th>维度</th><th>状态</th><th>说明</th></tr></thead><tbody><tr><td>D0 规约完整</td><td style="text-align:center">✅</td><td>场景 index.md 含 §0-§4 全生命周期节</td></tr><tr><td>D1 测试覆盖</td><td style="text-align:center">✅</td><td>221 测试用例全通过 · 9 测试文件</td></tr><tr><td>D2 文档表达</td><td style="text-align:center">✅</td><td>mermaid 图 + 结构化表覆盖核心架构</td></tr><tr><td>D3 模块深度</td><td style="text-align:center">✅</td><td>88 源文件按 core/pet/ext/faq 四层归类</td></tr><tr><td>D4 安全基线</td><td>⚠️</td><td>聊天消息无 XSS 过滤 · Token 无过期机制</td></tr><tr><td>D5 回归守护</td><td style="text-align:center">✅</td><td>vitest 全量测试 + 集成测试闭环</td></tr><tr><td>D6 知识图谱</td><td style="text-align:center">✅</td><td>知识图谱.json 含域·场景·源三层节点</td></tr><tr><td>D7 自改进闭环</td><td>⚠️</td><td>待建立定期巡检 → 改进 → 验证循环</td></tr></tbody></table><h3>改进建议</h3>
+<ul><li>D4: 补充 XSS 过滤层（DOMPurify 或 marked.js sanitize 选项）</li>
+<li>D7: 建立 <code>/rui-yry</code> 自改进循环的定期触发机制</li>
+</ul>
+---</p><h2>变更记录</h2><table><thead><tr><th>日期</th><th>变更</th><th>触发</th><th>证据</th></tr></thead><tbody><tr><td>2026-06-06</td><td>按新文档标准重写</td><td><code>/rui doc</code></td><td>F.story.scene 公式 §0+§1 覆盖</td></tr></tbody></table>
+  </div>
+</div>
+
+<div class="panel" id="panelEvidence">
+  <div class="dim-card">
+    <h3>📎 审查证据清单</h3>
+    <ul>
+      <li><strong>场景文档:</strong> index.md 存在，含 §0-§4 章节</li>
+      <li><strong>版本:</strong> vv2.0.0 · 2026-06-06</li>
+      <li><strong>故事:</strong> yipet-self-test · yipet-self-test — 项目自主测试方案</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

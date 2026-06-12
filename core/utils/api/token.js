@@ -3,9 +3,9 @@
  * 提供API Token的获取、存储、验证等功能
  */
 
-(function (root) {
+;(function (root) {
   class TokenManager {
-    constructor (options = {}) {
+    constructor(options = {}) {
       this.storageKey = options.storageKey || 'YiPet.apiToken.v1'
       this._cachedToken = ''
       this._cacheInitialized = false
@@ -16,7 +16,7 @@
     /**
      * 初始化缓存
      */
-    _initCache () {
+    _initCache() {
       // 优先使用环境变量中的 API_X_TOKEN
       const envToken = this._getEnvToken()
       if (envToken) {
@@ -43,7 +43,7 @@
     /**
      * 从环境变量获取 Token
      */
-    _getEnvToken () {
+    _getEnvToken() {
       try {
         // 检查 window.__API_X_TOKEN__（content script 环境）
         if (typeof window !== 'undefined' && window.__API_X_TOKEN__) {
@@ -69,13 +69,11 @@
     /**
      * 检查Chrome存储是否可用
      */
-    _isChromeStorageAvailable () {
+    _isChromeStorageAvailable() {
       try {
-        return typeof chrome !== 'undefined' &&
-                   chrome.storage &&
-                   chrome.storage.local &&
-                   chrome.runtime &&
-                   chrome.runtime.id
+        return (
+          typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local && chrome.runtime && chrome.runtime.id
+        )
       } catch (error) {
         return false
       }
@@ -84,7 +82,7 @@
     /**
      * 从Chrome存储获取Token
      */
-    async _getTokenFromChromeStorage () {
+    async _getTokenFromChromeStorage() {
       // 优先使用环境变量中的 API_X_TOKEN
       const envToken = this._getEnvToken()
       if (envToken) {
@@ -120,7 +118,7 @@
     /**
      * 保存Token到Chrome存储
      */
-    async _saveTokenToChromeStorage (token) {
+    async _saveTokenToChromeStorage(token) {
       const tokenValue = String(token || '').trim()
       this._cachedToken = tokenValue
       this._cacheInitialized = true
@@ -147,7 +145,7 @@
     /**
      * 获取Token（同步）
      */
-    getTokenSync () {
+    getTokenSync() {
       // 优先使用环境变量中的 API_X_TOKEN
       const envToken = this._getEnvToken()
       if (envToken) {
@@ -163,7 +161,7 @@
     /**
      * 获取Token（异步）
      */
-    async getToken () {
+    async getToken() {
       const chromeToken = await this._getTokenFromChromeStorage()
       return chromeToken
     }
@@ -171,7 +169,7 @@
     /**
      * 保存Token
      */
-    async saveToken (token) {
+    async saveToken(token) {
       const tokenValue = String(token || '').trim()
       return await this._saveTokenToChromeStorage(tokenValue)
     }
@@ -179,7 +177,7 @@
     /**
      * 是否有Token（同步）
      */
-    hasTokenSync () {
+    hasTokenSync() {
       // 优先检查环境变量
       const envToken = this._getEnvToken()
       if (envToken && envToken.trim().length > 0) {
@@ -193,7 +191,7 @@
     /**
      * 是否有Token（异步）
      */
-    async hasToken () {
+    async hasToken() {
       // 优先检查环境变量
       const envToken = this._getEnvToken()
       if (envToken && envToken.trim().length > 0) {
@@ -207,7 +205,7 @@
     /**
      * 确保Token已设置
      */
-    async ensureTokenSet () {
+    async ensureTokenSet() {
       const hasToken = await this.hasToken()
       if (!hasToken) {
         if (typeof window !== 'undefined' && window.petManager) {
@@ -225,7 +223,7 @@
     /**
      * 清除Token
      */
-    async clearToken () {
+    async clearToken() {
       this._cachedToken = ''
 
       if (this._isChromeStorageAvailable()) {
@@ -246,7 +244,7 @@
     /**
      * 验证Token格式
      */
-    validateToken (token) {
+    validateToken(token) {
       if (!token || typeof token !== 'string') {
         return false
       }
@@ -265,48 +263,48 @@
   }
 
   /**
- * 创建Token管理器
- */
-  function createTokenManager (options = {}) {
+   * 创建Token管理器
+   */
+  function createTokenManager(options = {}) {
     return new TokenManager(options)
   }
 
   /**
- * 默认Token管理器实例
- */
+   * 默认Token管理器实例
+   */
   const tokenManager = createTokenManager()
 
   /**
- * Token工具函数
- */
+   * Token工具函数
+   */
   const TokenUtils = {
-    async getApiToken () {
+    async getApiToken() {
       return await tokenManager.getToken()
     },
 
-    getApiTokenSync () {
+    getApiTokenSync() {
       return tokenManager.getTokenSync()
     },
 
-    async saveApiToken (token) {
+    async saveApiToken(token) {
       return await tokenManager.saveToken(token)
     },
 
-    async hasApiToken () {
+    async hasApiToken() {
       return await tokenManager.hasToken()
     },
 
-    hasApiTokenSync () {
+    hasApiTokenSync() {
       return tokenManager.hasTokenSync()
     },
 
-    async ensureTokenSet () {
+    async ensureTokenSet() {
       return await tokenManager.ensureTokenSet()
-    }
+    },
   }
 
   root.TokenManager = TokenManager
   root.createTokenManager = createTokenManager
   root.tokenManager = tokenManager
   root.TokenUtils = TokenUtils
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

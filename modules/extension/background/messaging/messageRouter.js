@@ -11,7 +11,7 @@
  * 消息路由器类
  */
 class MessageRouter {
-  constructor () {
+  constructor() {
     // 消息处理器映射表：action -> handler函数
     this.handlers = new Map()
 
@@ -20,12 +20,12 @@ class MessageRouter {
   }
 
   /**
-     * 注册消息处理器
-     * @param {string} action - 消息action
-     * @param {Function} handler - 处理函数 (request, sender, sendResponse) => void
-     * @param {boolean} isAsync - 是否是异步操作（需要返回true保持通道开放）
-     */
-  register (action, handler, isAsync = false) {
+   * 注册消息处理器
+   * @param {string} action - 消息action
+   * @param {Function} handler - 处理函数 (request, sender, sendResponse) => void
+   * @param {boolean} isAsync - 是否是异步操作（需要返回true保持通道开放）
+   */
+  register(action, handler, isAsync = false) {
     this.handlers.set(action, { handler, isAsync })
     if (isAsync) {
       this.asyncActions.add(action)
@@ -33,13 +33,13 @@ class MessageRouter {
   }
 
   /**
-     * 处理消息
-     * @param {Object} request - 请求对象
-     * @param {Object} sender - 发送者信息
-     * @param {Function} sendResponse - 响应回调函数
-     * @returns {boolean|undefined} 如果是异步操作返回true
-     */
-  handle (request, sender, sendResponse) {
+   * 处理消息
+   * @param {Object} request - 请求对象
+   * @param {Object} sender - 发送者信息
+   * @param {Function} sendResponse - 响应回调函数
+   * @returns {boolean|undefined} 如果是异步操作返回true
+   */
+  handle(request, sender, sendResponse) {
     const action = request.action
 
     if (!action) {
@@ -65,7 +65,9 @@ class MessageRouter {
         sendResponse(payload)
       } catch (e) {
         // sendResponse 本身失败时，避免再次抛错导致 service worker 崩溃
-        try { console.error('sendResponse 调用失败:', e) } catch (_) {}
+        try {
+          console.error('sendResponse 调用失败:', e)
+        } catch (_) {}
       }
     }
 
@@ -79,27 +81,38 @@ class MessageRouter {
 
       // 兼容：处理器如果返回 Promise，也应保持通道开放并在 resolve/reject 后响应
       if (result && typeof result.then === 'function') {
-        result.then((resolved) => {
-          if (resolved !== undefined) {
-            safeSendResponse(resolved)
-          }
-        }).catch((error) => {
-          try {
-            console.error(`处理消息失败 (${action}):`, error)
-          } catch (_) {}
-          // 尝试使用统一错误处理器（如果存在）
-          try {
-            const ErrorHandler = (typeof self !== 'undefined' && self.GlobalAccessor)
-              ? self.GlobalAccessor.getErrorHandler()
-              : ((typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler : null)
-            if (ErrorHandler && typeof ErrorHandler.handle === 'function') {
-              const handled = ErrorHandler.handle(error, { showNotification: false, fallback: 'Handler execution failed' })
-              safeSendResponse({ success: false, error: handled.error || 'Handler execution failed' })
-              return
+        result
+          .then((resolved) => {
+            if (resolved !== undefined) {
+              safeSendResponse(resolved)
             }
-          } catch (_) {}
-          safeSendResponse({ success: false, error: (error && error.message) ? error.message : 'Handler execution failed' })
-        })
+          })
+          .catch((error) => {
+            try {
+              console.error(`处理消息失败 (${action}):`, error)
+            } catch (_) {}
+            // 尝试使用统一错误处理器（如果存在）
+            try {
+              const ErrorHandler =
+                typeof self !== 'undefined' && self.GlobalAccessor
+                  ? self.GlobalAccessor.getErrorHandler()
+                  : typeof self !== 'undefined' && self.ErrorHandler
+                    ? self.ErrorHandler
+                    : null
+              if (ErrorHandler && typeof ErrorHandler.handle === 'function') {
+                const handled = ErrorHandler.handle(error, {
+                  showNotification: false,
+                  fallback: 'Handler execution failed',
+                })
+                safeSendResponse({ success: false, error: handled.error || 'Handler execution failed' })
+                return
+              }
+            } catch (_) {}
+            safeSendResponse({
+              success: false,
+              error: error && error.message ? error.message : 'Handler execution failed',
+            })
+          })
         return true
       }
 
@@ -111,9 +124,12 @@ class MessageRouter {
       console.error(`处理消息失败 (${action}):`, error)
       // 尝试使用统一错误处理器（如果存在）
       try {
-        const ErrorHandler = (typeof self !== 'undefined' && self.GlobalAccessor)
-          ? self.GlobalAccessor.getErrorHandler()
-          : ((typeof self !== 'undefined' && self.ErrorHandler) ? self.ErrorHandler : null)
+        const ErrorHandler =
+          typeof self !== 'undefined' && self.GlobalAccessor
+            ? self.GlobalAccessor.getErrorHandler()
+            : typeof self !== 'undefined' && self.ErrorHandler
+              ? self.ErrorHandler
+              : null
         if (ErrorHandler && typeof ErrorHandler.handle === 'function') {
           const handled = ErrorHandler.handle(error, { showNotification: false, fallback: 'Handler execution failed' })
           safeSendResponse({ success: false, error: handled.error || 'Handler execution failed' })
@@ -122,7 +138,7 @@ class MessageRouter {
       } catch (_) {}
       safeSendResponse({
         success: false,
-        error: error.message || 'Handler execution failed'
+        error: error.message || 'Handler execution failed',
       })
     }
   }

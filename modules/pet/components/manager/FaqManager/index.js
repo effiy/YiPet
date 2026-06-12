@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) return
@@ -7,7 +7,9 @@
   const FAQ_MANAGER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/manager/FaqManager/index.html'
   let faqManagerTemplateCache = ''
 
-  function canUseVueTemplate (Vue) {
+  function canUseVueTemplate(Vue) {
+    const _u = window.PetManager?.Components?.ChatWindowUtils
+    if (_u && typeof _u.canUseVueTemplate === 'function') return _u.canUseVueTemplate(Vue)
     if (typeof Vue?.compile !== 'function') return false
     try {
       Function('return 1')()
@@ -17,19 +19,19 @@
     }
   }
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (faqManagerTemplateCache) return faqManagerTemplateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     faqManagerTemplateCache = await DomHelper.loadHtmlTemplate(
       FAQ_MANAGER_TEMPLATES_RESOURCE_PATH,
       '#yi-pet-faq-manager-template',
-      'Failed to load FaqManager template'
+      'Failed to load FaqManager template',
     )
     return faqManagerTemplateCache
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const manager = params?.manager
     const store = params?.store
     const template = params?.template
@@ -60,7 +62,7 @@
 
     const componentOptions = {
       name: 'YiPetFaqManager',
-      setup () {
+      setup() {
         const rootEl = ref(null)
         const searchInputEl = ref(null)
         let previousActiveElement = null
@@ -79,7 +81,11 @@
           return Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))
         })
 
-        const tagSearchKw = computed(() => String(store.tagFilterSearchKeyword || '').trim().toLowerCase())
+        const tagSearchKw = computed(() =>
+          String(store.tagFilterSearchKeyword || '')
+            .trim()
+            .toLowerCase(),
+        )
         const filteredTags = computed(() => {
           const kw = tagSearchKw.value
           const list = allTags.value
@@ -103,7 +109,9 @@
           const list = Array.isArray(store.allFaqs) ? store.allFaqs : []
           let out = list
 
-          const searchKw = String(store.searchFilter || '').trim().toLowerCase()
+          const searchKw = String(store.searchFilter || '')
+            .trim()
+            .toLowerCase()
           if (searchKw) {
             out = out.filter((faq) => {
               const hay = `${String(faq?.title || '')}\n${String(faq?.prompt || '')}`.toLowerCase()
@@ -176,7 +184,7 @@
         const getFocusableElements = (root) => {
           if (!root || typeof root.querySelectorAll !== 'function') return []
           const nodes = root.querySelectorAll(
-            'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
+            'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])',
           )
           return Array.from(nodes).filter((el) => {
             try {
@@ -444,7 +452,7 @@
               }
               unlockBodyScrollIfNeeded()
               restoreFocusIfNeeded()
-            }
+            },
           )
         }
 
@@ -493,7 +501,7 @@
             canMoveFaqUp,
             canMoveFaqDown,
             moveFaqUp,
-            moveFaqDown
+            moveFaqDown,
           }
         }
 
@@ -514,41 +522,93 @@
             stroke: 'currentColor',
             'stroke-width': '2',
             'stroke-linecap': 'round',
-            'stroke-linejoin': 'round'
+            'stroke-linejoin': 'round',
           }
           if (name === 'chevron-up') return h('svg', svgBase, [h('path', { ...strokeBase, d: 'M6 15l6-6 6 6' })])
           if (name === 'chevron-down') return h('svg', svgBase, [h('path', { ...strokeBase, d: 'M6 9l6 6 6-6' })])
           if (name === 'tag') {
             return h('svg', svgBase, [
-              h('path', { ...strokeBase, d: 'M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82Z' }),
-              h('circle', { cx: '7.5', cy: '7.5', r: '1.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' })
+              h('path', {
+                ...strokeBase,
+                d: 'M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82Z',
+              }),
+              h('circle', {
+                cx: '7.5',
+                cy: '7.5',
+                r: '1.5',
+                fill: 'none',
+                stroke: 'currentColor',
+                'stroke-width': '2',
+              }),
             ])
           }
           if (name === 'return') {
             return h('svg', svgBase, [
               h('path', { ...strokeBase, d: 'M20 4v7a4 4 0 0 1-4 4H4' }),
-              h('path', { ...strokeBase, d: 'M8 15l-4 4 4 4' })
+              h('path', { ...strokeBase, d: 'M8 15l-4 4 4 4' }),
             ])
           }
           if (name === 'copy') {
             return h('svg', svgBase, [
-              h('rect', { x: '9', y: '9', width: '13', height: '13', rx: '2', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' }),
-              h('rect', { x: '2', y: '2', width: '13', height: '13', rx: '2', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' })
+              h('rect', {
+                x: '9',
+                y: '9',
+                width: '13',
+                height: '13',
+                rx: '2',
+                fill: 'none',
+                stroke: 'currentColor',
+                'stroke-width': '2',
+              }),
+              h('rect', {
+                x: '2',
+                y: '2',
+                width: '13',
+                height: '13',
+                rx: '2',
+                fill: 'none',
+                stroke: 'currentColor',
+                'stroke-width': '2',
+              }),
             ])
           }
           if (name === 'send') {
             return h('svg', svgBase, [
               h('path', { ...strokeBase, d: 'M22 2 11 13' }),
-              h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round', d: 'M22 2 15 22l-4-9-9-4 20-7Z' })
+              h('path', {
+                fill: 'none',
+                stroke: 'currentColor',
+                'stroke-width': '2',
+                'stroke-linejoin': 'round',
+                d: 'M22 2 15 22l-4-9-9-4 20-7Z',
+              }),
             ])
           }
           if (name === 'trash') {
             return h('svg', svgBase, [
               h('path', { ...strokeBase, d: 'M3 6h18' }),
               h('path', { ...strokeBase, d: 'M8 6V4h8v2' }),
-              h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round', d: 'M19 6 18 20H6L5 6' }),
-              h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', d: 'M10 11v6' }),
-              h('path', { fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', d: 'M14 11v6' })
+              h('path', {
+                fill: 'none',
+                stroke: 'currentColor',
+                'stroke-width': '2',
+                'stroke-linejoin': 'round',
+                d: 'M19 6 18 20H6L5 6',
+              }),
+              h('path', {
+                fill: 'none',
+                stroke: 'currentColor',
+                'stroke-width': '2',
+                'stroke-linecap': 'round',
+                d: 'M10 11v6',
+              }),
+              h('path', {
+                fill: 'none',
+                stroke: 'currentColor',
+                'stroke-width': '2',
+                'stroke-linecap': 'round',
+                d: 'M14 11v6',
+              }),
             ])
           }
           return ''
@@ -566,13 +626,16 @@
               {
                 key: tag,
                 type: 'button',
-                class: ['pet-faq-tag', Array.isArray(store.selectedTags) && store.selectedTags.includes(tag) ? 'active' : ''],
+                class: [
+                  'pet-faq-tag',
+                  Array.isArray(store.selectedTags) && store.selectedTags.includes(tag) ? 'active' : '',
+                ],
                 role: 'listitem',
                 'aria-label': `筛选标签：${tag}`,
-                onClick: () => toggleTag(tag)
+                onClick: () => toggleTag(tag),
               },
-              tag
-            )
+              tag,
+            ),
           )
 
           if (safeBool(moreToggleVisible.value)) {
@@ -585,237 +648,237 @@
                   class: ['pet-faq-tag', 'more'],
                   role: 'listitem',
                   'aria-label': '展开或收起标签',
-                  onClick: toggleMoreTags
+                  onClick: toggleMoreTags,
                 },
-                store.tagFilterExpanded ? '▴' : '⋯'
-              )
+                store.tagFilterExpanded ? '▴' : '⋯',
+              ),
             )
           }
 
           const tagManagerPanel = store.tagManagerVisible
             ? h('div', { class: 'pet-faq-tag-manager', 'aria-label': '标签管理面板' }, [
-              h('div', { class: 'pet-faq-tag-manager-header' }, [
-                h('div', { class: 'pet-faq-tag-manager-title' }, '标签管理'),
+                h('div', { class: 'pet-faq-tag-manager-header' }, [
+                  h('div', { class: 'pet-faq-tag-manager-title' }, '标签管理'),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      class: 'pet-faq-filter-btn',
+                      'aria-label': '关闭标签管理',
+                      title: '关闭标签管理',
+                      onClick: toggleTagManager,
+                    },
+                    '✕',
+                  ),
+                ]),
                 h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'pet-faq-filter-btn',
-                    'aria-label': '关闭标签管理',
-                    title: '关闭标签管理',
-                    onClick: toggleTagManager
-                  },
-                  '✕'
-                )
-              ]),
-              h(
-                'div',
-                { class: 'pet-faq-tag-manager-list', role: 'list', 'aria-label': '可管理标签列表' },
-                (Array.isArray(allTags.value) ? allTags.value : []).map((tag) =>
-                  h('div', { key: tag, class: 'pet-faq-tag-manager-item', role: 'listitem' }, [
-                    h('div', { class: 'pet-faq-tag-manager-item-tag' }, tag),
-                    h('div', { class: 'pet-faq-tag-manager-item-actions' }, [
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'pet-faq-tag-manager-btn',
-                          'aria-label': '重命名标签',
-                          title: '重命名标签',
-                          onClick: () => renameTag(tag)
-                        },
-                        '✎'
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: ['pet-faq-tag-manager-btn', 'danger'],
-                          'aria-label': '删除标签',
-                          title: '删除标签',
-                          onClick: () => deleteTag(tag)
-                        },
-                        '🗑'
-                      )
-                    ])
-                  ])
-                )
-              )
-            ])
+                  'div',
+                  { class: 'pet-faq-tag-manager-list', role: 'list', 'aria-label': '可管理标签列表' },
+                  (Array.isArray(allTags.value) ? allTags.value : []).map((tag) =>
+                    h('div', { key: tag, class: 'pet-faq-tag-manager-item', role: 'listitem' }, [
+                      h('div', { class: 'pet-faq-tag-manager-item-tag' }, tag),
+                      h('div', { class: 'pet-faq-tag-manager-item-actions' }, [
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: 'pet-faq-tag-manager-btn',
+                            'aria-label': '重命名标签',
+                            title: '重命名标签',
+                            onClick: () => renameTag(tag),
+                          },
+                          '✎',
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: ['pet-faq-tag-manager-btn', 'danger'],
+                            'aria-label': '删除标签',
+                            title: '删除标签',
+                            onClick: () => deleteTag(tag),
+                          },
+                          '🗑',
+                        ),
+                      ]),
+                    ]),
+                  ),
+                ),
+              ])
             : null
 
           const faqItems = faqs.length
             ? faqs.map((faq, index) => {
-              const tagsRow =
-                                  Array.isArray(faq?.tags) && faq.tags.length
-                                    ? h(
-                                      'div',
-                                      { class: 'pet-faq-item-tags', 'aria-label': '问题标签' },
-                                      faq.tags.map((t) =>
-                                        h(
-                                          'button',
-                                          {
-                                            key: t,
-                                            type: 'button',
-                                            class: 'pet-faq-item-tag',
-                                            'aria-label': `筛选标签：${t}`,
-                                            onClick: (e) => {
-                                              try {
-                                                e?.stopPropagation?.()
-                                              } catch (_) {}
-                                              toggleTag(t)
-                                            }
-                                          },
-                                          t
-                                        )
-                                      )
-                                    )
-                                    : null
-
-              const key = String(faq?.key || '')
-              const isDeleting = !!(key && deletingMap && deletingMap[key])
-              const isReordering = !!(key && reorderingMap && reorderingMap[key])
-              const canUp = canMoveFaqUp(faq)
-              const canDown = canMoveFaqDown(faq)
-
-              return h(
-                'div',
-                {
-                  key: faq?.key || `${index}`,
-                  class: 'pet-faq-item',
-                  role: 'listitem',
-                  tabindex: 0,
-                  onClick: () => onFaqInsert(faq),
-                  onKeydown: (e) => onFaqKeydown(e, faq)
-                },
-                [
-                  h('div', { class: 'pet-faq-item-title-row' }, [
-                    h('div', { class: 'pet-faq-item-title' }, faq?.title || faq?.text || '常见问题')
-                  ]),
-                  h('div', { class: 'pet-faq-item-meta-row' }, [
-                    tagsRow,
-                    h('div', { class: 'pet-faq-item-actions' }, [
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'pet-faq-item-btn',
-                          title: '上移',
-                          'aria-label': '上移',
-                          disabled: isReordering || !canUp,
-                          onClick: (e) => {
-                            try {
-                              e?.stopPropagation?.()
-                            } catch (_) {}
-                            moveFaqUp(faq)
-                          }
-                        },
-                        icon('chevron-up')
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'pet-faq-item-btn',
-                          title: '下移',
-                          'aria-label': '下移',
-                          disabled: isReordering || !canDown,
-                          onClick: (e) => {
-                            try {
-                              e?.stopPropagation?.()
-                            } catch (_) {}
-                            moveFaqDown(faq)
-                          }
-                        },
-                        icon('chevron-down')
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'pet-faq-item-btn',
-                          'aria-label': '标签',
-                          title: '标签',
-                          onClick: (e) => {
-                            try {
-                              e?.stopPropagation?.()
-                            } catch (_) {}
-                            editTags(index)
-                          }
-                        },
-                        icon('tag')
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'pet-faq-item-btn',
-                          'aria-label': '插入',
-                          title: '插入',
-                          onClick: (e) => {
-                            try {
-                              e?.stopPropagation?.()
-                            } catch (_) {}
-                            onFaqInsert(faq)
-                          }
-                        },
-                        icon('return')
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'pet-faq-item-btn',
-                          title: '复制',
-                          'aria-label': '复制',
-                          onClick: (e) => {
-                            try {
-                              e?.stopPropagation?.()
-                            } catch (_) {}
-                            onFaqCopy(faq)
-                          }
-                        },
-                        icon('copy')
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: ['pet-faq-item-btn', 'primary'],
-                          'aria-label': '发送',
-                          title: '发送',
-                          onClick: (e) => {
-                            try {
-                              e?.stopPropagation?.()
-                            } catch (_) {}
-                            onFaqSend(faq)
-                          }
-                        },
-                        icon('send')
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: ['pet-faq-item-btn', 'danger'],
-                          'aria-label': '删除',
-                          title: '删除',
-                          disabled: isDeleting,
-                          onClick: (e) => {
-                            try {
-                              e?.stopPropagation?.()
-                            } catch (_) {}
-                            deleteFaq(faq)
-                          }
-                        },
-                        isDeleting ? '⏳' : icon('trash')
+                const tagsRow =
+                  Array.isArray(faq?.tags) && faq.tags.length
+                    ? h(
+                        'div',
+                        { class: 'pet-faq-item-tags', 'aria-label': '问题标签' },
+                        faq.tags.map((t) =>
+                          h(
+                            'button',
+                            {
+                              key: t,
+                              type: 'button',
+                              class: 'pet-faq-item-tag',
+                              'aria-label': `筛选标签：${t}`,
+                              onClick: (e) => {
+                                try {
+                                  e?.stopPropagation?.()
+                                } catch (_) {}
+                                toggleTag(t)
+                              },
+                            },
+                            t,
+                          ),
+                        ),
                       )
-                    ])
-                  ]),
-                  h('div', { class: 'pet-faq-item-prompt' }, faq?.prompt || '')
-                ]
-              )
-            })
+                    : null
+
+                const key = String(faq?.key || '')
+                const isDeleting = !!(key && deletingMap && deletingMap[key])
+                const isReordering = !!(key && reorderingMap && reorderingMap[key])
+                const canUp = canMoveFaqUp(faq)
+                const canDown = canMoveFaqDown(faq)
+
+                return h(
+                  'div',
+                  {
+                    key: faq?.key || `${index}`,
+                    class: 'pet-faq-item',
+                    role: 'listitem',
+                    tabindex: 0,
+                    onClick: () => onFaqInsert(faq),
+                    onKeydown: (e) => onFaqKeydown(e, faq),
+                  },
+                  [
+                    h('div', { class: 'pet-faq-item-title-row' }, [
+                      h('div', { class: 'pet-faq-item-title' }, faq?.title || faq?.text || '常见问题'),
+                    ]),
+                    h('div', { class: 'pet-faq-item-meta-row' }, [
+                      tagsRow,
+                      h('div', { class: 'pet-faq-item-actions' }, [
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: 'pet-faq-item-btn',
+                            title: '上移',
+                            'aria-label': '上移',
+                            disabled: isReordering || !canUp,
+                            onClick: (e) => {
+                              try {
+                                e?.stopPropagation?.()
+                              } catch (_) {}
+                              moveFaqUp(faq)
+                            },
+                          },
+                          icon('chevron-up'),
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: 'pet-faq-item-btn',
+                            title: '下移',
+                            'aria-label': '下移',
+                            disabled: isReordering || !canDown,
+                            onClick: (e) => {
+                              try {
+                                e?.stopPropagation?.()
+                              } catch (_) {}
+                              moveFaqDown(faq)
+                            },
+                          },
+                          icon('chevron-down'),
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: 'pet-faq-item-btn',
+                            'aria-label': '标签',
+                            title: '标签',
+                            onClick: (e) => {
+                              try {
+                                e?.stopPropagation?.()
+                              } catch (_) {}
+                              editTags(index)
+                            },
+                          },
+                          icon('tag'),
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: 'pet-faq-item-btn',
+                            'aria-label': '插入',
+                            title: '插入',
+                            onClick: (e) => {
+                              try {
+                                e?.stopPropagation?.()
+                              } catch (_) {}
+                              onFaqInsert(faq)
+                            },
+                          },
+                          icon('return'),
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: 'pet-faq-item-btn',
+                            title: '复制',
+                            'aria-label': '复制',
+                            onClick: (e) => {
+                              try {
+                                e?.stopPropagation?.()
+                              } catch (_) {}
+                              onFaqCopy(faq)
+                            },
+                          },
+                          icon('copy'),
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: ['pet-faq-item-btn', 'primary'],
+                            'aria-label': '发送',
+                            title: '发送',
+                            onClick: (e) => {
+                              try {
+                                e?.stopPropagation?.()
+                              } catch (_) {}
+                              onFaqSend(faq)
+                            },
+                          },
+                          icon('send'),
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            class: ['pet-faq-item-btn', 'danger'],
+                            'aria-label': '删除',
+                            title: '删除',
+                            disabled: isDeleting,
+                            onClick: (e) => {
+                              try {
+                                e?.stopPropagation?.()
+                              } catch (_) {}
+                              deleteFaq(faq)
+                            },
+                          },
+                          isDeleting ? '⏳' : icon('trash'),
+                        ),
+                      ]),
+                    ]),
+                    h('div', { class: 'pet-faq-item-prompt' }, faq?.prompt || ''),
+                  ],
+                )
+              })
             : [h('div', { key: '__empty__', class: 'pet-faq-empty', role: 'listitem' }, '未找到匹配的常见问题')]
 
           return h(
@@ -838,14 +901,14 @@
                   e.stopPropagation()
                 } catch (_) {}
                 close()
-              }
+              },
             },
             [
               h('div', { class: 'pet-faq-manager-modal', role: 'document' }, [
                 h('div', { class: 'pet-faq-manager-header' }, [
                   h('div', { class: 'pet-faq-manager-title' }, [
                     '💡 常见问题 ',
-                    h('span', { class: 'pet-faq-manager-title-sub' }, '（一键插入/发送）')
+                    h('span', { class: 'pet-faq-manager-title-sub' }, '（一键插入/发送）'),
                   ]),
                   h(
                     'button',
@@ -853,10 +916,10 @@
                       type: 'button',
                       class: 'pet-faq-modal-close',
                       'aria-label': '关闭',
-                      onClick: close
+                      onClick: close,
                     },
-                    '✕'
-                  )
+                    '✕',
+                  ),
                 ]),
                 h('div', { class: 'pet-faq-modal-content' }, [
                   h('div', { class: 'pet-faq-layout' }, [
@@ -871,7 +934,7 @@
                           value: store.searchFilter,
                           onInput: (e) => {
                             store.searchFilter = e?.target?.value ?? ''
-                          }
+                          },
                         }),
                         h(
                           'button',
@@ -881,10 +944,10 @@
                             title: '清除搜索',
                             'aria-label': '清除搜索',
                             disabled: !store.searchFilter,
-                            onClick: clearSearch
+                            onClick: clearSearch,
                           },
-                          '⌫'
-                        )
+                          '⌫',
+                        ),
                       ]),
                       h('div', { class: 'pet-faq-filter-row', 'aria-label': '常见问题标签筛选' }, [
                         h('div', { class: 'pet-faq-filter-actions' }, [
@@ -895,9 +958,9 @@
                               class: ['pet-faq-filter-btn', store.tagFilterReverse ? 'active' : ''],
                               title: '不包含选中标签',
                               'aria-label': '反选',
-                              onClick: toggleReverse
+                              onClick: toggleReverse,
                             },
-                            '⇄'
+                            '⇄',
                           ),
                           h(
                             'button',
@@ -906,9 +969,9 @@
                               class: ['pet-faq-filter-btn', store.tagFilterNoTags ? 'active' : ''],
                               title: '只显示无标签问题',
                               'aria-label': '无标签',
-                              onClick: toggleNoTags
+                              onClick: toggleNoTags,
                             },
-                            '∅'
+                            '∅',
                           ),
                           h(
                             'button',
@@ -918,12 +981,12 @@
                               title: '清除标签筛选',
                               'aria-label': '清除标签筛选',
                               disabled:
-                                                                (Array.isArray(store.selectedTags) ? store.selectedTags.length : 0) === 0 &&
-                                                                !store.tagFilterReverse &&
-                                                                !store.tagFilterNoTags,
-                              onClick: clearTagFilters
+                                (Array.isArray(store.selectedTags) ? store.selectedTags.length : 0) === 0 &&
+                                !store.tagFilterReverse &&
+                                !store.tagFilterNoTags,
+                              onClick: clearTagFilters,
                             },
-                            '⟲'
+                            '⟲',
                           ),
                           h(
                             'button',
@@ -932,9 +995,9 @@
                               class: ['pet-faq-filter-btn', store.tagManagerVisible ? 'active' : ''],
                               title: '标签管理',
                               'aria-label': '标签管理',
-                              onClick: toggleTagManager
+                              onClick: toggleTagManager,
                             },
-                            '🏷'
+                            '🏷',
                           ),
                           h(
                             'button',
@@ -944,10 +1007,10 @@
                               title: '从接口刷新',
                               'aria-label': '刷新',
                               disabled: !!store.isLoading,
-                              onClick: refresh
+                              onClick: refresh,
                             },
-                            '↻'
-                          )
+                            '↻',
+                          ),
                         ]),
                         h('div', { class: 'pet-faq-tag-search' }, [
                           h('input', {
@@ -958,7 +1021,7 @@
                             value: store.tagFilterSearchKeyword,
                             onInput: (e) => {
                               store.tagFilterSearchKeyword = e?.target?.value ?? ''
-                            }
+                            },
                           }),
                           h(
                             'button',
@@ -968,20 +1031,20 @@
                               title: '清除标签搜索',
                               'aria-label': '清除标签搜索',
                               disabled: !store.tagFilterSearchKeyword,
-                              onClick: clearTagSearch
+                              onClick: clearTagSearch,
                             },
-                            '⌫'
-                          )
+                            '⌫',
+                          ),
                         ]),
                         h('div', { class: 'pet-faq-tag-list', role: 'list', 'aria-label': '标签列表' }, tagButtons),
-                        tagManagerPanel
-                      ])
+                        tagManagerPanel,
+                      ]),
                     ]),
                     h('div', { class: 'pet-faq-main', 'aria-label': '常见问题列表' }, [
                       h(
                         'div',
                         { class: 'pet-faq-summary', role: 'status', 'aria-label': '筛选结果' },
-                        summaryText.value
+                        summaryText.value,
                       ),
                       h('div', { class: 'pet-faq-input-row', 'aria-label': '添加常见问题' }, [
                         h('textarea', {
@@ -992,23 +1055,23 @@
                           onInput: (e) => {
                             store.newFaqText = e?.target?.value ?? ''
                           },
-                          onKeydown: onNewFaqKeydown
+                          onKeydown: onNewFaqKeydown,
                         }),
-                        h('div', { class: 'pet-faq-input-hint' }, '支持多行内容，首行作为标题，余下作为正文。')
+                        h('div', { class: 'pet-faq-input-hint' }, '支持多行内容，首行作为标题，余下作为正文。'),
                       ]),
                       store.isLoading
                         ? h('div', { class: 'pet-faq-status', role: 'status' }, '正在加载常见问题...')
                         : null,
                       store.error ? h('div', { class: 'pet-faq-error', role: 'status' }, store.error) : null,
-                      h('div', { class: 'pet-faq-list', role: 'list', 'aria-label': '常见问题列表' }, faqItems)
-                    ])
-                  ])
-                ])
-              ])
-            ]
+                      h('div', { class: 'pet-faq-list', role: 'list', 'aria-label': '常见问题列表' }, faqItems),
+                    ]),
+                  ]),
+                ]),
+              ]),
+            ],
           )
         }
-      }
+      },
     }
 
     if (useTemplate) {
@@ -1020,6 +1083,6 @@
 
   window.PetManager.Components.FaqManager = {
     loadTemplate,
-    createComponent
+    createComponent,
   }
 })()

@@ -2,7 +2,7 @@
  * PetManager - 页面信息模块
  * 负责获取和解析页面内容、标题、描述等信息
  */
-(function () {
+;(function () {
   'use strict'
 
   // 确保 PetManager 类已定义
@@ -12,16 +12,17 @@
 
   const proto = window.PetManager.prototype
 
-  const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
-    ? window.LoggerUtils.getLogger('page')
-    : console
+  const logger =
+    typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function'
+      ? window.LoggerUtils.getLogger('page')
+      : console
 
   /**
-     * 计算两个文本的相似度（简化版）
-     * @param {string} text1 - 文本1
-     * @param {string} text2 - 文本2
-     * @returns {number} 相似度 (0-1)
-     */
+   * 计算两个文本的相似度（简化版）
+   * @param {string} text1 - 文本1
+   * @param {string} text2 - 文本2
+   * @returns {number} 相似度 (0-1)
+   */
   proto.calculateSimilarity = function (text1, text2) {
     if (text1 === text2) return 1.0
     if (text1.length === 0 || text2.length === 0) return 0
@@ -47,30 +48,69 @@
   const MIN_MAIN_CONTENT_LENGTH = 50 // 主要内容最小长度（从100降低到50）
 
   /**
-     * 获取页面的完整正文内容
-     * 尝试智能提取主要内容区域，如果失败则回退到提取所有文本
-     * @returns {string} 页面正文文本
-     */
+   * 获取页面的完整正文内容
+   * 尝试智能提取主要内容区域，如果失败则回退到提取所有文本
+   * @returns {string} 页面正文文本
+   */
   proto.getFullPageText = function () {
     try {
       // 定义需要排除的选择器
       const excludeSelectors = [
-        'script', 'style', 'nav', 'header', 'footer', 'aside',
-        'noscript', 'iframe', 'embed', 'svg', 'canvas',
-        '.ad', '.advertisement', '.ads', '.advertisement-container',
-        '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
-        '.header', '.footer', '.comment', '.comments', '.social-share',
-        '.related-posts', '.related', '.widget', '.sidebar-widget',
-        '[class*="ad"]', '[class*="banner"]', '[class*="promo"]',
-        '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
-        'iframe', 'embed', 'object', 'form', 'button', 'input',
-                // 排除插件相关元素
-                `#${(typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids) ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'}`, '[id^="pet-"]', '[class*="pet-"]',
-                '[id*="pet-chat"]', '[class*="pet-chat"]',
-                '[id*="pet-context"]', '[class*="pet-context"]',
-                '[id*="pet-faq"]', '[class*="pet-faq"]',
-                '[id*="pet-api"]', '[class*="pet-api"]',
-                '[id*="pet-session"]', '[class*="pet-session"]'
+        'script',
+        'style',
+        'nav',
+        'header',
+        'footer',
+        'aside',
+        'noscript',
+        'iframe',
+        'embed',
+        'svg',
+        'canvas',
+        '.ad',
+        '.advertisement',
+        '.ads',
+        '.advertisement-container',
+        '.sidebar',
+        '.menu',
+        '.navigation',
+        '.navbar',
+        '.nav',
+        '.header',
+        '.footer',
+        '.comment',
+        '.comments',
+        '.social-share',
+        '.related-posts',
+        '.related',
+        '.widget',
+        '.sidebar-widget',
+        '[class*="ad"]',
+        '[class*="banner"]',
+        '[class*="promo"]',
+        '[id*="ad"]',
+        '[id*="banner"]',
+        '[id*="promo"]',
+        'iframe',
+        'embed',
+        'object',
+        'form',
+        'button',
+        'input',
+        // 排除插件相关元素
+        `#${typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'}`,
+        '[id^="pet-"]',
+        '[class*="pet-"]',
+        '[id*="pet-chat"]',
+        '[class*="pet-chat"]',
+        '[id*="pet-context"]',
+        '[class*="pet-context"]',
+        '[id*="pet-faq"]',
+        '[class*="pet-faq"]',
+        '[id*="pet-api"]',
+        '[class*="pet-api"]',
+        '[id*="pet-session"]',
+        '[class*="pet-session"]',
       ]
 
       // 定义主要正文内容选择器，按优先级顺序
@@ -78,13 +118,26 @@
         'main',
         'article',
         '[role="main"]',
-        '.content', '.main-content', '.page-content',
-        '.post-content', '.entry-content', '.article-content',
-        '.post-body', '.text-content', '.article-body',
-        '#content', '#main-content', '#main',
-        '.article', '.blog-post', '.entry', '.post',
-        '.content-area', '.content-wrapper',
-        '.text-wrapper', '.text-container'
+        '.content',
+        '.main-content',
+        '.page-content',
+        '.post-content',
+        '.entry-content',
+        '.article-content',
+        '.post-body',
+        '.text-content',
+        '.article-body',
+        '#content',
+        '#main-content',
+        '#main',
+        '.article',
+        '.blog-post',
+        '.entry',
+        '.post',
+        '.content-area',
+        '.content-wrapper',
+        '.text-wrapper',
+        '.text-container',
       ]
 
       // 尝试从主要内容区域获取
@@ -104,10 +157,10 @@
           const cloned = mainContent.cloneNode(true)
 
           // 移除不需要的元素
-          excludeSelectors.forEach(sel => {
+          excludeSelectors.forEach((sel) => {
             try {
               const elements = cloned.querySelectorAll(sel)
-              elements.forEach(el => el.remove())
+              elements.forEach((el) => el.remove())
             } catch (e) {
               // 忽略无效的选择器
             }
@@ -121,26 +174,31 @@
             logger.debug('主要内容区域长度足够', { length: trimmedText.length, threshold: MIN_MAIN_CONTENT_LENGTH })
             return trimmedText
           } else {
-            logger.debug('主要内容区域长度不足，继续尝试其他方法', { length: trimmedText.length, threshold: MIN_MAIN_CONTENT_LENGTH })
+            logger.debug('主要内容区域长度不足，继续尝试其他方法', {
+              length: trimmedText.length,
+              threshold: MIN_MAIN_CONTENT_LENGTH,
+            })
           }
         } catch (cloneError) {
           // 如果克隆失败（例如元素已被移除），记录警告并继续使用其他方法
           logger.debug('克隆主要内容区域失败，尝试其他方法', {
-            error: String(cloneError && cloneError.message || cloneError)
+            error: String((cloneError && cloneError.message) || cloneError),
           })
         }
       }
 
       // 如果没有足够的内容，获取页面中所有的文本段落
-      const textElements = Array.from(document.querySelectorAll(
-        'p, div, section, article, main, li, blockquote, ' +
-                'h1, h2, h3, h4, h5, h6, span, pre, code, td, th, dd, dt, ' +
-                'label, legend, caption, summary, details, address, time'
-      ))
+      const textElements = Array.from(
+        document.querySelectorAll(
+          'p, div, section, article, main, li, blockquote, ' +
+            'h1, h2, h3, h4, h5, h6, span, pre, code, td, th, dd, dt, ' +
+            'label, legend, caption, summary, details, address, time',
+        ),
+      )
 
       const allTexts = textElements
-        .map(el => (el.textContent || el.innerText || '').trim())
-        .filter(text => {
+        .map((el) => (el.textContent || el.innerText || '').trim())
+        .filter((text) => {
           // 进一步放宽文本长度要求：只要超过3个字符就保留
           if (text.length < 3) return false
 
@@ -148,8 +206,7 @@
           const lowerText = text.toLowerCase()
 
           // 只过滤最明显、最简短的无意义文本
-          if (text.length <= 5 &&
-                        (lowerText === '更多' || lowerText === 'more' || lowerText === '点击')) {
+          if (text.length <= 5 && (lowerText === '更多' || lowerText === 'more' || lowerText === '点击')) {
             return false
           }
 
@@ -172,7 +229,8 @@
             if (text.length > 100 && seenText.length > 100) {
               // 计算相似度：使用Levenshtein距离的简化版本
               const similarity = this.calculateSimilarity(text, seenText)
-              if (similarity > 0.99) { // 99%以上相似才视为重复（几乎完全一致）
+              if (similarity > 0.99) {
+                // 99%以上相似才视为重复（几乎完全一致）
                 isSimilar = true
                 break
               }
@@ -197,10 +255,10 @@
           const clonedBody = body.cloneNode(true)
 
           // 移除不需要的元素
-          excludeSelectors.forEach(sel => {
+          excludeSelectors.forEach((sel) => {
             try {
               const elements = clonedBody.querySelectorAll(sel)
-              elements.forEach(el => el.remove())
+              elements.forEach((el) => el.remove())
             } catch (e) {
               // 忽略无效的选择器
             }
@@ -211,22 +269,22 @@
         } catch (cloneError) {
           // 如果克隆 body 失败，记录警告并返回空字符串
           logger.debug('克隆 body 失败', {
-            error: String(cloneError && cloneError.message || cloneError)
+            error: String((cloneError && cloneError.message) || cloneError),
           })
         }
       }
 
       return ''
     } catch (error) {
-      logger.error('获取页面内容时出错', { error: String(error && error.message || error) })
+      logger.error('获取页面内容时出错', { error: String((error && error.message) || error) })
       return ''
     }
   }
 
   /**
-     * 获取页面内容并转换为 Markdown
-     * @returns {string} Markdown 格式的页面内容
-     */
+   * 获取页面内容并转换为 Markdown
+   * @returns {string} Markdown 格式的页面内容
+   */
   proto.getPageContentAsMarkdown = function () {
     try {
       // 检查 Turndown 是否可用
@@ -252,26 +310,62 @@
         return s
       }
       const escapeHtmlAttr = (v) =>
-        String(v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        String(v || '')
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
 
       // 定义需要排除的选择器
       const excludeSelectors = [
-        'script', 'style', 'nav', 'header', 'footer', 'aside',
+        'script',
+        'style',
+        'nav',
+        'header',
+        'footer',
+        'aside',
         'noscript',
-        '.ad', '.advertisement', '.ads', '.advertisement-container',
-        '.sidebar', '.menu', '.navigation', '.navbar', '.nav',
-        '.header', '.footer', '.comment', '.comments', '.social-share',
-        '.related-posts', '.related', '.widget', '.sidebar-widget',
-        '[class*="ad"]', '[class*="banner"]', '[class*="promo"]',
-        '[id*="ad"]', '[id*="banner"]', '[id*="promo"]',
-        'form', 'button', 'input',
-                // 排除插件相关元素
-                `#${(typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids) ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'}`, '[id^="pet-"]', '[class*="pet-"]',
-                '[id*="pet-chat"]', '[class*="pet-chat"]',
-                '[id*="pet-context"]', '[class*="pet-context"]',
-                '[id*="pet-faq"]', '[class*="pet-faq"]',
-                '[id*="pet-api"]', '[class*="pet-api"]',
-                '[id*="pet-session"]', '[class*="pet-session"]'
+        '.ad',
+        '.advertisement',
+        '.ads',
+        '.advertisement-container',
+        '.sidebar',
+        '.menu',
+        '.navigation',
+        '.navbar',
+        '.nav',
+        '.header',
+        '.footer',
+        '.comment',
+        '.comments',
+        '.social-share',
+        '.related-posts',
+        '.related',
+        '.widget',
+        '.sidebar-widget',
+        '[class*="ad"]',
+        '[class*="banner"]',
+        '[class*="promo"]',
+        '[id*="ad"]',
+        '[id*="banner"]',
+        '[id*="promo"]',
+        'form',
+        'button',
+        'input',
+        // 排除插件相关元素
+        `#${typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'}`,
+        '[id^="pet-"]',
+        '[class*="pet-"]',
+        '[id*="pet-chat"]',
+        '[class*="pet-chat"]',
+        '[id*="pet-context"]',
+        '[class*="pet-context"]',
+        '[id*="pet-faq"]',
+        '[class*="pet-faq"]',
+        '[id*="pet-api"]',
+        '[class*="pet-api"]',
+        '[id*="pet-session"]',
+        '[class*="pet-session"]',
       ]
 
       // 定义主要正文内容选择器
@@ -279,13 +373,26 @@
         'main',
         'article',
         '[role="main"]',
-        '.content', '.main-content', '.page-content',
-        '.post-content', '.entry-content', '.article-content',
-        '.post-body', '.text-content', '.article-body',
-        '#content', '#main-content', '#main',
-        '.article', '.blog-post', '.entry', '.post',
-        '.content-area', '.content-wrapper',
-        '.text-wrapper', '.text-container'
+        '.content',
+        '.main-content',
+        '.page-content',
+        '.post-content',
+        '.entry-content',
+        '.article-content',
+        '.post-body',
+        '.text-content',
+        '.article-body',
+        '#content',
+        '#main-content',
+        '#main',
+        '.article',
+        '.blog-post',
+        '.entry',
+        '.post',
+        '.content-area',
+        '.content-wrapper',
+        '.text-wrapper',
+        '.text-container',
       ]
 
       // 尝试从主要内容区域获取
@@ -342,8 +449,8 @@
               poster: safeAbsUrl(v.getAttribute('poster') || ''),
               sources: Array.from(v.querySelectorAll('source')).map((s) => ({
                 src: safeAbsUrl(s.getAttribute('src') || ''),
-                type: String(s.getAttribute('type') || '').trim()
-              }))
+                type: String(s.getAttribute('type') || '').trim(),
+              })),
             })
           })
         } catch (_) {}
@@ -353,8 +460,8 @@
               src: safeAbsUrl(a.currentSrc || a.getAttribute('src') || ''),
               sources: Array.from(a.querySelectorAll('source')).map((s) => ({
                 src: safeAbsUrl(s.getAttribute('src') || ''),
-                type: String(s.getAttribute('type') || '').trim()
-              }))
+                type: String(s.getAttribute('type') || '').trim(),
+              })),
             })
           })
         } catch (_) {}
@@ -371,7 +478,14 @@
             const el = walker.currentNode
             try {
               if (!el || el.nodeType !== 1) continue
-              if (el.tagName && ['IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'SVG', 'IFRAME', 'PICTURE', 'SOURCE', 'SCRIPT', 'STYLE'].includes(el.tagName)) continue
+              if (
+                el.tagName &&
+                ['IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'SVG', 'IFRAME', 'PICTURE', 'SOURCE', 'SCRIPT', 'STYLE'].includes(
+                  el.tagName,
+                )
+              ) {
+                continue
+              }
               if (el.querySelector && el.querySelector('img,video,audio,svg,canvas')) continue
               const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null
               if (rect && rect.width * rect.height < 1600) continue
@@ -391,7 +505,7 @@
         cloned = mainContent.cloneNode(true)
       } catch (cloneError) {
         logger.warn('克隆内容失败，返回纯文本', {
-          error: String(cloneError && cloneError.message || cloneError)
+          error: String((cloneError && cloneError.message) || cloneError),
         })
         // 如果克隆失败，尝试直接获取文本内容
         const textContent = mainContent.textContent || mainContent.innerText || ''
@@ -423,10 +537,10 @@
       } catch (_) {}
 
       // 移除不需要的元素
-      excludeSelectors.forEach(sel => {
+      excludeSelectors.forEach((sel) => {
         try {
           const elements = cloned.querySelectorAll(sel)
-          elements.forEach(el => el.remove())
+          elements.forEach((el) => el.remove())
         } catch (e) {}
       })
 
@@ -512,45 +626,48 @@
           emDelimiter: '*',
           strongDelimiter: '**',
           linkStyle: 'inlined',
-          linkReferenceStyle: 'collapsed'
+          linkReferenceStyle: 'collapsed',
         })
 
         turndownService.addRule('preserveLineBreaks', {
           filter: ['br'],
-          replacement: () => '\n'
+          replacement: () => '\n',
         })
 
         turndownService.addRule('mediaCanvas', {
-          filter: function (node) {
+          filter(node) {
             return node && node.nodeName === 'CANVAS'
           },
-          replacement: function (_content, node) {
+          replacement(_content, node) {
             const html = node && node.outerHTML ? String(node.outerHTML) : ''
             if (!html) return ''
             return `\n\n${html}\n\n`
-          }
+          },
         })
 
         turndownService.addRule('cleanImage', {
           filter: ['img'],
-          replacement: function (_content, node) {
+          replacement(_content, node) {
             const alt = String(node.getAttribute('alt') || '').trim()
             const title = String(node.getAttribute('title') || '').trim()
             const getBestSrc = () => {
               const direct = node.getAttribute('src') || ''
               const dataSrc =
-                                node.getAttribute('data-src') ||
-                                node.getAttribute('data-original') ||
-                                node.getAttribute('data-url') ||
-                                node.getAttribute('data-lazy-src') ||
-                                node.getAttribute('data-actualsrc') ||
-                                node.getAttribute('data-image') ||
-                                ''
+                node.getAttribute('data-src') ||
+                node.getAttribute('data-original') ||
+                node.getAttribute('data-url') ||
+                node.getAttribute('data-lazy-src') ||
+                node.getAttribute('data-actualsrc') ||
+                node.getAttribute('data-image') ||
+                ''
               const srcset = node.getAttribute('srcset') || node.getAttribute('data-srcset') || ''
               const pickFromSrcset = (s) => {
                 const raw = String(s || '').trim()
                 if (!raw) return ''
-                const parts = raw.split(',').map((p) => p.trim()).filter(Boolean)
+                const parts = raw
+                  .split(',')
+                  .map((p) => p.trim())
+                  .filter(Boolean)
                 if (!parts.length) return ''
                 const last = parts[parts.length - 1]
                 const url = last.split(/\s+/)[0]
@@ -560,88 +677,98 @@
             }
             const src = safeAbsUrl(getBestSrc())
             if (!src) return ''
-            const label = String(alt || title || '').replace(/[\[\]\n\r]/g, ' ').trim()
+            const label = String(alt || title || '')
+              .replace(/[[\]\n\r]/g, ' ')
+              .trim()
             const urlPart = markdownUrl(src)
             const titlePart = title ? ` "${title.replace(/"/g, '\\"')}"` : ''
             return `![${label}](${urlPart}${titlePart})`
-          }
+          },
         })
 
         turndownService.addRule('mediaVideo', {
-          filter: function (node) {
+          filter(node) {
             return node && node.nodeName === 'VIDEO'
           },
-          replacement: function (_content, node) {
+          replacement(_content, node) {
             const src = safeAbsUrl(node.getAttribute('src') || '')
             const poster = safeAbsUrl(node.getAttribute('poster') || '')
-            const sources = Array.from(node.querySelectorAll('source')).map((s) => ({
-              src: safeAbsUrl(s.getAttribute('src') || ''),
-              type: String(s.getAttribute('type') || '').trim()
-            })).filter((s) => s.src)
+            const sources = Array.from(node.querySelectorAll('source'))
+              .map((s) => ({
+                src: safeAbsUrl(s.getAttribute('src') || ''),
+                type: String(s.getAttribute('type') || '').trim(),
+              }))
+              .filter((s) => s.src)
             const attrs = []
             attrs.push('controls')
             if (poster) attrs.push(`poster="${escapeHtmlAttr(poster)}"`)
             if (src) attrs.push(`src="${escapeHtmlAttr(src)}"`)
-            const inner = sources.map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`).join('')
+            const inner = sources
+              .map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`)
+              .join('')
             const html = `<video ${attrs.join(' ')}>${inner}</video>`
             const url = src || (sources[0] ? sources[0].src : '')
             const link = url ? `\n\n[视频链接](${markdownUrl(url)})\n\n` : '\n\n'
             return `\n\n${html}${link}`
-          }
+          },
         })
 
         turndownService.addRule('mediaAudio', {
-          filter: function (node) {
+          filter(node) {
             return node && node.nodeName === 'AUDIO'
           },
-          replacement: function (_content, node) {
+          replacement(_content, node) {
             const src = safeAbsUrl(node.getAttribute('src') || '')
-            const sources = Array.from(node.querySelectorAll('source')).map((s) => ({
-              src: safeAbsUrl(s.getAttribute('src') || ''),
-              type: String(s.getAttribute('type') || '').trim()
-            })).filter((s) => s.src)
+            const sources = Array.from(node.querySelectorAll('source'))
+              .map((s) => ({
+                src: safeAbsUrl(s.getAttribute('src') || ''),
+                type: String(s.getAttribute('type') || '').trim(),
+              }))
+              .filter((s) => s.src)
             const attrs = []
             attrs.push('controls')
             if (src) attrs.push(`src="${escapeHtmlAttr(src)}"`)
-            const inner = sources.map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`).join('')
+            const inner = sources
+              .map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`)
+              .join('')
             const html = `<audio ${attrs.join(' ')}>${inner}</audio>`
             const url = src || (sources[0] ? sources[0].src : '')
             const link = url ? `\n\n[音频链接](${markdownUrl(url)})\n\n` : '\n\n'
             return `\n\n${html}${link}`
-          }
+          },
         })
 
         turndownService.addRule('mediaIframe', {
-          filter: function (node) {
+          filter(node) {
             return node && node.nodeName === 'IFRAME'
           },
-          replacement: function (_content, node) {
+          replacement(_content, node) {
             const src = safeAbsUrl(node.getAttribute('src') || '')
             if (!src) return ''
             return `\n\n[嵌入内容](${markdownUrl(src)})\n\n`
-          }
+          },
         })
 
         turndownService.addRule('mediaSvg', {
-          filter: function (node) {
+          filter(node) {
             return node && node.nodeName === 'SVG'
           },
-          replacement: function (_content, node) {
+          replacement(_content, node) {
             const html = node && node.outerHTML ? String(node.outerHTML) : ''
             if (!html) return ''
             return `\n\n${html}\n\n`
-          }
+          },
         })
 
         markdown = turndownService.turndown(cloned)
       } catch (turndownError) {
         // Turndown 转换失败，记录警告并返回纯文本
         const errorInfo = {
-          error: String(turndownError && turndownError.message || turndownError),
+          error: String((turndownError && turndownError.message) || turndownError),
           stack: turndownError && turndownError.stack ? String(turndownError.stack) : undefined,
           clonedElementValid: !!cloned,
           clonedElementType: cloned ? cloned.nodeType : undefined,
-          clonedElementTagName: cloned && cloned.tagName ? cloned.tagName : undefined
+          clonedElementTagName: cloned && cloned.tagName ? cloned.tagName : undefined,
         }
         logger.warn('Turndown 转换失败，使用纯文本', errorInfo)
         const textContent = cloned.textContent || cloned.innerText || ''
@@ -653,7 +780,7 @@
       if (!markdown || markdown.trim().length < MIN_MAIN_CONTENT_LENGTH) {
         logger.debug('Markdown 内容长度不足，返回纯文本', {
           markdownLength: markdown ? markdown.trim().length : 0,
-          threshold: MIN_MAIN_CONTENT_LENGTH
+          threshold: MIN_MAIN_CONTENT_LENGTH,
         })
         const textContent = cloned.textContent || cloned.innerText || ''
         return textContent.trim()
@@ -665,7 +792,7 @@
     } catch (error) {
       // 捕获所有其他错误，静默处理并返回纯文本
       logger.warn('转换为 Markdown 时出错，使用纯文本', {
-        error: String(error && error.message || error)
+        error: String((error && error.message) || error),
       })
       // 出错时返回纯文本
       try {
@@ -673,7 +800,7 @@
       } catch (fallbackError) {
         // 如果连获取纯文本都失败，返回空字符串
         logger.warn('获取纯文本也失败', {
-          error: String(fallbackError && fallbackError.message || fallbackError)
+          error: String((fallbackError && fallbackError.message) || fallbackError),
         })
         return ''
       }
@@ -681,9 +808,9 @@
   }
 
   /**
-     * 统一获取页面信息的方法：标题、描述、URL、内容
-     * @returns {Object} 页面信息对象
-     */
+   * 统一获取页面信息的方法：标题、描述、URL、内容
+   * @returns {Object} 页面信息对象
+   */
   proto.getPageInfo = function () {
     const title = document.title || '未命名页面'
     const pageUrl = window.location.href
@@ -699,7 +826,7 @@
       title: title.trim(),
       url: pageUrl,
       description: pageDescription,
-      content: pageContent
+      content: pageContent,
     }
   }
 })()

@@ -1,0 +1,842 @@
+/* Chat window styles */
+
+/* 允许聊天内容被选中 */
+#pet-chat-messages {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  /* 优化滚动性能 */
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  contain: paint layout style !important;
+  transform: translateZ(0) !important;
+  will-change: scroll-position !important;
+  scroll-behavior: auto !important;
+}
+
+[data-message-type='pet-bubble'],
+[data-message-type='user-bubble'] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  overflow: hidden !important;
+}
+
+/* 确保消息气泡中的图片不会超出边界 */
+[data-message-type='pet-bubble'] img,
+[data-message-type='user-bubble'] img {
+  max-width: 100%;
+  width: 100%;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+/* 确保图片容器不会超出消息气泡 */
+[data-message-type='pet-bubble'] > div,
+[data-message-type='user-bubble'] > div {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Markdown 内容样式 */
+.markdown-content {
+  color: #e5e7eb !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* 预览框中的 Markdown 内容样式（深色背景） */
+#pet-context-preview.markdown-content {
+  color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content img {
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+#pet-context-preview.markdown-content h1,
+#pet-context-preview.markdown-content h2,
+#pet-context-preview.markdown-content h3,
+#pet-context-preview.markdown-content h4,
+#pet-context-preview.markdown-content h5,
+#pet-context-preview.markdown-content h6 {
+  color: #f3f4f6 !important;
+  margin: 0.8em 0 0.4em 0 !important;
+}
+
+#pet-context-preview.markdown-content p {
+  margin: 0.6em 0 !important;
+  color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content code {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fbbf24 !important;
+  padding: 0.2em 0.4em !important;
+  border-radius: 3px !important;
+  font-size: 0.9em !important;
+}
+
+#pet-context-preview.markdown-content pre {
+  background: rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content pre code {
+  background: transparent !important;
+  color: #e5e7eb !important;
+}
+
+#pet-context-preview.markdown-content blockquote {
+  border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+  color: #d1d5db !important;
+}
+
+#pet-context-preview.markdown-content a {
+  color: #60a5fa !important;
+}
+
+#pet-context-preview.markdown-content a:hover {
+  color: #93c5fd !important;
+}
+
+#pet-context-preview.markdown-content table {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+#pet-context-preview.markdown-content th {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #f3f4f6 !important;
+}
+
+#pet-context-preview.markdown-content td {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #e5e7eb !important;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin: 0.5em 0 !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+}
+
+.markdown-content h1 {
+  font-size: 1.5em !important;
+}
+.markdown-content h2 {
+  font-size: 1.25em !important;
+}
+.markdown-content h3 {
+  font-size: 1.1em !important;
+}
+.markdown-content h4 {
+  font-size: 1em !important;
+}
+.markdown-content h5 {
+  font-size: 0.875em !important;
+}
+.markdown-content h6 {
+  font-size: 0.85em !important;
+}
+
+.markdown-content p {
+  margin: 0.5em 0 !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0.5em 0 !important;
+  padding-left: 1.5em !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+.markdown-content li {
+  margin: 0.25em 0 !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+.markdown-content code {
+  background: rgba(0, 0, 0, 0.2) !important;
+  padding: 0.2em 0.4em !important;
+  border-radius: 3px !important;
+  font-size: 0.9em !important;
+  font-family: 'Courier New', monospace !important;
+}
+
+.markdown-content pre {
+  background: rgba(0, 0, 0, 0.3) !important;
+  padding: 0.5em !important;
+  border-radius: 4px !important;
+  overflow-x: auto !important;
+  margin: 0.5em 0 !important;
+}
+
+.markdown-content pre code {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+  margin: 0.5em 0 !important;
+  padding-left: 1em !important;
+  font-style: italic !important;
+}
+
+.markdown-content a {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-decoration: underline !important;
+}
+
+.markdown-content strong {
+  font-weight: 600 !important;
+}
+
+.markdown-content u {
+  text-decoration: underline !important;
+}
+
+.markdown-content em {
+  font-style: italic !important;
+}
+
+.markdown-content hr {
+  border: none !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+  margin: 0.5em 0 !important;
+}
+
+.markdown-content table {
+  border-collapse: collapse !important;
+  margin: 0.5em 0 !important;
+  width: 100% !important;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  padding: 0.4em !important;
+  text-align: left !important;
+}
+
+.markdown-content th {
+  font-weight: 600 !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.markdown-content .pet-card-group {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+  gap: 10px !important;
+  margin: 0.75em 0 !important;
+}
+
+.markdown-content .pet-card {
+  display: block !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease !important;
+}
+
+.markdown-content a.pet-card:hover {
+  border-color: rgba(var(--primary-rgb, 102, 126, 234), 0.6) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  transform: translateY(-1px) !important;
+}
+
+.markdown-content .pet-card__header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 4px !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.markdown-content .pet-card__icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 6px !important;
+  background: rgba(var(--primary-rgb, 102, 126, 234), 0.18) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  flex: 0 0 auto !important;
+  font-size: 14px !important;
+}
+
+.markdown-content .pet-card__title {
+  min-width: 0 !important;
+  word-break: break-word !important;
+}
+
+.markdown-content .pet-card__desc {
+  margin: 2px 0 0 0 !important;
+  color: rgba(229, 231, 235, 0.86) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.markdown-content .pet-card__body {
+  margin-top: 8px !important;
+  color: rgba(229, 231, 235, 0.92) !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+}
+
+.markdown-content .pet-tip {
+  margin: 0.75em 0 !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-left-width: 4px !important;
+}
+
+.markdown-content .pet-tip__title {
+  font-weight: 700 !important;
+  margin: 0 0 6px 0 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.markdown-content .pet-tip__content {
+  color: rgba(229, 231, 235, 0.9) !important;
+  line-height: 1.6 !important;
+  font-size: 12px !important;
+}
+
+.markdown-content .pet-tip--info {
+  border-left-color: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important;
+}
+.markdown-content .pet-tip--tip {
+  border-left-color: rgba(var(--accent-rgb, 6, 182, 212), 0.95) !important;
+}
+.markdown-content .pet-tip--note {
+  border-left-color: rgba(var(--info-rgb, 59, 130, 246), 0.95) !important;
+}
+.markdown-content .pet-tip--success {
+  border-left-color: rgba(34, 197, 94, 0.95) !important;
+}
+.markdown-content .pet-tip--warning {
+  border-left-color: rgba(245, 158, 11, 0.95) !important;
+}
+.markdown-content .pet-tip--caution {
+  border-left-color: rgba(245, 158, 11, 0.95) !important;
+}
+.markdown-content .pet-tip--danger {
+  border-left-color: rgba(239, 68, 68, 0.95) !important;
+}
+
+.markdown-content .pet-tabs {
+  margin: 0.75em 0 !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  overflow: hidden !important;
+}
+
+.markdown-content .pet-tabs__nav {
+  display: flex !important;
+  gap: 6px !important;
+  padding: 8px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  overflow-x: auto !important;
+}
+
+.markdown-content .pet-tabs__tab {
+  cursor: pointer !important;
+  padding: 6px 10px !important;
+  border-radius: 10px !important;
+  user-select: none !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  background: transparent !important;
+  white-space: nowrap !important;
+}
+
+.markdown-content .pet-tabs__tab.is-active {
+  background: rgba(var(--primary-rgb, 102, 126, 234), 0.16) !important;
+  box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 102, 126, 234), 0.22) inset !important;
+}
+
+.markdown-content .pet-tabs__panels {
+  padding: 10px 12px !important;
+}
+
+.markdown-content .pet-tabs__panel {
+  display: none !important;
+  color: rgba(229, 231, 235, 0.9) !important;
+  line-height: 1.6 !important;
+  font-size: 12px !important;
+}
+
+.markdown-content .pet-tabs__panel.is-active {
+  display: block !important;
+}
+
+/* Mermaid 图表样式 */
+.markdown-content .mermaid,
+.mermaid {
+  background: rgba(255, 255, 255, 0.1) !important;
+  padding: 15px !important;
+  border-radius: 8px !important;
+  margin: 15px 0 !important;
+  overflow-x: auto !important;
+  text-align: center !important;
+  min-height: 100px !important;
+}
+
+.mermaid-has-relative-position {
+  position: relative !important;
+}
+
+.markdown-content .mermaid svg,
+.mermaid svg {
+  max-width: 100% !important;
+  height: auto !important;
+  background: transparent !important;
+}
+
+.markdown-content .mermaid-error {
+  background: rgba(239, 68, 68, 0.1) !important;
+  padding: 10px !important;
+  border-radius: 5px !important;
+  color: #ef4444 !important;
+  font-size: 12px !important;
+  margin: 10px 0 !important;
+}
+
+/* Mermaid 操作按钮样式 */
+.mermaid-actions {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  display: flex !important;
+  gap: 8px !important;
+  z-index: 10 !important;
+  opacity: 0 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.mermaid:hover .mermaid-actions {
+  opacity: 1 !important;
+}
+
+.mermaid-copy-button,
+.mermaid-download-button,
+.mermaid-download-png-button,
+.mermaid-edit-button,
+.mermaid-fullscreen-button {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  border-radius: 4px !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease !important;
+  opacity: 0.8 !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.mermaid-copy-button:hover,
+.mermaid-download-button:hover,
+.mermaid-download-png-button:hover,
+.mermaid-edit-button:hover,
+.mermaid-fullscreen-button:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: scale(1.1) !important;
+  opacity: 1 !important;
+}
+
+.mermaid-copy-button:active,
+.mermaid-download-button:active,
+.mermaid-download-png-button:active,
+.mermaid-edit-button:active,
+.mermaid-fullscreen-button:active {
+  transform: scale(0.95) !important;
+}
+
+/* Mermaid 按钮状态样式 */
+.mermaid-download-png-button.js-loading {
+  cursor: wait !important;
+}
+
+.mermaid-edit-button.js-loading {
+  cursor: wait !important;
+}
+
+.mermaid-download-png-button.js-success {
+  background: rgba(76, 175, 80, 0.3) !important;
+  cursor: pointer !important;
+}
+
+.mermaid-download-png-button.js-error {
+  background: rgba(244, 67, 54, 0.3) !important;
+  cursor: pointer !important;
+}
+
+.mermaid-edit-button.js-success {
+  background: rgba(76, 175, 80, 0.3) !important;
+}
+
+.mermaid-edit-button.js-warning {
+  background: rgba(255, 193, 7, 0.3) !important;
+}
+
+.mermaid-tip {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  color: white !important;
+  padding: 14px 28px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  z-index: 10000 !important;
+  pointer-events: none !important;
+  animation: mermaidFadeInOut 2.5s ease-in-out !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  max-width: 90% !important;
+  text-align: center !important;
+  word-wrap: break-word !important;
+}
+
+@keyframes mermaidFadeInOut {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(-10px);
+  }
+  10%,
+  90% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0);
+  }
+}
+
+/* 全屏容器样式 */
+#mermaid-fullscreen-container {
+  position: fixed !important;
+  z-index: 2147483649 !important;
+  background: rgba(0, 0, 0, 0.95) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.mermaid-fullscreen-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 10px 15px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  flex-shrink: 0 !important;
+}
+
+.mermaid-fullscreen-title {
+  color: white !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.mermaid-fullscreen-close {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  color: white !important;
+  font-size: 18px !important;
+  cursor: pointer !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+}
+
+.mermaid-fullscreen-close:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.mermaid-fullscreen-content {
+  flex: 1 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  padding: 0 !important;
+  position: relative !important;
+}
+
+/* 全屏容器内的 Mermaid 图表样式 */
+#mermaid-fullscreen-container .mermaid {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+
+#mermaid-fullscreen-container .mermaid-fullscreen-mermaid {
+  background: rgba(255, 255, 255, 0.1) !important;
+  padding: 20px !important;
+  border-radius: 0 !important;
+}
+
+#mermaid-fullscreen-container .mermaid svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* 调整大小手柄样式 - 已禁用四边缩放拖拽手柄 */
+/* .resize-handle {
+    position: absolute !important;
+    width: 12px !important;
+    height: 12px !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+    border: 2px solid rgba(255, 255, 255, 0.6) !important;
+    border-radius: 2px !important;
+    z-index: 1000 !important;
+    transition: all 0.2s ease !important;
+}
+
+.resize-handle:hover {
+    background: rgba(255, 255, 255, 0.5) !important;
+
+    border-color: rgba(255, 255, 255, 0.9) !important;
+    transform: scale(1.2) !important;
+} */
+
+/* 复制按钮样式 */
+.copy-button {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+  opacity: 0.8 !important;
+  flex-shrink: 0 !important;
+}
+
+.copy-button:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: scale(1.1) !important;
+  opacity: 1 !important;
+}
+
+.copy-button:active {
+  transform: scale(0.95) !important;
+}
+
+/* 闪卡按钮样式 */
+.flashcard-button {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+  opacity: 0.8 !important;
+  flex-shrink: 0 !important;
+}
+
+.flashcard-button:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: scale(1.1) !important;
+  opacity: 1 !important;
+}
+
+.flashcard-button:active {
+  transform: scale(0.95) !important;
+}
+
+/* 删除按钮样式 */
+.delete-button {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+  opacity: 0.8 !important;
+  flex-shrink: 0 !important;
+}
+
+.delete-button:hover {
+  background: rgba(244, 67, 54, 0.3) !important;
+  transform: scale(1.1) !important;
+  opacity: 1 !important;
+}
+
+.delete-button:active {
+  transform: scale(0.95) !important;
+}
+
+/* 编辑按钮样式 */
+.edit-button {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+  opacity: 0.8 !important;
+  flex-shrink: 0 !important;
+}
+
+.edit-button:hover {
+  background: rgba(33, 150, 243, 0.3) !important;
+  transform: scale(1.1) !important;
+  opacity: 1 !important;
+}
+
+.edit-button:active {
+  transform: scale(0.95) !important;
+}
+
+.edit-button[data-editing='true'] {
+  background: rgba(34, 197, 94, 0.3) !important;
+}
+
+/* 排序按钮样式 */
+.sort-up-button,
+.sort-down-button {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 4px 8px !important;
+  opacity: 0.7 !important;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  border-radius: 4px !important;
+}
+
+.sort-up-button:hover,
+.sort-down-button:hover {
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sort-up-button:active,
+.sort-down-button:active {
+  transform: scale(0.95) !important;
+}
+
+.sort-up-button:disabled,
+.sort-down-button:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* 第一条欢迎消息的优化样式 */
+[data-welcome-message] {
+  margin-bottom: 20px !important;
+}
+
+[data-welcome-message] [data-message-type='pet-bubble'] {
+  padding: 0 !important;
+  line-height: 1.6 !important;
+  overflow: visible !important;
+  max-height: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+[data-welcome-message] [data-message-type='pet-bubble'] > div {
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+/* 优化欢迎消息中的链接样式 */
+[data-welcome-message] a {
+  transition: all 0.2s ease !important;
+}
+
+/* 优化欢迎消息中的代码块样式 - 移除滚动条 */
+[data-welcome-message] [data-message-type='pet-bubble'] div[style*='font-family: monospace'] {
+  overflow: visible !important;
+  max-height: none !important;
+}

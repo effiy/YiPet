@@ -6,7 +6,7 @@
 /**
  * 处理在新标签页打开链接请求
  */
-function handleOpenLinkInNewTab (request, sendResponse) {
+function handleOpenLinkInNewTab(request, sendResponse) {
   if (!request.url) {
     sendResponse({ success: false, error: 'URL参数缺失' })
     return
@@ -31,12 +31,12 @@ function handleOpenLinkInNewTab (request, sendResponse) {
 // 导出处理器
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    handleOpenLinkInNewTab
+    handleOpenLinkInNewTab,
   }
 } else {
   if (typeof self !== 'undefined') {
     self.TabHandler = {
-      handleOpenLinkInNewTab
+      handleOpenLinkInNewTab,
     }
   }
 }

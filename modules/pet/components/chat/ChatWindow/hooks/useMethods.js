@@ -1,33 +1,16 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) window.PetManager = {}
   if (!window.PetManager.Components) window.PetManager.Components = {}
   if (!window.PetManager.Components.ChatWindowHooks) window.PetManager.Components.ChatWindowHooks = {}
 
-  window.PetManager.Components.ChatWindowHooks.useMethods = function useMethods (params) {
+  window.PetManager.Components.ChatWindowHooks.useMethods = function useMethods(params) {
     const { manager, instance, store } = params
 
     const stopEvent = (e) => {
       e?.stopPropagation?.()
       e?.preventDefault?.()
-    }
-
-    const resolveExternalUrl = (key, fallbackUrl) => {
-      const urls = window.PET_CONFIG?.constants?.URLS
-      const value = urls && typeof urls[key] === 'string' ? urls[key] : ''
-      return String(value || fallbackUrl || '').trim()
-    }
-
-    const openExternal = (url) => {
-      const targetUrl = String(url || '').trim()
-      if (!targetUrl) return
-      const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
-      if (newWindow) {
-        try {
-          newWindow.opener = null
-        } catch (_) {}
-      }
     }
 
     const createSidebarMethods = () => {
@@ -76,7 +59,7 @@
         onSearchInput,
         onSearchKeydown,
         onBatchToggleClick,
-        onAddClick
+        onAddClick,
       }
     }
 
@@ -87,16 +70,6 @@
       if (typeof manager?.openAuth === 'function') manager.openAuth()
     }
 
-    const onAicrClick = (e) => {
-      stopEvent(e)
-      openExternal(resolveExternalUrl('AICR_REVIEW_PAGE', 'https://effiy.cn/src/views/aicr/index.html'))
-    }
-
-    const onNewsClick = (e) => {
-      stopEvent(e)
-      openExternal(resolveExternalUrl('NEWS_ASSISTANT_PAGE', 'https://effiy.cn/src/views/news/index.html'))
-    }
-
     const onSidebarToggleClick = (e) => {
       stopEvent(e)
       if (instance.toggleSidebar) instance.toggleSidebar()
@@ -105,16 +78,14 @@
     return {
       ...sidebarMethods,
       onAuthClick,
-      onAicrClick,
-      onNewsClick,
-      onSidebarToggleClick
+      onSidebarToggleClick,
     }
   }
 
-  window.PetManager.Components.ChatWindowHooks.applyWindowMethods = function applyWindowMethods (proto) {
+  window.PetManager.Components.ChatWindowHooks.applyWindowMethods = function applyWindowMethods(proto) {
     if (!proto) return
 
-    proto.updateRequestStatus = function updateRequestStatus (status) {
+    proto.updateRequestStatus = function updateRequestStatus(status) {
       const btn = this.requestStatusButton
       if (!btn) return
 
@@ -136,7 +107,7 @@
       }
     }
 
-    proto.abortRequest = function abortRequest () {
+    proto.abortRequest = function abortRequest() {
       if (this._currentAbortController) {
         this.updateRequestStatus('stopping')
         this._currentAbortController.abort()
@@ -148,11 +119,11 @@
       }
     }
 
-    proto._updateRequestStatus = function _updateRequestStatus (status, abortController = null) {
+    proto._updateRequestStatus = function _updateRequestStatus(status, abortController = null) {
       if (this._setAbortController) {
         this._setAbortController(abortController)
       }
-      this.isProcessing = (status === 'loading')
+      this.isProcessing = status === 'loading'
 
       if (this.element) {
         const metaActions = this.element.querySelectorAll('.pet-chat-meta-actions')
@@ -168,11 +139,11 @@
       }
     }
 
-    proto._setAbortController = function _setAbortController (controller) {
+    proto._setAbortController = function _setAbortController(controller) {
       this.abortController = controller
     }
 
-    proto.createResizeHandles = function createResizeHandles () {
+    proto.createResizeHandles = function createResizeHandles() {
       const positions = ['ne', 'nw', 'se', 'sw']
 
       positions.forEach((pos) => {
@@ -185,7 +156,7 @@
       })
     }
 
-    proto.bindEvents = function bindEvents () {
+    proto.bindEvents = function bindEvents() {
       this.header.addEventListener('mousedown', (e) => {
         const isButton = e.target.closest('button') || e.target.closest('.yi-pet-chat-header-btn')
         if (isButton) {
@@ -212,11 +183,11 @@
         (e) => {
           e.stopPropagation()
         },
-        { passive: true }
+        { passive: true },
       )
     }
 
-    proto.initDrag = function initDrag (e) {
+    proto.initDrag = function initDrag(e) {
       if (this.isResizing || this.manager.isFullscreen) return
 
       const startX = e.clientX
@@ -270,7 +241,7 @@
       document.addEventListener('mouseup', onMouseUp)
     }
 
-    proto.initResize = function initResize (e, pos) {
+    proto.initResize = function initResize(e, pos) {
       if (this.manager.isFullscreen) return
 
       e.preventDefault()
@@ -330,7 +301,7 @@
       document.addEventListener('mouseup', onMouseUp)
     }
 
-    proto.toggleFullscreen = function toggleFullscreen () {
+    proto.toggleFullscreen = function toggleFullscreen() {
       const manager = this.manager
       if (!manager.chatWindowState) {
         manager.chatWindowState = {}
@@ -344,7 +315,7 @@
           left: this.element.style.left,
           bottom: this.element.style.bottom,
           right: this.element.style.right,
-          transform: this.element.style.transform
+          transform: this.element.style.transform,
         }
 
         this.element.style.removeProperty('width')
@@ -416,7 +387,7 @@
       }
     }
 
-    proto.updateFullscreenHeight = function updateFullscreenHeight () {
+    proto.updateFullscreenHeight = function updateFullscreenHeight() {
       if (!this.manager || !this.manager.isFullscreen || !this.element) return
 
       let viewportHeight
@@ -461,7 +432,7 @@
       })
     }
 
-    proto._getOrCreateMessageContentDiv = function _getOrCreateMessageContentDiv (messageBubble, streaming = false) {
+    proto._getOrCreateMessageContentDiv = function _getOrCreateMessageContentDiv(messageBubble, streaming = false) {
       if (!messageBubble) return null
       let contentDiv = messageBubble.querySelector('.pet-chat-content')
       if (!contentDiv) {
@@ -482,7 +453,7 @@
       return contentDiv
     }
 
-    proto._findUserMessageForRetry = function _findUserMessageForRetry (messageDiv, messagesContainer) {
+    proto._findUserMessageForRetry = function _findUserMessageForRetry(messageDiv, messagesContainer) {
       const allMessages = Array.from(messagesContainer.children)
       const currentIndex = allMessages.indexOf(messageDiv)
 
@@ -496,7 +467,7 @@
 
         if (userBubble) {
           const userMessageText =
-                        userBubble.getAttribute('data-original-text') || userBubble.textContent || userBubble.innerText
+            userBubble.getAttribute('data-original-text') || userBubble.textContent || userBubble.innerText
 
           if (userMessageText && userMessageText.trim()) {
             return userMessageText.trim()
@@ -507,7 +478,7 @@
       return null
     }
 
-    proto._getWaitingIcon = function _getWaitingIcon () {
+    proto._getWaitingIcon = function _getWaitingIcon() {
       if (this.element) {
         const welcomeActions = this.element.querySelector('#pet-welcome-actions')
         if (welcomeActions) {
@@ -520,29 +491,29 @@
       return '⏳'
     }
 
-    proto._updateTryAgainButtonState = function _updateTryAgainButtonState (button, state) {
+    proto._updateTryAgainButtonState = function _updateTryAgainButtonState(button, state) {
       const states = {
         idle: {
           icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
                     <path d="M23 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>`
+                </svg>`,
         },
         loading: {
-          icon: this._getWaitingIcon()
+          icon: this._getWaitingIcon(),
         },
         success: {
           icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
                     <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>`
+                </svg>`,
         },
         error: {
           icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
                     <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>`
-        }
+                </svg>`,
+        },
       }
 
       const buttonState = states[state] || states.idle
@@ -555,7 +526,11 @@
       }
     }
 
-    proto._createStreamContentCallback = function _createStreamContentCallback (messageBubble, messagesContainer, messageDiv = null) {
+    proto._createStreamContentCallback = function _createStreamContentCallback(
+      messageBubble,
+      messagesContainer,
+      messageDiv = null,
+    ) {
       let fullContent = ''
 
       if (messageDiv) {
@@ -595,7 +570,7 @@
           try {
             await this.manager.loadMermaid()
             const hasMermaidCode = contentDiv.querySelector(
-              'code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid'
+              'code.language-mermaid, code.language-mmd, pre code.language-mermaid, pre code.language-mmd, code[class*="mermaid"], div.mermaid',
             )
             if (hasMermaidCode) {
               await this.manager.processMermaidBlocks(contentDiv)
@@ -615,7 +590,11 @@
       return callback
     }
 
-    proto._retryGenerateResponse = async function _retryGenerateResponse (messageDiv, userMessageText, messagesContainer) {
+    proto._retryGenerateResponse = async function _retryGenerateResponse(
+      messageDiv,
+      userMessageText,
+      messagesContainer,
+    ) {
       const messageBubble = messageDiv.querySelector('[data-message-type="pet-bubble"]')
       if (!messageBubble) {
         throw new Error('未找到消息气泡')
@@ -637,7 +616,9 @@
       try {
         const reply = await this.manager.generatePetResponseStream(userMessageText, onStreamContent, abortController)
         const streamedReply =
-                    onStreamContent && typeof onStreamContent.getFullContent === 'function' ? onStreamContent.getFullContent() : ''
+          onStreamContent && typeof onStreamContent.getFullContent === 'function'
+            ? onStreamContent.getFullContent()
+            : ''
         const finalContent = String(streamedReply || reply || '').trim() || '请继续。'
 
         messageDiv.classList.remove('is-streaming')
@@ -679,7 +660,7 @@
       }
     }
 
-    proto._handleRetryError = function _handleRetryError (messageDiv, error) {
+    proto._handleRetryError = function _handleRetryError(messageDiv, error) {
       const isAbortError = error.name === 'AbortError' || error.message === '请求已取消'
 
       if (!isAbortError) {
@@ -698,7 +679,7 @@
       return isAbortError
     }
 
-    proto._setupSidebarAfterRender = function _setupSidebarAfterRender (sidebarEl, options = {}) {
+    proto._setupSidebarAfterRender = function _setupSidebarAfterRender(sidebarEl, options = {}) {
       const manager = this.manager
       const { store, computedProps, methods, bindSidebarDomEvents } = options
 
@@ -710,13 +691,14 @@
       const tagMount = sidebarEl.querySelector('#yi-pet-tag-filter-mount')
       if (tagMount) {
         const hasVueTagFilter =
-                    !!tagMount.querySelector('[data-pet-tag-filter="vue"]') || !!sidebarEl.querySelector('[data-pet-tag-filter="vue"]')
+          !!tagMount.querySelector('[data-pet-tag-filter="vue"]') ||
+          !!sidebarEl.querySelector('[data-pet-tag-filter="vue"]')
         if (!hasVueTagFilter) {
           const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar
           const tagFilterContainer =
-                        SessionSidebarModule && typeof SessionSidebarModule.createTagFilterFallbackElement === 'function'
-                          ? SessionSidebarModule.createTagFilterFallbackElement(manager)
-                          : null
+            SessionSidebarModule && typeof SessionSidebarModule.createTagFilterFallbackElement === 'function'
+              ? SessionSidebarModule.createTagFilterFallbackElement(manager)
+              : null
           if (tagFilterContainer) tagMount.replaceWith(tagFilterContainer)
         }
       }
@@ -724,16 +706,16 @@
       const batchMount = sidebarEl.querySelector('#yi-pet-batch-toolbar-mount')
       if (batchMount) {
         const hasVueBatchToolbar =
-                    !!batchMount.querySelector('[data-pet-batch-toolbar="vue"]') ||
-                    !!sidebarEl.querySelector('[data-pet-batch-toolbar="vue"]')
+          !!batchMount.querySelector('[data-pet-batch-toolbar="vue"]') ||
+          !!sidebarEl.querySelector('[data-pet-batch-toolbar="vue"]')
         if (!hasVueBatchToolbar) {
           const SessionSidebarModule = window.PetManager?.Components?.SessionSidebar
           const batchToolbar =
-                        typeof manager.buildBatchToolbar === 'function'
-                          ? manager.buildBatchToolbar()
-                          : SessionSidebarModule && typeof SessionSidebarModule.createBatchToolbarElement === 'function'
-                            ? SessionSidebarModule.createBatchToolbarElement(manager)
-                            : null
+            typeof manager.buildBatchToolbar === 'function'
+              ? manager.buildBatchToolbar()
+              : SessionSidebarModule && typeof SessionSidebarModule.createBatchToolbarElement === 'function'
+                ? SessionSidebarModule.createBatchToolbarElement(manager)
+                : null
           if (batchToolbar) batchMount.replaceWith(batchToolbar)
         }
       }
@@ -750,7 +732,7 @@
       }, 0)
     }
 
-    proto._bindHeaderDomEvents = function _bindHeaderDomEvents (rootEl, methods) {
+    proto._bindHeaderDomEvents = function _bindHeaderDomEvents(rootEl, methods) {
       if (!rootEl || rootEl.hasAttribute('data-header-events-bound')) return
       rootEl.setAttribute('data-header-events-bound', 'true')
 
@@ -759,23 +741,13 @@
         authBtn.addEventListener('click', (e) => methods.onAuthClick(e))
       }
 
-      const aicrBtn = rootEl.querySelector('#yi-pet-chat-aicr-btn')
-      if (aicrBtn && typeof methods?.onAicrClick === 'function') {
-        aicrBtn.addEventListener('click', (e) => methods.onAicrClick(e))
-      }
-
-      const newsBtn = rootEl.querySelector('#yi-pet-chat-news-btn')
-      if (newsBtn && typeof methods?.onNewsClick === 'function') {
-        newsBtn.addEventListener('click', (e) => methods.onNewsClick(e))
-      }
-
       const sidebarToggleBtn = rootEl.querySelector('#sidebar-toggle-btn')
       if (sidebarToggleBtn && typeof methods?.onSidebarToggleClick === 'function') {
         sidebarToggleBtn.addEventListener('click', (e) => methods.onSidebarToggleClick(e))
       }
     }
 
-    proto._bindSidebarDomEvents = function _bindSidebarDomEvents (sidebarEl, options = {}) {
+    proto._bindSidebarDomEvents = function _bindSidebarDomEvents(sidebarEl, options = {}) {
       if (!sidebarEl || sidebarEl.hasAttribute('data-sidebar-events-bound')) return
       sidebarEl.setAttribute('data-sidebar-events-bound', 'true')
 
@@ -868,7 +840,6 @@
           }
         })
       }
-
 
       const addBtn = sidebarEl.querySelector('.session-action-btn--add')
       if (addBtn) {

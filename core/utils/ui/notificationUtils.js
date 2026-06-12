@@ -21,12 +21,12 @@
 
 class NotificationUtils {
   /**
-     * 显示通知
-     * @param {string} message - 通知消息
-     * @param {string} type - 通知类型：'success' | 'error' | 'info'
-     * @param {Object} options - 选项 {position: 'top'|'right', duration: number}
-     */
-  static show (message, type = 'success', options = {}) {
+   * 显示通知
+   * @param {string} message - 通知消息
+   * @param {string} type - 通知类型：'success' | 'error' | 'info'
+   * @param {Object} options - 选项 {position: 'top'|'right', duration: number}
+   */
+  static show(message, type = 'success', options = {}) {
     if (!message) return
 
     const position = options.position || 'right' // 'top' 或 'right'
@@ -34,9 +34,11 @@ class NotificationUtils {
     const baseClass = options.baseClass || 'pet-notification'
     const includePositionClass = options.includePositionClass !== false
     const exitingClass = options.exitingClass || 'notification-exiting'
-    const zIndex = options.zIndex || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal)
-      ? PET_CONFIG.ui.zIndex.modal + 1
-      : 2147483650
+    const zIndex =
+      options.zIndex ||
+      (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal)
+        ? PET_CONFIG.ui.zIndex.modal + 1
+        : 2147483650
 
     // 创建通知元素（使用 CSS 类，样式已在 content.css 中定义）
     const notification = document.createElement('div')
@@ -69,29 +71,29 @@ class NotificationUtils {
   }
 
   /**
-     * 显示成功通知
-     * @param {string} message - 通知消息
-     * @param {Object} options - 选项
-     */
-  static success (message, options = {}) {
+   * 显示成功通知
+   * @param {string} message - 通知消息
+   * @param {Object} options - 选项
+   */
+  static success(message, options = {}) {
     return this.show(message, 'success', options)
   }
 
   /**
-     * 显示错误通知
-     * @param {string} message - 通知消息
-     * @param {Object} options - 选项
-     */
-  static error (message, options = {}) {
+   * 显示错误通知
+   * @param {string} message - 通知消息
+   * @param {Object} options - 选项
+   */
+  static error(message, options = {}) {
     return this.show(message, 'error', options)
   }
 
   /**
-     * 显示信息通知
-     * @param {string} message - 通知消息
-     * @param {Object} options - 选项
-     */
-  static info (message, options = {}) {
+   * 显示信息通知
+   * @param {string} message - 通知消息
+   * @param {Object} options - 选项
+   */
+  static info(message, options = {}) {
     return this.show(message, 'info', options)
   }
 }

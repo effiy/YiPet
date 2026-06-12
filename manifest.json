@@ -1,13 +1,10 @@
 {
   "manifest_version": 3,
   "name": "温柔陪伴助手",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "在浏览器中添加一位温柔体贴的伴侣，陪伴您的浏览时光。支持多种互动功能，让网页浏览更加有趣！",
   "permissions": ["storage", "tabs", "scripting", "webRequest"],
-  "host_permissions": [
-    "<all_urls>",
-    "https://api.effiy.cn/*"
-  ],
+  "host_permissions": ["<all_urls>", "https://api.effiy.cn/*"],
   "background": {
     "service_worker": "modules/extension/background/index.js"
   },
@@ -30,6 +27,7 @@
         "core/utils/session/sessionManager.js",
         "core/api/services/FaqService.js",
         "libs/marked.min.js",
+        "cdn/markdown/markdown.js",
         "libs/turndown.js",
         "libs/vue.global.js",
         "core/utils/logging/loggerUtils.js",
@@ -52,6 +50,7 @@
         "modules/pet/content/editor/petManager.editor.core.js",
         "modules/pet/content/editor/petManager.editor.ui.js",
         "modules/pet/content/modules/petManager.editor.js",
+        "cdn/markdown/mermaid.js",
         "modules/pet/content/mermaid/petManager.mermaid.renderer.js",
         "modules/pet/content/mermaid/petManager.mermaid.ui.js",
         "modules/pet/components/manager/SessionTagManager/index.js",
@@ -67,6 +66,7 @@
         "modules/pet/components/chat/ChatWindow/hooks/store.js",
         "modules/pet/components/chat/ChatWindow/hooks/useComputed.js",
         "modules/pet/components/chat/ChatWindow/hooks/useMethods.js",
+        "modules/pet/components/chat/ChatWindow/utils.js",
         "modules/pet/components/chat/ChatHeader/index.js",
         "modules/pet/components/chat/ChatInput/index.js",
         "modules/pet/components/chat/ChatMessages/index.js",
@@ -86,6 +86,12 @@
       "css": [
         "assets/styles/tailwind.css",
         "assets/styles/content.css",
+        "assets/styles/components/pet.css",
+        "assets/styles/components/chat.css",
+        "assets/styles/components/faq.css",
+        "assets/styles/components/tags.css",
+        "assets/styles/components/session.css",
+        "assets/styles/components/modal.css",
         "modules/pet/components/chat/ChatWindow/index.css"
       ],
       "run_at": "document_end"
@@ -124,9 +130,9 @@
         "assets/images/*/icon.png",
         "assets/images/*/run/*.png",
         "libs/mermaid.min.js",
-        "modules/mermaid/page/load-mermaid.js",
-        "modules/mermaid/page/render-mermaid.js",
-        "modules/mermaid/page/preview-mermaid.js",
+        "cdn/markdown/mermaid-page-load.js",
+        "cdn/markdown/mermaid-page-render.js",
+        "cdn/markdown/mermaid-page-preview.js",
         "modules/pet/components/chat/ChatWindow/index.html",
         "modules/pet/components/chat/ChatHeader/index.html",
         "modules/pet/components/manager/SessionTagManager/index.html",

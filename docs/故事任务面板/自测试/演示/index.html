@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+  <title>YiPet 自检 · 演示中心</title>
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --card: #24283b;
+      --text: #a9b1d6;
+      --text2: rgba(160,160,164,1);
+      --text3: rgba(110,110,114,1);
+      --accent: #34d399;
+      --cyan: #22d3ee;
+      --border: 1px solid rgba(255,255,255,0.06);
+      --shadow: 0 4px 20px rgba(0,0,0,0.3);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+      --radius: 12px;
+    }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeInDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes cardEnter { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    * { box-sizing:border-box;margin:0;padding:0 }
+    html { scroll-behavior:smooth }
+    body {
+      background:var(--bg);color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;
+      line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased;
+    }
+    .container { max-width:1120px;margin:0 auto;padding:48px 24px 80px }
+    .breadcrumb { display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:16px;font-size:.78rem;animation:fadeInDown .4s ease both }
+    .breadcrumb a { color:var(--cyan);text-decoration:none;transition:color .15s }
+    .breadcrumb a:hover { color:var(--accent);text-decoration:underline }
+    .breadcrumb .sep { color:var(--text3);opacity:.4;user-select:none }
+    .breadcrumb .current { color:var(--text2);font-weight:500 }
+    .header { text-align:center;margin-bottom:24px;animation:fadeInDown .5s ease both }
+    .header h1 { font-size:2.1rem;font-weight:700 }
+    .header .sub { color:var(--text2);font-size:.9rem;margin-top:4px }
+    .cross-nav { display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:32px;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both }
+    .cross-nav a { color:var(--cyan);text-decoration:none;font-size:.74rem;padding:3px 10px;border-radius:4px;transition:color .15s,background .15s }
+    .cross-nav a:hover { color:var(--accent);background:rgba(52,211,153,.06);text-decoration:underline }
+    .cross-nav a.on { color:var(--accent);font-weight:600 }
+    .cross-nav .cross-sep { color:var(--text3);font-size:.5rem;opacity:.35;user-select:none }
+    .content { animation:fadeInUp .5s ease both }
+    .scene-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-top:16px }
+    .scene-card {
+      background:linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      border:var(--border);border-radius:var(--radius);padding:24px;
+      box-shadow:var(--shadow);transition:transform .2s,box-shadow .2s,border-color .2s;
+      display:flex;flex-direction:column;gap:12px;
+      animation:cardEnter .5s ease both;
+    }
+    .scene-card:nth-child(1) { animation-delay:.05s }
+    .scene-card:nth-child(2) { animation-delay:.10s }
+    .scene-card:nth-child(3) { animation-delay:.15s }
+    .scene-card:nth-child(4) { animation-delay:.20s }
+    .scene-card:nth-child(5) { animation-delay:.25s }
+    .scene-card:nth-child(6) { animation-delay:.30s }
+    .scene-card:hover { transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:rgba(52,211,153,.2) }
+    .scene-card-header { display:flex;align-items:center;gap:10px }
+    .scene-icon { font-size:1.4rem;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:rgba(52,211,153,.1);border-radius:8px;flex-shrink:0 }
+    .scene-title { font-size:1.05rem;font-weight:600;color:var(--text) }
+    .scene-number { font-size:.72rem;color:var(--accent);font-weight:500;margin-bottom:2px }
+    .scene-desc { font-size:.85rem;color:var(--text2);line-height:1.5;flex:1 }
+    .scene-link { display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:.82rem;text-decoration:none;font-weight:500;padding:6px 0;transition:gap .15s }
+    .scene-link:hover { gap:10px;text-decoration:underline }
+    .scene-link .arrow { transition:transform .15s }
+    .scene-link:hover .arrow { transform:translateX(3px) }
+    .footer-note { text-align:center;color:var(--text3);font-size:.78rem;margin-top:32px;padding-bottom:20px }
+    @media(max-width:768px) {
+      .container { padding:24px 16px 60px }
+      .header h1 { font-size:1.5rem }
+      .cross-nav { gap:2px }
+      .cross-nav a { font-size:.7rem;padding:2px 7px }
+      .scene-grid { grid-template-columns:1fr }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="../../index.html">docs</a>
+      <span class="sep">/</span>
+      <a href="故事任务.md">yipet-self-test</a>
+      <span class="sep">/</span>
+      <span class="current">演示中心</span>
+    </div>
+    <div class="cross-nav">
+      <a href="故事任务.md">📋 故事任务</a>
+      <span class="cross-sep">|</span>
+      <a href="故事任务.md">🔍 自检全景</a>
+      <span class="cross-sep">|</span>
+      <a href="知识图谱.html">🔗 知识图谱</a>
+      <span class="cross-sep">|</span>
+      <a href="演示/index.html" class="on">💡 演示中心</a>
+    </div>
+    <div class="header">
+      <h1>YiPet 自检 · 演示中心</h1>
+      <div class="sub">6 个测试场景 — 核心逻辑 · 接口测试 · 存储测试 · 错误边界 · 集成测试 · 安全面回归</div>
+    </div>
+    <div class="content">
+      <div class="scene-grid">
+
+        <a class="scene-card" href="../场景-1-核心逻辑/">
+          <div class="scene-card-header">
+            <div class="scene-icon">🧩</div>
+            <div>
+              <div class="scene-number">场景 1</div>
+              <div class="scene-title">核心逻辑</div>
+            </div>
+          </div>
+          <div class="scene-desc">配置中心（PET_CONFIG）与 Token 管理器（TokenManager）的单元测试，覆盖默认值合并、环境变量注入、Token 三级降级、格式校验。</div>
+          <span class="scene-link">进入场景 <span class="arrow">→</span></span>
+        </a>
+
+        <a class="scene-card" href="../场景-2-接口测试/">
+          <div class="scene-card-header">
+            <div class="scene-icon">🌐</div>
+            <div>
+              <div class="scene-number">场景 2</div>
+              <div class="scene-title">接口测试</div>
+            </div>
+          </div>
+          <div class="scene-desc">RequestClient 与 ApiManager 的单元测试，覆盖请求构造、重试策略、超时控制、拦截器链、HTTP 方法全覆盖。</div>
+          <span class="scene-link">进入场景 <span class="arrow">→</span></span>
+        </a>
+
+        <a class="scene-card" href="../场景-3-存储测试/">
+          <div class="scene-card-header">
+            <div class="scene-icon">💾</div>
+            <div>
+              <div class="scene-number">场景 3</div>
+              <div class="scene-title">存储测试</div>
+            </div>
+          </div>
+          <div class="scene-desc">chrome.storage.local CRUD 操作、配额超限清理、SessionManager 会话管理的测试，验证存储降级与配额保护机制。</div>
+          <span class="scene-link">进入场景 <span class="arrow">→</span></span>
+        </a>
+
+        <a class="scene-card" href="../场景-4-错误边界/">
+          <div class="scene-card-header">
+            <div class="scene-icon">🛡️</div>
+            <div>
+              <div class="scene-number">场景 4</div>
+              <div class="scene-title">错误边界</div>
+            </div>
+          </div>
+          <div class="scene-desc">6 种错误分类、重试决策矩阵、降级行为验证、全局错误处理，确保异常路径安全可恢复。</div>
+          <span class="scene-link">进入场景 <span class="arrow">→</span></span>
+        </a>
+
+        <a class="scene-card" href="../场景-5-集成测试/">
+          <div class="scene-card-header">
+            <div class="scene-icon">🔗</div>
+            <div>
+              <div class="scene-number">场景 5</div>
+              <div class="scene-title">集成测试</div>
+            </div>
+          </div>
+          <div class="scene-desc">模块联调链路、Service Worker 消息路由、Vue 组件渲染的端到端集成测试，验证全链路协同正确性。</div>
+          <span class="scene-link">进入场景 <span class="arrow">→</span></span>
+        </a>
+
+        <a class="scene-card" href="../场景-6-安全面回归/">
+          <div class="scene-card-header">
+            <div class="scene-icon">🔒</div>
+            <div>
+              <div class="scene-number">场景 6</div>
+              <div class="scene-title">安全面回归</div>
+            </div>
+          </div>
+          <div class="scene-desc">Token 认证安全、输入校验、全站注入跳过策略、存储配额保护的回归测试，确保安全底线不可妥协。</div>
+          <span class="scene-link">进入场景 <span class="arrow">→</span></span>
+        </a>
+
+      </div>
+    </div>
+    <div class="footer-note">yipet-self-test · 演示中心 · 生成于 2026-06-10</div>
+  </div>
+</body>
+</html>

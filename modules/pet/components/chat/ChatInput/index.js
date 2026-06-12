@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) window.PetManager = {}
@@ -7,19 +7,19 @@
   const CHAT_INPUT_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/ChatInput/index.html'
   let chatInputTemplateCache = ''
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (chatInputTemplateCache) return chatInputTemplateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     chatInputTemplateCache = await DomHelper.loadHtmlTemplate(
       CHAT_INPUT_TEMPLATES_RESOURCE_PATH,
       '#yi-pet-chat-input-template',
-      'Failed to load ChatInput template'
+      'Failed to load ChatInput template',
     )
     return chatInputTemplateCache
   }
 
-  function closeOverlays (manager) {
+  function closeOverlays(manager) {
     try {
       if (typeof manager?.closeWeWorkRobotSettingsModal === 'function') manager.closeWeWorkRobotSettingsModal()
     } catch (_) {}
@@ -28,7 +28,7 @@
     } catch (_) {}
   }
 
-  async function openTagManagerSafe (manager) {
+  async function openTagManagerSafe(manager) {
     try {
       closeOverlays(manager)
 
@@ -50,7 +50,7 @@
     }
   }
 
-  async function openFaqManagerSafe (manager) {
+  async function openFaqManagerSafe(manager) {
     try {
       closeOverlays(manager)
 
@@ -64,7 +64,7 @@
     }
   }
 
-  async function readContextSwitchEnabledFromStorage () {
+  async function readContextSwitchEnabledFromStorage() {
     try {
       if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') {
         return undefined
@@ -83,7 +83,7 @@
     }
   }
 
-  function writeContextSwitchEnabledToStorage (value) {
+  function writeContextSwitchEnabledToStorage(value) {
     try {
       if (typeof chrome !== 'undefined' && chrome?.storage?.local && typeof chrome.storage.local.set === 'function') {
         chrome.storage.local.set({ contextSwitchEnabled: !!value })
@@ -91,13 +91,15 @@
     } catch (_) {}
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const manager = params?.manager
     const instance = params?.instance
     const template = params?.template
     const Vue = window.Vue || {}
     const { defineComponent, ref, onMounted, onBeforeUnmount, nextTick } = Vue
-    if (typeof defineComponent !== 'function' || typeof ref !== 'function' || typeof onMounted !== 'function') return null
+    if (typeof defineComponent !== 'function' || typeof ref !== 'function' || typeof onMounted !== 'function') {
+      return null
+    }
 
     const resolvedTemplate = String(template || chatInputTemplateCache || '').trim()
     if (!resolvedTemplate) return null
@@ -105,9 +107,9 @@
     return defineComponent({
       name: 'YiPetChatInput',
       props: {
-        uiTick: { type: Number, required: true }
+        uiTick: { type: Number, required: true },
       },
-      setup () {
+      setup() {
         const rootEl = ref(null)
         const textareaEl = ref(null)
         const imageInputEl = ref(null)
@@ -237,7 +239,9 @@
           if (!textarea) return
 
           const items = e?.clipboardData?.items ? Array.from(e.clipboardData.items) : []
-          const imageItems = items.filter((item) => item && typeof item.type === 'string' && item.type.includes('image'))
+          const imageItems = items.filter(
+            (item) => item && typeof item.type === 'string' && item.type.includes('image'),
+          )
           if (imageItems.length === 0) return
 
           e.preventDefault()
@@ -266,7 +270,7 @@
                 reader.onerror = () => resolve()
                 reader.readAsDataURL(file)
               })
-            })
+            }),
           )
 
           if (instance) instance.draftImages = current
@@ -482,14 +486,14 @@
           onRemoveDraftImage,
           onClearDraftImages,
           onPreviewOverlayClick,
-          closePreview
+          closePreview,
         }
       },
-      template: resolvedTemplate
+      template: resolvedTemplate,
     })
   }
 
-  function updateDraftImagesDisplay (instance) {
+  function updateDraftImagesDisplay(instance) {
     if (instance && typeof instance._syncChatInputDraftImages === 'function') {
       instance._syncChatInputDraftImages()
       return
@@ -593,7 +597,7 @@
     })
   }
 
-  function handleImageInputChange (manager, instance, e) {
+  function handleImageInputChange(manager, instance, e) {
     const target = e?.target
     const files = Array.from(target?.files || [])
     if (files.length === 0) return
@@ -641,7 +645,7 @@
     if (target) target.value = ''
   }
 
-  function removeDraftImage (instance, index) {
+  function removeDraftImage(instance, index) {
     const draftImages = Array.isArray(instance?.draftImages) ? instance.draftImages : []
     const idx = Number(index)
     if (!Number.isFinite(idx) || idx < 0 || idx >= draftImages.length) return
@@ -650,12 +654,12 @@
     updateDraftImagesDisplay(instance)
   }
 
-  function clearDraftImages (instance) {
+  function clearDraftImages(instance) {
     if (instance) instance.draftImages = []
     updateDraftImagesDisplay(instance)
   }
 
-  function previewDraftImage (src, index) {
+  function previewDraftImage(src, index) {
     const existing = document.body ? document.body.querySelector('.pet-draft-image-preview-modal') : null
     if (existing) existing.remove()
 
@@ -672,12 +676,12 @@
 
     document.body.insertAdjacentHTML(
       'beforeend',
-            `
+      `
                 <div class="pet-draft-image-preview-modal" role="dialog" aria-modal="true" aria-label="图片预览">
                     <img src="${safeSrc}" alt="${safeAlt}" />
                     <button type="button" class="modal-close-btn" aria-label="关闭预览">✕</button>
                 </div>
-            `.trim()
+            `.trim(),
     )
 
     const modal = document.body.querySelector('.pet-draft-image-preview-modal')
@@ -708,7 +712,7 @@
     document.body.style.overflow = 'hidden'
   }
 
-  function createFallbackInputHtml () {
+  function createFallbackInputHtml() {
     return `
             <div class="yi-pet-chat-input-container chat-input-container">
                 <div class="yi-pet-chat-toolbar chat-input-toolbar">
@@ -758,7 +762,7 @@
         `.trim()
   }
 
-  function createInputContainerElement (manager, instance) {
+  function createInputContainerElement(manager, instance) {
     const html = createFallbackInputHtml()
     const tpl = document.createElement('template')
     tpl.innerHTML = html
@@ -815,7 +819,7 @@
             reader.onerror = () => resolve()
             reader.readAsDataURL(file)
           })
-        })
+        }),
       )
 
       if (instance) instance.draftImages = current
@@ -988,6 +992,6 @@
     loadTemplate,
     createComponent,
     createInputContainerElement,
-    updateDraftImagesDisplay
+    updateDraftImagesDisplay,
   }
 })()

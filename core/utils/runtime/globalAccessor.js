@@ -17,10 +17,10 @@
 
 class GlobalAccessor {
   /**
-     * 获取全局对象（根据环境自动选择）
-     * @returns {Object} 全局对象
-     */
-  static getGlobal () {
+   * 获取全局对象（根据环境自动选择）
+   * @returns {Object} 全局对象
+   */
+  static getGlobal() {
     if (typeof globalThis !== 'undefined') {
       return globalThis
     }
@@ -37,12 +37,12 @@ class GlobalAccessor {
   }
 
   /**
-     * 安全获取全局属性
-     * @param {string} name - 属性名称
-     * @param {Object} [context] - 上下文对象（可选）
-     * @returns {*} 属性值或 undefined
-     */
-  static get (name, context = null) {
+   * 安全获取全局属性
+   * @param {string} name - 属性名称
+   * @param {Object} [context] - 上下文对象（可选）
+   * @returns {*} 属性值或 undefined
+   */
+  static get(name, context = null) {
     const globalObj = context || this.getGlobal()
     try {
       return globalObj[name]
@@ -52,16 +52,16 @@ class GlobalAccessor {
   }
 
   /**
-     * 获取多个全局属性
-     * @param {Array<string>} names - 属性名称数组
-     * @param {Object} [context] - 上下文对象（可选）
-     * @returns {Object} 属性映射对象 {name: value}
-     */
-  static getMultiple (names, context = null) {
+   * 获取多个全局属性
+   * @param {Array<string>} names - 属性名称数组
+   * @param {Object} [context] - 上下文对象（可选）
+   * @returns {Object} 属性映射对象 {name: value}
+   */
+  static getMultiple(names, context = null) {
     const result = {}
     const globalObj = context || this.getGlobal()
 
-    names.forEach(name => {
+    names.forEach((name) => {
       try {
         result[name] = globalObj[name]
       } catch (e) {
@@ -73,37 +73,37 @@ class GlobalAccessor {
   }
 
   /**
-     * 检查全局属性是否存在
-     * @param {string} name - 属性名称
-     * @param {Object} [context] - 上下文对象（可选）
-     * @returns {boolean} 是否存在
-     */
-  static has (name, context = null) {
+   * 检查全局属性是否存在
+   * @param {string} name - 属性名称
+   * @param {Object} [context] - 上下文对象（可选）
+   * @returns {boolean} 是否存在
+   */
+  static has(name, context = null) {
     const value = this.get(name, context)
     return value !== undefined && value !== null
   }
 
   /**
-     * 获取 ErrorHandler（常用方法）
-     * @returns {ErrorHandler|null} ErrorHandler 实例或 null
-     */
-  static getErrorHandler () {
+   * 获取 ErrorHandler（常用方法）
+   * @returns {ErrorHandler|null} ErrorHandler 实例或 null
+   */
+  static getErrorHandler() {
     return this.get('ErrorHandler') || null
   }
 
   /**
-     * 获取 InjectionService（常用方法）
-     * @returns {InjectionService|null} InjectionService 实例或 null
-     */
-  static getInjectionService () {
+   * 获取 InjectionService（常用方法）
+   * @returns {InjectionService|null} InjectionService 实例或 null
+   */
+  static getInjectionService() {
     return this.get('InjectionService') || null
   }
 
   /**
-     * 获取 TabMessaging（常用方法）
-     * @returns {TabMessaging|null} TabMessaging 实例或 null
-     */
-  static getTabMessaging () {
+   * 获取 TabMessaging（常用方法）
+   * @returns {TabMessaging|null} TabMessaging 实例或 null
+   */
+  static getTabMessaging() {
     return this.get('TabMessaging') || null
   }
 }

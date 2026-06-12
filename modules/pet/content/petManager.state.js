@@ -2,7 +2,7 @@
  * PetManager - 状态管理相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -30,7 +30,7 @@
       position: this.position,
       role: this.role || '教师',
       model: this.currentModel,
-      timestamp: now
+      timestamp: now,
     }
 
     // 保存待更新的状态
@@ -103,7 +103,8 @@
     this.colorIndex = state.color !== undefined ? state.color : PET_CONFIG.pet.defaultColorIndex
     this.size = state.size !== undefined ? state.size : PET_CONFIG.pet.defaultSize
 
-    this.currentModel = state.model !== undefined ? state.model : ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || '')
+    this.currentModel =
+      state.model !== undefined ? state.model : (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || ''
     // 加载角色，默认为教师
     this.role = state.role || '教师'
     // 位置也使用全局状态，但会进行边界检查
@@ -156,7 +157,7 @@
 
     return {
       x: Math.max(0, Math.min(maxX, position.x)),
-      y: Math.max(0, Math.min(maxY, position.y))
+      y: Math.max(0, Math.min(maxY, position.y)),
     }
   }
 
@@ -206,7 +207,7 @@
     const Vue = window.Vue || {}
     const { reactive } = Vue
     const base = {
-      sidebarToggleHiddenLocks: Object.create(null)
+      sidebarToggleHiddenLocks: Object.create(null),
     }
     if (typeof reactive === 'function') {
       this._headerUiStore = reactive(base)

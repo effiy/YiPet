@@ -2,7 +2,7 @@
  * Session Tag Module
  * 会话标签管理模块
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -48,9 +48,9 @@
     const allSessions = this._getSessionsFromLocal ? this._getSessionsFromLocal() : Object.values(this.sessions || {})
 
     const tagSet = new Set()
-    allSessions.forEach(session => {
+    allSessions.forEach((session) => {
       if (session.tags && Array.isArray(session.tags)) {
-        session.tags.forEach(tag => {
+        session.tags.forEach((tag) => {
           if (tag && tag.trim()) {
             tagSet.add(tag.trim())
           }
@@ -64,13 +64,13 @@
       const orderedTags = []
       const unorderedTags = []
 
-      this.tagOrder.forEach(tag => {
+      this.tagOrder.forEach((tag) => {
         if (allTags.includes(tag)) {
           orderedTags.push(tag)
         }
       })
 
-      allTags.forEach(tag => {
+      allTags.forEach((tag) => {
         if (!this.tagOrder.includes(tag)) {
           unorderedTags.push(tag)
         }
@@ -85,13 +85,13 @@
     const priorityTagList = []
     const otherTags = []
 
-    priorityTags.forEach(tag => {
+    priorityTags.forEach((tag) => {
       if (allTags.includes(tag)) {
         priorityTagList.push(tag)
       }
     })
 
-    allTags.forEach(tag => {
+    allTags.forEach((tag) => {
       if (!priorityTagSet.has(tag)) {
         otherTags.push(tag)
       }

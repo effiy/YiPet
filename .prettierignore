@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+dist/
+test-results/
+.claude/
+docs/
+libs/
+cdn/
+*.zip
+*.crx
+*.pem
+modules/pet/components/manager/FaqManager/index.html

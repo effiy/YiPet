@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) return
@@ -7,7 +7,7 @@
   const TEMPLATE_RESOURCE_PATH = 'modules/pet/components/modal/TokenSettingsModal/index.html'
   let templateCache = ''
 
-  function canUseVueTemplate (Vue) {
+  function canUseVueTemplate(Vue) {
     if (typeof Vue?.compile !== 'function') return false
     try {
       Function('return 1')()
@@ -17,19 +17,19 @@
     }
   }
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (templateCache) return templateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     templateCache = await DomHelper.loadHtmlTemplate(
       TEMPLATE_RESOURCE_PATH,
       '#yi-pet-token-settings-modal-template',
-      'Failed to load TokenSettingsModal template'
+      'Failed to load TokenSettingsModal template',
     )
     return templateCache
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const manager = params?.manager
     const store = params?.store
     const template = params?.template
@@ -44,7 +44,7 @@
 
     const componentOptions = {
       name: 'YiPetTokenSettingsModal',
-      setup () {
+      setup() {
         const tokenInputEl = ref(null)
         const models =
           typeof computed === 'function'
@@ -125,8 +125,8 @@
                   store.token = evt?.target?.value || ''
                   store.invalid = false
                 },
-                onKeydown
-              })
+                onKeydown,
+              }),
             ]),
             h('p', { class: 'token-settings-description' }, '接口请求模型（默认 qwen3）'),
             h('div', { class: 'auth-input-container' }, [
@@ -137,24 +137,20 @@
                   value: store.model || '',
                   onChange: (evt) => {
                     store.model = evt?.target?.value || ''
-                  }
+                  },
                 },
                 models.value.map((m) =>
-                  h(
-                    'option',
-                    { key: m?.id, value: m?.id },
-                    `${m?.icon ? `${m.icon} ` : ''}${m?.name || m?.id || ''}`
-                  )
-                )
-              )
+                  h('option', { key: m?.id, value: m?.id }, `${m?.icon ? `${m.icon} ` : ''}${m?.name || m?.id || ''}`),
+                ),
+              ),
             ]),
             h('div', { class: 'auth-button-container' }, [
               h('button', { type: 'button', class: 'auth-save-btn', onClick: save }, '保存'),
-              h('button', { type: 'button', class: 'auth-cancel-btn', onClick: cancel }, '取消')
-            ])
+              h('button', { type: 'button', class: 'auth-cancel-btn', onClick: cancel }, '取消'),
+            ]),
           ])
       },
-      template: resolvedTemplate
+      template: resolvedTemplate,
     }
 
     return defineComponent(componentOptions)
@@ -162,6 +158,6 @@
 
   window.PetManager.Components.TokenSettingsModal = {
     loadTemplate,
-    createComponent
+    createComponent,
   }
 })()

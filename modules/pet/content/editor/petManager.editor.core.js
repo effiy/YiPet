@@ -1,4 +1,4 @@
-(function (global) {
+;(function (global) {
   'use strict'
 
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
@@ -7,21 +7,30 @@
 
   const proto = global.PetManager.prototype
 
+  // eslint-disable-next-line no-unused-vars -- EDITOR_PREVIEW_DEBOUNCE may be used by other modules via proto
   const EDITOR_PREVIEW_DEBOUNCE = 150
   const MERMAID_RENDER_DEBOUNCE = 150
   const MIN_CONTEXT_LENGTH = 50
   const AD_LINE_MIN_LENGTH = 180
 
-  const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_')
+  const normalizeNameSpaces = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '_')
+  // eslint-disable-next-line no-unused-vars -- sanitizePathSegment defined as utility, may be exported via proto
   const sanitizePathSegment = (value) => {
-    const s = String(value ?? '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '')
+    const s = String(value ?? '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '')
     return (s && s.length <= 80 ? s : s.slice(0, 80)) || 'page'
   }
 
-  const logger = (typeof global !== 'undefined' && global.LoggerUtils && typeof global.LoggerUtils.getLogger === 'function')
-    ? global.LoggerUtils.getLogger('editor')
-    : console
+  const logger =
+    typeof global !== 'undefined' && global.LoggerUtils && typeof global.LoggerUtils.getLogger === 'function'
+      ? global.LoggerUtils.getLogger('editor')
+      : console
 
+  // eslint-disable-next-line no-unused-vars -- parseImageDataUrl defined as utility, may be exported via proto
   const parseImageDataUrl = (dataUrl) => {
     const raw = String(dataUrl || '')
     const m = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/i)
@@ -36,7 +45,7 @@
       'image/gif': 'gif',
       'image/webp': 'webp',
       'image/bmp': 'bmp',
-      'image/svg+xml': 'svg'
+      'image/svg+xml': 'svg',
     }
     const ext = extMap[mime] || 'png'
     return { mime, base64, ext }
@@ -44,7 +53,7 @@
 
   proto._getContextExcludeSelectors = function () {
     const assistantId =
-      (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids)
+      typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids
         ? PET_CONFIG.constants.ids.assistantElement
         : 'chat-assistant-element'
     return [
@@ -117,7 +126,7 @@
       '[id*="pet-api"]',
       '[class*="pet-api"]',
       '[id*="pet-session"]',
-      '[class*="pet-session"]'
+      '[class*="pet-session"]',
     ]
   }
 
@@ -169,8 +178,8 @@
             poster: safeAbsUrl(poster),
             sources: Array.from(v.querySelectorAll('source')).map((s) => ({
               src: safeAbsUrl(s.getAttribute('src') || ''),
-              type: String(s.getAttribute('type') || '').trim()
-            }))
+              type: String(s.getAttribute('type') || '').trim(),
+            })),
           })
         } catch (_) {
           info.video.push({ src: '', poster: '', sources: [] })
@@ -183,8 +192,8 @@
             src: safeAbsUrl(src),
             sources: Array.from(a.querySelectorAll('source')).map((s) => ({
               src: safeAbsUrl(s.getAttribute('src') || ''),
-              type: String(s.getAttribute('type') || '').trim()
-            }))
+              type: String(s.getAttribute('type') || '').trim(),
+            })),
           })
         } catch (_) {
           info.audio.push({ src: '', sources: [] })
@@ -205,7 +214,14 @@
           const el = walker.currentNode
           try {
             if (!el || el.nodeType !== 1) continue
-            if (el.tagName && ['IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'SVG', 'IFRAME', 'PICTURE', 'SOURCE', 'SCRIPT', 'STYLE'].includes(el.tagName)) continue
+            if (
+              el.tagName &&
+              ['IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'SVG', 'IFRAME', 'PICTURE', 'SOURCE', 'SCRIPT', 'STYLE'].includes(
+                el.tagName,
+              )
+            ) {
+              continue
+            }
             if (el.querySelector && el.querySelector('img,video,audio,svg,canvas')) continue
             const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null
             if (rect && rect.width * rect.height < 1600) continue
@@ -261,7 +277,8 @@
       } catch (_) {}
     })
 
-    const keywordRe = /(advert|ad-|ads|banner|promo|sponsor|cookie|consent|subscribe|newsletter|breadcrumb|pagination|pager|toc|table-of-contents|share|social|comment|related|recommend)/i
+    const keywordRe =
+      /(advert|ad-|ads|banner|promo|sponsor|cookie|consent|subscribe|newsletter|breadcrumb|pagination|pager|toc|table-of-contents|share|social|comment|related|recommend)/i
     const removeIfBoilerplate = (el) => {
       if (!el || el.nodeType !== 1) return
       const tag = String(el.tagName || '').toLowerCase()
@@ -298,7 +315,10 @@
           return
         }
         const role = String(el.getAttribute('role') || '').toLowerCase()
-        if (role && ['navigation', 'banner', 'contentinfo', 'complementary', 'dialog', 'alert', 'alertdialog'].includes(role)) {
+        if (
+          role &&
+          ['navigation', 'banner', 'contentinfo', 'complementary', 'dialog', 'alert', 'alertdialog'].includes(role)
+        ) {
           try {
             el.remove()
           } catch (_) {}
@@ -380,11 +400,20 @@
 
     const calcLinkDensity = (el) => {
       try {
-        const text = String(el.textContent || '').replace(/\s+/g, ' ').trim()
+        const text = String(el.textContent || '')
+          .replace(/\s+/g, ' ')
+          .trim()
         const total = text.length
         if (!total) return 0
         const links = Array.from(el.querySelectorAll('a'))
-        const linkTextLen = links.reduce((sum, a) => sum + String(a.textContent || '').replace(/\s+/g, ' ').trim().length, 0)
+        const linkTextLen = links.reduce(
+          (sum, a) =>
+            sum +
+            String(a.textContent || '')
+              .replace(/\s+/g, ' ')
+              .trim().length,
+          0,
+        )
         return linkTextLen / total
       } catch (_) {
         return 0
@@ -394,7 +423,9 @@
     const maybeRemoveLinkHeavy = (el) => {
       const density = calcLinkDensity(el)
       if (density < 0.65) return
-      const textLen = String(el.textContent || '').replace(/\s+/g, ' ').trim().length
+      const textLen = String(el.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim().length
       if (textLen < 800) {
         try {
           el.remove()
@@ -417,19 +448,29 @@
 
     const cleaned = this._cloneAndCleanElementForContext(el)
     if (!cleaned) return -Infinity
-    const text = String(cleaned.textContent || '').replace(/\s+/g, ' ').trim()
+    const text = String(cleaned.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim()
     const textLen = text.length
     if (textLen < 200 && el !== document.body) return -Infinity
 
     let linkDensity = 0
     try {
       const links = Array.from(cleaned.querySelectorAll('a'))
-      const linkTextLen = links.reduce((sum, a) => sum + String(a.textContent || '').replace(/\s+/g, ' ').trim().length, 0)
+      const linkTextLen = links.reduce(
+        (sum, a) =>
+          sum +
+          String(a.textContent || '')
+            .replace(/\s+/g, ' ')
+            .trim().length,
+        0,
+      )
       linkDensity = textLen ? linkTextLen / textLen : 0
     } catch (_) {}
 
     const idClass = `${el.id || ''} ${el.className || ''}`.trim()
-    const keywordRe = /(advert|ad-|ads|banner|promo|sponsor|cookie|consent|subscribe|newsletter|breadcrumb|pagination|pager|toc|table-of-contents|share|social|comment|related|recommend)/i
+    const keywordRe =
+      /(advert|ad-|ads|banner|promo|sponsor|cookie|consent|subscribe|newsletter|breadcrumb|pagination|pager|toc|table-of-contents|share|social|comment|related|recommend)/i
     const penalty = idClass && keywordRe.test(idClass) ? 2500 : 0
 
     const densityFactor = 1 - Math.min(Math.max(linkDensity, 0), 0.9)
@@ -461,7 +502,7 @@
       '.content-area',
       '.content-wrapper',
       '.text-wrapper',
-      '.text-container'
+      '.text-container',
     ]
 
     const seen = new Set()
@@ -519,7 +560,11 @@
       return s
     }
     const escapeHtmlAttr = (v) =>
-      String(v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      String(v || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
 
     const turndownService = new TurndownService({
       headingStyle: 'atx',
@@ -531,28 +576,28 @@
       strongDelimiter: '**',
       linkStyle: 'inlined',
       linkReferenceStyle: 'full',
-      preformattedCode: true
+      preformattedCode: true,
     })
 
     turndownService.addRule('preserveLineBreaks', {
       filter: ['br'],
-      replacement: () => '\n'
+      replacement: () => '\n',
     })
 
     turndownService.addRule('mediaCanvas', {
-      filter: function (node) {
+      filter(node) {
         return node && node.nodeName === 'CANVAS'
       },
-      replacement: function (_content, node) {
+      replacement(_content, node) {
         const html = node && node.outerHTML ? String(node.outerHTML) : ''
         if (!html) return ''
         return `\n\n${html}\n\n`
-      }
+      },
     })
 
     turndownService.addRule('cleanImage', {
       filter: ['img'],
-      replacement: function (_content, node) {
+      replacement(_content, node) {
         const alt = String(node.getAttribute('alt') || '').trim()
         const title = String(node.getAttribute('title') || '').trim()
         const getBestSrc = () => {
@@ -569,7 +614,10 @@
           const pickFromSrcset = (s) => {
             const raw = String(s || '').trim()
             if (!raw) return ''
-            const parts = raw.split(',').map((p) => p.trim()).filter(Boolean)
+            const parts = raw
+              .split(',')
+              .map((p) => p.trim())
+              .filter(Boolean)
             if (!parts.length) return ''
             const last = parts[parts.length - 1]
             const url = last.split(/\s+/)[0]
@@ -580,84 +628,100 @@
         const rawSrc = getBestSrc()
         const src = safeAbsUrl(rawSrc)
         if (!src) return ''
-        const label = String(alt || title || '').replace(/[\[\]\n\r]/g, ' ').trim()
+        const label = String(alt || title || '')
+          .replace(/[[\]\n\r]/g, ' ')
+          .trim()
         const urlPart = markdownUrl(src)
         const titlePart = title ? ` "${title.replace(/"/g, '\\"')}"` : ''
         return `![${label}](${urlPart}${titlePart})`
-      }
+      },
     })
 
     turndownService.addRule('mediaVideo', {
-      filter: function (node) {
+      filter(node) {
         return node && node.nodeName === 'VIDEO'
       },
-      replacement: function (_content, node) {
+      replacement(_content, node) {
         const src = safeAbsUrl(node.getAttribute('src') || '')
         const poster = safeAbsUrl(node.getAttribute('poster') || '')
-        const sources = Array.from(node.querySelectorAll('source')).map((s) => ({
-          src: safeAbsUrl(s.getAttribute('src') || ''),
-          type: String(s.getAttribute('type') || '').trim()
-        })).filter((s) => s.src)
+        const sources = Array.from(node.querySelectorAll('source'))
+          .map((s) => ({
+            src: safeAbsUrl(s.getAttribute('src') || ''),
+            type: String(s.getAttribute('type') || '').trim(),
+          }))
+          .filter((s) => s.src)
         const attrs = []
         attrs.push('controls')
         if (poster) attrs.push(`poster="${escapeHtmlAttr(poster)}"`)
         if (src) attrs.push(`src="${escapeHtmlAttr(src)}"`)
-        const inner = sources.map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`).join('')
+        const inner = sources
+          .map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`)
+          .join('')
         const html = `<video ${attrs.join(' ')}>${inner}</video>`
         const url = src || (sources[0] ? sources[0].src : '')
         const link = url ? `\n\n[视频链接](${markdownUrl(url)})\n\n` : '\n\n'
         return `\n\n${html}${link}`
-      }
+      },
     })
 
     turndownService.addRule('mediaAudio', {
-      filter: function (node) {
+      filter(node) {
         return node && node.nodeName === 'AUDIO'
       },
-      replacement: function (_content, node) {
+      replacement(_content, node) {
         const src = safeAbsUrl(node.getAttribute('src') || '')
-        const sources = Array.from(node.querySelectorAll('source')).map((s) => ({
-          src: safeAbsUrl(s.getAttribute('src') || ''),
-          type: String(s.getAttribute('type') || '').trim()
-        })).filter((s) => s.src)
+        const sources = Array.from(node.querySelectorAll('source'))
+          .map((s) => ({
+            src: safeAbsUrl(s.getAttribute('src') || ''),
+            type: String(s.getAttribute('type') || '').trim(),
+          }))
+          .filter((s) => s.src)
         const attrs = []
         attrs.push('controls')
         if (src) attrs.push(`src="${escapeHtmlAttr(src)}"`)
-        const inner = sources.map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`).join('')
+        const inner = sources
+          .map((s) => `<source src="${escapeHtmlAttr(s.src)}"${s.type ? ` type="${escapeHtmlAttr(s.type)}"` : ''}>`)
+          .join('')
         const html = `<audio ${attrs.join(' ')}>${inner}</audio>`
         const url = src || (sources[0] ? sources[0].src : '')
         const link = url ? `\n\n[音频链接](${markdownUrl(url)})\n\n` : '\n\n'
         return `\n\n${html}${link}`
-      }
+      },
     })
 
     turndownService.addRule('mediaIframe', {
-      filter: function (node) {
+      filter(node) {
         return node && node.nodeName === 'IFRAME'
       },
-      replacement: function (_content, node) {
+      replacement(_content, node) {
         const src = safeAbsUrl(node.getAttribute('src') || '')
         if (!src) return ''
         return `\n\n[嵌入内容](${markdownUrl(src)})\n\n`
-      }
+      },
     })
 
     turndownService.addRule('mediaSvg', {
-      filter: function (node) {
+      filter(node) {
         return node && node.nodeName === 'SVG'
       },
-      replacement: function (_content, node) {
+      replacement(_content, node) {
         const html = node && node.outerHTML ? String(node.outerHTML) : ''
         if (!html) return ''
         return `\n\n${html}\n\n`
-      }
+      },
     })
 
-    const escapeTableCell = (s) => String(s || '').replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|')
+    const escapeTableCell = (s) =>
+      String(s || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\|/g, '\\|')
     const buildTableMarkdown = (tableEl) => {
       const rows = Array.from(tableEl.querySelectorAll('tr'))
       if (rows.length === 0) return ''
-      const rowCells = rows.map((tr) => Array.from(tr.querySelectorAll('th,td')).map((cell) => escapeTableCell(cell.textContent || '')))
+      const rowCells = rows.map((tr) =>
+        Array.from(tr.querySelectorAll('th,td')).map((cell) => escapeTableCell(cell.textContent || '')),
+      )
       const maxCols = rowCells.reduce((m, r) => Math.max(m, r.length), 0)
       if (maxCols === 0) return ''
       const normalized = rowCells.map((r) => {
@@ -680,14 +744,14 @@
     }
 
     turndownService.addRule('tableToMarkdown', {
-      filter: function (node) {
+      filter(node) {
         return node.nodeName === 'TABLE'
       },
-      replacement: function (_content, node) {
+      replacement(_content, node) {
         const md = buildTableMarkdown(node)
         if (!md) return ''
         return `\n\n${md}\n\n`
-      }
+      },
     })
 
     let markdown = ''
@@ -708,8 +772,22 @@
 
     const adLineRe =
       /^(?:广告|推广|赞助|赞助内容|广告内容|Sponsored|Advertisement|Promoted\s+Content|Ad\s+Choice|Cookie\s+Policy|Privacy\s+Policy|Terms\s+of\s+Service|Terms\s+&\s+Conditions)\s*$/i
-    const navigationKeywords = ['订阅', '登录', '注册', '分享', '关注我们', '立即购买', '加入购物车',
-      '推荐阅读', '相关阅读', '相关文章', '你可能还喜欢', '更多推荐', '展开全文', '阅读原文']
+    const navigationKeywords = [
+      '订阅',
+      '登录',
+      '注册',
+      '分享',
+      '关注我们',
+      '立即购买',
+      '加入购物车',
+      '推荐阅读',
+      '相关阅读',
+      '相关文章',
+      '你可能还喜欢',
+      '更多推荐',
+      '展开全文',
+      '阅读原文',
+    ]
 
     const lines = md.split('\n')
     const out = []
@@ -727,7 +805,7 @@
         removedLines++
         continue
       }
-      const isNavigationLine = navigationKeywords.some(keyword => t === keyword)
+      const isNavigationLine = navigationKeywords.some((keyword) => t === keyword)
       if (isNavigationLine && t.length < 10) {
         removedLines++
         continue
@@ -760,7 +838,7 @@
       if (!cleaned || cleaned.length < MIN_CONTEXT_LENGTH) {
         logger.debug('Markdown 内容太短，回退到纯文本', {
           markdownLength: cleaned ? cleaned.length : 0,
-          threshold: MIN_CONTEXT_LENGTH
+          threshold: MIN_CONTEXT_LENGTH,
         })
         const textContent = cloned.textContent || cloned.innerText || ''
         return String(textContent || '').trim()
@@ -768,7 +846,7 @@
       return cleaned
     } catch (error) {
       logger.warn('获取渲染的主要内容失败，回退到纯文本', {
-        error: String(error && error.message || error)
+        error: String((error && error.message) || error),
       })
       return this.getFullPageText()
     }
@@ -786,7 +864,12 @@
     const firstHeadingMatch = content.match(/^#{1,6}\s+(.+)\s*$/m)
     if (firstHeadingMatch && title) {
       const heading = String(firstHeadingMatch[1] || '').trim()
-      const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[·•\-\—\|]/g, '')
+      const norm = (s) =>
+        String(s || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ')
+          .replace(/[·•\-—|]/g, '')
       if (norm(heading) && norm(heading) === norm(title)) {
         content = content.replace(firstHeadingMatch[0], '').trim()
       }
@@ -834,7 +917,8 @@
           const s = String(str).trim()
           return s.endsWith('.md') ? s : `${s}.md`
         }
-        const isDefaultTitle = !currentTitle ||
+        const isDefaultTitle =
+          !currentTitle ||
           currentTitle.trim() === '' ||
           currentTitle === '未命名会话' ||
           currentTitle === '新会话' ||
@@ -845,7 +929,7 @@
         }
         session.updatedAt = Date.now()
         session.lastAccessTime = Date.now()
-        this.saveAllSessions(true, true).catch(err => {
+        this.saveAllSessions(true, true).catch((err) => {
           console.error('自动保存更新的上下文失败:', err)
         })
       }
@@ -924,6 +1008,7 @@
       return
     }
 
+    // eslint-disable-next-line no-unused-vars -- iconEl queried with textEl for save button state
     const iconEl = button.querySelector('.save-btn-icon')
     const textEl = button.querySelector('.save-btn-text')
     const loaderEl = button.querySelector('.save-btn-loader')
@@ -946,7 +1031,8 @@
       const pageInfo = this.getPageInfo()
       const currentPageTitle = normalizeNameSpaces(pageInfo.title || document.title || '当前页面')
       const sessionTitle = session.title || ''
-      const isDefaultTitle = !sessionTitle ||
+      const isDefaultTitle =
+        !sessionTitle ||
         sessionTitle.trim() === '' ||
         sessionTitle === '未命名会话' ||
         sessionTitle === '新会话' ||
@@ -1023,7 +1109,7 @@
         }
 
         const session = this.sessions[this.currentSessionId]
-        const md = (session.pageContent && session.pageContent.trim() !== '') ? session.pageContent : ''
+        const md = session.pageContent && session.pageContent.trim() !== '' ? session.pageContent : ''
         textarea.value = md || ''
       } else {
         const md = this.buildPageContextMarkdownForEditor()
@@ -1059,7 +1145,9 @@
     preview.innerHTML = this.renderMarkdown(markdown)
 
     let cancelled = false
-    preview._mermaidCancelled = () => { cancelled = true }
+    preview._mermaidCancelled = () => {
+      cancelled = true
+    }
 
     preview._mermaidTimer = setTimeout(async () => {
       if (cancelled) {
@@ -1172,7 +1260,9 @@
     const targetDiv = this._messageEditorTargetDiv
     if (targetDiv) {
       const isUserMessage = !!targetDiv.querySelector('[data-message-type="user-bubble"]')
-      const bubble = targetDiv.querySelector(isUserMessage ? '[data-message-type="user-bubble"]' : '[data-message-type="pet-bubble"]')
+      const bubble = targetDiv.querySelector(
+        isUserMessage ? '[data-message-type="user-bubble"]' : '[data-message-type="pet-bubble"]',
+      )
       if (bubble) {
         bubble.setAttribute('data-original-text', editedText)
 
@@ -1228,4 +1318,12 @@
   }
 
   console.log('[PetManager] petManager.editor.core.js 已加载')
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : this)))
+})(
+  typeof globalThis !== 'undefined'
+    ? globalThis
+    : typeof self !== 'undefined'
+      ? self
+      : typeof window !== 'undefined'
+        ? window
+        : this,
+)

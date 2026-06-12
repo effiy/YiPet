@@ -3,15 +3,15 @@
  * 提供常见问题相关的API操作
  */
 
-(function (root) {
+;(function (root) {
   class FaqService extends ApiManager {
-    constructor (baseUrl, options = {}) {
+    constructor(baseUrl, options = {}) {
       super(baseUrl, {
         ...options,
         logger: {
           ...options.logger,
-          prefix: '[FaqService]'
-        }
+          prefix: '[FaqService]',
+        },
       })
 
       this.cname = 'faqs'
@@ -20,12 +20,12 @@
     /**
      * 获取所有常见问题
      */
-    async getFaqs (options = {}) {
+    async getFaqs(options = {}) {
       try {
         const params = {
           cname: this.cname,
           sort: { order: 1 },
-          ...options.filter
+          ...options.filter,
         }
 
         const url = buildDatabaseUrl(this.baseUrl, 'query_documents', params)
@@ -34,7 +34,7 @@
         let faqs = result && Array.isArray(result.list) ? result.list : []
 
         // 统一处理ID字段
-        faqs = faqs.map(faq => this._normalizeFaqData(faq))
+        faqs = faqs.map((faq) => this._normalizeFaqData(faq))
 
         return faqs
       } catch (error) {
@@ -43,12 +43,12 @@
       }
     }
 
-    clearGetCache () {}
+    clearGetCache() {}
 
     /**
      * 创建常见问题
      */
-    async createFaq (faqData) {
+    async createFaq(faqData) {
       if (!faqData) {
         throw new Error('FAQ数据无效')
       }
@@ -65,8 +65,8 @@
           method_name: 'create_document',
           parameters: {
             cname: this.cname,
-            data
-          }
+            data,
+          },
         }
 
         const result = await this.post('/', payload)
@@ -81,7 +81,7 @@
     /**
      * 更新常见问题
      */
-    async updateFaq (key, patch) {
+    async updateFaq(key, patch) {
       if (!key) {
         throw new Error('FAQ key无效')
       }
@@ -98,9 +98,9 @@
             cname: this.cname,
             data: {
               key,
-              ...patch
-            }
-          }
+              ...patch,
+            },
+          },
         }
 
         const result = await this.post('/', payload)
@@ -115,7 +115,7 @@
     /**
      * 删除常见问题
      */
-    async deleteFaq (key) {
+    async deleteFaq(key) {
       if (!key) {
         throw new Error('FAQ key无效')
       }
@@ -126,8 +126,8 @@
           method_name: 'delete_document',
           parameters: {
             cname: this.cname,
-            key
-          }
+            key,
+          },
         }
 
         const result = await this.post('/', payload)
@@ -142,7 +142,7 @@
     /**
      * 批量保存常见问题
      */
-    async saveFaqs (faqs) {
+    async saveFaqs(faqs) {
       if (!Array.isArray(faqs)) {
         throw new Error('FAQ列表必须是数组')
       }
@@ -150,7 +150,7 @@
       try {
         const params = {
           cname: this.cname,
-          documents: faqs.map(faq => this._normalizeFaqData(faq))
+          documents: faqs.map((faq) => this._normalizeFaqData(faq)),
         }
 
         const url = buildDatabaseUrl(this.baseUrl, 'insert_documents', params)
@@ -166,18 +166,18 @@
     /**
      * 批量更新排序
      */
-    async batchUpdateOrder (orders) {
+    async batchUpdateOrder(orders) {
       if (!Array.isArray(orders)) {
         throw new Error('排序数据必须是数组')
       }
 
       try {
         // 并行执行更新
-        const promises = orders.map(item => {
+        const promises = orders.map((item) => {
           const params = {
             cname: this.cname,
             filter: { key: item.key },
-            update: { $set: { order: item.order } }
+            update: { $set: { order: item.order } },
           }
 
           const url = buildDatabaseUrl(this.baseUrl, 'update_documents', params)
@@ -196,7 +196,7 @@
     /**
      * 按标签筛选FAQ
      */
-    async getFaqsByTags (tags, options = {}) {
+    async getFaqsByTags(tags, options = {}) {
       if (!Array.isArray(tags) || tags.length === 0) {
         return []
       }
@@ -205,10 +205,10 @@
         const params = {
           cname: this.cname,
           filter: {
-            tags: { $in: tags }
+            tags: { $in: tags },
           },
           sort: { order: 1 },
-          ...options.filter
+          ...options.filter,
         }
 
         const url = buildDatabaseUrl(this.baseUrl, 'query_documents', params)
@@ -216,7 +216,7 @@
 
         const faqs = result && Array.isArray(result.list) ? result.list : []
 
-        return faqs.map(faq => this._normalizeFaqData(faq))
+        return faqs.map((faq) => this._normalizeFaqData(faq))
       } catch (error) {
         this.logger.warn('按标签获取FAQ失败:', error.message)
         return []
@@ -226,7 +226,7 @@
     /**
      * 搜索FAQ
      */
-    async searchFaqs (query, options = {}) {
+    async searchFaqs(query, options = {}) {
       if (!query) {
         return []
       }
@@ -235,14 +235,11 @@
         const params = {
           cname: this.cname,
           filter: {
-            $or: [
-              { title: { $regex: query, $options: 'i' } },
-              { prompt: { $regex: query, $options: 'i' } }
-            ]
+            $or: [{ title: { $regex: query, $options: 'i' } }, { prompt: { $regex: query, $options: 'i' } }],
           },
           sort: { order: 1 },
           limit: options.limit || 20,
-          ...options.filter
+          ...options.filter,
         }
 
         const url = buildDatabaseUrl(this.baseUrl, 'query_documents', params)
@@ -250,7 +247,7 @@
 
         const faqs = result && Array.isArray(result.list) ? result.list : []
 
-        return faqs.map(faq => this._normalizeFaqData(faq))
+        return faqs.map((faq) => this._normalizeFaqData(faq))
       } catch (error) {
         this.logger.warn('搜索FAQ失败:', error.message)
         return []
@@ -260,14 +257,14 @@
     /**
      * 获取所有标签
      */
-    async getAllTags () {
+    async getAllTags() {
       try {
         const faqs = await this.getFaqs()
         const tagsSet = new Set()
 
-        faqs.forEach(faq => {
+        faqs.forEach((faq) => {
           if (faq.tags && Array.isArray(faq.tags)) {
-            faq.tags.forEach(tag => tagsSet.add(tag))
+            faq.tags.forEach((tag) => tagsSet.add(tag))
           }
         })
 
@@ -281,7 +278,7 @@
     /**
      * 规范化FAQ数据
      */
-    _normalizeFaqData (faqData) {
+    _normalizeFaqData(faqData) {
       const rawText = faqData && faqData.text != null ? String(faqData.text) : ''
       const text = rawText.trim()
 
@@ -297,13 +294,13 @@
 
       const normalized = {
         key:
-                (faqData && (faqData.key || faqData.id || faqData._id)) ||
-                `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          (faqData && (faqData.key || faqData.id || faqData._id)) ||
+          `faq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         title,
         prompt,
         text: text || (title && prompt ? `${title}\n\n${prompt}` : title),
         tags: faqData && Array.isArray(faqData.tags) ? faqData.tags : [],
-        order: faqData && faqData.order !== undefined ? Number(faqData.order) : 0
+        order: faqData && faqData.order !== undefined ? Number(faqData.order) : 0,
       }
 
       // 自动生成标题
@@ -328,4 +325,4 @@
   }
 
   root.FaqService = FaqService
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

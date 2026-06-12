@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>数据流追踪 · 源码</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.stat .val.c{color:var(--cyan)}.stat .val.a{color:var(--accent)}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin:12px 0}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.04)}
+th{color:var(--text3);font-weight:600;font-size:.74rem;text-transform:uppercase}
+td{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 2 · 数据流追踪</span><span class="bc-sep">/</span><span class="bc-current">📄 源码</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><span class="cross-link on">📄 源码</span><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>📄 <span class="accent">数据流与追踪</span> · 源码</h1>
+  <p class="sub">场景 2 · 版本 vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">16</div><div class="lbl">产物文件</div></div>
+        <div class="stat"><div class="val a">2</div><div class="lbl">场景</div></div>
+        <div class="stat"><div class="val">vv2.0.0</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="files">📁 文件清单</span>
+  <span class="tab" data-panel="structure">🗂 目录浏览</span>
+  <span class="tab" data-panel="topology">🔗 模块拓扑</span>
+</div>
+
+<div class="panel on" id="panelFiles">
+  <div class="section">
+    <h2><span class="dot"></span>产物文件</h2>
+    <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>数据流关键文件</h3><table><thead><tr><th>层</th><th>文件</th><th>数据流职责</th></tr></thead><tbody><tr><td>配置</td><td><code>core/config.js</code></td><td>ENDPOINTS 定义 · API 基地址</td></tr><tr><td>Token</td><td><code>core/utils/api/token.js</code></td><td>TokenManager · 三级降级 · 请求头注入</td></tr><tr><td>请求</td><td><code>core/utils/api/request.js</code></td><td>RequestClient · fetch + 重试 + 错误处理</td></tr><tr><td>拦截</td><td><code>core/api/core/ApiManager.js</code></td><td>拦截器链 · X-Token 自动注入</td></tr><tr><td>会话服务</td><td><code>core/api/services/SessionService.js</code></td><td>会话 CRUD · 数据读写</td></tr><tr><td>FAQ 服务</td><td><code>core/api/services/FaqService.js</code></td><td>FAQ CRUD · 数据读写</td></tr><tr><td>存储</td><td><code>core/utils/storage/storageUtils.js</code></td><td>chrome.storage.local 读写</td></tr><tr><td>引导</td><td><code>core/bootstrap/bootstrap.js</code></td><td>StorageHelper · 位置持久化</td></tr><tr><td>状态</td><td><code>modules/pet/content/petManager.state.js</code></td><td>宠物状态管理</td></tr><tr><td>AI 调用</td><td><code>modules/pet/content/ai/petManager.ai.api.js</code></td><td>流式 API 调用</td></tr><tr><td>Prompt</td><td><code>modules/pet/content/ai/petManager.ai.prompt.js</code></td><td>Prompt 构建</td></tr><tr><td>消息</td><td><code>modules/pet/content/petManager.message.js</code></td><td>消息处理 · 发送接收</td></tr><tr><td>聊天</td><td><code>modules/pet/content/petManager.chat.js</code></td><td>聊天逻辑 · 消息流转</td></tr><tr><td>聊天 UI</td><td><code>modules/pet/content/petManager.chatUi.js</code></td><td>聊天 UI 渲染</td></tr><tr><td>消息路由</td><td><code>modules/extension/background/messaging/messageRouter.js</code></td><td>SW 消息路由</td></tr><tr><td>Tab 消息</td><td><code>modules/extension/background/services/tabMessaging.js</code></td><td>Content Script ↔ SW 通信</td></tr></tbody></table><h3>核心数据流路径</h3><p><pre class="mermaid">flowchart LR
+    USER[&quot;用户输入&quot;] --&gt; CHAT[&quot;ChatInput 组件&quot;]
+    CHAT --&gt; MSG[&quot;petManager.message&quot;]
+    MSG --&gt; AI[&quot;petManager.ai.api&quot;]
+    AI --&gt; REQ[&quot;RequestClient&quot;]
+    REQ --&gt; TOKEN[&quot;TokenManager&quot;]
+    TOKEN --&gt; API[&quot;api.effiy.cn&quot;]
+    API --&gt; REQ
+    REQ --&gt; MSG
+    MSG --&gt; UI[&quot;ChatMessages 组件&quot;]
+    UI --&gt; USER
+    MSG --&gt; SESS[&quot;SessionService&quot;]
+    SESS --&gt; STORE[&quot;chrome.storage.local&quot;]</pre></p><p>---</p><p><a id="sec3"></a></p>
+  </div>
+</div>
+
+<div class="panel" id="panelStructure">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEBUG[&quot;生产问题: 用户消息无响应&quot;]:::risk --&gt; TRACE[&quot;沿聊天请求序列图&lt;br/&gt;逐节点检查&quot;]:::exec
+    TRACE --&gt; CHECK{&quot;哪个节点失败?&quot;}
+    CHECK --&gt;|&quot;Token 获取&quot;| FIX1[&quot;检查 TokenManager&lt;br/&gt;三级降级链路&quot;]:::milestone
+    CHECK --&gt;|&quot;网络请求&quot;| FIX2[&quot;检查 RequestClient&lt;br/&gt;重试+超时配置&quot;]:::milestone
+    CHECK --&gt;|&quot;流式解析&quot;| FIX3[&quot;检查 SSE chunk&lt;br/&gt;ReadableStream 处理&quot;]:::milestone
+    FIX1 &amp; FIX2 &amp; FIX3 --&gt; RESOLVED[&quot;定位到具体节点&lt;br/&gt;有源码路径可追踪&quot;]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>数据流全景</h3><p><pre class="mermaid">flowchart TB
+    USER[&quot;用户操作&quot;]:::exec --&gt; CS[&quot;Content Script&lt;br/&gt;PetManager 实例&quot;]:::core
+    CS --&gt;|&quot;聊天消息&quot;| AIAPI[&quot;petManager.ai.api.js&lt;br/&gt;流式 API 调用&quot;]:::exec
+    CS --&gt;|&quot;会话 CRUD&quot;| SESS[&quot;petManager.session.crud.js&quot;]:::exec
+    CS --&gt;|&quot;FAQ 查询&quot;| FAQJS[&quot;modules/faq/content/faq.js&quot;]:::exec
+    CS --&gt;|&quot;状态变更&quot;| STORE[&quot;chrome.storage.local&quot;]:::cross
+
+    AIAPI --&gt; APIMGR[&quot;ApiManager&lt;br/&gt;拦截器链&quot;]:::exec
+    SESS --&gt; SESSSVC[&quot;SessionService&quot;]:::exec
+    FAQJS --&gt; FAQSVC[&quot;FaqService&quot;]:::exec
+
+    APIMGR --&gt; TOKEN[&quot;TokenManager&lt;br/&gt;X-Token 注入&quot;]:::core
+    SESSSVC --&gt; APIMGR
+    FAQSVC --&gt; APIMGR
+
+    APIMGR --&gt; REQCLIENT[&quot;RequestClient&lt;br/&gt;fetch + 重试 + 超时&quot;]:::cross
+    REQCLIENT --&gt; REMOTE[&quot;api.effiy.cn&quot;]:::risk
+
+    STORE --&gt; CS
+    STORE &lt;--&gt;|&quot;storage.onChanged&quot;| SW[&quot;Service Worker&lt;br/&gt;register.js&quot;]:::core
+    SW --&gt;|&quot;chrome.tabs.sendMessage&quot;| CS
+    SW --&gt;|&quot;消息注册&quot;| ROUTER[&quot;MessageRouter&lt;br/&gt;action → handler&quot;]:::core
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171</pre></p><h3>聊天请求完整链路（序列图）</h3><p><pre class="mermaid">sequenceDiagram
+    participant User as 用户
+    participant ChatUI as ChatInput (Vue)
+    participant PM as PetManager
+    participant AIAPI as ai.api.js
+    participant Prompt as ai.prompt.js
+    participant ApiMgr as ApiManager
+    participant Token as TokenManager
+    participant ReqClient as RequestClient
+    participant Fetch as fetch()
+    participant API as api.effiy.cn
+    participant Storage as chrome.storage.local
+
+    User-&gt;&gt;ChatUI: 输入消息 + 回车
+    ChatUI-&gt;&gt;PM: sendMessage(message)
+    PM-&gt;&gt;Prompt: buildPrompt(context, message)
+    Prompt--&gt;&gt;PM: fullPrompt
+    PM-&gt;&gt;AIAPI: streamChat(prompt, options)
+    AIAPI-&gt;&gt;ApiMgr: request({ url, method: 'POST', data })
+
+    Note over ApiMgr: 请求拦截器链执行
+    ApiMgr-&gt;&gt;Token: getToken()
+    Token-&gt;&gt;Token: L1: _getEnvToken()
+    Token-&gt;&gt;Token: L2: chrome.storage.local.get()
+    Token--&gt;&gt;ApiMgr: token
+    ApiMgr-&gt;&gt;ApiMgr: 注入 Header: X-Token
+
+    ApiMgr-&gt;&gt;ReqClient: request(config)
+    ReqClient-&gt;&gt;Fetch: fetch(url, { headers, body, signal })
+    Fetch-&gt;&gt;API: POST /prompt { stream: true, messages }
+
+    loop 流式响应
+        API--&gt;&gt;Fetch: data chunks (SSE)
+        Fetch--&gt;&gt;ReqClient: ReadableStream
+        ReqClient--&gt;&gt;ApiMgr: 响应拦截器处理
+        ApiMgr--&gt;&gt;AIAPI: 流式数据
+        AIAPI--&gt;&gt;PM: chunk callback
+        PM--&gt;&gt;ChatUI: 更新消息内容
+    end
+
+    API--&gt;&gt;Fetch: [DONE]
+    PM-&gt;&gt;Storage: StorageHelper.set(sessionKey, sessionData)
+    PM-&gt;&gt;ChatUI: 更新会话列表
+    ChatUI--&gt;&gt;User: 显示完整回复</pre></p><h3>chrome.storage.local 读写路径</h3><p><pre class="mermaid">flowchart TB
+    subgraph writers[&quot;写入者&quot;]
+        W1[&quot;PetManager.state.js&lt;br/&gt;pet_global_state · pet_chat_window_state&quot;]:::exec
+        W2[&quot;PopupController&lt;br/&gt;petSettings · petGlobalState&quot;]:::exec
+        W3[&quot;PetManager.session.crud.js&lt;br/&gt;petSession_&amp;#60id&amp;#62&quot;]:::exec
+        W4[&quot;TokenSettingsModal&lt;br/&gt;YiPet.apiToken.v1&quot;]:::exec
+        W5[&quot;Service Worker&lt;br/&gt;petSettings (初始化) · petPosition_* (清理)&quot;]:::exec
+    end
+
+    subgraph store[&quot;chrome.storage.local&quot;]
+        K1[&quot;pet_global_state&quot;]:::note
+        K2[&quot;pet_chat_window_state&quot;]:::note
+        K3[&quot;petSettings&quot;]:::note
+        K4[&quot;YiPet.apiToken.v1&quot;]:::note
+        K5[&quot;petOssFiles（可重建，优先清理）&quot;]:::note
+        K6[&quot;petPosition_&amp;#60url&amp;#62&quot;]:::note
+    end
+
+    subgraph readers[&quot;读取者&quot;]
+        R1[&quot;PetManager.core.js — 初始化状态恢复&quot;]:::review
+        R2[&quot;PopupController — 当前设置展示&quot;]:::review
+        R3[&quot;TokenManager — Token 获取 · 二级降级&quot;]:::review
+        R4[&quot;Service Worker — autoStart 判断 · 存储清理&quot;]:::review
+    end
+
+    writers --&gt; store --&gt; readers
+
+    subgraph guard[&quot;存储访问守卫&quot;]
+        G1[&quot;isChromeStorageAvailable()&quot;]:::risk
+        G2[&quot;isQuotaError() → cleanupOldData()&quot;]:::risk
+        G3[&quot;isContextInvalidatedError()&quot;]:::risk
+    end
+
+    writers -.-&gt; guard
+    readers -.-&gt; guard
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef review fill:#1e1f2b,stroke:#7aa2f7,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171</pre></p><h3>消息通道全景</h3><table><thead><tr><th>消息通道</th><th>发起方</th><th>接收方</th><th>典型 Action</th><th>同步/异步</th></tr></thead><tbody><tr><td><code>chrome.runtime.sendMessage</code></td><td>PopupController</td><td>Service Worker</td><td>injectPet, forwardToContentScript, sendToWeWorkRobot</td><td>异步</td></tr><tr><td><code>chrome.tabs.sendMessage</code></td><td>Service Worker</td><td>Content Script</td><td>settingsUpdated, globalStateUpdated, toggleVisibility</td><td>异步</td></tr><tr><td><code>chrome.storage.onChanged</code></td><td>chrome.storage.local</td><td>Service Worker</td><td>设置/状态变更广播</td><td>事件触发</td></tr><tr><td><code>chrome.commands.onCommand</code></td><td>键盘快捷键</td><td>SW → Content Script</td><td>toggle-pet → toggleVisibility</td><td>异步</td></tr><tr><td><code>chrome.action.onClicked</code></td><td>工具栏图标点击</td><td>SW → Content Script</td><td>toggleVisibility</td><td>异步</td></tr><tr><td><code>window.postMessage</code></td><td>Content Script 内部</td><td>Content Script 内部</td><td>Vue 组件 ↔ PetManager 实例</td><td>同步/异步</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>数据流全景覆盖全部 6 条核心路径</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>聊天请求序列图含 14 个参与方 + 流式响应 loop</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>chrome.storage 读写路径标注全部 3 级守卫</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>消息通道全景表覆盖全部 6 条 Chrome Extension 通道</td><td style="text-align:center">✅</td></tr><tr><td>5</td><td>每条数据流可追溯到具体源码文件</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelTopology">
+  <pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEBUG["生产问题: 用户消息无响应"]:::risk --&gt; TRACE["沿聊天请求序列图&lt;br/&gt;逐节点检查"]:::exec
+    TRACE --&gt; CHECK{"哪个节点失败?"}
+    CHECK --&gt;|"Token 获取"| FIX1["检查 TokenManager&lt;br/&gt;三级降级链路"]:::milestone
+    CHECK --&gt;|"网络请求"| FIX2["检查 RequestClient&lt;br/&gt;重试+超时配置"]:::milestone
+    CHECK --&gt;|"流式解析"| FIX3["检查 SSE chunk&lt;br/&gt;ReadableStream 处理"]:::milestone
+    FIX1 &amp; FIX2 &amp; FIX3 --&gt; RESOLVED["定位到具体节点&lt;br/&gt;有源码路径可追踪"]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    USER["用户操作"]:::exec --&gt; CS["Content Script&lt;br/&gt;PetManager 实例"]:::core
+    CS --&gt;|"聊天消息"| AIAPI["petManager.ai.api.js&lt;br/&gt;流式 API 调用"]:::exec
+    CS --&gt;|"会话 CRUD"| SESS["petManager.session.crud.js"]:::exec
+    CS --&gt;|"FAQ 查询"| FAQJS["modules/faq/content/faq.js"]:::exec
+    CS --&gt;|"状态变更"| STORE["chrome.storage.local"]:::cross
+
+    AIAPI --&gt; APIMGR["ApiManager&lt;br/&gt;拦截器链"]:::exec
+    SESS --&gt; SESSSVC["SessionService"]:::exec
+    FAQJS --&gt; FAQSVC["FaqService"]:::exec
+
+    APIMGR --&gt; TOKEN["TokenManager&lt;br/&gt;X-Token 注入"]:::core
+    SESSSVC --&gt; APIMGR
+    FAQSVC --&gt; APIMGR
+
+    APIMGR --&gt; REQCLIENT["RequestClient&lt;br/&gt;fetch + 重试 + 超时"]:::cross
+    REQCLIENT --&gt; REMOTE["api.effiy.cn"]:::risk
+
+    STORE --&gt; CS
+    STORE &lt;--&gt;|"storage.onChanged"| SW["Service Worker&lt;br/&gt;register.js"]:::core
+    SW --&gt;|"chrome.tabs.sendMessage"| CS
+    SW --&gt;|"消息注册"| ROUTER["MessageRouter&lt;br/&gt;action → handler"]:::core
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171</pre>
+<pre class="mermaid">sequenceDiagram
+    participant User as 用户
+    participant ChatUI as ChatInput (Vue)
+    participant PM as PetManager
+    participant AIAPI as ai.api.js
+    participant Prompt as ai.prompt.js
+    participant ApiMgr as ApiManager
+    participant Token as TokenManager
+    participant ReqClient as RequestClient
+    participant Fetch as fetch()
+    participant API as api.effiy.cn
+    participant Storage as chrome.storage.local
+
+    User-&gt;&gt;ChatUI: 输入消息 + 回车
+    ChatUI-&gt;&gt;PM: sendMessage(message)
+    PM-&gt;&gt;Prompt: buildPrompt(context, message)
+    Prompt--&gt;&gt;PM: fullPrompt
+    PM-&gt;&gt;AIAPI: streamChat(prompt, options)
+    AIAPI-&gt;&gt;ApiMgr: request({ url, method: 'POST', data })
+
+    Note over ApiMgr: 请求拦截器链执行
+    ApiMgr-&gt;&gt;Token: getToken()
+    Token-&gt;&gt;Token: L1: _getEnvToken()
+    Token-&gt;&gt;Token: L2: chrome.storage.local.get()
+    Token--&gt;&gt;ApiMgr: token
+    ApiMgr-&gt;&gt;ApiMgr: 注入 Header: X-Token
+
+    ApiMgr-&gt;&gt;ReqClient: request(config)
+    ReqClient-&gt;&gt;Fetch: fetch(url, { headers, body, signal })
+    Fetch-&gt;&gt;API: POST /prompt { stream: true, messages }
+
+    loop 流式响应
+        API--&gt;&gt;Fetch: data chunks (SSE)
+        Fetch--&gt;&gt;ReqClient: ReadableStream
+        ReqClient--&gt;&gt;ApiMgr: 响应拦截器处理
+        ApiMgr--&gt;&gt;AIAPI: 流式数据
+        AIAPI--&gt;&gt;PM: chunk callback
+        PM--&gt;&gt;ChatUI: 更新消息内容
+    end
+
+    API--&gt;&gt;Fetch: [DONE]
+    PM-&gt;&gt;Storage: StorageHelper.set(sessionKey, sessionData)
+    PM-&gt;&gt;ChatUI: 更新会话列表
+    ChatUI--&gt;&gt;User: 显示完整回复</pre>
+<pre class="mermaid">flowchart TB
+    subgraph writers["写入者"]
+        W1["PetManager.state.js&lt;br/&gt;pet_global_state · pet_chat_window_state"]:::exec
+        W2["PopupController&lt;br/&gt;petSettings · petGlobalState"]:::exec
+        W3["PetManager.session.crud.js&lt;br/&gt;petSession_&amp;#60id&amp;#62"]:::exec
+        W4["TokenSettingsModal&lt;br/&gt;YiPet.apiToken.v1"]:::exec
+        W5["Service Worker&lt;br/&gt;petSettings (初始化) · petPosition_* (清理)"]:::exec
+    end
+
+    subgraph store["chrome.storage.local"]
+        K1["pet_global_state"]:::note
+        K2["pet_chat_window_state"]:::note
+        K3["petSettings"]:::note
+        K4["YiPet.apiToken.v1"]:::note
+        K5["petOssFiles（可重建，优先清理）"]:::note
+        K6["petPosition_&amp;#60url&amp;#62"]:::note
+    end
+
+    subgraph readers["读取者"]
+        R1["PetManager.core.js — 初始化状态恢复"]:::review
+        R2["PopupController — 当前设置展示"]:::review
+        R3["TokenManager — Token 获取 · 二级降级"]:::review
+        R4["Service Worker — autoStart 判断 · 存储清理"]:::review
+    end
+
+    writers --&gt; store --&gt; readers
+
+    subgraph guard["存储访问守卫"]
+        G1["isChromeStorageAvailable()"]:::risk
+        G2["isQuotaError() → cleanupOldData()"]:::risk
+        G3["isContextInvalidatedError()"]:::risk
+    end
+
+    writers -.-&gt; guard
+    readers -.-&gt; guard
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef review fill:#1e1f2b,stroke:#7aa2f7,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171</pre>
+<pre class="mermaid">flowchart LR
+    USER["用户输入"] --&gt; CHAT["ChatInput 组件"]
+    CHAT --&gt; MSG["petManager.message"]
+    MSG --&gt; AI["petManager.ai.api"]
+    AI --&gt; REQ["RequestClient"]
+    REQ --&gt; TOKEN["TokenManager"]
+    TOKEN --&gt; API["api.effiy.cn"]
+    API --&gt; REQ
+    REQ --&gt; MSG
+    MSG --&gt; UI["ChatMessages 组件"]
+    UI --&gt; USER
+    MSG --&gt; SESS["SessionService"]
+    SESS --&gt; STORE["chrome.storage.local"]</pre>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

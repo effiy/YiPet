@@ -1,0 +1,175 @@
+{
+  "generatedAt": "2026-06-11T15:45:00.000Z",
+  "version": "1.1.2",
+  "project": "YiPet",
+  "description": "Chrome 浏览器扩展 — AI 陪伴伴侣",
+  "stats": {
+    "stories": 2,
+    "scenes": 11,
+    "htmlFiles": 111,
+    "dependencies": 10,
+    "coreModules": 12
+  },
+  "stories": [
+    {
+      "name": "yipet-arch",
+      "title": "系统架构知识固化",
+      "version": "2.0.0",
+      "scenes": 5,
+      "sceneList": [
+        "场景-1-模块拓扑",
+        "场景-2-数据流追踪",
+        "场景-3-安全边界",
+        "场景-4-依赖影响",
+        "场景-5-上手指南"
+      ],
+      "description": "YiPet Chrome Extension 架构全景分析，固化模块拓扑、数据流、安全边界、依赖变更影响"
+    },
+    {
+      "name": "yipet-self-test",
+      "title": "自主测试方案",
+      "version": "1.0.0",
+      "scenes": 6,
+      "sceneList": [
+        "场景-1-核心逻辑",
+        "场景-2-接口测试",
+        "场景-3-存储测试",
+        "场景-4-错误边界",
+        "场景-5-集成测试",
+        "场景-6-安全面回归"
+      ],
+      "description": "vitest + jsdom 自动化测试体系，覆盖核心基础设施、API、存储、异常、集成、安全六大维度"
+    }
+  ],
+  "dependencies": {
+    "runtime": [
+      {
+        "name": "Vue 3",
+        "description": "渐进式前端框架，CDN 运行时加载",
+        "type": "核心框架"
+      },
+      {
+        "name": "Tailwind CSS",
+        "description": "原子化 CSS 框架，CDN 加载",
+        "type": "样式框架"
+      },
+      {
+        "name": "marked.js",
+        "description": "Markdown 解析器，AI 消息渲染",
+        "type": "Markdown"
+      },
+      {
+        "name": "turndown.js",
+        "description": "HTML 转 Markdown 转换器",
+        "type": "HTML→MD"
+      },
+      {
+        "name": "Mermaid",
+        "description": "图表渲染引擎，CDN 懒加载",
+        "type": "图表渲染"
+      },
+      {
+        "name": "md5.js",
+        "description": "MD5 哈希算法，本地加密",
+        "type": "安全"
+      }
+    ],
+    "development": [
+      {
+        "name": "vitest",
+        "description": "Vite 原生测试框架",
+        "type": "测试框架"
+      },
+      {
+        "name": "jsdom",
+        "description": "Node.js 浏览器环境模拟",
+        "type": "DOM 模拟"
+      },
+      {
+        "name": "@vitest/coverage-v8",
+        "description": "V8 原生覆盖率引擎",
+        "type": "覆盖率"
+      },
+      {
+        "name": "node-fetch",
+        "description": "Node.js fetch API 实现",
+        "type": "测试参考"
+      }
+    ]
+  },
+  "coreModules": [
+    {
+      "name": "config.js",
+      "path": "core/config.js",
+      "description": "全局配置中心：端点定义 · 默认参数 · UI 常量 · 存储键名"
+    },
+    {
+      "name": "ApiManager",
+      "path": "core/api/core/ApiManager.js",
+      "description": "API 管理器基类：请求封装 · 错误处理 · 重试机制 · Token 注入"
+    },
+    {
+      "name": "SessionService",
+      "path": "core/api/services/SessionService.js",
+      "description": "会话服务层：CRUD · 筛选 · 标签 · 批量操作"
+    },
+    {
+      "name": "FaqService",
+      "path": "core/api/services/FaqService.js",
+      "description": "FAQ 服务层：条目管理 · 标签关联 · 搜索过滤"
+    },
+    {
+      "name": "request.js",
+      "path": "core/utils/api/request.js",
+      "description": "HTTP 请求客户端：fetch 封装 · 超时控制 · 响应拦截"
+    },
+    {
+      "name": "token.js",
+      "path": "core/utils/api/token.js",
+      "description": "Token 管理器：三级降级（环境变量 → storage → 空）· 加密指纹"
+    },
+    {
+      "name": "storageUtils.js",
+      "path": "core/utils/storage/storageUtils.js",
+      "description": "chrome.storage 封装：读写 · 配额检测 · LRU 淘汰 · 批量操作"
+    },
+    {
+      "name": "errorHandler.js",
+      "path": "core/utils/error/errorHandler.js",
+      "description": "全局错误处理：上下文失效检测 · 降级策略 · 日志记录"
+    },
+    {
+      "name": "domHelper.js",
+      "path": "core/utils/dom/domHelper.js",
+      "description": "DOM 操作工具：元素创建 · 样式注入 · 位置计算 · 事件委托"
+    },
+    {
+      "name": "messageHelper.js",
+      "path": "core/utils/messaging/messageHelper.js",
+      "description": "Chrome 扩展消息通信：runtime.sendMessage · tab 通信 · 消息路由"
+    },
+    {
+      "name": "loggerUtils.js",
+      "path": "core/utils/logging/loggerUtils.js",
+      "description": "日志工具：分级输出 · 格式化 · 调试开关"
+    },
+    {
+      "name": "timeUtils.js",
+      "path": "core/utils/time/timeUtils.js",
+      "description": "时间工具：格式化 · 相对时间 · 时区处理"
+    }
+  ],
+  "reports": {
+    "healthReports": 5,
+    "loopReports": 3,
+    "trendReports": 0,
+    "selfImprove": true
+  },
+  "features": {
+    "panelHub": true,
+    "search": true,
+    "breadcrumb": true,
+    "accessibility": true,
+    "cdnUnification": 0.84
+  }
+}

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>安全边界 · 知识图谱</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/fonts.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme-mono.css">
+<style>body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}</style>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}
+.container{max-width:1400px;margin:0 auto}
+.header{margin-bottom:1.5rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#22d3ee;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+h1{font-size:1.5rem;font-weight:700}
+.subtitle{color:#94a3b8;font-size:.875rem;margin-left:1.75rem}
+.toolbar{display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#475569;cursor:pointer;font-size:1.25rem;padding:.25rem .5rem;border-radius:.375rem}
+.toolbar-toggle:hover{color:#94a3b8;background:rgba(30,41,59,.5)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+.toolbar-actions button{background:rgba(30,41,59,.8);border:1px solid #334155;color:#94a3b8;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.toolbar-actions button:hover{background:rgba(51,65,85,.8);color:white;border-color:#475569}
+.graph-container{background:rgba(15,23,42,.5);border-radius:1rem;border:1px solid #1e293b;padding:1rem;margin-bottom:1.5rem}
+#cy{width:100%;height:550px;border-radius:.5rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.scene{background:#8B5CF6}.card-dot.check{background:#EC4899}.card-dot.source{background:#3B82F6}.card-dot.domain{background:#22d3ee}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#94a3b8;font-size:.75rem}
+.card li{margin-bottom:.375rem}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:.75rem;padding:.75rem;background:rgba(15,23,42,.5);border-radius:.5rem;border:1px solid #1e293b;font-size:.75rem;color:#94a3b8}
+.legend-item{display:flex;align-items:center;gap:.375rem}
+.legend-dot{width:12px;height:12px;border-radius:50%;border:2px solid}
+.legend-dot.scene{background:rgba(139,92,246,.3);border-color:#8B5CF6}
+.legend-dot.check{background:rgba(236,72,153,.3);border-color:#EC4899}
+.legend-dot.source{background:rgba(59,130,246,.3);border-color:#3B82F6}
+.legend-dot.domain{background:rgba(34,211,238,.3);border-color:#22d3ee}
+.breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;font-size:0.76rem}
+.breadcrumb a{color:#7aa2f7;text-decoration:none}
+.breadcrumb a:hover{color:#fbbf24}
+.breadcrumb .bc-sep{color:#53576c;opacity:0.5;user-select:none}
+.breadcrumb .bc-current{color:#94a3b8;font-weight:500}
+.cross-nav{display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both}
+.cross-link{color:#7aa2f7;text-decoration:none;font-size:0.76rem;padding:3px 10px;border-radius:4px}
+.cross-link:hover{color:#fbbf24;background:rgba(251,191,36,0.06)}
+.cross-link.on{color:#fbbf24;font-weight:600;cursor:default}
+.cross-sep{color:#475569;font-size:0.5rem;opacity:0.35;user-select:none}
+.footer{text-align:center;color:#475569;font-size:.75rem;margin-top:1rem}
+@media print{body{background:#020617;padding:1rem}.toolbar{display:none!important}}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 3 · 安全边界</span><span class="bc-sep">/</span><span class="bc-current">🔗 知识图谱</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><span class="cross-link on">🔗 图谱</span><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <div class="header-row">
+    <div class="pulse-dot"></div>
+    <h1>🔗 信任边界与安全面 · 知识图谱</h1>
+    <div class="toolbar">
+      <div class="toolbar-actions">
+        <button onclick="copyAsImage(this)">📋 Copy</button>
+        <button onclick="downloadPNG(this)">🖼 PNG</button>
+        <button onclick="downloadPDF(this)">📄 PDF</button>
+      </div>
+      <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')">⋯</button>
+    </div>
+  </div>
+  <p class="subtitle">yipet-arch · 场景 3 · vv2.0.0</p>
+</div>
+
+<div class="legend">
+  <span style="color:#94a3b8;font-weight:600;">节点:</span>
+  <span class="legend-item"><span class="legend-dot scene"></span>场景</span>
+  <span class="legend-item"><span class="legend-dot check"></span>检查/功能</span>
+  <span class="legend-item"><span class="legend-dot source"></span>源文件</span>
+  <span class="legend-item"><span class="legend-dot domain"></span>概念域</span>
+  <span style="margin-left:1rem;color:#94a3b8;font-weight:600;">操作:</span>
+  <span style="color:#64748b;">🖱 拖拽 · 滚轮缩放 · 点击节点高亮邻域</span>
+</div>
+
+<div class="graph-container"><div id="cy"></div></div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-header"><div class="card-dot scene"></div><h3>场景</h3></div>
+    <ul><li><b>信任边界与安全面</b> — 场景 3</li></ul>
+  </div>
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    AUDITOR[&quot;安全审计者接到任务&lt;br/&gt;审查 YiPet 安全面&quot;]:::risk --&gt; SCAN[&quot;对照安全面总览矩阵&lt;br/&gt;逐面检查&quot;]:::exec
+    SCAN --&gt; FIND[&quot;发现 P0: 聊天消息无 XSS 过滤&lt;br/&gt;P1: POST 重试非幂等&lt;br/&gt;P2: Token 无过期机制&quot;]:::milestone
+    FIND --&gt; PRIORITIZE[&quot;按优先级排定修复计划&lt;br/&gt;P0 → P1 → P2&quot;]:::exec
+    PRIORITIZE --&gt; VERIFY[&quot;执行 §1 测试用例&lt;br/&gt;确认现状和修复生效&quot;]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>信任边界全景图</h3><p><pre class="mermaid">flowchart TB
+    subgraph untrusted[&quot;外部不可信域&quot;]
+        U1[&quot;用户输入&lt;br/&gt;聊天消息 · Token 输入 · FAQ 编辑&quot;]:::risk
+        U2[&quot;任意网页&lt;br/&gt;&amp;lt;all_urls&amp;gt; 注入范围&quot;]:::risk
+        U3[&quot;api.effiy.cn&lt;br/&gt;外部 API 响应&quot;]:::risk
+        U4[&quot;CDN 脚本&lt;br/&gt;Vue/marked/Mermaid&quot;]:::risk
+    end
+
+    subgraph boundary[&quot;=== 信任边界 ===&quot;]
+        B1[&quot;输入校验层&lt;br/&gt;⚠️ 现状: 无 XSS 过滤&quot;]:::milestone
+        B2[&quot;认证层&lt;br/&gt;TokenManager 三级降级&quot;]:::milestone
+        B3[&quot;传输层&lt;br/&gt;fetch CORS + X-Token 头&quot;]:::milestone
+        B4[&quot;存储层&lt;br/&gt;chrome.storage.local + 配额保护&quot;]:::milestone
+        B5[&quot;权限层&lt;br/&gt;系统页面跳过 + 注入控制&quot;]:::milestone
+    end
+
+    subgraph trusted[&quot;内部可信域&quot;]
+        T1[&quot;Content Script&lt;br/&gt;PetManager 实例&quot;]:::good
+        T2[&quot;Service Worker&lt;br/&gt;后台消息路由&quot;]:::good
+        T3[&quot;Popup&lt;br/&gt;控制面板&quot;]:::good
+    end
+
+    U1 --&gt; B1 --&gt; T1
+    U2 --&gt; B5 --&gt; T1
+    U3 --&gt; B3 --&gt; T1
+    U3 --&gt; B2
+    U4 --&gt; B5
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef good fill:#1a2a1a,stroke:#34d399,color:#a9b1d6</pre></p><h3>认证面: TokenManager 三级降级</h3><p><pre class="mermaid">flowchart TB
+    REQ[&quot;API 请求发起&quot;]:::exec --&gt; L1{&quot;L1: 环境变量?&lt;br/&gt;window.__API_X_TOKEN__&quot;}:::review
+    L1 --&gt;|&quot;✅ 存在&quot;| USE1[&quot;使用环境变量 Token&quot;]:::good
+    L1 --&gt;|&quot;❌ 缺失&quot;| L2{&quot;L2: chrome.storage?&lt;br/&gt;YiPet.apiToken.v1&quot;}:::review
+    L2 --&gt;|&quot;✅ 存在&quot;| USE2[&quot;使用存储 Token&quot;]:::good
+    L2 --&gt;|&quot;❌ 缺失&quot;| L3[&quot;L3: 空 Token&quot;]:::bad
+    USE1 &amp; USE2 --&gt; INJECT[&quot;注入 Header&lt;br/&gt;X-Token: &amp;#60token&amp;#62&quot;]:::exec
+    L3 --&gt; NOINJECT[&quot;不带 X-Token 头发送&quot;]:::risk
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef review fill:#1e1f2b,stroke:#7aa2f7,color:#a9b1d6
+    classDef good fill:#1a2a1a,stroke:#34d399,color:#a9b1d6
+    classDef bad fill:#2a1a1a,stroke:#f87171,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171</pre></p><table><thead><tr><th>降级级</th><th>来源</th><th>获取方式</th><th>失败后行为</th></tr></thead><tbody><tr><td>L1</td><td>环境变量</td><td><code>window.__API_X_TOKEN__</code> (同步)</td><td>降级到 L2</td></tr><tr><td>L2</td><td>chrome.storage.local</td><td><code>chrome.storage.local.get(['YiPet.apiToken.v1'])</code> (异步)</td><td>降级到 L3</td></tr><tr><td>L3</td><td>空 Token</td><td>返回 <code>''</code> (同步)</td><td>请求不带 X-Token 头，API 返回认证错误</td></tr></tbody></table><h3>输入面: 用户输入路径（风险标注）</h3><p><pre class="mermaid">flowchart TB
+    subgraph inputs[&quot;用户输入入口&quot;]
+        I1[&quot;聊天输入 — ChatInput → sendMessage()&quot;]:::note
+        I2[&quot;Token 设置 — TokenSettingsModal → saveToken()&quot;]:::note
+        I3[&quot;FAQ 编辑 — FaqManager → FaqService&quot;]:::note
+        I4[&quot;会话标题 — SessionEditor → SessionService&quot;]:::note
+    end
+
+    subgraph current[&quot;当前处理&quot;]
+        C1[&quot;⚠️ P0: 无 XSS 过滤&lt;br/&gt;直接拼接入 prompt&quot;]:::risk
+        C2[&quot;✅ validateToken()&lt;br/&gt;格式: /^[a-zA-Z0-9_-]+$/ · 长度 ≥ 10&quot;]:::good
+        C3[&quot;✅ _normalizeFaqDoc()&lt;br/&gt;trim · 默认值兜底&quot;]:::good
+        C4[&quot;⚠️ P1: 无长度限制&lt;br/&gt;可能超 chrome.storage 配额&quot;]:::risk
+    end
+
+    I1 --&gt; C1
+    I2 --&gt; C2
+    I3 --&gt; C3
+    I4 --&gt; C4
+
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef good fill:#1a2a1a,stroke:#34d399,color:#a9b1d6</pre></p><h3>权限面: <code><all_urls></code> 系统页面跳过</h3><p><pre class="mermaid">flowchart TB
+    START[&quot;chrome.tabs.onUpdated&lt;br/&gt;页面加载完成&quot;]:::exec --&gt; CHECK{&quot;isSystemPage(tab.url)?&quot;}:::review
+    CHECK --&gt;|&quot;是&quot;| SKIP[&quot;🚫 跳过注入&lt;br/&gt;chrome:// · chrome-extension://&lt;br/&gt;moz-extension:// · about:&quot;]:::risk
+    CHECK --&gt;|&quot;否&quot;| AUTOSTART{&quot;autoStart AND&lt;br/&gt;visible !== false?&quot;}:::review
+    AUTOSTART --&gt;|&quot;是&quot;| INJECT[&quot;延迟注入&lt;br/&gt;InjectionService.injectPetToTab(tabId)&quot;]:::good
+    AUTOSTART --&gt;|&quot;否&quot;| WAIT[&quot;等待用户手动触发&quot;]:::note
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef review fill:#1e1f2b,stroke:#7aa2f7,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef good fill:#1a2a1a,stroke:#34d399,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c</pre></p><h3>安全面总览矩阵</h3><table><thead><tr><th>安全面</th><th>保护机制</th><th>现状评级</th><th>已知缺口</th><th>优先级</th></tr></thead><tbody><tr><td>认证</td><td>TokenManager 三级降级 + validateToken 格式校验</td><td>良好</td><td>Token 无过期机制</td><td>P2</td></tr><tr><td>传输</td><td>CORS + X-Token 头 + HTTPS + credentials: 'omit'</td><td>良好</td><td>POST 重试非幂等</td><td>P1</td></tr><tr><td>输入</td><td>Token 格式校验 + FAQ 规范化</td><td><b>不足</b></td><td>聊天消息无 XSS 过滤</td><td>P0</td></tr><tr><td>存储</td><td>isChromeStorageAvailable() + isContextInvalidated() + 配额清理</td><td>良好</td><td>无数据加密</td><td>P2</td></tr><tr><td>权限</td><td>isSystemPage() + autoStart 控制</td><td>可接受</td><td><code><all_urls></code> 范围过大</td><td>P1</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>信任边界全景覆盖全部 4 个不可信域和 5 条边界</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>TokenManager 三级降级链路完整且每级有失败后行为</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>输入面 4 个入口全部审计，每个有现状评级</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>安全面总览矩阵覆盖认证/传输/输入/存储/权限 5 列</td><td style="text-align:center">✅</td></tr><tr><td>5</td><td>STRIDE 六类威胁映射到具体安全面</td><td style="text-align:center">✅</td></tr></tbody></table><h3>STRIDE 威胁映射</h3><table><thead><tr><th>威胁</th><th>对应安全面</th><th>具体风险</th><th>缓解</th></tr></thead><tbody><tr><td>Spoofing</td><td>认证</td><td>Token 被盗用后冒充合法用户</td><td>Token 格式校验 + HTTPS 传输</td></tr><tr><td>Tampering</td><td>传输 + 存储</td><td>API 响应被篡改 / storage 数据被修改</td><td>HTTPS + 响应校验</td></tr><tr><td>Repudiation</td><td>认证</td><td>无操作日志无法追溯</td><td>待补充（当前无审计日志）</td></tr><tr><td>Information Disclosure</td><td>存储 + 传输</td><td>Token 泄露 / 敏感数据明文存储</td><td>Token 仅存 chrome.storage.local</td></tr><tr><td>Denial of Service</td><td>权限 + 存储</td><td>storage 配额被恶意填满</td><td>cleanupOldData() LRU 淘汰</td></tr><tr><td>Elevation of Privilege</td><td>权限</td><td><code><all_urls></code> 被滥用</td><td>isSystemPage() 跳过 + 最小权限审查</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+(function(){
+  if(typeof cytoscape==='undefined'){document.getElementById('cy').innerHTML='<p style="color:#475569;text-align:center;padding:2rem;">Cytoscape.js 未加载</p>';return}
+  var kgPath='../../../../docs/故事任务面板/yipet-arch/知识图谱.json';
+  fetch(kgPath).then(function(r){return r.json()}).then(function(kg){
+    var elements=[];
+    var domains=(kg.nodes&&kg.nodes.domains)||[];
+    var scenes=(kg.nodes&&kg.nodes.scenes)||[];
+    var sources=(kg.nodes&&kg.nodes.sources)||[];
+    domains.forEach(function(d){elements.push({data:{id:d.id,label:d.name,type:'domain'}})});
+    scenes.forEach(function(s){elements.push({data:{id:s.id,label:s.name||s.id,type:'scene'}})});
+    sources.forEach(function(s){elements.push({data:{id:s.id,label:s.name||s.id,type:'source'}})});
+    var edges=kg.edges||[];
+    edges.forEach(function(e){elements.push({data:{source:e.source,target:e.target,label:e.type||''}})});
+    if(elements.length===0){elements.push({data:{id:'empty',label:'暂无图谱数据'}})}
+    window._cy=cytoscape({container:document.getElementById('cy'),style:[
+      {selector:'node',style:{label:'data(label)',color:'white','font-size':'10px','font-family':'JetBrains Mono,monospace','text-valign':'center','text-halign':'center','background-color':'#1e293b','border-width':'2px','border-color':'#475569'}},
+      {selector:'node[type="domain"]',style:{'background-color':'#1b1e2e','border-color':'#7aa2f7','border-width':'3px'}},
+      {selector:'node[type="scene"]',style:{'background-color':'#1a2a1a','border-color':'#34d399'}},
+      {selector:'node[type="source"]',style:{'background-color':'#21232f','border-color':'#565f89'}},
+      {selector:'edge',style:{'line-color':'#3d59a1','target-arrow-color':'#3d59a1','target-arrow-shape':'triangle','curve-style':'bezier',width:1.5}}
+    ],elements:elements,layout:{name:'cose',idealEdgeLength:100,nodeOverlap:20}});
+  }).catch(function(){
+    window._cy=cytoscape({container:document.getElementById('cy'),style:[{selector:'node',style:{label:'data(label)',color:'white','font-size':'10px','text-valign':'center','text-halign':'center','background-color':'#1e293b','border-width':'2px','border-color':'#475569'}}],elements:{nodes:[{data:{id:'err',label:'图谱加载失败'}}],edges:[]},layout:{name:'grid'}});
+  });
+  var btns=document.querySelectorAll('.toolbar-actions button');
+  if(btns[0])btns[0].onclick=function(){var c=window._cy;if(c)navigator.clipboard.writeText(JSON.stringify(c.json()))};
+  if(btns[1])btns[1].onclick=function(){if(typeof html2canvas==='undefined')return;html2canvas(document.getElementById('cy'),{backgroundColor:'#020617'}).then(function(c){var a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='yipet-arch-scene3-kg.png';a.click()})};
+})();
+</script>
+</body>
+</html>

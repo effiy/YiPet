@@ -5,7 +5,7 @@
  */
 
 class LoadingAnimation {
-  constructor () {
+  constructor() {
     this.animationElement = null
     this.animationInterval = null
     this.currentFrame = 1
@@ -21,9 +21,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 创建动画元素
-     */
-  createAnimationElement () {
+   * 创建动画元素
+   */
+  createAnimationElement() {
     if (this.animationElement) {
       return this.animationElement
     }
@@ -48,9 +48,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 显示动画
-     */
-  async show () {
+   * 显示动画
+   */
+  async show() {
     this.showCount++
 
     if (this.isVisible) {
@@ -80,9 +80,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 隐藏动画
-     */
-  hide () {
+   * 隐藏动画
+   */
+  hide() {
     this.showCount = Math.max(0, this.showCount - 1)
 
     // 只有当所有调用者都调用了 hide 时才真正隐藏
@@ -106,9 +106,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 开始动画循环
-     */
-  startAnimation () {
+   * 开始动画循环
+   */
+  startAnimation() {
     if (this.animationInterval) {
       return
     }
@@ -124,9 +124,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 停止动画循环
-     */
-  stopAnimation () {
+   * 停止动画循环
+   */
+  stopAnimation() {
     if (this.animationInterval) {
       clearInterval(this.animationInterval)
       this.animationInterval = null
@@ -134,9 +134,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 预加载所有动画帧图片（优化版：使用统一的图片资源管理器）
-     */
-  async preloadImages () {
+   * 预加载所有动画帧图片（优化版：使用统一的图片资源管理器）
+   */
+  async preloadImages() {
     if (this.isPreloading) {
       return Promise.all(this.preloadPromises)
     }
@@ -156,7 +156,7 @@ class LoadingAnimation {
         promises.push(
           window.imageResourceManager.loadImage(imagePath).then((img) => {
             this.imageCache.set(frame, img)
-          })
+          }),
         )
       }
       await Promise.all(promises)
@@ -167,9 +167,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 加载单张图片（带重试机制，优化版：使用统一的图片资源管理器）
-     */
-  async loadImage (frame, retries = 3) {
+   * 加载单张图片（带重试机制，优化版：使用统一的图片资源管理器）
+   */
+  async loadImage(frame, retries = 3) {
     const imagePath = `assets/images/教师/run/${frame}.png`
     if (!window.imageResourceManager) {
       throw new Error('缺少 imageResourceManager')
@@ -181,9 +181,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 更新当前帧（优化版：使用预加载的图片，避免重复请求）
-     */
-  async updateFrame () {
+   * 更新当前帧（优化版：使用预加载的图片，避免重复请求）
+   */
+  async updateFrame() {
     if (!this.animationImg) {
       return
     }
@@ -205,9 +205,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 销毁动画元素
-     */
-  destroy () {
+   * 销毁动画元素
+   */
+  destroy() {
     this.hide()
 
     // 清理图片缓存
@@ -223,9 +223,9 @@ class LoadingAnimation {
   }
 
   /**
-     * 重置扩展上下文状态（当扩展重新加载时调用）
-     */
-  resetExtensionContext () {
+   * 重置扩展上下文状态（当扩展重新加载时调用）
+   */
+  resetExtensionContext() {
     // 清理缓存，强制重新加载
     this.imageCache.clear()
     this.preloadPromises = []

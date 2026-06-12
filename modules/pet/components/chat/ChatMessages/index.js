@@ -2,7 +2,7 @@
  * ChatMessages Component (YiPetChatMessages)
  * Renders loading/error/empty state or list of chat message items.
  */
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) window.PetManager = {}
@@ -11,19 +11,19 @@
   const CHAT_MESSAGES_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/chat/ChatMessages/index.html'
   let chatMessagesTemplateCache = ''
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (chatMessagesTemplateCache) return chatMessagesTemplateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     chatMessagesTemplateCache = await DomHelper.loadHtmlTemplate(
       CHAT_MESSAGES_TEMPLATES_RESOURCE_PATH,
       '#yi-pet-chat-messages-template',
-      'Failed to load ChatMessages template'
+      'Failed to load ChatMessages template',
     )
     return chatMessagesTemplateCache
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const template = params?.template
     const Vue = window.Vue || {}
     const { defineComponent, ref: vueRef, computed, onMounted: vueOnMounted, onUpdated, nextTick } = Vue
@@ -36,9 +36,9 @@
       name: 'YiPetChatMessages',
       props: {
         instance: { type: Object, required: true },
-        manager: { type: Object, required: true }
+        manager: { type: Object, required: true },
       },
-      setup (props) {
+      setup(props) {
         const viewState = vueRef('empty')
         const viewStatePayload = vueRef(null)
         const messages = vueRef([])
@@ -87,7 +87,13 @@
         const errorPayload = computed(() => viewStatePayload.value ?? '发生错误')
         const emptyPayload = computed(() => {
           const p = viewStatePayload.value
-          return p && typeof p === 'object' ? p : { title: '未选择会话', subtitle: '从左侧会话列表选择一个会话开始聊天', hint: '也可以在左侧搜索框输入关键词快速定位' }
+          return p && typeof p === 'object'
+            ? p
+            : {
+                title: '未选择会话',
+                subtitle: '从左侧会话列表选择一个会话开始聊天',
+                hint: '也可以在左侧搜索框输入关键词快速定位',
+              }
         })
 
         const emptyTitle = computed(() => emptyPayload.value?.title || '未选择会话')
@@ -103,25 +109,31 @@
             isUser ? 'is-user' : 'is-pet',
             msg.streaming ? 'is-streaming' : '',
             msg.error ? 'is-error' : '',
-            msg.aborted ? 'is-aborted' : ''
-          ].filter(Boolean).join(' ')
+            msg.aborted ? 'is-aborted' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
         }
 
         const messageIsoTime = (msg) => (msg && msg.timestamp ? new Date(msg.timestamp).toISOString() : '')
 
         const messageTimeText = (msg) => {
           if (!msg) return ''
-          if (props.manager && typeof props.manager.formatTimestamp === 'function') return props.manager.formatTimestamp(msg.timestamp)
+          if (props.manager && typeof props.manager.formatTimestamp === 'function') {
+            return props.manager.formatTimestamp(msg.timestamp)
+          }
           return msg.timestamp ? new Date(msg.timestamp).toISOString() : ''
         }
 
         const messageHtml = (msg) => {
           if (!msg) return ''
-          if (props.manager && typeof props.manager.renderMarkdown === 'function') return props.manager.renderMarkdown(msg.content || '') || ''
+          if (props.manager && typeof props.manager.renderMarkdown === 'function') {
+            return props.manager.renderMarkdown(msg.content || '') || ''
+          }
           return msg.content || ''
         }
 
-        const welcomeModel = (msg) => (msg && msg.isWelcome ? (msg.welcomeModel || null) : null)
+        const welcomeModel = (msg) => (msg && msg.isWelcome ? msg.welcomeModel || null : null)
 
         const welcomeDescriptionHtml = (msg) => {
           const m = welcomeModel(msg)
@@ -204,10 +216,10 @@
           isCopied,
           onCopy,
           messageIsoTime,
-          messageTimeText
+          messageTimeText,
         }
       },
-      template: resolvedTemplate
+      template: resolvedTemplate,
     })
 
     return ChatMessages
@@ -215,6 +227,6 @@
 
   window.PetManager.Components.ChatMessages = {
     loadTemplate,
-    createComponent
+    createComponent,
   }
 })()

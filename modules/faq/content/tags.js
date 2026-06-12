@@ -53,7 +53,7 @@
       faqIndex: -1,
       inputValue: '',
       currentTags: [],
-      isSmartGenerating: false
+      isSmartGenerating: false,
     })
 
     this._faqTagManagerStore = store
@@ -66,13 +66,15 @@
 
     const mountParent = this.chatWindow || document.body
     const existing =
-            (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('.pet-faq-tag-manager')) ||
-            document.querySelector('.pet-faq-tag-manager')
+      (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('.pet-faq-tag-manager')) ||
+      document.querySelector('.pet-faq-tag-manager')
     if (existing) return store
 
     const existingHost =
-            (this.chatWindow && this.chatWindow.querySelector && this.chatWindow.querySelector('#pet-faq-tag-manager-host')) ||
-            document.querySelector('#pet-faq-tag-manager-host')
+      (this.chatWindow &&
+        this.chatWindow.querySelector &&
+        this.chatWindow.querySelector('#pet-faq-tag-manager-host')) ||
+      document.querySelector('#pet-faq-tag-manager-host')
     if (existingHost && existingHost._store === store) return store
 
     const Vue = window.Vue || {}
@@ -125,14 +127,12 @@
   proto.loadFaqTagsIntoManager = function (faqIndex, tags) {
     const store = this._faqTagManagerStore
     if (!store) return
-    const normalized = (Array.isArray(tags) ? tags : [])
-      .map((t) => String(t ?? '').trim())
-      .filter((t) => t)
+    const normalized = (Array.isArray(tags) ? tags : []).map((t) => String(t ?? '').trim()).filter((t) => t)
     store.faqIndex = Number.isFinite(Number(faqIndex)) ? Number(faqIndex) : store.faqIndex
     store.currentTags = normalized
   }
 
-  proto.addFaqTagFromInput = function (faqIndex) {
+  proto.addFaqTagFromInput = function (_faqIndex) {
     const store = this._faqTagManagerStore
     if (!store) return
     const tagName = String(store.inputValue || '').trim()
@@ -183,7 +183,7 @@
           throw new Error('无法确定常见问题的标识符')
         }
         await this.faqApi.updateFaq(key, {
-          tags: uniq
+          tags: uniq,
         })
 
         if (this.faqApi.clearGetCache) {
@@ -217,7 +217,7 @@
     store.isSmartGenerating = true
 
     try {
-      const systemPrompt = `你是一个专业的标签生成助手。根据用户提供的常见问题内容，生成合适的标签。
+      const _systemPrompt = `你是一个专业的标签生成助手。根据用户提供的常见问题内容，生成合适的标签。
 
 标签要求：
 1. 标签应该简洁明了，每个标签2-6个汉字或3-12个英文字符
@@ -229,15 +229,12 @@
 
 输出格式示例：技术,编程,前端开发,JavaScript`
 
-      let userPrompt = `常见问题内容：\n${faq.text || ''}`
+      let _userPrompt = `常见问题内容：\n${faq.text || ''}`
       const currentTags = Array.isArray(store.currentTags) ? store.currentTags : []
       if (currentTags.length > 0) {
-        userPrompt += `\n\n已有标签：${currentTags.join(', ')}\n请避免生成重复的标签。`
+        _userPrompt += `\n\n已有标签：${currentTags.join(', ')}\n请避免生成重复的标签。`
       }
-      userPrompt += '\n\n请根据以上信息生成合适的标签。'
-
-      void systemPrompt
-      void userPrompt
+      _userPrompt += '\n\n请根据以上信息生成合适的标签。'
     } catch (e) {
     } finally {
       store.isSmartGenerating = false

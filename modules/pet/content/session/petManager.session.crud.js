@@ -2,15 +2,19 @@
  * Session CRUD Module
  * 会话增删改查模块
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
   }
 
   const proto = window.PetManager.prototype
+  // eslint-disable-next-line no-unused-vars -- sleep utility may be used by other session modules
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)))
-  const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_')
+  const normalizeNameSpaces = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '_')
 
   // ========== 会话初始化与核心流程 ==========
 
@@ -29,7 +33,7 @@
         } else {
           const session = this.sessions[this.currentSessionId]
           const now = Date.now()
-          if (!session.lastAccessTime || (now - session.lastAccessTime) > 60000) {
+          if (!session.lastAccessTime || now - session.lastAccessTime > 60000) {
             session.lastAccessTime = now
           }
         }
@@ -58,7 +62,7 @@
         await this.activateSession(matchedSessionId, {
           saveCurrent: false,
           updateConsistency: true,
-          updateUI: true
+          updateUI: true,
         })
         return matchedSessionId
       }
@@ -72,7 +76,7 @@
       await this.activateSession(sessionId, {
         saveCurrent: false,
         updateConsistency: true,
-        updateUI: true
+        updateUI: true,
       })
       return sessionId
     } else {
@@ -85,13 +89,14 @@
       await this.activateSession(sessionId, {
         saveCurrent: false,
         updateConsistency: true,
-        updateUI: true
+        updateUI: true,
       })
       return sessionId
     }
   }
 
   proto.activateSession = async function (sessionId, options = {}) {
+    /* eslint-disable no-unused-vars -- destructured options for API compatibility (saveCurrent, syncToBackend used by callers) */
     const {
       saveCurrent = true,
       updateConsistency = true,
@@ -99,8 +104,9 @@
       syncToBackend = true,
       skipBackendFetch = false,
       keepApiRequestListView = false,
-      preserveOrder = false
+      preserveOrder = false,
     } = options
+    /* eslint-enable no-unused-vars */
 
     const targetSession = this.sessions[sessionId]
     if (!targetSession) {
@@ -115,12 +121,18 @@
 
     this.hasAutoCreatedSessionForPage = isUrlMatched
 
-    const isBlankSession = !targetSession.url ||
-                          targetSession.url.startsWith('blank-session://') ||
-                          targetSession._isBlankSession
-    const isNewSession = targetSession.createdAt && (Date.now() - targetSession.createdAt) < 5000
+    // eslint-disable-next-line no-unused-vars -- assigned for debug/logging context
+    const isBlankSession =
+      !targetSession.url || targetSession.url.startsWith('blank-session://') || targetSession._isBlankSession
+    const isNewSession = targetSession.createdAt && Date.now() - targetSession.createdAt < 5000
 
-    if (!skipBackendFetch && !isNewSession && this.sessionApi && this.sessionApi.isEnabled() && !this.isChatWindowFirstOpen) {
+    if (
+      !skipBackendFetch &&
+      !isNewSession &&
+      this.sessionApi &&
+      this.sessionApi.isEnabled() &&
+      !this.isChatWindowFirstOpen
+    ) {
       try {
         const sessionKey = targetSession.key || sessionId
         if (!this._sessionQueryCache) {
@@ -130,7 +142,7 @@
         const lastQueryTime = this._sessionQueryCache[sessionKey]
         const QUERY_CACHE_INTERVAL = 2000
 
-        if (lastQueryTime && (now - lastQueryTime) < QUERY_CACHE_INTERVAL) {
+        if (lastQueryTime && now - lastQueryTime < QUERY_CACHE_INTERVAL) {
           console.log('会话最近已查询过，跳过重复查询:', sessionKey)
         } else {
           console.log('会话高亮，正在从后端获取完整数据:', sessionKey)
@@ -146,8 +158,9 @@
               if (fullSession.pageDescription) {
                 existingSession.pageDescription = fullSession.pageDescription
               }
-              const isAicrSession = String(existingSession.url || '').startsWith('aicr-session://') ||
-                                    String(existingSession.pageDescription || '').includes('文件：')
+              const isAicrSession =
+                String(existingSession.url || '').startsWith('aicr-session://') ||
+                String(existingSession.pageDescription || '').includes('文件：')
               if (!isAicrSession && fullSession.pageContent) {
                 existingSession.pageContent = fullSession.pageContent
               }
@@ -165,7 +178,7 @@
               }
               this.sessions[sessionId] = {
                 ...fullSession,
-                title
+                title,
               }
             }
 
@@ -175,12 +188,12 @@
           }
         }
       } catch (error) {
-        const is404 = error.message && (
-          error.message.includes('404') ||
-          error.message.includes('Not Found') ||
-          error.status === 404 ||
-          error.response?.status === 404
-        )
+        const is404 =
+          error.message &&
+          (error.message.includes('404') ||
+            error.message.includes('Not Found') ||
+            error.status === 404 ||
+            error.response?.status === 404)
         if (is404) {
           console.log('会话在后端不存在，使用本地数据:', sessionId)
         } else {
@@ -196,11 +209,12 @@
     }
 
     if (updateConsistency && isUrlMatched) {
+      // eslint-disable-next-line no-unused-vars -- needsUpdate assigned for consistency tracking
       const needsUpdate = this.ensureSessionConsistency(sessionId)
     } else if (!isUrlMatched && !preserveOrder) {
       console.log(`切换到会话 ${sessionId}：URL不匹配，不更新页面信息`)
       const now = Date.now()
-      if (!targetSession.lastAccessTime || (now - targetSession.lastAccessTime) > 60000) {
+      if (!targetSession.lastAccessTime || now - targetSession.lastAccessTime > 60000) {
         targetSession.lastAccessTime = now
       }
     } else if (preserveOrder) {
@@ -212,7 +226,7 @@
         updateSidebar: true,
         updateTitle: true,
         loadMessages: this.isChatOpen,
-        keepApiRequestListView
+        keepApiRequestListView,
       })
     }
   }
@@ -229,7 +243,7 @@
     if (!existingSession) {
       const addMdSuffix = (str) => {
         if (!str || !str.trim()) return str
-        return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md'
+        return str.trim().endsWith('.md') ? str.trim() : `${str.trim()}.md`
       }
 
       if (rawTitle) {
@@ -241,11 +255,11 @@
       if (pageInfo.url && typeof pageInfo.url === 'string') {
         try {
           const customProtocols = ['blank-session://', 'import-session://', 'aicr-session://']
-          const isCustomProtocol = customProtocols.some(protocol => pageInfo.url.startsWith(protocol))
+          const isCustomProtocol = customProtocols.some((protocol) => pageInfo.url.startsWith(protocol))
           if (!isCustomProtocol) {
             let urlToProcess = pageInfo.url
             if (!urlToProcess.startsWith('http://') && !urlToProcess.startsWith('https://')) {
-              urlToProcess = 'https://' + urlToProcess
+              urlToProcess = `https://${urlToProcess}`
             }
             const urlObj = new URL(urlToProcess)
             const domain = urlObj.hostname
@@ -269,7 +283,7 @@
       tags,
       createdAt,
       updatedAt: now,
-      lastAccessTime
+      lastAccessTime,
     }
   }
 
@@ -281,9 +295,7 @@
     const session = this.sessions[sessionId]
     const pageInfo = this.getPageInfo()
 
-    const isBlankSession = session._isBlankSession ||
-                          !session.url ||
-                          session.url.startsWith('blank-session://')
+    const isBlankSession = session._isBlankSession || !session.url || session.url.startsWith('blank-session://')
 
     if (isBlankSession) {
       console.log(`确保会话一致性 ${sessionId}：空白会话`)
@@ -323,17 +335,18 @@
       sessionTitle = normalizedSessionTitle
       updated = true
     }
-    const isDefaultTitle = !sessionTitle ||
-                          sessionTitle.trim() === '' ||
-                          sessionTitle === '未命名会话' ||
-                          sessionTitle === '新会话' ||
-                          sessionTitle === '未命名页面' ||
-                          sessionTitle === '当前页面' ||
-                          sessionTitle === '新会话.md'
+    const isDefaultTitle =
+      !sessionTitle ||
+      sessionTitle.trim() === '' ||
+      sessionTitle === '未命名会话' ||
+      sessionTitle === '新会话' ||
+      sessionTitle === '未命名页面' ||
+      sessionTitle === '当前页面' ||
+      sessionTitle === '新会话.md'
 
     const addMdSuffix = (str) => {
       if (!str || !str.trim()) return str
-      return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md'
+      return str.trim().endsWith('.md') ? str.trim() : `${str.trim()}.md`
     }
 
     const nextTitle = currentPageTitle ? addMdSuffix(currentPageTitle) : ''
@@ -370,7 +383,7 @@
     }
 
     const now = Date.now()
-    if (!session.lastAccessTime || (now - session.lastAccessTime) > 60000) {
+    if (!session.lastAccessTime || now - session.lastAccessTime > 60000) {
       session.lastAccessTime = now
       updated = true
     }
@@ -383,15 +396,13 @@
 
     const session = this.sessions[sessionId]
 
-    const isBlankSession = session._isBlankSession ||
-                          !session.url ||
-                          session.url.startsWith('blank-session://')
+    const isBlankSession = session._isBlankSession || !session.url || session.url.startsWith('blank-session://')
     if (isBlankSession) {
       console.log(`更新会话页面信息 ${sessionId}：空白会话`)
       const now = Date.now()
       Object.assign(session, {
         updatedAt: now,
-        lastAccessTime: now
+        lastAccessTime: now,
       })
       return true
     }
@@ -410,7 +421,7 @@
       pageDescription: sessionData.pageDescription || '',
       pageContent: sessionData.pageContent || session.pageContent || '',
       updatedAt: sessionData.updatedAt,
-      lastAccessTime: now
+      lastAccessTime: now,
     })
 
     return true
@@ -430,17 +441,20 @@
   proto.saveAllSessions = async function (force = false, syncToBackend = true) {
     const now = Date.now()
 
-    if (!force && (now - this.lastSessionSaveTime) < this.SESSION_SAVE_THROTTLE) {
+    if (!force && now - this.lastSessionSaveTime < this.SESSION_SAVE_THROTTLE) {
       this.pendingSessionUpdate = true
       if (this.sessionUpdateTimer) {
         clearTimeout(this.sessionUpdateTimer)
       }
       return new Promise((resolve) => {
-        this.sessionUpdateTimer = setTimeout(async () => {
-          this.pendingSessionUpdate = false
-          await this._doSaveAllSessions(syncToBackend)
-          resolve()
-        }, this.SESSION_SAVE_THROTTLE - (now - this.lastSessionSaveTime))
+        this.sessionUpdateTimer = setTimeout(
+          async () => {
+            this.pendingSessionUpdate = false
+            await this._doSaveAllSessions(syncToBackend)
+            resolve()
+          },
+          this.SESSION_SAVE_THROTTLE - (now - this.lastSessionSaveTime),
+        )
       })
     }
 
@@ -456,7 +470,7 @@
     this.lastSessionSaveTime = Date.now()
 
     if (this.isChatOpen && syncToBackend && PET_CONFIG.api.syncSessionsToBackend && this.currentSessionId) {
-      this.syncSessionToBackend(this.currentSessionId, false).catch(err => {
+      this.syncSessionToBackend(this.currentSessionId, false).catch((err) => {
         console.warn('同步会话到后端失败:', err)
       })
     }
@@ -479,19 +493,28 @@
         return
       }
 
-      const isBlankSession = session._isBlankSession ||
-                            !session.url ||
-                            session.url.startsWith('blank-session://') ||
-                            session.url.startsWith('aicr-session://')
+      const isBlankSession =
+        session._isBlankSession ||
+        !session.url ||
+        session.url.startsWith('blank-session://') ||
+        session.url.startsWith('aicr-session://')
 
       let sessionUrl = ''
       if (isBlankSession) {
-        if (session._originalUrl && (session._originalUrl.startsWith('blank-session://') || session._originalUrl.startsWith('aicr-session://'))) {
+        if (
+          session._originalUrl &&
+          (session._originalUrl.startsWith('blank-session://') || session._originalUrl.startsWith('aicr-session://'))
+        ) {
           sessionUrl = session._originalUrl
-        } else if (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://'))) {
+        } else if (
+          session.url &&
+          (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://'))
+        ) {
           sessionUrl = session.url
         } else {
-          sessionUrl = session._originalUrl || `aicr-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substr(2, 11)}`
+          sessionUrl =
+            session._originalUrl ||
+            `aicr-session://${session.createdAt || Date.now()}-${Math.random().toString(36).substr(2, 11)}`
         }
       } else {
         sessionUrl = session.url || ''
@@ -509,7 +532,7 @@
       const normalizeMessagesForBackend = (messages) => {
         const list = Array.isArray(messages) ? messages : []
         return list.map((m) => {
-          const type = (m && m.type === 'pet') ? 'pet' : 'user'
+          const type = m && m.type === 'pet' ? 'pet' : 'user'
           const message = String(m?.message ?? m?.content ?? '').trim()
           const timestamp = Number(m?.timestamp) || Date.now()
           const imageDataUrls = Array.isArray(m?.imageDataUrls) ? m.imageDataUrls.filter(Boolean) : []
@@ -538,38 +561,49 @@
         createdAt: session.createdAt || Date.now(),
         updatedAt: session.updatedAt || Date.now(),
         lastAccessTime: session.lastAccessTime || Date.now(),
-        isFavorite: session.isFavorite !== undefined ? !!session.isFavorite : false
+        isFavorite: session.isFavorite !== undefined ? !!session.isFavorite : false,
       }
 
-      const isAicrSession = String(sessionUrl || '').startsWith('aicr-session://') || String(pageDescription || '').includes('文件：')
-      if (!isAicrSession && (includePageContent || (session._isApiRequestSession && pageContent && pageContent.trim() !== ''))) {
+      const isAicrSession =
+        String(sessionUrl || '').startsWith('aicr-session://') || String(pageDescription || '').includes('文件：')
+      if (
+        !isAicrSession &&
+        (includePageContent || (session._isApiRequestSession && pageContent && pageContent.trim() !== ''))
+      ) {
         sessionData.pageContent = pageContent
       }
 
       if (this.sessionApi) {
         if (immediate) {
-          try {
-            const result = await this.sessionApi.saveSession(sessionData)
-            if (result?.data?.session) {
-              const updatedSession = result.data.session
-              if (this.sessions[sessionId]) {
-                const localSession = this.sessions[sessionId]
-                this.sessions[sessionId] = {
-                  ...updatedSession,
-                  messages: localSession.messages?.length > updatedSession.messages?.length ? localSession.messages : updatedSession.messages,
-                  pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '') ? localSession.pageContent : (updatedSession.pageContent || localSession.pageContent || ''),
-                  isFavorite: localSession.isFavorite !== undefined ? !!localSession.isFavorite : (updatedSession.isFavorite !== undefined ? !!updatedSession.isFavorite : false)
-                }
-                if (!this.sessions[sessionId].title) {
-                  this.sessions[sessionId].title = updatedSession.title || localSession.title || '新会话'
-                }
+          const result = await this.sessionApi.saveSession(sessionData)
+          if (result?.data?.session) {
+            const updatedSession = result.data.session
+            if (this.sessions[sessionId]) {
+              const localSession = this.sessions[sessionId]
+              this.sessions[sessionId] = {
+                ...updatedSession,
+                messages:
+                  localSession.messages?.length > updatedSession.messages?.length
+                    ? localSession.messages
+                    : updatedSession.messages,
+                pageContent:
+                  localSession.pageContent && localSession.pageContent.trim() !== ''
+                    ? localSession.pageContent
+                    : updatedSession.pageContent || localSession.pageContent || '',
+                isFavorite:
+                  localSession.isFavorite !== undefined
+                    ? !!localSession.isFavorite
+                    : updatedSession.isFavorite !== undefined
+                      ? !!updatedSession.isFavorite
+                      : false,
+              }
+              if (!this.sessions[sessionId].title) {
+                this.sessions[sessionId].title = updatedSession.title || localSession.title || '新会话'
               }
             }
-            this.lastSessionListLoadTime = 0
-            console.log(`会话 ${sessionId} 已立即同步到后端`)
-          } catch (error) {
-            throw error
           }
+          this.lastSessionListLoadTime = 0
+          console.log(`会话 ${sessionId} 已立即同步到后端`)
         } else {
           this.sessionApi.queueSave(sessionData)
           console.log(`会话 ${sessionId} 已加入保存队列`)
@@ -582,9 +616,17 @@
 
   proto.loadSessionsFromBackend = async function (forceRefresh = false) {
     try {
-      if (!forceRefresh) { return }
-      if (!this.isChatOpen) { return }
-      if (this.hasLoadedSessionsForChat && this.lastSessionListLoadTime && (Date.now() - this.lastSessionListLoadTime) < this.SESSION_LIST_RELOAD_INTERVAL) {
+      if (!forceRefresh) {
+        return
+      }
+      if (!this.isChatOpen) {
+        return
+      }
+      if (
+        this.hasLoadedSessionsForChat &&
+        this.lastSessionListLoadTime &&
+        Date.now() - this.lastSessionListLoadTime < this.SESSION_LIST_RELOAD_INTERVAL
+      ) {
         return
       }
 
@@ -623,34 +665,41 @@
         }
 
         const sessionUrl = backendSession.url || ''
-        const isBlankSession = sessionUrl.startsWith('blank-session://') ||
-                              sessionUrl.startsWith('aicr-session://') ||
-                              backendSession._isBlankSession
+        const isBlankSession =
+          sessionUrl.startsWith('blank-session://') ||
+          sessionUrl.startsWith('aicr-session://') ||
+          backendSession._isBlankSession
 
-        const createdAt = parseTime(backendSession.createdAt) ||
-                         parseTime(backendSession.createdTime) ||
-                         parseTime(backendSession.created_time) ||
-                         Date.now()
-        const updatedAt = parseTime(backendSession.updatedAt) ||
-                         parseTime(backendSession.updatedTime) ||
-                         parseTime(backendSession.updated_time) ||
-                         Date.now()
-        const lastAccessTime = parseTime(backendSession.lastAccessTime) ||
-                              parseTime(backendSession.last_access_time) ||
-                              updatedAt
+        const createdAt =
+          parseTime(backendSession.createdAt) ||
+          parseTime(backendSession.createdTime) ||
+          parseTime(backendSession.created_time) ||
+          Date.now()
+        const updatedAt =
+          parseTime(backendSession.updatedAt) ||
+          parseTime(backendSession.updatedTime) ||
+          parseTime(backendSession.updated_time) ||
+          Date.now()
+        const lastAccessTime =
+          parseTime(backendSession.lastAccessTime) || parseTime(backendSession.last_access_time) || updatedAt
 
         const localSession = {
           key: backendSession.key,
           url: sessionUrl,
-          title: (backendSession.title || '新会话'),
+          title: backendSession.title || '新会话',
           pageDescription: backendSession.pageDescription || '',
-          pageContent: isBlankSession ? (backendSession.pageContent || '') : ((sessionUrl.startsWith('aicr-session://') || String(backendSession.pageDescription || '').includes('文件：')) ? '' : (backendSession.pageContent || '')),
+          pageContent: isBlankSession
+            ? backendSession.pageContent || ''
+            : sessionUrl.startsWith('aicr-session://') ||
+                String(backendSession.pageDescription || '').includes('文件：')
+              ? ''
+              : backendSession.pageContent || '',
           messages: backendSession.messages || [],
           tags: backendSession.tags || [],
           createdAt,
           updatedAt,
           lastAccessTime,
-          isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : false
+          isFavorite: backendSession.isFavorite !== undefined ? !!backendSession.isFavorite : false,
         }
 
         if (isBlankSession) {
@@ -673,7 +722,7 @@
   // ========== 辅助方法 ==========
 
   proto.findSessionByUrl = function (url) {
-    return Object.values(this.sessions).find(session => session.url === url) || null
+    return Object.values(this.sessions).find((session) => session.url === url) || null
   }
 
   proto.generateSessionId = async function (url) {
@@ -688,8 +737,8 @@
       return crypto.randomUUID()
     }
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = Math.random() * 16 | 0
-      const v = c === 'x' ? r : (r & 0x3 | 0x8)
+      const r = (Math.random() * 16) | 0
+      const v = c === 'x' ? r : (r & 0x3) | 0x8
       return v.toString(16)
     })
   }
@@ -704,7 +753,7 @@
 
     const addMdSuffix = (str) => {
       if (!str || !str.trim()) return str
-      return str.trim().endsWith('.md') ? str.trim() : str.trim() + '.md'
+      return str.trim().endsWith('.md') ? str.trim() : `${str.trim()}.md`
     }
 
     sessionTitle = addMdSuffix(sessionTitle)
@@ -725,16 +774,17 @@
       createdAt: now,
       updatedAt: now,
       lastAccessTime: now,
-      isFavorite: false
+      isFavorite: false,
     }
 
     try {
       let createdSessionKey = null
       if (this.sessionApi && this.sessionApi.isEnabled()) {
         try {
-          const result = typeof this.sessionApi.createSession === 'function'
-            ? await this.sessionApi.createSession(sessionDataForCreate)
-            : null
+          const result =
+            typeof this.sessionApi.createSession === 'function'
+              ? await this.sessionApi.createSession(sessionDataForCreate)
+              : null
           createdSessionKey =
             result?.data?.key ||
             result?.data?._id ||
@@ -755,7 +805,7 @@
           console.log('[createBlankSession] 会话已通过 create_document 创建:', createdSessionKey)
         } catch (error) {
           console.error('[createBlankSession] 创建会话失败:', error)
-          this.showNotification('创建会话失败：' + (error.message || '未知错误'), 'error')
+          this.showNotification(`创建会话失败：${error.message || '未知错误'}`, 'error')
           return
         }
       }
@@ -763,7 +813,7 @@
       const finalSessionKey = createdSessionKey || this._generateUUID()
       const sessionData = {
         ...sessionDataForCreate,
-        key: finalSessionKey
+        key: finalSessionKey,
       }
 
       this.sessions[finalSessionKey] = sessionData
@@ -794,14 +844,14 @@
         updateConsistency: false,
         updateUI: true,
         syncToBackend: false,
-        skipBackendFetch: true
+        skipBackendFetch: true,
       })
 
       this.showNotification('会话创建成功', 'success')
       return finalSessionKey
     } catch (error) {
       console.error('[createBlankSession] 创建会话失败:', error)
-      this.showNotification('创建会话失败：' + (error.message || '未知错误'), 'error')
+      this.showNotification(`创建会话失败：${error.message || '未知错误'}`, 'error')
       throw error
     }
   }
@@ -860,7 +910,7 @@
         }
         await this.activateSession(latestSessionKey, {
           saveCurrent: false,
-          syncToBackend: false
+          syncToBackend: false,
         })
       } else {
         this.currentSessionId = null
@@ -894,7 +944,8 @@
             sourceSession = {
               ...sourceSession,
               ...fullSessionData,
-              pageContent: fullSessionData.pageContent !== undefined ? fullSessionData.pageContent : sourceSession.pageContent
+              pageContent:
+                fullSessionData.pageContent !== undefined ? fullSessionData.pageContent : sourceSession.pageContent,
             }
           }
         } catch (error) {
@@ -925,7 +976,7 @@
         isFavorite: sourceSession.isFavorite !== undefined ? sourceSession.isFavorite : false,
         createdAt: now,
         updatedAt: now,
-        lastAccessTime: now
+        lastAccessTime: now,
       }
 
       if (this.isChatOpen && this.sessionApi) {
@@ -943,7 +994,7 @@
           this.showNotification('会话副本已创建', 'success')
         } catch (error) {
           console.error('保存会话副本到后端失败:', error)
-          this.showNotification('创建副本失败：' + error.message, 'error')
+          this.showNotification(`创建副本失败：${error.message}`, 'error')
         }
       } else {
         this.sessions[newSessionId] = duplicatedSession
@@ -952,7 +1003,7 @@
       }
     } catch (error) {
       console.error('创建会话副本失败:', error)
-      this.showNotification('创建副本失败：' + error.message, 'error')
+      this.showNotification(`创建副本失败：${error.message}`, 'error')
     }
   }
 

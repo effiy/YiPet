@@ -2,7 +2,7 @@
  * PetManager - 事件监听相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -85,7 +85,7 @@
       titleObserver.observe(titleElement, {
         childList: true,
         characterData: true,
-        subtree: true
+        subtree: true,
       })
     }
 
@@ -114,7 +114,7 @@
     const debounceTime = this.SESSION_UPDATE_DEBOUNCE || 1000
 
     // 防抖的会话更新函数
-    const debouncedUpdateSession = (reason = '') => {
+    const debouncedUpdateSession = (_reason = '') => {
       if (urlUpdateTimer) {
         clearTimeout(urlUpdateTimer)
       }
@@ -142,7 +142,7 @@
       if (currentUrl === lastUrl) return
       console.log('检测到URL变化（history）:', lastUrl, '->', currentUrl)
       lastUrl = currentUrl
-      const reason = (e && e.detail && e.detail.type) ? e.detail.type : 'history'
+      const reason = e && e.detail && e.detail.type ? e.detail.type : 'history'
       setTimeout(() => {
         debouncedUpdateSession(reason)
       }, 100)

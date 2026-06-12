@@ -4,7 +4,7 @@
  * 此文件已迁移到 core/config.js，保留以确保向后兼容
  * 所有配置现在统一在 PET_CONFIG.ENDPOINTS 中管理
  */
-(function (root) {
+;(function (root) {
   function init() {
     if (typeof root.PET_CONFIG === 'undefined' || !root.PET_CONFIG.ENDPOINTS) {
       console.warn('[endpoints] PET_CONFIG not ready, retrying...')
@@ -27,4 +27,4 @@
   }
 
   init()
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

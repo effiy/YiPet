@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
   }
@@ -52,7 +52,7 @@
       setTimeout(() => {
         isDragging = false
       }, 100)
-      document.querySelectorAll('.tag-filter-item').forEach(item => {
+      document.querySelectorAll('.tag-filter-item').forEach((item) => {
         item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover')
       })
     })
@@ -60,17 +60,21 @@
       e.preventDefault()
       e.stopPropagation()
       e.dataTransfer.dropEffect = 'move'
-      if (tagBtn.classList.contains('dragging') ||
-          tagBtn.classList.contains('tag-no-tags') ||
-          tagBtn.classList.contains('tag-expand-btn')) {
+      if (
+        tagBtn.classList.contains('dragging') ||
+        tagBtn.classList.contains('tag-no-tags') ||
+        tagBtn.classList.contains('tag-expand-btn')
+      ) {
         return
       }
       const rect = tagBtn.getBoundingClientRect()
       const midY = rect.top + rect.height / 2
-      document.querySelectorAll('.tag-filter-item').forEach(item => {
-        if (!item.classList.contains('dragging') &&
-            !item.classList.contains('tag-no-tags') &&
-            !item.classList.contains('tag-expand-btn')) {
+      document.querySelectorAll('.tag-filter-item').forEach((item) => {
+        if (
+          !item.classList.contains('dragging') &&
+          !item.classList.contains('tag-no-tags') &&
+          !item.classList.contains('tag-expand-btn')
+        ) {
           item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-hover')
         }
       })
@@ -125,7 +129,7 @@
     // hover 效果现在由 CSS 统一管理
     if (!options || !options.skipClick) {
       tagBtn.addEventListener('click', (e) => {
-      // 如果刚刚完成拖拽，不触发点击事件
+        // 如果刚刚完成拖拽，不触发点击事件
         if (isDragging || Date.now() - dragStartTime < 200) {
           e.preventDefault()
           e.stopPropagation()
@@ -171,8 +175,8 @@
       const deltaY = clientY - startY
       this.position.x = Math.max(0, Math.min(window.innerWidth - this.size, startLeft + deltaX))
       this.position.y = Math.max(0, Math.min(window.innerHeight - this.size, startTop + deltaY))
-      this.pet.style.left = this.position.x + 'px'
-      this.pet.style.top = this.position.y + 'px'
+      this.pet.style.left = `${this.position.x}px`
+      this.pet.style.top = `${this.position.y}px`
     }
 
     const endDrag = () => {

@@ -1,4 +1,4 @@
-(function (global) {
+;(function (global) {
   'use strict'
 
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
@@ -87,7 +87,8 @@
       if (refreshBtn.hasAttribute('data-refreshing')) return
 
       const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-context-editor-textarea') : null
-      const isDirty = !!textarea &&
+      const isDirty =
+        !!textarea &&
         textarea.getAttribute('data-user-edited') === '1' &&
         String(textarea.value || '').trim().length > 0
 
@@ -239,7 +240,7 @@
     preview.addEventListener('click', (e) => {
       const target = e?.target
       const img = target && typeof target.closest === 'function' ? target.closest('img') : null
-      const src = img ? (img.getAttribute('src') || img.src) : ''
+      const src = img ? img.getAttribute('src') || img.src : ''
       if (!src) return
       if (typeof this.showImagePreview === 'function') {
         e.preventDefault?.()
@@ -247,8 +248,20 @@
         this.showImagePreview(src, img.getAttribute('alt') || '')
       }
     })
-    preview.addEventListener('wheel', (e) => { e.stopPropagation() }, { passive: true })
-    preview.addEventListener('touchmove', (e) => { e.stopPropagation() }, { passive: true })
+    preview.addEventListener(
+      'wheel',
+      (e) => {
+        e.stopPropagation()
+      },
+      { passive: true },
+    )
+    preview.addEventListener(
+      'touchmove',
+      (e) => {
+        e.stopPropagation()
+      },
+      { passive: true },
+    )
     textarea.addEventListener('input', () => {
       try {
         textarea.setAttribute('data-user-edited', '1')
@@ -317,9 +330,10 @@
         const parsed = parseImageDataUrl(dataUrl)
         if (!parsed) throw new Error('无效的图片数据')
 
-        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
-          ? String(window.API_URL).replace(/\/+$/, '')
-          : (PET_CONFIG?.api?.yiaiBaseUrl || '')
+        const apiBase =
+          window.API_URL && /^https?:\/\//i.test(window.API_URL)
+            ? String(window.API_URL).replace(/\/+$/, '')
+            : PET_CONFIG?.api?.yiaiBaseUrl || ''
         if (!apiBase) throw new Error('API_URL 未配置')
 
         const sessionSeg = sanitizePathSegment(this.currentSessionId || 'page')
@@ -332,8 +346,8 @@
           body: JSON.stringify({
             target_file: targetFile,
             content: parsed.base64,
-            is_base64: true
-          })
+            is_base64: true,
+          }),
         })
 
         if (!res.ok) {
@@ -366,16 +380,20 @@
         }
       }
     })
-    textarea.addEventListener('scroll', () => {
-      const previewEl = this.chatWindow ? this.chatWindow.querySelector('#pet-context-preview') : null
-      if (!previewEl) return
-      const tMax = textarea.scrollHeight - textarea.clientHeight
-      const pMax = previewEl.scrollHeight - previewEl.clientHeight
-      if (tMax > 0 && pMax >= 0) {
-        const ratio = textarea.scrollTop / tMax
-        previewEl.scrollTop = ratio * pMax
-      }
-    }, { passive: true })
+    textarea.addEventListener(
+      'scroll',
+      () => {
+        const previewEl = this.chatWindow ? this.chatWindow.querySelector('#pet-context-preview') : null
+        if (!previewEl) return
+        const tMax = textarea.scrollHeight - textarea.clientHeight
+        const pMax = previewEl.scrollHeight - previewEl.clientHeight
+        if (tMax > 0 && pMax >= 0) {
+          const ratio = textarea.scrollTop / tMax
+          previewEl.scrollTop = ratio * pMax
+        }
+      },
+      { passive: true },
+    )
     body.appendChild(textarea)
     body.appendChild(preview)
     content.appendChild(body)
@@ -468,7 +486,7 @@
     if (!overlay) return
     const chatHeaderEl = this.chatWindow.querySelector('.chat-header')
     const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60
-    overlay.style.setProperty('--pet-context-editor-top', headerH + 'px')
+    overlay.style.setProperty('--pet-context-editor-top', `${headerH}px`)
   }
 
   proto._showSaveStatus = function (button, success, originalText) {
@@ -520,7 +538,7 @@
             if (predicate()) return true
           } catch (_) {}
           if (timeout && Date.now() - start > timeout) return false
-          await new Promise(r => setTimeout(r, 30))
+          await new Promise((r) => setTimeout(r, 30))
         }
       }
 
@@ -534,7 +552,7 @@
             saveCurrent: false,
             updateConsistency: true,
             updateUI: true,
-            syncToBackend: false
+            syncToBackend: false,
           })
         } else {
           this.currentSessionId = sessionId
@@ -559,7 +577,7 @@
       console.log('已打开会话的页面上下文:', sessionId)
     } catch (error) {
       console.error('显示会话上下文失败:', error)
-      this.showNotification('显示上下文失败：' + (error.message || '未知错误'), 'error')
+      this.showNotification(`显示上下文失败：${error.message || '未知错误'}`, 'error')
     }
   }
 
@@ -661,8 +679,20 @@
     const preview = document.createElement('div')
     preview.id = 'pet-message-preview'
     preview.className = 'context-editor-preview markdown-content'
-    preview.addEventListener('wheel', (e) => { e.stopPropagation() }, { passive: true })
-    preview.addEventListener('touchmove', (e) => { e.stopPropagation() }, { passive: true })
+    preview.addEventListener(
+      'wheel',
+      (e) => {
+        e.stopPropagation()
+      },
+      { passive: true },
+    )
+    preview.addEventListener(
+      'touchmove',
+      (e) => {
+        e.stopPropagation()
+      },
+      { passive: true },
+    )
 
     textarea.addEventListener('input', () => {
       if (this._messagePreviewTimer) clearTimeout(this._messagePreviewTimer)
@@ -671,16 +701,20 @@
       }, 150)
     })
 
-    textarea.addEventListener('scroll', () => {
-      const previewEl = this.chatWindow ? this.chatWindow.querySelector('#pet-message-preview') : null
-      if (!previewEl) return
-      const tMax = textarea.scrollHeight - textarea.clientHeight
-      const pMax = previewEl.scrollHeight - previewEl.clientHeight
-      if (tMax > 0 && pMax >= 0) {
-        const ratio = textarea.scrollTop / tMax
-        previewEl.scrollTop = ratio * pMax
-      }
-    }, { passive: true })
+    textarea.addEventListener(
+      'scroll',
+      () => {
+        const previewEl = this.chatWindow ? this.chatWindow.querySelector('#pet-message-preview') : null
+        if (!previewEl) return
+        const tMax = textarea.scrollHeight - textarea.clientHeight
+        const pMax = previewEl.scrollHeight - previewEl.clientHeight
+        if (tMax > 0 && pMax >= 0) {
+          const ratio = textarea.scrollTop / tMax
+          previewEl.scrollTop = ratio * pMax
+        }
+      },
+      { passive: true },
+    )
 
     body.appendChild(textarea)
     body.appendChild(preview)
@@ -703,7 +737,7 @@
     if (!overlay) return
     const chatHeaderEl = this.chatWindow.querySelector('.chat-header')
     const headerH = chatHeaderEl ? chatHeaderEl.offsetHeight : 60
-    overlay.style.setProperty('--pet-message-editor-top', headerH + 'px')
+    overlay.style.setProperty('--pet-message-editor-top', `${headerH}px`)
   }
 
   proto.openMessageEditor = function (messageDiv) {
@@ -713,7 +747,7 @@
     const textarea = this.chatWindow ? this.chatWindow.querySelector('#pet-message-editor-textarea') : null
     if (!overlay || !textarea) return
 
-    const found = (typeof this.findMessageObjectByDiv === 'function') ? this.findMessageObjectByDiv(messageDiv) : null
+    const found = typeof this.findMessageObjectByDiv === 'function' ? this.findMessageObjectByDiv(messageDiv) : null
     if (!found || !found.message) {
       if (typeof this.showNotification === 'function') this.showNotification('未找到要编辑的消息', 'error')
       return
@@ -808,4 +842,12 @@
   }
 
   console.log('[PetManager] petManager.editor.ui.js 已加载')
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : this)))
+})(
+  typeof globalThis !== 'undefined'
+    ? globalThis
+    : typeof self !== 'undefined'
+      ? self
+      : typeof window !== 'undefined'
+        ? window
+        : this,
+)

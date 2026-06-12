@@ -2,7 +2,7 @@
  * PetManager 标签管理模块
  * 扩展 PetManager.prototype
  */
-(function () {
+;(function () {
   'use strict'
 
   if (typeof window === 'undefined') return
@@ -18,8 +18,8 @@
   console.log('[TagManager] 开始扩展 PetManager 原型，添加 openTagManager 方法')
 
   /**
-         * 根据标签名称生成颜色（确保相同标签颜色一致）
-         */
+   * 根据标签名称生成颜色（确保相同标签颜色一致）
+   */
   proto.getTagColor = function (tagName) {
     // 预定义的配色方案（柔和的渐变色）
     const colorPalettes = [
@@ -42,13 +42,13 @@
       // 靛蓝色系
       { background: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)', text: '#3730a3', border: '#a5b4fc' },
       // 玫瑰色系
-      { background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)', text: '#9f1239', border: '#fda4af' }
+      { background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)', text: '#9f1239', border: '#fda4af' },
     ]
 
     // 使用简单的哈希函数将标签名称映射到颜色索引
     let hash = 0
     for (let i = 0; i < tagName.length; i++) {
-      hash = ((hash << 5) - hash) + tagName.charCodeAt(i)
+      hash = (hash << 5) - hash + tagName.charCodeAt(i)
       hash = hash & hash // 转换为32位整数
     }
 
@@ -58,8 +58,8 @@
   }
 
   /**
-         * 打开标签管理弹窗
-         */
+   * 打开标签管理弹窗
+   */
   proto.openTagManager = function (sessionId) {
     if (!sessionId || !this.sessions[sessionId]) {
       console.warn('会话不存在，无法管理标签:', sessionId)
@@ -92,15 +92,15 @@
   }
 
   /**
-         * 获取所有会话的标签统计（用于标签建议）
-         */
+   * 获取所有会话的标签统计（用于标签建议）
+   */
   proto.getAllTagsStatistics = function () {
     const tagStats = new Map()
     if (!this.sessions) return tagStats
 
-    Object.values(this.sessions).forEach(session => {
+    Object.values(this.sessions).forEach((session) => {
       if (session && session.tags && Array.isArray(session.tags)) {
-        session.tags.forEach(tag => {
+        session.tags.forEach((tag) => {
           if (tag && tag.trim()) {
             const normalizedTag = tag.trim()
             tagStats.set(normalizedTag, (tagStats.get(normalizedTag) || 0) + 1)
@@ -113,8 +113,8 @@
   }
 
   /**
-         * 确保标签管理UI存在
-         */
+   * 确保标签管理UI存在
+   */
   proto.ensureTagManagerUi = function () {
     if (document.querySelector('#pet-tag-manager')) return
 
@@ -156,7 +156,7 @@
       quickTags: [],
       draggingIndex: -1,
       dragOverIndex: -1,
-      dragOverPosition: ''
+      dragOverPosition: '',
     })
 
     overlay._store = store
@@ -168,7 +168,7 @@
         (v) => {
           overlay.classList.toggle('js-visible', !!v)
         },
-        { immediate: true }
+        { immediate: true },
       )
     }
 
@@ -193,8 +193,8 @@
   }
 
   /**
-         * 加载标签到管理器
-         */
+   * 加载标签到管理器
+   */
   proto.loadTagsIntoManager = function (sessionId, tags) {
     const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store
     if (!store) return
@@ -204,18 +204,18 @@
   }
 
   /**
-         * 更新快捷标签按钮状态
-         */
-  proto.updateQuickTagButtons = function (overlay, currentTags) {
+   * 更新快捷标签按钮状态
+   */
+  proto.updateQuickTagButtons = function (_overlay, _currentTags) {
     const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store
     if (!store) return
     store.quickTags = Array.isArray(store.quickTags) ? store.quickTags : []
   }
 
   /**
-         * 刷新快捷标签列表
-         */
-  proto.refreshQuickTags = function (overlay) {
+   * 刷新快捷标签列表
+   */
+  proto.refreshQuickTags = function (_overlay) {
     const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store
     if (!store) return
     const quickTags = typeof this.getAllTags === 'function' ? this.getAllTags() : []
@@ -223,9 +223,9 @@
   }
 
   /**
-         * 从输入框添加标签
-         */
-  proto.addTagFromInput = function (sessionId) {
+   * 从输入框添加标签
+   */
+  proto.addTagFromInput = function (_sessionId) {
     const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store
     if (!store) return
     const tagName = String(store.inputValue || '').trim()
@@ -241,8 +241,8 @@
   }
 
   /**
-         * 添加快捷标签
-         */
+   * 添加快捷标签
+   */
   proto.addQuickTag = function (sessionId, tagName) {
     const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store
     if (!store) return
@@ -254,8 +254,8 @@
   }
 
   /**
-         * 移除标签
-         */
+   * 移除标签
+   */
   proto.removeTag = function (sessionId, index) {
     const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store
     if (!store || !Array.isArray(store.currentTags)) return
@@ -279,8 +279,8 @@
   }
 
   /**
-         * 保存标签
-         */
+   * 保存标签
+   */
   proto.saveTags = async function (sessionId) {
     if (!sessionId || !this.sessions[sessionId]) {
       console.warn('会话不存在，无法保存标签:', sessionId)
@@ -299,9 +299,7 @@
       }
 
       // 规范化标签（trim处理，去重，过滤空标签）
-      const normalizedTags = newTags
-        .map(tag => tag ? tag.trim() : '')
-        .filter(tag => tag.length > 0)
+      const normalizedTags = newTags.map((tag) => (tag ? tag.trim() : '')).filter((tag) => tag.length > 0)
       const uniqueTags = [...new Set(normalizedTags)]
 
       // 构建文件路径的辅助函数
@@ -311,15 +309,19 @@
         let currentPath = ''
         tags.forEach((folderName) => {
           if (!folderName || (folderName.toLowerCase && folderName.toLowerCase() === 'default')) return
-          currentPath = currentPath ? currentPath + '/' + folderName : folderName
+          currentPath = currentPath ? `${currentPath}/${folderName}` : folderName
         })
 
         // 清理文件名（移除特殊字符，避免路径问题）
-        const sanitizeFileName = (name) => String(name || '').replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-').trim()
+        const sanitizeFileName = (name) =>
+          String(name || '')
+            .replace(/\s+/g, '_')
+            .replace(/[\\/:*?"<>|]/g, '-')
+            .trim()
         let fileName = sanitizeFileName(title) || 'Untitled'
         fileName = String(fileName).replace(/\//g, '-')
 
-        let cleanPath = currentPath ? currentPath + '/' + fileName : fileName
+        let cleanPath = currentPath ? `${currentPath}/${fileName}` : fileName
         cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '')
         if (cleanPath.startsWith('static/')) {
           cleanPath = cleanPath.substring(7)
@@ -346,7 +348,7 @@
 
       // 记录旧路径
       const originalTitle = session.title || '未命名会话'
-      const titleWithSuffix = (originalTitle.toLowerCase().endsWith('.md')) ? originalTitle : `${originalTitle}.md`
+      const titleWithSuffix = originalTitle.toLowerCase().endsWith('.md') ? originalTitle : `${originalTitle}.md`
       const oldPath = buildFilePath(session, titleWithSuffix)
 
       // 更新会话标签
@@ -361,9 +363,12 @@
         console.log('[saveTags] 准备重命名文件:', oldPath, '->', newPath)
 
         // 获取 API 基础 URL
-        const apiBase = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
-          ? String(window.API_URL).replace(/\/+$/, '')
-          : (typeof PET_CONFIG !== 'undefined' ? PET_CONFIG?.api?.yiaiBaseUrl : '')
+        const apiBase =
+          window.API_URL && /^https?:\/\//i.test(window.API_URL)
+            ? String(window.API_URL).replace(/\/+$/, '')
+            : typeof PET_CONFIG !== 'undefined'
+              ? PET_CONFIG?.api?.yiaiBaseUrl
+              : ''
 
         if (apiBase) {
           try {
@@ -371,12 +376,12 @@
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+                ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
               },
               body: JSON.stringify({
                 old_path: oldPath,
-                new_path: newPath
-              })
+                new_path: newPath,
+              }),
             })
 
             if (!response.ok) {
@@ -396,10 +401,7 @@
 
             // 更新会话的 pageDescription 中的文件路径
             if (session.pageDescription && session.pageDescription.includes('文件：')) {
-              session.pageDescription = session.pageDescription.replace(
-                /文件：.*/,
-                                    `文件：${newPath}`
-              )
+              session.pageDescription = session.pageDescription.replace(/文件：.*/, `文件：${newPath}`)
             }
           } catch (renameError) {
             console.error('[saveTags] 调用 rename-file 接口失败:', renameError)
@@ -430,17 +432,17 @@
                   key: sessionId,
                   tags: uniqueTags,
                   pageDescription: session.pageDescription || '',
-                  updatedAt: session.updatedAt || Date.now()
-                }
-              }
+                  updatedAt: session.updatedAt || Date.now(),
+                },
+              },
             }
             const response = await fetch(`${base}/`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+                ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
               },
-              body: JSON.stringify(payload)
+              body: JSON.stringify(payload),
             })
 
             if (!response.ok) {
@@ -482,8 +484,8 @@
   }
 
   /**
-         * 关闭标签管理器
-         */
+   * 关闭标签管理器
+   */
   proto.closeTagManager = async function () {
     const store = this._tagManagerStore || document.querySelector('#pet-tag-manager')?._store
     if (!store) return

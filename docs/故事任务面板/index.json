@@ -1,0 +1,55 @@
+{
+  "generated": "2026-06-11T01:38:49.236Z",
+  "source": "local docs/故事任务面板/",
+  "project": "YiPet",
+  "version": "1.1.2",
+  "total_stories": 2,
+  "total_scenes": 11,
+  "status_summary": {
+    "改进": 2,
+    "报告": 0,
+    "测试": 0,
+    "实施": 0,
+    "设计": 0,
+    "任务": 0
+  },
+  "stories": [
+    {
+      "name": "架构",
+      "scenes": 5,
+      "scene_list": [
+        "场景-1-模块拓扑",
+        "场景-2-数据流追踪",
+        "场景-3-安全边界",
+        "场景-4-依赖影响",
+        "场景-5-上手指南"
+      ],
+      "files": {
+        "故事任务.md": true,
+        "知识图谱.json": true,
+        "知识图谱.html": true,
+        "演示/index.html": true
+      },
+      "updatedAt": "2026-06-11T01:38:49.235Z"
+    },
+    {
+      "name": "自测试",
+      "scenes": 6,
+      "scene_list": [
+        "场景-1-核心逻辑",
+        "场景-2-接口测试",
+        "场景-3-存储测试",
+        "场景-4-错误边界",
+        "场景-5-集成测试",
+        "场景-6-安全面回归"
+      ],
+      "files": {
+        "故事任务.md": true,
+        "知识图谱.json": true,
+        "知识图谱.html": true,
+        "演示/index.html": true
+      },
+      "updatedAt": "2026-06-11T01:38:49.236Z"
+    }
+  ]
+}

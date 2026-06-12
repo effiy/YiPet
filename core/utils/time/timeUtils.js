@@ -20,11 +20,11 @@
 
 class TimeUtils {
   /**
-     * 格式化时间戳为年月日时分格式
-     * @param {number|string|Date} timestamp - 时间戳（毫秒）或日期对象
-     * @returns {string} 格式化后的时间字符串，格式：YYYY年MM月DD日 HH:mm
-     */
-  static formatTimestamp (timestamp) {
+   * 格式化时间戳为年月日时分格式
+   * @param {number|string|Date} timestamp - 时间戳（毫秒）或日期对象
+   * @returns {string} 格式化后的时间字符串，格式：YYYY年MM月DD日 HH:mm
+   */
+  static formatTimestamp(timestamp) {
     if (!timestamp) return ''
 
     let date
@@ -48,11 +48,11 @@ class TimeUtils {
   }
 
   /**
-     * 格式化日期为 YYYY/MM/DD 格式
-     * @param {Date|number|string} date - 日期对象、时间戳或日期字符串
-     * @returns {string} 格式化后的日期字符串，格式：YYYY/MM/DD
-     */
-  static formatDate (date) {
+   * 格式化日期为 YYYY/MM/DD 格式
+   * @param {Date|number|string} date - 日期对象、时间戳或日期字符串
+   * @returns {string} 格式化后的日期字符串，格式：YYYY/MM/DD
+   */
+  static formatDate(date) {
     if (!date) return ''
 
     let dateObj
@@ -73,19 +73,19 @@ class TimeUtils {
   }
 
   /**
-     * 获取当前时间的格式化字符串
-     * @returns {string} 当前时间的格式化字符串
-     */
-  static getCurrentTime () {
+   * 获取当前时间的格式化字符串
+   * @returns {string} 当前时间的格式化字符串
+   */
+  static getCurrentTime() {
     return this.formatTimestamp(Date.now())
   }
 
   /**
-     * 格式化相对时间（如：刚刚、5分钟前、2小时前等）
-     * @param {number|string|Date} timestamp - 时间戳（毫秒）或日期对象
-     * @returns {string} 相对时间字符串
-     */
-  static formatRelativeTime (timestamp) {
+   * 格式化相对时间（如：刚刚、5分钟前、2小时前等）
+   * @param {number|string|Date} timestamp - 时间戳（毫秒）或日期对象
+   * @returns {string} 相对时间字符串
+   */
+  static formatRelativeTime(timestamp) {
     if (!timestamp) return ''
 
     let date

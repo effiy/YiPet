@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+  <title>YiPet 文档中心</title>
+  <link rel="stylesheet" href="css/index.css">
+  <style>
+    :root {
+      --bg-content: var(--yry-bg, rgba(22,22,32,1));
+      --bg-card: var(--yry-bg-card, linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%));
+      --bg-card-flat: var(--yry-bg-flat, rgba(34,34,46,1));
+      --color-accent: var(--yry-accent, #FFC107);
+      --color-accent-2: var(--yry-cyan, #22d3ee);
+      --text-primary: var(--yry-text, rgba(250,250,252,1));
+      --text-secondary: var(--yry-text2, rgba(160,160,164,1));
+      --text-muted: var(--yry-text3, rgba(110,110,114,1));
+      --shadow-card: var(--yry-shadow, 0 4px 20px rgba(0,0,0,0.3));
+      --shadow-hover: var(--yry-shadow-lg, 0 12px 32px rgba(0,0,0,0.45));
+      --radius-card: var(--yry-radius, 12px);
+      --border-subtle: var(--yry-border, 1px solid rgba(255,255,255,0.06));
+      --link-color: var(--color-accent-2);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg-content);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+    }
+    a { color: var(--link-color); text-decoration: none; transition: color 0.15s, background 0.15s; }
+    a:hover { color: var(--color-accent); }
+    [target="_blank"]::after { content: " ↗"; font-size: 0.7em; opacity: 0.5; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--color-accent); color: #1a1a2a;
+      padding: 8px 16px; z-index: 1000;
+      font-weight: 600; text-decoration: none;
+      border-radius: 0 0 8px 0;
+      transition: top 0.2s;
+    }
+    .skip-link:focus { top: 0; }
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--color-accent), #fbbf24, var(--color-accent-2));
+      background-size: 200% 100%;
+      width: 0%; z-index: 1000;
+      transition: width 0.15s ease-out;
+      box-shadow: 0 0 8px rgba(255,193,7,0.4), 0 0 20px rgba(255,193,7,0.15);
+    }
+    .progress-bar::after {
+      content: '';
+      position: absolute; right: 0; top: 50%;
+      transform: translate(50%, -50%);
+      width: 10px; height: 10px;
+      background: var(--color-accent);
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(255,193,7,0.6);
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .progress-bar:hover::after { opacity: 1; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px 0px; }
+    .header { text-align: center; margin-bottom: 32px; animation: fadeInDown 0.5s ease both; }
+    .header h1 { font-size: 2.2rem; font-weight: 700; }
+    .header h1 .accent { color: var(--color-accent); }
+    .header p { color: var(--text-secondary); margin-top: 8px; font-size: 0.92rem; }
+    .version-badge {
+      display: inline-block; margin-top: 12px;
+      padding: 4px 12px; border-radius: 12px;
+      background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.2);
+      color: var(--color-accent); font-size: 0.74rem; font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+    .stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap; animation: fadeInDown 0.5s 0.1s ease both; }
+    .stat {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: var(--radius-card); padding: 16px 24px; text-align: center;
+      box-shadow: var(--shadow-card); min-width: 100px;
+      text-decoration: none; color: inherit; display: block;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      cursor: pointer;
+    }
+    a.stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.35); }
+    a.stat::after { content: " ▾"; font-size: 0.6em; opacity: 0; transition: opacity 0.15s; }
+    a.stat:hover::after { opacity: 0.5; color: var(--color-accent); }
+    .stat .num { font-size: 1.7rem; font-weight: 700; color: var(--color-accent); }
+    .stat .num.green { color: var(--color-accent-2); }
+    .stat .label { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .share-btn { display: none; }
+    .mini-search {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: var(--bg-card); border-bottom: var(--border-subtle);
+      padding: 8px 20px; z-index: 999;
+      box-shadow: var(--shadow-card);
+      transform: translateY(-100%);
+      transition: transform 0.3s ease;
+      display: flex; align-items: center; gap: 12px;
+      max-width: 1100px; margin: 0 auto;
+    }
+    .mini-search.visible { transform: translateY(0); }
+    .mini-search-input {
+      flex: 1; padding: 8px 12px;
+      background: rgba(255,255,255,0.05); border: var(--border-subtle);
+      border-radius: 6px; color: var(--text-primary);
+      font-size: 0.82rem; outline: none;
+      transition: border-color 0.2s;
+    }
+    .mini-search-input:focus { border-color: var(--color-accent); }
+    .mini-search-input::placeholder { color: var(--text-muted); }
+    .mini-search-close {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 1rem; padding: 4px 8px;
+      transition: color 0.15s;
+    }
+    .mini-search-close:hover { color: var(--color-accent); }
+    a:focus-visible, button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
+    }
+    .search-input:focus-visible { outline: none; }
+    [id^="layer-"] { scroll-margin-top: 20px; }
+    .cross-nav {
+      display: flex; gap: 4px; justify-content: center; align-items: center;
+      margin-bottom: 40px; flex-wrap: wrap;
+      animation: fadeInDown 0.5s 0.15s ease both;
+    }
+    .cross-link { font-size: 0.74rem; padding: 3px 10px; border-radius: 4px; }
+    .cross-link:hover { background: rgba(255,193,7,0.06); text-decoration: underline; }
+    .cross-sep { color: var(--text-muted); font-size: 0.5rem; opacity: 0.35; }
+    .breadcrumb {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 24px; font-size: 0.78rem; color: var(--text-muted);
+      animation: fadeInDown 0.5s ease both;
+    }
+    .breadcrumb .current { color: var(--text-secondary); font-weight: 600; }
+    .tag-chip {
+      display: inline-block; font-size: 0.68rem; padding: 1px 7px;
+      border-radius: 4px; font-weight: 500; line-height: 1.5;
+      white-space: nowrap;
+    }
+    .tag-chip.accent  { background: rgba(255,193,7,0.08); color: var(--color-accent); border: 1px solid rgba(255,193,7,0.12); }
+    .tag-chip.info    { background: rgba(148,163,184,0.06); color: var(--text-muted); border: 1px solid rgba(148,163,184,0.1); }
+    .tag-chip.cyan    { background: rgba(34,211,238,0.08); color: var(--color-accent-2); border: 1px solid rgba(34,211,238,0.12); }
+    .tag-chip.purple  { background: rgba(192,132,252,0.08); color: #c084fc; border: 1px solid rgba(192,132,252,0.12); }
+    .tag-chip.green   { background: rgba(100,220,180,0.08); color: #64DCB4; border: 1px solid rgba(100,220,180,0.12); }
+    .layer { margin-bottom: 36px; }
+    .layer-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+      padding-bottom: 8px; border-bottom: 2px solid var(--color-accent);
+    }
+    .layer-header .layer-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--color-accent); color: #1a1a2a;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+    }
+    .layer-header h2 { font-size: 1.2rem; margin: 0; flex: 1; }
+    .layer-header .layer-stats { font-size: 0.78rem; color: var(--text-muted); }
+    .sub-title {
+      font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);
+      margin: 20px 0 10px; padding-left: 10px; border-left: 3px solid rgba(255,193,7,0.4);
+    }
+    .sub-title:first-of-type { margin-top: 0; }
+    .sub-title .accent { color: var(--color-accent); }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 10px; }
+    .item-card {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow-card);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, opacity 0.3s;
+      display: flex; gap: 14px; align-items: flex-start;
+      position: relative; overflow: hidden;
+      animation: fadeInUp 0.4s ease both;
+    }
+    .item-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: transparent; border-radius: 0 3px 3px 0;
+      transition: background 0.2s;
+    }
+    .item-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .item-card:hover::before { background: var(--color-accent); }
+    .item-card .icon {
+      width: 38px; height: 38px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 0.75rem;
+    }
+    .item-card .icon.js { background: rgba(255,193,7,0.15); color: var(--color-accent); }
+    .item-card .icon.css { background: rgba(100,149,237,0.18); color: #6495ED; }
+    .item-card .icon.build { background: rgba(144,238,144,0.15); color: #90EE90; }
+    .item-card .icon.html { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .item-card .icon.test { background: rgba(100,220,180,0.15); color: #64DCB4; }
+    .item-card .icon.story { background: rgba(255,193,7,0.12); color: var(--color-accent); }
+    .item-card .icon.mod { background: rgba(192,132,252,0.15); color: #c084fc; }
+    .item-card .icon.src { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .item-card .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .item-card .body .name { color: var(--text-primary); font-weight: 600; font-size: 0.9rem; }
+    .item-card .body .name a { color: var(--link-color); transition: color 0.15s; }
+    .item-card .body .name a:hover { color: var(--color-accent); text-decoration: underline; }
+    .item-card .body .desc { color: var(--text-muted); font-size: 0.74rem; }
+    body.focus-mode .item-card:not(.focused),
+    body.focus-mode .scene-card:not(.focused),
+    body.focus-mode .story-card:not(.focused) {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+    body.focus-mode .item-card.focused,
+    body.focus-mode .scene-card.focused,
+    body.focus-mode .story-card.focused {
+      opacity: 1;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 20px rgba(255,193,7,0.3);
+    }
+    .compact-view .item-card .icon {
+      width: 28px; height: 28px; font-size: 0.65rem;
+    }
+    body.compact-view .item-card .body .name { font-size: 0.82rem; }
+    body.compact-view .item-card .body .desc { font-size: 0.68rem; }
+    body.compact-view .item-card .body .tags-row { display: none; }
+    body.compact-view .scene-card .scene-desc { display: none; }
+    .toast {
+      position: fixed; bottom: 100px; left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 8px; padding: 12px 20px;
+      box-shadow: var(--shadow-hover);
+      font-size: 0.82rem; color: var(--text-primary);
+      z-index: 10000; opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.success { border-color: rgba(34,197,94,0.5); }
+    .toast.error { border-color: rgba(239,68,68,0.5); }
+    .toast.info { border-color: rgba(255,193,7,0.5); }
+
+    /* ── Word count badge ────────────────── */
+    .word-count {
+      display: inline-block; font-size: 0.64rem;
+      color: var(--text-muted); margin-left: 8px;
+      opacity: 0.7;
+    }
+    /* ── Search suggestions ──────────────── */
+    .search-suggestions {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 0 0 var(--radius-card) var(--radius-card);
+      box-shadow: var(--shadow-card);
+      max-height: 250px; overflow-y: auto;
+      display: none; z-index: 11;
+    }
+    .search-suggestions.visible { display: block; }
+    .suggestion-item {
+      padding: 10px 16px; font-size: 0.82rem;
+      color: var(--text-secondary); cursor: pointer;
+      transition: all 0.15s;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .suggestion-item:hover {
+      background: rgba(255,193,7,0.05);
+      color: var(--color-accent);
+    }
+    .suggestion-item:last-child { border-bottom: none; }
+    .suggestion-type {
+      font-size: 0.68rem; color: var(--text-muted);
+      margin-left: 8px; opacity: 0.7;
+    }
+    /* ── Error fallback ──────────────────── */
+    .error-banner {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: rgba(239,68,68,0.9); color: white;
+      padding: 12px 20px; font-size: 0.88rem;
+      z-index: 99999; display: none;
+      text-align: center;
+    }
+    .error-banner.visible { display: block; }
+    .error-banner-close {
+      position: absolute; right: 20px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none; color: white;
+      font-size: 1.5rem; cursor: pointer;
+      opacity: 0.7; transition: opacity 0.15s;
+    }
+    .error-banner-close:hover { opacity: 1; }
+    /* ── Reset to defaults button ────────── */
+    .reset-defaults-btn {
+      position: fixed; bottom: 980px; left: 20px;
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 8px; padding: 8px 14px;
+      font-size: 0.74rem; color: var(--text-secondary);
+      cursor: pointer; transition: all 0.15s;
+      box-shadow: var(--shadow-card); z-index: 99;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .reset-defaults-btn:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    /* ── Focus on section ────────────────── */
+    .focus-section-btn {
+      position: absolute; top: 12px; left: 12px;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 0.9rem; cursor: pointer;
+      transition: all 0.2s;
+      opacity: 0.5; z-index: 10;
+    }
+    .focus-section-btn:hover {
+      opacity: 1; color: var(--color-accent);
+      transform: scale(1.2);
+    }
+    body.section-focused .layer {
+      opacity: 0.2;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    body.section-focused .layer.focused {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* ── Code organization comments ─────── */
+    /* This file is organized into the following sections:
+     * 1. CSS Variables and Base Styles
+     * 2. Component Styles (cards, panels, overlays)
+     * 3. Feature Styles (search, filters, modes)
+     * 4. Responsive Styles
+     * 5. HTML Structure
+     * 6. JavaScript - Core Functionality
+     * 7. JavaScript - Features (search, navigation, etc.)
+     * 8. JavaScript - Advanced Features (export, presentation, etc.)
+     */
+    /* ── Performance optimization ────────── */
+    /* Use will-change for animated elements */
+    .item-card,
+    .scene-card,
+    .story-card,
+    .back-top,
+    .section-nav-btn {
+      will-change: transform, opacity;
+    }
+    /* Lazy load images */
+    img[data-src] {
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    img[data-src].loaded {
+      opacity: 1;
+    }
+    /* ── Accessibility improvements ─────── */
+    /* Better focus indicators */
+    a:focus, button:focus, input:focus, select:focus, textarea:focus {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
+    }
+    /* Skip link improvements */
+    .skip-link:focus {
+      outline: 3px solid var(--color-accent);
+      outline-offset: 0;
+    }
+    /* Better contrast for links */
+    a {
+      text-decoration-skip-ink: auto;
+    }
+    /* Reduce motion for users who prefer it */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    /* ── Performance: requestAnimationFrame ─ */
+    /* Use requestAnimationFrame for smooth animations */
+    .smooth-animation {
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+    /* ── Last updated timestamp ─────────── */
+    .last-updated {
+      position: fixed; bottom: 50px; left: 20px;
+      font-size: 0.68rem; color: var(--text-muted);
+      opacity: 0.6; z-index: 96;
+      background: var(--bg-card); padding: 4px 10px;
+      border-radius: 4px; border: var(--border-subtle);
+    }
+    /* ── Session restore indicator ──────── */
+    .session-restored {
+      position: fixed; top: 80px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(34,197,94,0.9); color: white;
+      padding: 10px 20px; border-radius: 8px;
+      font-size: 0.82rem; z-index: 9999;
+      box-shadow: var(--shadow-card);
+      animation: slideDown 0.3s ease, fadeOut 0.3s ease 2.7s;
+      pointer-events: none;
+    }
+    @keyframes slideDown {
+      from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+      to { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+    /* ── Keyboard focus indicator ───────── */
+    .item-card:focus,
+    .scene-card:focus,
+    .story-card:focus {
+      outline: 3px solid var(--color-accent);
+      outline-offset: 4px;
+      box-shadow: 0 0 20px rgba(255,193,7,0.3);
+    }
+    /* ── Mobile touch gestures ─────────── */
+    @media (hover: none) and (pointer: coarse) {
+      .item-card, .scene-card, .story-card {
+        -webkit-tap-highlight-color: transparent;
+      }
+      .item-card:active, .scene-card:active, .story-card:active {
+        transform: scale(0.98);
+      }
+    }
+    /* ── Breadcrumb navigation ──────────── */
+    .breadcrumb-nav {
+      position: fixed; top: 70px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 8px; padding: 8px 16px;
+      box-shadow: var(--shadow-card);
+      font-size: 0.78rem; color: var(--text-muted);
+      z-index: 97; display: flex; align-items: center; gap: 8px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .breadcrumb-nav.visible {
+      opacity: 1; pointer-events: auto;
+    }
+    .breadcrumb-nav-item {
+      color: var(--text-secondary);
+      cursor: pointer; transition: color 0.15s;
+    }
+    .breadcrumb-nav-item:hover {
+      color: var(--color-accent);
+    }
+    .breadcrumb-nav-sep {
+      color: var(--text-muted); opacity: 0.5;
+    }
+    .breadcrumb-nav-current {
+      color: var(--color-accent); font-weight: 600;
+    }
+    /* ── Code organization markers ──────── */
+    /*
+     * ═══════════════════════════════════════════════════════════════
+     * CODE ORGANIZATION
+     * ═══════════════════════════════════════════════════════════════
+     *
+     * This file is organized into the following major sections:
+     *
+     * CSS STYLES (Lines ~10-500):
+     *   - CSS Variables and Theme
+     *   - Base Styles and Reset
+     *   - Component Styles (cards, panels, overlays)
+     *   - Feature Styles (search, filters, modes)
+     *   - Responsive Styles
+     *   - Accessibility and Performance
+     *
+     * HTML STRUCTURE (Lines ~500-1600):
+     *   - Head and Meta
+     *   - Skip Links and Overlays
+     *   - Main Container
+     *   - Navigation and Controls
+     *   - Content Layers
+     *   - Panels and Modals
+     *
+     * JAVASCRIPT (Lines ~1600-5477):
+     *   - Core Functionality (search, navigation)
+     *   - Features (filters, modes, views)
+     *   - Advanced Features (export, presentation, comparison)
+     *   - Utility Functions (helpers, formatters)
+     *   - Event Handlers and Listeners
+     *   - Initialization and Setup
+     *
+     * ═══════════════════════════════════════════════════════════════
+     */
+    .item-card .body .tags-row { display: flex; flex-wrap: wrap; gap: 5px; }
+    .item-card .body .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 0.7rem; color: var(--text-muted); }
+    .scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin-bottom: 10px; }
+    .scene-card {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow-card);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, opacity 0.3s;
+    }
+    .scene-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .scene-card .scene-num { font-size: 0.7rem; color: var(--color-accent); font-weight: 600; margin-bottom: 4px; }
+    .scene-card .scene-name { font-size: 0.88rem; font-weight: 600; }
+    .scene-card .scene-name a { color: var(--link-color); }
+    .scene-card .scene-name a:hover { text-decoration: underline; }
+    .scene-card .scene-desc { color: var(--text-muted); font-size: 0.74rem; margin-top: 4px; }
+    .scene-card .scene-meta {
+      padding-top: 8px; margin-top: 8px; border-top: var(--border-subtle);
+      display: flex; flex-wrap: wrap; gap: 4px;
+    }
+    .scene-card .scene-meta a { font-size: 0.68rem; color: var(--link-color); }
+    .scene-card .scene-meta a:hover { text-decoration: underline; }
+    .story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; margin-bottom: 10px; }
+    .story-card {
+      background: var(--bg-card); border: var(--border-subtle);
+      border-radius: var(--radius-card); padding: 20px 22px; box-shadow: var(--shadow-card);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, opacity 0.3s;
+    }
+    .story-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: rgba(255,193,7,0.2); }
+    .story-card .story-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .story-card .story-head .story-icon {
+      width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+      background: rgba(255,193,7,0.12); color: var(--color-accent);
+      display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+    }
+    .story-card .story-head .story-name { font-size: 1rem; font-weight: 700; flex: 1; }
+    .story-card .story-head .story-badge {
+      font-size: 0.68rem; color: var(--color-accent);
+      border: 1px solid var(--color-accent); border-radius: 4px; padding: 1px 8px;
+    }
+    .story-card .story-desc { color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 12px; line-height: 1.5; }
+    .story-card .story-scenes { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    .story-card .story-scenes .scene-tag {
+      font-size: 0.7rem; color: var(--text-muted);
+      background: rgba(148,163,184,0.08); border: 1px solid rgba(148,163,184,0.12);
+      border-radius: 4px; padding: 2px 8px;
+      cursor: default;
+    }
+    .footer-ref { margin-top: 14px; font-size: 0.78rem; color: var(--text-muted); text-align: right; }
+    .footer-ref a { color: var(--link-color); }
+    hr { border-color: rgba(255,255,255,0.08); margin: 8px 0 24px; }
+    .footer-note { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 8px; padding-bottom: 20px; }
+    .footer-note a { color: var(--color-accent); text-decoration: none; transition: color 0.15s; }
+    .footer-note a:hover { text-decoration: underline; }
+    .back-top {
+      position: fixed; bottom: 28px; right: 28px;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--bg-card-flat); border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text-secondary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; box-shadow: var(--shadow-card);
+      transition: all 0.2s ease;
+      opacity: 0; pointer-events: none; z-index: 100;
+    }
+    .back-top.visible { opacity: 1; pointer-events: auto; }
+    .back-top:hover { border-color: var(--color-accent); color: var(--color-accent); }
+    @media (max-width: 768px) {
+      .container { padding: 24px 12px 12px; }
+      .header h1 { font-size: 1.5rem; }
+      .card-grid, .scene-grid, .story-grid { grid-template-columns: 1fr; }
+      .stats { gap: 8px; }
+      .stat { padding: 10px 14px; min-width: 70px; }
+      .stat .num { font-size: 1.3rem; }
+      .cross-nav { gap: 2px; }
+      .back-top { bottom: 16px; right: 16px; width: 36px; height: 36px; }
+    }
+    @media (max-width: 480px) {
+      .header h1 { font-size: 1.3rem; }
+      .item-card { padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Skip to content link for accessibility -->
+  <a href="#main-content" class="skip-link">跳至主要内容</a>
+  <!-- Reading progress bar -->
+  <div class="progress-bar" id="progressBar" title="阅读进度"></div>
+  <!-- Sticky mini-search -->
+  <!-- Reset to defaults button -->
+  <!-- Error banner -->
+  <div class="error-banner" id="errorBanner">
+    <span id="errorMessage">发生错误</span>
+    <button class="error-banner-close" id="errorBannerClose">&times;</button>
+  </div>
+  <!-- Toast notification -->
+  <button class="reset-defaults-btn" id="resetDefaultsBtn" title="重置为默认设置">
+    <span>⚙</span>
+    <span>恢复默认</span>
+  </button>
+  <div class="container" id="main-content">
+    <nav class="breadcrumb" aria-label="面包屑导航">
+      <span class="current">&#128451; 文档中心</span>
+    </nav>
+    <div class="header">
+      <h1><span class="accent">&#11088;</span> YiPet 文档中心</h1>
+      <p>Chrome 扩展 · AI 陪伴伴侣 · 五层架构全景文档</p>
+      <div class="version-badge">v1.1.2</div>
+    </div>
+    <div class="stats">
+      <a class="stat" href="#layer-deps" aria-label="查看 10 个第三方依赖"><div class="num">10</div><div class="label">第三方依赖</div></a>
+      <a class="stat" href="#layer-core" aria-label="查看 12 个核心模块"><div class="num">12</div><div class="label">核心模块</div></a>
+      <a class="stat" href="#layer-story" aria-label="查看 2 个故事"><div class="num">2</div><div class="label">故事</div></a>
+      <a class="stat" href="#layer-scene" aria-label="查看 11 个场景"><div class="num green">11</div><div class="label">场景</div></a>
+      <a class="stat" href="#layer-source" aria-label="查看 5 个业务场景"><div class="num green">5</div><div class="label">业务场景</div></a>
+    </div>
+    <!-- Cross-panel navigation -->
+    <div class="cross-nav">
+      <a class="cross-link" href="故事任务面板/index.json" target="_blank">&#128203; 故事索引</a>
+      <span class="cross-sep">·</span>
+      <a class="cross-link" href="../tests/index.html" target="_blank">&#129514; 测试中心</a>
+      <span class="cross-sep">·</span>
+      <a class="cross-link" href="./故事任务面板/架构/演示/index.html" target="_blank">&#127916; 演示中心</a>
+      <span class="cross-sep">·</span>
+      <a class="cross-link" href="健康报告/" target="_blank">&#128200; 健康报告</a>
+      <span class="cross-sep">·</span>
+      <a class="cross-link" href="自循环报告/" target="_blank">&#128260; 自循环报告</a>
+      <span class="cross-sep">·</span>
+      <a class="cross-link" href="趋势报告/" target="_blank">&#128225; 趋势报告</a>
+      <span class="cross-sep">·</span>
+      <a class="cross-link" href="../CLAUDE.md" target="_blank">&#128451; CLAUDE.md</a>
+      <span class="cross-sep">·</span>
+      <a class="cross-link" href="../README.md" target="_blank">&#128214; README.md</a>
+    </div>
+    <!-- ── Panel hub ──────────────────────────── -->
+    <div class="panel-hub" id="panelHub">
+      <span class="panel-hub-label" id="liveHealthLabel" style="cursor:pointer" onclick="PanelHub.open('selfimprove')" title="点击打开自改进面板查看详情">🩺 —</span>
+      <button class="panel-hub-btn" onclick="window.openPanel('notify')" title="通知中心 — 健康检查报告、自循环巡检、趋势扫描三类通知统一汇总。支持按类型筛选、最新评分趋势、诊断触发追踪。">
+        <span class="panel-hub-icon" style="color:#ef4444">🔔</span>
+        <span class="panel-hub-name">通知</span>
+        <span class="panel-hub-desc">健康·循环·趋势</span>
+      </button>
+      <button class="panel-hub-btn" onclick="window.openPanel('cron')" title="调度任务 — 展示 .claude/scheduled_tasks.json 中所有定时任务。包含 cron 表达式、人类可读描述、活跃/空闲状态、下次触发预估。">
+        <span class="panel-hub-icon" style="color:var(--color-accent-2)">⏰</span>
+        <span class="panel-hub-name">调度</span>
+        <span class="panel-hub-desc">定时·触发·编排</span>
+      </button>
+      <button class="panel-hub-btn" onclick="window.openPanel('selfimprove')" title="自改进分析 — 读取 .memory/health-trend.jsonl 和 summary.json，按日/周/月/全景四个视角展示健康趋势、D0-D7 诊断覆盖率、等级分布、分支健康对比。">
+        <span class="panel-hub-icon" style="color:#a78bfa">🧬</span>
+        <span class="panel-hub-name">自改进</span>
+        <span class="panel-hub-desc">趋势·诊断·评估</span>
+      </button>
+      <button class="panel-hub-btn" onclick="window.openPanel('faq')" title="常见问题 — 系统知识入口：YiPet 概念、命令使用、面板关系、健康检查原理。含交叉面板导航链接。">
+        <span class="panel-hub-icon" style="color:#22c55e">❓</span>
+        <span class="panel-hub-name">FAQ</span>
+        <span class="panel-hub-desc">知识·指南·解惑</span>
+      </button>
+      <span class="panel-hub-flow">Cron 定时触发 → 技能执行 → 通知产出 → 🔔 通知面板展示 → 数据写入 .memory/ → 🧬 自改进分析消费</span>
+    </div>
+    <!-- ===== Layer 1: 第三方依赖/框架 ===== -->
+    <div class="layer" id="layer-deps">
+      <div class="layer-header">
+        <span class="layer-num">1</span>
+        <h2>第三方依赖/框架</h2>
+        <span class="layer-stats">6 运行时 · 4 开发依赖</span>
+      </div>
+      <div class="sub-title"><span class="accent">&#127760;</span> 运行时依赖 (6)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon js">V</span>
+          <div class="body">
+            <div class="name"><a href="https://vuejs.org/" target="_blank" rel="noopener">Vue 3 &#8599;</a></div>
+            <div class="desc">渐进式前端框架，CDN 运行时加载 (vue.global.js)</div>
+            <div class="tags-row"><span class="tag-chip accent">核心框架</span><span class="tag-chip info">Options API</span></div>
+            <div class="meta"><span class="detail">CDN · vue.global.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon css">T</span>
+          <div class="body">
+            <div class="name"><a href="https://tailwindcss.com/" target="_blank" rel="noopener">Tailwind CSS &#8599;</a></div>
+            <div class="desc">原子化 CSS 框架，CDN 加载</div>
+            <div class="tags-row"><span class="tag-chip info">样式框架</span></div>
+            <div class="meta"><span class="detail">^3.x · 组件样式补充</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">M</span>
+          <div class="body">
+            <div class="name"><a href="https://marked.js.org/" target="_blank" rel="noopener">marked.js &#8599;</a></div>
+            <div class="desc">Markdown 解析器，AI 消息渲染</div>
+            <div class="tags-row"><span class="tag-chip cyan">Markdown</span></div>
+            <div class="meta"><span class="detail">CDN · 轻量低至 30KB</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">T</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/mixmark-io/turndown" target="_blank" rel="noopener">turndown.js &#8599;</a></div>
+            <div class="desc">HTML 转 Markdown 转换器，编辑器与页面信息提取</div>
+            <div class="tags-row"><span class="tag-chip info">HTML→MD</span></div>
+            <div class="meta"><span class="detail">本地库 · libs/turndown.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">D</span>
+          <div class="body">
+            <div class="name"><a href="https://mermaid.js.org/" target="_blank" rel="noopener">Mermaid &#8599;</a></div>
+            <div class="desc">图表渲染引擎，CDN 懒加载</div>
+            <div class="tags-row"><span class="tag-chip purple">图表渲染</span></div>
+            <div class="meta"><span class="detail">CDN · 聊天中图表展示</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">L</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/blueimp/JavaScript-MD5" target="_blank" rel="noopener">md5.js &#8599;</a></div>
+            <div class="desc">MD5 哈希算法，本地加密</div>
+            <div class="tags-row"><span class="tag-chip info">安全</span></div>
+            <div class="meta"><span class="detail">本地库 · Token 指纹</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="sub-title"><span class="accent">&#128736;</span> 开发依赖 (4)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon build">V</span>
+          <div class="body">
+            <div class="name"><a href="https://vitest.dev/" target="_blank" rel="noopener">vitest &#8599;</a></div>
+            <div class="desc">Vite 原生测试框架，13 文件 250+ 用例</div>
+            <div class="tags-row"><span class="tag-chip green">测试框架</span></div>
+            <div class="meta"><span class="detail">^1.x · describe/it/expect · vi.fn() mock</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">J</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/jsdom/jsdom" target="_blank" rel="noopener">jsdom &#8599;</a></div>
+            <div class="desc">Node.js 浏览器环境模拟，Vue 3 组件挂载测试</div>
+            <div class="tags-row"><span class="tag-chip info">DOM 模拟</span></div>
+            <div class="meta"><span class="detail">window/document/navigator · DOM 事件</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">C</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/vitest-dev/vitest/tree/main/packages/coverage-v8" target="_blank" rel="noopener">@vitest/coverage-v8 &#8599;</a></div>
+            <div class="desc">V8 原生覆盖率引擎，逐场景覆盖率目标</div>
+            <div class="tags-row"><span class="tag-chip green">覆盖率</span></div>
+            <div class="meta"><span class="detail">text/json/html 报告 · CI/CD 门禁</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon build">N</span>
+          <div class="body">
+            <div class="name"><a href="https://github.com/node-fetch/node-fetch" target="_blank" rel="noopener">node-fetch &#8599;</a></div>
+            <div class="desc">Node.js fetch API 实现，API 测试参考</div>
+            <div class="tags-row"><span class="tag-chip info">测试参考</span></div>
+            <div class="meta"><span class="detail">Response 接口规范 · mock 工厂</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <!-- ===== Layer 2: 核心模块 ===== -->
+    <div class="layer" id="layer-core">
+      <div class="layer-header">
+        <span class="layer-num">2</span>
+        <h2>核心模块</h2>
+        <span class="layer-stats">4 核心工具 · 8 工具库</span>
+      </div>
+      <div class="sub-title"><span class="accent">&#128295;</span> Core 核心工具 (4)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon src">C</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/config.js">config.js</a></div>
+            <div class="desc">全局配置中心：端点定义 · 默认参数 · UI 常量 · 存储键名</div>
+            <div class="tags-row"><span class="tag-chip accent">统一入口</span></div>
+            <div class="meta"><span class="detail">ENDPOINTS + DEFAULT_CONFIG</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon src">A</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/api/core/ApiManager.js">ApiManager</a></div>
+            <div class="desc">API 管理器基类：请求封装 · 错误处理 · 重试机制 · Token 注入</div>
+            <div class="tags-row"><span class="tag-chip accent">请求客户端</span></div>
+            <div class="meta"><span class="detail">RequestClient 封装</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon src">S</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/api/services/SessionService.js">SessionService</a></div>
+            <div class="desc">会话服务层：CRUD · 筛选 · 标签 · 批量操作</div>
+            <div class="tags-row"><span class="tag-chip info">服务层</span></div>
+            <div class="meta"><span class="detail">extends ApiManager · 会话存储同步</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon src">F</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/api/services/FaqService.js">FaqService</a></div>
+            <div class="desc">FAQ 服务层：条目管理 · 标签关联 · 搜索过滤</div>
+            <div class="tags-row"><span class="tag-chip info">服务层</span></div>
+            <div class="meta"><span class="detail">extends ApiManager · FAQ 存储同步</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="sub-title"><span class="accent">&#128218;</span> Utils 工具库 (8)</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon js">R</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/api/request.js">request.js</a></div>
+            <div class="desc">HTTP 请求客户端：fetch 封装 · 超时控制 · 响应拦截</div>
+            <div class="tags-row"><span class="tag-chip info">HTTP</span></div>
+            <div class="meta"><span class="detail">RequestClient 类 · API 层基础</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">T</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/api/token.js">token.js</a></div>
+            <div class="desc">Token 管理器：三级降级（环境变量 → storage → 空）· 加密指纹</div>
+            <div class="tags-row"><span class="tag-chip accent">安全核心</span></div>
+            <div class="meta"><span class="detail">TokenManager</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">S</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/storage/storageUtils.js">storageUtils.js</a></div>
+            <div class="desc">chrome.storage 封装：读写 · 配额检测 · LRU 淘汰 · 批量操作</div>
+            <div class="tags-row"><span class="tag-chip info">存储</span></div>
+            <div class="meta"><span class="detail">StorageHelper · 存储配额保护</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">E</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/error/errorHandler.js">errorHandler.js</a></div>
+            <div class="desc">全局错误处理：上下文失效检测 · 降级策略 · 日志记录</div>
+            <div class="tags-row"><span class="tag-chip accent">退化防御</span></div>
+            <div class="meta"><span class="detail">isContextInvalidated</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">D</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/dom/domHelper.js">domHelper.js</a></div>
+            <div class="desc">DOM 操作工具：元素创建 · 样式注入 · 位置计算 · 事件委托</div>
+            <div class="tags-row"><span class="tag-chip info">DOM</span></div>
+            <div class="meta"><span class="detail">DomHelper · content-script 注入辅助</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">M</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/messaging/messageHelper.js">messageHelper.js</a></div>
+            <div class="desc">Chrome 扩展消息通信：runtime.sendMessage · tab 通信 · 消息路由</div>
+            <div class="tags-row"><span class="tag-chip info">通信</span></div>
+            <div class="meta"><span class="detail">MessageHelper · content ↔ background</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">L</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/logging/loggerUtils.js">loggerUtils.js</a></div>
+            <div class="desc">日志工具：分级输出 · 格式化 · 调试开关</div>
+            <div class="tags-row"><span class="tag-chip info">日志</span></div>
+            <div class="meta"><span class="detail">LoggerUtils · 开发调试辅助</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon js">U</span>
+          <div class="body">
+            <div class="name"><a target="_blank" href="../core/utils/time/timeUtils.js">timeUtils.js</a></div>
+            <div class="desc">时间工具：格式化 · 相对时间 · 时区处理</div>
+            <div class="tags-row"><span class="tag-chip info">时间</span></div>
+            <div class="meta"><span class="detail">TimeUtils · 消息时间戳</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <!-- ===== Layer 3: 故事 ===== -->
+    <div class="layer" id="layer-story">
+      <div class="layer-header">
+        <span class="layer-num">3</span>
+        <h2>故事</h2>
+        <span class="layer-stats">2 故事 · 业务需求与任务追踪</span>
+      </div>
+      <div class="story-grid">
+        <div class="story-card">
+          <div class="story-head">
+            <span class="story-icon">&#128451;</span>
+            <span class="story-name">系统架构知识固化</span>
+            <span class="story-badge">v2.0.0</span>
+          </div>
+          <div class="story-desc">YiPet Chrome Extension 架构全景分析，固化模块拓扑、数据流、安全边界、依赖变更影响。覆盖 content-script + service-worker + popup 三层架构。</div>
+          <div class="story-scenes">
+            <span class="scene-tag">1. 模块地图与拓扑</span>
+            <span class="scene-tag">2. 数据流与追踪</span>
+            <span class="scene-tag">3. 信任边界与安全面</span>
+            <span class="scene-tag">4. 依赖关系与变更影响</span>
+            <span class="scene-tag">5. 新人上手与开发指南</span>
+          </div>
+        </div>
+        <div class="story-card">
+          <div class="story-head">
+            <span class="story-icon">&#129514;</span>
+            <span class="story-name">自主测试方案</span>
+            <span class="story-badge">v1.0.0</span>
+          </div>
+          <div class="story-desc">vitest + jsdom 自动化测试体系。覆盖核心基础设施、API 请求客户端、数据持久化、异常路径与边界、集成回归、安全面回归六个维度。</div>
+          <div class="story-scenes">
+            <span class="scene-tag">1. 核心逻辑测试</span>
+            <span class="scene-tag">2. API 接口测试</span>
+            <span class="scene-tag">3. 数据持久化测试</span>
+            <span class="scene-tag">4. 异常路径与边界</span>
+            <span class="scene-tag">5. 集成与回归</span>
+            <span class="scene-tag">6. 安全面回归</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <!-- ===== Layer 4: 场景 ===== -->
+    <div class="layer" id="layer-scene">
+      <div class="layer-header">
+        <span class="layer-num">4</span>
+        <h2>场景</h2>
+        <span class="layer-stats">2 故事 · 11 场景</span>
+      </div>
+      <div class="sub-title"><span class="accent">&#128451;</span> 系统架构知识固化 — 5 场景</div>
+      <div class="scene-grid">
+        <div class="scene-card">
+          <div class="scene-num">场景 1</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/架构/场景-1-模块拓扑/计划清单.html">模块地图与拓扑</a></div>
+          <div class="scene-desc">模块识别 · 依赖图 · 入口验证，全部模块依赖关系正确可遍历</div>
+          <div class="scene-meta"><a href="故事任务面板/架构/场景-1-模块拓扑/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/架构/场景-1-模块拓扑/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/架构/场景-1-模块拓扑/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/index.html" target="_blank">🧪测试</a>  <a href="故事任务面板/架构/场景-1-模块拓扑/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/架构/场景-1-模块拓扑/示例/index.html" target="_blank">💡演示</a>  <a href="故事任务面板/架构/场景-1-模块拓扑/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 2</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/架构/场景-2-数据流追踪/计划清单.html">数据流与追踪</a></div>
+          <div class="scene-desc">请求链路 · 事件流 · 存储路径，关键数据流可追踪到端点</div>
+          <div class="scene-meta"><a href="故事任务面板/架构/场景-2-数据流追踪/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/架构/场景-2-数据流追踪/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/架构/场景-2-数据流追踪/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/index.html" target="_blank">🧪测试</a>  <a href="故事任务面板/架构/场景-2-数据流追踪/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/架构/场景-2-数据流追踪/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/架构/场景-2-数据流追踪/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 3</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/架构/场景-3-安全边界/计划清单.html">信任边界与安全面</a></div>
+          <div class="scene-desc">auth · token · 输入验证 · 权限，安全面全量覆盖无绕过</div>
+          <div class="scene-meta"><a href="故事任务面板/架构/场景-3-安全边界/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/架构/场景-3-安全边界/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/架构/场景-3-安全边界/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/index.html" target="_blank">🧪测试</a>  <a href="故事任务面板/架构/场景-3-安全边界/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/架构/场景-3-安全边界/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/架构/场景-3-安全边界/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 4</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/架构/场景-4-依赖影响/计划清单.html">依赖关系与变更影响</a></div>
+          <div class="scene-desc">依赖图 · 影响分析 · 破坏性变更检测，变更影响可量化可追溯</div>
+          <div class="scene-meta"><a href="故事任务面板/架构/场景-4-依赖影响/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/架构/场景-4-依赖影响/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/架构/场景-4-依赖影响/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/index.html" target="_blank">🧪测试</a>  <a href="故事任务面板/架构/场景-4-依赖影响/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/架构/场景-4-依赖影响/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/架构/场景-4-依赖影响/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 5</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/架构/场景-5-上手指南/计划清单.html">新人上手与开发指南</a></div>
+          <div class="scene-desc">环境搭建 · 调试方法 · 常见任务，新人可独立完成首修</div>
+          <div class="scene-meta"><a href="故事任务面板/架构/场景-5-上手指南/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/架构/场景-5-上手指南/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/架构/场景-5-上手指南/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/index.html" target="_blank">🧪测试</a>  <a href="故事任务面板/架构/场景-5-上手指南/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/架构/场景-5-上手指南/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/架构/场景-5-上手指南/审查.html" target="_blank">📝审查</a></div>
+        </div>
+      </div>
+      <div class="sub-title"><span class="accent">&#129514;</span> 自主测试方案 — 6 场景</div>
+      <div class="scene-grid">
+        <div class="scene-card">
+          <div class="scene-num">场景 1</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自测试/场景-1-核心逻辑/计划清单.html">核心逻辑测试</a></div>
+          <div class="scene-desc">Token 管理 · 存储封装 · 时间工具，核心基础设施可测可验</div>
+          <div class="scene-meta"><a href="故事任务面板/自测试/场景-1-核心逻辑/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/自测试/场景-1-核心逻辑/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/自测试/场景-1-核心逻辑/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/unit/token.test.mjs" target="_blank">🧪测试</a>  <a href="故事任务面板/自测试/场景-1-核心逻辑/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/自测试/场景-1-核心逻辑/示例/第三方/vitest.html" target="_blank">💡演示</a>  <a href="故事任务面板/自测试/场景-1-核心逻辑/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 2</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自测试/场景-2-接口测试/计划清单.html">API 接口测试</a></div>
+          <div class="scene-desc">请求客户端 · Mock 工厂 · 响应处理，API 层全路径覆盖</div>
+          <div class="scene-meta"><a href="故事任务面板/自测试/场景-2-接口测试/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/自测试/场景-2-接口测试/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/自测试/场景-2-接口测试/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/unit/request.test.mjs" target="_blank">🧪测试</a>  <a href="故事任务面板/自测试/场景-2-接口测试/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/自测试/场景-2-接口测试/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/自测试/场景-2-接口测试/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 3</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自测试/场景-3-存储测试/计划清单.html">数据持久化测试</a></div>
+          <div class="scene-desc">chrome.storage 读写 · 配额管理 · LRU 淘汰，存储层正确性验证</div>
+          <div class="scene-meta"><a href="故事任务面板/自测试/场景-3-存储测试/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/自测试/场景-3-存储测试/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/自测试/场景-3-存储测试/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/unit/storage.test.mjs" target="_blank">🧪测试</a>  <a href="故事任务面板/自测试/场景-3-存储测试/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/自测试/场景-3-存储测试/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/自测试/场景-3-存储测试/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 4</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自测试/场景-4-错误边界/计划清单.html">异常路径与边界</a></div>
+          <div class="scene-desc">上下文失效 · 网络异常 · 空状态，异常路径全覆盖</div>
+          <div class="scene-meta"><a href="故事任务面板/自测试/场景-4-错误边界/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/自测试/场景-4-错误边界/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/自测试/场景-4-错误边界/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/unit/error.test.mjs" target="_blank">🧪测试</a>  <a href="故事任务面板/自测试/场景-4-错误边界/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/自测试/场景-4-错误边界/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/自测试/场景-4-错误边界/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 5</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自测试/场景-5-集成测试/计划清单.html">集成与回归</a></div>
+          <div class="scene-desc">模块联动 · 全链路验证 · 回归门禁，集成正确性保障</div>
+          <div class="scene-meta"><a href="故事任务面板/自测试/场景-5-集成测试/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/自测试/场景-5-集成测试/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/自测试/场景-5-集成测试/知识图谱.html" target="_blank">🔗图谱</a>  <a href="../tests/integration/pipeline.test.mjs" target="_blank">🧪测试</a>  <a href="故事任务面板/自测试/场景-5-集成测试/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/自测试/场景-5-集成测试/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/自测试/场景-5-集成测试/审查.html" target="_blank">📝审查</a></div>
+        </div>
+        <div class="scene-card">
+          <div class="scene-num">场景 6</div>
+          <div class="scene-name"><a target="_blank" href="故事任务面板/自测试/场景-6-安全面回归/计划清单.html">安全面回归</a></div>
+          <div class="scene-desc">Token 存储 · XSS 防御 · 注入安全 · 配额保护，安全纵深防御验证</div>
+          <div class="scene-meta"><a href="故事任务面板/自测试/场景-6-安全面回归/计划清单.html" target="_blank">📋清单</a>  <a href="故事任务面板/自测试/场景-6-安全面回归/架构图.html" target="_blank">📐架构</a>  <a href="故事任务面板/自测试/场景-6-安全面回归/知识图谱.html" target="_blank">🔗图谱</a>  <a href="故事任务面板/自测试/场景-6-安全面回归/测试面板.html" target="_blank">🧪测试</a>  <a href="故事任务面板/自测试/场景-6-安全面回归/源码.html" target="_blank">📄源码</a>  <a href="故事任务面板/自测试/场景-6-安全面回归/演示.html" target="_blank">💡演示</a>  <a href="故事任务面板/自测试/场景-6-安全面回归/审查.html" target="_blank">📝审查</a></div>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <!-- ===== Layer 5: 业务场景 ===== -->
+    <div class="layer" id="layer-source">
+      <div class="layer-header">
+        <span class="layer-num">5</span>
+        <h2>业务场景</h2>
+        <span class="layer-stats">5 场景 · 3 模块层 · 10 Vue 组件</span>
+      </div>
+      <!-- 场景 1：页面宠物陪伴 -->
+      <div class="sub-title"><span class="accent">&#128054;</span> 场景 1 · 页面宠物陪伴 — 注入 → 渲染 → 交互</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">&#9654;</span>
+          <div class="body">
+            <div class="name">注入与初始化</div>
+            <div class="desc">Service Worker 监听标签页，通过 injectionService 向页面注入 content-script。PetManager.core 初始化宠物状态（位置/颜色/大小/角色），pet.js 渲染宠物 DOM，挂载到页面 body。</div>
+            <div class="tags-row"><span class="tag-chip accent">entry</span></div>
+            <div class="meta"><span class="detail">background/index.js → petManager.core.js → pet.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">&#9878;</span>
+          <div class="body">
+            <div class="name">拖拽与定位</div>
+            <div class="desc">drag.js 处理鼠标/触摸拖拽事件，结合 domHelper 位置计算，支持页面内自由移动。位置变更通过 state.js 集中管理，经 messageHelper 跨标签页同步。</div>
+            <div class="tags-row"><span class="tag-chip accent">drag</span></div>
+            <div class="meta"><span class="detail">drag.js + state.js + messageHelper</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">&#128065;</span>
+          <div class="body">
+            <div class="name">外观与状态切换</div>
+            <div class="desc">ui.js 管理宠物动画和唤醒/睡眠态切换。颜色、大小、角色由 state.js 驱动，popup 或 ChatHeader 可远程控制。睡眠态降低页面干扰。</div>
+            <div class="tags-row"><span class="tag-chip accent">ui</span></div>
+            <div class="meta"><span class="detail">ui.js + pet.js + state.js</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- 场景 2：AI 对话聊天 -->
+      <div class="sub-title"><span class="accent">&#128172;</span> 场景 2 · AI 对话聊天 — 窗口 → 输入 → 流式响应 → 渲染</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">W</span>
+          <div class="body">
+            <div class="name">聊天窗口与布局</div>
+            <div class="desc"><a target="_blank" href="../modules/pet/components/chat/ChatWindow/index.js">ChatWindow</a> 三栏布局（侧边栏 + 消息区 + 输入区），支持拖拽调整大小。chunk 持久化到 chrome.storage，重载后恢复完整界面。Hooks 模式注入 store/useComputed/useMethods 实现关注点分离。事件总线和 session/index.js 联动。</div>
+            <div class="tags-row"><span class="tag-chip cyan">Vue 3</span></div>
+            <div class="meta"><span class="detail">ChatWindow + ChatHeader + ChatWindowUtils</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">I</span>
+          <div class="body">
+            <div class="name">消息输入</div>
+            <div class="desc"><a target="_blank" href="../modules/pet/components/chat/ChatInput/index.js">ChatInput</a> 自适应 textarea + CJK 输入法兼容 + 图片粘贴预览移除 + 7 按钮工具栏。editor.core.js 提供 Markdown 编辑内核，editor.ui.js 负责富文本交互和快捷键绑定。</div>
+            <div class="tags-row"><span class="tag-chip cyan">Vue 3</span></div>
+            <div class="meta"><span class="detail">ChatInput + editor.core.js + editor.ui.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">A</span>
+          <div class="body">
+            <div class="name">AI 流式请求</div>
+            <div class="desc">ai/api.js 通过 ApiManager 发起流式 SSE 请求，ai/prompt.js 构建 Prompt 上下文。Service Worker 的 messageForwardHandler 中继请求 → petHandler 协调 content ↔ background 通信。TokenManager 三级降级注入认证头。</div>
+            <div class="tags-row"><span class="tag-chip accent">stream</span></div>
+            <div class="meta"><span class="detail">ai/api.js + chat.js + TokenManager + messageForwardHandler</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">M</span>
+          <div class="body">
+            <div class="name">消息渲染</div>
+            <div class="desc"><a target="_blank" href="../modules/pet/components/chat/ChatMessages/index.js">ChatMessages</a> 四视图状态 + 7 步渲染管线：输入 → marked.js 解析 → Mermaid 代码块检测 → CDN 懒加载 Mermaid → 图表渲染 → DOM 插入 → 智能滚动。chatUi.js 协调 UI 刷新。</div>
+            <div class="tags-row"><span class="tag-chip cyan">Vue 3</span></div>
+            <div class="meta"><span class="detail">ChatMessages + marked.js + renderer.js + chatUi.js</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- 场景 3：会话管理 -->
+      <div class="sub-title"><span class="accent">&#128202;</span> 场景 3 · 会话生命周期管理 — 创建 → 筛选 → 标签 → 同步</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">S</span>
+          <div class="body">
+            <div class="name">会话 CRUD</div>
+            <div class="desc">session.crud.js 依托 SessionService 实现完整的创建/读取/更新/删除。ChatHeader 展示当前会话标题和切换入口。新标签页自动创建会话，pageInfo.js 提取页面信息作为会话元数据。</div>
+            <div class="tags-row"><span class="tag-chip accent">crud</span></div>
+            <div class="meta"><span class="detail">session.crud.js + SessionService + ChatHeader</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">F</span>
+          <div class="body">
+            <div class="name">筛选与标签</div>
+            <div class="desc">session.filter.js 按标题/标签搜索过滤，session.tag.js 管理标签关联，session.batch.js 批量操作（删除/归档）。<a target="_blank" href="../modules/pet/components/manager/SessionTagManager/index.js">SessionTagManager</a> 支持拖拽排序标签，快速标签和手动输入。搜索过滤结果即时更新侧边栏。</div>
+            <div class="tags-row"><span class="tag-chip cyan">Vue 3</span></div>
+            <div class="meta"><span class="detail">SessionTagManager + session.filter.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">&#9729;</span>
+          <div class="body">
+            <div class="name">数据同步</div>
+            <div class="desc">会话状态通过 storageUtils.js 持久化到 chrome.storage.local，跨标签页状态由 messageHelper 广播同步。配额超限时 StorageHelper.LRU 淘汰旧会话数据，保证写入不丢失。</div>
+            <div class="tags-row"><span class="tag-chip accent">sync</span></div>
+            <div class="meta"><span class="detail">storageUtils.js + messageHelper + state.js</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- 场景 4：FAQ 知识管理 -->
+      <div class="sub-title"><span class="accent">&#128161;</span> 场景 4 · FAQ 知识管理 — 条目 → 标签 → 搜索 → AI 辅助</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">F</span>
+          <div class="body">
+            <div class="name">FAQ 条目管理</div>
+            <div class="desc"><a target="_blank" href="../modules/pet/components/manager/FaqManager/index.js">FaqManager</a> 组件树 + 简介卡片 + 内容列表 + 工具栏，6 视图状态（加载/空/错误/列表/搜索/详情），CRUD 操作通过 FaqService 与远端 API 同步。faq.js 独立模块提供页面级 FAQ 注入。</div>
+            <div class="tags-row"><span class="tag-chip cyan">Vue 3</span></div>
+            <div class="meta"><span class="detail">FaqManager + FaqService + faq.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">T</span>
+          <div class="body">
+            <div class="name">标签与 AI 辅助</div>
+            <div class="desc"><a target="_blank" href="../modules/pet/components/manager/FaqTagManager/index.js">FaqTagManager</a> 标签编辑弹窗：快速标签一键添加 + 手动输入 + AI 智能生成标签建议。tags.js 独立模块管理标签 CRUD。robot.js 控制机器人自动回复行为。</div>
+            <div class="tags-row"><span class="tag-chip cyan">Vue 3</span></div>
+            <div class="meta"><span class="detail">FaqTagManager + tags.js + robot.js</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- 场景 5：扩展控制与认证 -->
+      <div class="sub-title"><span class="accent">&#9881;</span> 场景 5 · 扩展控制与认证 — 面板 → 认证 → 通知</div>
+      <div class="card-grid">
+        <div class="item-card">
+          <span class="icon mod">P</span>
+          <div class="body">
+            <div class="name">控制面板</div>
+            <div class="desc">PopupController 管理宠物显示/隐藏、颜色、大小、角色切换。通过 messageRouter → tabMessaging → content-script 下发指令，state.js 统一更新。跨标签页状态自动同步，确保多页面一致。</div>
+            <div class="tags-row"><span class="tag-chip accent">popup</span></div>
+            <div class="meta"><span class="detail">popup/index.js + messageRouter + tabMessaging</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">A</span>
+          <div class="body">
+            <div class="name">Token 与模型配置</div>
+            <div class="desc"><a target="_blank" href="../modules/pet/components/modal/TokenSettingsModal/index.js">TokenSettingsModal</a> 密码模式输入 Token + 模型下拉选择 + 三级降级存储（环境变量 → storage → 提示设置）。<a target="_blank" href="../modules/pet/components/modal/AiSettingsModal/index.js">AiSettingsModal</a> 极简模型名称输入（107 行）。auth.js 管理认证状态和登录流程。</div>
+            <div class="tags-row"><span class="tag-chip cyan">Vue 3</span></div>
+            <div class="meta"><span class="detail">TokenSettingsModal + AiSettingsModal + auth.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">W</span>
+          <div class="body">
+            <div class="name">企业微信通知</div>
+            <div class="desc">weworkService.js 封装 Webhook 发送，weworkHandler.js 处理通知回调与消息模板。AI 回复完成后可选推送到企微群，messaging.js 管理通知生命周期。</div>
+            <div class="tags-row"><span class="tag-chip accent">notify</span></div>
+            <div class="meta"><span class="detail">weworkService.js + weworkHandler.js + messaging.js</span></div>
+          </div>
+        </div>
+        <div class="item-card">
+          <span class="icon mod">&#9888;</span>
+          <div class="body">
+            <div class="name">退化防御</div>
+            <div class="desc">errorHandler.js 全局 isContextInvalidated() 守卫 + isChromeStorageAvailable() 预检。扩展重载/上下文失效时优雅降级（隐藏宠物、清理 DOM、提示刷新）。所有 chrome API 调用经过预检，三层退化对策保护核心体验不崩溃。</div>
+            <div class="tags-row"><span class="tag-chip accent">defense</span></div>
+            <div class="meta"><span class="detail">errorHandler.js + token.js + storageUtils.js</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-ref">
+        > 详细模块拓扑、IIFE 命名空间、加载顺序见 <a target="_blank" href="故事任务面板/架构/场景-1-模块拓扑.md">场景-1-模块拓扑.md</a>
+      </div>
+    </div>
+    <!-- ===== Layer 6: removed ===== -->
+    <div class="footer-note">
+      YiPet · Chrome Extension Manifest V3 · <a target="_blank" href="../demos/index.html">Demo 中心</a> · <a target="_blank" href="../tests/index.html">测试套件</a> · <a target="_blank" href="../CLAUDE.md">CLAUDE.md</a> · <a target="_blank" href="../README.md">README.md</a> · <a target="_blank" href="故事任务面板/通知日志.md">通知日志</a>
+      <div style="margin-top:8px;font-size:0.7rem;opacity:0.6">最后更新：2026-06-11 · 快捷键：/ 搜索 · ↑↓ 导航 · Esc 取消</div>
+    </div>
+  </div>
+  <!-- Cron overlay -->
+  <div class="cron-overlay" id="cronOverlay"></div>
+  <!-- Cron panel -->
+  <div class="cron-panel" id="cronPanel">
+    <div class="panel-header">
+      <span class="cron-title">&#9200; 调度任务</span>
+      <span class="cron-count" id="cronTaskCount"></span>
+      <button class="panel-refresh" id="cronRefresh" title="刷新任务列表">&#x21bb;</button>
+    </div>
+    <div class="panel-body" id="cronPanelBody">
+      <div style="padding:10px 20px;font-size:.64rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,.04);line-height:1.6">
+        <strong>数据源</strong>：<code>.claude/scheduled_tasks.json</code><br>
+        <strong>状态</strong>：🟢 活跃 — 定时触发中 ｜ ⚫ 空闲 — 超过 24h 未触发<br>
+        <strong>管理</strong>：使用 <code>/loop</code> 命令创建/删除定时任务
+      </div>
+      <div class="panel-loading">加载中...</div>
+    </div>
+    <div class="panel-footer">
+      <span>数据来源: .claude/scheduled_tasks.json</span>
+      <span style="margin: 0 8px;opacity:.3">|</span>
+      <a href="#" onclick="event.preventDefault();window.openPanel('faq')" style="color:var(--color-accent-2);text-decoration:none;font-size:.72rem">❓ 什么是调度任务？</a>
+    </div>
+  </div>
+  <!-- FAQ overlay + panel -->
+  <div class="faq-overlay" id="faqOverlay"></div>
+  <div class="faq-panel" id="faqPanel">
+    <div class="panel-header">
+      <span class="faq-title">&#10067; 常见问题</span>
+    </div>
+    <div class="panel-body" id="faqPanelBody"></div>
+    <div class="panel-footer">
+      <span style="font-size:.7rem;color:var(--text-muted)">快捷打开：</span>
+      <a href="#" onclick="event.preventDefault();window.openPanel('notify')" style="color:#ef4444;text-decoration:none;font-size:.7rem">🔔 通知</a>
+      <span style="opacity:.3">·</span>
+      <a href="#" onclick="event.preventDefault();window.openPanel('cron')" style="color:var(--color-accent-2);text-decoration:none;font-size:.7rem">⏰ 调度</a>
+      <span style="opacity:.3">·</span>
+      <a href="#" onclick="event.preventDefault();window.openPanel('selfimprove')" style="color:#a78bfa;text-decoration:none;font-size:.7rem">🧬 自改进</a>
+    </div>
+  </div>
+  <!-- Notification overlay + panel -->
+  <div class="notify-overlay" id="notifyOverlay"></div>
+  <div class="notify-panel" id="notifyPanel">
+    <div class="panel-header">
+      <span class="np-title">&#128276; 通知中心</span>
+      <span class="np-count" id="npTotalCount">—</span>
+      <button class="panel-refresh" id="panelRefresh" title="刷新">&#x21bb;</button>
+    </div>
+    <div class="np-filters" id="npFilters">
+      <span class="np-filter-chip active" data-filter="all">全部<span class="np-filter-badge" id="npBadgeAll">0</span></span>
+      <span class="np-filter-chip" data-filter="health">🩺 健康<span class="np-filter-badge" id="npBadgeHealth">0</span></span>
+      <span class="np-filter-chip" data-filter="loop">🔄 自循环<span class="np-filter-badge" id="npBadgeLoop">0</span></span>
+      <span class="np-filter-chip" data-filter="trend">📡 趋势<span class="np-filter-badge" id="npBadgeTrend">0</span></span>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="np-context" style="padding:10px 20px;font-size:.64rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,.04);line-height:1.6">
+        <strong>数据源</strong>：健康报告 (<code>docs/健康报告/</code>) + 自循环报告 (<code>docs/自循环报告/</code>) + 趋势清单 (<code>docs/趋势报告/reports.json</code>)<br>
+        <strong>更新</strong>：每次打开面板自动拉取最新索引，点击 🔄 手动刷新。
+      </div>
+      <div class="panel-loading">加载中...</div>
+    </div>
+    <div class="panel-footer">
+      <span id="npUpdateTime" style="font-size:.64rem;color:var(--text-muted)"></span>
+      <a href="#" onclick="event.preventDefault();window.openPanel('faq')" style="color:#22c55e;text-decoration:none;font-size:.72rem">❓ FAQ</a>
+      <a href="./健康报告/" target="_blank">🩺 健康报告</a>
+      <a href="./自循环报告/" target="_blank">🔄 自循环报告</a>
+    </div>
+  </div>
+  <!-- Self-improvement overlay + panel -->
+  <div class="selfimprove-overlay" id="selfimproveOverlay"></div>
+  <div class="selfimprove-panel" id="selfimprovePanel">
+    <div class="panel-header">
+      <span class="np-title">&#129514; 自改进分析<span class="si-live-grade loading" id="siLiveGrade">—</span></span>
+      <span class="np-count" id="siTotalCount">—</span>
+      <button class="panel-refresh" id="siRefresh" title="刷新">&#x21bb;</button>
+    </div>
+    <div class="np-filters" id="siFilters">
+      <span class="np-filter-chip active" data-period="daily">日报</span>
+      <span class="np-filter-chip" data-period="weekly">周报</span>
+      <span class="np-filter-chip" data-period="monthly">月报</span>
+      <span class="np-filter-chip" data-period="overview">全景</span>
+    </div>
+    <div class="panel-body" id="siPanelBody">
+      <div style="padding:10px 20px;font-size:.64rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,.04);line-height:1.6">
+        <strong>数据源</strong>：<code>.memory/health-trend.jsonl</code>（原始趋势线）+ <code>docs/自我改进/summary.json</code>（预聚合摘要）<br>
+        <strong>视角</strong>：日报 — 当日检查记录 ｜ 周报 — 本周趋势汇总 ｜ 月报 — 月度健康演变 ｜ 全景 — 全维度矩阵
+      </div>
+      <div class="panel-loading">加载中...</div>
+    </div>
+    <div class="panel-footer" style="font-size:.64rem;color:var(--text-muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>数据: .memory/health-trend.jsonl + summary.json</span>
+      <span><a href="#" onclick="event.preventDefault();window.openPanel('faq')" style="color:#22c55e;text-decoration:none;font-size:.64rem">❓ FAQ</a> · <a href="#" onclick="event.preventDefault();window.openPanel('notify')" style="color:#ef4444;text-decoration:none;font-size:.64rem">🔔 通知</a></span>
+      <span id="siFooterTime"></span>
+    </div>
+  </div>
+  <!-- Back to top button -->
+  <button class="back-top" id="backTop" title="回到顶部" aria-label="回到顶部">&uarr;</button>
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+  <!-- Source code overlay -->
+  <script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+  <script src="js/panel-hub.js"></script>
+  <script src="js/notify-panel.js"></script>
+  <script src="js/selfimprove-panel.js"></script>
+  <script src="js/cron-panel.js"></script>
+  <script src="js/faq-panel.js"></script>
+  <script src="js/layer-info.js"></script>
+  <script>
+    /* ── Card animations ─────────────────── */
+    document.querySelectorAll('.card-grid .item-card, .scene-grid .scene-card').forEach((card, i) => {
+      card.style.animationDelay = `${0.01 + (i % 20) * 0.012}s`;
+    });
+    /* ── Copy card content ───────────────── */
+    document.querySelectorAll('.item-card').forEach(card => {
+      card.addEventListener('dblclick', async (e) => {
+        if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+        const name = card.querySelector('.name')?.textContent || '';
+        const desc = card.querySelector('.desc')?.textContent || '';
+        const meta = card.querySelector('.meta')?.textContent || '';
+        const content = `${name}\n${desc}\n${meta}`;
+        try {
+          await navigator.clipboard.writeText(content);
+          card.style.borderColor = 'rgba(34,197,94,0.5)';
+          setTimeout(() => {
+            card.style.borderColor = '';
+          }, 1000);
+        } catch (err) {
+          console.error('复制失败:', err);
+        }
+      });
+    });
+    /* ── Help overlay ────────────────────── */
+    /* ── Statistics panel ────────────────── */
+    /* ── Touch gestures (mobile) ─────────── */
+    let touchStartX = 0;
+    let touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const diffX = touchEndX - touchStartX;
+      const diffY = touchEndY - touchStartY;
+      // Only trigger if horizontal swipe is dominant
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        const cards = visibleCards();
+        if (cards.length === 0) return;
+        if (diffX < 0) {
+          // Swipe left - next card
+          focusedCardIndex = Math.min(focusedCardIndex + 1, cards.length - 1);
+        } else {
+          // Swipe right - previous card
+          focusedCardIndex = Math.max(focusedCardIndex - 1, 0);
+        }
+        cards[focusedCardIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, { passive: true });
+    const toast = document.getElementById('toast');
+    let toastTimer;
+    const showToast = (message, type = 'info', duration = 3000) => {
+      if (!toast) return;
+      clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.className = `toast ${type}`;
+      toast.classList.add('visible');
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('visible');
+      }, duration);
+    };
+    /* ── Performance mode ─────────────────── */
+    /* ── Error handling ──────────────────── */
+    const errorBanner = document.getElementById('errorBanner');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorBannerClose = document.getElementById('errorBannerClose');
+    const showError = (message, duration = 5000) => {
+      if (!errorBanner || !errorMessage) return;
+      errorMessage.textContent = message;
+      errorBanner.classList.add('visible');
+      if (duration > 0) {
+        setTimeout(() => {
+          errorBanner.classList.remove('visible');
+        }, duration);
+      }
+    };
+    if (errorBannerClose && errorBanner) {
+      errorBannerClose.addEventListener('click', () => {
+        errorBanner.classList.remove('visible');
+      });
+    }
+    // Global error handler
+    window.addEventListener('error', (e) => {
+      console.error('Global error:', e.error);
+      showError(`发生错误：${e.message}`, 0);
+    });
+    // Unhandled promise rejection handler
+    window.addEventListener('unhandledrejection', (e) => {
+      console.error('Unhandled promise rejection:', e.reason);
+      showError(`异步错误：${e.reason}`, 0);
+    });
+    /* ── Reset to defaults ───────────────── */
+    const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+    if (resetDefaultsBtn) {
+      resetDefaultsBtn.addEventListener('click', () => {
+        if (!confirm('确定要重置所有设置为默认值吗？这将清除所有收藏、历史和自定义设置。')) {
+          return;
+        }
+        // Clear all localStorage
+        try {
+          localStorage.clear();
+        } catch (e) {
+          console.error('Failed to clear localStorage:', e);
+        }
+        // Reset all view states
+        // Clear all data
+        // Reset all buttons
+        document.querySelectorAll('.active').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.selected').forEach(btn => btn.classList.remove('selected'));
+        // Update displays
+        // Show success message
+        showToast('✓ 已重置为默认设置', 'success', 3000);
+        // Reload page after a short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      });
+    }
+    /* ── Performance optimization ────────── */
+    // Lazy load images (if any)
+    const lazyImages = document.querySelectorAll('img[data-src]');
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const img = entry.target;
+          img.src = img.dataset.src;
+          img.classList.add('loaded');
+          observer.unobserve(img);
+        }
+      });
+    });
+    lazyImages.forEach(img => imageObserver.observe(img));
+    // Debounce scroll events for better performance
+    let scrollTimeout;
+    const originalScrollHandler = window.onscroll;
+    window.onscroll = () => {
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        if (originalScrollHandler) originalScrollHandler();
+      }, 100);
+    };
+    /* ── Accessibility improvements ─────── */
+    // Add aria-labels to cards for better screen reader support
+    document.querySelectorAll('.item-card, .scene-card, .story-card').forEach(card => {
+      const name = card.querySelector('.name, .scene-name, .story-name')?.textContent || '';
+      if (name && !card.getAttribute('aria-label')) {
+        card.setAttribute('aria-label', name);
+      }
+    });
+    /* ── Performance: requestAnimationFrame ─ */
+    // Use requestAnimationFrame for smooth scroll updates
+    let ticking = false;
+    const updateOnScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          // Update scroll-dependent UI
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    // Replace direct scroll handlers with RAF-based ones
+    window.addEventListener('scroll', updateOnScroll, { passive: true });
+    /* ── Session restore ────────────────── */
+    const SESSION_KEY = 'yipet_session_state';
+    const saveSessionState = () => {
+      try {
+        const state = {
+          scrollY: window.scrollY,
+          compactView: document.body.classList.contains('compact-view'),
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.error('Failed to save session state:', e);
+      }
+    };
+    const restoreSessionState = () => {
+      try {
+        const saved = sessionStorage.getItem(SESSION_KEY);
+        if (!saved) return false;
+        const state = JSON.parse(saved);
+        const age = Date.now() - state.timestamp;
+        // Only restore if session is less than 1 hour old
+        if (age > 3600000) {
+          sessionStorage.removeItem(SESSION_KEY);
+          return false;
+        }
+        // Restore scroll position
+        if (state.scrollY > 0) {
+          setTimeout(() => {
+            window.scrollTo({ top: state.scrollY, behavior: 'smooth' });
+          }, 500);
+        }
+        // Restore compact view
+        if (state.compactView) {
+          document.body.classList.add('compact-view');
+        }
+        return true;
+      } catch (e) {
+        console.error('Failed to restore session state:', e);
+        return false;
+      }
+    };
+    // Save state before unload
+    window.addEventListener('beforeunload', saveSessionState);
+    // Save state periodically
+    setInterval(saveSessionState, 30000); // Every 30 seconds
+    // Restore on load
+    const restored = restoreSessionState();
+    if (restored) {
+      const indicator = document.createElement('div');
+      indicator.className = 'session-restored';
+      indicator.textContent = '✓ 已恢复上次会话';
+      document.body.appendChild(indicator);
+      setTimeout(() => indicator.remove(), 3000);
+    }
+    /* ── Keyboard focus indicators ──────── */
+    // Make cards focusable
+    document.querySelectorAll('.item-card, .scene-card, .story-card').forEach(card => {
+      if (!card.getAttribute('tabindex')) {
+        card.setAttribute('tabindex', '0');
+      }
+    });
+    const backTop = document.getElementById('backTop');
+    const progressBar = document.getElementById('progressBar');
+    let rafPending = false;
+    const updateScrollUI = () => {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        const scrollY = window.scrollY;
+        backTop.classList.toggle('visible', scrollY > 400);
+        if (progressBar) {
+          const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+          const progress = docHeight > 0 ? (scrollY / docHeight) * 100 : 0;
+          const pct = Math.min(progress, 100);
+          progressBar.style.width = `${pct}%`;
+          progressBar.title = `阅读进度 ${Math.round(pct)}%`;
+        }
+      });
+    };
+    window.addEventListener('scroll', updateScrollUI, { passive: true });
+    backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    /* ── Keyboard navigation ─────────────── */
+    let focusedCardIndex = -1;
+    const visibleCards = () => {
+      return Array.from(document.querySelectorAll('.item-card, .scene-card, .story-card'))
+        .filter(card => card.style.display !== 'none');
+    };
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const cards = visibleCards();
+      if (!cards.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault();
+        focusedCardIndex = Math.min(focusedCardIndex + 1, cards.length - 1);
+        cards[focusedCardIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        cards[focusedCardIndex].focus();
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault();
+        focusedCardIndex = Math.max(focusedCardIndex - 1, 0);
+        cards[focusedCardIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        cards[focusedCardIndex].focus();
+      } else if (e.key === 'Escape') {
+        focusedCardIndex = -1;
+        if (document.activeElement) document.activeElement.blur();
+      }
+    });
+    /* ── Live health indicator ───────────── */
+    (function() {
+      const label = document.getElementById('liveHealthLabel');
+      if (!label) return;
+      const gradeColors = { A: '#22c55e', B: '#4ade80', C: '#f59e0b', D: '#ef4444' };
+      const FETCH_INTERVAL = 5 * 60 * 1000;
+      const HEALTH_DATA_URL = '../.memory/health-trend.jsonl';
+      function updateLabel(data) {
+        if (!data || data.composite === undefined) {
+          label.textContent = '🩺 —';
+          return;
+        }
+        const grade = data.grade || '?';
+        const color = gradeColors[grade] || 'var(--text-muted)';
+        label.innerHTML = `<span style="color:${color};font-weight:700">🩺 ${data.composite}</span> ${grade}`;
+        label.title = `最新: ${data.composite}分 ${grade}级 | ${data.timestamp || ''} | 点击查看趋势`;
+      }
+      function fetchHealthData() {
+        fetch(HEALTH_DATA_URL, { cache: 'no-store' })
+          .then(r => r.ok ? r.text() : '')
+          .then(text => {
+            if (!text) return;
+            const lines = text.trim().split('\n').filter(Boolean);
+            if (lines.length > 0) {
+              try { updateLabel(JSON.parse(lines[lines.length - 1])); }
+              catch (e) { /* ignore parse errors */ }
+            }
+          })
+          .catch(() => { /* ignore network errors */ });
+      }
+      fetchHealthData();
+      setInterval(fetchHealthData, FETCH_INTERVAL);
+    })();
+  </script>
+</body>
+</html>

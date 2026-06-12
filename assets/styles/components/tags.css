@@ -1,0 +1,222 @@
+/* Tag management styles */
+
+/* ============================================
+   标签拖拽样式 (从 petManager.drag.js 提取)
+   ============================================ */
+.tag-filter-item.dragging {
+  opacity: 0.5 !important;
+  transform: scale(0.92) rotate(2deg) !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
+  cursor: grabbing !important;
+  z-index: 1000 !important;
+  position: relative !important;
+}
+
+.tag-filter-item.drag-over-top {
+  border-top: 3px solid var(--primary, #667eea) !important;
+  margin-top: 4px !important;
+  padding-top: 2px !important;
+  animation: pulse-top 0.3s ease !important;
+}
+
+.tag-filter-item.drag-over-bottom {
+  border-bottom: 3px solid var(--primary, #667eea) !important;
+  margin-bottom: 4px !important;
+  padding-bottom: 2px !important;
+  animation: pulse-bottom 0.3s ease !important;
+}
+
+@keyframes pulse-top {
+  0%,
+  100% {
+    border-top-width: 3px;
+    margin-top: 4px;
+  }
+  50% {
+    border-top-width: 4px;
+    margin-top: 6px;
+  }
+}
+
+@keyframes pulse-bottom {
+  0%,
+  100% {
+    border-bottom-width: 3px;
+    margin-bottom: 4px;
+  }
+  50% {
+    border-bottom-width: 4px;
+    margin-bottom: 6px;
+  }
+}
+
+.tag-filter-item.drag-hover {
+  background: rgba(99, 102, 241, 0.15) !important;
+  border-color: var(--primary, #667eea) !important;
+  transform: scale(1.05) !important;
+}
+
+.tag-filter-item.drag-hover.selected {
+  background: rgba(99, 102, 241, 0.8) !important;
+}
+
+.tag-filter-item.tag-no-tags.drag-hover {
+  background: rgba(99, 102, 241, 0.15) !important;
+  border-color: var(--primary, #667eea) !important;
+}
+
+.tag-filter-item.tag-expand-btn.drag-hover {
+  background: rgba(99, 102, 241, 0.05) !important;
+  border-color: var(--primary, #667eea) !important;
+}
+
+.pet-offscreen-invisible {
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.pet-drag-image-preview {
+  opacity: 0.8 !important;
+  transform: rotate(3deg) !important;
+  box-shadow: 0 8px 16px rgba(99, 102, 241, 0.3) !important;
+  position: absolute !important;
+  top: -1000px !important;
+  left: -1000px !important;
+  pointer-events: none !important;
+}
+
+.pet-draggable {
+  cursor: grab !important;
+  transition: transform 150ms ease !important;
+}
+
+.pet-draggable.pet-is-dragging {
+  cursor: grabbing !important;
+}
+
+.pet-draggable.pet-is-zooming {
+  transform: scale(1.1) !important;
+}
+
+body.pet-is-resizing {
+  cursor: col-resize !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* ============================================
+   标签管理器模态框样式 (从 petManager.tags.js 提取)
+   ============================================ */
+#pet-tag-manager .tag-manager-quick-tags {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin-bottom: 24px !important;
+}
+
+#pet-tag-manager .tag-manager-tags {
+  min-height: 100px !important;
+  max-height: 300px !important;
+  overflow-y: auto !important;
+  margin-bottom: 24px !important;
+  padding: 16px !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 16px !important;
+  border: 1px dashed rgba(255, 255, 255, 0.1) !important;
+}
+
+#pet-tag-manager .tag-manager-footer {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+}
+
+#pet-tag-manager .tag-manager-cancel-btn {
+  padding: 12px 24px !important;
+  background: transparent !important;
+  color: var(--text-muted, #94a3b8) !important;
+  border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.12)) !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+#pet-tag-manager .tag-manager-cancel-btn:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05)) !important;
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.2)) !important;
+  color: var(--text-primary, #f8fafc) !important;
+}
+
+#pet-tag-manager .tag-manager-save {
+  padding: 12px 24px !important;
+  background: var(--primary-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  box-shadow: var(--shadow-primary, 0 4px 20px rgba(102, 126, 234, 0.4)) !important;
+}
+
+#pet-tag-manager .tag-manager-save:hover {
+  background: var(--primary-gradient-hover, linear-gradient(135deg, #5a67d8 0%, #6b46c1 50%, #d946ef 100%)) !important;
+  transform: translateY(-1px) !important;
+}
+
+#pet-tag-manager .tag-manager-empty-msg {
+  text-align: center !important;
+  color: var(--text-muted, #94a3b8) !important;
+  padding: 20px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+#pet-tag-manager .tag-manager-quick-tag-btn {
+  padding: 8px 16px !important;
+  background: rgba(var(--bg-secondary-rgb, 30, 41, 59), 0.6) !important;
+  color: var(--text-muted, #94a3b8) !important;
+  border: 1px solid rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.5) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2) !important;
+}
+
+#pet-tag-manager .tag-manager-quick-tag-btn:hover {
+  background: rgba(var(--bg-tertiary-rgb, 51, 65, 85), 0.8) !important;
+  border-color: var(--primary, #667eea) !important;
+  color: var(--text-primary, #f8fafc) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+#pet-tag-manager .tag-manager-quick-tag-btn:disabled,
+#pet-tag-manager .tag-manager-quick-tag-btn[disabled],
+#pet-tag-manager .tag-manager-quick-tag-btn.added {
+  background: rgba(var(--primary-rgb, 102, 126, 234), 0.18) !important;
+  color: rgba(226, 232, 240, 0.75) !important;
+  border: 1px solid rgba(var(--primary-rgb, 102, 126, 234), 0.3) !important;
+  cursor: not-allowed !important;
+  opacity: 0.8 !important;
+  box-shadow: none !important;
+}
+
+#pet-tag-manager .tag-manager-quick-tag-btn.added:hover {
+  background: rgba(var(--primary-rgb, 102, 126, 234), 0.18) !important;
+  border-color: rgba(var(--primary-rgb, 102, 126, 234), 0.3) !important;
+  color: rgba(226, 232, 240, 0.75) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}

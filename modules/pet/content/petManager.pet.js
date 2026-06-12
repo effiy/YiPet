@@ -2,21 +2,25 @@
  * PetManager - 宠物显示和交互相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
   }
 
   const proto = window.PetManager.prototype
-  const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
-    ? window.LoggerUtils.getLogger('assistant')
-    : console
+  const logger =
+    typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function'
+      ? window.LoggerUtils.getLogger('assistant')
+      : console
 
   // 创建宠物
   proto.createPet = function () {
     // 防止重复创建
-    const elementId = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids) ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'
+    const elementId =
+      typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids
+        ? PET_CONFIG.constants.ids.assistantElement
+        : 'chat-assistant-element'
     if (document.getElementById(elementId)) {
       logger.info('宠物已存在，跳过创建')
       // 如果宠物已存在，确保样式是最新的
@@ -30,7 +34,10 @@
 
     // 创建宠物容器
     this.pet = document.createElement('div')
-    this.pet.id = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids) ? PET_CONFIG.constants.ids.assistantElement : 'chat-assistant-element'
+    this.pet.id =
+      typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.ids
+        ? PET_CONFIG.constants.ids.assistantElement
+        : 'chat-assistant-element'
     this.updatePetStyle()
 
     // 使用 icon.png 作为宠物图标，不需要添加眼睛和嘴巴
@@ -88,7 +95,11 @@
     if (!this.pet) return
 
     // 根据角色获取对应的图标URL，默认使用教师角色
-    const role = this.role || ((typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS) ? PET_CONFIG.constants.DEFAULTS.PET_ROLE : '教师')
+    const role =
+      this.role ||
+      (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS
+        ? PET_CONFIG.constants.DEFAULTS.PET_ROLE
+        : '教师')
     const iconUrl = chrome.runtime.getURL(`assets/images/${role}/icon.png`)
 
     // 设置动态属性（位置、大小、显示状态、背景图片、z-index）
@@ -101,7 +112,7 @@
     this.pet.style.backgroundSize = 'contain'
     this.pet.style.backgroundPosition = 'center'
     this.pet.style.backgroundRepeat = 'no-repeat'
-    this.pet.style.borderRadius = `${(PET_CONFIG.ui && PET_CONFIG.ui.borderRadius && PET_CONFIG.ui.borderRadius.pet) ? PET_CONFIG.ui.borderRadius.pet : '50%'}`
+    this.pet.style.borderRadius = `${PET_CONFIG.ui && PET_CONFIG.ui.borderRadius && PET_CONFIG.ui.borderRadius.pet ? PET_CONFIG.ui.borderRadius.pet : '50%'}`
     this.pet.style.zIndex = `${PET_CONFIG.ui.zIndex.pet}`
     if (this.isVisible) {
       this.pet.classList.remove('tw-hidden')
@@ -134,9 +145,11 @@
     let runFrameUrls = []
     try {
       await window.imageResourceManager.preloadRunFrames(role, 3)
-      runFrameUrls = await Promise.all([1, 2, 3].map((frame) => window.imageResourceManager.getRunFrameUrl(role, frame)))
+      runFrameUrls = await Promise.all(
+        [1, 2, 3].map((frame) => window.imageResourceManager.getRunFrameUrl(role, frame)),
+      )
     } catch (error) {
-      logger.warn('预加载动画帧失败，取消显示动画', { error: String(error && error.message || error) })
+      logger.warn('预加载动画帧失败，取消显示动画', { error: String((error && error.message) || error) })
       return
     }
 

@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
   }
@@ -11,7 +11,7 @@
     this.sessionSidebar.dataset.petColorIndex = String(this.colorIndex ?? 0)
     btnSession.classList.add('pet-view-toggle-btn', 'pet-view-toggle-active')
   }
-  proto.updateSessionSidebar = async function (forceRefresh = false, skipBackendRefresh = false) {
+  proto.updateSessionSidebar = async function (_forceRefresh = false, _skipBackendRefresh = false) {
     if (!this.sessionSidebar) {
       return
     }
@@ -64,7 +64,9 @@
     const allSessions = this._getFilteredSessions()
     console.log('当前会话数量:', allSessions.length)
     const q = (this.sessionTitleFilter || '').trim()
-    const hasFilter = q ||
+    // eslint-disable-next-line no-unused-vars -- hasFilter computed for future filter indicator
+    const hasFilter =
+      q ||
       (this.selectedFilterTags && this.selectedFilterTags.length > 0) ||
       this.tagFilterNoTags ||
       this.dateRangeFilter
@@ -110,21 +112,21 @@
     })()
     const canUseTemplate = typeof Vue?.compile === 'function' && evalAllowed
 
-    const SessionItemCtor = window.PetManager && window.PetManager.Components ? window.PetManager.Components.SessionItem : null
-    const SessionItemFactory = SessionItemCtor && typeof SessionItemCtor.createComponent === 'function'
-      ? SessionItemCtor.createComponent
-      : null
-    const SessionListCtor = window.PetManager && window.PetManager.Components ? window.PetManager.Components.SessionList : null
-    const SessionListFactory = SessionListCtor && typeof SessionListCtor.createComponent === 'function'
-      ? SessionListCtor.createComponent
-      : null
+    const SessionItemCtor =
+      window.PetManager && window.PetManager.Components ? window.PetManager.Components.SessionItem : null
+    const SessionItemFactory =
+      SessionItemCtor && typeof SessionItemCtor.createComponent === 'function' ? SessionItemCtor.createComponent : null
+    const SessionListCtor =
+      window.PetManager && window.PetManager.Components ? window.PetManager.Components.SessionList : null
+    const SessionListFactory =
+      SessionListCtor && typeof SessionListCtor.createComponent === 'function' ? SessionListCtor.createComponent : null
 
     if (canRenderWithVue && canUseTemplate && SessionItemFactory && SessionListFactory) {
       if (!this._sessionListVueState || this._sessionListVueMount !== sessionList) {
         if (this._sessionListVueApp) {
           try {
             this._sessionListVueApp.unmount()
-          } catch (_) { }
+          } catch (_) {}
         }
         this._sessionListVueApp = null
         this._sessionListVueMount = sessionList
@@ -132,7 +134,10 @@
         const { createApp, defineComponent, h, ref } = Vue
         const sessionsRef = ref([])
         const uiTick =
-          this._sidebarUiTickRef && typeof this._sidebarUiTickRef === 'object' && this._sidebarUiTickRef && 'value' in this._sidebarUiTickRef
+          this._sidebarUiTickRef &&
+          typeof this._sidebarUiTickRef === 'object' &&
+          this._sidebarUiTickRef &&
+          'value' in this._sidebarUiTickRef
             ? this._sidebarUiTickRef
             : ref(0)
         this._sidebarUiTickRef = uiTick
@@ -162,13 +167,13 @@
 
         const SessionListRoot = defineComponent({
           name: 'YiPetSessionListRoot',
-          setup () {
+          setup() {
             return { sessionsRef, uiTick }
           },
-          render () {
+          render() {
             const sessions = Array.isArray(sessionsRef.value) ? sessionsRef.value : []
             return h(SessionList, { sessions, uiTick: uiTick.value })
-          }
+          },
         })
 
         sessionList.innerHTML = ''
@@ -199,7 +204,9 @@
     }
     for (const session of sortedSessions) {
       if (window.PetManager && window.PetManager.Components && window.PetManager.Components.SessionItem) {
-        const sessionItem = new window.PetManager.Components.SessionItem(this, session, { template: sessionItemTemplate })
+        const sessionItem = new window.PetManager.Components.SessionItem(this, session, {
+          template: sessionItemTemplate,
+        })
         listItems.appendChild(sessionItem.element || sessionItem.create())
       }
     }
@@ -209,12 +216,8 @@
   }
 
   proto.updateSessionUI = async function (options = {}) {
-    const {
-      updateSidebar = false,
-      updateTitle = false,
-      loadMessages = false,
-      keepApiRequestListView = false
-    } = options
+    // eslint-disable-next-line no-unused-vars -- keepApiRequestListView reserved for future use
+    const { updateSidebar = false, updateTitle = false, loadMessages = false, keepApiRequestListView = false } = options
 
     if (updateSidebar && typeof this.updateSessionSidebar === 'function') {
       await this.updateSessionSidebar(false, false)
@@ -231,7 +234,9 @@
 
   proto.loadSidebarWidth = function () {
     try {
-      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') return
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') {
+        return
+      }
       chrome.storage.local.get(['sessionSidebarWidth'], (result) => {
         if (result.sessionSidebarWidth && typeof result.sessionSidebarWidth === 'number') {
           const width = Math.max(320, Math.min(800, result.sessionSidebarWidth))
@@ -241,13 +246,15 @@
           }
         }
       })
-    } catch (error) { }
+    } catch (error) {}
   }
   proto.saveSidebarWidth = function () {
     try {
-      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') return
-      chrome.storage.local.set({ sessionSidebarWidth: this.sidebarWidth }, () => { })
-    } catch (error) { }
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') {
+        return
+      }
+      chrome.storage.local.set({ sessionSidebarWidth: this.sidebarWidth }, () => {})
+    } catch (error) {}
   }
   proto.loadSidebarCollapsed = function () {
     try {
@@ -280,9 +287,11 @@
   }
   proto.saveSidebarCollapsed = function () {
     try {
-      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') return
-      chrome.storage.local.set({ sessionSidebarCollapsed: this.sidebarCollapsed }, () => { })
-    } catch (error) { }
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') {
+        return
+      }
+      chrome.storage.local.set({ sessionSidebarCollapsed: this.sidebarCollapsed }, () => {})
+    } catch (error) {}
   }
   proto.applySidebarCollapsedState = function () {
     if (this.chatWindowComponent && typeof this.chatWindowComponent.setSidebarCollapsed === 'function') {
@@ -303,7 +312,9 @@
   }
   proto.loadInputContainerCollapsed = function () {
     try {
-      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') return
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.get !== 'function') {
+        return
+      }
       chrome.storage.local.get(['chatInputContainerCollapsed'], (result) => {
         if (result.chatInputContainerCollapsed !== undefined) {
           this.inputContainerCollapsed = result.chatInputContainerCollapsed
@@ -312,13 +323,15 @@
           }
         }
       })
-    } catch (error) { }
+    } catch (error) {}
   }
   proto.saveInputContainerCollapsed = function () {
     try {
-      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') return
-      chrome.storage.local.set({ chatInputContainerCollapsed: this.inputContainerCollapsed }, () => { })
-    } catch (error) { }
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local || typeof chrome.storage.local.set !== 'function') {
+        return
+      }
+      chrome.storage.local.set({ chatInputContainerCollapsed: this.inputContainerCollapsed }, () => {})
+    } catch (error) {}
   }
   proto.applyInputContainerCollapsedState = function () {
     if (this.chatWindowComponent && typeof this.chatWindowComponent.setInputContainerCollapsed === 'function') {
@@ -359,8 +372,9 @@
     // 更新全选 checkbox 状态（参考 YiWeb 实现）
     if (selectAllCheckbox) {
       const filteredSessions = this._getFilteredSessions()
-      const allSelected = filteredSessions.length > 0 &&
-        filteredSessions.every(session => session.key && this.selectedSessionIds.has(session.key))
+      const allSelected =
+        filteredSessions.length > 0 &&
+        filteredSessions.every((session) => session.key && this.selectedSessionIds.has(session.key))
       selectAllCheckbox.checked = allSelected
     }
   }
@@ -369,26 +383,28 @@
   proto.toggleSelectAll = function () {
     // 会话列表模式
     const filteredSessions = this._getFilteredSessions()
-    const allSelected = filteredSessions.length > 0 &&
-      filteredSessions.every(session => session.key && this.selectedSessionIds.has(session.key))
+    const allSelected =
+      filteredSessions.length > 0 &&
+      filteredSessions.every((session) => session.key && this.selectedSessionIds.has(session.key))
 
     if (allSelected) {
       // 取消全选：只取消当前显示的会话
-      filteredSessions.forEach(session => {
+      filteredSessions.forEach((session) => {
         if (session.key) {
           this.selectedSessionIds.delete(session.key)
         }
       })
     } else {
       // 全选：选中所有当前显示的会话
-      filteredSessions.forEach(session => {
+      filteredSessions.forEach((session) => {
         if (session.key) {
           this.selectedSessionIds.add(session.key)
         }
       })
     }
 
-    const hasVueSessionList = !!this._sessionListVueApp && this._sessionListVueMount === this.sessionSidebar?.querySelector?.('.session-list')
+    const hasVueSessionList =
+      !!this._sessionListVueApp && this._sessionListVueMount === this.sessionSidebar?.querySelector?.('.session-list')
     const hasVueBatchToolbar = !!this.sessionSidebar?.querySelector?.('[data-pet-batch-toolbar="vue"]')
     if (hasVueSessionList || hasVueBatchToolbar) {
       if (typeof this._bumpSidebarUiTick === 'function') {
@@ -401,7 +417,7 @@
 
     // 更新所有复选框状态和选中类（使用 batch-selected 类，参考 YiWeb）
     const sessionItems = this.sessionSidebar.querySelectorAll('.session-item')
-    sessionItems.forEach(item => {
+    sessionItems.forEach((item) => {
       const sessionId = item.dataset.sessionId
       const checkbox = item.querySelector('.session-batch-checkbox')
       const isSelected = this.selectedSessionIds.has(sessionId)
@@ -512,6 +528,7 @@
   }
   // 批量删除（支持会话、文件和请求接口）
   proto.batchDeleteSessions = async function () {
+    // eslint-disable-next-line no-unused-vars -- sessionList queried for validation, used in full method
     const sessionList = this.sessionSidebar.querySelector('.session-list')
     // 批量删除会话
     if (this.selectedSessionIds.size === 0) {
@@ -530,18 +547,18 @@
     try {
       // 同时收集会话信息用于删除 aicr 项目文件
       const sessionsToDelete = []
-      sessionIds.forEach(sessionId => {
+      sessionIds.forEach((sessionId) => {
         const session = this.sessions[sessionId]
         if (session) {
           sessionsToDelete.push({
             sessionId,
-            unifiedSessionId: session.key || sessionId
+            unifiedSessionId: session.key || sessionId,
           })
         }
       })
 
       // 从本地删除
-      sessionIds.forEach(sessionId => {
+      sessionIds.forEach((sessionId) => {
         if (this.sessions[sessionId]) {
           delete this.sessions[sessionId]
         }
@@ -587,7 +604,7 @@
       this.showNotification(`已成功删除 ${count} 个会话`, 'success')
     } catch (error) {
       console.error('批量删除会话失败:', error)
-      this.showNotification('批量删除会话失败: ' + error.message, 'error')
+      this.showNotification(`批量删除会话失败: ${error.message}`, 'error')
     }
   }
 
@@ -679,6 +696,7 @@
 
       // 防抖保存函数
       let saveTimeout = null
+      // eslint-disable-next-line no-unused-vars -- debouncedSave referenced in event handlers below
       const debouncedSave = () => {
         if (saveTimeout) {
           clearTimeout(saveTimeout)
@@ -731,7 +749,7 @@
 
   // 更新折叠按钮位置的辅助方法
   // 按钮位置现在由 CSS 控制，始终在 title 左边，不再需要根据侧边栏宽度动态设置
-  proto.updateToggleButtonPosition = function (width) {
+  proto.updateToggleButtonPosition = function (_width) {
     const toggleBtn = this.chatWindow?.querySelector('#sidebar-toggle-btn')
     if (toggleBtn) {
       // 按钮位置由 CSS 控制，始终在 title 左边

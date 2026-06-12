@@ -2,6 +2,11 @@
 .idea/
 .vscode/
 
+# Environment
+.env
+.env.*
+!.env.example
+
 node_modules/
 
 dist/
@@ -36,3 +41,4 @@ playwright-report/
 *.zip
 
 .claude
+.husky/_

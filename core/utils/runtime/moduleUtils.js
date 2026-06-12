@@ -19,11 +19,11 @@
 
 class ModuleUtils {
   /**
-     * 获取全局对象（根据环境自动选择）
-     * 使用 GlobalAccessor 的实现，避免重复代码
-     * @returns {Object} 全局对象（globalThis、self、window 或 global）
-     */
-  static getGlobal () {
+   * 获取全局对象（根据环境自动选择）
+   * 使用 GlobalAccessor 的实现，避免重复代码
+   * @returns {Object} 全局对象（globalThis、self、window 或 global）
+   */
+  static getGlobal() {
     // 优先使用 GlobalAccessor（如果已加载）
     if (typeof GlobalAccessor !== 'undefined' && typeof GlobalAccessor.getGlobal === 'function') {
       return GlobalAccessor.getGlobal()
@@ -50,10 +50,10 @@ class ModuleUtils {
   }
 
   /**
-     * 获取 Service Worker 全局对象
-     * @returns {Object|null} Service Worker 全局对象或 null
-     */
-  static getServiceWorker () {
+   * 获取 Service Worker 全局对象
+   * @returns {Object|null} Service Worker 全局对象或 null
+   */
+  static getServiceWorker() {
     if (typeof self !== 'undefined') {
       return self
     }
@@ -61,10 +61,10 @@ class ModuleUtils {
   }
 
   /**
-     * 获取浏览器全局对象
-     * @returns {Object|null} 浏览器全局对象或 null
-     */
-  static getWindow () {
+   * 获取浏览器全局对象
+   * @returns {Object|null} 浏览器全局对象或 null
+   */
+  static getWindow() {
     if (typeof window !== 'undefined') {
       return window
     }
@@ -72,36 +72,36 @@ class ModuleUtils {
   }
 
   /**
-     * 检查是否在 Node.js 环境
-     * @returns {boolean} 是否在 Node.js 环境
-     */
-  static isNode () {
+   * 检查是否在 Node.js 环境
+   * @returns {boolean} 是否在 Node.js 环境
+   */
+  static isNode() {
     return typeof module !== 'undefined' && typeof module.exports !== 'undefined'
   }
 
   /**
-     * 检查是否在 Service Worker 环境
-     * @returns {boolean} 是否在 Service Worker 环境
-     */
-  static isServiceWorker () {
+   * 检查是否在 Service Worker 环境
+   * @returns {boolean} 是否在 Service Worker 环境
+   */
+  static isServiceWorker() {
     return typeof self !== 'undefined' && typeof importScripts === 'function'
   }
 
   /**
-     * 检查是否在浏览器环境
-     * @returns {boolean} 是否在浏览器环境
-     */
-  static isBrowser () {
+   * 检查是否在浏览器环境
+   * @returns {boolean} 是否在浏览器环境
+   */
+  static isBrowser() {
     return typeof window !== 'undefined'
   }
 
   /**
-     * 安全获取全局属性
-     * @param {string} name - 属性名称
-     * @param {Object} [context] - 上下文对象（可选，默认使用 getGlobal()）
-     * @returns {*} 属性值或 undefined
-     */
-  static getGlobalProperty (name, context = null) {
+   * 安全获取全局属性
+   * @param {string} name - 属性名称
+   * @param {Object} [context] - 上下文对象（可选，默认使用 getGlobal()）
+   * @returns {*} 属性值或 undefined
+   */
+  static getGlobalProperty(name, context = null) {
     const globalObj = context || this.getGlobal()
     try {
       return globalObj[name]
@@ -111,14 +111,14 @@ class ModuleUtils {
   }
 
   /**
-     * 统一导出模块
-     * 支持 Node.js (module.exports) 和浏览器环境 (window/self/globalThis)
-     * @param {string} name - 导出名称
-     * @param {*} value - 要导出的值
-     * @param {Object} [options] - 选项
-     * @param {boolean} [options.forceGlobal] - 是否强制导出到全局对象（即使有 module.exports）
-     */
-  static export (name, value, options = {}) {
+   * 统一导出模块
+   * 支持 Node.js (module.exports) 和浏览器环境 (window/self/globalThis)
+   * @param {string} name - 导出名称
+   * @param {*} value - 要导出的值
+   * @param {Object} [options] - 选项
+   * @param {boolean} [options.forceGlobal] - 是否强制导出到全局对象（即使有 module.exports）
+   */
+  static export(name, value, options = {}) {
     // Node.js 环境
     if (this.isNode() && !options.forceGlobal) {
       if (typeof module !== 'undefined' && module.exports) {
@@ -137,11 +137,11 @@ class ModuleUtils {
   }
 
   /**
-     * 统一导出多个模块
-     * @param {Object} exports - 导出对象 {name: value}
-     * @param {Object} [options] - 选项
-     */
-  static exportMultiple (exports, options = {}) {
+   * 统一导出多个模块
+   * @param {Object} exports - 导出对象 {name: value}
+   * @param {Object} [options] - 选项
+   */
+  static exportMultiple(exports, options = {}) {
     // Node.js 环境
     if (this.isNode() && !options.forceGlobal) {
       if (typeof module !== 'undefined' && module.exports) {
@@ -152,7 +152,7 @@ class ModuleUtils {
 
     // 浏览器/Service Worker 环境
     const globalObj = this.getGlobal()
-    Object.keys(exports).forEach(name => {
+    Object.keys(exports).forEach((name) => {
       try {
         globalObj[name] = exports[name]
       } catch (e) {

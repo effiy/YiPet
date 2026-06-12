@@ -1,0 +1,20 @@
+name: Lock Closed Issues
+
+on:
+  schedule:
+    - cron: '17 7 * * 3'
+  workflow_dispatch:
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: dessant/lock-threads@v5
+        with:
+          issue-inactive-days: 30
+          pr-inactive-days: 30
+          issue-lock-reason: 'resolved'
+          pr-lock-reason: 'resolved'

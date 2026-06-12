@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+  <title>YiPet 架构 · 知识图谱</title>
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --card: #24283b;
+      --card-border: #3d59a1;
+      --text: #a9b1d6;
+      --text2: #565f89;
+      --text3: #414868;
+      --accent: #7aa2f7;
+      --cyan: #7dcfff;
+      --purple: #bb9af7;
+      --pink: #f7768e;
+      --green: #9ece6a;
+      --yellow: #e0af68;
+      --orange: #ff9e64;
+      --shadow: 0 4px 20px rgba(0,0,0,0.3);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+      --radius: 12px;
+      --border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeInDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+    /* ── Breadcrumb ──────────────────────── */
+    .breadcrumb {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 16px; font-size: .78rem;
+      animation: fadeInDown .4s ease both;
+    }
+    .breadcrumb a { color: var(--cyan); text-decoration: none; transition: color .15s; }
+    .breadcrumb a:hover { color: var(--accent); text-decoration: underline; }
+    .breadcrumb .sep { color: var(--text3); opacity: .4; user-select: none; }
+    .breadcrumb .current { color: var(--text2); font-weight: 500; }
+
+    /* ── Cross-nav ───────────────────────── */
+    .cross-nav {
+      display: flex; gap: 4px; justify-content: center; align-items: center;
+      margin-bottom: 32px; flex-wrap: wrap;
+      animation: fadeInDown .5s .15s ease both;
+    }
+    .cross-nav a {
+      color: var(--cyan); text-decoration: none; font-size: .74rem;
+      padding: 3px 10px; border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .cross-nav a:hover { color: var(--accent); background: rgba(122,162,247,.08); text-decoration: underline; }
+    .cross-nav a.on { color: var(--accent); font-weight: 600; }
+    .cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+    /* ── Header ──────────────────────────── */
+    .header {
+      text-align: center; margin-bottom: 24px;
+      animation: fadeInDown .5s ease both;
+    }
+    .header h1 { font-size: 2.1rem; font-weight: 700; }
+    .header h1 .accent { color: var(--accent); }
+    .header .sub { color: var(--text2); font-size: .9rem; margin-top: 4px; }
+
+    /* ── Legend ───────────────────────────── */
+    .legend {
+      display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 20px; animation: fadeInDown .5s .18s ease both;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: .76rem; color: var(--text2);
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .legend-dot.domain { background: var(--pink); }
+    .legend-dot.flow   { background: var(--purple); }
+    .legend-dot.step   { background: var(--accent); }
+    .legend-dot.layer  { background: var(--yellow); }
+
+    /* ── Content ─────────────────────────── */
+    .content { animation: fadeInUp .5s ease both; }
+
+    .card {
+      background: linear-gradient(159deg, rgba(36,40,59,1) 0%, rgba(30,33,48,1) 100%);
+      border: var(--border); border-radius: var(--radius);
+      padding: 20px; margin-bottom: 14px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 { color: var(--text2); font-size: 1.05rem; font-weight: 600; margin: 0 0 12px; }
+    .card p { color: var(--text2); font-size: .9rem; margin-bottom: 12px; }
+
+    #cy {
+      width: 100%;
+      height: 800px;
+      background: var(--bg);
+      border: var(--border);
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    /* ── Footer ──────────────────────────── */
+    .footer-note {
+      text-align: center; color: var(--text3); font-size: .78rem;
+      margin-top: 32px; padding-bottom: 20px;
+    }
+    .footer-note a { color: var(--accent); text-decoration: none; }
+    .footer-note a:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+      .container { padding: 24px 16px 60px; }
+      .header h1 { font-size: 1.5rem; }
+      #cy { height: 500px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="../index.html">docs</a>
+      <span class="sep">/</span>
+      <span class="current">yipet-arch</span>
+    </div>
+    <div class="cross-nav">
+      <a href="故事任务.md">故事任务</a>
+      <span class="cross-sep">·</span>
+      <a href="架构全景.md">架构全景</a>
+      <span class="cross-sep">·</span>
+      <a href="知识图谱.html" class="on">知识图谱</a>
+      <span class="cross-sep">·</span>
+      <a href="演示/index.html">演示中心</a>
+    </div>
+    <div class="header">
+      <h1>YiPet 架构 · <span class="accent">知识图谱</span></h1>
+      <div class="sub">领域 · 流程 · 步骤三层节点关系可视化</div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot domain"></span>领域 (domain)</div>
+      <div class="legend-item"><span class="legend-dot flow"></span>流程 (flow)</div>
+      <div class="legend-item"><span class="legend-dot step"></span>步骤 (step)</div>
+      <div class="legend-item"><span class="legend-dot layer"></span>层 (layer)</div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <h3>知识图谱可视化</h3>
+        <p>交互式图谱：展示 5 个领域、7 条流程、10 个步骤之间的关系。点击节点查看详情。</p>
+        <div id="cy"></div>
+      </div>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+      <script>
+        (async () => {
+          let kg;
+          try {
+            const res = await fetch('./知识图谱.json');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            kg = await res.json();
+          } catch (err) {
+            document.getElementById('cy').innerHTML =
+              '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f7768e;font-size:.9rem">加载失败：' + err.message + '</div>';
+            return;
+          }
+
+          const elements = [];
+
+          /* ── Layer parent nodes ──────────── */
+          const layerColors = ['#e0af68', '#9ece6a', '#7dcfff', '#ff9e64'];
+          (kg.layers || []).forEach((layer, i) => {
+            elements.push({
+              data: {
+                id: layer.id,
+                label: layer.name,
+                type: 'layer',
+                color: layerColors[i % layerColors.length],
+                description: layer.description || ''
+              }
+            });
+          });
+
+          /* ── Domain nodes ────────────────── */
+          (kg.nodes?.domains || []).forEach(d => {
+            elements.push({
+              data: {
+                id: d.id,
+                label: d.name,
+                type: 'domain',
+                summary: d.summary || '',
+                complexity: d.complexity || 'medium',
+                tags: (d.tags || []).join(', '),
+                entities: (d.domainMeta?.entities || []).join(', ')
+              }
+            });
+          });
+
+          /* ── Flow nodes ──────────────────── */
+          (kg.nodes?.flows || []).forEach(f => {
+            const parentLayer = (kg.layers || []).find(l => (l.nodeIds || []).includes(f.id));
+            elements.push({
+              data: {
+                id: f.id,
+                label: f.name,
+                type: 'flow',
+                summary: f.summary || '',
+                complexity: f.complexity || 'medium',
+                tags: (f.tags || []).join(', '),
+                parent: parentLayer ? parentLayer.id : undefined
+              }
+            });
+          });
+
+          /* ── Step nodes ──────────────────── */
+          (kg.nodes?.steps || []).forEach(s => {
+            elements.push({
+              data: {
+                id: s.id,
+                label: s.name,
+                type: 'step',
+                summary: s.summary || '',
+                complexity: s.complexity || 'low',
+                tags: (s.tags || []).join(', ')
+              }
+            });
+          });
+
+          /* ── Edges ───────────────────────── */
+          (kg.edges || []).forEach((e, i) => {
+            elements.push({
+              data: {
+                id: 'e_' + i,
+                source: e.source,
+                target: e.target,
+                type: e.type || '',
+                weight: e.weight ?? 0.5
+              }
+            });
+          });
+
+          /* ── Cytoscape style ─────────────── */
+          const cyStyle = [
+            {
+              selector: 'node',
+              style: {
+                'label': 'data(label)',
+                'text-valign': 'center',
+                'text-halign': 'center',
+                'text-wrap': 'wrap',
+                'text-max-width': '130px',
+                'font-size': '11px',
+                'color': '#a9b1d6',
+                'background-color': '#1a1b26',
+                'border-color': '#565f89',
+                'border-width': 1.5,
+                'padding': '10px'
+              }
+            },
+            {
+              selector: 'node[type="domain"]',
+              style: {
+                'border-color': '#f7768e',
+                'color': '#f7768e',
+                'font-weight': 'bold',
+                'font-size': '12px',
+                'background-color': '#2a1f2e',
+                'border-width': 2.5,
+                'shape': 'round-rectangle',
+                'padding': '12px'
+              }
+            },
+            {
+              selector: 'node[type="flow"]',
+              style: {
+                'border-color': '#bb9af7',
+                'color': '#bb9af7',
+                'font-size': '10px',
+                'background-color': '#1f1d2e',
+                'border-width': 2,
+                'shape': 'round-hexagon',
+                'padding': '10px'
+              }
+            },
+            {
+              selector: 'node[type="step"]',
+              style: {
+                'border-color': '#7aa2f7',
+                'color': '#7aa2f7',
+                'font-size': '9px',
+                'background-color': '#1a1d2e',
+                'border-width': 1.5,
+                'shape': 'ellipse',
+                'padding': '8px'
+              }
+            },
+            {
+              selector: 'node[type="layer"]',
+              style: {
+                'border-color': '#e0af68',
+                'color': '#e0af68',
+                'background-color': 'rgba(224,175,104,0.04)',
+                'border-width': 1,
+                'border-style': 'dashed',
+                'shape': 'round-rectangle',
+                'font-size': '13px',
+                'font-weight': 'bold',
+                'text-valign': 'top',
+                'text-halign': 'center',
+                'padding': '30px',
+                'background-opacity': 0.3
+              }
+            },
+            {
+              selector: 'edge[type="contains_flow"]',
+              style: {
+                'width': 2,
+                'line-color': '#bb9af7',
+                'target-arrow-color': '#bb9af7',
+                'target-arrow-shape': 'triangle',
+                'curve-style': 'bezier',
+                'arrow-scale': 1.2,
+                'opacity': 0.8
+              }
+            },
+            {
+              selector: 'edge[type="flow_step"]',
+              style: {
+                'width': 1,
+                'line-color': '#7aa2f7',
+                'target-arrow-color': '#7aa2f7',
+                'target-arrow-shape': 'triangle',
+                'curve-style': 'bezier',
+                'arrow-scale': 1,
+                'opacity': 0.6
+              }
+            },
+            {
+              selector: 'edge[type="cross_domain"]',
+              style: {
+                'width': 2,
+                'line-color': '#f7768e',
+                'target-arrow-color': '#f7768e',
+                'target-arrow-shape': 'triangle',
+                'curve-style': 'bezier',
+                'arrow-scale': 1.2,
+                'opacity': 0.7,
+                'line-style': 'dashed'
+              }
+            }
+          ];
+
+          /* ── Init Cytoscape ──────────────── */
+          const cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: elements,
+            style: cyStyle,
+            layout: {
+              name: 'cose',
+              animate: false,
+              nodeRepulsion: function() { return 8000; },
+              idealEdgeLength: function() { return 120; },
+              gravity: 0.15,
+              padding: 40,
+              nodeDimensionsIncludeLabels: true
+            },
+            userZoomingEnabled: true,
+            userPanningEnabled: true,
+            boxSelectionEnabled: false
+          });
+
+          /* ── Tap interaction ─────────────── */
+          cy.on('tap', 'node', function(evt) {
+            const d = evt.target.data();
+            if (d.type === 'layer') return;
+            const lines = [d.label];
+            if (d.summary) lines.push('\n' + d.summary);
+            if (d.entities) lines.push('\n实体: ' + d.entities);
+            if (d.complexity) lines.push('\n复杂度: ' + d.complexity);
+            if (d.tags) lines.push('\n标签: ' + d.tags);
+            alert(lines.join(''));
+          });
+
+          /* ── Highlight on hover ──────────── */
+          cy.on('mouseover', 'node', function(evt) {
+            const node = evt.target;
+            if (node.data('type') === 'layer') return;
+            node.style('border-width', 4);
+            node.connectedEdges().style({ 'line-color': '#7dcfff', 'opacity': 1, 'width': 3 });
+          });
+          cy.on('mouseout', 'node', function(evt) {
+            const node = evt.target;
+            node.removeStyle('border-width');
+            node.connectedEdges().removeStyle(['line-color', 'opacity', 'width']);
+          });
+
+        })();
+      </script>
+    </div>
+    <div class="footer-note">yipet-arch · 知识图谱 · 生成于 2026-06-10</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,219 @@
+{
+  "meta": {
+    "version": "2.0.0",
+    "generatedAt": "2026-06-06",
+    "story": "yipet-self-test",
+    "storyPhase": "doc",
+    "formula": "F.story.knowledge-graph"
+  },
+  "story": {
+    "name": "yipet-self-test",
+    "phase": "doc",
+    "analyzedAt": "2026-06-06"
+  },
+  "nodes": {
+    "domains": [
+      {
+        "id": "domain:self-test-core",
+        "type": "domain",
+        "name": "核心逻辑测试",
+        "summary": "配置中心（PET_CONFIG）和 Token 管理器（TokenManager）的单元测试域，覆盖默认值合并、环境变量注入、Token 三级降级、格式校验",
+        "tags": ["unit-test", "config", "token", "vitest"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entities": ["PET_CONFIG", "TokenManager", "tokenManager", "validateToken", "ENDPOINTS"],
+          "businessRules": [
+            "配置默认值合并: 用户值覆盖默认值，未配置取默认值",
+            "Token 三级降级: L1 环境变量 → L2 chrome.storage → L3 空",
+            "validateToken 格式: /^[a-zA-Z0-9_-]+$/ 且长度 ≥ 10",
+            "每个模块至少 3 条测试用例"
+          ],
+          "crossDomainInteractions": ["domain:self-test-api 的 ApiManager 依赖 TokenManager 提供 Token", "domain:self-test-storage 的 StorageHelper 依赖 chrome.storage mock"]
+        }
+      },
+      {
+        "id": "domain:self-test-api",
+        "type": "domain",
+        "name": "API 接口测试",
+        "summary": "RequestClient 和 ApiManager 的单元测试域，覆盖请求构造、重试策略、超时控制、拦截器链",
+        "tags": ["unit-test", "api", "request", "retry", "timeout"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entities": ["RequestClient", "ApiManager", "mockFetch", "AbortController"],
+          "businessRules": [
+            "HTTP 方法全覆盖: GET/POST/PUT/DELETE",
+            "重试: 最多 3 次，指数退避 1s→2s→4s",
+            "超时: AbortController + setTimeout",
+            "去重: 5s 窗口内相同请求合并"
+          ],
+          "crossDomainInteractions": ["消费 domain:self-test-core 的 TokenManager 进行 X-Token 注入", "在 domain:self-test-integration 中参与模块联调链路"]
+        }
+      },
+      {
+        "id": "domain:self-test-storage",
+        "type": "domain",
+        "name": "数据持久化测试",
+        "summary": "chrome.storage.local CRUD、配额超限清理、会话管理（SessionManager）的测试域",
+        "tags": ["unit-test", "storage", "chrome-api", "quota", "session"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entities": ["StorageHelper", "SessionManager", "chrome.storage.local mock", "cleanupOldData"],
+          "businessRules": [
+            "chrome.storage mock 使用 Map 实现 get/set/remove/clear",
+            "配额超限时优先清理 petOssFiles（可重建数据）",
+            "SessionManager 有队列保存机制合并连续写入",
+            "isChromeStorageAvailable / isContextInvalidated 预检守卫"
+          ],
+          "crossDomainInteractions": ["消费 domain:self-test-core 的 mock 基础设施", "在 domain:self-test-error 中验证配额超限和上下文失效路径"]
+        }
+      },
+      {
+        "id": "domain:self-test-error",
+        "type": "domain",
+        "name": "异常边界测试",
+        "summary": "6 种错误分类、重试决策矩阵、降级行为验证、全局错误处理的测试域",
+        "tags": ["unit-test", "error", "classification", "degradation"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entities": ["ErrorHandler", "6 种错误类", "重试决策矩阵"],
+          "businessRules": [
+            "错误分类链: 原始错误 → NetworkError/ClientError/ServerError/ContextInvalidatedError/QuotaExceededError/UnknownError",
+            "可重试: NetworkError(3次) · ServerError(3次) · QuotaExceededError(1次)",
+            "不可重试: ClientError · ContextInvalidatedError · UnknownError",
+            "上下文失效时所有 chrome API 调用安全返回，不抛未捕获异常"
+          ],
+          "crossDomainInteractions": ["消费 domain:self-test-storage 的配额超限错误触发 QuotaExceededError", "消费 domain:self-test-api 的网络错误触发 NetworkError"]
+        }
+      },
+      {
+        "id": "domain:self-test-integration",
+        "type": "domain",
+        "name": "集成回归测试",
+        "summary": "模块联调链路、Service Worker 消息路由、Vue 组件渲染的端到端测试域",
+        "tags": ["integration-test", "pipeline", "sw", "vue"],
+        "complexity": "high",
+        "domainMeta": {
+          "entities": ["Token→ApiManager→RequestClient 链路", "MessageRouter", "ChatWindow (Vue)"],
+          "businessRules": [
+            "模块联调链路: TokenManager.getToken → ApiManager 注入 X-Token → RequestClient 发送 fetch",
+            "MessageRouter 注册 7 种 action: injectPet/toggleVisibility/forwardToContentScript/sendToWeWorkRobot/getExtensionInfo/getTabInfo/ping",
+            "Vue 组件在 jsdom 环境下通过 Vue.createApp 挂载",
+            "集成测试 beforeEach 重置所有 mock"
+          ],
+          "crossDomainInteractions": ["串联 domain:self-test-core + domain:self-test-api + domain:self-test-storage 的全链路", "消费 domain:self-test-error 的错误处理验证"]
+        }
+      }
+    ],
+    "flows": [
+      {
+        "id": "flow:config-test",
+        "type": "flow",
+        "name": "配置测试流程",
+        "summary": "PET_CONFIG 默认值合并 → envInfo 注入 → ENDPOINTS 路径验证 → buildUrl 拼接",
+        "tags": ["config", "vitest", "unit-test"],
+        "complexity": "low",
+        "domainMeta": { "entryPoint": "tests/unit/config.test.mjs", "entryType": "test-file" }
+      },
+      {
+        "id": "flow:token-test",
+        "type": "flow",
+        "name": "Token 测试流程",
+        "summary": "L1 环境变量 → L2 chrome.storage → L3 空 → validateToken 格式/长度 → set/get/remove",
+        "tags": ["token", "vitest", "unit-test"],
+        "complexity": "low",
+        "domainMeta": { "entryPoint": "tests/unit/token.test.mjs", "entryType": "test-file" }
+      },
+      {
+        "id": "flow:request-test",
+        "type": "flow",
+        "name": "API 请求测试流程",
+        "summary": "GET/POST/PUT/DELETE 请求构造 → URL 参数拼接 → 重试 + 退避 → 超时控制 → 去重",
+        "tags": ["api", "request", "vitest"],
+        "complexity": "medium",
+        "domainMeta": { "entryPoint": "tests/unit/api.test.mjs", "entryType": "test-file" }
+      },
+      {
+        "id": "flow:storage-crud-test",
+        "type": "flow",
+        "name": "存储 CRUD 测试流程",
+        "summary": "chrome.storage.get/set/remove/clear → 配额超限 → cleanupOldData → 重试",
+        "tags": ["storage", "chrome-api", "vitest"],
+        "complexity": "medium",
+        "domainMeta": { "entryPoint": "tests/unit/storage.test.mjs", "entryType": "test-file" }
+      },
+      {
+        "id": "flow:error-classification",
+        "type": "flow",
+        "name": "错误分类流程",
+        "summary": "原始错误 → ErrorHandler.classify() → 6 种错误类 → 重试决策 → 格式化",
+        "tags": ["error", "classification", "vitest"],
+        "complexity": "medium",
+        "domainMeta": { "entryPoint": "tests/unit/error.test.mjs", "entryType": "test-file" }
+      },
+      {
+        "id": "flow:module-pipeline",
+        "type": "flow",
+        "name": "模块联调流程",
+        "summary": "TokenManager → ApiManager → RequestClient → mockFetch → 响应解析 全链路",
+        "tags": ["integration", "pipeline", "vitest"],
+        "complexity": "high",
+        "domainMeta": { "entryPoint": "tests/integration/pipeline.test.mjs", "entryType": "test-file" }
+      },
+      {
+        "id": "flow:sw-routing",
+        "type": "flow",
+        "name": "Service Worker 路由测试流程",
+        "summary": "chrome.runtime.sendMessage → MessageRouter.handle() → 具体 Handler → 响应返回",
+        "tags": ["sw", "routing", "integration"],
+        "complexity": "medium",
+        "domainMeta": { "entryPoint": "tests/integration/sw.test.mjs", "entryType": "test-file" }
+      },
+      {
+        "id": "flow:vue-render",
+        "type": "flow",
+        "name": "Vue 组件渲染测试流程",
+        "summary": "Vue.createApp → mount → DOM 验证 → 事件触发验证",
+        "tags": ["vue", "component", "jsdom"],
+        "complexity": "medium",
+        "domainMeta": { "entryPoint": "tests/integration/ChatWindow.test.mjs", "entryType": "test-file" }
+      }
+    ],
+    "steps": [
+      { "id": "step:config-test:defaults", "type": "step", "name": "默认值合并", "summary": "验证 PET_CONFIG 默认值与用户配置的合并逻辑", "tags": ["config", "merge"], "complexity": "low" },
+      { "id": "step:token-test:L1-env", "type": "step", "name": "L1 环境变量获取", "summary": "验证 window.__API_X_TOKEN__ 优先级最高", "tags": ["token", "env"], "complexity": "low" },
+      { "id": "step:token-test:L2-storage", "type": "step", "name": "L2 chrome.storage 降级", "summary": "验证环境变量缺失时从 chrome.storage.local 读取", "tags": ["token", "storage"], "complexity": "low" },
+      { "id": "step:token-test:validate", "type": "step", "name": "Token 格式校验", "summary": "验证 validateToken 的正则匹配和长度检查", "tags": ["token", "validation"], "complexity": "low" },
+      { "id": "step:request-test:retry", "type": "step", "name": "重试策略验证", "summary": "mock fetch 失败 → 3 次重试 → 指数退避 → 最终失败", "tags": ["retry", "mock"], "complexity": "medium" },
+      { "id": "step:storage-crud-test:quota", "type": "step", "name": "配额超限清理", "summary": "模拟配额超限 → cleanupOldData → 重试写入成功", "tags": ["quota", "cleanup"], "complexity": "medium" },
+      { "id": "step:error-classification:classify", "type": "step", "name": "错误分类链", "summary": "6 种错误类型依次通过 is* 方法匹配", "tags": ["classification"], "complexity": "low" },
+      { "id": "step:module-pipeline:e2e", "type": "step", "name": "端到端链路", "summary": "Token→ApiManager→RequestClient→mockFetch 全链路", "tags": ["e2e", "pipeline"], "complexity": "high" }
+    ]
+  },
+  "edges": [
+    { "source": "domain:self-test-core", "target": "flow:config-test", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:self-test-core", "target": "flow:token-test", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:self-test-api", "target": "flow:request-test", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:self-test-storage", "target": "flow:storage-crud-test", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:self-test-error", "target": "flow:error-classification", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:self-test-integration", "target": "flow:module-pipeline", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:self-test-integration", "target": "flow:sw-routing", "type": "contains_flow", "weight": 0.8 },
+    { "source": "domain:self-test-integration", "target": "flow:vue-render", "type": "contains_flow", "weight": 0.8 },
+    { "source": "flow:token-test", "target": "step:token-test:L1-env", "type": "flow_step", "weight": 0.1 },
+    { "source": "flow:token-test", "target": "step:token-test:L2-storage", "type": "flow_step", "weight": 0.2 },
+    { "source": "flow:token-test", "target": "step:token-test:validate", "type": "flow_step", "weight": 0.3 },
+    { "source": "flow:request-test", "target": "step:request-test:retry", "type": "flow_step", "weight": 0.1 },
+    { "source": "flow:storage-crud-test", "target": "step:storage-crud-test:quota", "type": "flow_step", "weight": 0.1 },
+    { "source": "flow:error-classification", "target": "step:error-classification:classify", "type": "flow_step", "weight": 0.1 },
+    { "source": "flow:module-pipeline", "target": "step:module-pipeline:e2e", "type": "flow_step", "weight": 0.1 },
+    { "source": "domain:self-test-core", "target": "domain:self-test-api", "type": "cross_domain", "weight": 0.5 },
+    { "source": "domain:self-test-core", "target": "domain:self-test-storage", "type": "cross_domain", "weight": 0.5 },
+    { "source": "domain:self-test-api", "target": "domain:self-test-error", "type": "cross_domain", "weight": 0.5 },
+    { "source": "domain:self-test-storage", "target": "domain:self-test-error", "type": "cross_domain", "weight": 0.5 },
+    { "source": "domain:self-test-core", "target": "domain:self-test-integration", "type": "cross_domain", "weight": 0.6 },
+    { "source": "domain:self-test-api", "target": "domain:self-test-integration", "type": "cross_domain", "weight": 0.6 }
+  ],
+  "layers": [
+    { "id": "layer:unit", "name": "单元测试层", "description": "config · token · request · storage · error 的 vitest 单元测试", "nodeIds": ["flow:config-test", "flow:token-test", "flow:request-test", "flow:storage-crud-test", "flow:error-classification"] },
+    { "id": "layer:integration", "name": "集成测试层", "description": "模块联调 · SW 路由 · Vue 组件渲染的集成测试", "nodeIds": ["flow:module-pipeline", "flow:sw-routing", "flow:vue-render"] }
+  ]
+}

@@ -2,7 +2,7 @@
  * PetManager - 企微机器人相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -50,7 +50,7 @@
 
     this.chatWindow.insertAdjacentHTML(
       'beforeend',
-            `
+      `
                 <div
                     id="pet-robot-settings"
                     class="js-visible"
@@ -71,7 +71,7 @@
                         </div>
                     </div>
                 </div>
-            `.trim()
+            `.trim(),
     )
 
     const overlay = this.chatWindow.querySelector('#pet-robot-settings')
@@ -177,9 +177,7 @@
         const id = escapeHtml(config?.id || '')
         const icon = escapeHtml(config?.icon || '🤖')
         const name = escapeHtml(config?.name || '未命名机器人')
-        const urlText = config?.webhookUrl
-          ? `${String(config.webhookUrl).substring(0, 30)}...`
-          : '未配置 Webhook'
+        const urlText = config?.webhookUrl ? `${String(config.webhookUrl).substring(0, 30)}...` : '未配置 Webhook'
         const url = escapeHtml(urlText)
 
         return `
@@ -214,12 +212,12 @@
 
     const configs = await this.getWeWorkRobotConfigs()
     const config = editId
-      ? configs.find(c => c.id === editId)
+      ? configs.find((c) => c.id === editId)
       : {
           id: Date.now().toString(),
           name: '',
           icon: '🤖',
-          webhookUrl: ''
+          webhookUrl: '',
         }
 
     if (!config && editId) {
@@ -284,7 +282,7 @@
           id: String(config.id || Date.now()),
           name: getField('name'),
           icon: getField('icon') || '🤖',
-          webhookUrl: getField('webhookUrl')
+          webhookUrl: getField('webhookUrl'),
         }
 
         if (!nextConfig.name || !nextConfig.webhookUrl) {
@@ -307,9 +305,8 @@
 
   // 处理消息内容，通过 prompt 接口处理并返回 md 格式
   proto.processMessageForRobot = async function (messageContent) {
-    try {
-      // 构建 system prompt，要求返回精简的 md 格式且严格不超过 4096 字符
-      const systemPrompt = `你是一个内容精简专家。请将用户提供的消息内容进行**大幅精简和压缩**，并以 Markdown 格式返回。
+    // 构建 system prompt，要求返回精简的 md 格式且严格不超过 4096 字符
+    const systemPrompt = `你是一个内容精简专家。请将用户提供的消息内容进行**大幅精简和压缩**，并以 Markdown 格式返回。
 
 **核心要求（必须严格遵守）：**
 1. **长度限制是硬性要求**：最终输出内容（包括所有 Markdown 语法字符和表情符号）必须严格控制在 4096 字符以内，这是企业微信机器人的限制，超过会导致发送失败
@@ -364,8 +361,8 @@
 
 请直接返回精简后的 Markdown 内容，不要添加任何说明文字、前缀或后缀。`
 
-      // 构建 userPrompt，添加精简和表情符号提示
-      const userPrompt = `请将以下内容**大幅精简和压缩**为 Markdown 格式，确保最终输出严格控制在 4096 字符以内。
+    // 构建 userPrompt，添加精简和表情符号提示
+    const userPrompt = `请将以下内容**大幅精简和压缩**为 Markdown 格式，确保最终输出严格控制在 4096 字符以内。
 
 **要求**：
 - 使用合适的表情符号让内容更生动有趣、更容易记忆
@@ -376,90 +373,82 @@
 
 ${messageContent}`
 
-      // 构建 payload
-      const oldPayload = this.buildPromptPayload(
-        systemPrompt,
-        userPrompt
-      )
+    // 构建 payload
+    const oldPayload = this.buildPromptPayload(systemPrompt, userPrompt)
 
-      // 转换为 services.ai.chat_service 格式
-      const payload = {
-        module_name: 'services.ai.chat_service',
-        method_name: 'chat',
-        parameters: {
-          system: oldPayload.fromSystem,
-          user: oldPayload.fromUser,
-          stream: false
-        }
-      }
-      if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
-        payload.parameters.images = oldPayload.images
-      }
-      const selectedModel = this.currentModel || (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'
-      if (selectedModel) payload.parameters.model = selectedModel
-      if (oldPayload.conversation_id) {
-        payload.parameters.conversation_id = oldPayload.conversation_id
-      }
+    // 转换为 services.ai.chat_service 格式
+    const payload = {
+      module_name: 'services.ai.chat_service',
+      method_name: 'chat',
+      parameters: {
+        system: oldPayload.fromSystem,
+        user: oldPayload.fromUser,
+        stream: false,
+      },
+    }
+    if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
+      payload.parameters.images = oldPayload.images
+    }
+    const selectedModel = this.currentModel || (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'
+    if (selectedModel) payload.parameters.model = selectedModel
+    if (oldPayload.conversation_id) {
+      payload.parameters.conversation_id = oldPayload.conversation_id
+    }
 
-      // 调用 services.ai.chat_service 接口
-      const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...this.getAuthHeaders()
-        },
-        body: JSON.stringify(payload)
-      })
+    // 调用 services.ai.chat_service 接口
+    const response = await fetch(PET_CONFIG.api.yiaiBaseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify(payload),
+    })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
-      }
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    }
 
-      const result = await response.json()
-      if (!result || typeof result !== 'object') {
-        throw new Error('响应格式错误')
-      }
-      if (result.code !== 0) {
-        throw new Error(result.message || `请求失败 (code=${result.code})`)
-      }
+    const result = await response.json()
+    if (!result || typeof result !== 'object') {
+      throw new Error('响应格式错误')
+    }
+    if (result.code !== 0) {
+      throw new Error(result.message || `请求失败 (code=${result.code})`)
+    }
 
-      const data = result.data || {}
-      const content =
-                (typeof data.message === 'string' ? data.message : '') ||
-                (typeof data.content === 'string' ? data.content : '') ||
-                (typeof result.content === 'string' ? result.content : '')
+    const data = result.data || {}
+    const content =
+      (typeof data.message === 'string' ? data.message : '') ||
+      (typeof data.content === 'string' ? data.content : '') ||
+      (typeof result.content === 'string' ? result.content : '')
 
-      // 如果提取到了有效内容，去除 markdown 代码块标记
-      if (content && content.trim()) {
-        let cleanedContent = content.trim()
+    // 如果提取到了有效内容，去除 markdown 代码块标记
+    if (content && content.trim()) {
+      let cleanedContent = content.trim()
 
-        // 去除开头的 ```markdown 或 ``` 标记
-        cleanedContent = cleanedContent.replace(/^```(?:markdown)?\s*/i, '')
+      // 去除开头的 ```markdown 或 ``` 标记
+      cleanedContent = cleanedContent.replace(/^```(?:markdown)?\s*/i, '')
 
-        // 去除结尾的 ``` 标记
-        cleanedContent = cleanedContent.replace(/\s*```\s*$/, '')
+      // 去除结尾的 ``` 标记
+      cleanedContent = cleanedContent.replace(/\s*```\s*$/, '')
 
-        return cleanedContent.trim()
-      } else {
-        throw new Error('无法获取有效内容')
-      }
-    } catch (error) {
-      throw error
+      return cleanedContent.trim()
+    } else {
+      throw new Error('无法获取有效内容')
     }
   }
 
   // 转换为 Markdown 格式
   proto.convertToMarkdown = async function (content) {
     try {
-      const systemPrompt = '你是一个专业的文本格式化助手。请将用户提供的内容转换为适合企业微信机器人的 markdown 格式。要求：\n1. 保持原意不变\n2. 使用合适的 markdown 语法（标题、加粗、列表等）\n3. 确保格式清晰易读\n4. 如果内容已经是 markdown 格式，直接返回原内容\n5. 输出纯 markdown 文本，不要添加任何解释'
+      const systemPrompt =
+        '你是一个专业的文本格式化助手。请将用户提供的内容转换为适合企业微信机器人的 markdown 格式。要求：\n1. 保持原意不变\n2. 使用合适的 markdown 语法（标题、加粗、列表等）\n3. 确保格式清晰易读\n4. 如果内容已经是 markdown 格式，直接返回原内容\n5. 输出纯 markdown 文本，不要添加任何解释'
 
       const userPrompt = `请将以下内容转换为 markdown 格式：\n\n${content}`
 
-      const oldPayload = this.buildPromptPayload(
-        systemPrompt,
-        userPrompt
-      )
+      const oldPayload = this.buildPromptPayload(systemPrompt, userPrompt)
 
       const payload = {
         module_name: 'services.ai.chat_service',
@@ -467,8 +456,8 @@ ${messageContent}`
         parameters: {
           system: oldPayload.fromSystem,
           user: oldPayload.fromUser,
-          stream: false
-        }
+          stream: false,
+        },
       }
       if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
         payload.parameters.images = oldPayload.images
@@ -484,9 +473,9 @@ ${messageContent}`
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...this.getAuthHeaders()
+          ...this.getAuthHeaders(),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -503,11 +492,11 @@ ${messageContent}`
 
       const data = result.data || {}
       const markdown =
-                (typeof data.message === 'string' ? data.message : '') ||
-                (typeof data.content === 'string' ? data.content : '') ||
-                (typeof result.content === 'string' ? result.content : '')
+        (typeof data.message === 'string' ? data.message : '') ||
+        (typeof data.content === 'string' ? data.content : '') ||
+        (typeof result.content === 'string' ? result.content : '')
 
-      return (markdown && markdown.trim()) ? markdown.trim() : content
+      return markdown && markdown.trim() ? markdown.trim() : content
     } catch (error) {
       // 转换失败时返回原内容
       return content
@@ -517,43 +506,39 @@ ${messageContent}`
   // 限制 Markdown 长度
   proto.limitMarkdownLength = function (content, maxLength) {
     if (!content || content.length <= maxLength) return content
-    return content.substring(0, maxLength - 3) + '...'
+    return `${content.substring(0, maxLength - 3)}...`
   }
 
   // 发送到企微机器人
   proto.sendToWeWorkRobot = async function (webhookUrl, content) {
-    try {
-      // 参数验证
-      if (!webhookUrl || typeof webhookUrl !== 'string') {
-        throw new Error('webhookUrl 参数无效')
-      }
-
-      if (!content || typeof content !== 'string') {
-        throw new Error('content 参数无效')
-      }
-
-      // 检查内容是否是 markdown 格式
-      let markdownContent = content
-
-      if (!this.isMarkdownFormat(content)) {
-        // 如果不是 markdown 格式，先转换为 markdown
-        markdownContent = await this.convertToMarkdown(content)
-      }
-
-      // 通过 background script 发送请求，避免 CORS 问题
-      const response = await chrome.runtime.sendMessage({
-        action: 'sendToWeWorkRobot',
-        webhookUrl,
-        content: markdownContent
-      })
-
-      if (!response || !response.success) {
-        throw new Error(response?.error || '发送失败')
-      }
-
-      return response.result
-    } catch (error) {
-      throw error
+    // 参数验证
+    if (!webhookUrl || typeof webhookUrl !== 'string') {
+      throw new Error('webhookUrl 参数无效')
     }
+
+    if (!content || typeof content !== 'string') {
+      throw new Error('content 参数无效')
+    }
+
+    // 检查内容是否是 markdown 格式
+    let markdownContent = content
+
+    if (!this.isMarkdownFormat(content)) {
+      // 如果不是 markdown 格式，先转换为 markdown
+      markdownContent = await this.convertToMarkdown(content)
+    }
+
+    // 通过 background script 发送请求，避免 CORS 问题
+    const response = await chrome.runtime.sendMessage({
+      action: 'sendToWeWorkRobot',
+      webhookUrl,
+      content: markdownContent,
+    })
+
+    if (!response || !response.success) {
+      throw new Error(response?.error || '发送失败')
+    }
+
+    return response.result
   }
 })()

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自循环报告 · 代码健康看门狗</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --accent: #FFC107;
+  --pass: #22c55e; --fail: #ef4444; --warn: #f59e0b;
+  --text: rgba(250,250,252,1); --text2: rgba(160,160,164,1); --text3: rgba(110,110,114,1);
+  --radius: 12px; --border: 1px solid rgba(255,255,255,0.06);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; min-height: 100vh; }
+.yry-container { max-width: 800px; margin: 0 auto; padding: 48px 24px 80px; }
+.yry-header { text-align: center; margin-bottom: 32px; }
+.yry-header .icon { font-size: 2.5rem; }
+.yry-header h1 { font-size: 1.6rem; margin: 12px 0 6px; }
+.yry-header .meta { color: var(--text3); font-size: .82rem; }
+.yry-card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+.yry-card h2 { font-size: 1.1rem; margin-bottom: 12px; color: var(--accent); }
+.yry-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.yry-stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 16px 20px; text-align: center; box-shadow: var(--shadow); flex: 1; min-width: 100px; }
+.yry-stat .yry-val { font-size: 1.6rem; font-weight: 700; }
+.yry-stat .yry-val.pass { color: var(--pass); }
+.yry-stat .yry-val.warn { color: var(--warn); }
+.yry-stat .yry-val.fail { color: var(--fail); }
+.yry-stat .yry-lbl { font-size: .72rem; color: var(--text3); margin-top: 4px; }
+.yry-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: .85rem; font-weight: 600; }
+.yry-badge.pass { background: rgba(34,197,94,.15); color: var(--pass); }
+.yry-badge.warn { background: rgba(245,158,11,.15); color: var(--warn); }
+.yry-badge.fail { background: rgba(239,68,68,.15); color: var(--fail); }
+.yry-summary { padding: 16px; border-left: 3px solid var(--accent); background: rgba(255,193,7,.04); border-radius: 0 var(--radius) var(--radius) 0; margin-bottom: 20px; color: var(--text2); font-size: .9rem; }
+.yry-finding { padding: 14px 18px; margin-bottom: 8px; border-radius: 8px; border: var(--border); }
+.yry-finding.info { background: rgba(59,130,246,.04); }
+.yry-finding.warn { background: rgba(245,158,11,.04); border-left: 3px solid var(--warn); }
+.yry-finding.fail { background: rgba(239,68,68,.04); border-left: 3px solid var(--fail); }
+.yry-finding-head { font-weight: 600; font-size: .9rem; }
+.yry-finding-body { margin-top: 6px; color: var(--text2); font-size: .82rem; }
+.yry-footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+.yry-breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; font-size: .76rem; }
+.yry-breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.yry-breadcrumb .yry-bc-sep { color: #53576c; opacity: .5; }
+.yry-breadcrumb .yry-bc-current { color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<nav class="breadcrumb">
+  <a href="../../docs/index.html">📄 文档中心</a>
+  <span class="bc-sep">/</span>
+  <a href="../../docs/自循环报告/">🔄 自循环报告</a>
+  <span class="bc-sep">/</span>
+  <span class="bc-current">代码健康看门狗</span>
+</nav>
+
+<div class="header">
+  <div class="icon">🔍</div>
+  <h1>自循环报告 · 代码健康看门狗</h1>
+  <div class="meta">2026-06-11 01:40:35 · 周一/周四早 8 点 · <span class="badge warn">⚠️ 告警</span></div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="val warn">⚠</div>
+    <div class="lbl">状态</div>
+  </div>
+  <div class="stat">
+    <div class="val pass">2</div>
+    <div class="lbl">信息</div>
+  </div>
+  <div class="stat">
+    <div class="val warn">2</div>
+    <div class="lbl">告警</div>
+  </div>
+  <div class="stat">
+    <div class="val fail">0</div>
+    <div class="lbl">异常</div>
+  </div>
+  
+  <div class="stat">
+    <a href="../../docs/健康报告/" style="text-decoration:none;color:inherit">
+      <div class="val pass">77</div>
+      <div class="lbl">🩺 健康度 B 级</div>
+    </a>
+  </div>
+</div>
+
+<div class="summary">代码健康度 B 级 — 8 文件超 1000 行，架构边界清洁，依赖健康</div>
+
+
+<div class="card">
+  <h2>📋 检查详情</h2>
+  <div class="finding warn">
+      <div class="finding-head">1. 文件膨胀</div>
+      <div class="finding-body">8 个 JS 文件超 1000 行：ChatWindow(1744L), petManager.chat.js(1692L), editor.core.js(1329L), petManager.roles.js(1292L), FaqManager(1088L), session.crud.js(1079L), petManager.core.js(1038L), ChatInput(997L)</div>
+    </div>
+<div class="finding warn">
+      <div class="finding-head">2. 复杂度热点</div>
+      <div class="finding-body">domHelper.js 419L/13函数, request.js 311L/6函数, token.js 310L/8函数 为认知复杂度最高点</div>
+    </div>
+<div class="finding info">
+      <div class="finding-head">3. 架构边界清洁</div>
+      <div class="finding-body">core/ 无 import 指向 modules/，仅 IIFE 全局命名空间引用（window.petManager），符合 Chrome Extension 架构预期</div>
+    </div>
+<div class="finding info">
+      <div class="finding-head">4. 依赖健康</div>
+      <div class="finding-body">0 runtime deps, 11 devDeps 均为最新语义化版本</div>
+    </div>
+</div>
+
+
+
+
+<div class="footer">
+  自循环报告 · rui-analysis · 2026-06-11 01:40:35<br>
+  <span style="color:var(--text3)">由 rui-bot loop-report 自动生成</span>
+</div>
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+</body>
+</html>

@@ -3,17 +3,17 @@
  * 提供统一的请求发送、超时控制、取消请求等功能
  */
 
-(function (root) {
+;(function (root) {
   class RequestClient {
-    constructor (options = {}) {
+    constructor(options = {}) {
       this.defaultOptions = {
         timeout: options.timeout || 30000,
         mode: options.mode || 'cors',
         credentials: options.credentials || 'omit',
         headers: {
           'Content-Type': 'application/json',
-          ...options.headers
-        }
+          ...options.headers,
+        },
       }
 
       this.abortControllers = new Map()
@@ -23,13 +23,14 @@
     /**
      * 发送请求
      */
-    async request (options = {}) {
+    async request(options = {}) {
       const mergedHeaders = {
         ...(this.defaultOptions.headers || {}),
-        ...(options.headers || {})
+        ...(options.headers || {}),
       }
 
       const config = { ...this.defaultOptions, ...options, headers: mergedHeaders }
+      // eslint-disable-next-line no-unused-vars -- baseUrl excluded from fetchOptions intentionally
       const { timeout, abortKey, signal: externalSignal, url, params, data, baseUrl, ...fetchOptions } = config
 
       if (!url) {
@@ -52,9 +53,13 @@
           if (signal.aborted) {
             controller.abort()
           } else if (typeof signal.addEventListener === 'function') {
-            signal.addEventListener('abort', () => {
-              controller.abort()
-            }, { once: true })
+            signal.addEventListener(
+              'abort',
+              () => {
+                controller.abort()
+              },
+              { once: true },
+            )
           }
         } catch (_) {}
       }
@@ -97,7 +102,7 @@
     /**
      * 带重试机制的fetch
      */
-    async _fetchWithRetry (url, options, retryCount = 0) {
+    async _fetchWithRetry(url, options, retryCount = 0) {
       const maxRetries = 3
       const retryDelay = 1000
 
@@ -122,7 +127,7 @@
     /**
      * 解析响应
      */
-    async _parseResponse (response) {
+    async _parseResponse(response) {
       const contentType = response.headers.get('content-type')
 
       if (contentType && contentType.includes('application/json')) {
@@ -146,7 +151,7 @@
     /**
      * 是否应该重试
      */
-    _shouldRetry (error) {
+    _shouldRetry(error) {
       // 网络错误重试
       if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
         return true
@@ -163,14 +168,14 @@
     /**
      * 延迟
      */
-    _delay (ms) {
-      return new Promise(resolve => setTimeout(resolve, ms))
+    _delay(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms))
     }
 
     /**
      * 取消请求
      */
-    abort (abortKey) {
+    abort(abortKey) {
       if (!abortKey) return
 
       const controller = this.abortControllers.get(abortKey)
@@ -183,51 +188,51 @@
     /**
      * GET请求
      */
-    async get (url, params = {}, options = {}) {
+    async get(url, params = {}, options = {}) {
       return this.request({
         url,
         method: 'GET',
         params,
-        ...options
+        ...options,
       })
     }
 
     /**
      * POST请求
      */
-    async post (url, data = {}, options = {}) {
+    async post(url, data = {}, options = {}) {
       return this.request({
         url,
         method: 'POST',
         data,
-        ...options
+        ...options,
       })
     }
 
     /**
      * PUT请求
      */
-    async put (url, data = {}, options = {}) {
+    async put(url, data = {}, options = {}) {
       return this.request({
         url,
         method: 'PUT',
         data,
-        ...options
+        ...options,
       })
     }
 
     /**
      * DELETE请求
      */
-    async delete (url, options = {}) {
+    async delete(url, options = {}) {
       return this.request({
         url,
         method: 'DELETE',
-        ...options
+        ...options,
       })
     }
 
-    _buildFetchOptions (options = {}) {
+    _buildFetchOptions(options = {}) {
       const { data, ...fetchOptions } = options
       const method = (fetchOptions.method || 'GET').toUpperCase()
 
@@ -253,7 +258,7 @@
       return { ...fetchOptions, headers, body }
     }
 
-    _buildUrlWithParams (url, params) {
+    _buildUrlWithParams(url, params) {
       if (!params || typeof params !== 'object' || Object.keys(params).length === 0) {
         return url
       }
@@ -282,25 +287,25 @@
     /**
      * 销毁客户端
      */
-    destroy () {
-      this.abortControllers.forEach(controller => controller.abort())
+    destroy() {
+      this.abortControllers.forEach((controller) => controller.abort())
       this.abortControllers.clear()
     }
   }
 
   /**
- * 创建请求客户端
- */
-  function createRequestClient (options = {}) {
+   * 创建请求客户端
+   */
+  function createRequestClient(options = {}) {
     return new RequestClient(options)
   }
 
   /**
- * 默认请求客户端实例
- */
+   * 默认请求客户端实例
+   */
   const requestClient = createRequestClient()
 
   root.RequestClient = RequestClient
   root.createRequestClient = createRequestClient
   root.requestClient = requestClient
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

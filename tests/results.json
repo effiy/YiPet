@@ -1,0 +1,1163 @@
+{
+  "timestamp": "2026-06-10T05:13:45.473Z",
+  "files": 9,
+  "durationMs": 2734,
+  "summary": {
+    "total": 221,
+    "passed": 221,
+    "failed": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "name": "SessionService + FaqService 端到端集成 — CRUD/搜索/队列/标签 4 套件 42 断言",
+      "tests": [
+        {
+          "name": "SessionService › getSessionsList › returns session list from API",
+          "status": "passed",
+          "duration": 20.071208999999953
+        },
+        {
+          "name": "SessionService › getSessionsList › returns empty array when API returns no list",
+          "status": "passed",
+          "duration": 5.3550420000001395
+        },
+        {
+          "name": "SessionService › getSessionsList › returns empty array on fetch error",
+          "status": "passed",
+          "duration": 15.926167000000078
+        },
+        {
+          "name": "SessionService › getSession › returns session by key",
+          "status": "passed",
+          "duration": 2.4306669999998576
+        },
+        {
+          "name": "SessionService › getSession › returns null for missing key",
+          "status": "passed",
+          "duration": 2.9369590000001153
+        },
+        {
+          "name": "SessionService › getSession › returns null for falsy key",
+          "status": "passed",
+          "duration": 1.5461250000000746
+        },
+        {
+          "name": "SessionService › getSession › returns null on fetch error",
+          "status": "passed",
+          "duration": 5.6127500000000055
+        },
+        {
+          "name": "SessionService › createSession › creates session and returns success",
+          "status": "passed",
+          "duration": 4.587500000000091
+        },
+        {
+          "name": "SessionService › createSession › throws on invalid session data",
+          "status": "passed",
+          "duration": 2.813833999999815
+        },
+        {
+          "name": "SessionService › saveSession › creates new session when key does not exist",
+          "status": "passed",
+          "duration": 2.4060830000000806
+        },
+        {
+          "name": "SessionService › saveSession › updates existing session",
+          "status": "passed",
+          "duration": 2.013500000000022
+        },
+        {
+          "name": "SessionService › saveSession › throws when sessionData has no key",
+          "status": "passed",
+          "duration": 5.211500000000115
+        },
+        {
+          "name": "SessionService › deleteSession › deletes session by key",
+          "status": "passed",
+          "duration": 3.2458749999998417
+        },
+        {
+          "name": "SessionService › deleteSession › throws on empty key",
+          "status": "passed",
+          "duration": 3.1413749999999254
+        },
+        {
+          "name": "SessionService › deleteSessions › batch deletes multiple sessions",
+          "status": "passed",
+          "duration": 2.1631670000001577
+        },
+        {
+          "name": "SessionService › deleteSessions › throws on empty array",
+          "status": "passed",
+          "duration": 4.246499999999969
+        },
+        {
+          "name": "SessionService › deleteSessions › throws on non-array input",
+          "status": "passed",
+          "duration": 6.9370000000001255
+        },
+        {
+          "name": "SessionService › searchSessions › searches sessions by query",
+          "status": "passed",
+          "duration": 7.335000000000036
+        },
+        {
+          "name": "SessionService › searchSessions › returns empty for empty query",
+          "status": "passed",
+          "duration": 12.346333000000186
+        },
+        {
+          "name": "SessionService › searchSessions › returns empty on fetch error",
+          "status": "passed",
+          "duration": 19.211000000000013
+        },
+        {
+          "name": "SessionService › queueSave / flushSaveQueue › queues and flushes sessions",
+          "status": "passed",
+          "duration": 7.782124999999951
+        },
+        {
+          "name": "FaqService › getFaqs › returns normalized FAQ list",
+          "status": "passed",
+          "duration": 7.71870899999999
+        },
+        {
+          "name": "FaqService › getFaqs › returns empty array when response has no list",
+          "status": "passed",
+          "duration": 6.557791999999836
+        },
+        {
+          "name": "FaqService › getFaqs › returns empty array on fetch error",
+          "status": "passed",
+          "duration": 5.035708000000113
+        },
+        {
+          "name": "FaqService › createFaq › creates FAQ and returns normalized result",
+          "status": "passed",
+          "duration": 3.760582999999997
+        },
+        {
+          "name": "FaqService › createFaq › throws on null data",
+          "status": "passed",
+          "duration": 11.236458000000084
+        },
+        {
+          "name": "FaqService › createFaq › throws when no title, prompt, or text",
+          "status": "passed",
+          "duration": 7.011417000000165
+        },
+        {
+          "name": "FaqService › updateFaq › updates FAQ by key",
+          "status": "passed",
+          "duration": 9.047915999999987
+        },
+        {
+          "name": "FaqService › updateFaq › throws on empty key",
+          "status": "passed",
+          "duration": 2.4774160000001757
+        },
+        {
+          "name": "FaqService › updateFaq › throws on non-object patch",
+          "status": "passed",
+          "duration": 2.4949169999999867
+        },
+        {
+          "name": "FaqService › deleteFaq › deletes FAQ by key",
+          "status": "passed",
+          "duration": 1.7819580000000315
+        },
+        {
+          "name": "FaqService › deleteFaq › throws on empty key",
+          "status": "passed",
+          "duration": 1.7365420000000995
+        },
+        {
+          "name": "FaqService › saveFaqs › batch saves FAQs via POST",
+          "status": "passed",
+          "duration": 4.46445800000015
+        },
+        {
+          "name": "FaqService › saveFaqs › throws on non-array input",
+          "status": "passed",
+          "duration": 2.5104169999999613
+        },
+        {
+          "name": "FaqService › searchFaqs › searches FAQs by query",
+          "status": "passed",
+          "duration": 3.016208000000006
+        },
+        {
+          "name": "FaqService › searchFaqs › returns empty for empty query",
+          "status": "passed",
+          "duration": 2.3545420000000377
+        },
+        {
+          "name": "FaqService › searchFaqs › returns empty on fetch error",
+          "status": "passed",
+          "duration": 4.666874999999891
+        },
+        {
+          "name": "FaqService › getFaqsByTags › returns FAQs filtered by tags",
+          "status": "passed",
+          "duration": 5.782333000000108
+        },
+        {
+          "name": "FaqService › getFaqsByTags › returns empty for empty tags array",
+          "status": "passed",
+          "duration": 2.4206249999999727
+        },
+        {
+          "name": "FaqService › getFaqsByTags › returns empty on fetch error",
+          "status": "passed",
+          "duration": 4.13108299999999
+        },
+        {
+          "name": "FaqService › getAllTags › collects unique tags from all FAQs",
+          "status": "passed",
+          "duration": 3.455458000000135
+        },
+        {
+          "name": "FaqService › getAllTags › returns empty on fetch error",
+          "status": "passed",
+          "duration": 3.3845840000001317
+        }
+      ]
+    },
+    {
+      "name": "HTTP 客户端全路径 — 方法/头/超时重试/Abort/响应解析 7 套件 34 断言",
+      "tests": [
+        {
+          "name": "RequestClient › HTTP methods › GET returns parsed data from JSON response",
+          "status": "passed",
+          "duration": 7.381208999999899
+        },
+        {
+          "name": "RequestClient › HTTP methods › GET returns parsed data with business code 0",
+          "status": "passed",
+          "duration": 4.238250000000107
+        },
+        {
+          "name": "RequestClient › HTTP methods › GET throws on business error code",
+          "status": "passed",
+          "duration": 5.51237500000002
+        },
+        {
+          "name": "RequestClient › HTTP methods › GET returns text response",
+          "status": "passed",
+          "duration": 3.92183399999999
+        },
+        {
+          "name": "RequestClient › HTTP methods › GET returns blob response",
+          "status": "passed",
+          "duration": 1.248792000000094
+        },
+        {
+          "name": "RequestClient › HTTP methods › POST sends stringified JSON body",
+          "status": "passed",
+          "duration": 1.150624999999991
+        },
+        {
+          "name": "RequestClient › HTTP methods › POST with FormData does not set Content-Type",
+          "status": "passed",
+          "duration": 0.817792000000054
+        },
+        {
+          "name": "RequestClient › HTTP methods › POST with string body sends as-is",
+          "status": "passed",
+          "duration": 0.5159169999999449
+        },
+        {
+          "name": "RequestClient › HTTP methods › PUT uses PUT method",
+          "status": "passed",
+          "duration": 0.32645800000000236
+        },
+        {
+          "name": "RequestClient › HTTP methods › DELETE uses DELETE method with no body",
+          "status": "passed",
+          "duration": 1.1545419999999922
+        },
+        {
+          "name": "RequestClient › Headers › sets Content-Type application/json by default on POST",
+          "status": "passed",
+          "duration": 1.9611660000000484
+        },
+        {
+          "name": "RequestClient › Headers › merges custom headers with defaults",
+          "status": "passed",
+          "duration": 0.3180839999999989
+        },
+        {
+          "name": "RequestClient › Headers › request-level headers override default headers",
+          "status": "passed",
+          "duration": 0.24383299999999508
+        },
+        {
+          "name": "RequestClient › Timeout › rejects with timeout error after configured timeout",
+          "status": "passed",
+          "duration": 103.94870900000001
+        },
+        {
+          "name": "RequestClient › Retry mechanism › retries on first network failure and succeeds on second attempt",
+          "status": "passed",
+          "duration": 4.907416000000012
+        },
+        {
+          "name": "RequestClient › Retry mechanism › retries max 3 times and then rejects on persistent network error",
+          "status": "passed",
+          "duration": 2.030291000000034
+        },
+        {
+          "name": "RequestClient › Retry mechanism › does NOT retry on HTTP error (only network errors)",
+          "status": "passed",
+          "duration": 0.8842500000000655
+        },
+        {
+          "name": "RequestClient › Retry mechanism › retries on AbortError from timeout",
+          "status": "passed",
+          "duration": 0.7397080000000642
+        },
+        {
+          "name": "RequestClient › AbortController › aborts request via abortKey and rejects",
+          "status": "passed",
+          "duration": 1005.6281669999998
+        },
+        {
+          "name": "RequestClient › AbortController › abort with non-existent key is no-op",
+          "status": "passed",
+          "duration": 0.7012079999999514
+        },
+        {
+          "name": "RequestClient › AbortController › abort with no key is no-op",
+          "status": "passed",
+          "duration": 0.3561670000003687
+        },
+        {
+          "name": "RequestClient › URL params › builds URL with query params",
+          "status": "passed",
+          "duration": 1.384958000000097
+        },
+        {
+          "name": "RequestClient › URL params › skips null/undefined param values",
+          "status": "passed",
+          "duration": 0.6629159999997682
+        },
+        {
+          "name": "RequestClient › Error handling › throws when no url is provided",
+          "status": "passed",
+          "duration": 0.5226250000000618
+        },
+        {
+          "name": "RequestClient › Default construction › default requestClient instance is available on globalThis",
+          "status": "passed",
+          "duration": 0.3295000000002801
+        },
+        {
+          "name": "RequestClient › Default construction › createRequestClient factory returns new instance",
+          "status": "passed",
+          "duration": 0.2632919999996375
+        },
+        {
+          "name": "RequestClient › destroy › clears all abort controllers",
+          "status": "passed",
+          "duration": 0.4715000000001055
+        }
+      ]
+    },
+    {
+      "name": "DEFAULT_CONFIG 结构/buildUrl/buildQueryParams/环境检测 4 套件 20 断言",
+      "tests": [
+        {
+          "name": "DEFAULT_CONFIG structure › has all top-level sections",
+          "status": "passed",
+          "duration": 3.9969579999999496
+        },
+        {
+          "name": "DEFAULT_CONFIG structure › pet section has required fields",
+          "status": "passed",
+          "duration": 3.4867910000000393
+        },
+        {
+          "name": "DEFAULT_CONFIG structure › chatWindow section has required fields",
+          "status": "passed",
+          "duration": 0.6243329999999787
+        },
+        {
+          "name": "DEFAULT_CONFIG structure › constants has required sub-sections",
+          "status": "passed",
+          "duration": 0.7177080000001297
+        },
+        {
+          "name": "DEFAULT_CONFIG structure › PET_CONFIG has ENDPOINTS",
+          "status": "passed",
+          "duration": 0.395542000000205
+        },
+        {
+          "name": "buildUrl › replaces :id placeholder in endpoint",
+          "status": "passed",
+          "duration": 0.4825419999999667
+        },
+        {
+          "name": "buildUrl › replaces multiple placeholders",
+          "status": "passed",
+          "duration": 0.3076249999999163
+        },
+        {
+          "name": "buildUrl › strips trailing slash from baseUrl",
+          "status": "passed",
+          "duration": 0.5706660000000738
+        },
+        {
+          "name": "buildUrl › strips leading slash from endpoint when combining",
+          "status": "passed",
+          "duration": 0.34129200000006676
+        },
+        {
+          "name": "buildUrl › returns full URL when endpoint starts with http",
+          "status": "passed",
+          "duration": 0.24083300000006602
+        },
+        {
+          "name": "buildUrl › handles empty params",
+          "status": "passed",
+          "duration": 0.462833000000046
+        },
+        {
+          "name": "buildQueryParams › builds query string from params",
+          "status": "passed",
+          "duration": 0.7507080000000315
+        },
+        {
+          "name": "buildQueryParams › filters null and undefined values",
+          "status": "passed",
+          "duration": 0.2562080000000151
+        },
+        {
+          "name": "buildQueryParams › JSON serializes objects",
+          "status": "passed",
+          "duration": 0.3259169999998903
+        },
+        {
+          "name": "buildQueryParams › returns empty string for empty params",
+          "status": "passed",
+          "duration": 0.2966670000000704
+        },
+        {
+          "name": "buildDatabaseUrl › constructs database query URL",
+          "status": "passed",
+          "duration": 0.48937500000010914
+        },
+        {
+          "name": "buildDatabaseUrl › handles empty parameters",
+          "status": "passed",
+          "duration": 0.8266660000001593
+        },
+        {
+          "name": "env detection › defaults to production mode",
+          "status": "passed",
+          "duration": 0.18845799999985502
+        },
+        {
+          "name": "env detection › uses window.__PET_ENV_MODE__ if set",
+          "status": "passed",
+          "duration": 0.2640830000000278
+        },
+        {
+          "name": "env detection › endpoints change based on env mode",
+          "status": "passed",
+          "duration": 0.37133300000004965
+        }
+      ]
+    },
+    {
+      "name": "7 种 Error 子类/ErrorHandler 分类/检测/重试判定/辅助函数 5 套件 33 断言",
+      "tests": [
+        {
+          "name": "Error classes › APIError has correct defaults",
+          "status": "passed",
+          "duration": 4.242874999999913
+        },
+        {
+          "name": "Error classes › APIError accepts custom code and details",
+          "status": "passed",
+          "duration": 3.477916999999934
+        },
+        {
+          "name": "Error classes › NetworkError has NETWORK_ERROR code",
+          "status": "passed",
+          "duration": 1.3173750000000837
+        },
+        {
+          "name": "Error classes › TimeoutError stores timeout value",
+          "status": "passed",
+          "duration": 1.1210410000001048
+        },
+        {
+          "name": "Error classes › AuthError has AUTH_ERROR code",
+          "status": "passed",
+          "duration": 3.8218329999999696
+        },
+        {
+          "name": "Error classes › ValidationError stores fields",
+          "status": "passed",
+          "duration": 4.609625000000051
+        },
+        {
+          "name": "Error classes › RateLimitError stores retryAfter",
+          "status": "passed",
+          "duration": 1.2779169999998885
+        },
+        {
+          "name": "ErrorHandler.categorize › returns existing APIError as-is",
+          "status": "passed",
+          "duration": 0.48166700000001583
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies TypeError with \"Failed to fetch\" as NetworkError",
+          "status": "passed",
+          "duration": 0.49212499999998727
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies AbortError as TimeoutError",
+          "status": "passed",
+          "duration": 0.4309579999999187
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies status 401 as AuthError",
+          "status": "passed",
+          "duration": 0.6287090000000717
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies status 403 as AuthError",
+          "status": "passed",
+          "duration": 0.5405000000000655
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies status 400 as ValidationError",
+          "status": "passed",
+          "duration": 1.0785420000001977
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies status 422 as ValidationError",
+          "status": "passed",
+          "duration": 0.7428749999999127
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies status 429 as RateLimitError",
+          "status": "passed",
+          "duration": 2.2159160000001066
+        },
+        {
+          "name": "ErrorHandler.categorize › classifies unknown errors as APIError with UNKNOWN_ERROR",
+          "status": "passed",
+          "duration": 2.4447920000000067
+        },
+        {
+          "name": "ErrorHandler detection methods › isNetworkError detects TypeError with Failed to fetch",
+          "status": "passed",
+          "duration": 0.3302080000000842
+        },
+        {
+          "name": "ErrorHandler detection methods › isNetworkError detects ECONNREFUSED",
+          "status": "passed",
+          "duration": 1.4710000000000036
+        },
+        {
+          "name": "ErrorHandler detection methods › isNetworkError returns false for normal errors",
+          "status": "passed",
+          "duration": 1.3796250000000327
+        },
+        {
+          "name": "ErrorHandler detection methods › isTimeoutError detects name=AbortError",
+          "status": "passed",
+          "duration": 6.418749999999818
+        },
+        {
+          "name": "ErrorHandler detection methods › isTimeoutError detects timeout in message",
+          "status": "passed",
+          "duration": 3.5530840000001263
+        },
+        {
+          "name": "ErrorHandler detection methods › isAuthError detects status 401",
+          "status": "passed",
+          "duration": 0.5419170000000122
+        },
+        {
+          "name": "ErrorHandler detection methods › isAuthError detects Unauthorized message",
+          "status": "passed",
+          "duration": 0.38466700000003584
+        },
+        {
+          "name": "ErrorHandler detection methods › isValidationError detects status 400",
+          "status": "passed",
+          "duration": 0.9116670000000795
+        },
+        {
+          "name": "ErrorHandler detection methods › isRateLimitError detects status 429",
+          "status": "passed",
+          "duration": 1.9232079999999314
+        },
+        {
+          "name": "ErrorHandler detection methods › handles null/undefined gracefully",
+          "status": "passed",
+          "duration": 2.9701250000000528
+        },
+        {
+          "name": "ErrorHandler _shouldRetry › retries NetworkError when under maxRetries",
+          "status": "passed",
+          "duration": 1.0485830000000078
+        },
+        {
+          "name": "ErrorHandler _shouldRetry › does not retry when retryCount equals maxRetries",
+          "status": "passed",
+          "duration": 0.22095900000022084
+        },
+        {
+          "name": "ErrorHandler _shouldRetry › retries RateLimitError with positive retryAfter",
+          "status": "passed",
+          "duration": 0.46366600000010294
+        },
+        {
+          "name": "helper functions › createError returns APIError",
+          "status": "passed",
+          "duration": 1.1942079999998896
+        },
+        {
+          "name": "helper functions › formatError formats APIError with all fields",
+          "status": "passed",
+          "duration": 1.2523749999998017
+        },
+        {
+          "name": "helper functions › formatError handles plain Error",
+          "status": "passed",
+          "duration": 1.5576249999999163
+        },
+        {
+          "name": "global error handler › set/get global error handler",
+          "status": "passed",
+          "duration": 0.4990829999999278
+        }
+      ]
+    },
+    {
+      "name": "RequestClient 核心 — 方法/头/超时重试/中断/URL 构建/工厂 7 套件 30 断言",
+      "tests": [
+        {
+          "name": "RequestClient constructor › has default options",
+          "status": "passed",
+          "duration": 5.688333000000057
+        },
+        {
+          "name": "RequestClient constructor › accepts custom timeout and headers",
+          "status": "passed",
+          "duration": 0.8449589999997897
+        },
+        {
+          "name": "RequestClient constructor › exports convenience creators",
+          "status": "passed",
+          "duration": 0.5113329999999223
+        },
+        {
+          "name": "RequestClient request() › throws when url is missing",
+          "status": "passed",
+          "duration": 1.0233330000000933
+        },
+        {
+          "name": "RequestClient request() › sends GET and returns JSON response",
+          "status": "passed",
+          "duration": 2.817582999999786
+        },
+        {
+          "name": "RequestClient request() › sends POST with JSON body",
+          "status": "passed",
+          "duration": 0.7291669999999613
+        },
+        {
+          "name": "RequestClient request() › appends query params to URL",
+          "status": "passed",
+          "duration": 2.8913330000000315
+        },
+        {
+          "name": "RequestClient convenience methods › get() sends GET request",
+          "status": "passed",
+          "duration": 1.8050839999998516
+        },
+        {
+          "name": "RequestClient convenience methods › post() sends POST with data",
+          "status": "passed",
+          "duration": 0.449292000000014
+        },
+        {
+          "name": "RequestClient convenience methods › put() sends PUT with data",
+          "status": "passed",
+          "duration": 0.4541250000002037
+        },
+        {
+          "name": "RequestClient convenience methods › delete() sends DELETE request",
+          "status": "passed",
+          "duration": 0.32970899999986614
+        },
+        {
+          "name": "RequestClient _fetchWithRetry › succeeds on first attempt",
+          "status": "passed",
+          "duration": 0.4029579999998987
+        },
+        {
+          "name": "RequestClient _fetchWithRetry › retries on network error with exponential backoff",
+          "status": "passed",
+          "duration": 0.4422500000000582
+        },
+        {
+          "name": "RequestClient _fetchWithRetry › throws after exhausting max retries",
+          "status": "passed",
+          "duration": 0.3584579999999278
+        },
+        {
+          "name": "RequestClient _parseResponse › returns data field when present in JSON",
+          "status": "passed",
+          "duration": 1.306957999999895
+        },
+        {
+          "name": "RequestClient _parseResponse › returns full body when no data field",
+          "status": "passed",
+          "duration": 0.47287500000015825
+        },
+        {
+          "name": "RequestClient _parseResponse › throws on business error code",
+          "status": "passed",
+          "duration": 0.509375000000091
+        },
+        {
+          "name": "RequestClient _parseResponse › returns text for text/* content type",
+          "status": "passed",
+          "duration": 1.6127910000000156
+        },
+        {
+          "name": "RequestClient _parseResponse › returns blob for other content types",
+          "status": "passed",
+          "duration": 1.0932080000000042
+        },
+        {
+          "name": "RequestClient _shouldRetry › retries on TypeError with \"Failed to fetch\"",
+          "status": "passed",
+          "duration": 3.131582999999864
+        },
+        {
+          "name": "RequestClient _shouldRetry › retries on AbortError",
+          "status": "passed",
+          "duration": 1.664417000000185
+        },
+        {
+          "name": "RequestClient _shouldRetry › does not retry on other errors",
+          "status": "passed",
+          "duration": 1.2370829999999842
+        },
+        {
+          "name": "RequestClient abort › aborts by key before request completes",
+          "status": "passed",
+          "duration": 0.4082499999999527
+        },
+        {
+          "name": "RequestClient destroy › clears all abort controllers",
+          "status": "passed",
+          "duration": 0.2161670000000413
+        },
+        {
+          "name": "RequestClient _buildUrlWithParams › returns url unchanged when no params",
+          "status": "passed",
+          "duration": 0.3053339999999025
+        },
+        {
+          "name": "RequestClient _buildUrlWithParams › appends params as query string",
+          "status": "passed",
+          "duration": 2.0155409999999847
+        },
+        {
+          "name": "RequestClient _buildUrlWithParams › filters null and undefined values",
+          "status": "passed",
+          "duration": 2.3840419999999085
+        }
+      ]
+    },
+    {
+      "name": "chrome.storage mock + StorageUtils + StorageHelper + SessionManager 5 套件 46 断言",
+      "tests": [
+        {
+          "name": "chrome.storage mock › stores and retrieves values",
+          "status": "passed",
+          "duration": 2.9231669999999212
+        },
+        {
+          "name": "chrome.storage mock › returns undefined for missing keys",
+          "status": "passed",
+          "duration": 0.3642500000000837
+        },
+        {
+          "name": "chrome.storage mock › removes keys",
+          "status": "passed",
+          "duration": 0.3500409999999192
+        },
+        {
+          "name": "chrome.storage mock › clears all data",
+          "status": "passed",
+          "duration": 0.14770799999996598
+        },
+        {
+          "name": "chrome.storage mock › simulates lastError",
+          "status": "passed",
+          "duration": 0.1124170000000504
+        },
+        {
+          "name": "StorageUtils › isChromeStorageAvailable › returns true when chrome.storage is available",
+          "status": "passed",
+          "duration": 5.817874999999958
+        },
+        {
+          "name": "StorageUtils › isChromeStorageAvailable › returns false when extension context is invalidated",
+          "status": "passed",
+          "duration": 8.09333300000003
+        },
+        {
+          "name": "StorageUtils › normalizeState › fills defaults for missing fields",
+          "status": "passed",
+          "duration": 2.1611669999999776
+        },
+        {
+          "name": "StorageUtils › normalizeState › preserves existing values",
+          "status": "passed",
+          "duration": 2.3441660000000866
+        },
+        {
+          "name": "StorageUtils › normalizeState › returns null for null state",
+          "status": "passed",
+          "duration": 0.9195839999999862
+        },
+        {
+          "name": "StorageUtils › loadFromChromeStorage › loads stored value by key",
+          "status": "passed",
+          "duration": 2.2153749999999945
+        },
+        {
+          "name": "StorageUtils › loadFromChromeStorage › returns null for missing key",
+          "status": "passed",
+          "duration": 3.0365419999998267
+        },
+        {
+          "name": "StorageUtils › loadFromChromeStorage › returns null when chrome.storage is unavailable",
+          "status": "passed",
+          "duration": 0.5337080000001606
+        },
+        {
+          "name": "StorageUtils › saveToChromeStorage › saves and returns true",
+          "status": "passed",
+          "duration": 0.3884579999999005
+        },
+        {
+          "name": "StorageUtils › saveToChromeStorage › returns false when chrome.storage is unavailable",
+          "status": "passed",
+          "duration": 0.3830840000000535
+        },
+        {
+          "name": "StorageUtils › loadGlobalState › loads and normalizes global state",
+          "status": "passed",
+          "duration": 0.47104200000012497
+        },
+        {
+          "name": "StorageUtils › saveGlobalState › saves normalized state with timestamp",
+          "status": "passed",
+          "duration": 0.42662499999983083
+        },
+        {
+          "name": "StorageHelper › isChromeStorageAvailable › returns true when chrome.runtime.id exists",
+          "status": "passed",
+          "duration": 0.8091670000001159
+        },
+        {
+          "name": "StorageHelper › isChromeStorageAvailable › returns false when extension context is invalidated",
+          "status": "passed",
+          "duration": 1.6841249999999945
+        },
+        {
+          "name": "StorageHelper › set and get › sets and retrieves a value",
+          "status": "passed",
+          "duration": 6.0128749999998945
+        },
+        {
+          "name": "StorageHelper › set and get › returns contextInvalidated when chrome.storage unavailable",
+          "status": "passed",
+          "duration": 2.6062090000000353
+        },
+        {
+          "name": "StorageHelper › set and get › get returns null for missing keys",
+          "status": "passed",
+          "duration": 1.6651670000001104
+        },
+        {
+          "name": "StorageHelper › cleanupOldData › removes petOssFiles key",
+          "status": "passed",
+          "duration": 3.477957999999944
+        },
+        {
+          "name": "StorageHelper › cleanupOldData › handles context invalidation gracefully",
+          "status": "passed",
+          "duration": 2.375167000000147
+        },
+        {
+          "name": "Position helpers › getPetDefaultPosition returns default position",
+          "status": "passed",
+          "duration": 0.28187500000012733
+        },
+        {
+          "name": "Position helpers › getChatWindowDefaultPosition returns top-right position",
+          "status": "passed",
+          "duration": 0.25945899999987887
+        },
+        {
+          "name": "Position helpers › getCenterPosition centers element in window",
+          "status": "passed",
+          "duration": 0.23779199999989942
+        },
+        {
+          "name": "SessionManager › constructor › initializes with default options",
+          "status": "passed",
+          "duration": 3.24345900000003
+        },
+        {
+          "name": "SessionManager › createSession › creates session with UUID key",
+          "status": "passed",
+          "duration": 1.734749999999849
+        },
+        {
+          "name": "SessionManager › saveSession › saves session to in-memory store",
+          "status": "passed",
+          "duration": 0.9477919999999358
+        },
+        {
+          "name": "SessionManager › saveSession › returns false for non-existent session",
+          "status": "passed",
+          "duration": 1.8952079999999114
+        },
+        {
+          "name": "SessionManager › activateSession › activates and sets currentSessionId",
+          "status": "passed",
+          "duration": 6.250917000000072
+        },
+        {
+          "name": "SessionManager › activateSession › returns false for non-existent session",
+          "status": "passed",
+          "duration": 1.48112500000002
+        },
+        {
+          "name": "SessionManager › deleteSession › removes session from store",
+          "status": "passed",
+          "duration": 1.3943329999999605
+        },
+        {
+          "name": "SessionManager › deleteSession › clears currentSessionId if deleting active session",
+          "status": "passed",
+          "duration": 1.5692920000001322
+        },
+        {
+          "name": "SessionManager › getAllSessions › returns all sessions sorted",
+          "status": "passed",
+          "duration": 10.217292000000043
+        },
+        {
+          "name": "SessionManager › searchSessions › finds sessions by title match",
+          "status": "passed",
+          "duration": 0.9494580000000497
+        },
+        {
+          "name": "SessionManager › searchSessions › returns empty for no match",
+          "status": "passed",
+          "duration": 0.33062500000005457
+        },
+        {
+          "name": "SessionManager › searchSessions › returns empty for empty query",
+          "status": "passed",
+          "duration": 0.22779200000013589
+        },
+        {
+          "name": "SessionManager › clearAllSessions › clears all sessions and resets state",
+          "status": "passed",
+          "duration": 0.3760409999999865
+        }
+      ]
+    },
+    {
+      "name": "Token 三级降级验证 — 构造/校验/5 套件 27 断言",
+      "tests": [
+        {
+          "name": "TokenManager constructor › creates instance with default storageKey",
+          "status": "passed",
+          "duration": 1.5903749999999945
+        },
+        {
+          "name": "TokenManager constructor › accepts custom storageKey",
+          "status": "passed",
+          "duration": 0.39504100000010567
+        },
+        {
+          "name": "TokenManager.validateToken › rejects null/undefined",
+          "status": "passed",
+          "duration": 0.41420799999991686
+        },
+        {
+          "name": "TokenManager.validateToken › rejects non-string types",
+          "status": "passed",
+          "duration": 0.5914999999999964
+        },
+        {
+          "name": "TokenManager.validateToken › rejects empty string",
+          "status": "passed",
+          "duration": 0.302791999999954
+        },
+        {
+          "name": "TokenManager.validateToken › rejects short tokens (< 10 chars)",
+          "status": "passed",
+          "duration": 0.29200000000003
+        },
+        {
+          "name": "TokenManager.validateToken › accepts valid token (>= 10 chars, alphanumeric + _ -)",
+          "status": "passed",
+          "duration": 0.31129199999998036
+        },
+        {
+          "name": "TokenManager.validateToken › rejects tokens with invalid characters",
+          "status": "passed",
+          "duration": 0.21600000000000819
+        },
+        {
+          "name": "TokenManager 3-level token fallback › getTokenSync returns env token when set",
+          "status": "passed",
+          "duration": 0.2206669999999349
+        },
+        {
+          "name": "TokenManager 3-level token fallback › getTokenSync returns empty when no token set",
+          "status": "passed",
+          "duration": 0.19945800000004965
+        },
+        {
+          "name": "TokenManager 3-level token fallback › getToken returns token from chrome.storage",
+          "status": "passed",
+          "duration": 0.32495799999992414
+        },
+        {
+          "name": "TokenManager 3-level token fallback › getToken returns empty when storage is empty",
+          "status": "passed",
+          "duration": 0.20124999999995907
+        },
+        {
+          "name": "TokenManager save/clear › saveToken stores and caches token",
+          "status": "passed",
+          "duration": 0.23462499999993724
+        },
+        {
+          "name": "TokenManager save/clear › clearToken removes from cache and storage",
+          "status": "passed",
+          "duration": 0.22266700000000128
+        },
+        {
+          "name": "TokenManager save/clear › hasTokenSync returns true when token exists",
+          "status": "passed",
+          "duration": 0.18912499999999
+        },
+        {
+          "name": "TokenManager save/clear › hasTokenSync returns false when no token",
+          "status": "passed",
+          "duration": 0.18479099999990467
+        },
+        {
+          "name": "TokenUtils convenience › TokenUtils exports are defined",
+          "status": "passed",
+          "duration": 0.26387499999998454
+        },
+        {
+          "name": "TokenUtils convenience › createTokenManager creates independent instance",
+          "status": "passed",
+          "duration": 0.2579170000000204
+        }
+      ]
+    },
+    {
+      "name": "Service Worker messageRouter action 路由与异常处理 1 套件 8 断言",
+      "tests": [
+        {
+          "name": "Service Worker Message Routing › TC26: getToken returns stored token",
+          "status": "passed",
+          "duration": 1.076750000000061
+        },
+        {
+          "name": "Service Worker Message Routing › TC27: setToken saves token",
+          "status": "passed",
+          "duration": 0.20020799999997507
+        },
+        {
+          "name": "Service Worker Message Routing › TC28: getSessions returns session array",
+          "status": "passed",
+          "duration": 0.5793330000000196
+        },
+        {
+          "name": "Service Worker Message Routing › TC29: createSession creates and returns new session",
+          "status": "passed",
+          "duration": 0.23208299999998871
+        },
+        {
+          "name": "Service Worker Message Routing › TC30: getFaqs returns FAQ list",
+          "status": "passed",
+          "duration": 0.18783300000006875
+        },
+        {
+          "name": "Service Worker Message Routing › TC31: updateFaq updates existing FAQ",
+          "status": "passed",
+          "duration": 0.1915000000000191
+        },
+        {
+          "name": "Service Worker Message Routing › TC32: unknown action returns error",
+          "status": "passed",
+          "duration": 0.1944580000000542
+        },
+        {
+          "name": "Service Worker Message Routing › TC33: handler exception returns error without crashing",
+          "status": "passed",
+          "duration": 0.18200000000001637
+        }
+      ]
+    },
+    {
+      "name": "ChatWindow/ChatInput Vue 3 组件挂载与交互 2 套件 6 断言",
+      "tests": [
+        {
+          "name": "ChatWindow › TC34: mounts and renders ChatWindow structure",
+          "status": "passed",
+          "duration": 39.15820800000006
+        },
+        {
+          "name": "ChatWindow › TC35: initial message list is empty",
+          "status": "passed",
+          "duration": 4.672708000000057
+        },
+        {
+          "name": "ChatWindow › TC36: renders messages after receiving data",
+          "status": "passed",
+          "duration": 6.539042000000109
+        },
+        {
+          "name": "ChatInput › TC37: v-model binds input value to component data",
+          "status": "passed",
+          "duration": 7.270541999999978
+        },
+        {
+          "name": "ChatInput › TC38: Enter key emits send event with input value",
+          "status": "passed",
+          "duration": 4.05662499999994
+        },
+        {
+          "name": "ChatInput › TC39: empty message does not trigger send",
+          "status": "passed",
+          "duration": 1.9832079999998768
+        }
+      ]
+    }
+  ]
+}
